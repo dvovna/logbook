@@ -1,0 +1,26 @@
+import { Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
+import SlackEventsService from 'src/slack/services/slack-events.service';
+import { SlackUserGuard } from 'src/common/guards/slack-user.guard';
+import { SlackSignatureGuard } from 'src/common/guards/slack-signature.guard';
+
+@Controller('api/slack-events')
+@UseGuards(SlackSignatureGuard, SlackUserGuard)
+export default class SlackEventsController {
+  public constructor(private readonly slackEventsService: SlackEventsService) {}
+
+  @Post('/')
+  public handleSlackEvent(@Req() req: Request) {
+    const event = req.body.event;
+
+    if (req.body.type === 'url_verification') {
+      return { challenge: req.body.challenge };
+    }
+
+    if (req.body.event?.type === 'file_shared') {
+      this.slackEventsService.handleFileShared(event, req.user!); // respond instantly
+    }
+
+    return { ok: true };
+  }
+}

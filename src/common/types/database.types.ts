@@ -14,89 +14,187 @@ export type Database = {
   }
   public: {
     Tables: {
+      team_settings: {
+        Row: {
+          bonus_days: number
+          created_at: string | null
+          created_by: string
+          id: string
+          team_id: string
+          updated_at: string | null
+          updated_by: string
+          vacation_days: number
+        }
+        Insert: {
+          bonus_days?: number
+          created_at?: string | null
+          created_by: string
+          id?: string
+          team_id: string
+          updated_at?: string | null
+          updated_by: string
+          vacation_days?: number
+        }
+        Update: {
+          bonus_days?: number
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          team_id?: string
+          updated_at?: string | null
+          updated_by?: string
+          vacation_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_settings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           created_at: string | null
           id: string
           name: string
+          slack_id: string
+          slack_token: string
         }
         Insert: {
           created_at?: string | null
           id?: string
           name: string
+          slack_id: string
+          slack_token: string
         }
         Update: {
           created_at?: string | null
           id?: string
           name?: string
+          slack_id?: string
+          slack_token?: string
         }
         Relationships: []
       }
       users: {
         Row: {
+          contract_start_date: string | null
           created_at: string
           email: string
           id: string
           name: string
           role: string
           slack_id: string
+          team_id: string
         }
         Insert: {
+          contract_start_date?: string | null
           created_at?: string
           email: string
           id?: string
           name: string
           role: string
           slack_id: string
+          team_id?: string
         }
         Update: {
+          contract_start_date?: string | null
           created_at?: string
           email?: string
           id?: string
           name?: string
           role?: string
           slack_id?: string
+          team_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "users_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vacations: {
         Row: {
           approved_by_hr: boolean | null
           approved_by_manager: boolean | null
           created_at: string | null
+          created_by: string | null
           days: number
           end_date: string
           id: string
           start_date: string
           status: string
           type: string
+          updated_at: string | null
+          updated_by: string | null
           user_id: string
         }
         Insert: {
           approved_by_hr?: boolean | null
           approved_by_manager?: boolean | null
           created_at?: string | null
+          created_by?: string | null
           days: number
           end_date: string
           id?: string
           start_date: string
           status?: string
           type: string
+          updated_at?: string | null
+          updated_by?: string | null
           user_id: string
         }
         Update: {
           approved_by_hr?: boolean | null
           approved_by_manager?: boolean | null
           created_at?: string | null
+          created_by?: string | null
           days?: number
           end_date?: string
           id?: string
           start_date?: string
           status?: string
           type?: string
+          updated_at?: string | null
+          updated_by?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "vacations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vacations_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vacations_user_id_fkey"
             columns: ["user_id"]

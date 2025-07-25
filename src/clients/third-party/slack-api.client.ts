@@ -1,52 +1,64 @@
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
+import { WebAPICallResult, WebClient } from '@slack/web-api';
+import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 
-interface IOauthCompleteData {
-  ok: boolean;
-  access_token: string;
-  team: {
-    id: string;
-    name: string;
-  };
-  authed_user: {
-    id: string;
-    access_token: string;
-    scope: string;
-    token_type: string;
-  };
+interface ISendMessageParams {
+  channel: string;
+  text?: string;
+  accessToken: string;
+  blocks?: KnownBlock[];
 }
 
+@Injectable()
 export default class SlackApiClient {
-  private readonly clientId: string;
-  private readonly clientSecret: string;
-  private readonly redirectUri: string;
+  public async postMessage({
+    channel,
+    text,
+    blocks = [],
+    accessToken,
+  }: ISendMessageParams) {
+    const client = this.getClient(accessToken);
 
-  public constructor(private readonly config: ConfigService) {
-    this.clientId = this.config.get<string>('SLACK_CLIENT_ID')!;
-    this.clientSecret = this.config.get<string>('SLACK_BOT_TOKEN')!;
-    this.redirectUri = this.config.get<string>('SLACK_REDIRECT_URI')!;
-  }
-
-  public async exchangeCode(code: string): Promise<IOauthCompleteData> {
-    const url = 'https://slack.com/api/oauth.v2.access';
-    const params = new URLSearchParams({
-      code,
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
-      redirect_uri: this.redirectUri,
+    const result = await client.chat.postMessage({
+      channel,
+      text,
+      blocks,
     });
 
-    return await fetch(`${url}?${params.toString()}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (!data.ok) {
-          throw new Error(data.error || 'Slack OAuth failed');
-        }
-        return data;
-      });
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to send message');
+    }
+  }
+
+  public async getFileInfo(fileId: string, accessToken: string) {
+    const client = this.getClient(accessToken);
+
+    const result = await client.files.info({ file: fileId });
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to fetch file info');
+    }
+
+    return result.file;
+  }
+
+  public async makeCall<ResponseData>(
+    method: string,
+    params: Record<string, unknown>,
+    accessToken?: string,
+  ) {
+    const client = this.getClient(accessToken);
+
+    const result = await client.apiCall(method, params);
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Slack API call failed');
+    }
+
+    return result as ResponseData & WebAPICallResult;
+  }
+
+  private getClient(token?: string) {
+    return new WebClient(token);
   }
 }

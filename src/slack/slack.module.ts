@@ -1,12 +1,50 @@
 import { Module } from '@nestjs/common';
-import { SlackController } from 'src/slack/slack.controller';
-import { VacationModule } from 'src/vacation/vacation.module';
-import { SlackService } from 'src/slack/slack.service';
+import SlackOauthController from 'src/slack/controllers/slack-oauth.controller';
+import SlackOauthService from 'src/slack/services/slack-oauth.service';
 import { ClientsModule } from 'src/clients/clients.module';
+import { TeamsModule } from 'src/teams/teams.module';
+import { UsersModule } from 'src/users/users.module';
+import SlackCommandsController from 'src/slack/controllers/slack-commands.controller';
+import VacationCommandService from 'src/slack/services/vacation-command.service';
+import { VacationsModule } from 'src/vacations/vacations.module';
+import AdminCommandsController from 'src/slack/controllers/slack-admin-commands.controller';
+import { TeamSettingsModule } from 'src/team-settings/team-settings.module';
+import TeamSettingsCommandService from 'src/slack/services/team-settings-command.service';
+import SlackInteractionsController from 'src/slack/controllers/slack-interactions.controller';
+import SlackInteractionsService from 'src/slack/services/slack-interactions.service';
+import SlackUserAccessService from 'src/slack/services/slack-user-access.service';
+import { TeamSetupModule } from 'src/team-setup/team-setup.module';
+import { SlackCommunicationModule } from 'src/slack-communication/slack-communication.module';
+import SlackEventsController from 'src/slack/controllers/slack-events.controller';
+import SlackEventsService from 'src/slack/services/slack-events.service';
+import { UserDataImportModule } from 'src/user-data-import/user-data-import.module';
 
 @Module({
-  imports: [VacationModule, ClientsModule],
-  controllers: [SlackController],
-  providers: [SlackService],
+  imports: [
+    UsersModule,
+    ClientsModule,
+    TeamsModule,
+    VacationsModule,
+    TeamSettingsModule,
+    TeamSetupModule,
+    SlackCommunicationModule,
+    UserDataImportModule,
+  ],
+  controllers: [
+    SlackOauthController,
+    SlackCommandsController,
+    AdminCommandsController,
+    SlackInteractionsController,
+    SlackEventsController,
+  ],
+  providers: [
+    SlackOauthService,
+    VacationCommandService,
+    TeamSettingsCommandService,
+    SlackInteractionsService,
+    SlackUserAccessService,
+    SlackEventsService,
+  ],
+  exports: [],
 })
 export class SlackModule {}

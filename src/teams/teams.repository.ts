@@ -4,12 +4,7 @@ import {
   TableName,
   Tables,
 } from 'src/common/repositories/base.repository';
-
-export interface ITeamViewModel {
-  id: string;
-  name: string;
-  createdAt: string | null;
-}
+import ITeamViewModel from 'src/teams/types/team.interface';
 
 @Injectable()
 export class TeamsRepository extends BaseRepository<
@@ -22,7 +17,10 @@ export class TeamsRepository extends BaseRepository<
     return {
       id: row.id,
       name: row.name,
-      createdAt: row.created_at,
+      slack_id: row.slack_id,
+      slack_token: row.slack_token,
+      access_token: row.slack_token,
+      created_at: row.created_at,
     };
   };
 }

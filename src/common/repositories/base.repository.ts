@@ -1,10 +1,45 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database } from 'src/types/database.types';
+import { Database } from 'src/common/types/database.types';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { Injectable } from '@nestjs/common';
 
 export type Tables = Database['public']['Tables'];
 export type TableName = keyof Tables;
+type SupabaseSimpleValue =
+  | string
+  | number
+  | boolean
+  | null
+  | string[]
+  | number[];
+type SupabaseFilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'in'
+  | 'like'
+  | 'ilike';
 
+type SupabaseFilter = Record<
+  string,
+  | SupabaseSimpleValue
+  | undefined
+  | {
+      operator: SupabaseFilterOperator;
+      value: SupabaseSimpleValue;
+    }
+>;
+
+interface IQueryOptions {
+  limit?: number;
+  offset?: number;
+  orderBy?: string[];
+}
+
+@Injectable()
 export abstract class BaseRepository<
   Entity extends Tables[TableName],
   ViewModel,
@@ -13,16 +48,16 @@ export abstract class BaseRepository<
 
   protected tableName: TableName;
 
-  private supabaseService: SupabaseService;
+  protected readonly defaultLimit = 100;
 
-  protected constructor() {
+  public constructor(private supabaseService: SupabaseService) {
     this.client = this.supabaseService.getClient();
   }
 
-  public async findOne(filters: Partial<Entity['Row']>) {
+  public async findOne(filter: SupabaseFilter, options?: IQueryOptions) {
     const query = this.client.from(this.tableName).select('*');
 
-    this.buildFindQuery(query, filters);
+    this.buildFindQuery(query, filter, options);
 
     const result = await query.single();
 
@@ -31,10 +66,13 @@ export abstract class BaseRepository<
     return item ? this.mapToViewModel(item) : null;
   }
 
-  public async findAll(filter: Partial<Entity['Row']>): Promise<ViewModel[]> {
+  public async findMany(
+    filter: SupabaseFilter,
+    options?: IQueryOptions,
+  ): Promise<ViewModel[]> {
     const query = this.client.from(this.tableName).select('*');
 
-    this.buildFindQuery(query, filter);
+    this.buildFindQuery(query, filter, options);
 
     const { data, error } = await query;
 
@@ -63,8 +101,25 @@ export abstract class BaseRepository<
     return this.mapToViewModel(inserted as unknown as Entity['Row']);
   }
 
+  public async createMany(data: Entity['Insert'][]): Promise<ViewModel[]> {
+    if (data.length === 0) {
+      return [];
+    }
+
+    const { data: inserted, error } = await this.client
+      .from(this.tableName)
+      .insert(data)
+      .select();
+
+    if (error) {
+      throw new Error(`Failed to bulk insert: ${error.message}`);
+    }
+
+    return inserted.map((record) => this.mapToViewModel(record));
+  }
+
   public async update(
-    filter: Partial<Entity['Row']>,
+    filter: SupabaseFilter,
     data: Entity['Update'],
   ): Promise<ViewModel> {
     const query = this.client.from(this.tableName).update(data);
@@ -80,7 +135,7 @@ export abstract class BaseRepository<
     return this.mapToViewModel(updated as unknown as Entity['Row']);
   }
 
-  public async delete(filter: Partial<Entity['Row']>): Promise<void> {
+  public async delete(filter: SupabaseFilter): Promise<void> {
     const query = this.client.from(this.tableName).delete();
 
     this.buildFindQuery(query, filter);
@@ -99,10 +154,69 @@ export abstract class BaseRepository<
 
   private buildFindQuery(
     query: ReturnType<SupabaseClient<Database>['from']>,
-    filters: Partial<Entity['Row']>,
+    filters: SupabaseFilter,
+    options?: IQueryOptions,
   ) {
-    for (const [key, value] of Object.entries(filters)) {
-      query.eq(key as keyof Entity['Row'] as string, value as never);
+    for (const [column, filter] of Object.entries(filters)) {
+      if (filter === undefined) {
+        continue;
+      }
+
+      if (
+        typeof filter === 'object' &&
+        filter !== null &&
+        'operator' in filter &&
+        'value' in filter
+      ) {
+        const { operator, value } = filter;
+
+        switch (operator) {
+          case 'eq':
+            query = query.eq(column, value);
+            break;
+          case 'neq':
+            query = query.neq(column, value);
+            break;
+          case 'gt':
+            query = query.gt(column, value);
+            break;
+          case 'gte':
+            query = query.gte(column, value);
+            break;
+          case 'lt':
+            query = query.lt(column, value);
+            break;
+          case 'lte':
+            query = query.lte(column, value);
+            break;
+          case 'in':
+            query = query.in(column, value as unknown[]);
+            break;
+          case 'like':
+            query = query.like(column, value as string);
+            break;
+          case 'ilike':
+            query = query.ilike(column, value as string);
+            break;
+          default:
+            throw new Error(`Unsupported operator: ${operator}`);
+        }
+      } else {
+        query = query.eq(column, filter as SupabaseSimpleValue);
+      }
+    }
+
+    query.limit(options?.limit ?? this.defaultLimit);
+
+    if (options?.offset) {
+      query.offset(options.offset);
+    }
+
+    if (options?.orderBy) {
+      options.orderBy.forEach((order) => {
+        const [column, direction = 'asc'] = order.split(':');
+        query = query.order(column, { ascending: direction === 'asc' });
+      });
     }
 
     return query;

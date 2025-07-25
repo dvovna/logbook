@@ -1,6 +1,6 @@
 ## Description
 
-This is a slack bot app that allows managing user vacation requests.
+This is a Slack bot app that allows managing user vacation requests.
 
 ## Project setup
 
@@ -20,6 +20,8 @@ $ yarn run start:dev
 # production mode
 $ yarn run start:prod
 ```
-## License
+## Test the bot installation
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# URL to install the app
+https://slack.com/oauth/v2/authorize?client_id=...&scope=commands,users:read,users:read.email,channels:read,chat:write&redirect_uri=https://{ngrok_domain}/api/slack/oauth/redirect
+
