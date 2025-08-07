@@ -18,6 +18,10 @@ import { SlackCommunicationModule } from 'src/slack-communication/slack-communic
 import SlackEventsController from 'src/slack/controllers/slack-events.controller';
 import SlackEventsService from 'src/slack/services/slack-events.service';
 import { UserDataImportModule } from 'src/user-data-import/user-data-import.module';
+import { SubmitTeamSettingsHandler } from 'src/slack/services/integration-handlers/submit-team-settings.handler';
+import { CreateVacationRequestHandler } from 'src/slack/services/integration-handlers/create-vacation-request.handler';
+import { VacationRequestViewService } from 'src/slack/services/slack-views/vacation-request-view.service';
+import { TeamSettingsViewService } from 'src/slack/services/slack-views/team-settings-view.service';
 
 @Module({
   imports: [
@@ -44,6 +48,10 @@ import { UserDataImportModule } from 'src/user-data-import/user-data-import.modu
     SlackInteractionsService,
     SlackUserAccessService,
     SlackEventsService,
+    SubmitTeamSettingsHandler,
+    CreateVacationRequestHandler,
+    VacationRequestViewService,
+    TeamSettingsViewService,
   ],
   exports: [],
 })

@@ -4,10 +4,8 @@ import TeamSettingsService, {
   DEFAULT_VACATION_DAYS,
 } from 'src/team-settings/team-settings.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { IViewMetadata } from 'src/slack/types/slack-view-metadata.interface';
-import { ViewsOpenArguments } from '@slack/web-api/dist/types/request/views';
-import { IntegrationCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
+import { TeamSettingsViewService } from 'src/slack/services/slack-views/team-settings-view.service';
 
 export enum TeamSettingsSubcommand {
   SetSettings = 'set',
@@ -19,6 +17,7 @@ export default class TeamSettingsCommandService {
   public constructor(
     private readonly teamSettingsService: TeamSettingsService,
     private readonly slackCommunicationService: SlackCommunicationService,
+    private readonly submitTeamSettingsViewService: TeamSettingsViewService,
   ) {}
 
   public async handleCommand(
@@ -51,16 +50,16 @@ export default class TeamSettingsCommandService {
 
         await this.slackCommunicationService.openView(
           user.slack_id,
-          this.getChangeSettingsModalView(
+          this.submitTeamSettingsViewService.getView(
             triggerId,
+            {
+              teamId: user.team_id,
+              userId: user.id,
+            },
             {
               vacationDays:
                 teamSettings?.vacation_days || DEFAULT_VACATION_DAYS,
               bonusDays: teamSettings?.bonus_days || DEFAULT_BONUS_DAYS,
-            },
-            {
-              teamId: user.team_id,
-              userId: user.id,
             },
           ),
           user.team_id,
@@ -76,78 +75,5 @@ export default class TeamSettingsCommandService {
         );
       }
     }
-  }
-
-  public getChangeSettingsModalView(
-    triggerId: string,
-    { vacationDays, bonusDays }: { vacationDays: number; bonusDays: number },
-    metadata: IViewMetadata,
-  ): ViewsOpenArguments {
-    return {
-      trigger_id: triggerId,
-      view: {
-        type: 'modal',
-        callback_id: IntegrationCallbackId.ChangeTeamSettings,
-        private_metadata: JSON.stringify(metadata),
-        title: {
-          type: 'plain_text',
-          text: 'Team Vacation Settings',
-        },
-        submit: {
-          type: 'plain_text',
-          text: 'Save',
-        },
-        close: {
-          type: 'plain_text',
-          text: 'Cancel',
-        },
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: '👋 Hello! Thank you for installing the Marina Bot.\n\nBefore we get started, please configure the number of vacation and bonus days for your team.',
-            },
-          },
-          {
-            type: 'divider',
-          },
-          {
-            type: 'input',
-            block_id: 'vacation_days_block',
-            label: {
-              type: 'plain_text',
-              text: 'Number of vacation days per year',
-            },
-            element: {
-              type: 'plain_text_input',
-              action_id: 'vacation_days',
-              placeholder: {
-                type: 'plain_text',
-                text: 'e.g. 20',
-              },
-              initial_value: vacationDays.toString(),
-            },
-          },
-          {
-            type: 'input',
-            block_id: 'bonus_days_block',
-            label: {
-              type: 'plain_text',
-              text: 'Number of bonus days per year',
-            },
-            element: {
-              type: 'plain_text_input',
-              action_id: 'bonus_days',
-              initial_value: bonusDays.toString(),
-              placeholder: {
-                type: 'plain_text',
-                text: 'e.g. 3',
-              },
-            },
-          },
-        ],
-      },
-    };
   }
 }

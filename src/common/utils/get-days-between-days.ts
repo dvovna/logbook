@@ -1,6 +1,10 @@
-const getDaysBetweenDates = (startDate: Date, endDate: Date): number => {
+const getDaysBetweenDays = (startDate: Date, endDate: Date): number => {
   if (startDate > endDate) {
     throw new Error('startDate must be earlier than endDate');
+  }
+
+  if (startDate.getTime() === endDate.getTime()) {
+    return 1;
   }
 
   const timeDifference = endDate.getTime() - startDate.getTime();
@@ -9,4 +13,4 @@ const getDaysBetweenDates = (startDate: Date, endDate: Date): number => {
   return Math.ceil(daysDifference);
 };
 
-export default getDaysBetweenDates;
+export default getDaysBetweenDays;

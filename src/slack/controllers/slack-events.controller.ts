@@ -4,7 +4,7 @@ import SlackEventsService from 'src/slack/services/slack-events.service';
 import { SlackUserGuard } from 'src/common/guards/slack-user.guard';
 import { SlackSignatureGuard } from 'src/common/guards/slack-signature.guard';
 
-@Controller('api/slack-events')
+@Controller('api/slack/events')
 @UseGuards(SlackSignatureGuard, SlackUserGuard)
 export default class SlackEventsController {
   public constructor(private readonly slackEventsService: SlackEventsService) {}

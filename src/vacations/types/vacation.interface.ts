@@ -8,6 +8,8 @@ export interface IVacationViewModel {
   days: number;
   type: VacationType;
   status: VacationStatus;
+  comment?: string | null;
+  teamId: string;
   userId: string;
   createdAt: string | null;
   updatedAt: string | null;

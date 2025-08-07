@@ -33,11 +33,13 @@ create table if not exists team_settings (
 create table if not exists vacations (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references users(id) on delete cascade,
+    team_id uuid references teams(id) not null on delete cascade,
     start_date date not null,
     end_date date not null,
     days integer not null,
     type text not null default 'annual_leave' check (type in ('annual_leave', 'bonus_day', 'sick_leave', 'unpaid_leave', 'other')),
     status text not null default 'requested' check (status in ('requested', 'approved', 'rejected')),
+    comments text,
     approved_by_manager boolean default false,
     approved_by_hr boolean default false,
     created_at timestamp with time zone default now(),

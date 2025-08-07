@@ -22,6 +22,8 @@ export class VacationsRepository extends BaseRepository<
       type: row.type as VacationType,
       status: row.status as VacationStatus,
       days: row.days,
+      comment: row.comment || null,
+      teamId: row.team_id,
       userId: row.user_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

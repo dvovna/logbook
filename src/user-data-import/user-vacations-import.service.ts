@@ -83,7 +83,11 @@ export class UserVacationsImportService {
 
         await this.vacationsService.replaceUserVacations(
           existingUser.id,
-          record.vacations,
+          record.vacations.map((vacation) => ({
+            ...vacation,
+            userId: existingUser.id,
+            teamId: existingUser.team_id,
+          })),
           user,
         );
 

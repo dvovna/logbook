@@ -138,46 +138,52 @@ export type Database = {
         Row: {
           approved_by_hr: boolean | null
           approved_by_manager: boolean | null
+          comment: string | null
           created_at: string | null
-          created_by: string | null
+          created_by: string
           days: number
           end_date: string
           id: string
           start_date: string
           status: string
+          team_id: string
           type: string
           updated_at: string | null
-          updated_by: string | null
+          updated_by: string
           user_id: string
         }
         Insert: {
           approved_by_hr?: boolean | null
           approved_by_manager?: boolean | null
+          comment?: string | null
           created_at?: string | null
-          created_by?: string | null
+          created_by: string
           days: number
           end_date: string
           id?: string
           start_date: string
           status?: string
-          type: string
+          team_id?: string
+          type?: string
           updated_at?: string | null
-          updated_by?: string | null
+          updated_by: string
           user_id: string
         }
         Update: {
           approved_by_hr?: boolean | null
           approved_by_manager?: boolean | null
+          comment?: string | null
           created_at?: string | null
-          created_by?: string | null
+          created_by?: string
           days?: number
           end_date?: string
           id?: string
           start_date?: string
           status?: string
+          team_id?: string
           type?: string
           updated_at?: string | null
-          updated_by?: string | null
+          updated_by?: string
           user_id?: string
         }
         Relationships: [
@@ -186,6 +192,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vacations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
