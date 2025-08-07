@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { WebAPICallResult, WebClient } from '@slack/web-api';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
+import { ViewsOpenArguments } from '@slack/web-api/dist/types/request/views';
 
 interface ISendMessageParams {
   channel: string;
@@ -28,6 +29,25 @@ export default class SlackApiClient {
     if (!result.ok) {
       throw new Error(result.error || 'Failed to send message');
     }
+  }
+
+  public async openView(
+    userId: string,
+    viewOpenArgs: ViewsOpenArguments,
+    accessToken: string,
+  ) {
+    const client = this.getClient(accessToken);
+
+    const result = await client.views.open({
+      trigger_id: userId,
+      ...viewOpenArgs,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to open view');
+    }
+
+    return result;
   }
 
   public async getFileInfo(fileId: string, accessToken: string) {

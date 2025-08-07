@@ -38,15 +38,10 @@ export default class SlackCommandsController {
     const command = args[0] as VacationCommand;
 
     try {
-      const message = await this.vacationCommandService.handleCommand(
+      await this.vacationCommandService.handleCommand(
         command,
         req.user!,
-      );
-
-      await this.slackCommunicationService.postMessage(
-        req.user!.slack_id,
-        { text: message },
-        req.user!.team_id,
+        req.body.trigger_id,
       );
     } catch (e) {
       this.logger.error('Error handling vacation command:', e);

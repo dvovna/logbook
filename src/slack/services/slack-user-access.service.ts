@@ -19,6 +19,10 @@ export default class SlackUserAccessService {
         },
         user.team_id,
       );
+
+      throw new Error(
+        `User with role ${user.role} tried to access command that requires ${userRole} role.`,
+      );
     }
   }
 }

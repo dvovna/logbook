@@ -217,6 +217,8 @@ export abstract class BaseRepository<
         const [column, direction = 'asc'] = order.split(':');
         query = query.order(column, { ascending: direction === 'asc' });
       });
+    } else {
+      query = query.order('created_at', { ascending: false });
     }
 
     return query;

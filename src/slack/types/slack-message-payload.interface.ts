@@ -1,6 +1,6 @@
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 
-export type SlackMessagePayload =
+export type SlackMessagePayloadInterface =
   | {
       text: string;
     }

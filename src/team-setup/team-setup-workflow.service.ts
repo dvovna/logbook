@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import UserRole from 'src/common/enums/user-role.enum';
-import SlackPromptsService from 'src/slack-communication/services/slack-prompts.service';
 import { TeamsService } from 'src/teams/teams.service';
 import { UsersService } from 'src/users/users.service';
 import TeamSettingsService from 'src/team-settings/team-settings.service';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from 'src/team-setup/team-users-sync.service';
 
@@ -21,8 +19,6 @@ export class TeamSetupWorkflowService {
     private readonly teamsService: TeamsService,
     private readonly usersService: UsersService,
     private readonly teamSettingsService: TeamSettingsService,
-    private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly slackPromptsService: SlackPromptsService,
     private readonly slackUsersService: SlackUsersService,
     private readonly teamUsersSyncService: TeamUsersSyncService,
   ) {}
@@ -62,15 +58,6 @@ export class TeamSetupWorkflowService {
       await this.teamSettingsService.createDefaultSettings(
         team.id,
         adminUser.id,
-      );
-
-      await this.slackCommunicationService.postMessage(
-        adminUser.slack_id,
-        this.slackPromptsService.getChangeSettingsPromptMessage({
-          teamId: team.id,
-          userId: adminUser.id,
-        }),
-        team.id,
       );
 
       // no need to sync users instantly

@@ -15,6 +15,7 @@ interface ICreateUserParams {
 interface IFindParams {
   id?: string;
   slackId?: string;
+  teamId?: string;
   email?: string;
 }
 
@@ -80,7 +81,20 @@ export class UsersService implements IUsersService {
     return await this.userRepository.findOne({
       ...(findParams.id ? { id: findParams.id } : {}),
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
+      ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
       ...(findParams.email ? { email: findParams.email } : {}),
     });
+  }
+
+  public async findOneWithValidation(
+    findParams: IFindParams,
+  ): Promise<IUserViewModel> {
+    const user = await this.findOne(findParams);
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return user;
   }
 }
