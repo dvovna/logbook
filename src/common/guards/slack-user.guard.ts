@@ -7,6 +7,11 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { UsersService } from 'src/users/users.service';
+import { IUserViewModel } from 'src/users/types/user.interface';
+
+interface ISlackRequest extends Request {
+  user: IUserViewModel;
+}
 
 @Injectable()
 export class SlackUserGuard implements CanActivate {
@@ -15,8 +20,13 @@ export class SlackUserGuard implements CanActivate {
   public constructor(private readonly usersService: UsersService) {}
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest<Request>();
-    const slackUserId = req.body.user_id || req.body.event?.user_id;
+    const req = context.switchToHttp().getRequest<ISlackRequest>();
+
+    const slackUserId =
+      req.body.user_id ||
+      req.body.event?.user_id ||
+      req.body.event?.user ||
+      req.body.user?.id;
 
     if (!slackUserId) {
       this.logger.log('SlackUserGuard: Missing slack user id');
@@ -33,8 +43,7 @@ export class SlackUserGuard implements CanActivate {
       throw new UnauthorizedException('User not found for this slack_id');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (req as any).user = user;
+    req.user = user;
 
     return true;
   }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { IntegrationCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { IViewMetadata } from 'src/slack/types/slack-view-metadata.interface';
 import { ViewsOpenArguments } from '@slack/web-api/dist/types/request/views';
 import {
@@ -20,7 +20,7 @@ export class VacationRequestViewService implements IBaseViewService {
       trigger_id: triggerId,
       view: {
         type: 'modal',
-        callback_id: IntegrationCallbackId.CreateVacationRequest,
+        callback_id: ViewCallbackId.CreateVacationRequest,
         private_metadata: JSON.stringify(metadata),
         title: { type: 'plain_text', text: 'Request Vacation' },
         submit: { type: 'plain_text', text: 'Submit' },

@@ -1,73 +1,68 @@
 import { Injectable } from '@nestjs/common';
-import { UserVacationsImportService } from 'src/user-data-import/user-vacations-import.service';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import UserRole from 'src/common/enums/user-role.enum';
 import SlackUserAccessService from 'src/slack/services/slack-user-access.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import SlackPromptsService from 'src/slack-communication/services/slack-prompts.service';
+import FileUploadService from 'src/slack/services/file-upload.service';
+import { HomeTabService } from 'src/slack/services/home-tap.service';
+import SlackEventType from 'src/slack/enums/slack-event-type';
 
 interface IFileSharedEvent {
+  type: SlackEventType.FileShared;
   user_id: string;
   file_id: string;
   team_id: string;
 }
 
+interface IHomeTabOpenedEvent {
+  type: SlackEventType.HomeTabOpened;
+  user: string;
+  channel: string;
+  tab: 'home' | unknown;
+}
+
+export interface IUnknownSlackEvent {
+  type: Exclude<string, IFileSharedEvent['type'] | IHomeTabOpenedEvent['type']>;
+  [key: string]: unknown;
+}
+
+export type SlackEvent = IFileSharedEvent | IHomeTabOpenedEvent;
+
 @Injectable()
 export default class SlackEventsService {
   public constructor(
     private readonly slackUserAccessService: SlackUserAccessService,
-    private readonly userVacationsImportService: UserVacationsImportService,
-    private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly slackPromptsService: SlackPromptsService,
+    private readonly fileUploadService: FileUploadService,
+    private readonly homeTabService: HomeTabService,
   ) {}
 
-  public async handleFileShared(event: IFileSharedEvent, user: IUserViewModel) {
-    const { file_id: fileId } = event;
+  public handleSlackEvent(event: SlackEvent, user: IUserViewModel) {
+    switch (event.type) {
+      case SlackEventType.FileShared:
+        this.handleFileShared(event, user);
 
+        break;
+      case SlackEventType.HomeTabOpened:
+        this.handleHomeTapOpened(user);
+
+        break;
+      default:
+        throw new Error(
+          `Unsupported event type: ${(event as IUnknownSlackEvent).type}`,
+        );
+    }
+
+    return { ok: true };
+  }
+
+  public async handleFileShared(event: IFileSharedEvent, user: IUserViewModel) {
     await this.slackUserAccessService.checkUserRoleAccess(user, UserRole.Admin);
 
-    const file = await this.slackCommunicationService.getFileInfo(
-      fileId,
-      user.team_id,
-    );
+    const { file_id: fileId } = event;
 
-    const url = file?.url_private_download;
-    if (!url) {
-      return;
-    }
+    await this.fileUploadService.handleFileUpload(fileId, user);
+  }
 
-    const fileContent = await this.slackCommunicationService.fetchFileContent(
-      url,
-      user.team_id,
-    );
-
-    switch (file?.name) {
-      case 'user-vacations.csv': {
-        const result = await this.userVacationsImportService.handle(
-          fileContent,
-          user,
-        );
-
-        await this.slackCommunicationService.postMessage(
-          user.slack_id,
-          this.slackPromptsService.getUserVacationsImportSuccessfulMessage(
-            result,
-          ),
-          user.team_id,
-        );
-
-        break;
-      }
-      case 'user-teams.csv':
-        // import user teams with user managers
-        break;
-      default: {
-        await this.slackCommunicationService.postMessage(
-          user.slack_id,
-          this.slackPromptsService.getUnknownFileUploadPromptMessage(),
-          user.team_id,
-        );
-      }
-    }
+  public async handleHomeTapOpened(user: IUserViewModel) {
+    await this.homeTabService.publishHomeTab(user);
   }
 }

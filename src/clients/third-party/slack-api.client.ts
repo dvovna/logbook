@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { WebAPICallResult, WebClient } from '@slack/web-api';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
-import { ViewsOpenArguments } from '@slack/web-api/dist/types/request/views';
+import {
+  ViewsOpenArguments,
+  ViewsPublishArguments,
+} from '@slack/web-api/dist/types/request/views';
 
 interface ISendMessageParams {
   channel: string;
@@ -31,20 +34,28 @@ export default class SlackApiClient {
     }
   }
 
-  public async openView(
-    userId: string,
-    viewOpenArgs: ViewsOpenArguments,
+  public async openView(viewOpenArgs: ViewsOpenArguments, accessToken: string) {
+    const client = this.getClient(accessToken);
+
+    const result = await client.views.open(viewOpenArgs);
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to open view');
+    }
+
+    return result;
+  }
+
+  public async publishView(
+    viewPublishArguments: ViewsPublishArguments,
     accessToken: string,
   ) {
     const client = this.getClient(accessToken);
 
-    const result = await client.views.open({
-      trigger_id: userId,
-      ...viewOpenArgs,
-    });
+    const result = await client.views.publish(viewPublishArguments);
 
     if (!result.ok) {
-      throw new Error(result.error || 'Failed to open view');
+      throw new Error(result.error || 'Failed to publish view');
     }
 
     return result;

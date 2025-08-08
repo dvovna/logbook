@@ -11,16 +11,12 @@ export default class SlackEventsController {
 
   @Post('/')
   public handleSlackEvent(@Req() req: Request) {
-    const event = req.body.event;
-
     if (req.body.type === 'url_verification') {
       return { challenge: req.body.challenge };
     }
 
-    if (req.body.event?.type === 'file_shared') {
-      this.slackEventsService.handleFileShared(event, req.user!); // respond instantly
-    }
+    const event = req.body.event;
 
-    return { ok: true };
+    return this.slackEventsService.handleSlackEvent(event, req.user!);
   }
 }

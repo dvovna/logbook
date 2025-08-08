@@ -49,7 +49,6 @@ export default class TeamSettingsCommandService {
         );
 
         await this.slackCommunicationService.openView(
-          user.slack_id,
           this.submitTeamSettingsViewService.getView(
             triggerId,
             {

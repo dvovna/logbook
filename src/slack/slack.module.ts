@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module } from '@nestjs/common';
 import SlackOauthController from 'src/slack/controllers/slack-oauth.controller';
 import SlackOauthService from 'src/slack/services/slack-oauth.service';
 import { ClientsModule } from 'src/clients/clients.module';
@@ -22,6 +22,12 @@ import { SubmitTeamSettingsHandler } from 'src/slack/services/integration-handle
 import { CreateVacationRequestHandler } from 'src/slack/services/integration-handlers/create-vacation-request.handler';
 import { VacationRequestViewService } from 'src/slack/services/slack-views/vacation-request-view.service';
 import { TeamSettingsViewService } from 'src/slack/services/slack-views/team-settings-view.service';
+import FileUploadService from 'src/slack/services/file-upload.service';
+import { HomeTabService } from 'src/slack/services/home-tap.service';
+import { HomeTabViewService } from 'src/slack/services/slack-views/home-tap-view.service';
+import HomeTabActionsHandler from 'src/slack/services/integration-handlers/home-tab-actions.handler';
+import { SlackPayloadParsePipe } from 'src/slack/pipes/slack-payload-parse.pipe';
+import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payload-parse.middleware';
 
 @Module({
   imports: [
@@ -52,7 +58,18 @@ import { TeamSettingsViewService } from 'src/slack/services/slack-views/team-set
     CreateVacationRequestHandler,
     VacationRequestViewService,
     TeamSettingsViewService,
+    FileUploadService,
+    HomeTabViewService,
+    HomeTabService,
+    HomeTabActionsHandler,
+    SlackPayloadParsePipe,
   ],
   exports: [],
 })
-export class SlackModule {}
+export class SlackModule {
+  public configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(SlackPayloadParseMiddleware)
+      .forRoutes('api/slack/interactions');
+  }
+}

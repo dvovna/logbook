@@ -1,17 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { UsersService } from 'src/users/users.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { ISlackInteractionPayload } from 'src/slack/services/slack-interactions.service';
 import { IViewMetadata } from 'src/slack/types/slack-view-metadata.interface';
 import { VacationRequestViewService } from 'src/slack/services/slack-views/vacation-request-view.service';
 import { VacationsService } from 'src/vacations/vacations.service';
 import VacationStatus from 'src/common/enums/vacation-status.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
+import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
+import { IUserViewModel } from 'src/users/types/user.interface';
 
 @Injectable()
 export class CreateVacationRequestHandler {
   public constructor(
-    private readonly usersService: UsersService,
     private readonly vacationsService: VacationsService,
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly vacationRequestViewService: VacationRequestViewService,
@@ -20,14 +19,10 @@ export class CreateVacationRequestHandler {
   public async handle(
     payload: ISlackInteractionPayload,
     metadata: IViewMetadata,
+    user: IUserViewModel,
   ) {
-    const { user, view } = payload;
+    const { view } = payload;
     const { userId, teamId } = metadata;
-
-    const userData = await this.usersService.findOneWithValidation({
-      id: userId,
-      teamId,
-    });
 
     const { startDate, endDate, type, comment } =
       this.vacationRequestViewService.extractData(view.state.values);
@@ -42,11 +37,11 @@ export class CreateVacationRequestHandler {
         status: VacationStatus.Requested,
         comment,
       },
-      userData,
+      user,
     );
 
     await this.slackCommunicationService.postMessage(
-      user.id,
+      user.slack_id,
       { text: 'Vacation request created successfully!' },
       teamId,
     );

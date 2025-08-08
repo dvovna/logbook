@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { IImportResult } from 'src/user-data-import/user-vacations-import.service';
 
 @Injectable()
 export default class SlackPromptsService {
@@ -24,24 +23,6 @@ export default class SlackPromptsService {
         Sample row:
         \`john.doe@example.com,2022-01-01,2024-08-01,2024-08-10,annual_leave,approved,2024-09-15,2024-09-15,bonus_day,requested\`
         `,
-    };
-  }
-
-  public getUnknownFileUploadPromptMessage() {
-    return {
-      text: `❗️ Unknown file type.`,
-    };
-  }
-
-  public getUserVacationsImportSuccessfulMessage(result: IImportResult) {
-    if (result.errors.length) {
-      return {
-        text: `Import was not successful: \n ${result.errors.join('\n')}`,
-      };
-    }
-
-    return {
-      text: `Import was successful.\n Results: \nCreated: ${result.created}\nUpdated: ${result.updated}\nSkipped: ${result.skipped}.`,
     };
   }
 }

@@ -3,10 +3,11 @@ import { UsersService } from 'src/users/users.service';
 import TeamSettingsService from 'src/team-settings/team-settings.service';
 import SlackUserAccessService from 'src/slack/services/slack-user-access.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { ISlackInteractionPayload } from 'src/slack/services/slack-interactions.service';
 import { IViewMetadata } from 'src/slack/types/slack-view-metadata.interface';
 import UserRole from 'src/common/enums/user-role.enum';
 import { TeamSettingsViewService } from 'src/slack/services/slack-views/team-settings-view.service';
+import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
+import { IUserViewModel } from 'src/users/types/user.interface';
 
 @Injectable()
 export class SubmitTeamSettingsHandler {
@@ -21,19 +22,12 @@ export class SubmitTeamSettingsHandler {
   public async handle(
     payload: ISlackInteractionPayload,
     metadata: IViewMetadata,
+    user: IUserViewModel,
   ) {
-    const { user, view } = payload;
+    const { view } = payload;
     const { userId, teamId } = metadata;
 
-    const userData = await this.usersService.findOneWithValidation({
-      id: userId,
-      teamId,
-    });
-
-    await this.slackUserAccessService.checkUserRoleAccess(
-      userData,
-      UserRole.Admin,
-    );
+    await this.slackUserAccessService.checkUserRoleAccess(user, UserRole.Admin);
 
     try {
       const { vacationDays, bonusDays } =
@@ -49,7 +43,7 @@ export class SubmitTeamSettingsHandler {
       );
 
       await this.slackCommunicationService.postMessage(
-        user.id,
+        user.slack_id,
         {
           text: `✅ Settings updated!\n• Vacation Days: ${vacationDays}\n• Bonus Days: ${bonusDays}`,
         },
@@ -57,7 +51,7 @@ export class SubmitTeamSettingsHandler {
       );
     } catch {
       await this.slackCommunicationService.postMessage(
-        user.id,
+        user.slack_id,
         {
           text: '❌ Invalid input. Please enter valid numbers.',
         },

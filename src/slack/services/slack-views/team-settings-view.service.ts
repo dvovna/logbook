@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { IntegrationCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { IViewMetadata } from 'src/slack/types/slack-view-metadata.interface';
 import { ViewsOpenArguments } from '@slack/web-api/dist/types/request/views';
 import { getValue } from 'src/slack/utils/view-utils';
@@ -17,7 +17,7 @@ export class TeamSettingsViewService implements IBaseViewService {
       trigger_id: triggerId,
       view: {
         type: 'modal',
-        callback_id: IntegrationCallbackId.ChangeTeamSettings,
+        callback_id: ViewCallbackId.ChangeTeamSettings,
         private_metadata: JSON.stringify(metadata),
         title: {
           type: 'plain_text',

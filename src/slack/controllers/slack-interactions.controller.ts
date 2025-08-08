@@ -1,16 +1,12 @@
-import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
-import { Response } from 'express';
-import SlackInteractionsService, {
-  ISlackInteractionPayload,
-} from 'src/slack/services/slack-interactions.service';
+import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Request, Response } from 'express';
+import SlackInteractionsService from 'src/slack/services/slack-interactions.service';
 import { SlackSignatureGuard } from 'src/common/guards/slack-signature.guard';
-
-interface ISlackIntegrationBody {
-  payload: string;
-}
+import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
+import { SlackUserGuard } from 'src/common/guards/slack-user.guard';
 
 @Controller('api/slack/interactions')
-@UseGuards(SlackSignatureGuard)
+@UseGuards(SlackSignatureGuard, SlackUserGuard)
 export default class SlackInteractionsController {
   public constructor(
     private readonly slackInteractionsService: SlackInteractionsService,
@@ -18,13 +14,15 @@ export default class SlackInteractionsController {
 
   @Post('/')
   public async handleSlackInteraction(
-    @Body() body: ISlackIntegrationBody,
+    @Req() req: Request,
+    @Body() payload: ISlackInteractionPayload,
     @Res() res: Response,
   ) {
     res.status(200).send();
 
-    const payload = JSON.parse(body.payload) as ISlackInteractionPayload;
-
-    await this.slackInteractionsService.handleSlackInteraction(payload);
+    await this.slackInteractionsService.handleSlackInteraction(
+      payload,
+      req.user!,
+    );
   }
 }

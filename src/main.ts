@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { slackBodyParserMiddleware } from 'src/common/middlewares/slackBodyParserMiddleware';
+import { slackBodyParserMiddleware } from 'src/common/middlewares/slack-body-parser.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

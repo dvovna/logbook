@@ -39,7 +39,6 @@ export default class VacationCommandService {
       }
       case VacationCommand.Request: {
         await this.slackCommunicationService.openView(
-          user.slack_id,
           this.vacationRequestViewService.getView(triggerId || user.slack_id, {
             userId: user.id,
             teamId: user.team_id,
