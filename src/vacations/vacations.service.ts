@@ -70,6 +70,7 @@ export class VacationsService implements IVacationsService {
   public async findMany(params: IVacationFindParams) {
     return await this.vacationsRepository.findMany({
       ...(params.userId ? { user_id: params.userId } : {}),
+      ...(params.status ? { status: params.status } : {}),
       ...(params.startDate
         ? { start_date: { value: params.startDate, operator: 'gte' } }
         : {}),

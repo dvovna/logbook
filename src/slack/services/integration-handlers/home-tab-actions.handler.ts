@@ -27,6 +27,17 @@ export default class HomeTabActionsHandler {
 
         break;
       }
+      case 'view_history': {
+        await this.slackCommunicationService.postMessage(
+          user.slack_id,
+          {
+            text: 'This feature is not implemented yet.',
+          },
+          user.team_id,
+        );
+
+        break;
+      }
       default: {
         throw new Error(`Unhandled action_id: ${payload.actions[0].action_id}`);
       }

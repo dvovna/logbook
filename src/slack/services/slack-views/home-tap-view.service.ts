@@ -3,45 +3,19 @@ import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
 import { IUserVacationsUsageInfo } from 'src/vacations/types/user-vacations-usage-info.interface';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { IVacationViewModel } from 'src/vacations/types/vacation.interface';
+
+interface IViewData {
+  usage: IUserVacationsUsageInfo;
+  requestedVacations?: IVacationViewModel[];
+}
 
 @Injectable()
 export class HomeTabViewService {
   public getView(
     userId: string,
-    viewData: IUserVacationsUsageInfo,
+    { usage, requestedVacations }: IViewData,
   ): ViewsPublishArguments {
-    const optionalBlocks: AnyBlock[] = [];
-
-    if (viewData.sick_leave.used > 0) {
-      optionalBlocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*🤒 Sick Leave*\n*Used:* ${viewData.sick_leave.used} days`,
-        },
-      });
-    }
-
-    if (viewData.unpaid_leave.used > 0) {
-      optionalBlocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*🚫 Unpaid Leave*\n*Used:* ${viewData.unpaid_leave.used} days`,
-        },
-      });
-    }
-
-    if (viewData.other.used > 0) {
-      optionalBlocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*📌 Other*\n*Used:* ${viewData.other.used} days`,
-        },
-      });
-    }
-
     return {
       user_id: userId,
       view: {
@@ -52,25 +26,13 @@ export class HomeTabViewService {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `*🏝 Welcome to Vacation Manager*\nHere you can track and request your vacations.`,
+              text: `*🏝 Welcome to Marina Bot*\nHere you can track and request your vacations.`,
             },
           },
           { type: 'divider' },
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `*📅 Annual Leave*\n*Used:* ${viewData.annual_leave.used} days\n*Available:* ${viewData.annual_leave.available} days`,
-            },
-          },
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `*🎁 Bonus Days*\n*Used:* ${viewData.bonus_day.used} days\n*Available:* ${viewData.bonus_day.available} days`,
-            },
-          },
-          ...optionalBlocks,
+          ...this.getVacationUsageBlocks(usage),
+          { type: 'divider' },
+          ...this.getRequestedVacationsBlocks(requestedVacations),
           { type: 'divider' },
           {
             type: 'actions',
@@ -83,7 +45,7 @@ export class HomeTabViewService {
               },
               {
                 type: 'button',
-                text: { type: 'plain_text', text: '📜 View History' },
+                text: { type: 'plain_text', text: '📜 View History(Coming)' },
                 action_id: 'view_history',
               },
             ],
@@ -91,5 +53,109 @@ export class HomeTabViewService {
         ],
       },
     };
+  }
+
+  private getVacationUsageBlocks(usage: IUserVacationsUsageInfo) {
+    const optionalBlocks: AnyBlock[] = [];
+
+    if (usage.sick_leave.used > 0) {
+      optionalBlocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*🤒 Sick Leave*\n*Used:* ${usage.sick_leave.used} days`,
+        },
+      });
+    }
+
+    if (usage.unpaid_leave.used > 0) {
+      optionalBlocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*🚫 Unpaid Leave*\n*Used:* ${usage.unpaid_leave.used} days`,
+        },
+      });
+    }
+
+    if (usage.other.used > 0) {
+      optionalBlocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*📌 Other*\n*Used:* ${usage.other.used} days`,
+        },
+      });
+    }
+
+    return [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*📅 Annual Leave*\n*Used:* ${usage.annual_leave.used} days\n*Available:* ${usage.annual_leave.available} days`,
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*🎁 Bonus Days*\n*Used:* ${usage.bonus_day.used} days\n*Available:* ${usage.bonus_day.available} days`,
+        },
+      },
+      ...optionalBlocks,
+    ];
+  }
+
+  private getRequestedVacationsBlocks(
+    vacations?: IVacationViewModel[],
+  ): AnyBlock[] {
+    if (!vacations?.length) {
+      return [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '_No active vacation requests._',
+          },
+        },
+      ];
+    }
+
+    const blocks: AnyBlock[] = [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*📝 Active Vacation Requests:*',
+        },
+      },
+    ];
+
+    vacations.forEach((vacation) => {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*${vacation.startDate} – ${vacation.endDate}* (${vacation.type})\n*Days:* ${vacation.days}\n`,
+        },
+        accessory: {
+          type: 'overflow',
+          action_id: `vacation_actions_${vacation.id}`,
+          options: [
+            {
+              text: { type: 'plain_text', text: '✏ Edit' },
+              value: `edit_${vacation.id}`,
+            },
+            {
+              text: { type: 'plain_text', text: '❌ Cancel' },
+              value: `cancel_${vacation.id}`,
+            },
+          ],
+        },
+      });
+    });
+
+    return blocks;
   }
 }
