@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      slack_teams: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          slack_id: string
+          slack_token: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          slack_id: string
+          slack_token: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          slack_id?: string
+          slack_token?: string
+        }
+        Relationships: []
+      }
       team_settings: {
         Row: {
           bonus_days: number
@@ -57,7 +81,7 @@ export type Database = {
             foreignKeyName: "team_settings_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: true
-            referencedRelation: "teams"
+            referencedRelation: "slack_teams"
             referencedColumns: ["id"]
           },
           {
@@ -71,27 +95,51 @@ export type Database = {
       }
       teams: {
         Row: {
-          created_at: string | null
+          created_at: string
+          created_by: string | null
           id: string
+          is_primary: boolean
           name: string
-          slack_id: string
-          slack_token: string
+          slack_team_id: string
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
+          created_by?: string | null
           id?: string
+          is_primary?: boolean
           name: string
-          slack_id: string
-          slack_token: string
+          slack_team_id?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
+          created_by?: string | null
           id?: string
+          is_primary?: boolean
           name?: string
-          slack_id?: string
-          slack_token?: string
+          slack_team_id?: string
+          updated_at?: string
+          updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teams_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {
@@ -102,6 +150,7 @@ export type Database = {
           name: string
           role: string
           slack_id: string
+          slack_team_id: string
           team_id: string
         }
         Insert: {
@@ -112,6 +161,7 @@ export type Database = {
           name: string
           role: string
           slack_id: string
+          slack_team_id?: string
           team_id?: string
         }
         Update: {
@@ -122,9 +172,17 @@ export type Database = {
           name?: string
           role?: string
           slack_id?: string
+          slack_team_id?: string
           team_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "users_slack_team_id_fkey"
+            columns: ["slack_team_id"]
+            isOneToOne: false
+            referencedRelation: "slack_teams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "users_team_id_fkey"
             columns: ["team_id"]
@@ -198,7 +256,7 @@ export type Database = {
             foreignKeyName: "vacations_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
-            referencedRelation: "teams"
+            referencedRelation: "slack_teams"
             referencedColumns: ["id"]
           },
           {

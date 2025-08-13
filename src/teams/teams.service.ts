@@ -1,38 +1,36 @@
-import { Injectable } from '@nestjs/common';
+import { IUserViewModel } from 'src/users/types/user.interface';
 import { TeamsRepository } from 'src/teams/teams.repository';
 
 interface ICreateTeamParams {
   name: string;
-  slack_id: string;
-  slack_token: string;
+  slackTeamId: string;
+  isPrimary?: boolean;
 }
 
-interface IFindParams {
-  id?: string;
-  slack_id?: string;
-}
-
-@Injectable()
-export class TeamsService {
+export default class TeamsService {
   public constructor(private readonly teamsRepository: TeamsRepository) {}
 
-  public async create({ name, slack_id, slack_token }: ICreateTeamParams) {
-    return await this.teamsRepository.create({
-      slack_id,
-      name,
-      slack_token,
+  public create(createParams: ICreateTeamParams, user: IUserViewModel) {
+    return this.teamsRepository.create({
+      name: createParams.name,
+      slack_team_id: createParams.slackTeamId,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: user.id,
+      updated_by: user.id,
+      is_primary: createParams.isPrimary || false,
     });
   }
 
-  public async findOne(findParams: IFindParams) {
-    return await this.teamsRepository.findOne({
-      ...(findParams.id ? { id: findParams.id } : {}),
-      ...(findParams.slack_id ? { slack_id: findParams.slack_id } : {}),
+  public createDefaultTeam(slackTeamId: string) {
+    return this.teamsRepository.create({
+      name: 'Main Team',
+      slack_team_id: slackTeamId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: null,
+      updated_by: null,
+      is_primary: true,
     });
-  }
-
-  public async delete(teamId: string) {
-    return await this.teamsRepository.delete({ id: teamId });
   }
 }

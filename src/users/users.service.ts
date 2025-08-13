@@ -7,6 +7,7 @@ interface ICreateUserParams {
   email: string;
   name: string;
   role: UserRole;
+  slackTeamId: string;
   teamId: string;
   slackId: string;
   contractStartDate?: string;
@@ -15,7 +16,7 @@ interface ICreateUserParams {
 interface IFindParams {
   id?: string;
   slackId?: string;
-  teamId?: string;
+  slackTeamId?: string;
   email?: string;
 }
 
@@ -34,12 +35,14 @@ export class UsersService implements IUsersService {
     role = UserRole.Member,
     slackId,
     teamId,
+    slackTeamId,
   }: ICreateUserParams) {
     return await this.userRepository.create({
       created_at: new Date().toISOString(),
       email,
       name,
       team_id: teamId,
+      slack_team_id: slackTeamId,
       role,
       slack_id: slackId,
     });
@@ -61,11 +64,20 @@ export class UsersService implements IUsersService {
 
   public async bulkCreate(paramsList: ICreateUserParams[]) {
     const users = paramsList.map(
-      ({ email, name, role, teamId, slackId, contractStartDate }) => ({
+      ({
+        email,
+        name,
+        role,
+        slackTeamId,
+        teamId,
+        slackId,
+        contractStartDate,
+      }) => ({
         email,
         name,
         role: role || UserRole.Member,
         team_id: teamId,
+        slack_team_id: slackTeamId,
         slack_id: slackId,
         contract_start_date: contractStartDate || null,
         created_at: new Date().toISOString(),
@@ -81,20 +93,10 @@ export class UsersService implements IUsersService {
     return await this.userRepository.findOne({
       ...(findParams.id ? { id: findParams.id } : {}),
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
-      ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
+      ...(findParams.slackTeamId
+        ? { slack_team_id: findParams.slackTeamId }
+        : {}),
       ...(findParams.email ? { email: findParams.email } : {}),
     });
-  }
-
-  public async findOneWithValidation(
-    findParams: IFindParams,
-  ): Promise<IUserViewModel> {
-    const user = await this.findOne(findParams);
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    return user;
   }
 }

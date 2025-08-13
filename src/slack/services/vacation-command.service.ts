@@ -32,7 +32,7 @@ export default class VacationCommandService {
         await this.slackCommunicationService.postMessage(
           user.slack_id,
           this.getUserVacationsInfoMessage(usageInfo),
-          user.team_id,
+          user.slack_team_id,
         );
 
         break;
@@ -41,9 +41,9 @@ export default class VacationCommandService {
         await this.slackCommunicationService.openView(
           this.vacationRequestViewService.getView(triggerId || user.slack_id, {
             userId: user.id,
-            teamId: user.team_id,
+            teamId: user.slack_team_id,
           }),
-          user.team_id,
+          user.slack_team_id,
         );
 
         break;
@@ -57,7 +57,7 @@ export default class VacationCommandService {
           {
             text: `Unknown command. Use \`/vacation (${Object.values(VacationCommand).join('|')})\`.`,
           },
-          user.team_id,
+          user.slack_team_id,
         );
     }
   }

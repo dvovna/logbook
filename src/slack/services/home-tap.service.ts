@@ -1,16 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { HomeTabViewService } from 'src/slack/services/slack-views/home-tap-view.service';
+import { HomeTabViewsService } from 'src/slack/services/slack-views/home-tap-views.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { UserVacationsUsageService } from 'src/vacations/user-vacation-usage.service';
 import VacationStatus from 'src/common/enums/vacation-status.enum';
 import { VacationsService } from 'src/vacations/vacations.service';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 export class HomeTabService {
   public constructor(
     private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly homeTabViewService: HomeTabViewService,
+    private readonly homeTabViewService: HomeTabViewsService,
     private readonly userVacationsUsageService: UserVacationsUsageService,
     private readonly vacationsService: VacationsService,
   ) {}
@@ -26,11 +27,31 @@ export class HomeTabService {
     ]);
 
     await this.slackCommunicationService.publishView(
-      this.homeTabViewService.getView(user.slack_id, {
-        usage: userVacationsUsageInfo,
+      this.homeTabViewService.getDefaultView({
+        userId: user.slack_id,
+        vacationDaysUsage: userVacationsUsageInfo,
         requestedVacations,
+        isUserAdmin: user.role === UserRole.Admin,
       }),
-      user.team_id,
+      user.slack_team_id,
+    );
+  }
+
+  public async publishManageTeamsTab(user: IUserViewModel) {
+    await this.slackCommunicationService.publishView(
+      this.homeTabViewService.getManageTeamsView({
+        userId: user.slack_id,
+      }),
+      user.slack_team_id,
+    );
+  }
+
+  public async publishEditRequestsTab(user: IUserViewModel) {
+    await this.slackCommunicationService.publishView(
+      this.homeTabViewService.getEditRequestsView({
+        userId: user.slack_id,
+      }),
+      user.slack_team_id,
     );
   }
 }

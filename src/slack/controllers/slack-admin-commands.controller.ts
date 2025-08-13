@@ -55,7 +55,7 @@ export default class AdminCommandsController {
     await this.slackCommunicationService.postMessage(
       req.user!.slack_id,
       this.slackPromptService.getUploadFilePromptMessage(),
-      req.user!.team_id,
+      req.user!.slack_team_id,
     );
 
     return;

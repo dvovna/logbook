@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { TeamsService } from 'src/teams/teams.service';
+import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
@@ -8,7 +8,7 @@ const CACHE_TTL = 3600 * 24; // 1 day
 @Injectable()
 export default class AccessTokenService {
   public constructor(
-    private readonly teamsService: TeamsService,
+    private readonly teamsService: SlackTeamsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 

@@ -21,6 +21,7 @@ export class UsersRepository extends BaseRepository<
       role: row.role as UserRole,
       contract_start_date: row.contract_start_date,
       slack_id: row.slack_id,
+      slack_team_id: row.slack_team_id,
       team_id: row.team_id,
       created_at: row.created_at,
     };

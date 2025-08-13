@@ -2,7 +2,7 @@ import { MiddlewareConsumer, Module } from '@nestjs/common';
 import SlackOauthController from 'src/slack/controllers/slack-oauth.controller';
 import SlackOauthService from 'src/slack/services/slack-oauth.service';
 import { ClientsModule } from 'src/clients/clients.module';
-import { TeamsModule } from 'src/teams/teams.module';
+import { SlackTeamsModule } from 'src/slack-teams/slack-teams.module';
 import { UsersModule } from 'src/users/users.module';
 import SlackCommandsController from 'src/slack/controllers/slack-commands.controller';
 import VacationCommandService from 'src/slack/services/vacation-command.service';
@@ -24,7 +24,7 @@ import { VacationRequestViewService } from 'src/slack/services/slack-views/vacat
 import { TeamSettingsViewService } from 'src/slack/services/slack-views/team-settings-view.service';
 import FileUploadService from 'src/slack/services/file-upload.service';
 import { HomeTabService } from 'src/slack/services/home-tap.service';
-import { HomeTabViewService } from 'src/slack/services/slack-views/home-tap-view.service';
+import { HomeTabViewsService } from 'src/slack/services/slack-views/home-tap-views.service';
 import HomeTabActionsHandler from 'src/slack/services/integration-handlers/home-tab-actions.handler';
 import { SlackPayloadParsePipe } from 'src/slack/pipes/slack-payload-parse.pipe';
 import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payload-parse.middleware';
@@ -33,7 +33,7 @@ import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payloa
   imports: [
     UsersModule,
     ClientsModule,
-    TeamsModule,
+    SlackTeamsModule,
     VacationsModule,
     TeamSettingsModule,
     TeamSetupModule,
@@ -59,7 +59,7 @@ import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payloa
     VacationRequestViewService,
     TeamSettingsViewService,
     FileUploadService,
-    HomeTabViewService,
+    HomeTabViewsService,
     HomeTabService,
     HomeTabActionsHandler,
     SlackPayloadParsePipe,

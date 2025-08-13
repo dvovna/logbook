@@ -38,7 +38,7 @@ export default class TeamSettingsCommandService {
         await this.slackCommunicationService.postMessage(
           user.slack_id,
           { text: message },
-          user.team_id,
+          user.slack_team_id,
         );
 
         break;
@@ -52,7 +52,7 @@ export default class TeamSettingsCommandService {
           this.submitTeamSettingsViewService.getView(
             triggerId,
             {
-              teamId: user.team_id,
+              teamId: user.slack_team_id,
               userId: user.id,
             },
             {
@@ -61,7 +61,7 @@ export default class TeamSettingsCommandService {
               bonusDays: teamSettings?.bonus_days || DEFAULT_BONUS_DAYS,
             },
           ),
-          user.team_id,
+          user.slack_team_id,
         );
 
         break;
@@ -70,7 +70,7 @@ export default class TeamSettingsCommandService {
         await this.slackCommunicationService.postMessage(
           user.slack_id,
           { text: 'Unknown command. Use `/settings set` or `/settings list`.' },
-          user.team_id,
+          user.slack_team_id,
         );
       }
     }

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { TeamsService } from './teams.service';
 import { TeamsRepository } from 'src/teams/teams.repository';
+import TeamsService from 'src/teams/teams.service';
 
 @Module({
-  providers: [TeamsService, TeamsRepository],
-  exports: [TeamsService, TeamsRepository],
+  providers: [TeamsRepository, TeamsService],
+  exports: [TeamsService],
 })
 export class TeamsModule {}

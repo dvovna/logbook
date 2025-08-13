@@ -3,6 +3,12 @@ import { UsersService } from 'src/users/users.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import UserRole from 'src/common/enums/user-role.enum';
 
+interface ISyncUsersParams {
+  defaultTeamId: string;
+  userSlackIdsToIgnore?: string[];
+  slackTeamId: string;
+}
+
 @Injectable()
 export class TeamUsersSyncService {
   private readonly logger = new Logger(TeamUsersSyncService.name);
@@ -12,11 +18,15 @@ export class TeamUsersSyncService {
     private readonly slackUsersService: SlackUsersService,
   ) {}
 
-  public async syncUsers(teamId: string, userSlackIdsToIgnore: string[]) {
-    const allUsers = await this.slackUsersService.getExistingUsers(teamId);
+  public async syncUsers({
+    defaultTeamId,
+    userSlackIdsToIgnore = [],
+    slackTeamId,
+  }: ISyncUsersParams) {
+    const allUsers = await this.slackUsersService.getExistingUsers(slackTeamId);
 
     if (allUsers.length === 0) {
-      this.logger.warn(`No users found for team ${teamId}`);
+      this.logger.warn(`No users found for team ${slackTeamId}`);
       return;
     }
 
@@ -24,7 +34,8 @@ export class TeamUsersSyncService {
       .filter(({ id: slackId }) => !userSlackIdsToIgnore.includes(slackId))
       .map(({ id, email, real_name, profile }) => ({
         slackId: id,
-        teamId: teamId,
+        teamId: defaultTeamId,
+        slackTeamId: slackTeamId,
         email: profile.email || email,
         name: real_name || 'Unknown User',
         role: UserRole.Member,
@@ -32,6 +43,8 @@ export class TeamUsersSyncService {
 
     await this.usersService.bulkCreate(usersToCreate);
 
-    this.logger.log(`Imported ${allUsers.length} users for team ${teamId}`);
+    this.logger.log(
+      `Imported ${allUsers.length} users for team ${slackTeamId}`,
+    );
   }
 }

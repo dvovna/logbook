@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import UserRole from 'src/common/enums/user-role.enum';
-import { TeamsService } from 'src/teams/teams.service';
+import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 import { UsersService } from 'src/users/users.service';
 import TeamSettingsService from 'src/team-settings/team-settings.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from 'src/team-setup/team-users-sync.service';
+import TeamsService from 'src/teams/teams.service';
 
 interface ITeamSetupWorkflowParams {
   slackTeamId: string;
@@ -16,8 +17,9 @@ interface ITeamSetupWorkflowParams {
 @Injectable()
 export class TeamSetupWorkflowService {
   public constructor(
-    private readonly teamsService: TeamsService,
+    private readonly slackTeamsService: SlackTeamsService,
     private readonly usersService: UsersService,
+    private readonly teamsService: TeamsService,
     private readonly teamSettingsService: TeamSettingsService,
     private readonly slackUsersService: SlackUsersService,
     private readonly teamUsersSyncService: TeamUsersSyncService,
@@ -29,7 +31,7 @@ export class TeamSetupWorkflowService {
     slackUserId,
     teamSlackToken,
   }: ITeamSetupWorkflowParams): Promise<void> {
-    const team = await this.teamsService.create({
+    const slackTeam = await this.slackTeamsService.create({
       slack_id: slackTeamId,
       name: slackTeamName,
       slack_token: teamSlackToken,
@@ -37,7 +39,7 @@ export class TeamSetupWorkflowService {
 
     const userProfile = await this.slackUsersService.getUser(
       slackUserId,
-      team.id,
+      slackTeam.id,
     );
 
     if (!userProfile.user.profile.email) {
@@ -47,25 +49,34 @@ export class TeamSetupWorkflowService {
     }
 
     try {
+      const defaultTeam = await this.teamsService.createDefaultTeam(
+        slackTeam.id,
+      );
+
       const adminUser = await this.usersService.create({
         slackId: slackUserId,
-        teamId: team.id,
+        teamId: defaultTeam.id,
+        slackTeamId: slackTeam.id,
         email: userProfile.user.profile.email,
         name: userProfile.user.profile.real_name || 'Admin User',
         role: UserRole.Admin,
       });
 
       await this.teamSettingsService.createDefaultSettings(
-        team.id,
+        slackTeam.id,
         adminUser.id,
       );
 
       // no need to sync users instantly
       setTimeout(() => {
-        this.teamUsersSyncService.syncUsers(team.id, [adminUser.slack_id]);
+        this.teamUsersSyncService.syncUsers({
+          slackTeamId: slackTeam.id,
+          userSlackIdsToIgnore: [adminUser.slack_id],
+          defaultTeamId: defaultTeam.id,
+        });
       }, 5000);
     } catch (error) {
-      await this.teamsService.delete(team.id);
+      await this.slackTeamsService.delete(slackTeam.id);
       throw error;
     }
   }

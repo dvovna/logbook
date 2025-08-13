@@ -48,7 +48,7 @@ export default class SlackCommandsController {
       await this.slackCommunicationService.postMessage(
         req.user!.slack_id,
         { text: 'An error occurred while processing your command.' },
-        req.user!.team_id,
+        req.user!.slack_team_id,
       );
     }
   }

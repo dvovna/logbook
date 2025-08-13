@@ -3,7 +3,7 @@ import SlackPromptsService from 'src/slack-communication/services/slack-prompts.
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import AccessTokenService from 'src/slack-communication/services/slack-access-token.service';
-import { TeamsModule } from 'src/teams/teams.module';
+import { SlackTeamsModule } from 'src/slack-teams/slack-teams.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ClientsModule } from 'src/clients/clients.module';
 
@@ -14,7 +14,7 @@ import { ClientsModule } from 'src/clients/clients.module';
     SlackCommunicationService,
     SlackUsersService,
   ],
-  imports: [CacheModule.register(), ClientsModule, TeamsModule],
+  imports: [CacheModule.register(), ClientsModule, SlackTeamsModule],
   exports: [SlackPromptsService, SlackCommunicationService, SlackUsersService],
 })
 export class SlackCommunicationModule {}

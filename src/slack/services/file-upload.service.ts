@@ -16,7 +16,7 @@ export default class FileUploadService {
   public async handleFileUpload(fileId: string, user: IUserViewModel) {
     const file = await this.slackCommunicationService.getFileInfo(
       fileId,
-      user.team_id,
+      user.slack_team_id,
     );
 
     const url = file?.url_private_download;
@@ -26,7 +26,7 @@ export default class FileUploadService {
 
     const fileContent = await this.slackCommunicationService.fetchFileContent(
       url,
-      user.team_id,
+      user.slack_team_id,
     );
 
     switch (file?.name) {
@@ -39,7 +39,7 @@ export default class FileUploadService {
         await this.slackCommunicationService.postMessage(
           user.slack_id,
           this.getUserVacationsImportSuccessfulMessage(result),
-          user.team_id,
+          user.slack_team_id,
         );
 
         break;
@@ -51,7 +51,7 @@ export default class FileUploadService {
         await this.slackCommunicationService.postMessage(
           user.slack_id,
           this.getUnknownFileUploadPromptMessage(),
-          user.team_id,
+          user.slack_team_id,
         );
       }
     }

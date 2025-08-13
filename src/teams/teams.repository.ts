@@ -17,10 +17,12 @@ export class TeamsRepository extends BaseRepository<
     return {
       id: row.id,
       name: row.name,
-      slack_id: row.slack_id,
-      slack_token: row.slack_token,
-      access_token: row.slack_token,
+      slack_team_id: row.slack_team_id,
+      is_primary: row.is_primary,
       created_at: row.created_at,
+      updated_at: row.updated_at,
+      created_by: row.created_by,
+      updated_by: row.updated_by,
     };
   };
 }

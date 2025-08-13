@@ -17,7 +17,7 @@ export default class SlackUserAccessService {
         {
           text: `⛔ Only user with role ${capitalize(userRole)} can use this command.`,
         },
-        user.team_id,
+        user.slack_team_id,
       );
 
       throw new Error(
