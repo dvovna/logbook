@@ -12,7 +12,7 @@ export default class SlackUserAccessService {
 
   public async checkUserRoleAccess(user: IUserViewModel, userRole: UserRole) {
     if (user.role !== userRole) {
-      await this.slackCommunicationService.postMessage(
+      await this.slackCommunicationService.postEphemeral(
         user.slack_id,
         {
           text: `⛔ Only user with role ${capitalize(userRole)} can use this command.`,

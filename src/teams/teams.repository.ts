@@ -17,7 +17,9 @@ export class TeamsRepository extends BaseRepository<
     return {
       id: row.id,
       name: row.name,
+      description: row.description || '',
       slack_team_id: row.slack_team_id,
+      vacation_policy_id: row.vacation_policy_id,
       is_primary: row.is_primary,
       created_at: row.created_at,
       updated_at: row.updated_at,

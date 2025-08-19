@@ -13,6 +13,26 @@ export class UsersRepository extends BaseRepository<
 > {
   protected readonly tableName = 'users';
 
+  public async getUsersCountByTeam(slackTeamId: string) {
+    const { data, error } = await this.client
+      .from(this.tableName)
+      .select('id, team_id')
+      .eq('slack_team_id', slackTeamId);
+
+    if (error) {
+      throw new Error(`Failed to fetch users count by team: ${error.message}`);
+    }
+
+    return (data || []).reduce<Record<string, number>>(
+      (acc, row) => {
+        acc[row.team_id] = (acc[row.team_id] || 0) + 1;
+
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+  }
+
   protected mapToViewModel = (row: Tables['users']['Row']) => {
     return {
       id: row.id,

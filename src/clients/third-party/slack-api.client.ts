@@ -8,6 +8,7 @@ import {
 
 interface ISendMessageParams {
   channel: string;
+  userId: string;
   text?: string;
   accessToken: string;
   blocks?: KnownBlock[];
@@ -15,16 +16,18 @@ interface ISendMessageParams {
 
 @Injectable()
 export default class SlackApiClient {
-  public async postMessage({
+  public async postEphemeral({
     channel,
     text,
+    userId,
     blocks = [],
     accessToken,
   }: ISendMessageParams) {
     const client = this.getClient(accessToken);
 
-    const result = await client.chat.postMessage({
+    const result = await client.chat.postEphemeral({
       channel,
+      user: userId,
       text,
       blocks,
     });

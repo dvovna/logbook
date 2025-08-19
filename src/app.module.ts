@@ -9,7 +9,7 @@ import { SlackTeamsModule } from 'src/slack-teams/slack-teams.module';
 import { ClientsModule } from './clients/clients.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { TeamSettingsModule } from 'src/team-settings/team-settings.module';
+import { VacationPoliciesModule } from 'src/vacation-policies/vacation-policies.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { UserDataImportModule } from 'src/user-data-import/user-data-import.module';
 import { TeamSetupModule } from './team-setup/team-setup.module';
@@ -32,7 +32,7 @@ import { TeamsModule } from './teams/teams.module';
     ClientsModule,
     SlackModule,
     SlackCommunicationModule,
-    TeamSettingsModule,
+    VacationPoliciesModule,
     UserDataImportModule,
     TeamSetupModule,
     TeamsModule,

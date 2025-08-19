@@ -48,6 +48,10 @@ export class UsersService implements IUsersService {
     });
   }
 
+  public getUsersCountByTeam(slackTeamId: string) {
+    return this.userRepository.getUsersCountByTeam(slackTeamId);
+  }
+
   public async update(
     id: string,
     params: Partial<ICreateUserParams>,

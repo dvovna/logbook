@@ -85,6 +85,22 @@ export abstract class BaseRepository<
     return items ? items.map(this.mapToViewModel) : [];
   }
 
+  public async count(filter: SupabaseFilter): Promise<number> {
+    const query = this.client
+      .from(this.tableName)
+      .select('*', { count: 'exact', head: true });
+
+    this.buildFindQuery(query, filter);
+
+    const { count, error } = await query;
+
+    if (error) {
+      throw new Error(`[${this.tableName}] count error: ${error.message}`);
+    }
+
+    return count ?? 0;
+  }
+
   public async create(data: Entity['Insert']): Promise<ViewModel> {
     const { data: inserted, error } = await this.client
       .from(this.tableName)

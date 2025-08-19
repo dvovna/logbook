@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { HomeTabViewsService } from 'src/slack/services/slack-views/home-tap-views.service';
+import { HomeTabViewsService } from 'src/slack/services/slack-views/home-tap-view.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { UserVacationsUsageService } from 'src/vacations/user-vacation-usage.service';
@@ -32,15 +32,6 @@ export class HomeTabService {
         vacationDaysUsage: userVacationsUsageInfo,
         requestedVacations,
         isUserAdmin: user.role === UserRole.Admin,
-      }),
-      user.slack_team_id,
-    );
-  }
-
-  public async publishManageTeamsTab(user: IUserViewModel) {
-    await this.slackCommunicationService.publishView(
-      this.homeTabViewService.getManageTeamsView({
-        userId: user.slack_id,
       }),
       user.slack_team_id,
     );

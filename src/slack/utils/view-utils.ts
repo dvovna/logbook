@@ -1,4 +1,14 @@
 import { IViewStateValues } from 'src/slack/types/slack-view-state-values.interface';
+import {
+  DatepickerAction,
+  StaticSelectAction,
+} from '@slack/bolt/dist/types/actions/block-action';
+import ViewFieldType from 'src/slack/enums/view-field-type.enum';
+
+interface IFieldPathParams {
+  blockId: string;
+  actionId: string;
+}
 
 const getActionItem = (
   values: IViewStateValues,
@@ -17,11 +27,7 @@ export const getValue = (
 ) => {
   const item = getActionItem(values, blockId, actionId);
 
-  if (!item || typeof item.value !== 'string') {
-    throw new Error(`Missing value for ${blockId}.${actionId}`);
-  }
-
-  return item.value;
+  return item.value || '';
 };
 
 export const getOptionalValue = (
@@ -31,7 +37,7 @@ export const getOptionalValue = (
 ) => {
   const item = getActionItem(values, blockId, actionId);
 
-  return typeof item.value === 'string' ? item?.value : null;
+  return item?.value;
 };
 
 export const getSelectedDate = (
@@ -39,11 +45,7 @@ export const getSelectedDate = (
   blockId: string,
   actionId: string,
 ) => {
-  const item = getActionItem(values, blockId, actionId);
-
-  if (!item || typeof item.selected_date !== 'string') {
-    throw new Error(`Missing selected date for ${blockId}.${actionId}`);
-  }
+  const item = getActionItem(values, blockId, actionId) as DatepickerAction;
 
   return item.selected_date;
 };
@@ -53,15 +55,24 @@ export const getSelectedOption = (
   blockId: string,
   actionId: string,
 ) => {
-  const item = getActionItem(values, blockId, actionId);
-
-  if (
-    !item ||
-    !item.selected_option ||
-    typeof item.selected_option.value !== 'string'
-  ) {
-    throw new Error(`Missing selected option for ${blockId}.${actionId}`);
-  }
+  const item = getActionItem(values, blockId, actionId) as StaticSelectAction;
 
   return item.selected_option.value;
+};
+
+export const getValueByType = (
+  values: IViewStateValues,
+  fieldType: ViewFieldType,
+  { blockId, actionId }: IFieldPathParams,
+): string | undefined | null => {
+  switch (fieldType) {
+    case ViewFieldType.Text:
+      return getValue(values, blockId, actionId);
+    case ViewFieldType.Select:
+      return getSelectedOption(values, blockId, actionId);
+    case ViewFieldType.Date:
+      return getSelectedDate(values, blockId, actionId);
+    default:
+      throw new Error(`Unsupported field type: ${fieldType}`);
+  }
 };

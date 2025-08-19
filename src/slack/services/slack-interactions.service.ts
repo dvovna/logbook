@@ -1,36 +1,36 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { IViewMetadata } from 'src/slack/types/slack-view-metadata.interface';
-import { SubmitTeamSettingsHandler } from 'src/slack/services/integration-handlers/submit-team-settings.handler';
 import { CreateVacationRequestHandler } from 'src/slack/services/integration-handlers/create-vacation-request.handler';
 import HomeTabActionsHandler from 'src/slack/services/integration-handlers/home-tab-actions.handler';
 import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
+import TeamActionsHandler from 'src/slack/services/integration-handlers/team-actions.handler';
+import { TeamFormSubmitHandler } from 'src/slack/services/integration-handlers/team-form-submit.handler';
+import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
+import { IGetTeamModalViewMetadata } from 'src/slack/services/slack-views/team-modal-view.service';
 
 @Injectable()
 export default class SlackInteractionsService {
   private readonly logger = new Logger(SlackInteractionsService.name);
 
   public constructor(
-    private readonly submitTeamSettingsHandler: SubmitTeamSettingsHandler,
     private readonly createVacationRequestHandler: CreateVacationRequestHandler,
     private readonly homeTabActionsHandler: HomeTabActionsHandler,
+    private readonly teamManagementActionsHandler: TeamActionsHandler,
+    private readonly manageTeamFormSubmitHandler: TeamFormSubmitHandler,
   ) {}
 
   public async handleSlackInteraction(
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
-  ) {
+  ): Promise<ViewResponseAction | void> {
     switch (payload.type) {
       case 'view_submission': {
-        await this.handleViewSubmission(payload, user);
-
-        break;
+        return this.handleViewSubmission(payload, user);
       }
       case 'block_actions': {
-        await this.handleBlockActions(payload, user);
-
-        break;
+        return this.handleBlockActions(payload, user);
       }
       default: {
         this.logger.warn(`Unhandled interaction type: ${payload.type}`);
@@ -48,9 +48,10 @@ export default class SlackInteractionsService {
 
     switch (callback_id) {
       case ViewCallbackId.HomeTab: {
-        await this.homeTabActionsHandler.handle(payload, user);
-
-        break;
+        return this.homeTabActionsHandler.handle(payload, user);
+      }
+      case ViewCallbackId.TeamManagement: {
+        return this.teamManagementActionsHandler.handle(payload, user);
       }
       default: {
         this.logger.warn(`Unhandled block action callback_id: ${callback_id}`);
@@ -61,20 +62,19 @@ export default class SlackInteractionsService {
   private async handleViewSubmission(
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
-  ) {
+  ): Promise<ViewResponseAction> {
     const { callback_id } = payload.view;
-    const metadata = JSON.parse(payload.view.private_metadata) as IViewMetadata;
 
     switch (callback_id) {
-      case ViewCallbackId.ChangeTeamSettings: {
-        await this.submitTeamSettingsHandler.handle(payload, metadata, user);
+      case ViewCallbackId.TeamManagement: {
+        const metadata = JSON.parse(
+          payload.view.private_metadata,
+        ) as IGetTeamModalViewMetadata;
 
-        break;
+        return this.manageTeamFormSubmitHandler.handle(payload, metadata, user);
       }
       case ViewCallbackId.CreateVacationRequest: {
-        await this.createVacationRequestHandler.handle(payload, metadata, user);
-
-        break;
+        return this.createVacationRequestHandler.handle(payload, user);
       }
       default: {
         this.logger.warn(
@@ -82,5 +82,7 @@ export default class SlackInteractionsService {
         );
       }
     }
+
+    return SlackViewResponseFactory.success();
   }
 }

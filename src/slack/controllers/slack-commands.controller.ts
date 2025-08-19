@@ -45,7 +45,7 @@ export default class SlackCommandsController {
       );
     } catch (e) {
       this.logger.error('Error handling vacation command:', e);
-      await this.slackCommunicationService.postMessage(
+      await this.slackCommunicationService.postEphemeral(
         req.user!.slack_id,
         { text: 'An error occurred while processing your command.' },
         req.user!.slack_team_id,

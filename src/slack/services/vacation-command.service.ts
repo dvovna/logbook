@@ -29,7 +29,7 @@ export default class VacationCommandService {
         const usageInfo =
           await this.userVacationUsageService.getUserVacationsUsage(user);
 
-        await this.slackCommunicationService.postMessage(
+        await this.slackCommunicationService.postEphemeral(
           user.slack_id,
           this.getUserVacationsInfoMessage(usageInfo),
           user.slack_team_id,
@@ -39,10 +39,8 @@ export default class VacationCommandService {
       }
       case VacationCommand.Request: {
         await this.slackCommunicationService.openView(
-          this.vacationRequestViewService.getView(triggerId || user.slack_id, {
-            userId: user.id,
-            teamId: user.slack_team_id,
-          }),
+          triggerId || user.slack_id,
+          this.vacationRequestViewService.getView(),
           user.slack_team_id,
         );
 
@@ -52,7 +50,7 @@ export default class VacationCommandService {
         break;
       }
       default:
-        await this.slackCommunicationService.postMessage(
+        await this.slackCommunicationService.postEphemeral(
           user.slack_id,
           {
             text: `Unknown command. Use \`/vacation (${Object.values(VacationCommand).join('|')})\`.`,

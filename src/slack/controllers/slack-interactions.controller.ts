@@ -18,11 +18,11 @@ export default class SlackInteractionsController {
     @Body() payload: ISlackInteractionPayload,
     @Res() res: Response,
   ) {
-    res.status(200).send();
-
-    await this.slackInteractionsService.handleSlackInteraction(
+    const response = await this.slackInteractionsService.handleSlackInteraction(
       payload,
       req.user!,
     );
+
+    res.status(200).send(response);
   }
 }

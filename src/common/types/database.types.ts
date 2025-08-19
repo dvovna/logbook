@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -38,91 +38,42 @@ export type Database = {
         }
         Relationships: []
       }
-      team_settings: {
-        Row: {
-          bonus_days: number
-          created_at: string | null
-          created_by: string
-          id: string
-          team_id: string
-          updated_at: string | null
-          updated_by: string
-          vacation_days: number
-        }
-        Insert: {
-          bonus_days?: number
-          created_at?: string | null
-          created_by: string
-          id?: string
-          team_id: string
-          updated_at?: string | null
-          updated_by: string
-          vacation_days?: number
-        }
-        Update: {
-          bonus_days?: number
-          created_at?: string | null
-          created_by?: string
-          id?: string
-          team_id?: string
-          updated_at?: string | null
-          updated_by?: string
-          vacation_days?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "team_settings_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "team_settings_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: true
-            referencedRelation: "slack_teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "team_settings_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       teams: {
         Row: {
           created_at: string
           created_by: string | null
+          description: string | null
           id: string
           is_primary: boolean
           name: string
           slack_team_id: string
           updated_at: string
           updated_by: string | null
+          vacation_policy_id: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           is_primary?: boolean
           name: string
           slack_team_id?: string
           updated_at?: string
           updated_by?: string | null
+          vacation_policy_id?: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           is_primary?: boolean
           name?: string
           slack_team_id?: string
           updated_at?: string
           updated_by?: string | null
+          vacation_policy_id?: string
         }
         Relationships: [
           {
@@ -137,6 +88,13 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_vacation_policy_id_fkey"
+            columns: ["vacation_policy_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_policies"
             referencedColumns: ["id"]
           },
         ]
@@ -188,6 +146,73 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vacation_policies: {
+        Row: {
+          bonus_days: number
+          country_code: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_primary: boolean
+          name: string
+          slack_team_id: string
+          updated_at: string
+          updated_by: string | null
+          vacation_days: number
+          working_days: number
+        }
+        Insert: {
+          bonus_days?: number
+          country_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          name?: string
+          slack_team_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          vacation_days?: number
+          working_days?: number
+        }
+        Update: {
+          bonus_days?: number
+          country_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          name?: string
+          slack_team_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          vacation_days?: number
+          working_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vacation_policies_slack_team_id_fkey"
+            columns: ["slack_team_id"]
+            isOneToOne: false
+            referencedRelation: "slack_teams"
             referencedColumns: ["id"]
           },
         ]
@@ -256,7 +281,7 @@ export type Database = {
             foreignKeyName: "vacations_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
-            referencedRelation: "slack_teams"
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {

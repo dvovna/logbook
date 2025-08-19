@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import UserRole from 'src/common/enums/user-role.enum';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 import { UsersService } from 'src/users/users.service';
-import TeamSettingsService from 'src/team-settings/team-settings.service';
+import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from 'src/team-setup/team-users-sync.service';
 import TeamsService from 'src/teams/teams.service';
@@ -20,7 +20,7 @@ export class TeamSetupWorkflowService {
     private readonly slackTeamsService: SlackTeamsService,
     private readonly usersService: UsersService,
     private readonly teamsService: TeamsService,
-    private readonly teamSettingsService: TeamSettingsService,
+    private readonly vacationPolicyService: VacationPoliciesService,
     private readonly slackUsersService: SlackUsersService,
     private readonly teamUsersSyncService: TeamUsersSyncService,
   ) {}
@@ -49,8 +49,12 @@ export class TeamSetupWorkflowService {
     }
 
     try {
+      const defaultVacationPolicy =
+        await this.vacationPolicyService.createDefaultPolicy(slackTeam.id);
+
       const defaultTeam = await this.teamsService.createDefaultTeam(
         slackTeam.id,
+        defaultVacationPolicy.id,
       );
 
       const adminUser = await this.usersService.create({
@@ -61,11 +65,6 @@ export class TeamSetupWorkflowService {
         name: userProfile.user.profile.real_name || 'Admin User',
         role: UserRole.Admin,
       });
-
-      await this.teamSettingsService.createDefaultSettings(
-        slackTeam.id,
-        adminUser.id,
-      );
 
       // no need to sync users instantly
       setTimeout(() => {

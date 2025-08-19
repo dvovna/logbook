@@ -8,8 +8,7 @@ import SlackCommandsController from 'src/slack/controllers/slack-commands.contro
 import VacationCommandService from 'src/slack/services/vacation-command.service';
 import { VacationsModule } from 'src/vacations/vacations.module';
 import AdminCommandsController from 'src/slack/controllers/slack-admin-commands.controller';
-import { TeamSettingsModule } from 'src/team-settings/team-settings.module';
-import TeamSettingsCommandService from 'src/slack/services/team-settings-command.service';
+import { VacationPoliciesModule } from 'src/vacation-policies/vacation-policies.module';
 import SlackInteractionsController from 'src/slack/controllers/slack-interactions.controller';
 import SlackInteractionsService from 'src/slack/services/slack-interactions.service';
 import SlackUserAccessService from 'src/slack/services/slack-user-access.service';
@@ -18,16 +17,25 @@ import { SlackCommunicationModule } from 'src/slack-communication/slack-communic
 import SlackEventsController from 'src/slack/controllers/slack-events.controller';
 import SlackEventsService from 'src/slack/services/slack-events.service';
 import { UserDataImportModule } from 'src/user-data-import/user-data-import.module';
-import { SubmitTeamSettingsHandler } from 'src/slack/services/integration-handlers/submit-team-settings.handler';
 import { CreateVacationRequestHandler } from 'src/slack/services/integration-handlers/create-vacation-request.handler';
 import { VacationRequestViewService } from 'src/slack/services/slack-views/vacation-request-view.service';
-import { TeamSettingsViewService } from 'src/slack/services/slack-views/team-settings-view.service';
+import { VacationPolicyModalViewService } from 'src/slack/services/slack-views/vacation-policy-modal-view.service';
 import FileUploadService from 'src/slack/services/file-upload.service';
 import { HomeTabService } from 'src/slack/services/home-tap.service';
-import { HomeTabViewsService } from 'src/slack/services/slack-views/home-tap-views.service';
+import { HomeTabViewsService } from 'src/slack/services/slack-views/home-tap-view.service';
 import HomeTabActionsHandler from 'src/slack/services/integration-handlers/home-tab-actions.handler';
 import { SlackPayloadParsePipe } from 'src/slack/pipes/slack-payload-parse.pipe';
 import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payload-parse.middleware';
+import { TeamManagementTabViewService } from 'src/slack/services/slack-views/team-management-tab-view.service';
+import { TeamsModule } from 'src/teams/teams.module';
+import { TeamsTabService } from 'src/slack/services/teams-tab.service';
+import TeamActionsHandler from 'src/slack/services/integration-handlers/team-actions.handler';
+import { TeamModalViewService } from 'src/slack/services/slack-views/team-modal-view.service';
+import { TeamFormSubmitHandler } from 'src/slack/services/integration-handlers/team-form-submit.handler';
+import TeamModalViewValuesParser from 'src/slack/services/slack-views/parsers/team-modal-view-values.parser';
+import VacationRequestViewValuesParser from 'src/slack/services/slack-views/parsers/vacation-request-view-values.parser';
+import { VacationPoliciesTabService } from 'src/slack/services/vacation-policies-tab.service';
+import { VacationPolicyManagementTabViewService } from 'src/slack/services/slack-views/vacation-policy-management-tab-view.service';
 
 @Module({
   imports: [
@@ -35,7 +43,8 @@ import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payloa
     ClientsModule,
     SlackTeamsModule,
     VacationsModule,
-    TeamSettingsModule,
+    TeamsModule,
+    VacationPoliciesModule,
     TeamSetupModule,
     SlackCommunicationModule,
     UserDataImportModule,
@@ -50,19 +59,26 @@ import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payloa
   providers: [
     SlackOauthService,
     VacationCommandService,
-    TeamSettingsCommandService,
     SlackInteractionsService,
     SlackUserAccessService,
     SlackEventsService,
-    SubmitTeamSettingsHandler,
     CreateVacationRequestHandler,
     VacationRequestViewService,
-    TeamSettingsViewService,
+    TeamManagementTabViewService,
+    VacationPolicyModalViewService,
     FileUploadService,
     HomeTabViewsService,
     HomeTabService,
     HomeTabActionsHandler,
     SlackPayloadParsePipe,
+    TeamActionsHandler,
+    TeamsTabService,
+    TeamModalViewService,
+    TeamModalViewValuesParser,
+    VacationRequestViewValuesParser,
+    TeamFormSubmitHandler,
+    VacationPolicyManagementTabViewService,
+    VacationPoliciesTabService,
   ],
   exports: [],
 })

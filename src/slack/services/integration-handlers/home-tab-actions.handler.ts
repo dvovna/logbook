@@ -5,6 +5,8 @@ import { VacationRequestViewService } from 'src/slack/services/slack-views/vacat
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { HomeTabService } from 'src/slack/services/home-tap.service';
 import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
+import { TeamsTabService } from 'src/slack/services/teams-tab.service';
+import { VacationPoliciesTabService } from 'src/slack/services/vacation-policies-tab.service';
 
 @Injectable()
 export default class HomeTabActionsHandler {
@@ -12,26 +14,23 @@ export default class HomeTabActionsHandler {
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly vacationRequestViewService: VacationRequestViewService,
     private readonly homeTabService: HomeTabService,
+    private readonly manageTeamsTabService: TeamsTabService,
+    private readonly vacationPoliciesTabService: VacationPoliciesTabService,
   ) {}
 
   public async handle(payload: ISlackInteractionPayload, user: IUserViewModel) {
     switch (payload.actions[0].action_id) {
       case ViewActionId.OpenVacationModal: {
         await this.slackCommunicationService.openView(
-          this.vacationRequestViewService.getView(
-            payload.trigger_id || user.slack_id,
-            {
-              userId: user.id,
-              teamId: user.slack_team_id,
-            },
-          ),
+          payload.trigger_id || user.slack_id,
+          this.vacationRequestViewService.getView(),
           user.slack_team_id,
         );
 
         break;
       }
       case ViewActionId.ViewHistory: {
-        await this.slackCommunicationService.postMessage(
+        await this.slackCommunicationService.postEphemeral(
           user.slack_id,
           {
             text: 'This feature is not implemented yet.',
@@ -42,7 +41,7 @@ export default class HomeTabActionsHandler {
         break;
       }
       case ViewActionId.AdminManageTeams: {
-        await this.homeTabService.publishManageTeamsTab(user);
+        await this.manageTeamsTabService.publishManageTeamsTab(user);
 
         break;
       }
@@ -51,9 +50,18 @@ export default class HomeTabActionsHandler {
 
         break;
       }
-      case ViewActionId.AdminBackMain: {
+      case ViewActionId.AdminViewAndEditVacationPolicies: {
+        await this.vacationPoliciesTabService.publishVacationPoliciesTab(user);
+
+        break;
+      }
+      case ViewActionId.BackToHomeTap: {
         await this.homeTabService.publishHomeTab(user);
 
+        break;
+      }
+      case ViewActionId.ManageTeamMenu: {
+        console.log('Admin team menu action triggered');
         break;
       }
       default: {

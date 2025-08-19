@@ -1,11 +1,10 @@
 export interface IViewStateValues {
-  [key: string]: {
-    [key: string]: {
-      value?: unknown;
-      selected_date?: unknown;
-      selected_option?: {
-        value: unknown;
-      };
+  [blockId: string]: {
+    [actionId: string]: {
+      type: string;
+      value?: string;
+      selected_option?: { value: string };
+      selected_user?: string;
     };
   };
 }

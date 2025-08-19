@@ -3,10 +3,8 @@ import AccessTokenService from 'src/slack-communication/services/slack-access-to
 import { Injectable } from '@nestjs/common';
 import { SlackMessagePayloadInterface } from 'src/slack/types/slack-message-payload.interface';
 import { WebAPICallResult } from '@slack/web-api';
-import {
-  ViewsOpenArguments,
-  ViewsPublishArguments,
-} from '@slack/web-api/dist/types/request/views';
+import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
+import { View } from '@slack/types/dist/views';
 
 @Injectable()
 export default class SlackCommunicationService {
@@ -15,28 +13,37 @@ export default class SlackCommunicationService {
     private readonly accessTokenService: AccessTokenService,
   ) {}
 
-  public async postMessage(
+  public async postEphemeral(
     channel: string,
     payload: SlackMessagePayloadInterface,
     teamId: string,
+    userId?: string,
   ) {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 
-    await this.slackApiClient.postMessage({
+    await this.slackApiClient.postEphemeral({
       channel,
       accessToken,
       ...payload,
+      userId: userId || channel,
     });
   }
 
-  public async openView(view: ViewsOpenArguments, teamId: string) {
+  public async openView(triggerId: string, view: View, teamId: string) {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 
-    return this.slackApiClient.openView(view, accessToken);
+    return this.slackApiClient.openView(
+      {
+        trigger_id: triggerId,
+        view,
+      },
+      accessToken,
+    );
   }
 
-  public async publishView(view: ViewsPublishArguments, teamId: string) {
-    const accessToken = await this.accessTokenService.getAccessToken(teamId);
+  public async publishView(view: ViewsPublishArguments, slackTeamId: string) {
+    const accessToken =
+      await this.accessTokenService.getAccessToken(slackTeamId);
 
     return this.slackApiClient.publishView(view, accessToken);
   }

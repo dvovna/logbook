@@ -1,49 +1,57 @@
 import { Injectable } from '@nestjs/common';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { IViewMetadata } from 'src/slack/types/slack-view-metadata.interface';
-import { VacationRequestViewService } from 'src/slack/services/slack-views/vacation-request-view.service';
 import { VacationsService } from 'src/vacations/vacations.service';
 import VacationStatus from 'src/common/enums/vacation-status.enum';
-import VacationType from 'src/common/enums/vacation-type.enum';
 import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
+import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
+import VacationRequestViewValuesParser
+  from 'src/slack/services/slack-views/parsers/vacation-request-view-values.parser';
 
 @Injectable()
 export class CreateVacationRequestHandler {
   public constructor(
     private readonly vacationsService: VacationsService,
     private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly vacationRequestViewService: VacationRequestViewService,
+    private readonly vacationRequestViewValuesParser: VacationRequestViewValuesParser,
   ) {}
 
   public async handle(
     payload: ISlackInteractionPayload,
-    metadata: IViewMetadata,
     user: IUserViewModel,
-  ) {
+  ): Promise<ViewResponseAction> {
     const { view } = payload;
-    const { userId, teamId } = metadata;
 
-    const { startDate, endDate, type, comment } =
-      this.vacationRequestViewService.extractData(view.state.values);
+    const { data, errors } = this.vacationRequestViewValuesParser.parse(
+      view.state.values,
+    );
+
+    if (errors) {
+      return SlackViewResponseFactory.errors(errors);
+    }
 
     await this.vacationsService.create(
       {
-        userId,
-        teamId,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        type: type as VacationType,
+        userId: user.id,
+        teamId: user.team_id,
+        startDate: new Date(data.startDate),
+        endDate: new Date(data.endDate),
+        type: data.type,
         status: VacationStatus.Requested,
-        comment,
+        comment: data.comment,
       },
       user,
     );
 
-    await this.slackCommunicationService.postMessage(
+    await this.slackCommunicationService.postEphemeral(
       user.slack_id,
-      { text: 'Vacation request created successfully!' },
-      teamId,
+      {
+        text: `Vacation request has been successfully created!`,
+      },
+      user.slack_team_id,
     );
+
+    return SlackViewResponseFactory.success();
   }
 }

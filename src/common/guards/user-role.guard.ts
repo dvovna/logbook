@@ -27,7 +27,7 @@ export class UserRoleGuard implements CanActivate {
 
     if (!requiredRoles.includes(user.role)) {
       throw new ForbiddenException({
-        slack_id: user.slack_id,
+        user_slack_id: user.slack_id,
         team_id: user.slack_team_id,
         requiredRoles,
       });

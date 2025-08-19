@@ -8,7 +8,7 @@ const CACHE_TTL = 3600 * 24; // 1 day
 @Injectable()
 export default class AccessTokenService {
   public constructor(
-    private readonly teamsService: SlackTeamsService,
+    private readonly slackTeamsService: SlackTeamsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -20,7 +20,7 @@ export default class AccessTokenService {
       return cached;
     }
 
-    const team = await this.teamsService.findOne({ id: teamId });
+    const team = await this.slackTeamsService.findOne({ id: teamId });
 
     if (!team) {
       throw new Error('Team not found');

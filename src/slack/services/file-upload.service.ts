@@ -36,7 +36,7 @@ export default class FileUploadService {
           user,
         );
 
-        await this.slackCommunicationService.postMessage(
+        await this.slackCommunicationService.postEphemeral(
           user.slack_id,
           this.getUserVacationsImportSuccessfulMessage(result),
           user.slack_team_id,
@@ -48,7 +48,7 @@ export default class FileUploadService {
         // import user teams with user managers
         break;
       default: {
-        await this.slackCommunicationService.postMessage(
+        await this.slackCommunicationService.postEphemeral(
           user.slack_id,
           this.getUnknownFileUploadPromptMessage(),
           user.slack_team_id,

@@ -17,15 +17,16 @@ export class SlackForbiddenExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    const { slack_id, team_id, requiredRoles } = exception.getResponse() as {
-      slack_id?: string;
-      team_id?: string;
-      requiredRoles?: string[];
-    };
+    const { user_slack_id, team_id, requiredRoles } =
+      exception.getResponse() as {
+        user_slack_id?: string;
+        team_id?: string;
+        requiredRoles?: string[];
+      };
 
-    if (slack_id && team_id && requiredRoles) {
-      await this.slackCommunicationService.postMessage(
-        slack_id,
+    if (user_slack_id && team_id && requiredRoles) {
+      await this.slackCommunicationService.postEphemeral(
+        user_slack_id,
         {
           text: `⛔ Only users with role *${requiredRoles.join(', ')}* can use this command.`,
         },
