@@ -15,6 +15,7 @@ interface ICreateUserParams {
 
 interface IFindParams {
   id?: string;
+  teamId?: string;
   slackId?: string;
   slackTeamId?: string;
   email?: string;
@@ -23,6 +24,7 @@ interface IFindParams {
 interface IUsersService {
   create(params: ICreateUserParams): Promise<IUserViewModel>;
   findOne(params: IFindParams): Promise<IUserViewModel | null>;
+  count(params: IFindParams): Promise<number>;
 }
 
 @Injectable()
@@ -50,6 +52,10 @@ export class UsersService implements IUsersService {
 
   public getUsersCountByTeam(slackTeamId: string) {
     return this.userRepository.getUsersCountByTeam(slackTeamId);
+  }
+
+  public count(params: IFindParams) {
+    return this.userRepository.count(this.getFindQuery(params));
   }
 
   public async update(
@@ -94,13 +100,20 @@ export class UsersService implements IUsersService {
   public async findOne(
     findParams: IFindParams,
   ): Promise<IUserViewModel | null> {
-    return await this.userRepository.findOne({
-      ...(findParams.id ? { id: findParams.id } : {}),
-      ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
+    return await this.userRepository.findOne(this.getFindQuery(findParams));
+  }
+
+  private getFindQuery(
+    findParams: IFindParams,
+  ): Record<string, string | undefined> {
+    return {
+      ...(findParams.id ? { id: findParams.id } : undefined),
+      ...(findParams.teamId ? { team_id: findParams.teamId } : undefined),
+      ...(findParams.slackId ? { slack_id: findParams.slackId } : undefined),
       ...(findParams.slackTeamId
         ? { slack_team_id: findParams.slackTeamId }
-        : {}),
-      ...(findParams.email ? { email: findParams.email } : {}),
-    });
+        : undefined),
+      ...(findParams.email ? { email: findParams.email } : undefined),
+    };
   }
 }

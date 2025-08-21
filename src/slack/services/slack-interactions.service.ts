@@ -9,6 +9,8 @@ import { TeamFormSubmitHandler } from 'src/slack/services/integration-handlers/t
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
 import { IGetTeamModalViewMetadata } from 'src/slack/services/slack-views/team-modal-view.service';
+import { DeleteTeamFormSubmitHandler } from 'src/slack/services/integration-handlers/delete-team-form-submit.handler';
+import { IDeleteTeamModalViewMetadata } from 'src/slack/services/slack-views/delete-team-modal-view.service';
 
 @Injectable()
 export default class SlackInteractionsService {
@@ -17,7 +19,8 @@ export default class SlackInteractionsService {
   public constructor(
     private readonly createVacationRequestHandler: CreateVacationRequestHandler,
     private readonly homeTabActionsHandler: HomeTabActionsHandler,
-    private readonly teamManagementActionsHandler: TeamActionsHandler,
+    private readonly teamActionsHandler: TeamActionsHandler,
+    private readonly deleteTeamFormSubmitHandler: DeleteTeamFormSubmitHandler,
     private readonly manageTeamFormSubmitHandler: TeamFormSubmitHandler,
   ) {}
 
@@ -51,7 +54,7 @@ export default class SlackInteractionsService {
         return this.homeTabActionsHandler.handle(payload, user);
       }
       case ViewCallbackId.TeamManagement: {
-        return this.teamManagementActionsHandler.handle(payload, user);
+        return this.teamActionsHandler.handle(payload, user);
       }
       default: {
         this.logger.warn(`Unhandled block action callback_id: ${callback_id}`);
@@ -75,6 +78,13 @@ export default class SlackInteractionsService {
       }
       case ViewCallbackId.CreateVacationRequest: {
         return this.createVacationRequestHandler.handle(payload, user);
+      }
+      case ViewCallbackId.DeleteTeam: {
+        const metadata = JSON.parse(
+          payload.view.private_metadata,
+        ) as IDeleteTeamModalViewMetadata;
+
+        return this.deleteTeamFormSubmitHandler.handle(payload, metadata, user);
       }
       default: {
         this.logger.warn(

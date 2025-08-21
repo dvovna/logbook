@@ -6,6 +6,7 @@ import { TeamModalViewService } from 'src/slack/services/slack-views/team-modal-
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { UsersService } from 'src/users/users.service';
 import { TeamManagementTabViewService } from 'src/slack/services/slack-views/team-management-tab-view.service';
+import DeleteTeamModalViewService from 'src/slack/services/slack-views/delete-team-modal-view.service';
 
 @Injectable()
 export class TeamsTabService {
@@ -16,6 +17,7 @@ export class TeamsTabService {
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly usersService: UsersService,
     private readonly manageTeamsViewService: TeamManagementTabViewService,
+    private readonly deleteTeamModalViewService: DeleteTeamModalViewService,
   ) {}
 
   public async publishManageTeamsTab(user: IUserViewModel) {
@@ -67,5 +69,36 @@ export class TeamsTabService {
       team,
       generalError,
     });
+  }
+
+  public async publishDeleteTeamModalView(
+    triggerId: string,
+    user: IUserViewModel,
+    teamId: string,
+  ) {
+    await this.slackCommunicationService.openView(
+      triggerId,
+      await this.getDeleteTeamModalView(teamId, user),
+      user.slack_team_id,
+    );
+  }
+
+  public async getDeleteTeamModalView(
+    teamId: string,
+    user: IUserViewModel,
+    generalError?: string,
+  ) {
+    const team = teamId
+      ? await this.teamsService.findOne({
+        id: teamId,
+        slackTeamId: user.slack_team_id,
+      })
+      : null;
+
+    if (!team) {
+      throw new Error('Team not found');
+    }
+
+    return this.deleteTeamModalViewService.getView({ team, generalError });
   }
 }

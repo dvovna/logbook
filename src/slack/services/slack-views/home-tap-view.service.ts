@@ -31,10 +31,6 @@ export class HomeTabViewsService {
     return this.getBaseViewData(userId, this.getRequestsBlocks());
   }
 
-  public getEditVacationPoliciesView({ userId }) {
-    return this.getBaseViewData(userId, this.getVacationPoliciesBlocks());
-  }
-
   private getBaseViewData(userId: string, blocks: AnyBlock[]) {
     return {
       user_id: userId,
@@ -109,39 +105,6 @@ export class HomeTabViewsService {
           {
             type: 'button',
             text: { type: 'plain_text', text: '➕ Add Request' },
-            action_id: 'admin_add_policy',
-          },
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '⬅ Back' },
-            action_id: ViewActionId.BackToHomeTap,
-          },
-        ],
-      },
-      { type: 'divider' },
-    ];
-  }
-
-  private getVacationPoliciesBlocks(): AnyBlock[] {
-    return [
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: '*📅 Vacation Policies*' },
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: 'Belarus: 24 vacation days, 5 bonus days\nPoland: 26 vacation days, 3 bonus days',
-        },
-      },
-      { type: 'divider' },
-      {
-        type: 'actions',
-        elements: [
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '➕ Add Policy' },
             action_id: 'admin_add_policy',
           },
           {

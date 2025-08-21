@@ -36,6 +36,8 @@ import TeamModalViewValuesParser from 'src/slack/services/slack-views/parsers/te
 import VacationRequestViewValuesParser from 'src/slack/services/slack-views/parsers/vacation-request-view-values.parser';
 import { VacationPoliciesTabService } from 'src/slack/services/vacation-policies-tab.service';
 import { VacationPolicyManagementTabViewService } from 'src/slack/services/slack-views/vacation-policy-management-tab-view.service';
+import DeleteTeamModalViewService from 'src/slack/services/slack-views/delete-team-modal-view.service';
+import { DeleteTeamFormSubmitHandler } from 'src/slack/services/integration-handlers/delete-team-form-submit.handler';
 
 @Module({
   imports: [
@@ -79,6 +81,8 @@ import { VacationPolicyManagementTabViewService } from 'src/slack/services/slack
     TeamFormSubmitHandler,
     VacationPolicyManagementTabViewService,
     VacationPoliciesTabService,
+    DeleteTeamModalViewService,
+    DeleteTeamFormSubmitHandler,
   ],
   exports: [],
 })

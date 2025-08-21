@@ -2,6 +2,8 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import { TeamsRepository } from 'src/teams/teams.repository';
 import { Injectable } from '@nestjs/common';
 import MaxTeamsCountReachedError from 'src/common/errors/max-teams-count-reached.error';
+import { UsersService } from 'src/users/users.service';
+import TeamDeleteError from 'src/common/errors/team-delete.error';
 
 interface ICreateTeamParams {
   name: string;
@@ -27,7 +29,10 @@ const MAX_TEAMS_COUNT = 5;
 
 @Injectable()
 export default class TeamsService {
-  public constructor(private readonly teamsRepository: TeamsRepository) {}
+  public constructor(
+    private readonly teamsRepository: TeamsRepository,
+    private readonly usersService: UsersService,
+  ) {}
 
   public async findMany({ slackTeamId }: IFindParams) {
     return this.teamsRepository.findMany({ slack_team_id: slackTeamId });
@@ -86,6 +91,31 @@ export default class TeamsService {
         updated_by: user.id,
       },
     );
+  }
+
+  public async delete(teamId: string) {
+    const team = await this.teamsRepository.findOne({ id: teamId });
+
+    if (!team) {
+      throw new Error(`Team with id ${teamId} not found`);
+    }
+
+    if (team?.is_primary) {
+      throw new TeamDeleteError('Primary team cannot be deleted');
+    }
+
+    const teamUsersCount = await this.usersService.count({
+      teamId,
+      slackTeamId: team?.slack_team_id,
+    });
+
+    if (teamUsersCount > 0) {
+      throw new TeamDeleteError('Cannot delete team with users assigned');
+    }
+
+    await this.teamsRepository.delete({ id: teamId });
+
+    return team;
   }
 
   public createDefaultTeam(slackTeamId: string, vacationPolicyId: string) {

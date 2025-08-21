@@ -12,13 +12,13 @@ export default class TeamActionsHandler {
 
   public constructor(
     private readonly homeTabService: HomeTabService,
-    private readonly teamManagementService: TeamsTabService,
+    private readonly teamTabService: TeamsTabService,
   ) {}
 
   public async handle(payload: ISlackInteractionPayload, user: IUserViewModel) {
     switch (payload.actions[0].action_id) {
       case ViewActionId.AddTeam: {
-        await this.teamManagementService.publishManageTeamModalView(
+        await this.teamTabService.publishManageTeamModalView(
           payload.trigger_id || user.slack_id,
           user,
         );
@@ -53,21 +53,30 @@ export default class TeamActionsHandler {
       return;
     }
 
-    // value is edit_team:123 || edit_users:123
-    const [actionType, id] = selectedValue.split(':');
+    // value is edit_team:team_id || edit_users:team_id
+    const [actionType, teamId] = selectedValue.split(':');
 
     switch (actionType) {
       case 'edit_team': {
-        await this.teamManagementService.publishManageTeamModalView(
+        await this.teamTabService.publishManageTeamModalView(
           payload.trigger_id || user.slack_id,
           user,
-          id,
+          teamId,
         );
 
         break;
       }
       case 'edit_users': {
         // await this.teamManagementService.openEditUsersModal(payload, user, id);
+        break;
+      }
+      case 'delete_team': {
+        await this.teamTabService.publishDeleteTeamModalView(
+          payload.trigger_id || user.slack_id,
+          user,
+          teamId,
+        );
+
         break;
       }
       default: {

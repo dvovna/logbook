@@ -107,12 +107,19 @@ export class TeamManagementTabViewService {
           action_id: ViewActionId.ManageTeamMenu,
           options: [
             {
-              text: { type: 'plain_text', text: '✏️ Edit Team' },
+              text: { type: 'plain_text', text: 'Edit Team' },
               value: `edit_team:${team.id}`,
             },
             {
-              text: { type: 'plain_text', text: '👥 Edit Users' },
+              text: { type: 'plain_text', text: 'Edit Users' },
               value: `edit_users:${team.id}`,
+            },
+            {
+              text: {
+                type: 'plain_text',
+                text: 'Delete Team',
+              },
+              value: `delete_team:${team.id}`,
             },
           ],
         },
