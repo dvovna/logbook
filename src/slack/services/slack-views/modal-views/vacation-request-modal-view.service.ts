@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { View } from '@slack/types/dist/views';
-import BaseViewService from 'src/slack/services/slack-views/base.view-service';
+import BaseModalViewService from 'src/slack/services/slack-views/modal-views/base-modal-view.service';
 
 @Injectable()
-export class VacationRequestViewService extends BaseViewService {
+export class VacationRequestModalViewService extends BaseModalViewService {
   public getView(): View {
     return {
       type: 'modal',

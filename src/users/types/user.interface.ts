@@ -5,6 +5,7 @@ export interface IUserViewModel {
   email: string;
   name: string;
   role: UserRole;
+  is_active: boolean;
   contract_start_date?: string | null;
   team_id: string;
   slack_team_id: string;

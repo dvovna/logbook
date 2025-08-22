@@ -2,6 +2,7 @@ export enum ViewActionId {
   OpenVacationModal = 'open_vacation_modal',
   ViewHistory = 'view_history',
   AdminManageTeams = 'admin_manage_teams',
+  AdminManageUsers = 'admin_manage_users',
   AdminViewAndEditVacationRequests = 'admin_view_and_edit_vacation_requests',
   AdminViewAndEditVacationPolicies = 'admin_view_and_edit_vacation_policies',
   BackToHomeTap = 'back_to_home_tab',
@@ -9,4 +10,9 @@ export enum ViewActionId {
   AddPolicy = 'add_policy',
   ManageTeamMenu = 'manage_team_menu',
   ManagePolicyMenu = 'manage_policy_menu',
+  UsersPaginationPrev = 'users_pagination_prev',
+  UsersPaginationNext = 'users_pagination_next',
+  ManageUserMenu = 'manage_user_menu',
+  FilterUsersByRole = 'filter_users_by_role',
+  FilterUsersByTeam = 'filter_users_by_team',
 }

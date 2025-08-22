@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import ITeamViewModel from 'src/teams/types/team.interface';
 import { MAX_DESCRIPTION_LENGTH } from 'src/slack/services/slack-views/parsers/team-modal-view-values.parser';
-import BaseViewService from 'src/slack/services/slack-views/base.view-service';
+import BaseModalViewService from 'src/slack/services/slack-views/modal-views/base-modal-view.service';
 import { View } from '@slack/types/dist/views';
 
 interface IGetViewParams {
@@ -16,11 +16,11 @@ export type IGetTeamModalViewMetadata = {
 };
 
 @Injectable()
-export class TeamModalViewService extends BaseViewService<IGetViewParams> {
+export class TeamModalViewService extends BaseModalViewService<IGetViewParams> {
   public getView({ team, policies, generalError }: IGetViewParams): View {
     return {
       type: 'modal',
-      callback_id: ViewCallbackId.TeamManagement,
+      callback_id: ViewCallbackId.TeamsManagement,
       private_metadata: JSON.stringify({
         teamIdToEdit: team?.id,
       } as IGetTeamModalViewMetadata),

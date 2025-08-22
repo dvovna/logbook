@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import TeamsService from 'src/teams/teams.service';
-import { TeamModalViewService } from 'src/slack/services/slack-views/team-modal-view.service';
+import { TeamModalViewService } from 'src/slack/services/slack-views/modal-views/team-modal-view.service';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { UsersService } from 'src/users/users.service';
-import { TeamManagementTabViewService } from 'src/slack/services/slack-views/team-management-tab-view.service';
-import DeleteTeamModalViewService from 'src/slack/services/slack-views/delete-team-modal-view.service';
+import { TeamsManagementTabViewService } from 'src/slack/services/slack-views/tab-views/teams-management-tab-view.service';
+import DeleteTeamModalViewService from 'src/slack/services/slack-views/modal-views/delete-team-modal-view.service';
 
 @Injectable()
 export class TeamsTabService {
@@ -16,7 +16,7 @@ export class TeamsTabService {
     private readonly teamModalViewService: TeamModalViewService,
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly usersService: UsersService,
-    private readonly manageTeamsViewService: TeamManagementTabViewService,
+    private readonly manageTeamsViewService: TeamsManagementTabViewService,
     private readonly deleteTeamModalViewService: DeleteTeamModalViewService,
   ) {}
 

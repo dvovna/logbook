@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import ITeamViewModel from 'src/teams/types/team.interface';
-import BaseViewService from 'src/slack/services/slack-views/base.view-service';
+import BaseModalViewService from 'src/slack/services/slack-views/modal-views/base-modal-view.service';
 import { View } from '@slack/types/dist/views';
 
 interface IGetViewParams {
@@ -14,7 +14,7 @@ export type IDeleteTeamModalViewMetadata = {
 };
 
 @Injectable()
-export default class DeleteTeamModalViewService extends BaseViewService<IGetViewParams> {
+export default class DeleteTeamModalViewService extends BaseModalViewService<IGetViewParams> {
   public getView({ team, generalError }: IGetViewParams): View {
     return {
       type: 'modal',

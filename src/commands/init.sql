@@ -6,6 +6,7 @@ create table if not exists users (
     team_id text references teams(id) not null,
     slack_team_id text references slack_teams(id) not null on delete cascade,
     slack_id text unique not null,
+    is_active boolean default true,
     contract_start_date date not null,
     role text not null check (role in ('member', 'admin', 'hr')),
     created_at timestamp with time zone default now()

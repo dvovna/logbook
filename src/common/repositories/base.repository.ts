@@ -2,6 +2,10 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from 'src/common/types/database.types';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { Injectable } from '@nestjs/common';
+import {
+  ISearchResult,
+  ISearchParams,
+} from 'src/common/types/pagination.types';
 
 export type Tables = Database['public']['Tables'];
 export type TableName = keyof Tables;
@@ -50,6 +54,10 @@ export abstract class BaseRepository<
 
   protected readonly defaultLimit = 100;
 
+  protected readonly defaultPageLimit = 10;
+
+  protected searchableColumns: string[] = [];
+
   public constructor(private supabaseService: SupabaseService) {
     this.client = this.supabaseService.getClient();
   }
@@ -83,6 +91,59 @@ export abstract class BaseRepository<
     const items = data as unknown as Entity['Row'][] | null;
 
     return items ? items.map(this.mapToViewModel) : [];
+  }
+
+  public async search(
+    params: ISearchParams<SupabaseFilter>,
+  ): Promise<ISearchResult<ViewModel>> {
+    const {
+      page = 1,
+      pageSize = this.defaultPageLimit,
+      sortBy = 'created_at',
+      sortOrder = 'desc',
+      searchTerm,
+      filters = {},
+    } = params;
+
+    let query = this.client
+      .from(this.tableName)
+      .select('*', { count: 'exact' });
+
+    this.buildFindQuery(query, filters, {
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      orderBy: [`${sortBy}:${sortOrder}`],
+    });
+
+    if (searchTerm && this.searchableColumns.length > 0) {
+      const ilikeFilter = `%${searchTerm}%`;
+
+      query = query.ilike(this.searchableColumns[0], ilikeFilter);
+
+      if (this.searchableColumns.length > 1) {
+        const orConditions = this.searchableColumns
+          .slice(1)
+          .map((col) => `${col}.ilike.${ilikeFilter}`)
+          .join(',');
+
+        query = query.or(orConditions);
+      }
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      throw new Error(`[${this.tableName}] search error: ${error.message}`);
+    }
+
+    const items = (data as unknown as Entity['Row'][]) ?? [];
+
+    return {
+      items: items.map(this.mapToViewModel),
+      totalCount: count ?? 0,
+      page,
+      pageSize,
+    };
   }
 
   public async count(filter: SupabaseFilter): Promise<number> {
@@ -222,10 +283,10 @@ export abstract class BaseRepository<
       }
     }
 
-    query.limit(options?.limit ?? this.defaultLimit);
-
-    if (options?.offset) {
-      query.offset(options.offset);
+    if (options?.limit !== undefined && options?.offset !== undefined) {
+      query.range(options.offset, options.offset + options.limit - 1);
+    } else {
+      query.limit(options?.limit ?? this.defaultLimit);
     }
 
     if (options?.orderBy) {

@@ -10,7 +10,7 @@ export interface IBaseViewService<
   getGeneralErrorBlock(errorMessage: string): AnyBlock;
 }
 
-export default abstract class BaseViewService<
+export default abstract class BaseModalViewService<
   ViewParams = Record<string, unknown>,
   Metadata = Record<string, unknown>,
 > implements IBaseViewService<ViewParams, Metadata>

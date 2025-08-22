@@ -18,26 +18,29 @@ import SlackEventsController from 'src/slack/controllers/slack-events.controller
 import SlackEventsService from 'src/slack/services/slack-events.service';
 import { UserDataImportModule } from 'src/user-data-import/user-data-import.module';
 import { CreateVacationRequestHandler } from 'src/slack/services/integration-handlers/create-vacation-request.handler';
-import { VacationRequestViewService } from 'src/slack/services/slack-views/vacation-request-view.service';
-import { VacationPolicyModalViewService } from 'src/slack/services/slack-views/vacation-policy-modal-view.service';
+import { VacationRequestModalViewService } from 'src/slack/services/slack-views/modal-views/vacation-request-modal-view.service';
+import { VacationPolicyModalViewService } from 'src/slack/services/slack-views/modal-views/vacation-policy-modal-view.service';
 import FileUploadService from 'src/slack/services/file-upload.service';
 import { HomeTabService } from 'src/slack/services/home-tap.service';
-import { HomeTabViewsService } from 'src/slack/services/slack-views/home-tap-view.service';
+import { HomeTabViewsService } from 'src/slack/services/slack-views/tab-views/home-tap-view.service';
 import HomeTabActionsHandler from 'src/slack/services/integration-handlers/home-tab-actions.handler';
 import { SlackPayloadParsePipe } from 'src/slack/pipes/slack-payload-parse.pipe';
 import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payload-parse.middleware';
-import { TeamManagementTabViewService } from 'src/slack/services/slack-views/team-management-tab-view.service';
+import { TeamsManagementTabViewService } from 'src/slack/services/slack-views/tab-views/teams-management-tab-view.service';
 import { TeamsModule } from 'src/teams/teams.module';
 import { TeamsTabService } from 'src/slack/services/teams-tab.service';
 import TeamActionsHandler from 'src/slack/services/integration-handlers/team-actions.handler';
-import { TeamModalViewService } from 'src/slack/services/slack-views/team-modal-view.service';
+import { TeamModalViewService } from 'src/slack/services/slack-views/modal-views/team-modal-view.service';
 import { TeamFormSubmitHandler } from 'src/slack/services/integration-handlers/team-form-submit.handler';
 import TeamModalViewValuesParser from 'src/slack/services/slack-views/parsers/team-modal-view-values.parser';
 import VacationRequestViewValuesParser from 'src/slack/services/slack-views/parsers/vacation-request-view-values.parser';
 import { VacationPoliciesTabService } from 'src/slack/services/vacation-policies-tab.service';
-import { VacationPolicyManagementTabViewService } from 'src/slack/services/slack-views/vacation-policy-management-tab-view.service';
-import DeleteTeamModalViewService from 'src/slack/services/slack-views/delete-team-modal-view.service';
+import { VacationPolicyManagementTabViewService } from 'src/slack/services/slack-views/tab-views/vacation-policy-management-tab-view.service';
+import DeleteTeamModalViewService from 'src/slack/services/slack-views/modal-views/delete-team-modal-view.service';
 import { DeleteTeamFormSubmitHandler } from 'src/slack/services/integration-handlers/delete-team-form-submit.handler';
+import { UsersManagementTabViewService } from 'src/slack/services/slack-views/tab-views/users-management-tab-view.service';
+import { UsersTabService } from 'src/slack/services/users-tab.service';
+import UserActionsHandler from 'src/slack/services/integration-handlers/user-actions.handler';
 
 @Module({
   imports: [
@@ -65,15 +68,18 @@ import { DeleteTeamFormSubmitHandler } from 'src/slack/services/integration-hand
     SlackUserAccessService,
     SlackEventsService,
     CreateVacationRequestHandler,
-    VacationRequestViewService,
-    TeamManagementTabViewService,
+    VacationRequestModalViewService,
+    TeamsManagementTabViewService,
+    UsersManagementTabViewService,
     VacationPolicyModalViewService,
+    UsersTabService,
     FileUploadService,
     HomeTabViewsService,
     HomeTabService,
     HomeTabActionsHandler,
     SlackPayloadParsePipe,
     TeamActionsHandler,
+    UserActionsHandler,
     TeamsTabService,
     TeamModalViewService,
     TeamModalViewValuesParser,

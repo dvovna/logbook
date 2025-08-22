@@ -53,7 +53,7 @@ export default class TeamActionsHandler {
       return;
     }
 
-    // value is edit_team:team_id || edit_users:team_id
+    // e.g. edit_team:team_id
     const [actionType, teamId] = selectedValue.split(':');
 
     switch (actionType) {
@@ -64,10 +64,6 @@ export default class TeamActionsHandler {
           teamId,
         );
 
-        break;
-      }
-      case 'edit_users': {
-        // await this.teamManagementService.openEditUsersModal(payload, user, id);
         break;
       }
       case 'delete_team': {

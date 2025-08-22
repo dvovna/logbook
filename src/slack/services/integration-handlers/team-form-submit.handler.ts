@@ -4,7 +4,7 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import {
   IGetTeamModalViewMetadata,
   TeamModalViewService,
-} from 'src/slack/services/slack-views/team-modal-view.service';
+} from 'src/slack/services/slack-views/modal-views/team-modal-view.service';
 import TeamsService from 'src/teams/teams.service';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';

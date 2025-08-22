@@ -3,7 +3,7 @@ import { UserVacationsUsageService } from 'src/vacations/user-vacation-usage.ser
 import { IUserViewModel } from 'src/users/types/user.interface';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { IUserVacationsUsageInfo } from 'src/vacations/types/user-vacations-usage-info.interface';
-import { VacationRequestViewService } from 'src/slack/services/slack-views/vacation-request-view.service';
+import { VacationRequestModalViewService } from 'src/slack/services/slack-views/modal-views/vacation-request-modal-view.service';
 
 export enum VacationCommand {
   Usage = 'usage',
@@ -16,7 +16,7 @@ export default class VacationCommandService {
   public constructor(
     private readonly userVacationUsageService: UserVacationsUsageService,
     private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly vacationRequestViewService: VacationRequestViewService,
+    private readonly vacationRequestViewService: VacationRequestModalViewService,
   ) {}
 
   public async handleCommand(

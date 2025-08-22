@@ -13,7 +13,7 @@ interface IGetViewParams {
 }
 
 @Injectable()
-export class TeamManagementTabViewService {
+export class TeamsManagementTabViewService {
   public constructor(
     private readonly vacationPoliciesCacheService: VacationPoliciesCacheService,
   ) {}
@@ -23,7 +23,7 @@ export class TeamManagementTabViewService {
       user_id: userId,
       view: {
         type: 'home',
-        callback_id: ViewCallbackId.TeamManagement,
+        callback_id: ViewCallbackId.TeamsManagement,
         blocks: await this.getViewBlocks(teams, usersCountByTeam),
       },
     } as ViewsPublishArguments;
@@ -40,19 +40,9 @@ export class TeamManagementTabViewService {
       text: { type: 'mrkdwn', text: '*🏢 Teams Management*' },
     });
 
-    if (teams.length === 0) {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: '_No teams yet._' },
-      });
-    } else {
-      const blocksToAdd = await this.getTeamsListBlocks(
-        teams,
-        usersCountByTeam,
-      );
+    const blocksToAdd = await this.getTeamsListBlocks(teams, usersCountByTeam);
 
-      blocks.push(...blocksToAdd);
-    }
+    blocks.push(...blocksToAdd);
 
     blocks.push({
       type: 'actions',
@@ -109,10 +99,6 @@ export class TeamManagementTabViewService {
             {
               text: { type: 'plain_text', text: 'Edit Team' },
               value: `edit_team:${team.id}`,
-            },
-            {
-              text: { type: 'plain_text', text: 'Edit Users' },
-              value: `edit_users:${team.id}`,
             },
             {
               text: {

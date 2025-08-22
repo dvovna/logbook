@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { UsersRepository } from 'src/users/users.repository';
 import UserRole from 'src/common/enums/user-role.enum';
 import { IUserViewModel } from 'src/users/types/user.interface';
+import {
+  ISearchResult,
+  ISearchParams,
+} from 'src/common/types/pagination.types';
 
 interface ICreateUserParams {
   email: string;
@@ -16,14 +20,19 @@ interface ICreateUserParams {
 interface IFindParams {
   id?: string;
   teamId?: string;
+  role?: UserRole;
   slackId?: string;
   slackTeamId?: string;
+  isActive?: boolean;
   email?: string;
 }
+
+type ISearchUsersParams = ISearchParams<IFindParams>;
 
 interface IUsersService {
   create(params: ICreateUserParams): Promise<IUserViewModel>;
   findOne(params: IFindParams): Promise<IUserViewModel | null>;
+  search(params: ISearchUsersParams): Promise<ISearchResult<IUserViewModel>>;
   count(params: IFindParams): Promise<number>;
 }
 
@@ -43,10 +52,24 @@ export class UsersService implements IUsersService {
       created_at: new Date().toISOString(),
       email,
       name,
+      is_active: true,
       team_id: teamId,
       slack_team_id: slackTeamId,
       role,
       slack_id: slackId,
+    });
+  }
+
+  public async search(
+    params: ISearchUsersParams,
+  ): Promise<ISearchResult<IUserViewModel>> {
+    return this.userRepository.search({
+      filters: this.getFindQuery(params.filters),
+      page: params.page,
+      pageSize: params.pageSize,
+      sortOrder: params.sortOrder,
+      sortBy: params.sortBy,
+      searchTerm: params.searchTerm,
     });
   }
 
@@ -105,15 +128,19 @@ export class UsersService implements IUsersService {
 
   private getFindQuery(
     findParams: IFindParams,
-  ): Record<string, string | undefined> {
+  ): Record<string, string | boolean> {
     return {
-      ...(findParams.id ? { id: findParams.id } : undefined),
-      ...(findParams.teamId ? { team_id: findParams.teamId } : undefined),
-      ...(findParams.slackId ? { slack_id: findParams.slackId } : undefined),
+      ...(findParams.id ? { id: findParams.id } : {}),
+      ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
+      ...(findParams.role ? { role: findParams.role } : {}),
+      ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
+      ...(findParams.isActive !== undefined
+        ? { is_active: findParams.isActive }
+        : {}),
       ...(findParams.slackTeamId
         ? { slack_team_id: findParams.slackTeamId }
-        : undefined),
-      ...(findParams.email ? { email: findParams.email } : undefined),
+        : {}),
+      ...(findParams.email ? { email: findParams.email } : {}),
     };
   }
 }

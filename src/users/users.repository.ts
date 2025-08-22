@@ -13,10 +13,13 @@ export class UsersRepository extends BaseRepository<
 > {
   protected readonly tableName = 'users';
 
+  protected searchableColumns = ['name', 'email'];
+
   public async getUsersCountByTeam(slackTeamId: string) {
     const { data, error } = await this.client
       .from(this.tableName)
       .select('id, team_id')
+      .eq('is_active', true)
       .eq('slack_team_id', slackTeamId);
 
     if (error) {
@@ -38,6 +41,7 @@ export class UsersRepository extends BaseRepository<
       id: row.id,
       email: row.email,
       name: row.name,
+      is_active: row.is_active,
       role: row.role as UserRole,
       contract_start_date: row.contract_start_date,
       slack_id: row.slack_id,

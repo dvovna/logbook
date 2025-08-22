@@ -107,6 +107,7 @@ export default class TeamsService {
     const teamUsersCount = await this.usersService.count({
       teamId,
       slackTeamId: team?.slack_team_id,
+      isActive: true,
     });
 
     if (teamUsersCount > 0) {

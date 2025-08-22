@@ -57,6 +57,11 @@ export class HomeTabViewsService {
         elements: [
           {
             type: 'button',
+            text: { type: 'plain_text', text: 'Manage Users' },
+            action_id: ViewActionId.AdminManageUsers,
+          },
+          {
+            type: 'button',
             text: { type: 'plain_text', text: 'Manage Teams' },
             action_id: ViewActionId.AdminManageTeams,
           },

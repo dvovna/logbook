@@ -33,14 +33,17 @@ export class SlackUserGuard implements CanActivate {
       return true;
     }
 
-    const user = await this.usersService.findOne({ slackId: slackUserId });
+    const user = await this.usersService.findOne({
+      slackId: slackUserId,
+      isActive: true,
+    });
 
     if (!user) {
       this.logger.log('SlackUserGuard: User not found for slack_id', {
         slackUserId,
       });
 
-      throw new UnauthorizedException('User not found for this slack_id');
+      throw new UnauthorizedException('User not found.');
     }
 
     req.user = user;
