@@ -21,12 +21,12 @@ import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-polic
 
 interface IGetViewParams {
   policy: IVacationPolicyViewModel | null;
-  generalError?: string;
+  errorMessage?: string;
 }
 
 @Injectable()
 export class VacationPolicyModalViewService extends BaseModalViewService<IGetViewParams> {
-  public getView({ policy, generalError }: IGetViewParams): View {
+  public getView({ policy, errorMessage }: IGetViewParams): View {
     return {
       type: 'modal',
       callback_id: ViewCallbackId.VacationPolicyManagement,

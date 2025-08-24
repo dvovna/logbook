@@ -15,14 +15,17 @@ interface ICreateUserParams {
   teamId: string;
   slackId: string;
   contractStartDate?: string;
+  carryoverDays?: number;
+  isActive?: boolean;
+  updatedBy?: string;
 }
 
 interface IFindParams {
+  slackTeamId: string;
   id?: string;
   teamId?: string;
   role?: UserRole;
   slackId?: string;
-  slackTeamId?: string;
   isActive?: boolean;
   email?: string;
 }
@@ -52,6 +55,7 @@ export class UsersService implements IUsersService {
       created_at: new Date().toISOString(),
       email,
       name,
+      carryover_days: 0,
       is_active: true,
       team_id: teamId,
       slack_team_id: slackTeamId,
@@ -82,17 +86,23 @@ export class UsersService implements IUsersService {
   }
 
   public async update(
-    id: string,
+    findParams: IFindParams,
     params: Partial<ICreateUserParams>,
+    updatedBy?: IUserViewModel,
   ): Promise<IUserViewModel | null> {
-    return await this.userRepository.update(
-      {
-        id,
-      },
-      {
-        ...params,
-      },
-    );
+    return await this.userRepository.update(this.getFindQuery(findParams), {
+      ...(params.role ? { role: params.role } : {}),
+      ...(params.name ? { name: params.name } : {}),
+      ...(params.email ? { email: params.email } : {}),
+      ...(params.teamId ? { team_id: params.teamId } : {}),
+      ...(params.contractStartDate
+        ? { contract_start_date: params.contractStartDate }
+        : {}),
+      ...(params.carryoverDays ? { carryover_days: params.carryoverDays } : {}),
+      ...(params.isActive !== undefined ? { is_active: params.isActive } : {}),
+      updated_at: new Date().toISOString(),
+      updated_by: updatedBy?.id || null,
+    });
   }
 
   public async bulkCreate(paramsList: ICreateUserParams[]) {
@@ -108,6 +118,7 @@ export class UsersService implements IUsersService {
       }) => ({
         email,
         name,
+        carryover_days: 0,
         role: role || UserRole.Member,
         team_id: teamId,
         slack_team_id: slackTeamId,
@@ -126,20 +137,25 @@ export class UsersService implements IUsersService {
     return await this.userRepository.findOne(this.getFindQuery(findParams));
   }
 
+  public async findBySlackId(slackId: string) {
+    return await this.userRepository.findOne({
+      slack_id: slackId,
+      is_active: true,
+    });
+  }
+
   private getFindQuery(
     findParams: IFindParams,
   ): Record<string, string | boolean> {
     return {
+      slack_team_id: findParams.slackTeamId,
       ...(findParams.id ? { id: findParams.id } : {}),
       ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
       ...(findParams.role ? { role: findParams.role } : {}),
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
       ...(findParams.isActive !== undefined
         ? { is_active: findParams.isActive }
-        : {}),
-      ...(findParams.slackTeamId
-        ? { slack_team_id: findParams.slackTeamId }
-        : {}),
+        : { is_active: true }),
       ...(findParams.email ? { email: findParams.email } : {}),
     };
   }

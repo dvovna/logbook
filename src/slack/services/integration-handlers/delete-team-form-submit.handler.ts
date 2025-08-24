@@ -5,7 +5,10 @@ import { TeamModalViewService } from 'src/slack/services/slack-views/modal-views
 import TeamsService from 'src/teams/teams.service';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { TeamsTabService } from 'src/slack/services/teams-tab.service';
+import {
+  TeamsTabModalName,
+  TeamsTabService,
+} from 'src/slack/services/teams-tab.service';
 import { IDeleteTeamModalViewMetadata } from 'src/slack/services/slack-views/modal-views/delete-team-modal-view.service';
 import TeamDeleteError from 'src/common/errors/team-delete.error';
 
@@ -14,7 +17,7 @@ export class DeleteTeamFormSubmitHandler {
   public constructor(
     private readonly teamModalViewService: TeamModalViewService,
     private readonly teamsService: TeamsService,
-    private readonly manageTeamsTabService: TeamsTabService,
+    private readonly teamsTabService: TeamsTabService,
   ) {}
 
   public async handle(
@@ -27,7 +30,7 @@ export class DeleteTeamFormSubmitHandler {
     try {
       const team = await this.teamsService.delete(teamIdToDelete);
 
-      this.manageTeamsTabService.publishManageTeamsTab(user);
+      this.teamsTabService.publish({ user });
 
       return SlackViewResponseFactory.update(
         this.teamModalViewService.getSuccessView(
@@ -41,11 +44,11 @@ export class DeleteTeamFormSubmitHandler {
           : 'An error occurred while deleting the team. Please try again later.';
 
       return SlackViewResponseFactory.update(
-        await this.manageTeamsTabService.getDeleteTeamModalView(
-          teamIdToDelete,
+        await this.teamsTabService.getModalView(TeamsTabModalName.DeleteTeam, {
+          teamId: teamIdToDelete,
           user,
           errorMessage,
-        ),
+        }),
       );
     }
   }

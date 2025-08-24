@@ -7,6 +7,7 @@ export interface IUserViewModel {
   role: UserRole;
   is_active: boolean;
   contract_start_date?: string | null;
+  carryover_days?: number | null;
   team_id: string;
   slack_team_id: string;
   slack_id: string;

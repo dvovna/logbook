@@ -1,6 +1,6 @@
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { TeamsRepository } from 'src/teams/teams.repository';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import MaxTeamsCountReachedError from 'src/common/errors/max-teams-count-reached.error';
 import { UsersService } from 'src/users/users.service';
 import TeamDeleteError from 'src/common/errors/team-delete.error';
@@ -43,6 +43,19 @@ export default class TeamsService {
       slack_team_id: params.slackTeamId,
       id: params.id,
     });
+  }
+
+  public async findOneWithValidation(params: IFindParams) {
+    const team = await this.teamsRepository.findOne({
+      slack_team_id: params.slackTeamId,
+      id: params.id,
+    });
+
+    if (!team) {
+      throw new NotFoundException(`Team with id ${params.id} not found`);
+    }
+
+    return team;
   }
 
   public async create(createParams: ICreateTeamParams, user: IUserViewModel) {

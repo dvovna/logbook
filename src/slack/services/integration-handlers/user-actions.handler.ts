@@ -4,11 +4,14 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import { HomeTabService } from 'src/slack/services/home-tap.service';
 import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
 import { OverflowAction } from '@slack/bolt';
-import { UsersTabService } from 'src/slack/services/users-tab.service';
+import {
+  UsersTabModalName,
+  UsersTabService,
+} from 'src/slack/services/users-tab.service';
 import {
   ALL_OPTION_VALUE,
   IUsersTabMetaData,
-} from 'src/slack/services/slack-views/tab-views/users-management-tab-view.service';
+} from 'src/slack/services/slack-views/tab-views/users-tab-view.service';
 import { ButtonAction } from '@slack/bolt/dist/types/actions/block-action';
 import UserRole from 'src/common/enums/user-role.enum';
 
@@ -25,6 +28,11 @@ export default class UserActionsHandler {
     switch (payload.actions[0].action_id) {
       case ViewActionId.BackToHomeTap: {
         await this.homeTabService.publishHomeTab(user);
+
+        break;
+      }
+      case ViewActionId.ManageUserMenu: {
+        await this.handleManageUserMenuAction(payload, user);
 
         break;
       }
@@ -50,6 +58,49 @@ export default class UserActionsHandler {
     }
   }
 
+  private async handleManageUserMenuAction(
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) {
+    const selectedValue = (payload.actions[0] as OverflowAction).selected_option
+      ?.value;
+
+    if (!selectedValue) {
+      this.logger.warn(
+        `${ViewActionId.ManageUserMenu} triggered without selected_option`,
+      );
+
+      return;
+    }
+
+    // e.g. edit_team:team_id
+    const [actionType, userId] = selectedValue.split(':');
+
+    switch (actionType) {
+      case 'edit_user': {
+        await this.usersTabService.openModal(
+          payload.trigger_id || user.slack_id,
+          UsersTabModalName.EditUser,
+          { userId, user },
+        );
+
+        break;
+      }
+      case 'deactivate_user': {
+        await this.usersTabService.openModal(
+          payload.trigger_id || user.slack_id,
+          UsersTabModalName.DeactivateUser,
+          { userId, user },
+        );
+
+        break;
+      }
+      default: {
+        this.logger.warn(`Unhandled AdminTeamMenu actionType: ${actionType}`);
+      }
+    }
+  }
+
   private async handlePagination(
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
@@ -68,11 +119,11 @@ export default class UserActionsHandler {
       ? (JSON.parse(payload.view.private_metadata) as IUsersTabMetaData)
       : {};
 
-    await this.usersTabService.publishManageUsersTab(
+    await this.usersTabService.publish({
       user,
-      parseInt(pageToSet, 10),
+      page: parseInt(pageToSet, 10),
       metadata,
-    );
+    });
   }
 
   private async handleFilterByRole(
@@ -86,12 +137,16 @@ export default class UserActionsHandler {
       ? (JSON.parse(payload.view.private_metadata) as IUsersTabMetaData)
       : {};
 
-    await this.usersTabService.publishManageUsersTab(user, 1, {
-      ...metadata,
-      filters: {
-        ...metadata.filters,
-        selectedRole:
-          selectedRole !== ALL_OPTION_VALUE ? selectedRole : undefined,
+    await this.usersTabService.publish({
+      user,
+      page: 1,
+      metadata: {
+        ...metadata,
+        filters: {
+          ...metadata.filters,
+          selectedRole:
+            selectedRole !== ALL_OPTION_VALUE ? selectedRole : undefined,
+        },
       },
     });
   }
@@ -107,12 +162,16 @@ export default class UserActionsHandler {
       ? (JSON.parse(payload.view.private_metadata) as IUsersTabMetaData)
       : {};
 
-    await this.usersTabService.publishManageUsersTab(user, 1, {
-      ...metadata,
-      filters: {
-        ...metadata.filters,
-        selectedTeamId:
-          selectedTeamId !== ALL_OPTION_VALUE ? selectedTeamId : undefined,
+    await this.usersTabService.publish({
+      user,
+      page: 1,
+      metadata: {
+        ...metadata,
+        filters: {
+          ...metadata.filters,
+          selectedTeamId:
+            selectedTeamId !== ALL_OPTION_VALUE ? selectedTeamId : undefined,
+        },
       },
     });
   }

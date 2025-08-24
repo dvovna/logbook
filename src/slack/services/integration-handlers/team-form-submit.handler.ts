@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import {
-  IGetTeamModalViewMetadata,
+  ITeamModalViewMetadata,
   TeamModalViewService,
 } from 'src/slack/services/slack-views/modal-views/team-modal-view.service';
 import TeamsService from 'src/teams/teams.service';
@@ -11,7 +11,10 @@ import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory
 import TeamModalViewValuesParser, {
   ITeamFormViewData,
 } from 'src/slack/services/slack-views/parsers/team-modal-view-values.parser';
-import { TeamsTabService } from 'src/slack/services/teams-tab.service';
+import {
+  TeamsTabModalName,
+  TeamsTabService,
+} from 'src/slack/services/teams-tab.service';
 import MaxTeamsCountReachedError from 'src/common/errors/max-teams-count-reached.error';
 
 @Injectable()
@@ -20,12 +23,12 @@ export class TeamFormSubmitHandler {
     private readonly teamModalViewValuesParser: TeamModalViewValuesParser,
     private readonly teamModalViewService: TeamModalViewService,
     private readonly teamsService: TeamsService,
-    private readonly manageTeamsTabService: TeamsTabService,
+    private readonly teamsTabService: TeamsTabService,
   ) {}
 
   public async handle(
     payload: ISlackInteractionPayload,
-    metadata: IGetTeamModalViewMetadata,
+    metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     const { view } = payload;
@@ -42,7 +45,7 @@ export class TeamFormSubmitHandler {
     try {
       const team = await this.createOrUpdateTeam(data, teamIdToEdit, user);
 
-      this.manageTeamsTabService.publishManageTeamsTab(user);
+      this.teamsTabService.publish({ user });
 
       return SlackViewResponseFactory.update(
         this.teamModalViewService.getSuccessView(
@@ -56,10 +59,17 @@ export class TeamFormSubmitHandler {
           : 'An error occurred while creating or updating the team. Please try again later.';
 
       return SlackViewResponseFactory.update(
-        await this.manageTeamsTabService.getTeamModalView(
-          user,
-          teamIdToEdit,
-          errorMessage,
+        await this.teamsTabService.getModalView<
+          TeamsTabModalName.CreateTeam | TeamsTabModalName.UpdateTeam
+        >(
+          teamIdToEdit
+            ? TeamsTabModalName.UpdateTeam
+            : TeamsTabModalName.CreateTeam,
+          {
+            user,
+            errorMessage,
+            ...(teamIdToEdit ? { teamId: teamIdToEdit } : {}),
+          },
         ),
       );
     }

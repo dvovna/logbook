@@ -31,7 +31,7 @@ export class VacationPoliciesTabService {
   public async getVacationPolicyModalView(
     user: IUserViewModel,
     policyId: string | null,
-    generalError?: string,
+    errorMessage?: string,
   ) {
     const policy = policyId
       ? await this.vacationPoliciesService.findOne({
@@ -42,7 +42,7 @@ export class VacationPoliciesTabService {
 
     return this.vacationPolicyModalViewService.getView({
       policy,
-      generalError,
+      errorMessage,
     });
   }
 }

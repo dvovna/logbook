@@ -15,8 +15,8 @@ export default class HomeTabActionsHandler {
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly vacationRequestViewService: VacationRequestModalViewService,
     private readonly homeTabService: HomeTabService,
-    private readonly manageTeamsTabService: TeamsTabService,
-    private readonly manageUsersTabService: UsersTabService,
+    private readonly teamsTabService: TeamsTabService,
+    private readonly usersTabService: UsersTabService,
     private readonly vacationPoliciesTabService: VacationPoliciesTabService,
   ) {}
 
@@ -43,12 +43,12 @@ export default class HomeTabActionsHandler {
         break;
       }
       case ViewActionId.AdminManageTeams: {
-        await this.manageTeamsTabService.publishManageTeamsTab(user);
+        await this.teamsTabService.publish({ user });
 
         break;
       }
       case ViewActionId.AdminManageUsers: {
-        await this.manageUsersTabService.publishManageUsersTab(user);
+        await this.usersTabService.publish({ user });
 
         break;
       }

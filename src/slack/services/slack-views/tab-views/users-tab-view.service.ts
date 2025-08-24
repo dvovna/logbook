@@ -6,9 +6,9 @@ import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
 import ITeamViewModel from 'src/teams/types/team.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ISearchResult } from 'src/common/types/pagination.types';
-import UserRole from 'src/common/enums/user-role.enum';
 import capitalize from 'src/common/utils/capitalize';
 import { IUsersTabViewFilters } from 'src/slack/services/users-tab.service';
+import { ROLE_OPTIONS } from 'src/slack/constants/use-roles.constants';
 
 export interface IUsersTabMetaData {
   filters?: IUsersTabViewFilters;
@@ -33,7 +33,7 @@ const ALL_TEAMS_SELECT_OPTION = {
 };
 
 @Injectable()
-export class UsersManagementTabViewService {
+export class UsersTabViewService {
   public getView(
     { userId, teams, users }: IGetViewParams,
     metadata: IUsersTabMetaData = {},
@@ -43,7 +43,7 @@ export class UsersManagementTabViewService {
       private_metadata: JSON.stringify(metadata),
       view: {
         type: 'home',
-        callback_id: ViewCallbackId.UsersManagement,
+        callback_id: ViewCallbackId.UserTabView,
         blocks: this.getViewBlocks(users, teams, metadata.filters),
       },
     } as ViewsPublishArguments;
@@ -97,9 +97,17 @@ export class UsersManagementTabViewService {
     teams: ITeamViewModel[],
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
+    const teamsById = teams.reduce(
+      (acc, team) => {
+        acc[team.id] = team;
+        return acc;
+      },
+      {} as Record<string, ITeamViewModel>,
+    );
 
     for (const user of users.items) {
-      const team = teams.find((t) => t.id === user.team_id);
+      const team = teamsById[user.team_id];
+
       blocks.push({
         type: 'section',
         fields: [
@@ -108,7 +116,8 @@ export class UsersManagementTabViewService {
             text:
               `*${user.name}* (${user.email})\n` +
               `Role: ${user.role}\n` +
-              `Team: ${team?.name || '-'}`,
+              `Team: ${team.name || '-'}\n` +
+              `Carryover Days: ${user.carryover_days || '-'}`,
           },
         ],
         accessory: {
@@ -116,12 +125,8 @@ export class UsersManagementTabViewService {
           action_id: ViewActionId.ManageUserMenu,
           options: [
             {
-              text: { type: 'plain_text', text: 'Change Role' },
-              value: `change_role:${user.id}`,
-            },
-            {
-              text: { type: 'plain_text', text: 'Change Team' },
-              value: `change_team:${user.id}`,
+              text: { type: 'plain_text', text: 'Edit User' },
+              value: `edit_user:${user.id}`,
             },
             {
               text: { type: 'plain_text', text: 'Deactivate User' },
@@ -148,11 +153,6 @@ export class UsersManagementTabViewService {
     teams: ITeamViewModel[],
     filters?: IUsersTabViewFilters,
   ): ActionsBlock {
-    const roleOptions = Object.values(UserRole).map((role) => ({
-      text: { type: 'plain_text', text: capitalize(role) },
-      value: role,
-    }));
-
     const teamOptions = teams.map((team) => ({
       text: { type: 'plain_text', text: team.name },
       value: team.id,
@@ -174,7 +174,7 @@ export class UsersManagementTabViewService {
             },
             value: filters?.selectedRole || ALL_OPTION_VALUE,
           },
-          options: [ALL_ROLES_SELECT_OPTION, ...roleOptions],
+          options: [ALL_ROLES_SELECT_OPTION, ...ROLE_OPTIONS],
         },
         {
           type: 'static_select',
@@ -213,20 +213,24 @@ export class UsersManagementTabViewService {
       type: 'actions',
       elements: [
         ...(page > 1
-          ? [{
-            type: 'button',
-            text: { type: 'plain_text', text: '⬅ Prev' },
-            action_id: ViewActionId.UsersPaginationPrev,
-            value: String(page - 1),
-          }]
+          ? [
+            {
+              type: 'button',
+              text: { type: 'plain_text', text: '⬅ Prev' },
+              action_id: ViewActionId.UsersPaginationPrev,
+              value: String(page - 1),
+            },
+          ]
           : []),
         ...(page < totalPages
-          ? [{
-            type: 'button',
-            text: { type: 'plain_text', text: 'Next ➡' },
-            action_id: ViewActionId.UsersPaginationNext,
-            value: String(page + 1),
-          }]
+          ? [
+            {
+              type: 'button',
+              text: { type: 'plain_text', text: 'Next ➡' },
+              action_id: ViewActionId.UsersPaginationNext,
+              value: String(page + 1),
+            },
+          ]
           : []),
       ],
     } as ActionsBlock);

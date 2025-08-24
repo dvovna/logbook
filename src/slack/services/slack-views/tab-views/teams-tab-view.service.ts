@@ -13,7 +13,7 @@ interface IGetViewParams {
 }
 
 @Injectable()
-export class TeamsManagementTabViewService {
+export class TeamsTabViewService {
   public constructor(
     private readonly vacationPoliciesCacheService: VacationPoliciesCacheService,
   ) {}
@@ -23,7 +23,7 @@ export class TeamsManagementTabViewService {
       user_id: userId,
       view: {
         type: 'home',
-        callback_id: ViewCallbackId.TeamsManagement,
+        callback_id: ViewCallbackId.TeamTabView,
         blocks: await this.getViewBlocks(teams, usersCountByTeam),
       },
     } as ViewsPublishArguments;
@@ -54,7 +54,7 @@ export class TeamsManagementTabViewService {
         },
         {
           type: 'button',
-          text: { type: 'plain_text', text: '⬅ Back' },
+          text: { type: 'plain_text', text: 'Back To Home Page' },
           action_id: ViewActionId.BackToHomeTap,
         },
       ],

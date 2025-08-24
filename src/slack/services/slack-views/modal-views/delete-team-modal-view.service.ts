@@ -6,7 +6,7 @@ import { View } from '@slack/types/dist/views';
 
 interface IGetViewParams {
   team: ITeamViewModel;
-  generalError?: string;
+  errorMessage?: string;
 }
 
 export type IDeleteTeamModalViewMetadata = {
@@ -15,7 +15,7 @@ export type IDeleteTeamModalViewMetadata = {
 
 @Injectable()
 export default class DeleteTeamModalViewService extends BaseModalViewService<IGetViewParams> {
-  public getView({ team, generalError }: IGetViewParams): View {
+  public getView({ team, errorMessage }: IGetViewParams): View {
     return {
       type: 'modal',
       callback_id: ViewCallbackId.DeleteTeam,
@@ -35,7 +35,7 @@ export default class DeleteTeamModalViewService extends BaseModalViewService<IGe
         text: 'Cancel',
       },
       blocks: [
-        ...(generalError ? [this.getGeneralErrorBlock(generalError)] : []),
+        ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
         {
           type: 'section',
           text: {

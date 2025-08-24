@@ -8,22 +8,22 @@ import { View } from '@slack/types/dist/views';
 interface IGetViewParams {
   team?: ITeamViewModel | null;
   policies: { id: string; name: string }[];
-  generalError?: string;
+  errorMessage?: string;
 }
 
-export type IGetTeamModalViewMetadata = {
+export type ITeamModalViewMetadata = {
   teamIdToEdit: string | null;
 };
 
 @Injectable()
 export class TeamModalViewService extends BaseModalViewService<IGetViewParams> {
-  public getView({ team, policies, generalError }: IGetViewParams): View {
+  public getView({ team, policies, errorMessage }: IGetViewParams): View {
     return {
       type: 'modal',
-      callback_id: ViewCallbackId.TeamsManagement,
+      callback_id: ViewCallbackId.TeamModalView,
       private_metadata: JSON.stringify({
         teamIdToEdit: team?.id,
-      } as IGetTeamModalViewMetadata),
+      } as ITeamModalViewMetadata),
       title: {
         type: 'plain_text',
         text: team ? 'Edit Team' : 'Create Team',
@@ -37,7 +37,7 @@ export class TeamModalViewService extends BaseModalViewService<IGetViewParams> {
         text: 'Cancel',
       },
       blocks: [
-        ...(generalError ? [this.getGeneralErrorBlock(generalError)] : []),
+        ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
         {
           type: 'input',
           block_id: 'name_block',

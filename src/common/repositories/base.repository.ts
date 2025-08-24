@@ -6,6 +6,7 @@ import {
   ISearchResult,
   ISearchParams,
 } from 'src/common/types/pagination.types';
+import { getLogger } from '@slack/web-api/dist/logger';
 
 export type Tables = Database['public']['Tables'];
 export type TableName = keyof Tables;
@@ -62,10 +63,10 @@ export abstract class BaseRepository<
     this.client = this.supabaseService.getClient();
   }
 
-  public async findOne(filter: SupabaseFilter, options?: IQueryOptions) {
+  public async findOne(filter: SupabaseFilter) {
     const query = this.client.from(this.tableName).select('*');
 
-    this.buildFindQuery(query, filter, options);
+    this.buildMatchQuery(query, filter);
 
     const result = await query.single();
 
@@ -151,7 +152,7 @@ export abstract class BaseRepository<
       .from(this.tableName)
       .select('*', { count: 'exact', head: true });
 
-    this.buildFindQuery(query, filter);
+    this.buildMatchQuery(query, filter);
 
     const { count, error } = await query;
 
@@ -201,7 +202,7 @@ export abstract class BaseRepository<
   ): Promise<ViewModel> {
     const query = this.client.from(this.tableName).update(data);
 
-    this.buildFindQuery(query, filter);
+    this.buildMatchQuery(query, filter);
 
     const { data: updated, error } = await query.select().single();
 
@@ -215,7 +216,7 @@ export abstract class BaseRepository<
   public async delete(filter: SupabaseFilter): Promise<void> {
     const query = this.client.from(this.tableName).delete();
 
-    this.buildFindQuery(query, filter);
+    this.buildMatchQuery(query, filter);
 
     const { error } = await query;
 
@@ -229,10 +230,9 @@ export abstract class BaseRepository<
     throw new Error('Method not implemented.');
   };
 
-  private buildFindQuery(
+  private buildMatchQuery(
     query: ReturnType<SupabaseClient<Database>['from']>,
     filters: SupabaseFilter,
-    options?: IQueryOptions,
   ) {
     for (const [column, filter] of Object.entries(filters)) {
       if (filter === undefined) {
@@ -283,6 +283,16 @@ export abstract class BaseRepository<
       }
     }
 
+    return query;
+  }
+
+  private buildFindQuery(
+    query: ReturnType<SupabaseClient<Database>['from']>,
+    filters: SupabaseFilter,
+    options?: IQueryOptions,
+  ) {
+    this.buildMatchQuery(query, filters);
+
     if (options?.limit !== undefined && options?.offset !== undefined) {
       query.range(options.offset, options.offset + options.limit - 1);
     } else {
@@ -297,7 +307,5 @@ export abstract class BaseRepository<
     } else {
       query = query.order('created_at', { ascending: false });
     }
-
-    return query;
   }
 }

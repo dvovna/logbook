@@ -45,7 +45,7 @@ export class VacationPolicyManagementTabViewService {
         },
         {
           type: 'button',
-          text: { type: 'plain_text', text: '⬅ Back' },
+          text: { type: 'plain_text', text: 'Back To Home Page' },
           action_id: ViewActionId.BackToHomeTap,
         },
       ],

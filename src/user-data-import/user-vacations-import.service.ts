@@ -69,6 +69,7 @@ export class UserVacationsImportService {
 
         const existingUser = await this.usersService.findOne({
           email: record.email,
+          slackTeamId: user.slack_team_id,
         });
 
         if (!existingUser) {
@@ -77,9 +78,15 @@ export class UserVacationsImportService {
           continue;
         }
 
-        await this.usersService.update(existingUser.id, {
-          contractStartDate: record.contractStartDate.toString(),
-        });
+        await this.usersService.update(
+          {
+            id: existingUser.id,
+            slackTeamId: existingUser.slack_team_id,
+          },
+          {
+            contractStartDate: record.contractStartDate.toString(),
+          },
+        );
 
         await this.vacationsService.replaceUserVacations(
           existingUser.id,

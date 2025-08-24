@@ -3,7 +3,10 @@ import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payl
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { HomeTabService } from 'src/slack/services/home-tap.service';
 import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
-import { TeamsTabService } from 'src/slack/services/teams-tab.service';
+import {
+  TeamsTabModalName,
+  TeamsTabService,
+} from 'src/slack/services/teams-tab.service';
 import { OverflowAction } from '@slack/bolt';
 
 @Injectable()
@@ -12,15 +15,16 @@ export default class TeamActionsHandler {
 
   public constructor(
     private readonly homeTabService: HomeTabService,
-    private readonly teamTabService: TeamsTabService,
+    private readonly teamsTabService: TeamsTabService,
   ) {}
 
   public async handle(payload: ISlackInteractionPayload, user: IUserViewModel) {
     switch (payload.actions[0].action_id) {
       case ViewActionId.AddTeam: {
-        await this.teamTabService.publishManageTeamModalView(
+        await this.teamsTabService.openModal(
           payload.trigger_id || user.slack_id,
-          user,
+          TeamsTabModalName.CreateTeam,
+          { user },
         );
 
         break;
@@ -31,7 +35,7 @@ export default class TeamActionsHandler {
         break;
       }
       case ViewActionId.ManageTeamMenu: {
-        await this.handleManageTeamMenu(payload, user);
+        await this.handleManageTeamMenuAction(payload, user);
 
         break;
       }
@@ -41,7 +45,7 @@ export default class TeamActionsHandler {
     }
   }
 
-  private async handleManageTeamMenu(
+  private async handleManageTeamMenuAction(
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) {
@@ -49,7 +53,10 @@ export default class TeamActionsHandler {
       ?.value;
 
     if (!selectedValue) {
-      this.logger.warn('AdminTeamMenu triggered without selected_option');
+      this.logger.warn(
+        `${ViewActionId.ManageTeamMenu} triggered without selected_option`,
+      );
+
       return;
     }
 
@@ -58,19 +65,19 @@ export default class TeamActionsHandler {
 
     switch (actionType) {
       case 'edit_team': {
-        await this.teamTabService.publishManageTeamModalView(
+        await this.teamsTabService.openModal(
           payload.trigger_id || user.slack_id,
-          user,
-          teamId,
+          TeamsTabModalName.UpdateTeam,
+          { user, teamId },
         );
 
         break;
       }
       case 'delete_team': {
-        await this.teamTabService.publishDeleteTeamModalView(
+        await this.teamsTabService.openModal(
           payload.trigger_id || user.slack_id,
-          user,
-          teamId,
+          TeamsTabModalName.DeleteTeam,
+          { user, teamId },
         );
 
         break;

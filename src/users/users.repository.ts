@@ -42,12 +42,15 @@ export class UsersRepository extends BaseRepository<
       email: row.email,
       name: row.name,
       is_active: row.is_active,
+      carryover_days: row.carryover_days,
       role: row.role as UserRole,
       contract_start_date: row.contract_start_date,
       slack_id: row.slack_id,
       slack_team_id: row.slack_team_id,
       team_id: row.team_id,
       created_at: row.created_at,
+      updated_at: row.updated_at,
+      updated_by: row.updated_by || null,
     };
   };
 }

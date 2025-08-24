@@ -101,6 +101,7 @@ export type Database = {
       }
       users: {
         Row: {
+          carryover_days: number
           contract_start_date: string | null
           created_at: string
           email: string
@@ -111,8 +112,11 @@ export type Database = {
           slack_id: string
           slack_team_id: string
           team_id: string
+          updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
+          carryover_days?: number
           contract_start_date?: string | null
           created_at?: string
           email: string
@@ -123,8 +127,11 @@ export type Database = {
           slack_id: string
           slack_team_id?: string
           team_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Update: {
+          carryover_days?: number
           contract_start_date?: string | null
           created_at?: string
           email?: string
@@ -135,6 +142,8 @@ export type Database = {
           slack_id?: string
           slack_team_id?: string
           team_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -149,6 +158,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

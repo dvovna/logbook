@@ -8,10 +8,12 @@ import TeamActionsHandler from 'src/slack/services/integration-handlers/team-act
 import { TeamFormSubmitHandler } from 'src/slack/services/integration-handlers/team-form-submit.handler';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { IGetTeamModalViewMetadata } from 'src/slack/services/slack-views/modal-views/team-modal-view.service';
+import { ITeamModalViewMetadata } from 'src/slack/services/slack-views/modal-views/team-modal-view.service';
 import { DeleteTeamFormSubmitHandler } from 'src/slack/services/integration-handlers/delete-team-form-submit.handler';
 import { IDeleteTeamModalViewMetadata } from 'src/slack/services/slack-views/modal-views/delete-team-modal-view.service';
 import UserActionsHandler from 'src/slack/services/integration-handlers/user-actions.handler';
+import { IEditUserModalViewMetadata } from 'src/slack/services/slack-views/modal-views/edit-user-modal-view.service';
+import { EditUserFormSubmitHandler } from 'src/slack/services/integration-handlers/edit-user-form-submit.handler';
 
 @Injectable()
 export default class SlackInteractionsService {
@@ -23,7 +25,8 @@ export default class SlackInteractionsService {
     private readonly teamActionsHandler: TeamActionsHandler,
     private readonly userActionsHandler: UserActionsHandler,
     private readonly deleteTeamFormSubmitHandler: DeleteTeamFormSubmitHandler,
-    private readonly manageTeamFormSubmitHandler: TeamFormSubmitHandler,
+    private readonly teamFormSubmitHandler: TeamFormSubmitHandler,
+    private readonly editUserFormSubmitHandler: EditUserFormSubmitHandler,
   ) {}
 
   public async handleSlackInteraction(
@@ -55,10 +58,10 @@ export default class SlackInteractionsService {
       case ViewCallbackId.HomeTab: {
         return this.homeTabActionsHandler.handle(payload, user);
       }
-      case ViewCallbackId.TeamsManagement: {
+      case ViewCallbackId.TeamTabView: {
         return this.teamActionsHandler.handle(payload, user);
       }
-      case ViewCallbackId.UsersManagement: {
+      case ViewCallbackId.UserTabView: {
         return this.userActionsHandler.handle(payload, user);
       }
       default: {
@@ -74,12 +77,19 @@ export default class SlackInteractionsService {
     const { callback_id } = payload.view;
 
     switch (callback_id) {
-      case ViewCallbackId.TeamsManagement: {
+      case ViewCallbackId.TeamModalView: {
         const metadata = JSON.parse(
           payload.view.private_metadata,
-        ) as IGetTeamModalViewMetadata;
+        ) as ITeamModalViewMetadata;
 
-        return this.manageTeamFormSubmitHandler.handle(payload, metadata, user);
+        return this.teamFormSubmitHandler.handle(payload, metadata, user);
+      }
+      case ViewCallbackId.EditUserModalView: {
+        const metadata = JSON.parse(
+          payload.view.private_metadata,
+        ) as IEditUserModalViewMetadata;
+
+        return this.editUserFormSubmitHandler.handle(payload, metadata, user);
       }
       case ViewCallbackId.CreateVacationRequest: {
         return this.createVacationRequestHandler.handle(payload, user);
