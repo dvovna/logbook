@@ -11,15 +11,22 @@ interface IGetViewParams {
   user: IUserViewModel;
   teams: ITeamViewModel[];
   errorMessage?: string;
+  pageMetadata?: string;
 }
 
 export type IEditUserModalViewMetadata = {
   userIdToEdit: string;
+  pageMetadata?: string;
 };
 
 @Injectable()
 export class EditUserModalViewService extends BaseModalViewService<IGetViewParams> {
-  public getView({ user, teams, errorMessage }: IGetViewParams): View {
+  public getView({
+    user,
+    teams,
+    errorMessage,
+    pageMetadata,
+  }: IGetViewParams): View {
     const userRole = ROLE_OPTIONS.find(({ value }) => user.role === value)!;
     const teamOptions = teams.map<PlainTextOption>(({ id, name }) => ({
       value: id,
@@ -35,6 +42,7 @@ export class EditUserModalViewService extends BaseModalViewService<IGetViewParam
       callback_id: ViewCallbackId.EditUserModalView,
       private_metadata: JSON.stringify({
         userIdToEdit: user.id,
+        pageMetadata,
       } as IEditUserModalViewMetadata),
       title: {
         type: 'plain_text',

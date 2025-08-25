@@ -11,6 +11,7 @@ import {
   UsersTabService,
 } from 'src/slack/services/users-tab.service';
 import EditUserModalViewValuesParser from 'src/slack/services/slack-views/parsers/edit-user-modal-view-values.parser';
+import { IUsersTabMetaData } from 'src/slack/services/slack-views/tab-views/users-tab-view.service';
 
 @Injectable()
 export class EditUserFormSubmitHandler {
@@ -30,6 +31,9 @@ export class EditUserFormSubmitHandler {
   ): Promise<ViewResponseAction> {
     const { view } = payload;
     const { userIdToEdit } = metadata;
+    const pageMetadata = metadata.pageMetadata
+      ? (JSON.parse(metadata.pageMetadata) as IUsersTabMetaData)
+      : {};
 
     const { data, errors } = this.userModalViewValuesParser.parse(
       view.state.values,
@@ -50,7 +54,7 @@ export class EditUserFormSubmitHandler {
         },
       );
 
-      this.usersTabService.publish({ user });
+      this.usersTabService.publish({ user, page: 1, metadata: pageMetadata });
 
       if (!updatedUser) {
         return SlackViewResponseFactory.update(

@@ -52,6 +52,11 @@ export default class UserActionsHandler {
 
         break;
       }
+      case ViewActionId.FilterUsersByStatus: {
+        await this.handleFilterByStatus(payload, user);
+
+        break;
+      }
       default: {
         throw new Error(`Unhandled action_id: ${payload.actions[0].action_id}`);
       }
@@ -81,16 +86,16 @@ export default class UserActionsHandler {
         await this.usersTabService.openModal(
           payload.trigger_id || user.slack_id,
           UsersTabModalName.EditUser,
-          { userId, user },
+          { userId, user, pageMetadata: payload.view.private_metadata },
         );
 
         break;
       }
-      case 'deactivate_user': {
+      case 'change_user_status': {
         await this.usersTabService.openModal(
           payload.trigger_id || user.slack_id,
-          UsersTabModalName.DeactivateUser,
-          { userId, user },
+          UsersTabModalName.ChangeUserStatus,
+          { userId, user, pageMetadata: payload.view.private_metadata },
         );
 
         break;
@@ -171,6 +176,30 @@ export default class UserActionsHandler {
           ...metadata.filters,
           selectedTeamId:
             selectedTeamId !== ALL_OPTION_VALUE ? selectedTeamId : undefined,
+        },
+      },
+    });
+  }
+
+  private async handleFilterByStatus(
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) {
+    const userStatus = (payload.actions[0] as OverflowAction).selected_option
+      ?.value as 'active_only' | 'inactive_only';
+
+    const metadata = payload.view.private_metadata
+      ? (JSON.parse(payload.view.private_metadata) as IUsersTabMetaData)
+      : {};
+
+    await this.usersTabService.publish({
+      user,
+      page: 1,
+      metadata: {
+        ...metadata,
+        filters: {
+          ...metadata.filters,
+          userStatus,
         },
       },
     });

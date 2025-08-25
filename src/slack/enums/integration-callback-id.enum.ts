@@ -6,5 +6,6 @@ export enum ViewCallbackId {
   UserTabView = 'user_tab_view',
   EditUserModalView = 'edit_user_modal_view',
   DeleteTeam = 'delete_team',
+  ChangeUserStatus = 'change_user_status',
   VacationPolicyManagement = 'vacation_policy_management',
 }

@@ -14,6 +14,8 @@ import { IDeleteTeamModalViewMetadata } from 'src/slack/services/slack-views/mod
 import UserActionsHandler from 'src/slack/services/integration-handlers/user-actions.handler';
 import { IEditUserModalViewMetadata } from 'src/slack/services/slack-views/modal-views/edit-user-modal-view.service';
 import { EditUserFormSubmitHandler } from 'src/slack/services/integration-handlers/edit-user-form-submit.handler';
+import { IChangeUserStatusModalViewMetadata } from 'src/slack/services/slack-views/modal-views/change-user_status-modal-view.service';
+import { ChangeUserStatusFormSubmitHandler } from 'src/slack/services/integration-handlers/change-user-status-form-submit.handler';
 
 @Injectable()
 export default class SlackInteractionsService {
@@ -25,6 +27,7 @@ export default class SlackInteractionsService {
     private readonly teamActionsHandler: TeamActionsHandler,
     private readonly userActionsHandler: UserActionsHandler,
     private readonly deleteTeamFormSubmitHandler: DeleteTeamFormSubmitHandler,
+    private readonly changeUserStatusFormSubmitHandler: ChangeUserStatusFormSubmitHandler,
     private readonly teamFormSubmitHandler: TeamFormSubmitHandler,
     private readonly editUserFormSubmitHandler: EditUserFormSubmitHandler,
   ) {}
@@ -100,6 +103,17 @@ export default class SlackInteractionsService {
         ) as IDeleteTeamModalViewMetadata;
 
         return this.deleteTeamFormSubmitHandler.handle(payload, metadata, user);
+      }
+      case ViewCallbackId.ChangeUserStatus: {
+        const metadata = JSON.parse(
+          payload.view.private_metadata,
+        ) as IChangeUserStatusModalViewMetadata;
+
+        return this.changeUserStatusFormSubmitHandler.handle(
+          payload,
+          metadata,
+          user,
+        );
       }
       default: {
         this.logger.warn(

@@ -44,6 +44,8 @@ import UserActionsHandler from 'src/slack/services/integration-handlers/user-act
 import { EditUserModalViewService } from 'src/slack/services/slack-views/modal-views/edit-user-modal-view.service';
 import { EditUserFormSubmitHandler } from 'src/slack/services/integration-handlers/edit-user-form-submit.handler';
 import EditUserModalViewValuesParser from 'src/slack/services/slack-views/parsers/edit-user-modal-view-values.parser';
+import ChangeUserStatusModalViewService from 'src/slack/services/slack-views/modal-views/change-user_status-modal-view.service';
+import { ChangeUserStatusFormSubmitHandler } from 'src/slack/services/integration-handlers/change-user-status-form-submit.handler';
 
 @Module({
   imports: [
@@ -93,8 +95,10 @@ import EditUserModalViewValuesParser from 'src/slack/services/slack-views/parser
     VacationPoliciesTabService,
     DeleteTeamModalViewService,
     DeleteTeamFormSubmitHandler,
+    ChangeUserStatusFormSubmitHandler,
     EditUserModalViewValuesParser,
     EditUserFormSubmitHandler,
+    ChangeUserStatusModalViewService,
   ],
   exports: [],
 })

@@ -12,6 +12,7 @@ import BaseTabViewService, {
 } from 'src/slack/services/base-tab-view.service';
 import { View } from '@slack/types/dist/views';
 import { EditUserModalViewService } from 'src/slack/services/slack-views/modal-views/edit-user-modal-view.service';
+import ChangeUserStatusModalViewService from 'src/slack/services/slack-views/modal-views/change-user_status-modal-view.service';
 
 interface IGetUsersTabViewParams extends IPublishBaseParams {
   page?: number;
@@ -21,6 +22,7 @@ interface IGetUsersTabViewParams extends IPublishBaseParams {
 export interface IUsersTabViewFilters {
   selectedTeamId?: string;
   selectedRole?: UserRole;
+  userStatus?: 'active_only' | 'inactive_only';
 }
 
 interface IUserModalViewParams extends IOpenModalBaseParams {
@@ -29,7 +31,7 @@ interface IUserModalViewParams extends IOpenModalBaseParams {
 
 export enum UsersTabModalName {
   EditUser = 'EditUser',
-  DeactivateUser = 'DeactivateUser',
+  ChangeUserStatus = 'ChangeUserStatus',
 }
 
 type UsersTabModalViewResolversMapType = {
@@ -44,14 +46,15 @@ export class UsersTabService extends BaseTabViewService<
   public constructor(
     private readonly teamsService: TeamsService,
     private readonly usersService: UsersService,
-    private readonly manageUsersViewService: UsersTabViewService,
+    private readonly usersViewService: UsersTabViewService,
     private readonly editUserModalViewService: EditUserModalViewService,
+    private readonly changeUserStatusModalViewService: ChangeUserStatusModalViewService,
   ) {
     super({
       [UsersTabModalName.EditUser]: async (params) =>
         await this.editUserModalView(params),
-      [UsersTabModalName.DeactivateUser]: async (params) =>
-        await this.deactivateUserModalView(params),
+      [UsersTabModalName.ChangeUserStatus]: async (params) =>
+        await this.changeUserStatusModalView(params),
     });
   }
 
@@ -70,6 +73,9 @@ export class UsersTabService extends BaseTabViewService<
           ...(metadata?.filters?.selectedRole
             ? { role: metadata?.filters.selectedRole }
             : {}),
+          ...(metadata?.filters?.userStatus === 'inactive_only'
+            ? { isActive: false }
+            : {}),
         },
         sortBy: 'name',
         sortOrder: 'asc',
@@ -78,7 +84,7 @@ export class UsersTabService extends BaseTabViewService<
       this.teamsService.findMany({ slackTeamId: user.slack_team_id }),
     ]);
 
-    return this.manageUsersViewService.getView(
+    return this.usersViewService.getView(
       {
         userId: user.slack_id,
         teams,
@@ -116,15 +122,24 @@ export class UsersTabService extends BaseTabViewService<
     });
   }
 
-  public deactivateUserModalView({
+  public async changeUserStatusModalView({
     userId,
     user,
     ...modalParams
   }: IUserModalViewParams) {
-    if (user.id === userId) {
-      throw new Error('You cannot deactivate yourself');
+    const userToEdit = await this.usersService.findOne({
+      id: userId,
+      slackTeamId: user.slack_team_id,
+      includeInactive: true,
+    });
+
+    if (!userToEdit) {
+      throw new Error(`User with id ${userId} not found`);
     }
 
-    return null as any;
+    return this.changeUserStatusModalViewService.getView({
+      user: userToEdit,
+      ...modalParams,
+    });
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
-import { ActionsBlock, AnyBlock } from '@slack/web-api';
+import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
 import ITeamViewModel from 'src/teams/types/team.interface';
@@ -19,6 +19,16 @@ interface IGetViewParams {
   teams: ITeamViewModel[];
   userId: string;
 }
+
+const SHOW_INACTIVE_OPTION = {
+  text: { type: 'plain_text', text: 'Inactive Only' },
+  value: 'inactive_only',
+};
+
+const SHOW_ACTIVE_OPTION = {
+  text: { type: 'plain_text', text: 'Active Users Only' },
+  value: 'active_only',
+};
 
 export const ALL_OPTION_VALUE = 'all';
 
@@ -40,9 +50,9 @@ export class UsersTabViewService {
   ) {
     return {
       user_id: userId,
-      private_metadata: JSON.stringify(metadata),
       view: {
         type: 'home',
+        private_metadata: JSON.stringify(metadata),
         callback_id: ViewCallbackId.UserTabView,
         blocks: this.getViewBlocks(users, teams, metadata.filters),
       },
@@ -124,13 +134,20 @@ export class UsersTabViewService {
           type: 'overflow',
           action_id: ViewActionId.ManageUserMenu,
           options: [
+            ...(user.is_active
+              ? [
+                {
+                  text: { type: 'plain_text', text: 'Edit User' },
+                  value: `edit_user:${user.id}`,
+                } as PlainTextOption,
+              ]
+              : []),
             {
-              text: { type: 'plain_text', text: 'Edit User' },
-              value: `edit_user:${user.id}`,
-            },
-            {
-              text: { type: 'plain_text', text: 'Deactivate User' },
-              value: `deactivate_user:${user.id}`,
+              text: {
+                type: 'plain_text',
+                text: `${user.is_active ? 'Deactivate' : 'Activate'} User`,
+              },
+              value: `change_user_status:${user.id}`,
             },
           ],
         },
@@ -190,6 +207,16 @@ export class UsersTabViewService {
             value: filters?.selectedTeamId || ALL_OPTION_VALUE,
           },
           options: [ALL_TEAMS_SELECT_OPTION, ...teamOptions],
+        },
+        {
+          type: 'static_select',
+          placeholder: { type: 'plain_text', text: 'Filter by Status' },
+          action_id: ViewActionId.FilterUsersByStatus,
+          initial_option:
+            filters?.userStatus === 'inactive_only'
+              ? SHOW_INACTIVE_OPTION
+              : SHOW_ACTIVE_OPTION,
+          options: [SHOW_ACTIVE_OPTION, SHOW_INACTIVE_OPTION],
         },
       ],
     } as ActionsBlock;

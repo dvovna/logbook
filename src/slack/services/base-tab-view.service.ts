@@ -7,6 +7,7 @@ import { View } from '@slack/types/dist/views';
 export interface IOpenModalBaseParams {
   user: IUserViewModel;
   errorMessage?: string;
+  pageMetadata?: string;
 }
 
 export interface IPublishBaseParams {

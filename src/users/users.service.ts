@@ -27,6 +27,7 @@ interface IFindParams {
   role?: UserRole;
   slackId?: string;
   isActive?: boolean;
+  includeInactive?: boolean;
   email?: string;
 }
 
@@ -146,7 +147,7 @@ export class UsersService implements IUsersService {
 
   private getFindQuery(
     findParams: IFindParams,
-  ): Record<string, string | boolean> {
+  ): Record<string, string | boolean | undefined> {
     return {
       slack_team_id: findParams.slackTeamId,
       ...(findParams.id ? { id: findParams.id } : {}),
@@ -155,7 +156,7 @@ export class UsersService implements IUsersService {
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
       ...(findParams.isActive !== undefined
         ? { is_active: findParams.isActive }
-        : { is_active: true }),
+        : { is_active: findParams.includeInactive ? undefined : true }),
       ...(findParams.email ? { email: findParams.email } : {}),
     };
   }

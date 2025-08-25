@@ -6,7 +6,6 @@ import {
   ISearchResult,
   ISearchParams,
 } from 'src/common/types/pagination.types';
-import { getLogger } from '@slack/web-api/dist/logger';
 
 export type Tables = Database['public']['Tables'];
 export type TableName = keyof Tables;

@@ -15,4 +15,5 @@ export enum ViewActionId {
   ManageUserMenu = 'manage_user_menu',
   FilterUsersByRole = 'filter_users_by_role',
   FilterUsersByTeam = 'filter_users_by_team',
+  FilterUsersByStatus = 'filter_users_by_status',
 }
