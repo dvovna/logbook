@@ -14,8 +14,11 @@ import {
 } from 'src/slack/services/slack-views/tab-views/users-tab-view.service';
 import { ButtonAction } from '@slack/bolt/dist/types/actions/block-action';
 import UserRole from 'src/common/enums/user-role.enum';
+import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
+@SlackHandler({ callbackId: ViewCallbackId.UserTabView, type: 'block_actions' })
 export default class UserActionsHandler {
   private readonly logger = new Logger(UserActionsHandler.name);
 

@@ -1,6 +1,6 @@
 export enum ViewCallbackId {
   CreateVacationRequest = 'create_vacation_request',
-  HomeTab = 'home_tab',
+  HomeTabView = 'home_tab_view',
   TeamTabView = 'team_tab_view',
   TeamModalView = 'team_modal_view',
   UserTabView = 'user_tab_view',

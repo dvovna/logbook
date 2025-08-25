@@ -12,8 +12,15 @@ import {
 } from 'src/slack/services/users-tab.service';
 import EditUserModalViewValuesParser from 'src/slack/services/slack-views/parsers/edit-user-modal-view-values.parser';
 import { IUsersTabMetaData } from 'src/slack/services/slack-views/tab-views/users-tab-view.service';
+import SlackMetadataParser from 'src/slack/utils/slack-metadata.parser';
+import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
+@SlackHandler({
+  callbackId: ViewCallbackId.EditUserModalView,
+  type: 'view_submission',
+})
 export class EditUserFormSubmitHandler {
   private readonly logger = new Logger(EditUserFormSubmitHandler.name);
 
@@ -26,9 +33,10 @@ export class EditUserFormSubmitHandler {
 
   public async handle(
     payload: ISlackInteractionPayload,
-    metadata: IEditUserModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
+    const metadata =
+      SlackMetadataParser.parse<IEditUserModalViewMetadata>(payload);
     const { view } = payload;
     const { userIdToEdit } = metadata;
     const pageMetadata = metadata.pageMetadata

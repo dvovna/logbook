@@ -8,9 +8,13 @@ import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
 import { TeamsTabService } from 'src/slack/services/teams-tab.service';
 import { VacationPoliciesTabService } from 'src/slack/services/vacation-policies-tab.service';
 import { UsersTabService } from 'src/slack/services/users-tab.service';
+import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ISlackInteractionHandler } from 'src/slack/services/integration-handlers/slack-interaction.handler';
 
 @Injectable()
-export default class HomeTabActionsHandler {
+@SlackHandler({ callbackId: ViewCallbackId.HomeTabView, type: 'block_actions' })
+export default class HomeTabActionsHandler implements ISlackInteractionHandler {
   public constructor(
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly vacationRequestViewService: VacationRequestModalViewService,

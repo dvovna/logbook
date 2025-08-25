@@ -6,10 +6,15 @@ import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payl
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import VacationRequestViewValuesParser
-  from 'src/slack/services/slack-views/parsers/vacation-request-view-values.parser';
+import VacationRequestViewValuesParser from 'src/slack/services/slack-views/parsers/vacation-request-view-values.parser';
+import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
+@SlackHandler({
+  callbackId: ViewCallbackId.CreateVacationRequest,
+  type: 'view_submission',
+})
 export class CreateVacationRequestHandler {
   public constructor(
     private readonly vacationsService: VacationsService,

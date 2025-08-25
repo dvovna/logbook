@@ -36,7 +36,7 @@ export class HomeTabViewsService {
       user_id: userId,
       view: {
         type: 'home',
-        callback_id: ViewCallbackId.HomeTab,
+        callback_id: ViewCallbackId.HomeTabView,
         blocks,
       },
     } as ViewsPublishArguments;

@@ -11,8 +11,15 @@ import {
 } from 'src/slack/services/teams-tab.service';
 import { IDeleteTeamModalViewMetadata } from 'src/slack/services/slack-views/modal-views/delete-team-modal-view.service';
 import TeamDeleteError from 'src/common/errors/team-delete.error';
+import SlackMetadataParser from 'src/slack/utils/slack-metadata.parser';
+import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
+@SlackHandler({
+  callbackId: ViewCallbackId.DeleteTeam,
+  type: 'view_submission',
+})
 export class DeleteTeamFormSubmitHandler {
   public constructor(
     private readonly teamModalViewService: TeamModalViewService,
@@ -21,10 +28,12 @@ export class DeleteTeamFormSubmitHandler {
   ) {}
 
   public async handle(
-    _payload: ISlackInteractionPayload,
-    metadata: IDeleteTeamModalViewMetadata,
+    payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
+    const metadata =
+      SlackMetadataParser.parse<IDeleteTeamModalViewMetadata>(payload);
+
     const { teamIdToDelete } = metadata;
 
     try {

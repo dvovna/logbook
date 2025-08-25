@@ -16,8 +16,15 @@ import {
   TeamsTabService,
 } from 'src/slack/services/teams-tab.service';
 import MaxTeamsCountReachedError from 'src/common/errors/max-teams-count-reached.error';
+import SlackMetadataParser from 'src/slack/utils/slack-metadata.parser';
+import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
+@SlackHandler({
+  callbackId: ViewCallbackId.TeamModalView,
+  type: 'view_submission',
+})
 export class TeamFormSubmitHandler {
   public constructor(
     private readonly teamModalViewValuesParser: TeamModalViewValuesParser,
@@ -28,9 +35,10 @@ export class TeamFormSubmitHandler {
 
   public async handle(
     payload: ISlackInteractionPayload,
-    metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
+    const metadata = SlackMetadataParser.parse<ITeamModalViewMetadata>(payload);
+
     const { view } = payload;
     const { teamIdToEdit } = metadata;
 

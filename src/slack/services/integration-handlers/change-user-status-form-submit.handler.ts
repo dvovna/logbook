@@ -12,8 +12,15 @@ import {
   UsersTabService,
 } from 'src/slack/services/users-tab.service';
 import { IUsersTabMetaData } from 'src/slack/services/slack-views/tab-views/users-tab-view.service';
+import SlackMetadataParser from 'src/slack/utils/slack-metadata.parser';
+import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
+@SlackHandler({
+  callbackId: ViewCallbackId.ChangeUserStatus,
+  type: 'view_submission',
+})
 export class ChangeUserStatusFormSubmitHandler {
   private logger: Logger = new Logger(ChangeUserStatusFormSubmitHandler.name);
 
@@ -24,10 +31,11 @@ export class ChangeUserStatusFormSubmitHandler {
   ) {}
 
   public async handle(
-    _payload: ISlackInteractionPayload,
-    metadata: IChangeUserStatusModalViewMetadata,
+    payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
+    const metadata =
+      SlackMetadataParser.parse<IChangeUserStatusModalViewMetadata>(payload);
     const { userId } = metadata;
     const pageMetadata = metadata.pageMetadata
       ? (JSON.parse(metadata.pageMetadata) as IUsersTabMetaData)

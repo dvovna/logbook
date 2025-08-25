@@ -46,9 +46,12 @@ import { EditUserFormSubmitHandler } from 'src/slack/services/integration-handle
 import EditUserModalViewValuesParser from 'src/slack/services/slack-views/parsers/edit-user-modal-view-values.parser';
 import ChangeUserStatusModalViewService from 'src/slack/services/slack-views/modal-views/change-user_status-modal-view.service';
 import { ChangeUserStatusFormSubmitHandler } from 'src/slack/services/integration-handlers/change-user-status-form-submit.handler';
+import { SlackHandlersRegistry } from 'src/slack/services/slack-handlers.registry';
+import { DiscoveryModule } from '@nestjs/core';
 
 @Module({
   imports: [
+    DiscoveryModule,
     UsersModule,
     ClientsModule,
     SlackTeamsModule,
@@ -99,6 +102,7 @@ import { ChangeUserStatusFormSubmitHandler } from 'src/slack/services/integratio
     EditUserModalViewValuesParser,
     EditUserFormSubmitHandler,
     ChangeUserStatusModalViewService,
+    SlackHandlersRegistry,
   ],
   exports: [],
 })

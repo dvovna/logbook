@@ -8,8 +8,11 @@ import {
   TeamsTabService,
 } from 'src/slack/services/teams-tab.service';
 import { OverflowAction } from '@slack/bolt';
+import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
+@SlackHandler({ callbackId: ViewCallbackId.TeamTabView, type: 'block_actions' })
 export default class TeamActionsHandler {
   private readonly logger = new Logger(TeamActionsHandler.name);
 
