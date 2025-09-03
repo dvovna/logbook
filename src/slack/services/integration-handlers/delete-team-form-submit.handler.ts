@@ -9,11 +9,12 @@ import {
   TeamsTabModalName,
   TeamsTabService,
 } from 'src/slack/services/teams-tab.service';
-import { IDeleteTeamModalViewMetadata } from 'src/slack/services/slack-views/modal-views/delete-team-modal-view.service';
-import TeamDeleteError from 'src/common/errors/team-delete.error';
+import { IDeleteEntityModalViewMetadata } from 'src/slack/services/slack-views/modal-views/delete-entity-modal-view.service';
+import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
 import SlackMetadataParser from 'src/slack/utils/slack-metadata.parser';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
 
 @Injectable()
 @SlackHandler({
@@ -32,12 +33,12 @@ export class DeleteTeamFormSubmitHandler {
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     const metadata =
-      SlackMetadataParser.parse<IDeleteTeamModalViewMetadata>(payload);
+      SlackMetadataParser.parse<IDeleteEntityModalViewMetadata>(payload);
 
-    const { teamIdToDelete } = metadata;
+    const { entityId: teamIdToDelete } = metadata;
 
     try {
-      const team = await this.teamsService.delete(teamIdToDelete);
+      const team = await this.teamsService.delete(teamIdToDelete, user);
 
       this.teamsTabService.publish({ user });
 
@@ -48,7 +49,8 @@ export class DeleteTeamFormSubmitHandler {
       );
     } catch (error) {
       const errorMessage =
-        error instanceof TeamDeleteError
+        error instanceof PrimaryEntityDeleteError ||
+        error instanceof EntityHasDependenciesError
           ? error.message
           : 'An error occurred while deleting the team. Please try again later.';
 

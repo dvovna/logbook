@@ -6,6 +6,7 @@ interface IVacationPolicyViewModel {
   working_days: number;
   country_code: string | null;
   vacation_days: number;
+  carryover_days: number;
   bonus_days: number;
   created_at: string;
   updated_at: string;

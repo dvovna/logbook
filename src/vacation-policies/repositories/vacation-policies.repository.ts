@@ -21,6 +21,7 @@ export default class VacationPoliciesRepository extends BaseRepository<
       slack_team_id: data.slack_team_id,
       bonus_days: data.bonus_days,
       working_days: data.working_days,
+      carryover_days: data.carryover_days,
       name: data.name,
       country_code: data.country_code,
       created_at: data.created_at,

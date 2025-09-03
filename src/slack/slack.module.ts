@@ -23,24 +23,24 @@ import { VacationPolicyModalViewService } from 'src/slack/services/slack-views/m
 import FileUploadService from 'src/slack/services/file-upload.service';
 import { HomeTabService } from 'src/slack/services/home-tap.service';
 import { HomeTabViewsService } from 'src/slack/services/slack-views/tab-views/home-tap-view.service';
-import HomeTabActionsHandler from 'src/slack/services/integration-handlers/home-tab-actions.handler';
+import HomeTabActionHandler from 'src/slack/services/integration-handlers/home-tab-action.handler';
 import { SlackPayloadParsePipe } from 'src/slack/pipes/slack-payload-parse.pipe';
 import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payload-parse.middleware';
 import { TeamsTabViewService } from 'src/slack/services/slack-views/tab-views/teams-tab-view.service';
 import { TeamsModule } from 'src/teams/teams.module';
 import { TeamsTabService } from 'src/slack/services/teams-tab.service';
-import TeamActionsHandler from 'src/slack/services/integration-handlers/team-actions.handler';
+import TeamsTabActionHandler from 'src/slack/services/integration-handlers/teams-tab-action.handler';
 import { TeamModalViewService } from 'src/slack/services/slack-views/modal-views/team-modal-view.service';
 import { TeamFormSubmitHandler } from 'src/slack/services/integration-handlers/team-form-submit.handler';
 import TeamModalViewValuesParser from 'src/slack/services/slack-views/parsers/team-modal-view-values.parser';
 import VacationRequestViewValuesParser from 'src/slack/services/slack-views/parsers/vacation-request-view-values.parser';
 import { VacationPoliciesTabService } from 'src/slack/services/vacation-policies-tab.service';
-import { VacationPolicyManagementTabViewService } from 'src/slack/services/slack-views/tab-views/vacation-policy-management-tab-view.service';
-import DeleteTeamModalViewService from 'src/slack/services/slack-views/modal-views/delete-team-modal-view.service';
+import { VacationPolicyTabViewService } from 'src/slack/services/slack-views/tab-views/vacation-policy-tab-view.service';
+import DeleteEntityModalViewService from 'src/slack/services/slack-views/modal-views/delete-entity-modal-view.service';
 import { DeleteTeamFormSubmitHandler } from 'src/slack/services/integration-handlers/delete-team-form-submit.handler';
 import { UsersTabViewService } from 'src/slack/services/slack-views/tab-views/users-tab-view.service';
 import { UsersTabService } from 'src/slack/services/users-tab.service';
-import UserActionsHandler from 'src/slack/services/integration-handlers/user-actions.handler';
+import UsersTabActionHandler from 'src/slack/services/integration-handlers/users-tab-action.handler';
 import { EditUserModalViewService } from 'src/slack/services/slack-views/modal-views/edit-user-modal-view.service';
 import { EditUserFormSubmitHandler } from 'src/slack/services/integration-handlers/edit-user-form-submit.handler';
 import EditUserModalViewValuesParser from 'src/slack/services/slack-views/parsers/edit-user-modal-view-values.parser';
@@ -48,6 +48,10 @@ import ChangeUserStatusModalViewService from 'src/slack/services/slack-views/mod
 import { ChangeUserStatusFormSubmitHandler } from 'src/slack/services/integration-handlers/change-user-status-form-submit.handler';
 import { SlackHandlersRegistry } from 'src/slack/services/slack-handlers.registry';
 import { DiscoveryModule } from '@nestjs/core';
+import PoliciesTabActionsHandler from 'src/slack/services/integration-handlers/policies-tab-actions.handler';
+import PolicyModalViewValuesParser from 'src/slack/services/slack-views/parsers/policy-modal-view-values.parser';
+import { VacationPolicyFormSubmitHandler } from 'src/slack/services/integration-handlers/vacation-policy-form-submit.handler';
+import { DeletePolicyFormSubmitHandler } from 'src/slack/services/integration-handlers/delete-policy-form-submit.handler';
 
 @Module({
   imports: [
@@ -75,34 +79,44 @@ import { DiscoveryModule } from '@nestjs/core';
     SlackInteractionsService,
     SlackUserAccessService,
     SlackEventsService,
+    FileUploadService,
+    SlackPayloadParsePipe,
+    HomeTabService,
+    UsersTabService,
+    TeamsTabService,
+    VacationPoliciesTabService,
+
+    // modal view values parser
+    EditUserModalViewValuesParser,
+    PolicyModalViewValuesParser,
+    TeamModalViewValuesParser,
+    VacationRequestViewValuesParser,
+
+    // action handlers
+    SlackHandlersRegistry,
     CreateVacationRequestHandler,
+    TeamsTabActionHandler,
+    UsersTabActionHandler,
+    HomeTabActionHandler,
+    EditUserFormSubmitHandler,
+    DeleteTeamFormSubmitHandler,
+    ChangeUserStatusFormSubmitHandler,
+    TeamFormSubmitHandler,
+    PoliciesTabActionsHandler,
+    VacationPolicyFormSubmitHandler,
+    DeletePolicyFormSubmitHandler,
+
+    // modal views
     VacationRequestModalViewService,
     TeamsTabViewService,
     UsersTabViewService,
     VacationPolicyModalViewService,
     EditUserModalViewService,
-    UsersTabService,
-    FileUploadService,
     HomeTabViewsService,
-    HomeTabService,
-    HomeTabActionsHandler,
-    SlackPayloadParsePipe,
-    TeamActionsHandler,
-    UserActionsHandler,
-    TeamsTabService,
     TeamModalViewService,
-    TeamModalViewValuesParser,
-    VacationRequestViewValuesParser,
-    TeamFormSubmitHandler,
-    VacationPolicyManagementTabViewService,
-    VacationPoliciesTabService,
-    DeleteTeamModalViewService,
-    DeleteTeamFormSubmitHandler,
-    ChangeUserStatusFormSubmitHandler,
-    EditUserModalViewValuesParser,
-    EditUserFormSubmitHandler,
     ChangeUserStatusModalViewService,
-    SlackHandlersRegistry,
+    DeleteEntityModalViewService,
+    VacationPolicyTabViewService,
   ],
   exports: [],
 })

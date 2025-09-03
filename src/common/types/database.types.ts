@@ -172,6 +172,7 @@ export type Database = {
       vacation_policies: {
         Row: {
           bonus_days: number
+          carryover_days: number
           country_code: string | null
           created_at: string
           created_by: string | null
@@ -186,6 +187,7 @@ export type Database = {
         }
         Insert: {
           bonus_days?: number
+          carryover_days?: number
           country_code?: string | null
           created_at?: string
           created_by?: string | null
@@ -200,6 +202,7 @@ export type Database = {
         }
         Update: {
           bonus_days?: number
+          carryover_days?: number
           country_code?: string | null
           created_at?: string
           created_by?: string | null

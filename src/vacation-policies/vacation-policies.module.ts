@@ -3,9 +3,10 @@ import VacationPoliciesRepository from 'src/vacation-policies/repositories/vacat
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { VacationPoliciesCacheService } from 'src/vacation-policies/services/vacation-policies-cache.service';
 import { CacheModule } from '@nestjs/cache-manager';
+import { TeamsModule } from 'src/teams/teams.module';
 
 @Module({
-  imports: [CacheModule.register()],
+  imports: [CacheModule.register(), TeamsModule],
   providers: [
     VacationPoliciesService,
     VacationPoliciesRepository,

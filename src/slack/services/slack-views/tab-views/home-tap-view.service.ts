@@ -4,13 +4,22 @@ import { IUserVacationsUsageInfo } from 'src/vacations/types/user-vacations-usag
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { IVacationViewModel } from 'src/vacations/types/vacation.interface';
-import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
 
 interface IGetViewParams {
   userId: string;
   isUserAdmin?: boolean;
   vacationDaysUsage: IUserVacationsUsageInfo;
   requestedVacations?: IVacationViewModel[];
+}
+
+export enum HomeTabActionId {
+  OpenVacationModal = 'open_vacation_modal',
+  ViewHistory = 'view_history',
+  AdminManageUsers = 'admin_manage_users',
+  AdminManageTeams = 'admin_manage_teams',
+  AdminViewAndEditVacationRequests = 'admin_view_and_edit_vacation_requests',
+  AdminViewAndEditVacationPolicies = 'admin_view_and_edit_vacation_policies',
+  BackToHomeTap = 'back_to_home_tab',
 }
 
 @Injectable()
@@ -58,22 +67,22 @@ export class HomeTabViewsService {
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Manage Users' },
-            action_id: ViewActionId.AdminManageUsers,
+            action_id: HomeTabActionId.AdminManageUsers,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Manage Teams' },
-            action_id: ViewActionId.AdminManageTeams,
+            action_id: HomeTabActionId.AdminManageTeams,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Vacation Requests' },
-            action_id: ViewActionId.AdminViewAndEditVacationRequests,
+            action_id: HomeTabActionId.AdminViewAndEditVacationRequests,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Vacation Policies' },
-            action_id: ViewActionId.AdminViewAndEditVacationPolicies,
+            action_id: HomeTabActionId.AdminViewAndEditVacationPolicies,
           },
         ],
       },
@@ -115,7 +124,7 @@ export class HomeTabViewsService {
           {
             type: 'button',
             text: { type: 'plain_text', text: '⬅ Back' },
-            action_id: ViewActionId.BackToHomeTap,
+            action_id: HomeTabActionId.BackToHomeTap,
           },
         ],
       },
@@ -147,12 +156,12 @@ export class HomeTabViewsService {
             type: 'button',
             text: { type: 'plain_text', text: '➕ Request Vacation' },
             style: 'primary',
-            action_id: ViewActionId.OpenVacationModal,
+            action_id: HomeTabActionId.OpenVacationModal,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: '📜 View History (Coming)' },
-            action_id: ViewActionId.ViewHistory,
+            action_id: HomeTabActionId.ViewHistory,
           },
         ],
       },

@@ -15,14 +15,14 @@ import {
   TeamsTabModalName,
   TeamsTabService,
 } from 'src/slack/services/teams-tab.service';
-import MaxTeamsCountReachedError from 'src/common/errors/max-teams-count-reached.error';
+import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import SlackMetadataParser from 'src/slack/utils/slack-metadata.parser';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
 @SlackHandler({
-  callbackId: ViewCallbackId.TeamModalView,
+  callbackId: ViewCallbackId.TeamFormSubmit,
   type: 'view_submission',
 })
 export class TeamFormSubmitHandler {
@@ -62,7 +62,7 @@ export class TeamFormSubmitHandler {
       );
     } catch (error) {
       const errorMessage =
-        error instanceof MaxTeamsCountReachedError
+        error instanceof MaxItemsCountReachedError
           ? error.message
           : 'An error occurred while creating or updating the team. Please try again later.';
 

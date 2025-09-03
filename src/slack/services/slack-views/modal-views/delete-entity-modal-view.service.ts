@@ -1,30 +1,41 @@
 import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import ITeamViewModel from 'src/teams/types/team.interface';
 import BaseModalViewService from 'src/slack/services/slack-views/modal-views/base-modal-view.service';
 import { View } from '@slack/types/dist/views';
+import capitalize from 'src/common/utils/capitalize';
 
 interface IGetViewParams {
-  team: ITeamViewModel;
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  callbackId: ViewCallbackId;
   errorMessage?: string;
 }
 
-export type IDeleteTeamModalViewMetadata = {
-  teamIdToDelete: string;
+export type IDeleteEntityModalViewMetadata = {
+  entityType: string;
+  entityId: string;
 };
 
 @Injectable()
-export default class DeleteTeamModalViewService extends BaseModalViewService<IGetViewParams> {
-  public getView({ team, errorMessage }: IGetViewParams): View {
+export default class DeleteEntityModalViewService extends BaseModalViewService<IGetViewParams> {
+  public getView({
+    entityType,
+    entityId,
+    entityName,
+    errorMessage,
+    callbackId,
+  }: IGetViewParams): View {
     return {
       type: 'modal',
-      callback_id: ViewCallbackId.DeleteTeam,
+      callback_id: callbackId,
       private_metadata: JSON.stringify({
-        teamIdToDelete: team.id,
-      } as IDeleteTeamModalViewMetadata),
+        entityId,
+        entityType,
+      } as IDeleteEntityModalViewMetadata),
       title: {
         type: 'plain_text',
-        text: 'Delete Team',
+        text: `Delete ${capitalize(entityType)}`,
       },
       submit: {
         type: 'plain_text',
@@ -40,7 +51,7 @@ export default class DeleteTeamModalViewService extends BaseModalViewService<IGe
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `:alert: The team *${team?.name}* will be permanently deleted. This action cannot be undone.`,
+            text: `:alert: The ${entityType} *${entityName}* will be permanently deleted. This action cannot be undone.`,
           },
         },
       ],

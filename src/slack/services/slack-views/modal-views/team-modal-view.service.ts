@@ -20,7 +20,7 @@ export class TeamModalViewService extends BaseModalViewService<IGetViewParams> {
   public getView({ team, policies, errorMessage }: IGetViewParams): View {
     return {
       type: 'modal',
-      callback_id: ViewCallbackId.TeamModalView,
+      callback_id: ViewCallbackId.TeamFormSubmit,
       private_metadata: JSON.stringify({
         teamIdToEdit: team?.id,
       } as ITeamModalViewMetadata),

@@ -1,9 +1,10 @@
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { TeamsRepository } from 'src/teams/teams.repository';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import MaxTeamsCountReachedError from 'src/common/errors/max-teams-count-reached.error';
+import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import { UsersService } from 'src/users/users.service';
-import TeamDeleteError from 'src/common/errors/team-delete.error';
+import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
+import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
 
 interface ICreateTeamParams {
   name: string;
@@ -16,6 +17,7 @@ interface ICreateTeamParams {
 interface IFindParams {
   id?: string;
   slackTeamId: string;
+  vacationPolicyId?: string;
 }
 
 interface IUpdateParams {
@@ -34,22 +36,16 @@ export default class TeamsService {
     private readonly usersService: UsersService,
   ) {}
 
-  public async findMany({ slackTeamId }: IFindParams) {
-    return this.teamsRepository.findMany({ slack_team_id: slackTeamId });
+  public async findMany(params: IFindParams) {
+    return this.teamsRepository.findMany(this.getFindQuery(params));
   }
 
   public async findOne(params: IFindParams) {
-    return this.teamsRepository.findOne({
-      slack_team_id: params.slackTeamId,
-      id: params.id,
-    });
+    return this.teamsRepository.findOne(this.getFindQuery(params));
   }
 
   public async findOneWithValidation(params: IFindParams) {
-    const team = await this.teamsRepository.findOne({
-      slack_team_id: params.slackTeamId,
-      id: params.id,
-    });
+    const team = await this.teamsRepository.findOne(this.getFindQuery(params));
 
     if (!team) {
       throw new NotFoundException(`Team with id ${params.id} not found`);
@@ -64,7 +60,7 @@ export default class TeamsService {
     });
 
     if (teamsCount >= MAX_TEAMS_COUNT) {
-      throw new MaxTeamsCountReachedError(MAX_TEAMS_COUNT);
+      throw new MaxItemsCountReachedError(MAX_TEAMS_COUNT, 'teams');
     }
 
     const createdAt = new Date().toISOString();
@@ -87,49 +83,59 @@ export default class TeamsService {
     updateParams: IUpdateParams,
     user: IUserViewModel,
   ) {
-    return this.teamsRepository.update(
-      {
-        slack_team_id: findParams.slackTeamId,
-        id: findParams.id,
-      },
-      {
-        ...(updateParams.name ? { name: updateParams.name } : {}),
-        ...(updateParams.description
-          ? { description: updateParams.description }
-          : {}),
-        ...(updateParams.vacationPolicyId
-          ? { vacation_policy_id: updateParams.vacationPolicyId }
-          : {}),
-        updated_at: new Date().toISOString(),
-        updated_by: user.id,
-      },
-    );
+    return this.teamsRepository.update(this.getFindQuery(findParams), {
+      ...(updateParams.name ? { name: updateParams.name } : {}),
+      ...(updateParams.description
+        ? { description: updateParams.description }
+        : {}),
+      ...(updateParams.vacationPolicyId
+        ? { vacation_policy_id: updateParams.vacationPolicyId }
+        : {}),
+      updated_at: new Date().toISOString(),
+      updated_by: user.id,
+    });
   }
 
-  public async delete(teamId: string) {
-    const team = await this.teamsRepository.findOne({ id: teamId });
+  public async delete(teamId: string, user: IUserViewModel) {
+    const team = await this.findOneWithValidation({
+      id: teamId,
+      slackTeamId: user.slack_team_id,
+    });
 
-    if (!team) {
-      throw new Error(`Team with id ${teamId} not found`);
-    }
-
-    if (team?.is_primary) {
-      throw new TeamDeleteError('Primary team cannot be deleted');
+    if (team.is_primary) {
+      throw new PrimaryEntityDeleteError('team');
     }
 
     const teamUsersCount = await this.usersService.count({
       teamId,
-      slackTeamId: team?.slack_team_id,
+      slackTeamId: team.slack_team_id,
       isActive: true,
     });
 
     if (teamUsersCount > 0) {
-      throw new TeamDeleteError('Cannot delete team with users assigned');
+      throw new EntityHasDependenciesError('team', 'users');
     }
 
-    await this.teamsRepository.delete({ id: teamId });
+    await this.teamsRepository.delete({
+      id: teamId,
+      slack_team_id: user.slack_team_id,
+    });
 
     return team;
+  }
+
+  public count(params: IFindParams) {
+    return this.teamsRepository.count(this.getFindQuery(params));
+  }
+
+  private getFindQuery(params: IFindParams) {
+    return {
+      ...(params.id ? { id: params.id } : {}),
+      slack_team_id: params.slackTeamId,
+      ...(params.vacationPolicyId
+        ? { vacation_policy_id: params.vacationPolicyId }
+        : {}),
+    };
   }
 
   public createDefaultTeam(slackTeamId: string, vacationPolicyId: string) {

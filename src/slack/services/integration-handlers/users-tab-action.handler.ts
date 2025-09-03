@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { HomeTabService } from 'src/slack/services/home-tap.service';
-import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
 import { OverflowAction } from '@slack/bolt';
 import {
   UsersTabModalName,
@@ -11,6 +10,7 @@ import {
 import {
   ALL_OPTION_VALUE,
   IUsersTabMetaData,
+  UsersTabViewActionId,
 } from 'src/slack/services/slack-views/tab-views/users-tab-view.service';
 import { ButtonAction } from '@slack/bolt/dist/types/actions/block-action';
 import UserRole from 'src/common/enums/user-role.enum';
@@ -18,9 +18,12 @@ import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
-@SlackHandler({ callbackId: ViewCallbackId.UserTabView, type: 'block_actions' })
-export default class UserActionsHandler {
-  private readonly logger = new Logger(UserActionsHandler.name);
+@SlackHandler({
+  callbackId: ViewCallbackId.UsersTabView,
+  type: 'block_actions',
+})
+export default class UsersTabActionHandler {
+  private readonly logger = new Logger(UsersTabActionHandler.name);
 
   public constructor(
     private readonly homeTabService: HomeTabService,
@@ -29,33 +32,33 @@ export default class UserActionsHandler {
 
   public async handle(payload: ISlackInteractionPayload, user: IUserViewModel) {
     switch (payload.actions[0].action_id) {
-      case ViewActionId.BackToHomeTap: {
+      case UsersTabViewActionId.BackToHomeTap: {
         await this.homeTabService.publishHomeTab(user);
 
         break;
       }
-      case ViewActionId.ManageUserMenu: {
+      case UsersTabViewActionId.ManageUserMenu: {
         await this.handleManageUserMenuAction(payload, user);
 
         break;
       }
-      case ViewActionId.UsersPaginationPrev:
-      case ViewActionId.UsersPaginationNext: {
+      case UsersTabViewActionId.UsersPaginationPrev:
+      case UsersTabViewActionId.UsersPaginationNext: {
         await this.handlePagination(payload, user);
 
         break;
       }
-      case ViewActionId.FilterUsersByRole: {
+      case UsersTabViewActionId.FilterUsersByRole: {
         await this.handleFilterByRole(payload, user);
 
         break;
       }
-      case ViewActionId.FilterUsersByTeam: {
+      case UsersTabViewActionId.FilterUsersByTeam: {
         await this.handleFilterByTeam(payload, user);
 
         break;
       }
-      case ViewActionId.FilterUsersByStatus: {
+      case UsersTabViewActionId.FilterUsersByStatus: {
         await this.handleFilterByStatus(payload, user);
 
         break;
@@ -75,17 +78,17 @@ export default class UserActionsHandler {
 
     if (!selectedValue) {
       this.logger.warn(
-        `${ViewActionId.ManageUserMenu} triggered without selected_option`,
+        `${UsersTabViewActionId.ManageUserMenu} triggered without selected_option`,
       );
 
       return;
     }
 
-    // e.g. edit_team:team_id
+    // e.g. UsersTabViewActionId:user_id
     const [actionType, userId] = selectedValue.split(':');
 
-    switch (actionType) {
-      case 'edit_user': {
+    switch (actionType as UsersTabViewActionId) {
+      case UsersTabViewActionId.EditUser: {
         await this.usersTabService.openModal(
           payload.trigger_id || user.slack_id,
           UsersTabModalName.EditUser,
@@ -94,7 +97,7 @@ export default class UserActionsHandler {
 
         break;
       }
-      case 'change_user_status': {
+      case UsersTabViewActionId.ChangeStatus: {
         await this.usersTabService.openModal(
           payload.trigger_id || user.slack_id,
           UsersTabModalName.ChangeUserStatus,
@@ -104,7 +107,7 @@ export default class UserActionsHandler {
         break;
       }
       default: {
-        this.logger.warn(`Unhandled AdminTeamMenu actionType: ${actionType}`);
+        this.logger.warn(`Unhandled Users Tab Menu actionType: ${actionType}`);
       }
     }
   }

@@ -4,12 +4,13 @@ import { TeamModalViewService } from 'src/slack/services/slack-views/modal-views
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { UsersService } from 'src/users/users.service';
 import { TeamsTabViewService } from 'src/slack/services/slack-views/tab-views/teams-tab-view.service';
-import DeleteTeamModalViewService from 'src/slack/services/slack-views/modal-views/delete-team-modal-view.service';
+import DeleteEntityModalViewService from 'src/slack/services/slack-views/modal-views/delete-entity-modal-view.service';
 import BaseTabViewService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
 } from 'src/slack/services/base-tab-view.service';
 import { View } from '@slack/types/dist/views';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 interface ITeamModalViewParams extends IOpenModalBaseParams {
   teamId: string;
@@ -41,7 +42,7 @@ export class TeamsTabService extends BaseTabViewService<TeamsTabModalViewResolve
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly usersService: UsersService,
     private readonly teamsTabViewService: TeamsTabViewService,
-    private readonly deleteTeamModalViewService: DeleteTeamModalViewService,
+    private readonly deleteEntityModalViewService: DeleteEntityModalViewService,
   ) {
     super({
       [TeamsTabModalName.CreateTeam]: (params) =>
@@ -112,6 +113,12 @@ export class TeamsTabService extends BaseTabViewService<TeamsTabModalViewResolve
       slackTeamId: user.slack_team_id,
     });
 
-    return this.deleteTeamModalViewService.getView({ team, errorMessage });
+    return this.deleteEntityModalViewService.getView({
+      callbackId: ViewCallbackId.DeleteTeam,
+      entityType: 'team',
+      entityName: team.name,
+      entityId: team.id,
+      errorMessage,
+    });
   }
 }

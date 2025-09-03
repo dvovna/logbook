@@ -39,7 +39,7 @@ export class EditUserModalViewService extends BaseModalViewService<IGetViewParam
 
     return {
       type: 'modal',
-      callback_id: ViewCallbackId.EditUserModalView,
+      callback_id: ViewCallbackId.UserFormSubmit,
       private_metadata: JSON.stringify({
         userIdToEdit: user.id,
         pageMetadata,
@@ -111,7 +111,7 @@ export class EditUserModalViewService extends BaseModalViewService<IGetViewParam
         is_decimal_allowed: false,
         min_value: '0',
         max_value: '30',
-        initial_value: daysUnused ? daysUnused.toString() : '0',
+        initial_value: daysUnused !== null ? daysUnused.toString() : '0',
       },
       label: {
         type: 'plain_text',

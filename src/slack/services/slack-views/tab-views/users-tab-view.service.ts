@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
 import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
 import ITeamViewModel from 'src/teams/types/team.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ISearchResult } from 'src/common/types/pagination.types';
@@ -42,6 +41,18 @@ const ALL_TEAMS_SELECT_OPTION = {
   value: ALL_OPTION_VALUE,
 };
 
+export enum UsersTabViewActionId {
+  BackToHomeTap = 'back_to_home_tab',
+  UsersPaginationPrev = 'users_pagination_prev',
+  UsersPaginationNext = 'users_pagination_next',
+  ManageUserMenu = 'manage_user_menu',
+  EditUser = 'edit_user',
+  ChangeStatus = 'change_status',
+  FilterUsersByRole = 'filter_users_by_role',
+  FilterUsersByTeam = 'filter_users_by_team',
+  FilterUsersByStatus = 'filter_users_by_status',
+}
+
 @Injectable()
 export class UsersTabViewService {
   public getView(
@@ -53,7 +64,7 @@ export class UsersTabViewService {
       view: {
         type: 'home',
         private_metadata: JSON.stringify(metadata),
-        callback_id: ViewCallbackId.UserTabView,
+        callback_id: ViewCallbackId.UsersTabView,
         blocks: this.getViewBlocks(users, teams, metadata.filters),
       },
     } as ViewsPublishArguments;
@@ -94,7 +105,7 @@ export class UsersTabViewService {
         {
           type: 'button',
           text: { type: 'plain_text', text: 'Back To Home Page' },
-          action_id: ViewActionId.BackToHomeTap,
+          action_id: UsersTabViewActionId.BackToHomeTap,
         },
       ],
     });
@@ -132,13 +143,13 @@ export class UsersTabViewService {
         ],
         accessory: {
           type: 'overflow',
-          action_id: ViewActionId.ManageUserMenu,
+          action_id: UsersTabViewActionId.ManageUserMenu,
           options: [
             ...(user.is_active
               ? [
                 {
                   text: { type: 'plain_text', text: 'Edit User' },
-                  value: `edit_user:${user.id}`,
+                  value: `${UsersTabViewActionId.EditUser}:${user.id}`,
                 } as PlainTextOption,
               ]
               : []),
@@ -147,7 +158,7 @@ export class UsersTabViewService {
                 type: 'plain_text',
                 text: `${user.is_active ? 'Deactivate' : 'Activate'} User`,
               },
-              value: `change_user_status:${user.id}`,
+              value: `${UsersTabViewActionId.ChangeStatus}:${user.id}`,
             },
           ],
         },
@@ -181,7 +192,7 @@ export class UsersTabViewService {
         {
           type: 'static_select',
           placeholder: { type: 'plain_text', text: 'Filter by Role' },
-          action_id: ViewActionId.FilterUsersByRole,
+          action_id: UsersTabViewActionId.FilterUsersByRole,
           initial_option: {
             text: {
               type: 'plain_text',
@@ -196,7 +207,7 @@ export class UsersTabViewService {
         {
           type: 'static_select',
           placeholder: { type: 'plain_text', text: 'Filter by Team' },
-          action_id: ViewActionId.FilterUsersByTeam,
+          action_id: UsersTabViewActionId.FilterUsersByTeam,
           initial_option: {
             text: {
               type: 'plain_text',
@@ -211,7 +222,7 @@ export class UsersTabViewService {
         {
           type: 'static_select',
           placeholder: { type: 'plain_text', text: 'Filter by Status' },
-          action_id: ViewActionId.FilterUsersByStatus,
+          action_id: UsersTabViewActionId.FilterUsersByStatus,
           initial_option:
             filters?.userStatus === 'inactive_only'
               ? SHOW_INACTIVE_OPTION
@@ -244,7 +255,7 @@ export class UsersTabViewService {
             {
               type: 'button',
               text: { type: 'plain_text', text: '⬅ Prev' },
-              action_id: ViewActionId.UsersPaginationPrev,
+              action_id: UsersTabViewActionId.UsersPaginationPrev,
               value: String(page - 1),
             },
           ]
@@ -254,7 +265,7 @@ export class UsersTabViewService {
             {
               type: 'button',
               text: { type: 'plain_text', text: 'Next ➡' },
-              action_id: ViewActionId.UsersPaginationNext,
+              action_id: UsersTabViewActionId.UsersPaginationNext,
               value: String(page + 1),
             },
           ]

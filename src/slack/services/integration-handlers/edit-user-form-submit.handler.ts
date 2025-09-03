@@ -18,7 +18,7 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
 @SlackHandler({
-  callbackId: ViewCallbackId.EditUserModalView,
+  callbackId: ViewCallbackId.UserFormSubmit,
   type: 'view_submission',
 })
 export class EditUserFormSubmitHandler {

@@ -4,17 +4,17 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import { VacationRequestModalViewService } from 'src/slack/services/slack-views/modal-views/vacation-request-modal-view.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { HomeTabService } from 'src/slack/services/home-tap.service';
-import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
 import { TeamsTabService } from 'src/slack/services/teams-tab.service';
 import { VacationPoliciesTabService } from 'src/slack/services/vacation-policies-tab.service';
 import { UsersTabService } from 'src/slack/services/users-tab.service';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { ISlackInteractionHandler } from 'src/slack/services/integration-handlers/slack-interaction.handler';
+import { HomeTabActionId } from 'src/slack/services/slack-views/tab-views/home-tap-view.service';
 
 @Injectable()
 @SlackHandler({ callbackId: ViewCallbackId.HomeTabView, type: 'block_actions' })
-export default class HomeTabActionsHandler implements ISlackInteractionHandler {
+export default class HomeTabActionHandler implements ISlackInteractionHandler {
   public constructor(
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly vacationRequestViewService: VacationRequestModalViewService,
@@ -26,7 +26,7 @@ export default class HomeTabActionsHandler implements ISlackInteractionHandler {
 
   public async handle(payload: ISlackInteractionPayload, user: IUserViewModel) {
     switch (payload.actions[0].action_id) {
-      case ViewActionId.OpenVacationModal: {
+      case HomeTabActionId.OpenVacationModal: {
         await this.slackCommunicationService.openView(
           payload.trigger_id || user.slack_id,
           this.vacationRequestViewService.getView(),
@@ -35,7 +35,7 @@ export default class HomeTabActionsHandler implements ISlackInteractionHandler {
 
         break;
       }
-      case ViewActionId.ViewHistory: {
+      case HomeTabActionId.ViewHistory: {
         await this.slackCommunicationService.postEphemeral(
           user.slack_id,
           {
@@ -46,27 +46,27 @@ export default class HomeTabActionsHandler implements ISlackInteractionHandler {
 
         break;
       }
-      case ViewActionId.AdminManageTeams: {
+      case HomeTabActionId.AdminManageTeams: {
         await this.teamsTabService.publish({ user });
 
         break;
       }
-      case ViewActionId.AdminManageUsers: {
+      case HomeTabActionId.AdminManageUsers: {
         await this.usersTabService.publish({ user });
 
         break;
       }
-      case ViewActionId.AdminViewAndEditVacationRequests: {
+      case HomeTabActionId.AdminViewAndEditVacationRequests: {
         await this.homeTabService.publishEditRequestsTab(user);
 
         break;
       }
-      case ViewActionId.AdminViewAndEditVacationPolicies: {
-        await this.vacationPoliciesTabService.publishVacationPoliciesTab(user);
+      case HomeTabActionId.AdminViewAndEditVacationPolicies: {
+        await this.vacationPoliciesTabService.publish({ user });
 
         break;
       }
-      case ViewActionId.BackToHomeTap: {
+      case HomeTabActionId.BackToHomeTap: {
         await this.homeTabService.publishHomeTab(user);
 
         break;

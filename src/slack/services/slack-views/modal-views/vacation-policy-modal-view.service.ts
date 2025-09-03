@@ -4,20 +4,9 @@ import BaseModalViewService from 'src/slack/services/slack-views/modal-views/bas
 import { View } from '@slack/types/dist/views';
 import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
 
-// const vacationPolicyFormSchema = z.object({
-//   vacation_days: z
-//     .string()
-//     .transform((value) => parseInt(value, 10))
-//     .refine((value) => !isNaN(value), {
-//       message: 'Vacation days must be a number',
-//     }),
-//   bonus_days: z
-//     .string()
-//     .transform((value) => parseInt(value, 10))
-//     .refine((value) => !isNaN(value), {
-//       message: 'Bonus days must be a number',
-//     }),
-// });
+export interface IPolicyModalViewMetadata {
+  policyIdToEdit: string | null;
+}
 
 interface IGetViewParams {
   policy: IVacationPolicyViewModel | null;
@@ -29,62 +18,97 @@ export class VacationPolicyModalViewService extends BaseModalViewService<IGetVie
   public getView({ policy, errorMessage }: IGetViewParams): View {
     return {
       type: 'modal',
-      callback_id: ViewCallbackId.VacationPolicyManagement,
+      callback_id: ViewCallbackId.PolicyFormSubmit,
+      private_metadata: JSON.stringify({
+        policyIdToEdit: policy?.id,
+      } as IPolicyModalViewMetadata),
       title: {
         type: 'plain_text',
-        text: 'Team Vacation Settings',
+        text: policy ? 'Edit Policy' : 'Create Policy',
       },
       submit: {
         type: 'plain_text',
-        text: 'Save',
+        text: policy ? 'Save' : 'Create',
       },
-      close: {
-        type: 'plain_text',
-        text: 'Cancel',
-      },
+      close: { type: 'plain_text', text: 'Cancel' },
       blocks: [
+        ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
         {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: '👋 Hello! Thank you for installing the Marina Bot.\n\nBefore we get started, please configure the number of vacation and bonus days for your team.',
+          type: 'input',
+          block_id: 'name_block',
+          element: {
+            type: 'plain_text_input',
+            action_id: 'name',
+            initial_value: policy?.name ?? '',
           },
-        },
-        {
-          type: 'divider',
+          label: {
+            type: 'plain_text',
+            text: 'Policy Name',
+          },
         },
         {
           type: 'input',
           block_id: 'vacation_days_block',
+          element: {
+            type: 'number_input',
+            action_id: 'vacation_days',
+            is_decimal_allowed: false,
+            min_value: '0',
+            max_value: '30',
+            initial_value: policy?.vacation_days?.toString() ?? '26',
+          },
           label: {
             type: 'plain_text',
-            text: 'Number of vacation days per year',
+            text: 'Vacation Days (Calendar)',
           },
+        },
+        {
+          type: 'input',
+          block_id: 'working_days_block',
           element: {
-            type: 'plain_text_input',
-            action_id: 'vacation_days',
-            placeholder: {
-              type: 'plain_text',
-              text: 'e.g. 20',
-            },
-            initial_value: policy?.vacation_days.toString(),
+            type: 'number_input',
+            action_id: 'working_days',
+            is_decimal_allowed: false,
+            min_value: '0',
+            max_value: '30',
+            initial_value: policy?.working_days?.toString() ?? '20',
+          },
+          label: {
+            type: 'plain_text',
+            text: 'Vacation Days (Working)',
           },
         },
         {
           type: 'input',
           block_id: 'bonus_days_block',
+          element: {
+            type: 'number_input',
+            action_id: 'bonus_days',
+            is_decimal_allowed: false,
+            min_value: '0',
+            max_value: '30',
+            initial_value: policy?.bonus_days?.toString() ?? '5',
+          },
           label: {
             type: 'plain_text',
-            text: 'Number of bonus days per year',
+            text: 'Bonus Days',
           },
+        },
+        {
+          type: 'input',
+          block_id: 'carryover_days_block',
+          optional: true,
           element: {
-            type: 'plain_text_input',
-            action_id: 'bonus_days',
-            initial_value: policy?.bonus_days.toString(),
-            placeholder: {
-              type: 'plain_text',
-              text: 'e.g. 3',
-            },
+            type: 'number_input',
+            action_id: 'carryover_days',
+            is_decimal_allowed: false,
+            min_value: '0',
+            max_value: '30',
+            initial_value: policy?.carryover_days?.toString() || '0',
+          },
+          label: {
+            type: 'plain_text',
+            text: 'Carryover Days (from previous period)',
           },
         },
       ],

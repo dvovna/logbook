@@ -11,7 +11,8 @@ export class SlackHandlersRegistry implements OnModuleInit {
   private handlers = new Map<string, ISlackInteractionHandler>();
 
   public constructor(
-    @Inject(DiscoveryService) private readonly discoveryService: DiscoveryService,
+    @Inject(DiscoveryService)
+    private readonly discoveryService: DiscoveryService,
     private readonly reflector: Reflector,
   ) {}
 

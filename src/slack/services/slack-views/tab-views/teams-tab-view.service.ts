@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { ViewActionId } from 'src/slack/enums/view-action-id.enum';
 import ITeamViewModel from 'src/teams/types/team.interface';
 import { VacationPoliciesCacheService } from 'src/vacation-policies/services/vacation-policies-cache.service';
 
@@ -10,6 +9,14 @@ interface IGetViewParams {
   teams: ITeamViewModel[];
   usersCountByTeam: Record<string, number>;
   userId: string;
+}
+
+export enum TeamsTabViewActionId {
+  AddTeam = 'add_team',
+  EditTeam = 'edit_team',
+  DeleteTeam = 'delete_team',
+  ManageTeamMenu = 'manage_team_menu',
+  BackToHomeTap = 'back_to_home_tab',
 }
 
 @Injectable()
@@ -23,7 +30,7 @@ export class TeamsTabViewService {
       user_id: userId,
       view: {
         type: 'home',
-        callback_id: ViewCallbackId.TeamTabView,
+        callback_id: ViewCallbackId.TeamsTabView,
         blocks: await this.getViewBlocks(teams, usersCountByTeam),
       },
     } as ViewsPublishArguments;
@@ -50,12 +57,12 @@ export class TeamsTabViewService {
         {
           type: 'button',
           text: { type: 'plain_text', text: '➕ Add Team' },
-          action_id: ViewActionId.AddTeam,
+          action_id: TeamsTabViewActionId.AddTeam,
         },
         {
           type: 'button',
           text: { type: 'plain_text', text: 'Back To Home Page' },
-          action_id: ViewActionId.BackToHomeTap,
+          action_id: TeamsTabViewActionId.BackToHomeTap,
         },
       ],
     });
@@ -94,18 +101,18 @@ export class TeamsTabViewService {
         ],
         accessory: {
           type: 'overflow',
-          action_id: ViewActionId.ManageTeamMenu,
+          action_id: TeamsTabViewActionId.ManageTeamMenu,
           options: [
             {
               text: { type: 'plain_text', text: 'Edit Team' },
-              value: `edit_team:${team.id}`,
+              value: `${TeamsTabViewActionId.EditTeam}:${team.id}`,
             },
             {
               text: {
                 type: 'plain_text',
                 text: 'Delete Team',
               },
-              value: `delete_team:${team.id}`,
+              value: `${TeamsTabViewActionId.DeleteTeam}:${team.id}`,
             },
           ],
         },
