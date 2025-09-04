@@ -116,7 +116,7 @@ export default class TeamsService {
       throw new EntityHasDependenciesError('team', 'users');
     }
 
-    await this.teamsRepository.delete({
+    await this.teamsRepository.deleteMany({
       id: teamId,
       slack_team_id: user.slack_team_id,
     });

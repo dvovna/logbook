@@ -212,16 +212,18 @@ export abstract class BaseRepository<
     return this.mapToViewModel(updated as unknown as Entity['Row']);
   }
 
-  public async delete(filter: SupabaseFilter): Promise<void> {
+  public async deleteMany(filter: SupabaseFilter): Promise<number> {
     const query = this.client.from(this.tableName).delete();
 
     this.buildMatchQuery(query, filter);
 
-    const { error } = await query;
+    const { data, error } = await query.select('id');
 
     if (error) {
-      throw new Error(`[${this.tableName}] delete error: ${error.message}`);
+      throw new Error(`[${this.tableName}] deleteMany error: ${error.message}`);
     }
+
+    return (data as unknown as { id: string }[]).length;
   }
 
   protected mapToViewModel = (_row: Entity['Row']): ViewModel => {

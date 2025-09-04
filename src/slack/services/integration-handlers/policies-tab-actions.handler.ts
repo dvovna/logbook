@@ -10,6 +10,7 @@ import {
   VacationPoliciesTabModalName,
   VacationPoliciesTabService,
 } from 'src/slack/services/vacation-policies-tab.service';
+import { HolidaysTabService } from 'src/slack/services/holidays-tab.service';
 
 @Injectable()
 @SlackHandler({
@@ -22,6 +23,7 @@ export default class PoliciesTabActionsHandler {
   public constructor(
     private readonly homeTabService: HomeTabService,
     private readonly vacationPoliciesTabService: VacationPoliciesTabService,
+    private readonly holidaysTabService: HolidaysTabService,
   ) {}
 
   public async handle(payload: ISlackInteractionPayload, user: IUserViewModel) {
@@ -85,6 +87,15 @@ export default class PoliciesTabActionsHandler {
           VacationPoliciesTabModalName.DeletePolicy,
           { user, policyId },
         );
+
+        break;
+      }
+
+      case PolicyTabViewActionId.EditHolidays: {
+        await this.holidaysTabService.publish({
+          user,
+          policyId,
+        });
 
         break;
       }

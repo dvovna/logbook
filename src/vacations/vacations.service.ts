@@ -82,7 +82,7 @@ export class VacationsService implements IVacationsService {
     vacations: IVacationCreateParams[],
     replacedBy: IUserViewModel,
   ) {
-    await this.vacationsRepository.delete({
+    await this.vacationsRepository.deleteMany({
       user_id: userId,
     });
 

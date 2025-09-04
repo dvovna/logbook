@@ -6,6 +6,13 @@ import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached
 import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
 import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
 import TeamsService from 'src/teams/teams.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  VacationPolicyCreatedEvent,
+  VacationPolicyDeletedEvent,
+  VacationPolicyUpdatedEvent,
+} from 'src/vacation-policies/events/vacation-policy.events';
+import VacationPolicyEvent from 'src/vacation-policies/events/vacation-policy-event.enum';
 
 export const DEFAULT_VACATION_DAYS = 24;
 export const DEFAULT_WORK_DAYS = 20;
@@ -43,6 +50,7 @@ export default class VacationPoliciesService {
   public constructor(
     private readonly vacationPoliciesRepository: VacationPoliciesRepository,
     private readonly teamsService: TeamsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   public findOne({
@@ -87,7 +95,7 @@ export default class VacationPoliciesService {
 
     const createdAt = new Date().toISOString();
 
-    return await this.vacationPoliciesRepository.create({
+    const policy = await this.vacationPoliciesRepository.create({
       name: createParams.name,
       slack_team_id: createParams.slackTeamId,
       vacation_days: createParams.vacationDays,
@@ -100,9 +108,16 @@ export default class VacationPoliciesService {
       updated_by: user.id,
       is_primary: createParams.isPrimary ?? false,
     });
+
+    this.eventEmitter.emit(
+      VacationPolicyEvent.Created,
+      new VacationPolicyCreatedEvent(policy),
+    );
+
+    return policy;
   }
 
-  public update(
+  public async update(
     { id, slackTeamId }: IFindParams,
     {
       vacationDays,
@@ -113,7 +128,7 @@ export default class VacationPoliciesService {
     }: IUpdateParams,
     user: IUserViewModel,
   ) {
-    return this.vacationPoliciesRepository.update(
+    const policy = await this.vacationPoliciesRepository.update(
       {
         id,
         slack_team_id: slackTeamId,
@@ -130,6 +145,13 @@ export default class VacationPoliciesService {
         updated_at: new Date().toISOString(),
       },
     );
+
+    this.eventEmitter.emit(
+      VacationPolicyEvent.Updated,
+      new VacationPolicyUpdatedEvent(policy),
+    );
+
+    return policy;
   }
 
   public async delete({ id, slackTeamId }: IFindParams) {
@@ -148,10 +170,15 @@ export default class VacationPoliciesService {
       throw new EntityHasDependenciesError('policy', 'teams');
     }
 
-    await this.vacationPoliciesRepository.delete({
+    await this.vacationPoliciesRepository.deleteMany({
       id: policy.id,
       slack_team_id: slackTeamId,
     });
+
+    this.eventEmitter.emit(
+      VacationPolicyEvent.Deleted,
+      new VacationPolicyDeletedEvent(policy.id),
+    );
 
     return policy;
   }

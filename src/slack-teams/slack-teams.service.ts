@@ -35,6 +35,6 @@ export class SlackTeamsService {
   }
 
   public async delete(teamId: string) {
-    return await this.slackTeamsRepository.delete({ id: teamId });
+    return await this.slackTeamsRepository.deleteMany({ id: teamId });
   }
 }

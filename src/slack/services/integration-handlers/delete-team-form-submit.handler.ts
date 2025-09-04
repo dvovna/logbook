@@ -9,7 +9,7 @@ import {
   TeamsTabModalName,
   TeamsTabService,
 } from 'src/slack/services/teams-tab.service';
-import { IDeleteEntityModalViewMetadata } from 'src/slack/services/slack-views/modal-views/delete-entity-modal-view.service';
+import { IConfirmationModalViewMetadata } from 'src/slack/services/slack-views/modal-views/confirmation-modal-view.service';
 import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
 import SlackMetadataParser from 'src/slack/utils/slack-metadata.parser';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
@@ -33,7 +33,7 @@ export class DeleteTeamFormSubmitHandler {
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     const metadata =
-      SlackMetadataParser.parse<IDeleteEntityModalViewMetadata>(payload);
+      SlackMetadataParser.parse<IConfirmationModalViewMetadata>(payload);
 
     const { entityId: teamIdToDelete } = metadata;
 

@@ -4,18 +4,21 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
 import { View } from '@slack/types/dist/views';
 
-export interface IOpenModalBaseParams {
+export type IOpenModalBaseParams<PageMetadata = undefined> = {
   user: IUserViewModel;
   errorMessage?: string;
-  pageMetadata?: string;
-}
+} & (PageMetadata extends undefined
+  ? object
+  : {
+      pageMetadata: PageMetadata;
+    });
 
 export interface IPublishBaseParams {
   user: IUserViewModel;
 }
 
 export type ModalViewResolversMapType = {
-  [key: string]: (params: IOpenModalBaseParams) => Promise<View>;
+  [key: string]: (params: IOpenModalBaseParams) => Promise<View> | View;
 };
 
 @Injectable()
@@ -56,7 +59,7 @@ export default abstract class BaseTabViewService<
   public getModalView<Name extends keyof ModalViewResolversMap>(
     modalName: Name,
     params: Parameters<ModalViewResolversMap[Name]>[0],
-  ): Promise<View> {
+  ): Promise<View> | View {
     return this.modalViewResolversMap[modalName](params);
   }
 }

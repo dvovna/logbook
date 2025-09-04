@@ -4,7 +4,7 @@ import { TeamModalViewService } from 'src/slack/services/slack-views/modal-views
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { UsersService } from 'src/users/users.service';
 import { TeamsTabViewService } from 'src/slack/services/slack-views/tab-views/teams-tab-view.service';
-import DeleteEntityModalViewService from 'src/slack/services/slack-views/modal-views/delete-entity-modal-view.service';
+import ConfirmationModalViewService from 'src/slack/services/slack-views/modal-views/confirmation-modal-view.service';
 import BaseTabViewService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
@@ -42,7 +42,7 @@ export class TeamsTabService extends BaseTabViewService<TeamsTabModalViewResolve
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly usersService: UsersService,
     private readonly teamsTabViewService: TeamsTabViewService,
-    private readonly deleteEntityModalViewService: DeleteEntityModalViewService,
+    private readonly confirmationModalViewService: ConfirmationModalViewService,
   ) {
     super({
       [TeamsTabModalName.CreateTeam]: (params) =>
@@ -113,10 +113,10 @@ export class TeamsTabService extends BaseTabViewService<TeamsTabModalViewResolve
       slackTeamId: user.slack_team_id,
     });
 
-    return this.deleteEntityModalViewService.getView({
+    return this.confirmationModalViewService.getView({
       callbackId: ViewCallbackId.DeleteTeam,
-      entityType: 'team',
-      entityName: team.name,
+      title: 'Delete Team',
+      message: `:alert: The team *${team.name}* will be permanently deleted. This action cannot be undone.`,
       entityId: team.id,
       errorMessage,
     });

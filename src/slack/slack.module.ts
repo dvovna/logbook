@@ -36,7 +36,7 @@ import TeamModalViewValuesParser from 'src/slack/services/slack-views/parsers/te
 import VacationRequestViewValuesParser from 'src/slack/services/slack-views/parsers/vacation-request-view-values.parser';
 import { VacationPoliciesTabService } from 'src/slack/services/vacation-policies-tab.service';
 import { VacationPolicyTabViewService } from 'src/slack/services/slack-views/tab-views/vacation-policy-tab-view.service';
-import DeleteEntityModalViewService from 'src/slack/services/slack-views/modal-views/delete-entity-modal-view.service';
+import ConfirmationModalViewService from 'src/slack/services/slack-views/modal-views/confirmation-modal-view.service';
 import { DeleteTeamFormSubmitHandler } from 'src/slack/services/integration-handlers/delete-team-form-submit.handler';
 import { UsersTabViewService } from 'src/slack/services/slack-views/tab-views/users-tab-view.service';
 import { UsersTabService } from 'src/slack/services/users-tab.service';
@@ -44,7 +44,6 @@ import UsersTabActionHandler from 'src/slack/services/integration-handlers/users
 import { EditUserModalViewService } from 'src/slack/services/slack-views/modal-views/edit-user-modal-view.service';
 import { EditUserFormSubmitHandler } from 'src/slack/services/integration-handlers/edit-user-form-submit.handler';
 import EditUserModalViewValuesParser from 'src/slack/services/slack-views/parsers/edit-user-modal-view-values.parser';
-import ChangeUserStatusModalViewService from 'src/slack/services/slack-views/modal-views/change-user_status-modal-view.service';
 import { ChangeUserStatusFormSubmitHandler } from 'src/slack/services/integration-handlers/change-user-status-form-submit.handler';
 import { SlackHandlersRegistry } from 'src/slack/services/slack-handlers.registry';
 import { DiscoveryModule } from '@nestjs/core';
@@ -52,6 +51,17 @@ import PoliciesTabActionsHandler from 'src/slack/services/integration-handlers/p
 import PolicyModalViewValuesParser from 'src/slack/services/slack-views/parsers/policy-modal-view-values.parser';
 import { VacationPolicyFormSubmitHandler } from 'src/slack/services/integration-handlers/vacation-policy-form-submit.handler';
 import { DeletePolicyFormSubmitHandler } from 'src/slack/services/integration-handlers/delete-policy-form-submit.handler';
+import { HolidaysTabViewService } from 'src/slack/services/slack-views/tab-views/holidays-tab-view.service';
+import { HolidaysTabService } from 'src/slack/services/holidays-tab.service';
+import { HolidaysModule } from 'src/holidays/holidays.module';
+import { HolidayModalViewService } from 'src/slack/services/slack-views/modal-views/holiday-modal-view.service';
+import HolidaysTabActionHandler from 'src/slack/services/integration-handlers/holidays-tab-action.handler';
+import HolidayModalViewValuesParser from 'src/slack/services/slack-views/parsers/holiday-modal-view-values.parser';
+import { HolidayFormSubmitHandler } from 'src/slack/services/integration-handlers/holiday-form-submit.handler';
+import { ToggleHolidayStatusFormSubmitHandler } from 'src/slack/services/integration-handlers/toggle-holiday-status-form-submit.handler';
+import { ImportHolidaysModalViewService } from 'src/slack/services/slack-views/modal-views/import-holidays-modal-view.service';
+import ImportHolidaysModalViewValuesParser from 'src/slack/services/slack-views/parsers/import-holidays-modal-view-values.parser';
+import { ImportHolidaysFormSubmitHandler } from 'src/slack/services/integration-handlers/import-holidays-form-submit.handler';
 
 @Module({
   imports: [
@@ -65,6 +75,7 @@ import { DeletePolicyFormSubmitHandler } from 'src/slack/services/integration-ha
     TeamSetupModule,
     SlackCommunicationModule,
     UserDataImportModule,
+    HolidaysModule,
   ],
   controllers: [
     SlackOauthController,
@@ -85,12 +96,15 @@ import { DeletePolicyFormSubmitHandler } from 'src/slack/services/integration-ha
     UsersTabService,
     TeamsTabService,
     VacationPoliciesTabService,
+    HolidaysTabService,
 
     // modal view values parser
     EditUserModalViewValuesParser,
     PolicyModalViewValuesParser,
     TeamModalViewValuesParser,
     VacationRequestViewValuesParser,
+    HolidayModalViewValuesParser,
+    ImportHolidaysModalViewValuesParser,
 
     // action handlers
     SlackHandlersRegistry,
@@ -105,18 +119,24 @@ import { DeletePolicyFormSubmitHandler } from 'src/slack/services/integration-ha
     PoliciesTabActionsHandler,
     VacationPolicyFormSubmitHandler,
     DeletePolicyFormSubmitHandler,
+    HolidaysTabActionHandler,
+    HolidayFormSubmitHandler,
+    ToggleHolidayStatusFormSubmitHandler,
+    ImportHolidaysFormSubmitHandler,
 
     // modal views
     VacationRequestModalViewService,
     TeamsTabViewService,
+    HolidaysTabViewService,
     UsersTabViewService,
     VacationPolicyModalViewService,
     EditUserModalViewService,
     HomeTabViewsService,
     TeamModalViewService,
-    ChangeUserStatusModalViewService,
-    DeleteEntityModalViewService,
+    ConfirmationModalViewService,
     VacationPolicyTabViewService,
+    HolidayModalViewService,
+    ImportHolidaysModalViewService,
   ],
   exports: [],
 })

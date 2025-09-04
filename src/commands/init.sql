@@ -55,13 +55,18 @@ create table if not exists vacation_policies (
 -- HOLIDAYS
 create table holidays (
     id uuid primary key default gen_random_uuid(),
-    policy_id uuid references vacation_policies(id) on delete cascade not null,
+    vacation_policy_id uuid references vacation_policies(id) on delete cascade not null,
     date date not null,
+    year int not null generated always as (extract(year from date)) stored,
     name text not null,
-    is_company_custom boolean default false,
-    is_disabled boolean default false,
-    created_at timestamp with time zone default now(),
-    updated_at timestamp with time zone default now()
+    is_company_custom boolean default false not null,
+    is_disabled boolean default false not null,
+    slack_team_id uuid references slack_teams(id) on delete cascade not null,
+    created_at timestamp with time zone default now() not null,
+    updated_at timestamp with time zone default now() not null,
+    created_by uuid references users(id) not null,
+    updated_by uuid references users(id) not null,
+    unique (vacation_policy_id, date)
 );
 
 -- VACATIONS

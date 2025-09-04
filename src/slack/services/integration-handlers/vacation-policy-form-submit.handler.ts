@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { TeamModalViewService } from 'src/slack/services/slack-views/modal-views/team-modal-view.service';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
 import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
@@ -16,7 +15,10 @@ import {
   VacationPoliciesTabModalName,
   VacationPoliciesTabService,
 } from 'src/slack/services/vacation-policies-tab.service';
-import { IPolicyModalViewMetadata } from 'src/slack/services/slack-views/modal-views/vacation-policy-modal-view.service';
+import {
+  IPolicyModalViewMetadata,
+  VacationPolicyModalViewService,
+} from 'src/slack/services/slack-views/modal-views/vacation-policy-modal-view.service';
 
 @Injectable()
 @SlackHandler({
@@ -26,7 +28,7 @@ import { IPolicyModalViewMetadata } from 'src/slack/services/slack-views/modal-v
 export class VacationPolicyFormSubmitHandler {
   public constructor(
     private readonly policyModalViewValuesParser: PolicyModalViewValuesParser,
-    private readonly policyModalViewService: TeamModalViewService,
+    private readonly policyModalViewService: VacationPolicyModalViewService,
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly vacationPoliciesTabService: VacationPoliciesTabService,
   ) {}
@@ -50,13 +52,17 @@ export class VacationPolicyFormSubmitHandler {
     }
 
     try {
-      const team = await this.createOrUpdatePolicy(data, policyIdToEdit, user);
+      const policy = await this.createOrUpdatePolicy(
+        data,
+        policyIdToEdit,
+        user,
+      );
 
       this.vacationPoliciesTabService.publish({ user });
 
       return SlackViewResponseFactory.update(
         this.policyModalViewService.getSuccessView(
-          `✅ Policy '${team.name}' was ${policyIdToEdit ? 'updated' : 'created'} successfully!`,
+          `✅ Policy '${policy.name}' was ${policyIdToEdit ? 'updated' : 'created'} successfully!`,
         ),
       );
     } catch (error) {

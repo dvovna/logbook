@@ -14,6 +14,77 @@ export type Database = {
   }
   public: {
     Tables: {
+      holidays: {
+        Row: {
+          created_at: string
+          created_by: string
+          date: string
+          id: string
+          is_company_custom: boolean
+          is_disabled: boolean
+          name: string
+          slack_team_id: string
+          updated_at: string
+          updated_by: string
+          vacation_policy_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          date: string
+          id?: string
+          is_company_custom?: boolean
+          is_disabled?: boolean
+          name: string
+          slack_team_id: string
+          updated_at?: string
+          updated_by: string
+          vacation_policy_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          date?: string
+          id?: string
+          is_company_custom?: boolean
+          is_disabled?: boolean
+          name?: string
+          slack_team_id?: string
+          updated_at?: string
+          updated_by?: string
+          vacation_policy_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holidays_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holidays_slack_team_id_fkey"
+            columns: ["slack_team_id"]
+            isOneToOne: false
+            referencedRelation: "slack_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holidays_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holidays_vacation_policy_id_fkey"
+            columns: ["vacation_policy_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slack_teams: {
         Row: {
           created_at: string | null

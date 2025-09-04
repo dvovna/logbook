@@ -12,7 +12,8 @@ import BaseTabViewService, {
 } from 'src/slack/services/base-tab-view.service';
 import { View } from '@slack/types/dist/views';
 import { EditUserModalViewService } from 'src/slack/services/slack-views/modal-views/edit-user-modal-view.service';
-import ChangeUserStatusModalViewService from 'src/slack/services/slack-views/modal-views/change-user_status-modal-view.service';
+import ConfirmationModalViewService from 'src/slack/services/slack-views/modal-views/confirmation-modal-view.service';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 interface IGetUsersTabViewParams extends IPublishBaseParams {
   page?: number;
@@ -25,7 +26,7 @@ export interface IUsersTabViewFilters {
   userStatus?: 'active_only' | 'inactive_only';
 }
 
-interface IUserModalViewParams extends IOpenModalBaseParams {
+interface IUserModalViewParams extends IOpenModalBaseParams<string> {
   userId: string;
 }
 
@@ -48,7 +49,7 @@ export class UsersTabService extends BaseTabViewService<
     private readonly usersService: UsersService,
     private readonly usersViewService: UsersTabViewService,
     private readonly editUserModalViewService: EditUserModalViewService,
-    private readonly changeUserStatusModalViewService: ChangeUserStatusModalViewService,
+    private readonly confirmationModalViewService: ConfirmationModalViewService,
   ) {
     super({
       [UsersTabModalName.EditUser]: async (params) =>
@@ -125,7 +126,8 @@ export class UsersTabService extends BaseTabViewService<
   public async changeUserStatusModalView({
     userId,
     user,
-    ...modalParams
+    errorMessage,
+    pageMetadata,
   }: IUserModalViewParams) {
     const userToEdit = await this.usersService.findOne({
       id: userId,
@@ -137,9 +139,13 @@ export class UsersTabService extends BaseTabViewService<
       throw new Error(`User with id ${userId} not found`);
     }
 
-    return this.changeUserStatusModalViewService.getView({
-      user: userToEdit,
-      ...modalParams,
+    return this.confirmationModalViewService.getView({
+      entityId: userToEdit.id,
+      errorMessage,
+      pageMetadata,
+      title: `${userToEdit.is_active ? 'Deactivate' : 'Activate'} User`,
+      message: `Are you sure you want to ${userToEdit.is_active ? 'deactivate' : 'activate'} the user *${userToEdit.name}*?`,
+      callbackId: ViewCallbackId.ChangeUserStatus,
     });
   }
 }

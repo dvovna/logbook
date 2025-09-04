@@ -11,6 +11,7 @@ import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { ISlackInteractionHandler } from 'src/slack/services/integration-handlers/slack-interaction.handler';
 import { HomeTabActionId } from 'src/slack/services/slack-views/tab-views/home-tap-view.service';
+import { HolidaysTabService } from 'src/slack/services/holidays-tab.service';
 
 @Injectable()
 @SlackHandler({ callbackId: ViewCallbackId.HomeTabView, type: 'block_actions' })
@@ -20,6 +21,7 @@ export default class HomeTabActionHandler implements ISlackInteractionHandler {
     private readonly vacationRequestViewService: VacationRequestModalViewService,
     private readonly homeTabService: HomeTabService,
     private readonly teamsTabService: TeamsTabService,
+    private readonly holidaysTabService: HolidaysTabService,
     private readonly usersTabService: UsersTabService,
     private readonly vacationPoliciesTabService: VacationPoliciesTabService,
   ) {}
@@ -46,22 +48,22 @@ export default class HomeTabActionHandler implements ISlackInteractionHandler {
 
         break;
       }
-      case HomeTabActionId.AdminManageTeams: {
+      case HomeTabActionId.ManageTeams: {
         await this.teamsTabService.publish({ user });
 
         break;
       }
-      case HomeTabActionId.AdminManageUsers: {
+      case HomeTabActionId.ManageUsers: {
         await this.usersTabService.publish({ user });
 
         break;
       }
-      case HomeTabActionId.AdminViewAndEditVacationRequests: {
+      case HomeTabActionId.ManageVacationRequests: {
         await this.homeTabService.publishEditRequestsTab(user);
 
         break;
       }
-      case HomeTabActionId.AdminViewAndEditVacationPolicies: {
+      case HomeTabActionId.ManageVacationPolicies: {
         await this.vacationPoliciesTabService.publish({ user });
 
         break;

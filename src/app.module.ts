@@ -15,12 +15,26 @@ import { UserDataImportModule } from 'src/user-data-import/user-data-import.modu
 import { TeamSetupModule } from './team-setup/team-setup.module';
 import { SlackCommunicationModule } from './slack-communication/slack-communication.module';
 import { TeamsModule } from './teams/teams.module';
+import { envSchema } from 'src/env.schema';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: (config) => {
+        const parsed = envSchema.safeParse(config);
+        if (!parsed.success) {
+          console.error(
+            '❌ Invalid environment variables',
+            parsed.error.flatten().fieldErrors,
+          );
+          process.exit(1);
+        }
+        return parsed.data;
+      },
     }),
+    EventEmitterModule.forRoot(),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
     }),

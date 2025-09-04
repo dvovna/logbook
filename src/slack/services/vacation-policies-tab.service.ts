@@ -8,7 +8,7 @@ import BaseTabViewService, {
   IPublishBaseParams,
 } from 'src/slack/services/base-tab-view.service';
 import { View } from '@slack/types/dist/views';
-import DeleteEntityModalViewService from 'src/slack/services/slack-views/modal-views/delete-entity-modal-view.service';
+import ConfirmationModalViewService from 'src/slack/services/slack-views/modal-views/confirmation-modal-view.service';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 export enum VacationPoliciesTabModalName {
@@ -39,7 +39,7 @@ export class VacationPoliciesTabService extends BaseTabViewService<VacationPolic
     private readonly vacationPolicyModalViewService: VacationPolicyModalViewService,
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly manageVacationPoliciesViewService: VacationPolicyTabViewService,
-    private readonly deleteEntityModalViewService: DeleteEntityModalViewService,
+    private readonly deleteEntityModalViewService: ConfirmationModalViewService,
   ) {
     super({
       [VacationPoliciesTabModalName.CreatePolicy]: (params) =>
@@ -100,9 +100,9 @@ export class VacationPoliciesTabService extends BaseTabViewService<VacationPolic
 
     return this.deleteEntityModalViewService.getView({
       callbackId: ViewCallbackId.DeletePolicy,
-      entityType: 'policy',
       entityId: policy.id,
-      entityName: policy.name,
+      title: 'Delete Vacation Policy',
+      message: `:alert: The policy *${policy.name}* will be permanently deleted. This action cannot be undone.`,
       errorMessage,
     });
   }

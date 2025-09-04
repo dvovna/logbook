@@ -3,7 +3,7 @@ import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payl
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { IDeleteEntityModalViewMetadata } from 'src/slack/services/slack-views/modal-views/delete-entity-modal-view.service';
+import { IConfirmationModalViewMetadata } from 'src/slack/services/slack-views/modal-views/confirmation-modal-view.service';
 import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
 import SlackMetadataParser from 'src/slack/utils/slack-metadata.parser';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
@@ -33,7 +33,7 @@ export class DeletePolicyFormSubmitHandler {
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     const metadata =
-      SlackMetadataParser.parse<IDeleteEntityModalViewMetadata>(payload);
+      SlackMetadataParser.parse<IConfirmationModalViewMetadata>(payload);
 
     const { entityId: policyIdToDelete } = metadata;
 

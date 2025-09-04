@@ -2,44 +2,46 @@ import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import BaseModalViewService from 'src/slack/services/slack-views/modal-views/base-modal-view.service';
 import { View } from '@slack/types/dist/views';
-import capitalize from 'src/common/utils/capitalize';
 
 interface IGetViewParams {
-  entityType: string;
+  title: string;
+  message: string;
   entityId: string;
-  entityName: string;
   callbackId: ViewCallbackId;
   errorMessage?: string;
+  pageMetadata?: string;
 }
 
-export type IDeleteEntityModalViewMetadata = {
+export type IConfirmationModalViewMetadata = {
   entityType: string;
   entityId: string;
+  pageMetadata: string;
 };
 
 @Injectable()
-export default class DeleteEntityModalViewService extends BaseModalViewService<IGetViewParams> {
+export default class ConfirmationModalViewService extends BaseModalViewService<IGetViewParams> {
   public getView({
-    entityType,
     entityId,
-    entityName,
+    message,
     errorMessage,
+    title,
     callbackId,
+    pageMetadata,
   }: IGetViewParams): View {
     return {
       type: 'modal',
       callback_id: callbackId,
       private_metadata: JSON.stringify({
         entityId,
-        entityType,
-      } as IDeleteEntityModalViewMetadata),
+        pageMetadata,
+      } as IConfirmationModalViewMetadata),
       title: {
         type: 'plain_text',
-        text: `Delete ${capitalize(entityType)}`,
+        text: title,
       },
       submit: {
         type: 'plain_text',
-        text: 'Delete',
+        text: 'Confirm',
       },
       close: {
         type: 'plain_text',
@@ -51,7 +53,7 @@ export default class DeleteEntityModalViewService extends BaseModalViewService<I
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `:alert: The ${entityType} *${entityName}* will be permanently deleted. This action cannot be undone.`,
+            text: message,
           },
         },
       ],

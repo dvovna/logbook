@@ -16,7 +16,7 @@ interface IGetViewParams {
 
 export type IEditUserModalViewMetadata = {
   userIdToEdit: string;
-  pageMetadata?: string;
+  pageMetadata: string;
 };
 
 @Injectable()

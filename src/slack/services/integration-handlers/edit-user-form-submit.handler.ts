@@ -70,6 +70,7 @@ export class EditUserFormSubmitHandler {
             user,
             errorMessage: 'User not found',
             userId: userIdToEdit,
+            pageMetadata: metadata.pageMetadata,
           }),
         );
       }
@@ -88,6 +89,7 @@ export class EditUserFormSubmitHandler {
           errorMessage:
             'An error occurred while updating the user. Please try again later.',
           userId: userIdToEdit,
+          pageMetadata: metadata.pageMetadata,
         }),
       );
     }

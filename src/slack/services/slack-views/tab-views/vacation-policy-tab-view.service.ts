@@ -82,7 +82,6 @@ export class VacationPolicyTabViewService {
               `Vacation Days: ${policy?.vacation_days || '-'}\n` +
               `Working Days: ${policy?.working_days || '-'}\n` +
               `Bonus Days: ${policy?.bonus_days || '-'}\n` +
-              `Country: ${policy?.country_code || '-'}\n` +
               `Created: ${createdAt}\n` +
               `Updated: ${updatedAt}`,
           },

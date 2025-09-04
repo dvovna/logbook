@@ -3,6 +3,13 @@ import VacationPoliciesRepository from 'src/vacation-policies/repositories/vacat
 import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { OnEvent } from '@nestjs/event-emitter';
+import {
+  VacationPolicyCreatedEvent,
+  VacationPolicyDeletedEvent,
+  VacationPolicyUpdatedEvent,
+} from 'src/vacation-policies/events/vacation-policy.events';
+import VacationPolicyEvent from 'src/vacation-policies/events/vacation-policy-event.enum';
 
 @Injectable()
 export class VacationPoliciesCacheService implements OnModuleInit {
@@ -35,12 +42,41 @@ export class VacationPoliciesCacheService implements OnModuleInit {
     this.isInitialized = true;
 
     this.logger.log(
-      `Vacation policies cache initialized with ${policies.length} items`,
+      `Vacation policies cache initialized with ${policies.length} items.`,
     );
   }
 
   public getById(id: string): Promise<IVacationPolicyViewModel | undefined> {
     return this.cacheManager.get(this.getCacheKey(id));
+  }
+
+  @OnEvent(VacationPolicyEvent.Created)
+  public async handleCreated(event: VacationPolicyCreatedEvent) {
+    await this.setPolicy(event.policy);
+
+    this.logger.log(`Policy ${event.policy.id} cached (created)`);
+  }
+
+  @OnEvent(VacationPolicyEvent.Updated)
+  public async handleUpdated(event: VacationPolicyUpdatedEvent) {
+    await this.setPolicy(event.policy);
+
+    this.logger.log(`Policy ${event.policy.id} cached (updated)`);
+  }
+
+  @OnEvent(VacationPolicyEvent.Deleted)
+  public async handleDeleted(event: VacationPolicyDeletedEvent) {
+    await this.removePolicy(event.policyId);
+
+    this.logger.log(`Policy ${event.policyId} removed from cache`);
+  }
+
+  private async setPolicy(policy: IVacationPolicyViewModel) {
+    await this.cacheManager.set(this.getCacheKey(policy.id), policy);
+  }
+
+  private async removePolicy(id: string) {
+    await this.cacheManager.del(this.getCacheKey(id));
   }
 
   public async refresh() {

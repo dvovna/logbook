@@ -15,10 +15,10 @@ interface IGetViewParams {
 export enum HomeTabActionId {
   OpenVacationModal = 'open_vacation_modal',
   ViewHistory = 'view_history',
-  AdminManageUsers = 'admin_manage_users',
-  AdminManageTeams = 'admin_manage_teams',
-  AdminViewAndEditVacationRequests = 'admin_view_and_edit_vacation_requests',
-  AdminViewAndEditVacationPolicies = 'admin_view_and_edit_vacation_policies',
+  ManageUsers = 'manage_users',
+  ManageTeams = 'manage_teams',
+  ManageVacationRequests = 'manage_vacation_requests',
+  ManageVacationPolicies = 'manage_vacation_policies',
   BackToHomeTap = 'back_to_home_tab',
 }
 
@@ -67,22 +67,22 @@ export class HomeTabViewsService {
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Manage Users' },
-            action_id: HomeTabActionId.AdminManageUsers,
+            action_id: HomeTabActionId.ManageUsers,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Manage Teams' },
-            action_id: HomeTabActionId.AdminManageTeams,
+            action_id: HomeTabActionId.ManageTeams,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Vacation Requests' },
-            action_id: HomeTabActionId.AdminViewAndEditVacationRequests,
+            action_id: HomeTabActionId.ManageVacationRequests,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Vacation Policies' },
-            action_id: HomeTabActionId.AdminViewAndEditVacationPolicies,
+            action_id: HomeTabActionId.ManageVacationPolicies,
           },
         ],
       },

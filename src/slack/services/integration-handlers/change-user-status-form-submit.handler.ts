@@ -4,9 +4,6 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
 import { UsersService } from 'src/users/users.service';
-import ChangeUserStatusModalViewService, {
-  IChangeUserStatusModalViewMetadata,
-} from 'src/slack/services/slack-views/modal-views/change-user_status-modal-view.service';
 import {
   UsersTabModalName,
   UsersTabService,
@@ -15,6 +12,9 @@ import { IUsersTabMetaData } from 'src/slack/services/slack-views/tab-views/user
 import SlackMetadataParser from 'src/slack/utils/slack-metadata.parser';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import ConfirmationModalViewService, {
+  IConfirmationModalViewMetadata,
+} from 'src/slack/services/slack-views/modal-views/confirmation-modal-view.service';
 
 @Injectable()
 @SlackHandler({
@@ -27,7 +27,7 @@ export class ChangeUserStatusFormSubmitHandler {
   public constructor(
     private readonly usersService: UsersService,
     private readonly usersTabService: UsersTabService,
-    private readonly changeUserStatusModalService: ChangeUserStatusModalViewService,
+    private readonly confirmationModalViewService: ConfirmationModalViewService,
   ) {}
 
   public async handle(
@@ -35,8 +35,8 @@ export class ChangeUserStatusFormSubmitHandler {
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     const metadata =
-      SlackMetadataParser.parse<IChangeUserStatusModalViewMetadata>(payload);
-    const { userId } = metadata;
+      SlackMetadataParser.parse<IConfirmationModalViewMetadata>(payload);
+    const { entityId: userId } = metadata;
     const pageMetadata = metadata.pageMetadata
       ? (JSON.parse(metadata.pageMetadata) as IUsersTabMetaData)
       : {};
@@ -56,6 +56,7 @@ export class ChangeUserStatusFormSubmitHandler {
               user,
               errorMessage: 'User not found',
               userId,
+              pageMetadata: metadata.pageMetadata,
             },
           ),
         );
@@ -76,7 +77,7 @@ export class ChangeUserStatusFormSubmitHandler {
       this.usersTabService.publish({ user, metadata: pageMetadata, page: 1 });
 
       return SlackViewResponseFactory.update(
-        this.changeUserStatusModalService.getSuccessView(
+        this.confirmationModalViewService.getSuccessView(
           `✅ User '${updatedUser!.name}' has been successfully ${updatedUser!.is_active ? 'activated' : 'deactivated'}.`,
         ),
       );
@@ -93,6 +94,7 @@ export class ChangeUserStatusFormSubmitHandler {
             userId,
             user,
             errorMessage,
+            pageMetadata: metadata.pageMetadata,
           },
         ),
       );
