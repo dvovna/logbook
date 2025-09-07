@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
-import { VacationsService } from '../vacations/vacations.service';
+import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import UserVacationsCsvParser, {
   IUserVacationRecord,
 } from 'src/user-data-import/parsers/user-vacations-csv.parser';
@@ -22,7 +22,7 @@ export class UserVacationsImportService {
 
   public constructor(
     private readonly usersService: UsersService,
-    private readonly vacationsService: VacationsService,
+    private readonly vacationsService: VacationRequestsService,
     private readonly userVacationsCsvParser: UserVacationsCsvParser,
   ) {}
 
@@ -89,7 +89,7 @@ export class UserVacationsImportService {
         );
 
         await this.vacationsService.replaceUserVacations(
-          existingUser.id,
+          existingUser,
           record.vacations.map((vacation) => ({
             ...vacation,
             userId: existingUser.id,

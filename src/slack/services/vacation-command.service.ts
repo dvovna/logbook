@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { UserVacationsUsageService } from 'src/vacations/user-vacation-usage.service';
+import { UserVacationsUsageService } from 'src/vacation-requests/services/user-vacation-usage.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { IUserVacationsUsageInfo } from 'src/vacations/types/user-vacations-usage-info.interface';
-import { VacationRequestModalViewService } from 'src/slack/services/slack-views/modal-views/vacation-request-modal-view.service';
+import { IVacationUsageByType } from 'src/vacation-requests/types/user-vacations-usage-info.interface';
+import { VacationRequestModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-modal.view';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 export enum VacationCommand {
   Usage = 'usage',
@@ -16,7 +17,7 @@ export default class VacationCommandService {
   public constructor(
     private readonly userVacationUsageService: UserVacationsUsageService,
     private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly vacationRequestViewService: VacationRequestModalViewService,
+    private readonly vacationRequestViewService: VacationRequestModalView,
   ) {}
 
   public async handleCommand(
@@ -26,12 +27,14 @@ export default class VacationCommandService {
   ) {
     switch (subcommand) {
       case VacationCommand.Usage: {
-        const usageInfo =
-          await this.userVacationUsageService.getUserVacationsUsage(user);
+        const { usage } =
+          await this.userVacationUsageService.getCurrentVacationPeriodUsage(
+            user,
+          );
 
         await this.slackCommunicationService.postEphemeral(
           user.slack_id,
-          this.getUserVacationsInfoMessage(usageInfo),
+          this.getUserVacationsInfoMessage(usage),
           user.slack_team_id,
         );
 
@@ -40,7 +43,9 @@ export default class VacationCommandService {
       case VacationCommand.Request: {
         await this.slackCommunicationService.openView(
           triggerId || user.slack_id,
-          this.vacationRequestViewService.getView(),
+          this.vacationRequestViewService.getView({
+            callbackId: ViewCallbackId.UserVacationRequest,
+          }),
           user.slack_team_id,
         );
 
@@ -60,7 +65,7 @@ export default class VacationCommandService {
     }
   }
 
-  private getUserVacationsInfoMessage(usageInfo: IUserVacationsUsageInfo) {
+  private getUserVacationsInfoMessage(usageInfo: IVacationUsageByType) {
     return {
       text: `
         📊 Your vacation usage:

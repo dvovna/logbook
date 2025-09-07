@@ -27,6 +27,7 @@ export type Database = {
           updated_at: string
           updated_by: string
           vacation_policy_id: string
+          year: number | null
         }
         Insert: {
           created_at?: string
@@ -40,6 +41,7 @@ export type Database = {
           updated_at?: string
           updated_by: string
           vacation_policy_id: string
+          year?: number | null
         }
         Update: {
           created_at?: string
@@ -53,6 +55,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string
           vacation_policy_id?: string
+          year?: number | null
         }
         Relationships: [
           {
@@ -310,7 +313,7 @@ export type Database = {
           },
         ]
       }
-      vacations: {
+      vacation_requests: {
         Row: {
           approved_by_hr: boolean | null
           approved_by_manager: boolean | null
@@ -320,6 +323,7 @@ export type Database = {
           days: number
           end_date: string
           id: string
+          slack_team_id: string
           start_date: string
           status: string
           team_id: string
@@ -327,6 +331,7 @@ export type Database = {
           updated_at: string | null
           updated_by: string
           user_id: string
+          working_days: number
         }
         Insert: {
           approved_by_hr?: boolean | null
@@ -337,6 +342,7 @@ export type Database = {
           days: number
           end_date: string
           id?: string
+          slack_team_id?: string
           start_date: string
           status?: string
           team_id?: string
@@ -344,6 +350,7 @@ export type Database = {
           updated_at?: string | null
           updated_by: string
           user_id: string
+          working_days: number
         }
         Update: {
           approved_by_hr?: boolean | null
@@ -354,6 +361,7 @@ export type Database = {
           days?: number
           end_date?: string
           id?: string
+          slack_team_id?: string
           start_date?: string
           status?: string
           team_id?: string
@@ -361,8 +369,16 @@ export type Database = {
           updated_at?: string | null
           updated_by?: string
           user_id?: string
+          working_days?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "vacation_requests_slack_team_id_fkey"
+            columns: ["slack_team_id"]
+            isOneToOne: false
+            referencedRelation: "slack_teams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vacations_created_by_fkey"
             columns: ["created_by"]

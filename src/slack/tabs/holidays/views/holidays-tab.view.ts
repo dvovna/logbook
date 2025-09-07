@@ -1,0 +1,273 @@
+import { Injectable } from '@nestjs/common';
+import { AnyBlock, PlainTextOption } from '@slack/web-api';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import IHolidayViewModel from 'src/holidays/types/holiday.interface';
+import { ISearchResult } from 'src/common/types/pagination.types';
+import PaginationView from 'src/slack/common/views/pagination.view';
+import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
+
+interface IGetHolidaysViewParams {
+  countryHolidays: ISearchResult<IHolidayViewModel>;
+  companyHolidays: IHolidayViewModel[];
+  policyName: string;
+  policyId: string;
+  userId: string;
+  selectedYear: number;
+  years: number[];
+}
+
+export interface IHolidaysTabMetadata {
+  page?: number;
+  filters: {
+    policyId: string;
+    selectedYear: number;
+  };
+}
+
+export enum HolidaysTabViewActionId {
+  AddHoliday = 'add_holiday',
+  EditHoliday = 'edit_holiday',
+  ChangeYear = 'change_year',
+  DeleteHoliday = 'delete_holiday',
+  ToggleHolidayStatus = 'toggle_holiday_status',
+  UploadHolidaysFromCountry = 'upload_holidays_from_country',
+  BackToPolicies = 'back_to_policies',
+  CountryHolidaysPaginationPrev = 'country_holidays_pagination_prev',
+  CountryHolidaysPaginationNext = 'country_holidays_pagination_next',
+  ManageHolidayMenu = 'manage_holiday_menu',
+}
+
+@Injectable()
+export class HolidaysTabView extends BaseAdminTabView<
+  IGetHolidaysViewParams,
+  IHolidaysTabMetadata
+> {
+  protected callbackId = ViewCallbackId.HolidaysTabView;
+  protected activeTabActionId = null;
+
+  protected getAdminTabContentBlocks({
+    countryHolidays,
+    companyHolidays,
+    policyName,
+    policyId,
+    selectedYear,
+    years,
+  }: IGetHolidaysViewParams): AnyBlock[] {
+    const blocks: AnyBlock[] = [];
+
+    blocks.push(...this.getHeaderBlocks(policyName, selectedYear, years));
+    blocks.push(...this.getCountryHolidaysBlocks(countryHolidays, policyId));
+
+    blocks.push(...this.getCountryHolidaysPaginationBlocks(countryHolidays));
+
+    blocks.push(...this.getCustomHolidaysBlocks(companyHolidays, policyId));
+
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: ' ',
+      },
+    });
+
+    return blocks;
+  }
+
+  private getCountryHolidaysPaginationBlocks(
+    countryHolidays: ISearchResult<IHolidayViewModel>,
+  ) {
+    const blocks: AnyBlock[] = [];
+
+    blocks.push(
+      ...PaginationView.getBlocks({
+        page: countryHolidays.page,
+        totalCount: countryHolidays.totalCount,
+        pageSize: countryHolidays.pageSize,
+        prevPageActionId: HolidaysTabViewActionId.CountryHolidaysPaginationPrev,
+        nextPageActionId: HolidaysTabViewActionId.CountryHolidaysPaginationNext,
+      }),
+    );
+
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: ' ',
+      },
+    });
+    blocks.push({ type: 'divider' });
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: ' ',
+      },
+    });
+
+    return blocks;
+  }
+
+  private getCustomHolidaysBlocks(
+    companyHolidays: IHolidayViewModel[],
+    policyId: string,
+  ) {
+    const blocks: AnyBlock[] = [];
+
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*🎉 Custom Holidays*',
+      },
+      accessory: {
+        type: 'button',
+        text: { type: 'plain_text', text: '➕ Add Holiday' },
+        action_id: HolidaysTabViewActionId.AddHoliday,
+        value: policyId,
+      },
+    });
+
+    if (companyHolidays.length === 0) {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: '_No custom holidays yet._' },
+      });
+    } else {
+      for (const holiday of companyHolidays) {
+        blocks.push(this.getHolidayBlock(holiday, true));
+        blocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: ' ',
+          },
+        });
+        blocks.push({ type: 'divider' });
+      }
+    }
+
+    return blocks;
+  }
+
+  private getHeaderBlocks(
+    policyName: string,
+    selectedYear: number,
+    years: number[],
+  ) {
+    return [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Holidays for Vacation Policy '${policyName}'*`,
+        },
+        accessory: {
+          type: 'static_select',
+          action_id: HolidaysTabViewActionId.ChangeYear,
+          placeholder: { type: 'plain_text', text: 'Select Year' },
+          initial_option: {
+            text: { type: 'plain_text', text: selectedYear.toString() },
+            value: selectedYear.toString(),
+          },
+          options: years.map((year) => ({
+            text: { type: 'plain_text', text: year.toString() },
+            value: year.toString(),
+          })),
+        },
+      },
+    ];
+  }
+
+  private getCountryHolidaysBlocks(
+    countryHolidays: ISearchResult<IHolidayViewModel>,
+    policyId: string,
+  ) {
+    const blocks: AnyBlock[] = [];
+
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*🌍 Country Holidays*',
+      },
+      accessory: {
+        type: 'button',
+        text: { type: 'plain_text', text: 'Upload From Country' },
+        action_id: HolidaysTabViewActionId.UploadHolidaysFromCountry,
+        value: policyId,
+      },
+    });
+
+    if (countryHolidays.totalCount === 0) {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '_No country holidays. Upload from country._',
+        },
+      });
+    } else {
+      for (const holiday of countryHolidays.items) {
+        blocks.push(this.getHolidayBlock(holiday, false));
+        blocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: ' ',
+          },
+        });
+        blocks.push({ type: 'divider' });
+      }
+    }
+
+    return blocks;
+  }
+
+  private getHolidayBlock(
+    holiday: IHolidayViewModel,
+    isCustom: boolean,
+  ): AnyBlock {
+    return {
+      type: 'section',
+      fields: [
+        { type: 'mrkdwn', text: `*${holiday.name}*` },
+        { type: 'mrkdwn', text: `Date: ${holiday.date}` },
+        {
+          type: 'mrkdwn',
+          text: `Status: ${holiday.is_disabled ? '🔴' : '🟢'}`,
+        },
+      ],
+      accessory: {
+        type: 'overflow',
+        action_id: HolidaysTabViewActionId.ManageHolidayMenu,
+        options: [
+          ...((isCustom
+            ? [
+              {
+                text: { type: 'plain_text', text: 'Edit Holiday' },
+                value: `${HolidaysTabViewActionId.EditHoliday}:${holiday.id}`,
+              },
+            ]
+            : []) as PlainTextOption[]),
+          {
+            text: {
+              type: 'plain_text',
+              text: holiday.is_disabled
+                ? 'Activate Holiday'
+                : 'Deactivate Holiday',
+            },
+            value: `${HolidaysTabViewActionId.ToggleHolidayStatus}:${holiday.id}`,
+          },
+          ...((isCustom
+            ? [
+              {
+                text: { type: 'plain_text', text: 'Delete Holiday' },
+                value: `${HolidaysTabViewActionId.DeleteHoliday}:${holiday.id}`,
+              },
+            ]
+            : []) as PlainTextOption[]),
+        ],
+      },
+    };
+  }
+}

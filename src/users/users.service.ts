@@ -36,6 +36,7 @@ type ISearchUsersParams = ISearchParams<IFindParams>;
 interface IUsersService {
   create(params: ICreateUserParams): Promise<IUserViewModel>;
   findOne(params: IFindParams): Promise<IUserViewModel | null>;
+  findOneWithValidation(params: IFindParams): Promise<IUserViewModel>;
   search(params: ISearchUsersParams): Promise<ISearchResult<IUserViewModel>>;
   count(params: IFindParams): Promise<number>;
 }
@@ -136,6 +137,20 @@ export class UsersService implements IUsersService {
     findParams: IFindParams,
   ): Promise<IUserViewModel | null> {
     return await this.userRepository.findOne(this.getFindQuery(findParams));
+  }
+
+  public async findOneWithValidation(
+    findParams: IFindParams,
+  ): Promise<IUserViewModel> {
+    const user = await this.userRepository.findOne(
+      this.getFindQuery(findParams),
+    );
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return user;
   }
 
   public async findBySlackId(slackId: string) {

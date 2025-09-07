@@ -3,8 +3,11 @@ import UserRole from 'src/common/enums/user-role.enum';
 import SlackUserAccessService from 'src/slack/services/slack-user-access.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import FileUploadService from 'src/slack/services/file-upload.service';
-import { HomeTabService } from 'src/slack/services/home-tap.service';
-import SlackEventType from 'src/slack/enums/slack-event-type';
+import SlackEventType from 'src/slack/enums/slack-event-type.enum';
+import {
+  TabId,
+  TabNavigationService,
+} from 'src/slack/common/services/tab-navigation.service';
 
 interface IFileSharedEvent {
   type: SlackEventType.FileShared;
@@ -32,7 +35,7 @@ export default class SlackEventsService {
   public constructor(
     private readonly slackUserAccessService: SlackUserAccessService,
     private readonly fileUploadService: FileUploadService,
-    private readonly homeTabService: HomeTabService,
+    private readonly tabNavigationService: TabNavigationService,
   ) {}
 
   public handleSlackEvent(event: SlackEvent, user: IUserViewModel) {
@@ -62,7 +65,7 @@ export default class SlackEventsService {
     await this.fileUploadService.handleFileUpload(fileId, user);
   }
 
-  public async handleHomeTapOpened(user: IUserViewModel) {
-    await this.homeTabService.publishHomeTab(user);
+  public handleHomeTapOpened(user: IUserViewModel) {
+    this.tabNavigationService.navigate(TabId.Home, { user });
   }
 }

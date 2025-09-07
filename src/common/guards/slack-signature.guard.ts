@@ -6,12 +6,14 @@ import {
   Logger,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
+import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
 
 const FIVE_MINUTES_IN_SECONDS = 5 * 60;
 
 @Injectable()
 export class SlackSignatureGuard implements CanActivate {
-  private slackSigningSecret = process.env.SLACK_SIGN_IN_SECRET!;
+  private slackSigningSecret =
+    process.env[EnvironmentVariable.SlackSignInSecret]!;
   private logger = new Logger(SlackSignatureGuard.name);
 
   public canActivate(context: ExecutionContext) {

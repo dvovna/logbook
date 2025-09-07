@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
+import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { SlackHandlersRegistry } from 'src/slack/services/slack-handlers.registry';
+import { SlackHandlersRegistry } from 'src/slack/slack-handlers.registry';
 
 @Injectable()
 class SlackInteractionsService {

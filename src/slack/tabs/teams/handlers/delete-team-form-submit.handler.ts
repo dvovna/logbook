@@ -1,0 +1,82 @@
+import { Injectable } from '@nestjs/common';
+import { IUserViewModel } from 'src/users/types/user.interface';
+import { TeamModalView } from 'src/slack/tabs/teams/views/team-modal.view';
+import TeamsService from 'src/teams/teams.service';
+import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
+import {
+  TeamsTabModalName,
+  TeamsTabService,
+} from 'src/slack/tabs/teams/services/teams-tab.service';
+import { IConfirmationModalViewMetadata } from 'src/slack/common/views/confirmation-modal.view';
+import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
+import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
+import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
+import ITeamViewModel from 'src/teams/types/team.interface';
+import {
+  TabId,
+  TabNavigationService,
+} from 'src/slack/common/services/tab-navigation.service';
+
+@Injectable()
+@SlackHandler({
+  callbackId: ViewCallbackId.DeleteTeam,
+  type: 'view_submission',
+})
+export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
+  IConfirmationModalViewMetadata,
+  never,
+  ITeamViewModel
+> {
+  public constructor(
+    private readonly teamModalViewService: TeamModalView,
+    private readonly teamsService: TeamsService,
+    private readonly teamsTabService: TeamsTabService,
+    private readonly tabNavigationService: TabNavigationService,
+  ) {
+    super();
+  }
+
+  protected successResponse(team: ITeamViewModel): ViewResponseAction {
+    return SlackViewResponseFactory.update(
+      this.teamModalViewService.getSuccessView(
+        `✅ Team '${team.name}' has been successfully deleted.`,
+      ),
+    );
+  }
+
+  protected async errorResponse(
+    error: unknown,
+    _data: never,
+    meta: IConfirmationModalViewMetadata,
+    user: IUserViewModel,
+  ): Promise<ViewResponseAction> {
+    const errorMessage =
+      error instanceof PrimaryEntityDeleteError ||
+      error instanceof EntityHasDependenciesError
+        ? error.message
+        : 'An error occurred while deleting the team. Please try again later.';
+
+    return SlackViewResponseFactory.update(
+      await this.teamsTabService.getModalView(TeamsTabModalName.DeleteTeam, {
+        teamId: meta.id,
+        user,
+        errorMessage,
+      }),
+    );
+  }
+
+  protected async onSubmit(
+    _data: never,
+    meta: IConfirmationModalViewMetadata,
+    user: IUserViewModel,
+  ): Promise<ITeamViewModel> {
+    const team = await this.teamsService.delete(meta.id, user);
+
+    this.tabNavigationService.navigate(TabId.Teams, { user });
+
+    return team;
+  }
+}

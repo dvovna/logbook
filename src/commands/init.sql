@@ -65,20 +65,21 @@ create table holidays (
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null,
     created_by uuid references users(id) not null,
-    updated_by uuid references users(id) not null,
-    unique (vacation_policy_id, date)
+    updated_by uuid references users(id) not null
 );
 
--- VACATIONS
-create table if not exists vacations (
+-- VACATION_REQUESTS
+create table if not exists vacation_requests (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references users(id) on delete cascade,
     team_id uuid references teams(id) not null on delete cascade,
+    slack_team_id text references slack_teams(id) not null on delete cascade,
     start_date date not null,
     end_date date not null,
     days integer not null,
+    working_days integer not null,
     type text not null default 'annual_leave' check (type in ('annual_leave', 'bonus_day', 'sick_leave', 'unpaid_leave', 'other')),
-    status text not null default 'requested' check (status in ('requested', 'approved', 'rejected')),
+    status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'cancelled')),
     comments text,
     approved_by_manager boolean default false,
     approved_by_hr boolean default false,

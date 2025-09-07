@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
-import { VacationsModule } from 'src/vacations/vacations.module';
+import { VacationRequestsModule } from 'src/vacation-requests/vacation-requests.module';
 import { SlackModule } from './slack/slack.module';
 import { ConfigModule } from '@nestjs/config';
 import { SupabaseModule } from 'src/supabase/supabase.module';
@@ -40,7 +40,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     }),
     CacheModule.register(),
     SupabaseModule,
-    VacationsModule,
+    VacationRequestsModule,
     UsersModule,
     SlackTeamsModule,
     ClientsModule,

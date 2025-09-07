@@ -16,12 +16,13 @@ export default class SlackPromptsService {
         - \`other\` — custom or undefined type
 
         Examples of \`status\`:
-        - \`requested\` — vacation is pending approval
+        - \`pending\` — vacation is pending approval
         - \`approved\` — vacation is confirmed
         - \`rejected\` — vacation request was denied
+        - \`canceled\` — vacation request was canceled
 
         Sample row:
-        \`john.doe@example.com,2022-01-01,2024-08-01,2024-08-10,annual_leave,approved,2024-09-15,2024-09-15,bonus_day,requested\`
+        \`john.doe@example.com,2022-01-01,2024-08-01,2024-08-10,annual_leave,approved,2024-09-15,2024-09-15,bonus_day,pending\`
         `,
     };
   }

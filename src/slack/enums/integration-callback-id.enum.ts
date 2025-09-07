@@ -1,18 +1,31 @@
 export enum ViewCallbackId {
   HomeTabView = 'home_tab_view',
-  TeamsTabView = 'teams_tab_view',
-  UsersTabView = 'users_tab_view',
-  VacationPoliciesTabView = 'vacation_policies_tab_view',
+
+  // holidays
   HolidaysTabView = 'holidays_tab_view',
   ImportHolidays = 'import_holidays',
-  DeleteHoliday = 'delete_holiday',
   ToggleHolidayStatus = 'toggle_holiday_status',
   HolidayFormSubmit = 'holiday_form_submit',
-  CreateVacationRequest = 'create_vacation_request',
-  TeamFormSubmit = 'team_form_submit',
-  PolicyFormSubmit = 'policy_form_submit',
+  DeleteHoliday = 'delete_holiday',
+
+  // users
+  UsersTabView = 'users_tab_view',
   UserFormSubmit = 'user_form_submit',
-  DeleteTeam = 'delete_team',
-  DeletePolicy = 'delete_policy',
   ChangeUserStatus = 'change_user_status',
+
+  // teams
+  TeamsTabView = 'teams_tab_view',
+  DeleteTeam = 'delete_team',
+  TeamFormSubmit = 'team_form_submit',
+
+  // vacation-policies
+  VacationPoliciesTabView = 'vacation_policies_tab_view',
+  DeleteVacationPolicy = 'delete_vacation_policy',
+  VacationPolicyFormSubmit = 'vacation_policy_form_submit',
+
+  // vacation-requests
+  VacationRequestsTabView = 'vacation_requests_tab_view',
+  AdminVacationRequest = 'admin_vacation_request',
+  UserVacationRequest = 'user_vacation_request',
+  DeleteVacationRequest = 'delete_vacation_request',
 }

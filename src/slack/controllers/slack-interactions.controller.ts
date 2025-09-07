@@ -2,7 +2,7 @@ import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
 import SlackInteractionsService from 'src/slack/services/slack-interactions.service';
 import { SlackSignatureGuard } from 'src/common/guards/slack-signature.guard';
-import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
+import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
 import { SlackUserGuard } from 'src/common/guards/slack-user.guard';
 
 @Controller('api/slack/interactions')

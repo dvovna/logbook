@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
-import { ISlackInteractionPayload } from 'src/slack/types/slack-interaction-payload.interface';
+import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
 
 @Injectable()
 export class SlackPayloadParsePipe implements PipeTransform {

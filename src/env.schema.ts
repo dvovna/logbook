@@ -20,6 +20,9 @@ export const envSchema = z.object({
 
   MIN_YEAR: z.coerce.number().int().min(1900),
   MAX_YEAR: z.coerce.number().int().max(2100),
+
+  MAX_REQUESTS_PER_USER: z.coerce.number().int().min(1),
+  MAX_PENDING_REQUESTS_PER_USER: z.coerce.number().int().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -16,6 +16,7 @@ type SupabaseSimpleValue =
   | null
   | string[]
   | number[];
+
 type SupabaseFilterOperator =
   | 'eq'
   | 'neq'
@@ -27,14 +28,14 @@ type SupabaseFilterOperator =
   | 'like'
   | 'ilike';
 
-type SupabaseFilter = Record<
+interface IFilterParams {
+  operator: SupabaseFilterOperator;
+  value: SupabaseSimpleValue;
+}
+
+export type SupabaseFilter = Record<
   string,
-  | SupabaseSimpleValue
-  | undefined
-  | {
-      operator: SupabaseFilterOperator;
-      value: SupabaseSimpleValue;
-    }
+  SupabaseSimpleValue | undefined | IFilterParams | IFilterParams[]
 >;
 
 interface IQueryOptions {
@@ -52,6 +53,8 @@ export abstract class BaseRepository<
 
   protected tableName: TableName;
 
+  protected relations: Record<string, unknown> | null = null;
+
   protected readonly defaultLimit = 100;
 
   protected readonly defaultPageLimit = 10;
@@ -63,7 +66,7 @@ export abstract class BaseRepository<
   }
 
   public async findOne(filter: SupabaseFilter) {
-    const query = this.client.from(this.tableName).select('*');
+    const query = this.client.from(this.tableName).select(this.buildSelect());
 
     this.buildMatchQuery(query, filter);
 
@@ -78,7 +81,7 @@ export abstract class BaseRepository<
     filter: SupabaseFilter,
     options?: IQueryOptions,
   ): Promise<ViewModel[]> {
-    const query = this.client.from(this.tableName).select('*');
+    const query = this.client.from(this.tableName).select(this.buildSelect());
 
     this.buildFindQuery(query, filter, options);
 
@@ -107,7 +110,7 @@ export abstract class BaseRepository<
 
     let query = this.client
       .from(this.tableName)
-      .select('*', { count: 'exact' });
+      .select(this.buildSelect(), { count: 'exact' });
 
     this.buildFindQuery(query, filters, {
       limit: pageSize,
@@ -226,6 +229,18 @@ export abstract class BaseRepository<
     return (data as unknown as { id: string }[]).length;
   }
 
+  private buildSelect() {
+    if (!this.relations) {
+      return '*';
+    }
+
+    const relationStrings = Object.entries(this.relations).map(
+      ([alias, relation]) => `${alias}:${relation}`,
+    );
+
+    return ['*', ...relationStrings].join(', ');
+  }
+
   protected mapToViewModel = (_row: Entity['Row']): ViewModel => {
     // This method should be implemented in subclasses to map the database row to the view model.
     throw new Error('Method not implemented.');
@@ -235,50 +250,62 @@ export abstract class BaseRepository<
     query: ReturnType<SupabaseClient<Database>['from']>,
     filters: SupabaseFilter,
   ) {
+    const applyFilter = (
+      query: ReturnType<SupabaseClient<Database>['from']>,
+      column: string,
+      filter: IFilterParams,
+    ) => {
+      const { operator, value } = filter;
+
+      switch (operator) {
+        case 'eq':
+          return query.eq(column, value);
+        case 'neq':
+          return query.neq(column, value);
+        case 'gt':
+          return query.gt(column, value);
+        case 'gte':
+          return query.gte(column, value);
+        case 'lt':
+          return query.lt(column, value);
+        case 'lte':
+          return query.lte(column, value);
+        case 'in':
+          return query.in(column, value as unknown[]);
+        case 'like':
+          return query.like(column, value as string);
+        case 'ilike':
+          return query.ilike(column, value as string);
+        default:
+          throw new Error(`Unsupported operator: ${operator}`);
+      }
+    };
+
     for (const [column, filter] of Object.entries(filters)) {
       if (filter === undefined) {
         continue;
       }
 
-      if (
+      if (Array.isArray(filter)) {
+        if (filter.length === 0) continue;
+
+        if (typeof filter[0] === 'string' || typeof filter[0] === 'number') {
+        } else {
+          for (const params of filter) {
+            if (typeof params === 'object') {
+              query = applyFilter(query, column, params);
+            } else {
+              query = query.in(column, filter);
+            }
+          }
+        }
+      } else if (
         typeof filter === 'object' &&
         filter !== null &&
         'operator' in filter &&
         'value' in filter
       ) {
-        const { operator, value } = filter;
-
-        switch (operator) {
-          case 'eq':
-            query = query.eq(column, value);
-            break;
-          case 'neq':
-            query = query.neq(column, value);
-            break;
-          case 'gt':
-            query = query.gt(column, value);
-            break;
-          case 'gte':
-            query = query.gte(column, value);
-            break;
-          case 'lt':
-            query = query.lt(column, value);
-            break;
-          case 'lte':
-            query = query.lte(column, value);
-            break;
-          case 'in':
-            query = query.in(column, value as unknown[]);
-            break;
-          case 'like':
-            query = query.like(column, value as string);
-            break;
-          case 'ilike':
-            query = query.ilike(column, value as string);
-            break;
-          default:
-            throw new Error(`Unsupported operator: ${operator}`);
-        }
+        query = applyFilter(query, column, filter);
       } else {
         query = query.eq(column, filter as SupabaseSimpleValue);
       }

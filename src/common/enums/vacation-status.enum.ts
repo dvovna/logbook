@@ -1,5 +1,5 @@
 enum VacationStatus {
-  Requested = 'requested',
+  Pending = 'pending',
   Approved = 'approved',
   Rejected = 'rejected',
   Cancelled = 'cancelled',
