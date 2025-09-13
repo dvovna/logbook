@@ -44,6 +44,7 @@ export default class HolidayImportService {
         date: holiday.date,
         isCompanyCustom: false,
         slackTeamId,
+        countryCode,
         vacationPolicyId: policyId,
       })),
       user,

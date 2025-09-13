@@ -5,6 +5,7 @@ import IHolidayViewModel from 'src/holidays/types/holiday.interface';
 import { ISearchResult } from 'src/common/types/pagination.types';
 import PaginationView from 'src/slack/common/views/pagination.view';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
+import { COUNTRY_OPTIONS } from 'src/slack/tabs/holidays/views/options/country.options';
 
 interface IGetHolidaysViewParams {
   countryHolidays: ISearchResult<IHolidayViewModel>;
@@ -55,9 +56,10 @@ export class HolidaysTabView extends BaseAdminTabView<
   }: IGetHolidaysViewParams): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    blocks.push(...this.getHeaderBlocks(policyName, selectedYear, years));
-    blocks.push(...this.getCountryHolidaysBlocks(countryHolidays, policyId));
+    blocks.push(...this.getHeaderBlocks(policyName));
+    blocks.push(...this.getFilterBlocks(selectedYear, years));
 
+    blocks.push(...this.getCountryHolidaysBlocks(countryHolidays, policyId));
     blocks.push(...this.getCountryHolidaysPaginationBlocks(countryHolidays));
 
     blocks.push(...this.getCustomHolidaysBlocks(companyHolidays, policyId));
@@ -149,11 +151,7 @@ export class HolidaysTabView extends BaseAdminTabView<
     return blocks;
   }
 
-  private getHeaderBlocks(
-    policyName: string,
-    selectedYear: number,
-    years: number[],
-  ) {
+  private getHeaderBlocks(policyName: string) {
     return [
       {
         type: 'section',
@@ -161,19 +159,29 @@ export class HolidaysTabView extends BaseAdminTabView<
           type: 'mrkdwn',
           text: `*Holidays for Vacation Policy '${policyName}'*`,
         },
-        accessory: {
-          type: 'static_select',
-          action_id: HolidaysTabViewActionId.ChangeYear,
-          placeholder: { type: 'plain_text', text: 'Select Year' },
-          initial_option: {
-            text: { type: 'plain_text', text: selectedYear.toString() },
-            value: selectedYear.toString(),
+      },
+    ];
+  }
+
+  private getFilterBlocks(selectedYear: number, years: number[]) {
+    return [
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'static_select',
+            action_id: HolidaysTabViewActionId.ChangeYear,
+            placeholder: { type: 'plain_text', text: 'Select Year' },
+            initial_option: {
+              text: { type: 'plain_text', text: selectedYear.toString() },
+              value: selectedYear.toString(),
+            },
+            options: years.map((year) => ({
+              text: { type: 'plain_text', text: year.toString() },
+              value: year.toString(),
+            })),
           },
-          options: years.map((year) => ({
-            text: { type: 'plain_text', text: year.toString() },
-            value: year.toString(),
-          })),
-        },
+        ],
       },
     ];
   }
@@ -183,12 +191,16 @@ export class HolidaysTabView extends BaseAdminTabView<
     policyId: string,
   ) {
     const blocks: AnyBlock[] = [];
+    const countryCode = countryHolidays.items[0]?.country_code || 'N/A';
+    const countryOption = COUNTRY_OPTIONS.find(
+      ({ value }) => value === countryCode,
+    );
 
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: '*🌍 Country Holidays*',
+        text: `* ${countryOption?.text.text || '🌍 Country'} Holidays*`,
       },
       accessory: {
         type: 'button',

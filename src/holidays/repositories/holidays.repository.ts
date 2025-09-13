@@ -19,6 +19,7 @@ export class HolidaysRepository extends BaseRepository<
       name: row.name,
       is_company_custom: row.is_company_custom,
       date: row.date,
+      country_code: row.country_code,
       is_disabled: row.is_disabled,
       slack_team_id: row.slack_team_id,
       vacation_policy_id: row.vacation_policy_id,

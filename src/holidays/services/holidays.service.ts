@@ -14,6 +14,7 @@ interface ICreateParams {
   name: string;
   date: string; // ISO date string
   isCompanyCustom: boolean;
+  countryCode?: string;
   slackTeamId: string;
   vacationPolicyId: string;
 }
@@ -115,6 +116,7 @@ export default class HolidaysService implements IHolidaysService {
       is_company_custom: createParams.isCompanyCustom,
       slack_team_id: createParams.slackTeamId,
       vacation_policy_id: createParams.vacationPolicyId,
+      country_code: createParams.countryCode,
       is_disabled: false,
       created_at: now,
       updated_at: now,
@@ -135,6 +137,7 @@ export default class HolidaysService implements IHolidaysService {
       is_company_custom: createParams.isCompanyCustom,
       slack_team_id: createParams.slackTeamId,
       vacation_policy_id: createParams.vacationPolicyId,
+      country_code: createParams.countryCode,
       is_disabled: false,
       created_at: now,
       updated_at: now,

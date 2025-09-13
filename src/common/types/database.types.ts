@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       holidays: {
         Row: {
+          country_code: string | null
           created_at: string
           created_by: string
           date: string
@@ -30,6 +31,7 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          country_code?: string | null
           created_at?: string
           created_by: string
           date: string
@@ -44,6 +46,7 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          country_code?: string | null
           created_at?: string
           created_by?: string
           date?: string
@@ -247,7 +250,6 @@ export type Database = {
         Row: {
           bonus_days: number
           carryover_days: number
-          country_code: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -262,7 +264,6 @@ export type Database = {
         Insert: {
           bonus_days?: number
           carryover_days?: number
-          country_code?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -277,7 +278,6 @@ export type Database = {
         Update: {
           bonus_days?: number
           carryover_days?: number
-          country_code?: string | null
           created_at?: string
           created_by?: string | null
           id?: string

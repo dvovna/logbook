@@ -4,7 +4,6 @@ interface IVacationPolicyViewModel {
   is_primary: boolean;
   slack_team_id: string;
   working_days: number;
-  country_code: string | null;
   vacation_days: number;
   carryover_days: number;
   bonus_days: number;
