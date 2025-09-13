@@ -7,13 +7,6 @@ export class AdminPanelView {
     tabActionId: AdminNavigationActionId,
   ): AnyBlock[] {
     return [
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: '*⚙ Admin Panel*\nManage users, teams, vacation requests and policies.',
-        },
-      },
       ...AdminTabNavigation.getNavigationBlocks(tabActionId),
       {
         type: 'context',
