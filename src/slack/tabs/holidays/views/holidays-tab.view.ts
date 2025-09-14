@@ -3,9 +3,9 @@ import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import IHolidayViewModel from 'src/holidays/types/holiday.interface';
 import { ISearchResult } from 'src/common/types/pagination.types';
-import PaginationView from 'src/slack/common/views/pagination.view';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { COUNTRY_OPTIONS } from 'src/slack/tabs/holidays/views/options/country.options';
+import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
 
 interface IGetHolidaysViewParams {
   countryHolidays: ISearchResult<IHolidayViewModel>;
@@ -55,10 +55,13 @@ export class HolidaysTabView extends BaseAdminTabView<
   }: IGetHolidaysViewParams): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
+    blocks.push(this.getBackButtonBlock());
+
     blocks.push(...this.getFilterBlocks(selectedYear, years));
 
     blocks.push(...this.getCountryHolidaysBlocks(countryHolidays, policyId));
-    blocks.push(...this.getCountryHolidaysPaginationBlocks(countryHolidays));
+
+    blocks.push(...this.getSectionDividerBlocks());
 
     blocks.push(...this.getCustomHolidaysBlocks(companyHolidays, policyId));
 
@@ -73,20 +76,21 @@ export class HolidaysTabView extends BaseAdminTabView<
     return blocks;
   }
 
-  private getCountryHolidaysPaginationBlocks(
-    countryHolidays: ISearchResult<IHolidayViewModel>,
-  ) {
-    const blocks: AnyBlock[] = [];
+  private getBackButtonBlock() {
+    return {
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '⬅️ Back To Policies' },
+          action_id: HolidaysTabViewActionId.BackToPolicies,
+        },
+      ],
+    };
+  }
 
-    blocks.push(
-      ...PaginationView.getBlocks({
-        page: countryHolidays.page,
-        totalCount: countryHolidays.totalCount,
-        pageSize: countryHolidays.pageSize,
-        prevPageActionId: HolidaysTabViewActionId.CountryHolidaysPaginationPrev,
-        nextPageActionId: HolidaysTabViewActionId.CountryHolidaysPaginationNext,
-      }),
-    );
+  private getSectionDividerBlocks() {
+    const blocks: AnyBlock[] = [];
 
     blocks.push({
       type: 'section',
@@ -134,15 +138,7 @@ export class HolidaysTabView extends BaseAdminTabView<
       });
     } else {
       for (const holiday of companyHolidays) {
-        blocks.push(this.getHolidayBlock(holiday, true));
-        blocks.push({
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: ' ',
-          },
-        });
-        blocks.push({ type: 'divider' });
+        blocks.push(...this.getHolidayBlocks(holiday, true));
       }
     }
 
@@ -177,11 +173,11 @@ export class HolidaysTabView extends BaseAdminTabView<
   }
 
   private getCountryHolidaysBlocks(
-    countryHolidays: ISearchResult<IHolidayViewModel>,
+    countryHolidaysData: ISearchResult<IHolidayViewModel>,
     policyId: string,
   ) {
     const blocks: AnyBlock[] = [];
-    const countryCode = countryHolidays.items[0]?.country_code || 'N/A';
+    const countryCode = countryHolidaysData.items[0]?.country_code || 'N/A';
     const countryOption = COUNTRY_OPTIONS.find(
       ({ value }) => value === countryCode,
     );
@@ -200,76 +196,74 @@ export class HolidaysTabView extends BaseAdminTabView<
       },
     });
 
-    if (countryHolidays.totalCount === 0) {
-      blocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: '_No country holidays. Upload from country._',
-        },
-      });
-    } else {
-      for (const holiday of countryHolidays.items) {
-        blocks.push(this.getHolidayBlock(holiday, false));
-        blocks.push({
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: ' ',
-          },
-        });
-        blocks.push({ type: 'divider' });
-      }
-    }
+    const listBlocks = PaginatedListView.getBlocks<IHolidayViewModel>({
+      itemsData: countryHolidaysData,
+      getItemBlocks: (item) => this.getHolidayBlocks(item, false),
+      prevPageActionId: HolidaysTabViewActionId.CountryHolidaysPaginationPrev,
+      nextPageActionId: HolidaysTabViewActionId.CountryHolidaysPaginationNext,
+      emptyText: '_No country holidays. Upload from country._',
+    });
+
+    blocks.push(...listBlocks);
 
     return blocks;
   }
 
-  private getHolidayBlock(
+  private getHolidayBlocks(
     holiday: IHolidayViewModel,
     isCustom: boolean,
-  ): AnyBlock {
-    return {
-      type: 'section',
-      fields: [
-        { type: 'mrkdwn', text: `*${holiday.name}*` },
-        { type: 'mrkdwn', text: `Date: ${holiday.date}` },
-        {
-          type: 'mrkdwn',
-          text: `Status: ${holiday.is_disabled ? '🔴' : '🟢'}`,
-        },
-      ],
-      accessory: {
-        type: 'overflow',
-        action_id: HolidaysTabViewActionId.ManageHolidayMenu,
-        options: [
-          ...((isCustom
-            ? [
-              {
-                text: { type: 'plain_text', text: 'Edit Holiday' },
-                value: `${HolidaysTabViewActionId.EditHoliday}:${holiday.id}`,
-              },
-            ]
-            : []) as PlainTextOption[]),
+  ): AnyBlock[] {
+    return [
+      {
+        type: 'section',
+        fields: [
+          { type: 'mrkdwn', text: `*${holiday.name}*` },
+          { type: 'mrkdwn', text: `Date: ${holiday.date}` },
           {
-            text: {
-              type: 'plain_text',
-              text: holiday.is_disabled
-                ? 'Activate Holiday'
-                : 'Deactivate Holiday',
-            },
-            value: `${HolidaysTabViewActionId.ToggleHolidayStatus}:${holiday.id}`,
+            type: 'mrkdwn',
+            text: `Status: ${holiday.is_disabled ? '🔴' : '🟢'}`,
           },
-          ...((isCustom
-            ? [
-              {
-                text: { type: 'plain_text', text: 'Delete Holiday' },
-                value: `${HolidaysTabViewActionId.DeleteHoliday}:${holiday.id}`,
-              },
-            ]
-            : []) as PlainTextOption[]),
         ],
+        accessory: {
+          type: 'overflow',
+          action_id: HolidaysTabViewActionId.ManageHolidayMenu,
+          options: [
+            ...((isCustom
+              ? [
+                {
+                  text: { type: 'plain_text', text: 'Edit Holiday' },
+                  value: `${HolidaysTabViewActionId.EditHoliday}:${holiday.id}`,
+                },
+              ]
+              : []) as PlainTextOption[]),
+            {
+              text: {
+                type: 'plain_text',
+                text: holiday.is_disabled
+                  ? 'Activate Holiday'
+                  : 'Deactivate Holiday',
+              },
+              value: `${HolidaysTabViewActionId.ToggleHolidayStatus}:${holiday.id}`,
+            },
+            ...((isCustom
+              ? [
+                {
+                  text: { type: 'plain_text', text: 'Delete Holiday' },
+                  value: `${HolidaysTabViewActionId.DeleteHoliday}:${holiday.id}`,
+                },
+              ]
+              : []) as PlainTextOption[]),
+          ],
+        },
       },
-    };
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: ' ',
+        },
+      },
+      { type: 'divider' },
+    ];
   }
 }

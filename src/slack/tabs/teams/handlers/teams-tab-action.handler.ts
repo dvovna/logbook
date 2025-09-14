@@ -12,6 +12,8 @@ import { TeamsTabViewActionId } from 'src/slack/tabs/teams/views/teams-tab.view'
 import { ActionMapType } from 'src/slack/common/handlers/base-tab-action.handler';
 import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
+import { IUsersTabMetaData } from 'src/slack/tabs/users/views/users-tab.view';
+import { withPagination } from 'src/slack/common/utils/tab-list.utils';
 
 @Injectable()
 @SlackHandler({
@@ -29,11 +31,25 @@ export default class TeamsTabActionHandler extends BaseAdminTabActionHandler {
   ) {
     super(tabNavigationService);
 
+    const paginationHandler = withPagination(this.updateTab);
+
     this.actionMap = {
       [TeamsTabViewActionId.AddTeam]: this.handleAddTeam,
       [TeamsTabViewActionId.ManageTeamMenu]: this.handleManageTeamMenuAction,
+      [TeamsTabViewActionId.PaginationPrev]: paginationHandler,
+      [TeamsTabViewActionId.PaginationNext]: paginationHandler,
     };
   }
+
+  private updateTab = async (
+    metadata: IUsersTabMetaData,
+    user: IUserViewModel,
+  ) => {
+    await this.teamsTabService.publish({
+      user,
+      metadata,
+    });
+  };
 
   private handleAddTeam = async (
     payload: ISlackInteractionPayload,

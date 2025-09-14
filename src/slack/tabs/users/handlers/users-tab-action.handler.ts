@@ -43,8 +43,8 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
         UsersTabViewActionId,
         [IUserViewModel]
       >(this.handleManageUserMenuAction),
-      [UsersTabViewActionId.UsersPaginationPrev]: paginationHandler,
-      [UsersTabViewActionId.UsersPaginationNext]: paginationHandler,
+      [UsersTabViewActionId.PaginationPrev]: paginationHandler,
+      [UsersTabViewActionId.PaginationNext]: paginationHandler,
       [UsersTabViewActionId.FilterUsersByRole]: withSelectFilter(
         'role',
         this.updateTab,

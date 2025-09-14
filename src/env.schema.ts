@@ -23,6 +23,8 @@ export const envSchema = z.object({
 
   MAX_REQUESTS_PER_USER: z.coerce.number().int().min(1),
   MAX_PENDING_REQUESTS_PER_USER: z.coerce.number().int().min(1),
+
+  MAX_TEAMS_PER_SLACK_TEAM: z.coerce.number().int().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;

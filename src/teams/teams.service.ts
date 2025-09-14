@@ -5,6 +5,13 @@ import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached
 import { UsersService } from 'src/users/users.service';
 import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
 import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
+import {
+  ISearchParams,
+  ISearchResult,
+} from 'src/common/types/pagination.types';
+import ITeamViewModel from 'src/teams/types/team.interface';
+import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+import { ConfigService } from '@nestjs/config';
 
 interface ICreateTeamParams {
   name: string;
@@ -26,14 +33,39 @@ interface IUpdateParams {
   vacationPolicyId?: string;
 }
 
+type ISearchTeamsParams = ISearchParams<IFindParams>;
+
+interface ITeamsService {
+  create(
+    createParams: ICreateTeamParams,
+    user: IUserViewModel,
+  ): Promise<ITeamViewModel>;
+  findMany(params: IFindParams): Promise<ITeamViewModel[]>;
+  findOne(params: IFindParams): Promise<ITeamViewModel | null>;
+  findOneWithValidation(params: IFindParams): Promise<ITeamViewModel>;
+  search(params: ISearchTeamsParams): Promise<ISearchResult<ITeamViewModel>>;
+  update(
+    findParams: IFindParams,
+    updateParams: IUpdateParams,
+    user: IUserViewModel,
+  ): Promise<ITeamViewModel>;
+  delete(teamId: string, user: IUserViewModel): Promise<ITeamViewModel>;
+  count(params: IFindParams): Promise<number>;
+  createDefaultTeam(
+    slackTeamId: string,
+    vacationPolicyId: string,
+  ): Promise<ITeamViewModel>;
+}
+
 const DEFAULT_TEAM_NAME = 'Main Team';
 const MAX_TEAMS_COUNT = 5;
 
 @Injectable()
-export default class TeamsService {
+export default class TeamsService implements ITeamsService {
   public constructor(
     private readonly teamsRepository: TeamsRepository,
     private readonly usersService: UsersService,
+    private readonly config: ConfigService,
   ) {}
 
   public async findMany(params: IFindParams) {
@@ -54,12 +86,26 @@ export default class TeamsService {
     return team;
   }
 
+  public async search(params: ISearchTeamsParams) {
+    return this.teamsRepository.search({
+      filters: this.getFindQuery(params.filters),
+      page: params.page,
+      pageSize: params.pageSize,
+      orderBy: params.orderBy,
+      searchTerm: params.searchTerm,
+    });
+  }
+
   public async create(createParams: ICreateTeamParams, user: IUserViewModel) {
     const teamsCount = await this.teamsRepository.count({
       slack_team_id: createParams.slackTeamId,
     });
 
-    if (teamsCount >= MAX_TEAMS_COUNT) {
+    const maxTeamsCount = this.config.getOrThrow<number>(
+      EnvironmentVariable.MaxTeamsPerSlackTeam,
+    );
+
+    if (teamsCount >= maxTeamsCount) {
       throw new MaxItemsCountReachedError(MAX_TEAMS_COUNT, 'teams');
     }
 

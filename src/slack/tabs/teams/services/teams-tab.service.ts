@@ -3,7 +3,10 @@ import TeamsService from 'src/teams/teams.service';
 import { TeamModalView } from 'src/slack/tabs/teams/views/team-modal.view';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { UsersService } from 'src/users/users.service';
-import { TeamsTabView } from 'src/slack/tabs/teams/views/teams-tab.view';
+import {
+  ITeamsTabMetaData,
+  TeamsTabView,
+} from 'src/slack/tabs/teams/views/teams-tab.view';
 import ConfirmationModalView from 'src/slack/common/views/confirmation-modal.view';
 import BaseTabService, {
   IOpenModalBaseParams,
@@ -22,6 +25,12 @@ export enum TeamsTabModalName {
   UpdateTeam = 'UpdateTeam',
   DeleteTeam = 'DeleteTeam',
 }
+
+interface IGetTeamsTabViewParams extends IPublishBaseParams {
+  metadata?: ITeamsTabMetaData;
+}
+
+const TEAMS_TAB_PAGE_SIZE = 5;
 
 type TeamsTabModalViewResolversMapType = {
   [TeamsTabModalName.CreateTeam]: (
@@ -42,7 +51,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     private readonly teamModalViewService: TeamModalView,
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly usersService: UsersService,
-    private readonly teamsTabViewService: TeamsTabView,
+    private readonly teamsTabView: TeamsTabView,
     private readonly confirmationModalViewService: ConfirmationModalView,
   ) {
     super(TabId.Teams, {
@@ -55,15 +64,20 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     });
   }
 
-  public async getTabView({ user }: IPublishBaseParams) {
-    const [teams, usersCountByTeam] = await Promise.all([
-      this.teamsService.findMany({ slackTeamId: user.slack_team_id }),
+  public async getTabView({ user, metadata = {} }: IGetTeamsTabViewParams) {
+    const [teamsData, usersCountByTeam] = await Promise.all([
+      this.teamsService.search({
+        filters: { slackTeamId: user.slack_team_id },
+        orderBy: ['is_primary:desc', 'name:asc'],
+        page: metadata.page,
+        pageSize: TEAMS_TAB_PAGE_SIZE,
+      }),
       this.usersService.getUsersCountByTeam(user.slack_team_id),
     ]);
 
-    return await this.teamsTabViewService.getView({
+    return await this.teamsTabView.getView({
       userId: user.slack_id,
-      teams,
+      teamsData,
       usersCountByTeam,
     });
   }

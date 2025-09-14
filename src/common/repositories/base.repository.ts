@@ -102,8 +102,7 @@ export abstract class BaseRepository<
     const {
       page = 1,
       pageSize = this.defaultPageLimit,
-      sortBy = 'created_at',
-      sortOrder = 'desc',
+      orderBy = ['created_at:desc'],
       searchTerm,
       filters = {},
     } = params;
@@ -115,7 +114,7 @@ export abstract class BaseRepository<
     this.buildFindQuery(query, filters, {
       limit: pageSize,
       offset: (page - 1) * pageSize,
-      orderBy: [`${sortBy}:${sortOrder}`],
+      orderBy,
     });
 
     if (searchTerm && this.searchableColumns.length > 0) {

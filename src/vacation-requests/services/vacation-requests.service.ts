@@ -232,8 +232,7 @@ export class VacationRequestsService implements IVacationRequestsService {
       filters: this.getFindQuery(params.filters),
       page: params.page,
       pageSize: params.pageSize,
-      sortOrder: params.sortOrder,
-      sortBy: params.sortBy,
+      orderBy: params.orderBy,
       searchTerm: params.searchTerm,
     });
   }

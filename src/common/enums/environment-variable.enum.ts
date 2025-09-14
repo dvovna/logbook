@@ -12,6 +12,7 @@ enum EnvironmentVariable {
   MaxYear = 'MAX_YEAR',
   MaxRequestsPerUser = 'MAX_REQUESTS_PER_USER',
   MaxPendingRequestsPerUser = 'MAX_PENDING_REQUESTS_PER_USER',
+  MaxTeamsPerSlackTeam = 'MAX_TEAMS_PER_SLACK_TEAM',
 }
 
 export default EnvironmentVariable;

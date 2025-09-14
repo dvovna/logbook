@@ -72,8 +72,7 @@ export class UsersTabService extends BaseTabService<
             ? { isActive: false }
             : {}),
         },
-        sortBy: 'name',
-        sortOrder: 'asc',
+        orderBy: ['name:asc'],
         page: metadata.page,
       }),
       this.teamsService.findMany({ slackTeamId: user.slack_team_id }),

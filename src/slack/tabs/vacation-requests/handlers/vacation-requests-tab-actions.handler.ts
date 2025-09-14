@@ -45,9 +45,9 @@ export default class VacationRequestsTabActionsHandler extends BaseAdminTabActio
         VacationRequestsTabViewActionId,
         [IUserViewModel]
       >(this.handleManageRequestMenuAction),
-      [VacationRequestsTabViewActionId.RequestsPaginationPrev]:
+      [VacationRequestsTabViewActionId.PaginationPrev]:
         paginationHandler,
-      [VacationRequestsTabViewActionId.RequestsPaginationNext]:
+      [VacationRequestsTabViewActionId.PaginationNext]:
         paginationHandler,
       [VacationRequestsTabViewActionId.FilterRequestsByStatus]:
         withSelectFilter('status', this.updateTab),

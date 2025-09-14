@@ -6,11 +6,11 @@ import { ISearchResult } from 'src/common/types/pagination.types';
 import capitalize from 'src/common/utils/capitalize';
 import { IUsersTabViewFilters } from 'src/slack/tabs/users/services/users-tab.service';
 import { ROLE_OPTIONS } from 'src/slack/tabs/users/views/options/use-role.options';
-import PaginationView from 'src/slack/common/views/pagination.view';
 import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
 
 export interface IUsersTabMetaData {
   page?: number;
@@ -44,8 +44,8 @@ const ALL_TEAMS_SELECT_OPTION = {
 };
 
 export enum UsersTabViewActionId {
-  UsersPaginationPrev = 'users_pagination_prev',
-  UsersPaginationNext = 'users_pagination_next',
+  PaginationPrev = 'users_pagination_prev',
+  PaginationNext = 'users_pagination_next',
   ManageUserMenu = 'manage_user_menu',
   EditUser = 'edit_user',
   ChangeStatus = 'change_status',
@@ -75,24 +75,13 @@ export class UsersTabView extends BaseAdminTabView<
 
     blocks.push(...blocksToAdd);
 
-    blocks.push(
-      ...PaginationView.getBlocks({
-        page: users.page,
-        totalCount: users.totalCount,
-        pageSize: users.pageSize,
-        prevPageActionId: UsersTabViewActionId.UsersPaginationPrev,
-        nextPageActionId: UsersTabViewActionId.UsersPaginationNext,
-      }),
-    );
-
     return blocks;
   }
 
   private getUsersListBlocks(
-    users: ISearchResult<IUserViewModel>,
+    usersData: ISearchResult<IUserViewModel>,
     teams: ITeamViewModel[],
   ): AnyBlock[] {
-    const blocks: AnyBlock[] = [];
     const teamsById = teams.reduce(
       (acc, team) => {
         acc[team.id] = team;
@@ -101,53 +90,59 @@ export class UsersTabView extends BaseAdminTabView<
       {} as Record<string, ITeamViewModel>,
     );
 
-    for (const user of users.items) {
-      const team = teamsById[user.team_id];
+    return PaginatedListView.getBlocks<IUserViewModel>({
+      itemsData: usersData,
+      getItemBlocks: (item) => this.getUserListItemBlocks(item, teamsById),
+      prevPageActionId: UsersTabViewActionId.PaginationPrev,
+      nextPageActionId: UsersTabViewActionId.PaginationNext,
+      emptyText: '_No users found_',
+    });
+  }
 
-      blocks.push({
-        type: 'section',
-        fields: [
+  private getUserListItemBlocks(
+    user: IUserViewModel,
+    teamsById: Record<string, ITeamViewModel>,
+  ): AnyBlock[] {
+    const blocks: AnyBlock[] = [];
+
+    const team = teamsById[user.team_id];
+
+    blocks.push({
+      type: 'section',
+      fields: [
+        {
+          type: 'mrkdwn',
+          text:
+            `*${user.name}* (${user.email})\n` +
+            `Role: ${user.role}\n` +
+            `Team: ${team.name || '-'}\n` +
+            `Carryover Days: ${user.carryover_days || '-'}`,
+        },
+      ],
+      accessory: {
+        type: 'overflow',
+        action_id: UsersTabViewActionId.ManageUserMenu,
+        options: [
+          ...(user.is_active
+            ? [
+              {
+                text: { type: 'plain_text', text: 'Edit User' },
+                value: `${UsersTabViewActionId.EditUser}:${user.id}`,
+              } as PlainTextOption,
+            ]
+            : []),
           {
-            type: 'mrkdwn',
-            text:
-              `*${user.name}* (${user.email})\n` +
-              `Role: ${user.role}\n` +
-              `Team: ${team.name || '-'}\n` +
-              `Carryover Days: ${user.carryover_days || '-'}`,
+            text: {
+              type: 'plain_text',
+              text: `${user.is_active ? 'Deactivate' : 'Activate'} User`,
+            },
+            value: `${UsersTabViewActionId.ChangeStatus}:${user.id}`,
           },
         ],
-        accessory: {
-          type: 'overflow',
-          action_id: UsersTabViewActionId.ManageUserMenu,
-          options: [
-            ...(user.is_active
-              ? [
-                {
-                  text: { type: 'plain_text', text: 'Edit User' },
-                  value: `${UsersTabViewActionId.EditUser}:${user.id}`,
-                } as PlainTextOption,
-              ]
-              : []),
-            {
-              text: {
-                type: 'plain_text',
-                text: `${user.is_active ? 'Deactivate' : 'Activate'} User`,
-              },
-              value: `${UsersTabViewActionId.ChangeStatus}:${user.id}`,
-            },
-          ],
-        },
-      });
+      },
+    });
 
-      blocks.push({ type: 'divider' });
-    }
-
-    if (users.items.length === 0) {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: '_No users found_' },
-      });
-    }
+    blocks.push({ type: 'divider' });
 
     return blocks;
   }

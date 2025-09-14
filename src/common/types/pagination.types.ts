@@ -8,8 +8,7 @@ export interface ISearchResult<Item> {
 export interface ISearchParams<Filters> {
   page?: number;
   pageSize?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  orderBy?: string[];
   searchTerm?: string;
   filters: Filters;
 }

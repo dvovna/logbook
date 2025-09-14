@@ -5,7 +5,6 @@ import ITeamViewModel from 'src/teams/types/team.interface';
 import { ISearchResult } from 'src/common/types/pagination.types';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import VacationStatus from 'src/common/enums/vacation-status.enum';
-import PaginationView from 'src/slack/common/views/pagination.view';
 import {
   ALL_STATUSES_OPTION,
   STATUS_OPTIONS,
@@ -19,6 +18,7 @@ import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
+import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
 
 export interface IVacationRequestsTabFilters {
   user?: {
@@ -44,8 +44,8 @@ interface IGetViewParams extends IBaseTabViewParams {
 }
 
 export enum VacationRequestsTabViewActionId {
-  RequestsPaginationPrev = 'requests_pagination_prev',
-  RequestsPaginationNext = 'requests_pagination_next',
+  PaginationPrev = 'requests_pagination_prev',
+  PaginationNext = 'requests_pagination_next',
   ManageRequestMenu = 'manage_request_menu',
   UserField = 'user',
   CreateRequest = 'create_request',
@@ -103,18 +103,6 @@ export class VacationRequestsTabView extends BaseAdminTabView<
     blocks.push(this.getFiltersBlock(teams, years, filters));
 
     blocks.push(...this.getRequestsListBlocks(requests));
-
-    blocks.push(
-      ...PaginationView.getBlocks({
-        page: requests.page,
-        totalCount: requests.totalCount,
-        pageSize: requests.pageSize,
-        prevPageActionId:
-          VacationRequestsTabViewActionId.RequestsPaginationPrev,
-        nextPageActionId:
-          VacationRequestsTabViewActionId.RequestsPaginationNext,
-      }),
-    );
 
     return blocks;
   }
@@ -175,24 +163,15 @@ export class VacationRequestsTabView extends BaseAdminTabView<
   };
 
   private getRequestsListBlocks(
-    requests: ISearchResult<IVacationRequestViewModel>,
+    requestsData: ISearchResult<IVacationRequestViewModel>,
   ): AnyBlock[] {
-    const blocks: AnyBlock[] = [];
-
-    if (requests.items.length === 0) {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: '_No vacation requests found_' },
-      });
-
-      return blocks;
-    }
-
-    const itemBlocks = requests.items.map(this.getRequestItemBlocks);
-
-    blocks.push(...itemBlocks.flat());
-
-    return blocks;
+    return PaginatedListView.getBlocks<IVacationRequestViewModel>({
+      itemsData: requestsData,
+      getItemBlocks: (item) => this.getRequestItemBlocks(item),
+      prevPageActionId: VacationRequestsTabViewActionId.PaginationPrev,
+      nextPageActionId: VacationRequestsTabViewActionId.PaginationNext,
+      emptyText: '_No vacation requests found_',
+    });
   }
 
   private getFiltersBlock(

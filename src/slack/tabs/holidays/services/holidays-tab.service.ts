@@ -110,8 +110,7 @@ export class HolidaysTabService extends BaseTabService<
           isCompanyCustom: false,
         },
         page: metadata.page,
-        sortBy: 'date',
-        sortOrder: 'asc',
+        orderBy: ['date:asc'],
       }),
       this.holidaysService.findMany({
         slackTeamId: user.slack_team_id,

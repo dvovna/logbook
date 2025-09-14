@@ -50,6 +50,12 @@ export class VacationPoliciesCacheService implements OnModuleInit {
     return this.cacheManager.get(this.getCacheKey(id));
   }
 
+  public getByIds(
+    ids: string[],
+  ): Promise<(IVacationPolicyViewModel | undefined)[]> {
+    return this.cacheManager.mget(ids.map(this.getCacheKey));
+  }
+
   @OnEvent(VacationPolicyEvent.Created)
   public async handleCreated(event: VacationPolicyCreatedEvent) {
     await this.setPolicy(event.policy);
@@ -88,7 +94,7 @@ export class VacationPoliciesCacheService implements OnModuleInit {
     return this.isInitialized;
   }
 
-  private getCacheKey(id: string): string {
+  private getCacheKey = (id: string): string => {
     return `vacation-policies.cache-${id}`;
-  }
+  };
 }
