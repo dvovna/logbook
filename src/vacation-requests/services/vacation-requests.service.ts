@@ -300,7 +300,12 @@ export class VacationRequestsService implements IVacationRequestsService {
       ...(params.status ? { status: params.status } : {}),
       ...(params.type ? { type: params.type } : {}),
       ...(params.teamId ? { team_id: params.teamId } : {}),
-      ...(params.year ? { year: params.year } : {}),
+      ...(params.year
+        ? {
+          start_date: { operator: 'lte', value: `${params.year}-12-31` },
+          end_date: { operator: 'gte', value: `${params.year}-01-01` },
+        }
+        : {}),
       ...(params.slackTeamId ? { slack_team_id: params.slackTeamId } : {}),
       ...(params.startDate
         ? { start_date: { value: params.startDate, operator: 'gte' } }

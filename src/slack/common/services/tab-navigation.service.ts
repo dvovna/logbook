@@ -9,6 +9,7 @@ export enum TabId {
   VacationPolicies = 'vacation_policies_tab',
   Teams = 'teams_tab',
   VacationRequests = 'vacation_requests_tab',
+  VacationsHistory = 'vacations_history_tab',
 }
 
 type Listener<PublishParams> = (

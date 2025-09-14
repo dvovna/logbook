@@ -7,6 +7,7 @@ import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { COUNTRY_OPTIONS } from 'src/slack/tabs/holidays/views/options/country.options';
 import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
+import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 
 interface IGetHolidaysViewParams extends IBaseTabViewParams {
   countryHolidays: ISearchResult<IHolidayViewModel>;
@@ -45,6 +46,12 @@ export class HolidaysTabView extends BaseAdminTabView<
 > {
   protected callbackId = ViewCallbackId.HolidaysTabView;
   protected activeTabActionId = null;
+
+  public constructor(
+    protected slackActionPermissionsService: SlackActionPermissionsService,
+  ) {
+    super(slackActionPermissionsService);
+  }
 
   protected getContentBlocks({
     countryHolidays,
@@ -146,7 +153,7 @@ export class HolidaysTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle({ policyName }: IGetHolidaysViewParams) {
-    return `*Holidays for Vacation Policy '${policyName}'*`;
+    return `*Holidays for Vacation Policy '${policyName}'*\nCompany-wide public holidays and non-working days.`;
   }
 
   private getFilterBlocks(selectedYear: number, years: number[]) {

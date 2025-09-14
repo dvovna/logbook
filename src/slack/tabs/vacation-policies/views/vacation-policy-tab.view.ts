@@ -6,6 +6,7 @@ import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
+import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 
 interface IGetViewParams extends IBaseTabViewParams {
   policies: IVacationPolicyViewModel[];
@@ -27,8 +28,14 @@ export class VacationPolicyTabView extends BaseAdminTabView<
   protected callbackId = ViewCallbackId.VacationPoliciesTabView;
   protected activeTabActionId = AdminNavigationActionId.ManageVacationPolicies;
 
+  public constructor(
+    protected slackActionPermissionsService: SlackActionPermissionsService,
+  ) {
+    super(slackActionPermissionsService);
+  }
+
   protected getTabTitle() {
-    return '*🏢 Vacation Policy Management*';
+    return '*🏢 Vacation Policy Management*\nRules for vacation accrual, periods, and entitlements.';
   }
 
   protected getTitleAccessory(): SectionBlockAccessory | null {

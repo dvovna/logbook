@@ -12,6 +12,9 @@ import { VacationRequestsTabView } from 'src/slack/tabs/vacation-requests/views/
 import VacationRequestAdminViewValuesParser from 'src/slack/tabs/vacation-requests/parsers/vacation-request-admin-view-values.parser';
 import { SlackCommonModule } from 'src/slack/common/slack-common.module';
 import { UsersModule } from 'src/users/users.module';
+import { VacationHistoryTabService } from 'src/slack/tabs/vacation-requests/services/vacation-history-tab.service';
+import { VacationHistoryTabView } from 'src/slack/tabs/vacation-requests/views/vacation-history-tab.view';
+import VacationHistoryTabActionsHandler from 'src/slack/tabs/vacation-requests/handlers/vacation-history-tab-actions.handler';
 
 @Module({
   imports: [
@@ -25,12 +28,20 @@ import { UsersModule } from 'src/users/users.module';
     AdminVacationRequestHandler,
     UserVacationRequestHandler,
     VacationRequestsTabActionsHandler,
+    VacationHistoryTabActionsHandler,
+    VacationHistoryTabService,
+    VacationHistoryTabView,
     DeleteVacationRequestHandler,
     VacationRequestsTabView,
     VacationRequestModalView,
     VacationRequestAdminViewValuesParser,
     VacationRequestUserViewValuesParser,
   ],
-  exports: [VacationRequestsTabService, VacationRequestModalView],
+  exports: [
+    VacationRequestsTabService,
+    VacationRequestModalView,
+    VacationHistoryTabView,
+    VacationHistoryTabService,
+  ],
 })
 export class VacationRequestsTabModule {}

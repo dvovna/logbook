@@ -39,7 +39,7 @@ export default abstract class BaseTabService<
 
   protected constructor(
     private tabId: TabId,
-    protected readonly modalViewResolversMap: ModalViewResolversMap,
+    protected readonly modalViewResolversMap?: ModalViewResolversMap,
   ) {}
 
   public onModuleInit() {
@@ -76,6 +76,10 @@ export default abstract class BaseTabService<
     modalName: Name,
     params: Parameters<ModalViewResolversMap[Name]>[0],
   ): Promise<View> | View {
+    if (!this.modalViewResolversMap?.[modalName]) {
+      throw new Error(`Modal view resolver not found`);
+    }
+
     return this.modalViewResolversMap[modalName](params);
   }
 }

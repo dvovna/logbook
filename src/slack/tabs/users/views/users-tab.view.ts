@@ -12,6 +12,7 @@ import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
+import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 
 export interface IUsersTabMetaData {
   page?: number;
@@ -62,8 +63,14 @@ export class UsersTabView extends BaseAdminTabView<
   protected activeTabActionId = AdminNavigationActionId.ManageUsers;
   protected callbackId = ViewCallbackId.UsersTabView;
 
+  public constructor(
+    protected slackActionPermissionsService: SlackActionPermissionsService,
+  ) {
+    super(slackActionPermissionsService);
+  }
+
   protected getTabTitle(): string {
-    return '*👥 Users Management*';
+    return '*👥 Users Management*\nList of employees with vacation balances and details.';
   }
 
   protected getContentBlocks({ users, teams }, { filters }): AnyBlock[] {

@@ -7,6 +7,7 @@ import VacationStatus from 'src/common/enums/vacation-status.enum';
 import {
   FORM_FIELDS_CONFIG,
   IVacationRequestUserFormViewData,
+  MAX_COMMENT_LENGTH,
 } from 'src/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
 import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import { ISelectedOption } from 'src/slack/common/utils/view-utils';
@@ -37,7 +38,13 @@ export const adminVacationRequestSchema = z
         text: z.string().optional(),
       })
       .required(),
-    comment: z.string().optional(),
+    comment: z
+      .string()
+      .max(
+        MAX_COMMENT_LENGTH,
+        `Comment must be at most ${MAX_COMMENT_LENGTH} characters`,
+      )
+      .optional(),
   })
   .refine((data) => new Date(data.end_date) >= new Date(data.start_date), {
     message: 'End date must be after start date',

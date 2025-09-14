@@ -8,6 +8,7 @@ import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-request
 import UserRole from 'src/common/enums/user-role.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import VacationStatus from 'src/common/enums/vacation-status.enum';
+import { MAX_COMMENT_LENGTH } from 'src/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
 
 interface IGetViewParams {
   errorMessage?: string;
@@ -105,6 +106,7 @@ export class VacationRequestModalView extends BaseModalView<IGetViewParams> {
             type: 'plain_text_input',
             action_id: 'comment',
             multiline: true,
+            max_length: MAX_COMMENT_LENGTH,
             initial_value: initialData?.comment || undefined,
           },
         },

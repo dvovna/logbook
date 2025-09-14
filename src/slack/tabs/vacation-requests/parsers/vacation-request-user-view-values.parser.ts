@@ -5,6 +5,8 @@ import { Injectable } from '@nestjs/common';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { ISelectedOption } from 'src/slack/common/utils/view-utils';
 
+export const MAX_COMMENT_LENGTH = 200;
+
 export const userVacationRequestSchema = z
   .object({
     start_date: z.string().min(1, { message: 'Start date is required' }),
@@ -17,7 +19,13 @@ export const userVacationRequestSchema = z
         text: z.string().optional(),
       })
       .required(),
-    comment: z.string().optional(),
+    comment: z
+      .string()
+      .max(
+        MAX_COMMENT_LENGTH,
+        `Comment must be at most ${MAX_COMMENT_LENGTH} characters`,
+      )
+      .optional(),
   })
   .refine((data) => new Date(data.end_date) >= new Date(data.start_date), {
     message: 'End date must be after start date',

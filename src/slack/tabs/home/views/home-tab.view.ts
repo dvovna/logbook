@@ -4,9 +4,7 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import { IVacationPeriodUsageData } from 'src/vacation-requests/services/user-vacation-usage.service';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
-import {
-  IBaseTabViewParams,
-} from 'src/slack/common/views/base-tab.view';
+import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
@@ -63,7 +61,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
           },
           {
             type: 'button',
-            text: { type: 'plain_text', text: '📜 View History (Coming)' },
+            text: { type: 'plain_text', text: '📜 Vacation History' },
             action_id: HomeTabActionId.ViewHistory,
           },
         ],

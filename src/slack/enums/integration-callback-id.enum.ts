@@ -25,6 +25,7 @@ export enum ViewCallbackId {
 
   // vacation-requests
   VacationRequestsTabView = 'vacation_requests_tab_view',
+  VacationHistoryTabView = 'vacation_history_tab_view',
   AdminVacationRequest = 'admin_vacation_request',
   UserVacationRequest = 'user_vacation_request',
   DeleteVacationRequest = 'delete_vacation_request',

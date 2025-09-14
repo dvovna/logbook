@@ -23,7 +23,7 @@ export abstract class BaseTabActionHandler implements ISlackInteractionHandler {
   protected abstract actionMap: ActionMapType;
 
   protected readonly globalActionMap = {
-    [CommonViewActionId.BackToHomeTap]: (
+    [CommonViewActionId.BackToHomeTab]: (
       _payload: ISlackInteractionPayload,
       user: IUserViewModel,
     ) => {

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import {
   HomeTabModalName,
   HomeTabService,
@@ -9,7 +8,10 @@ import {
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { HomeTabActionId } from 'src/slack/tabs/home/views/home-tab.view';
-import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
+import {
+  TabId,
+  TabNavigationService,
+} from 'src/slack/common/services/tab-navigation.service';
 import { ActionMapType } from 'src/slack/common/handlers/base-tab-action.handler';
 import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
 
@@ -19,7 +21,6 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
   protected actionMap: ActionMapType;
 
   public constructor(
-    private readonly slackCommunicationService: SlackCommunicationService,
     private readonly homeTabService: HomeTabService,
     protected readonly tabNavigationService: TabNavigationService,
   ) {
@@ -42,16 +43,10 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
     );
   };
 
-  private handleViewHistory = async (
+  private handleViewHistory = (
     _payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
-    await this.slackCommunicationService.postEphemeral(
-      user.slack_id,
-      {
-        text: 'This feature is not implemented yet.',
-      },
-      user.slack_team_id,
-    );
+    this.tabNavigationService.navigate(TabId.VacationsHistory, { user });
   };
 }

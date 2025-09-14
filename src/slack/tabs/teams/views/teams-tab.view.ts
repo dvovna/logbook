@@ -46,7 +46,7 @@ export class TeamsTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle() {
-    return '🏢 Teams Management';
+    return '🏢 *Teams Management*\nManage team membership, assign vacation policies, \nand configure approvers/notification recipients.';
   }
 
   protected getTitleAccessory(): SectionBlockAccessory {

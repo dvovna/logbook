@@ -89,7 +89,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle(): string {
-    return '*🌴 Vacation Requests Management*';
+    return '*🌴 Vacation Requests Management*\nSubmit and manage employee vacation requests';
   }
 
   protected getTitleAccessory({
@@ -155,6 +155,10 @@ export class VacationRequestsTabView extends BaseAdminTabView<
           {
             type: 'mrkdwn',
             text: `Working Days: ${vacationRequest.working_days}`,
+          },
+          {
+            type: 'mrkdwn',
+            text: `Comment: ${vacationRequest.comment || '-'}`,
           },
         ],
         accessory: {

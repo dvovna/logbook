@@ -13,7 +13,7 @@ export abstract class BaseAdminTabActionHandler extends BaseTabActionHandler {
   };
 
   protected readonly globalActionMap = {
-    [CommonViewActionId.BackToHomeTap]: (
+    [CommonViewActionId.BackToHomeTab]: (
       _payload: ISlackInteractionPayload,
       user: IUserViewModel,
     ) => {
