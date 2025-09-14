@@ -14,11 +14,13 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import { jsonParse } from 'src/common/utils/json-parse';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.DeleteVacationRequest,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin],
 })
 export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
   private readonly logger = new Logger(DeleteVacationRequestHandler.name);
@@ -67,14 +69,14 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<ICo
   }
 
   protected async errorResponse(
-    error: Error,
+    errorMessage: string,
     _data: never,
     metadata: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ) {
     this.logger.error(
       'Error while deleting the vacation request: ',
-      error.message,
+      errorMessage,
     );
 
     return SlackViewResponseFactory.update(

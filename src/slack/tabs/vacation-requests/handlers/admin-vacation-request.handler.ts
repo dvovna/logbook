@@ -8,7 +8,6 @@ import VacationRequestAdminViewValuesParser, {
 } from 'src/slack/tabs/vacation-requests/parsers/vacation-request-admin-view-values.parser';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import {
   IVacationRequestModalViewMetadata,
   VacationRequestModalView,
@@ -20,13 +19,14 @@ import {
   TabId,
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
-import { ValidationError } from 'src/common/errors/validation.error';
 import { UsersService } from 'src/users/users.service';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.AdminVacationRequest,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
   IVacationRequestModalViewMetadata,
@@ -122,37 +122,31 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
   }
 
   protected errorResponse(
-    error: Error,
+    errorMessage: string,
     data: IVacationRequestAdminFormViewData,
     metadata: IVacationRequestModalViewMetadata,
     user: IUserViewModel,
   ) {
-    const errorMessage =
-      error instanceof MaxItemsCountReachedError ||
-      error instanceof ValidationError
-        ? error.message
-        : 'An error occurred while creating or updating the request. Please try again later.';
+    const initialData = metadata.id && {
+      id: metadata.id,
+      type: data.type_option.value,
+      status: data.status.value,
+      comment: data.comment || '',
+      start_date: data.start_date,
+      end_date: data.end_date,
+      user: data.user
+        ? {
+          id: data.user.value,
+          name: data.user.text,
+        }
+        : null,
+    };
 
     return SlackViewResponseFactory.update(
       this.vacationRequestModalView.getView({
         errorMessage,
         pageMetadata: metadata.pageMetadata,
-        initialData: metadata.id
-          ? {
-            id: metadata.id,
-            type: data.type_option.value,
-            status: data.status.value,
-            comment: data.comment || '',
-            start_date: data.start_date,
-            end_date: data.end_date,
-            user: data.user
-              ? {
-                id: data.user.value,
-                name: data.user.text,
-              }
-              : null,
-          }
-          : undefined,
+        initialData: initialData || undefined,
         userRole: user.role,
         callbackId: ViewCallbackId.AdminVacationRequest,
       }),

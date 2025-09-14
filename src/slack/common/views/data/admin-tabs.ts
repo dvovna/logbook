@@ -6,19 +6,19 @@ export const ADMIN_TABS = [
     title: '🏠 Home',
   },
   {
-    actionId: AdminNavigationActionId.ManageUsers,
-    title: '👤 Users',
+    actionId: AdminNavigationActionId.ManageVacationRequests,
+    title: '📅 Requests',
   },
   {
     actionId: AdminNavigationActionId.ManageTeams,
     title: '👥 Teams',
   },
   {
-    actionId: AdminNavigationActionId.ManageVacationRequests,
-    title: '📅 Requests',
-  },
-  {
     actionId: AdminNavigationActionId.ManageVacationPolicies,
     title: '📜 Policies & Holidays',
+  },
+  {
+    actionId: AdminNavigationActionId.ManageUsers,
+    title: '👤 Users',
   },
 ];

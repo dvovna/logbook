@@ -5,6 +5,10 @@ import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory
 import { parseMetadata } from 'src/slack/common/utils/slack-metadata.utils';
 import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
 import { IViewParseResult } from 'src/slack/services/slack-view-values.parser';
+import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
+import { ForbiddenException } from '@nestjs/common';
+import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
+import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 
 export abstract class BaseModalFormSubmitHandler<
   Metadata extends object,
@@ -31,7 +35,15 @@ export abstract class BaseModalFormSubmitHandler<
 
       return this.successResponse(result, user, metadata);
     } catch (error) {
-      return this.errorResponse(error, data, metadata, user);
+      const errorMessage =
+        error instanceof PrimaryEntityDeleteError ||
+        error instanceof ForbiddenException ||
+        error instanceof MaxItemsCountReachedError ||
+        error instanceof EntityHasDependenciesError
+          ? error.message
+          : 'Something went wrong. Please try again later.';
+
+      return this.errorResponse(errorMessage, data, metadata, user);
     }
   }
 
@@ -58,7 +70,7 @@ export abstract class BaseModalFormSubmitHandler<
   ): ViewResponseAction;
 
   protected abstract errorResponse(
-    error: unknown,
+    errorMessage: string,
     data: FormData,
     meta: Metadata,
     user: IUserViewModel,

@@ -1,4 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
+import UserRole from 'src/common/enums/user-role.enum';
 
 export const SLACK_HANDLER_METADATA = 'SLACK_HANDLER_METADATA';
 
@@ -10,6 +11,7 @@ export type SlackInteractionType =
 export interface ISlackHandlerMeta {
   callbackId: string;
   type: SlackInteractionType;
+  allowedRoles?: UserRole[];
 }
 
 export const SlackHandler = (meta: ISlackHandlerMeta): ClassDecorator =>

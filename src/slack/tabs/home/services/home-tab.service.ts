@@ -23,6 +23,8 @@ type HomeTabModalViewResolversMapType = {
   ) => View;
 };
 
+const ADMIN_ROLES = [UserRole.Admin, UserRole.HR];
+
 @Injectable()
 export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapType> {
   public constructor(
@@ -51,7 +53,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       userId: user.slack_id,
       vacationUsageInfo: userVacationsUsageInfo,
       requestedVacations,
-      isUserAdmin: user.role === UserRole.Admin,
+      isUserAdmin: ADMIN_ROLES.includes(user.role),
     });
   }
 

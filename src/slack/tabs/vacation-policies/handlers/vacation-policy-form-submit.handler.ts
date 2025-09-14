@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import PolicyModalViewValuesParser, {
@@ -19,11 +18,13 @@ import {
   TabId,
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.VacationPolicyFormSubmit,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class VacationPolicyFormSubmitHandler extends BaseModalFormSubmitHandler<
   IVacationPolicyModalViewMetadata,
@@ -101,28 +102,23 @@ export class VacationPolicyFormSubmitHandler extends BaseModalFormSubmitHandler<
   }
 
   protected errorResponse(
-    error: Error,
+    errorMessage: string,
     data: IVacationPolicyFormData,
     metadata: IVacationRequestModalViewMetadata,
   ) {
-    const errorMessage =
-      error instanceof MaxItemsCountReachedError
-        ? error.message
-        : `An error occurred while ${metadata.id ? 'updating' : 'creating'} the policy. Please try again later.`;
+    const initialData = metadata.id && {
+      id: metadata.id,
+      name: data.name,
+      vacation_days: data.vacation_days,
+      working_days: data.working_days,
+      bonus_days: data.bonus_days,
+      carryover_days: data.carryover_days,
+    };
 
     return SlackViewResponseFactory.update(
       this.vacationPolicyModalView.getView({
         errorMessage: errorMessage,
-        initialData: metadata.id
-          ? {
-            id: metadata.id,
-            name: data.name,
-            vacation_days: data.vacation_days,
-            working_days: data.working_days,
-            bonus_days: data.bonus_days,
-            carryover_days: data.carryover_days,
-          }
-          : undefined,
+        initialData: initialData || undefined,
       }),
     );
   }

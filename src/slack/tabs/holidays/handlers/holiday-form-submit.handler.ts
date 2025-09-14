@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import {
@@ -20,11 +19,13 @@ import HolidayModalViewValuesParser, {
 import { jsonParse } from 'src/common/utils/json-parse';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import IHolidayViewModel from 'src/holidays/types/holiday.interface';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.HolidayFormSubmit,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class HolidayFormSubmitHandler extends BaseModalFormSubmitHandler<
   IHolidayModalViewMetadata,
@@ -117,18 +118,11 @@ export class HolidayFormSubmitHandler extends BaseModalFormSubmitHandler<
   }
 
   protected async errorResponse(
-    error: Error,
+    errorMessage: string,
     _data: IHolidayFormViewData,
     metadata: IHolidayModalViewMetadata,
     user: IUserViewModel,
   ) {
-    const errorMessage =
-      error instanceof MaxItemsCountReachedError
-        ? error.message
-        : `An error occurred while ${
-          metadata.id ? 'updating' : 'creating'
-        } the holiday. Please try again later.`;
-
     return SlackViewResponseFactory.update(
       await this.holidaysTabService.getModalView<
         HolidaysTabModalName.CreateHoliday | HolidaysTabModalName.UpdateHoliday

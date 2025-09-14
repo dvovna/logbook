@@ -22,11 +22,13 @@ import {
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.UserFormSubmit,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
   IEditUserModalViewMetadata,
@@ -89,12 +91,12 @@ export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
   }
 
   protected async errorResponse(
-    error: unknown,
+    errorMessage: string,
     _data: IEditUserFormData,
     metadata: IEditUserModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
-    this.logger.error(`Error updating user`, error);
+    this.logger.error(`Error updating user`, errorMessage);
 
     return SlackViewResponseFactory.update(
       await this.usersTabService.getModalView(UsersTabModalName.EditUser, {

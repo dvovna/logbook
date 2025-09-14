@@ -15,11 +15,13 @@ import ConfirmationModalView, {
 } from 'src/slack/common/views/confirmation-modal.view';
 import { IUserViewModel as IUserEntity } from 'src/users/types/user.interface';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.ChangeUserStatus,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin],
 })
 export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,
@@ -100,19 +102,12 @@ export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandle
   }
 
   protected async errorResponse(
-    error: unknown,
+    errorMessage: string,
     _data: object,
     meta: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
-    const errorMessage =
-      error instanceof Error && error.message === 'User not found'
-        ? error.message
-        : 'An error occurred while changing user status. Please try again later.';
-
-    if (error instanceof Error) {
-      this.logger.warn(`Error changing user status: ${error.message}`, error);
-    }
+    this.logger.warn(`Error changing user status: ${errorMessage}`);
 
     return SlackViewResponseFactory.update(
       await this.usersTabService.getModalView(

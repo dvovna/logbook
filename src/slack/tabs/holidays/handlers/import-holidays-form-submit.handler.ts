@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { HolidayModalView } from 'src/slack/tabs/holidays/views/holiday-modal.view';
@@ -17,11 +16,13 @@ import ImportHolidaysModalViewValuesParser, {
 } from 'src/slack/tabs/holidays/parsers/import-holidays-modal-view-values.parser';
 import HolidayImportService from 'src/holidays/services/holiday-import.service';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.ImportHolidays,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class ImportHolidaysFormSubmitHandler extends BaseModalFormSubmitHandler<
   IUploadCountryHolidaysModalViewMetadata,
@@ -80,17 +81,12 @@ export class ImportHolidaysFormSubmitHandler extends BaseModalFormSubmitHandler<
   }
 
   protected async errorResponse(
-    error: unknown,
+    errorMessage: string,
     _formData: IImportHolidaysFormData,
     metadata: IUploadCountryHolidaysModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
-    this.logger.error(error);
-
-    const errorMessage =
-      error instanceof MaxItemsCountReachedError
-        ? error.message
-        : 'An error occurred while creating or updating the holiday. Please try again later.';
+    this.logger.error(errorMessage);
 
     return SlackViewResponseFactory.update(
       await this.holidaysTabService.getModalView<HolidaysTabModalName.ImportHolidays>(

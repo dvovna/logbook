@@ -9,21 +9,21 @@ import {
   TeamsTabService,
 } from 'src/slack/tabs/teams/services/teams-tab.service';
 import { IConfirmationModalViewMetadata } from 'src/slack/common/views/confirmation-modal.view';
-import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import ITeamViewModel from 'src/teams/types/team.interface';
 import {
   TabId,
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.DeleteTeam,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin],
 })
 export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,
@@ -48,17 +48,11 @@ export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   }
 
   protected async errorResponse(
-    error: unknown,
+    errorMessage: string,
     _data: never,
     meta: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
-    const errorMessage =
-      error instanceof PrimaryEntityDeleteError ||
-      error instanceof EntityHasDependenciesError
-        ? error.message
-        : 'An error occurred while deleting the team. Please try again later.';
-
     return SlackViewResponseFactory.update(
       await this.teamsTabService.getModalView(TeamsTabModalName.DeleteTeam, {
         teamId: meta.id,

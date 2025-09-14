@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import TeamModalViewValuesParser, {
@@ -22,11 +21,13 @@ import {
   TeamsTabModalName,
   TeamsTabService,
 } from 'src/slack/tabs/teams/services/teams-tab.service';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.TeamFormSubmit,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   ITeamModalViewMetadata,
@@ -102,16 +103,11 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   }
 
   protected async errorResponse(
-    error: Error,
+    errorMessage: string,
     _data: ITeamFormViewData,
     metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
   ) {
-    const errorMessage =
-      error instanceof MaxItemsCountReachedError
-        ? error.message
-        : `An error occurred while ${metadata.id ? 'updating' : 'creating'} the team. Please try again later.`;
-
     const updatedModalView = await this.getModalView(
       metadata,
       errorMessage,

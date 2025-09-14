@@ -15,11 +15,13 @@ import {
 } from 'src/slack/tabs/holidays/services/holidays-tab.service';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import { jsonParse } from 'src/common/utils/json-parse';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.ToggleHolidayStatus,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class ToggleHolidayStatusFormSubmitHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,
@@ -97,20 +99,12 @@ export class ToggleHolidayStatusFormSubmitHandler extends BaseModalFormSubmitHan
   }
 
   protected async errorResponse(
-    error: unknown,
+    errorMessage: string,
     _data: object,
     meta: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'An error occurred while changing holiday status. Please try again later.';
-
-    this.logger.warn(
-      `Error changing holiday status: ${errorMessage}`,
-      error instanceof Error ? error : undefined,
-    );
+    this.logger.warn(`Error changing holiday status: ${errorMessage}`);
 
     return SlackViewResponseFactory.update(
       await this.holidaysTabService.getModalView(

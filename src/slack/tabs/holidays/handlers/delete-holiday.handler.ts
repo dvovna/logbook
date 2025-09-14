@@ -15,13 +15,13 @@ import { jsonParse } from 'src/common/utils/json-parse';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
-import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.DeleteHoliday,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class DeleteHolidayHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
   private readonly logger = new Logger(DeleteHolidayHandler.name);
@@ -69,21 +69,12 @@ export class DeleteHolidayHandler extends BaseModalFormSubmitHandler<IConfirmati
   }
 
   protected async errorResponse(
-    error: Error,
+    errorMessage: string,
     _data: never,
     metadata: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
-    this.logger.error(
-      'Error while deleting the vacation request: ',
-      error.message,
-    );
-
-    const errorMessage =
-      error instanceof PrimaryEntityDeleteError ||
-      error instanceof EntityHasDependenciesError
-        ? error.message
-        : 'An error occurred while deleting. Please try again later.';
+    this.logger.error('Error while deleting the holiday: ', errorMessage);
 
     return SlackViewResponseFactory.update(
       await this.holidaysTabService.getModalView(

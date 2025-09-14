@@ -5,10 +5,8 @@ import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
 } from 'src/slack/common/views/confirmation-modal.view';
-import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import {
   VacationPoliciesTabModalName,
@@ -19,11 +17,13 @@ import { IHolidaysTabMetadata } from 'src/slack/tabs/holidays/views/holidays-tab
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import { DeleteHolidayHandler } from 'src/slack/tabs/holidays/handlers/delete-holiday.handler';
 import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.DeleteVacationPolicy,
   type: 'view_submission',
+  allowedRoles: [UserRole.Admin],
 })
 export class DeletePolicyHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,
@@ -73,21 +73,15 @@ export class DeletePolicyHandler extends BaseModalFormSubmitHandler<
   }
 
   protected async errorResponse(
-    error: Error,
+    errorMessage: string,
     _data: never,
     metadata: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     this.logger.error(
       'Error while deleting the vacation policy: ',
-      error.message,
+      errorMessage,
     );
-
-    const errorMessage =
-      error instanceof PrimaryEntityDeleteError ||
-      error instanceof EntityHasDependenciesError
-        ? error.message
-        : 'An error occurred while deleting the vacation policy. Please try again later.';
 
     return SlackViewResponseFactory.update(
       await this.policiesTabService.getModalView(

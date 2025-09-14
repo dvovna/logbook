@@ -8,7 +8,6 @@ import VacationRequestUserViewValuesParser, {
 } from 'src/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import {
   IVacationRequestModalViewMetadata,
   VacationRequestModalView,
@@ -19,7 +18,6 @@ import {
   TabId,
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
-import { ValidationError } from 'src/common/errors/validation.error';
 
 @Injectable()
 @SlackHandler({
@@ -103,13 +101,7 @@ export class UserVacationRequestHandler extends BaseModalFormSubmitHandler<
     );
   }
 
-  protected errorResponse(error: Error) {
-    const errorMessage =
-      error instanceof MaxItemsCountReachedError ||
-      error instanceof ValidationError
-        ? error.message
-        : 'An error occurred while creating or updating the request. Please try again later.';
-
+  protected errorResponse(errorMessage: string) {
     return SlackViewResponseFactory.update(
       this.vacationRequestModalView.getView({
         errorMessage: errorMessage,
