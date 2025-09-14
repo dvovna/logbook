@@ -1,0 +1,44 @@
+import { Injectable } from '@nestjs/common';
+import UserRole from 'src/common/enums/user-role.enum';
+import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
+import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+
+@Injectable()
+export class SlackActionPermissionsService {
+  private readonly permissions: Record<string, UserRole[]> = {
+    [VacationRequestsTabViewActionId.CreateRequest]: [
+      UserRole.Admin,
+      UserRole.HR,
+    ],
+    [AdminNavigationActionId.ViewAdminPanel]: [
+      UserRole.Admin,
+      UserRole.HR,
+      UserRole.Manager,
+    ],
+    [AdminNavigationActionId.ViewHome]: [
+      UserRole.Admin,
+      UserRole.HR,
+      UserRole.Manager,
+    ],
+    [AdminNavigationActionId.ManageUsers]: [UserRole.Admin, UserRole.HR],
+    [AdminNavigationActionId.ManageTeams]: [UserRole.Admin, UserRole.HR],
+    [AdminNavigationActionId.ManageVacationRequests]: [
+      UserRole.Admin,
+      UserRole.HR,
+      UserRole.Manager,
+    ],
+    [AdminNavigationActionId.ManageVacationPolicies]: [
+      UserRole.Admin,
+      UserRole.HR,
+    ],
+  } as const;
+
+  public can(
+    userRole: UserRole,
+    action: keyof typeof this.permissions,
+  ): boolean {
+    const allowedRoles = this.permissions[action] ?? [];
+
+    return allowedRoles.includes(userRole);
+  }
+}

@@ -84,6 +84,7 @@ export class VacationRequestsTabService extends BaseTabService<
     return this.vacationRequestsTabViewService.getView(
       {
         userId: params.user.slack_id,
+        userRole: params.user.role,
         requests,
         teams,
         years: Array.from(

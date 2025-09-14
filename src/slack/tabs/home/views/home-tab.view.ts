@@ -4,13 +4,14 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import { IVacationPeriodUsageData } from 'src/vacation-requests/services/user-vacation-usage.service';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
-import { BaseTabView } from 'src/slack/common/views/base-tab.view';
-import { AdminPanelView } from 'src/slack/common/views/admin-panel.view';
+import {
+  IBaseTabViewParams,
+} from 'src/slack/common/views/base-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
+import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 
-interface IGetViewParams {
-  userId: string;
-  isUserAdmin?: boolean;
+interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData;
   requestedVacations?: IVacationRequestViewModel[];
 }
@@ -21,20 +22,21 @@ export enum HomeTabActionId {
 }
 
 @Injectable()
-export class HomeTabView extends BaseTabView<IGetViewParams, never> {
+export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   protected callbackId = ViewCallbackId.HomeTabView;
+  protected activeTabActionId = AdminNavigationActionId.ViewHome;
+
+  public constructor(
+    protected readonly slackActionPermissionsService: SlackActionPermissionsService,
+  ) {
+    super(slackActionPermissionsService);
+  }
 
   public getContentBlocks({
     vacationUsageInfo,
     requestedVacations,
-    isUserAdmin,
   }: IGetViewParams) {
-    return [
-      ...(isUserAdmin
-        ? AdminPanelView.getPanelBlocks(AdminNavigationActionId.ViewHome)
-        : []),
-      ...this.getUserViewBlocks(vacationUsageInfo, requestedVacations),
-    ];
+    return [...this.getUserViewBlocks(vacationUsageInfo, requestedVacations)];
   }
 
   protected getTabTitle() {

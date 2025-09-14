@@ -11,16 +11,16 @@ import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
+import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 
 export interface IUsersTabMetaData {
   page?: number;
   filters?: IUsersTabViewFilters;
 }
 
-interface IGetViewParams {
+interface IGetViewParams extends IBaseTabViewParams {
   users: ISearchResult<IUserViewModel>;
   teams: ITeamViewModel[];
-  userId: string;
 }
 
 const SHOW_INACTIVE_OPTION = {

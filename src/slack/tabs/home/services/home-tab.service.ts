@@ -3,7 +3,6 @@ import { HomeTabView } from 'src/slack/tabs/home/views/home-tab.view';
 import { UserVacationsUsageService } from 'src/vacation-requests/services/user-vacation-usage.service';
 import VacationStatus from 'src/common/enums/vacation-status.enum';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
-import UserRole from 'src/common/enums/user-role.enum';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
@@ -22,8 +21,6 @@ type HomeTabModalViewResolversMapType = {
     params: IOpenModalBaseParams,
   ) => View;
 };
-
-const ADMIN_ROLES = [UserRole.Admin, UserRole.HR];
 
 @Injectable()
 export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapType> {
@@ -51,9 +48,9 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
 
     return this.homeTabViewService.getView({
       userId: user.slack_id,
+      userRole: user.role,
       vacationUsageInfo: userVacationsUsageInfo,
       requestedVacations,
-      isUserAdmin: ADMIN_ROLES.includes(user.role),
     });
   }
 

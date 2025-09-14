@@ -6,13 +6,13 @@ import { ISearchResult } from 'src/common/types/pagination.types';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { COUNTRY_OPTIONS } from 'src/slack/tabs/holidays/views/options/country.options';
 import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
+import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 
-interface IGetHolidaysViewParams {
+interface IGetHolidaysViewParams extends IBaseTabViewParams {
   countryHolidays: ISearchResult<IHolidayViewModel>;
   companyHolidays: IHolidayViewModel[];
   policyName: string;
   policyId: string;
-  userId: string;
   selectedYear: number;
   years: number[];
 }

@@ -5,10 +5,10 @@ import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-polic
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
+import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 
-interface IGetViewParams {
+interface IGetViewParams extends IBaseTabViewParams {
   policies: IVacationPolicyViewModel[];
-  userId: string;
 }
 
 export enum PolicyTabViewActionId {

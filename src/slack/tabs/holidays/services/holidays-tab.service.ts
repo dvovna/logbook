@@ -130,6 +130,7 @@ export class HolidaysTabService extends BaseTabService<
     return this.holidaysTabViewService.getView(
       {
         userId: user.slack_id,
+        userRole: user.role,
         countryHolidays,
         companyHolidays,
         policyName: policy.name,

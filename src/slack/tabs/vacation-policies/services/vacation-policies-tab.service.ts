@@ -67,6 +67,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
 
     return this.manageVacationPoliciesViewService.getView({
       userId: user.slack_id,
+      userRole: user.role,
       policies,
     });
   }

@@ -19,6 +19,7 @@ import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
+import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 
 export interface IVacationRequestsTabFilters {
   user?: {
@@ -81,16 +82,29 @@ export class VacationRequestsTabView extends BaseAdminTabView<
   protected callbackId: ViewCallbackId = ViewCallbackId.VacationRequestsTabView;
   protected activeTabActionId = AdminNavigationActionId.ManageVacationRequests;
 
+  public constructor(
+    protected slackActionPermissionsService: SlackActionPermissionsService,
+  ) {
+    super(slackActionPermissionsService);
+  }
+
   protected getTabTitle(): string {
     return '*🌴 Vacation Requests Management*';
   }
 
-  protected getTitleAccessory(): SectionBlockAccessory {
-    return {
-      type: 'button',
-      text: { type: 'plain_text', text: '➕ Add Vacation Request' },
-      action_id: VacationRequestsTabViewActionId.CreateRequest,
-    };
+  protected getTitleAccessory({
+    userRole,
+  }: IGetViewParams): SectionBlockAccessory | null {
+    return this.slackActionPermissionsService.can(
+      userRole,
+      VacationRequestsTabViewActionId.CreateRequest,
+    )
+      ? {
+        type: 'button',
+        text: { type: 'plain_text', text: '➕ Add Vacation Request' },
+        action_id: VacationRequestsTabViewActionId.CreateRequest,
+      }
+      : null;
   }
 
   protected getContentBlocks(

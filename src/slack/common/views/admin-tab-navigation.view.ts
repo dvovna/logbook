@@ -5,7 +5,14 @@ import { AnyBlock } from '@slack/web-api';
 export class AdminTabNavigation {
   public static getNavigationBlocks(
     activeTabActionId: AdminNavigationActionId | null,
+    canViewTab: (tabActionId: AdminNavigationActionId) => boolean,
   ): AnyBlock[] {
+    const tabs = ADMIN_TABS.filter((tab) => canViewTab(tab.actionId));
+
+    if (tabs.length <= 1) {
+      return [];
+    }
+
     return [
       {
         type: 'section',
@@ -16,7 +23,7 @@ export class AdminTabNavigation {
       },
       {
         type: 'actions',
-        elements: ADMIN_TABS.map((tab) => ({
+        elements: tabs.map((tab) => ({
           type: 'button',
           text: { type: 'plain_text', text: tab.title },
           action_id: tab.actionId,

@@ -9,11 +9,12 @@ import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
 import { ISearchResult } from 'src/common/types/pagination.types';
 import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
+import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
+import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 
-interface IGetViewParams {
+interface IGetViewParams extends IBaseTabViewParams {
   teamsData: ISearchResult<ITeamViewModel>;
   usersCountByTeam: Record<string, number>;
-  userId: string;
 }
 
 export interface ITeamsTabMetaData {
@@ -39,8 +40,9 @@ export class TeamsTabView extends BaseAdminTabView<
 
   public constructor(
     private readonly vacationPoliciesCacheService: VacationPoliciesCacheService,
+    protected readonly slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super();
+    super(slackActionPermissionsService);
   }
 
   protected getTabTitle() {

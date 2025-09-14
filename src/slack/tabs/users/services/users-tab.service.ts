@@ -81,6 +81,7 @@ export class UsersTabService extends BaseTabService<
     return this.usersViewService.getView(
       {
         userId: user.slack_id,
+        userRole: user.role,
         teams,
         users,
       },

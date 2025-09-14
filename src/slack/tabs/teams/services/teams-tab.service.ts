@@ -77,6 +77,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
 
     return await this.teamsTabView.getView({
       userId: user.slack_id,
+      userRole: user.role,
       teamsData,
       usersCountByTeam,
     });
