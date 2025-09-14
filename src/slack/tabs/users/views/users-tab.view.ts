@@ -62,16 +62,12 @@ export class UsersTabView extends BaseAdminTabView<
   protected activeTabActionId = AdminNavigationActionId.ManageUsers;
   protected callbackId = ViewCallbackId.UsersTabView;
 
-  protected getAdminTabContentBlocks(
-    { users, teams },
-    { filters },
-  ): AnyBlock[] {
-    const blocks: AnyBlock[] = [];
+  protected getTabTitle(): string {
+    return '*👥 Users Management*';
+  }
 
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: '*👥 Users Management*' },
-    });
+  protected getContentBlocks({ users, teams }, { filters }): AnyBlock[] {
+    const blocks: AnyBlock[] = [];
 
     blocks.push(this.getFiltersBlock(teams, filters));
 

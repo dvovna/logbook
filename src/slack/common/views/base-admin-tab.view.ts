@@ -12,17 +12,13 @@ export abstract class BaseAdminTabView<
 > extends BaseTabView<GetParams, Metadata> {
   protected abstract activeTabActionId: AdminNavigationActionId | null;
 
-  protected async getTabContentBlocks(params: GetParams, metadata?: Metadata) {
+  protected async getTabBlocks(params: GetParams, metadata?: Metadata) {
     return [
       ...this.getAdminNavigation(),
-      ...(await this.getAdminTabContentBlocks(params, metadata)),
+      ...this.getTitleBlocks(params),
+      ...(await this.getContentBlocks(params, metadata)),
     ];
   }
-
-  protected abstract getAdminTabContentBlocks(
-    params: GetParams,
-    metadata?: Metadata,
-  ): AnyBlock[] | Promise<AnyBlock[]>;
 
   private getAdminNavigation(): AnyBlock[] {
     return AdminTabNavigation.getNavigationBlocks(this.activeTabActionId);

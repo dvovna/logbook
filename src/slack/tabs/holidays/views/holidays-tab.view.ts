@@ -46,17 +46,15 @@ export class HolidaysTabView extends BaseAdminTabView<
   protected callbackId = ViewCallbackId.HolidaysTabView;
   protected activeTabActionId = null;
 
-  protected getAdminTabContentBlocks({
+  protected getContentBlocks({
     countryHolidays,
     companyHolidays,
-    policyName,
     policyId,
     selectedYear,
     years,
   }: IGetHolidaysViewParams): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    blocks.push(...this.getHeaderBlocks(policyName));
     blocks.push(...this.getFilterBlocks(selectedYear, years));
 
     blocks.push(...this.getCountryHolidaysBlocks(countryHolidays, policyId));
@@ -151,16 +149,8 @@ export class HolidaysTabView extends BaseAdminTabView<
     return blocks;
   }
 
-  private getHeaderBlocks(policyName: string) {
-    return [
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*Holidays for Vacation Policy '${policyName}'*`,
-        },
-      },
-    ];
+  protected getTabTitle({ policyName }: IGetHolidaysViewParams) {
+    return `*Holidays for Vacation Policy '${policyName}'*`;
   }
 
   private getFilterBlocks(selectedYear: number, years: number[]) {

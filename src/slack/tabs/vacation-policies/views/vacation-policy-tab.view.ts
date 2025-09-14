@@ -4,6 +4,7 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 
 interface IGetViewParams {
   policies: IVacationPolicyViewModel[];
@@ -26,18 +27,20 @@ export class VacationPolicyTabView extends BaseAdminTabView<
   protected callbackId = ViewCallbackId.VacationPoliciesTabView;
   protected activeTabActionId = AdminNavigationActionId.ManageVacationPolicies;
 
-  protected getAdminTabContentBlocks({ policies }): AnyBlock[] {
-    const blocks: AnyBlock[] = [];
+  protected getTabTitle() {
+    return '*🏢 Vacation Policy Management*';
+  }
 
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: '*🏢 Vacation Policy Management*' },
-      accessory: {
-        type: 'button',
-        text: { type: 'plain_text', text: '➕ Add Policy' },
-        action_id: PolicyTabViewActionId.AddPolicy,
-      },
-    });
+  protected getTitleAccessory(): SectionBlockAccessory | null {
+    return {
+      type: 'button',
+      text: { type: 'plain_text', text: '➕ Add Policy' },
+      action_id: PolicyTabViewActionId.AddPolicy,
+    };
+  }
+
+  protected getContentBlocks({ policies }): AnyBlock[] {
+    const blocks: AnyBlock[] = [];
 
     const blocksToAdd = this.getPolicyListBlocks(policies);
 

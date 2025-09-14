@@ -24,7 +24,7 @@ export enum HomeTabActionId {
 export class HomeTabView extends BaseTabView<IGetViewParams, never> {
   protected callbackId = ViewCallbackId.HomeTabView;
 
-  public getTabContentBlocks({
+  public getContentBlocks({
     vacationUsageInfo,
     requestedVacations,
     isUserAdmin,
@@ -37,18 +37,15 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     ];
   }
 
+  protected getTabTitle() {
+    return `*🏝 Welcome to Marina Bot*\nHere you can track and request your vacations.`;
+  }
+
   private getUserViewBlocks(
     usageInfo: IVacationPeriodUsageData,
     requestedVacations?: IVacationRequestViewModel[],
   ): AnyBlock[] {
     return [
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*🏝 Welcome to Marina Bot*\nHere you can track and request your vacations.`,
-        },
-      },
       ...this.getVacationUsageBlocks(usageInfo),
       { type: 'divider' },
       ...this.getRequestedVacationsBlocks(requestedVacations),

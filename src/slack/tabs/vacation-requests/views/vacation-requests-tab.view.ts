@@ -18,6 +18,7 @@ import VacationType from 'src/common/enums/vacation-type.enum';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 
 export interface IVacationRequestsTabFilters {
   user?: {
@@ -80,22 +81,24 @@ export class VacationRequestsTabView extends BaseAdminTabView<
   protected callbackId: ViewCallbackId = ViewCallbackId.VacationRequestsTabView;
   protected activeTabActionId = AdminNavigationActionId.ManageVacationRequests;
 
-  protected getAdminTabContentBlocks(
+  protected getTabTitle(): string {
+    return '*🌴 Vacation Requests Management*';
+  }
+
+  protected getTitleAccessory(): SectionBlockAccessory {
+    return {
+      type: 'button',
+      text: { type: 'plain_text', text: '➕ Add Vacation Request' },
+      action_id: VacationRequestsTabViewActionId.CreateRequest,
+    };
+  }
+
+  protected getContentBlocks(
     { requests, teams, years }: IGetViewParams,
     metadata?: IVacationRequestsTabMetadata,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
     const filters = metadata?.filters;
-
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: '*🌴 Vacation Requests Management*' },
-      accessory: {
-        type: 'button',
-        text: { type: 'plain_text', text: '➕ Add Vacation Request' },
-        action_id: VacationRequestsTabViewActionId.CreateRequest,
-      },
-    });
 
     blocks.push(this.getFiltersBlock(teams, years, filters));
 

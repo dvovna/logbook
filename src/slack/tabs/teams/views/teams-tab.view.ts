@@ -5,6 +5,7 @@ import ITeamViewModel from 'src/teams/types/team.interface';
 import { VacationPoliciesCacheService } from 'src/vacation-policies/services/vacation-policies-cache.service';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 
 interface IGetViewParams {
   teams: ITeamViewModel[];
@@ -30,21 +31,23 @@ export class TeamsTabView extends BaseAdminTabView<IGetViewParams, never> {
     super();
   }
 
-  protected async getAdminTabContentBlocks({
+  protected getTabTitle() {
+    return '🏢 Teams Management';
+  }
+
+  protected getTitleAccessory(): SectionBlockAccessory {
+    return {
+      type: 'button',
+      text: { type: 'plain_text', text: '➕ Add Team' },
+      action_id: TeamsTabViewActionId.AddTeam,
+    };
+  }
+
+  protected async getContentBlocks({
     teams,
     usersCountByTeam,
   }): Promise<AnyBlock[]> {
     const blocks: AnyBlock[] = [];
-
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: '*🏢 Teams Management*' },
-      accessory: {
-        type: 'button',
-        text: { type: 'plain_text', text: '➕ Add Team' },
-        action_id: TeamsTabViewActionId.AddTeam,
-      },
-    });
 
     const blocksToAdd = await this.getTeamsListBlocks(teams, usersCountByTeam);
 
