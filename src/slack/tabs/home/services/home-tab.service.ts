@@ -32,7 +32,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
   ) {
     super(TabId.Home, {
       [HomeTabModalName.CreateVacationRequest]: (params) =>
-        this.createVacationRequestModal(params),
+        this.getCreateVacationRequestModal(params),
     });
   }
 
@@ -54,7 +54,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     });
   }
 
-  private createVacationRequestModal(params: IOpenModalBaseParams) {
+  private getCreateVacationRequestModal(params: IOpenModalBaseParams) {
     return this.vacationRequestModalView.getView({
       errorMessage: params.errorMessage,
       callbackId: ViewCallbackId.UserVacationRequest,

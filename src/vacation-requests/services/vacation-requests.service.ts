@@ -12,7 +12,7 @@ import { SupabaseFilter } from 'src/common/repositories/base.repository';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { VacationRequestsValidationService } from 'src/vacation-requests/services/vacation-requests-validation.service';
 import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
-import TeamsService from 'src/teams/teams.service';
+import TeamsService from 'src/teams/services/teams.service';
 import { getDateOnly } from 'src/common/utils/date.utils';
 
 interface ICreateParams {

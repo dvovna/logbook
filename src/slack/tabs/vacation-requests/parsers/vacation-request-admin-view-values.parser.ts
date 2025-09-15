@@ -10,7 +10,7 @@ import {
   MAX_COMMENT_LENGTH,
 } from 'src/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
 import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
-import { ISelectedOption } from 'src/slack/common/utils/view-utils';
+import { ISelectedOption } from 'src/slack/common/utils/parsing-utils';
 
 export const adminVacationRequestSchema = z
   .object({

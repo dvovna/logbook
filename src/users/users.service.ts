@@ -6,6 +6,7 @@ import {
   ISearchResult,
   ISearchParams,
 } from 'src/common/types/pagination.types';
+import { SupabaseFilter } from 'src/common/repositories/base.repository';
 
 interface ICreateUserParams {
   email: string;
@@ -25,6 +26,7 @@ interface IFindParams {
   id?: string;
   teamId?: string;
   role?: UserRole;
+  roles?: UserRole[];
   slackId?: string;
   isActive?: boolean;
   includeInactive?: boolean;
@@ -36,6 +38,7 @@ type ISearchUsersParams = ISearchParams<IFindParams>;
 interface IUsersService {
   create(params: ICreateUserParams): Promise<IUserViewModel>;
   findOne(params: IFindParams): Promise<IUserViewModel | null>;
+  findMany(params: IFindParams): Promise<IUserViewModel[]>;
   findOneWithValidation(params: IFindParams): Promise<IUserViewModel>;
   search(params: ISearchUsersParams): Promise<ISearchResult<IUserViewModel>>;
   count(params: IFindParams): Promise<number>;
@@ -138,6 +141,10 @@ export class UsersService implements IUsersService {
     return await this.userRepository.findOne(this.getFindQuery(findParams));
   }
 
+  public async findMany(findParams: IFindParams): Promise<IUserViewModel[]> {
+    return await this.userRepository.findMany(this.getFindQuery(findParams));
+  }
+
   public async findOneWithValidation(
     findParams: IFindParams,
   ): Promise<IUserViewModel> {
@@ -159,14 +166,20 @@ export class UsersService implements IUsersService {
     });
   }
 
-  private getFindQuery(
-    findParams: IFindParams,
-  ): Record<string, string | boolean | undefined> {
+  private getFindQuery(findParams: IFindParams): SupabaseFilter {
     return {
       slack_team_id: findParams.slackTeamId,
       ...(findParams.id ? { id: findParams.id } : {}),
       ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
       ...(findParams.role ? { role: findParams.role } : {}),
+      ...(findParams.roles
+        ? {
+          role: {
+            operator: 'in',
+            value: findParams.roles,
+          }
+        }
+        : {}),
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
       ...(findParams.isActive !== undefined
         ? { is_active: findParams.isActive }

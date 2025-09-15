@@ -1,77 +1,65 @@
 import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import BaseModalView from 'src/slack/common/views/base-modal.view';
-import { View } from '@slack/types/dist/views';
+import BaseModalView, {
+  IBaseModalViewParams,
+} from 'src/slack/common/views/base-modal.view';
 import IHolidayViewModel from 'src/holidays/types/holiday.interface';
+import { AnyBlock } from '@slack/web-api';
 
-interface IGetViewParams {
-  pageMetadata: string;
+interface IGetViewParams extends IBaseModalViewParams {
   holiday?: IHolidayViewModel | null;
-  errorMessage?: string;
   initialDate?: string;
 }
 
-export type IHolidayModalViewMetadata = {
-  id: string | null;
+export interface IHolidayModalViewMetadata {
+  id?: string | null;
   pageMetadata: string;
-};
+}
 
 @Injectable()
-export class HolidayModalView extends BaseModalView<IGetViewParams> {
-  public getView({
+export class HolidayModalView extends BaseModalView<
+  IGetViewParams,
+  IHolidayModalViewMetadata
+> {
+  protected callbackId = ViewCallbackId.HolidayFormSubmit;
+
+  protected getTitleText({ holiday }: IGetViewParams): string {
+    return holiday ? 'Edit Holiday' : 'Create Holiday';
+  }
+
+  public getViewBlocks({
     holiday,
     errorMessage,
-    pageMetadata,
     initialDate,
-  }: IGetViewParams): View {
-    return {
-      type: 'modal',
-      callback_id: ViewCallbackId.HolidayFormSubmit,
-      private_metadata: JSON.stringify({
-        id: holiday?.id,
-        pageMetadata,
-      } as IHolidayModalViewMetadata),
-      title: {
-        type: 'plain_text',
-        text: holiday ? 'Edit Holiday' : 'Create Holiday',
-      },
-      submit: {
-        type: 'plain_text',
-        text: 'Save',
-      },
-      close: {
-        type: 'plain_text',
-        text: 'Cancel',
-      },
-      blocks: [
-        {
-          type: 'input',
-          block_id: 'name_block',
-          element: {
-            type: 'plain_text_input',
-            action_id: 'name',
-            initial_value: holiday?.name || '',
-          },
-          label: {
-            type: 'plain_text',
-            text: 'Holiday Name',
-          },
+  }: IGetViewParams): AnyBlock[] {
+    return [
+      {
+        type: 'input',
+        block_id: 'name_block',
+        element: {
+          type: 'plain_text_input',
+          action_id: 'name',
+          initial_value: holiday?.name || '',
         },
-        {
-          type: 'input',
-          block_id: 'date_block',
-          element: {
-            type: 'datepicker',
-            action_id: 'date',
-            initial_date: holiday?.date || initialDate,
-          },
-          label: {
-            type: 'plain_text',
-            text: 'Date',
-          },
+        label: {
+          type: 'plain_text',
+          text: 'Holiday Name',
         },
-        ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
-      ],
-    };
+      },
+      {
+        type: 'input',
+        block_id: 'date_block',
+        element: {
+          type: 'datepicker',
+          action_id: 'date',
+          initial_date: holiday?.date || initialDate,
+        },
+        label: {
+          type: 'plain_text',
+          text: 'Date',
+        },
+      },
+      ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
+    ];
   }
 }

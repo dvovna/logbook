@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
-import ConfirmationModalView from 'src/slack/common/views/confirmation-modal.view';
+import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
@@ -74,22 +74,22 @@ export class HolidaysTabService extends BaseTabService<
     private readonly holidaysService: HolidaysService,
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly holidaysTabViewService: HolidaysTabView,
-    private readonly holidayModalViewService: HolidayModalView,
-    private readonly importHolidaysModalViewService: ImportHolidaysModalView,
-    private readonly confirmationModalViewService: ConfirmationModalView,
+    private readonly holidayModalView: HolidayModalView,
+    private readonly importHolidaysModalView: ImportHolidaysModalView,
+    private readonly confirmationModalView: ConfirmationModalView,
     private readonly config: ConfigService,
   ) {
     super(TabId.Holidays, {
       [HolidaysTabModalName.CreateHoliday]: (params) =>
-        this.createHolidayModalView(params),
+        this.getCreateHolidayModalView(params),
       [HolidaysTabModalName.UpdateHoliday]: (params) =>
-        this.updateHolidayModalView(params),
+        this.getUpdateHolidayModalView(params),
       [HolidaysTabModalName.ImportHolidays]: (params) =>
-        this.importHolidaysModalView(params),
+        this.getImportHolidaysModalView(params),
       [HolidaysTabModalName.ToggleHolidayStatus]: (params) =>
-        this.toggleStatusModalView(params),
+        this.getToggleStatusModalView(params),
       [HolidaysTabModalName.DeleteHoliday]: (params) =>
-        this.deleteHolidayModalView(params),
+        this.getDeleteHolidayModalView(params),
     });
   }
 
@@ -151,17 +151,17 @@ export class HolidaysTabService extends BaseTabService<
     );
   }
 
-  private importHolidaysModalView({
+  private getImportHolidaysModalView({
     errorMessage,
     pageMetadata,
   }: IOpenModalBaseParams<string>) {
-    return this.importHolidaysModalViewService.getView({
-      errorMessage,
-      pageMetadata,
-    });
+    return this.importHolidaysModalView.getView(
+      { errorMessage },
+      { pageMetadata },
+    );
   }
 
-  private createHolidayModalView({
+  private getCreateHolidayModalView({
     errorMessage,
     pageMetadata,
   }: IOpenModalBaseParams<string>) {
@@ -174,14 +174,18 @@ export class HolidaysTabService extends BaseTabService<
     const initialDate = new Date();
     initialDate.setFullYear(parsedPageMetadata.filters.selectedYear);
 
-    return this.holidayModalViewService.getView({
-      errorMessage,
-      pageMetadata,
-      initialDate: getDateOnly(initialDate),
-    });
+    return this.holidayModalView.getView(
+      {
+        errorMessage,
+        initialDate: getDateOnly(initialDate),
+      },
+      {
+        pageMetadata,
+      },
+    );
   }
 
-  private async updateHolidayModalView({
+  private async getUpdateHolidayModalView({
     holidayId,
     user,
     pageMetadata,
@@ -192,14 +196,19 @@ export class HolidaysTabService extends BaseTabService<
       id: holidayId,
     });
 
-    return this.holidayModalViewService.getView({
-      errorMessage,
-      holiday,
-      pageMetadata,
-    });
+    return this.holidayModalView.getView(
+      {
+        errorMessage,
+        holiday,
+      },
+      {
+        pageMetadata,
+        id: holidayId,
+      },
+    );
   }
 
-  private async toggleStatusModalView({
+  private async getToggleStatusModalView({
     holidayId,
     user,
     errorMessage,
@@ -210,17 +219,21 @@ export class HolidaysTabService extends BaseTabService<
       slackTeamId: user.slack_team_id,
     });
 
-    return this.confirmationModalViewService.getView({
-      callbackId: ViewCallbackId.ToggleHolidayStatus,
-      title: `${holiday.is_disabled ? 'Activate' : 'Deactivate'} Holiday`,
-      message: `Are you sure you want to ${holiday.is_disabled ? 'activate' : 'deactivate'} the holiday *${holiday.name}*?`,
-      entityId: holiday.id,
-      errorMessage,
-      pageMetadata,
-    });
+    return this.confirmationModalView.getView(
+      {
+        callbackId: ViewCallbackId.ToggleHolidayStatus,
+        title: `${holiday.is_disabled ? 'Activate' : 'Deactivate'} Holiday`,
+        message: `Are you sure you want to ${holiday.is_disabled ? 'activate' : 'deactivate'} the holiday *${holiday.name}*?`,
+        errorMessage,
+      },
+      {
+        id: holiday.id,
+        pageMetadata,
+      },
+    );
   }
 
-  private async deleteHolidayModalView({
+  private async getDeleteHolidayModalView({
     holidayId,
     user,
     errorMessage,
@@ -231,13 +244,17 @@ export class HolidaysTabService extends BaseTabService<
       slackTeamId: user.slack_team_id,
     });
 
-    return this.confirmationModalViewService.getView({
-      callbackId: ViewCallbackId.DeleteHoliday,
-      title: 'Delete Holiday',
-      message: `Are you sure you want to delete the holiday *${holiday.name}*? This action cannot be undone.`,
-      entityId: holiday.id,
-      errorMessage,
-      pageMetadata,
-    });
+    return this.confirmationModalView.getView(
+      {
+        callbackId: ViewCallbackId.DeleteHoliday,
+        title: 'Delete Holiday',
+        message: `Are you sure you want to delete the holiday *${holiday.name}*? This action cannot be undone.`,
+        errorMessage,
+      },
+      {
+        id: holiday.id,
+        pageMetadata,
+      },
+    );
   }
 }

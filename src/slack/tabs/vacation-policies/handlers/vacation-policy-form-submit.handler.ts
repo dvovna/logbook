@@ -13,7 +13,6 @@ import {
 } from 'src/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
-import { IVacationRequestModalViewMetadata } from 'src/slack/tabs/vacation-requests/views/vacation-request-modal.view';
 import {
   TabId,
   TabNavigationService,
@@ -104,7 +103,7 @@ export class VacationPolicyFormSubmitHandler extends BaseModalFormSubmitHandler<
   protected errorResponse(
     errorMessage: string,
     data: IVacationPolicyFormData,
-    metadata: IVacationRequestModalViewMetadata,
+    metadata: IVacationPolicyModalViewMetadata,
   ) {
     const initialData = metadata.id && {
       id: metadata.id,

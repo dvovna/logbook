@@ -5,7 +5,7 @@ import { UsersService } from 'src/users/users.service';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from 'src/team-setup/team-users-sync.service';
-import TeamsService from 'src/teams/teams.service';
+import TeamsService from 'src/teams/services/teams.service';
 
 interface ITeamSetupWorkflowParams {
   slackTeamId: string;

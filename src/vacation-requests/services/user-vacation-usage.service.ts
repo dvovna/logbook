@@ -3,7 +3,7 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationStatus from 'src/common/enums/vacation-status.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { IVacationUsageByType } from 'src/vacation-requests/types/user-vacations-usage-info.interface';
-import TeamsService from 'src/teams/teams.service';
+import TeamsService from 'src/teams/services/teams.service';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
 import { VacationPoliciesCacheService } from 'src/vacation-policies/services/vacation-policies-cache.service';

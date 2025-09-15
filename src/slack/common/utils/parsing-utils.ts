@@ -1,6 +1,7 @@
 import { IViewStateValues } from 'src/slack/common/types/slack-view-state-values.interface';
 import {
   DatepickerAction,
+  MultiStaticSelectAction,
   StaticSelectAction,
 } from '@slack/bolt/dist/types/actions/block-action';
 import ViewFieldType from 'src/slack/enums/view-field-type.enum';
@@ -60,16 +61,59 @@ export const getSelectedOption = (
   );
 };
 
+export const getSelectedOptions = (
+  values: IViewStateValues,
+  blockId: string,
+  actionId: string,
+) => {
+  const item = getActionItem(
+    values,
+    blockId,
+    actionId,
+  ) as MultiStaticSelectAction;
+
+  return (
+    item?.selected_options?.map((option) => ({
+      value: option.value,
+      text: option.text.text,
+    })) || []
+  );
+};
+
+export const getSelectedUsers = (
+  values: IViewStateValues,
+  blockId: string,
+  actionId: string,
+) => {
+  const item = getActionItem(values, blockId, actionId) as {
+    selected_users?: string[];
+  };
+
+  return item?.selected_users || [];
+};
+
 export const getValueByType = (
   values: IViewStateValues,
   fieldType: ViewFieldType,
   { blockId, actionId }: IFieldPathParams,
-): string | ISelectedOption | undefined | null => {
+):
+  | string
+  | string[]
+  | ISelectedOption
+  | ISelectedOption[]
+  | undefined
+  | null => {
   switch (fieldType) {
     case ViewFieldType.Text:
       return getValue(values, blockId, actionId);
     case ViewFieldType.Select:
       return getSelectedOption(values, blockId, actionId);
+    case ViewFieldType.MultiSelect:
+      return getSelectedOptions(values, blockId, actionId);
+    case ViewFieldType.Checkboxes:
+      return getSelectedOptions(values, blockId, actionId);
+    case ViewFieldType.MultiUserSelect:
+      return getSelectedUsers(values, blockId, actionId);
     case ViewFieldType.Date:
       return getSelectedDate(values, blockId, actionId);
     default:

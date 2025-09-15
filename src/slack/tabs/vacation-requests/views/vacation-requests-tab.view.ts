@@ -18,7 +18,7 @@ import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
-import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
+import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 
 export interface IVacationRequestsTabFilters {

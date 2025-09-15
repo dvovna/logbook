@@ -6,7 +6,7 @@ import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
-} from 'src/slack/common/views/confirmation-modal.view';
+} from 'src/slack/common/views/components/confirmation-modal.view';
 import { IHolidaysTabMetadata } from 'src/slack/tabs/holidays/views/holidays-tab.view';
 import HolidaysService from 'src/holidays/services/holidays.service';
 import {
@@ -35,7 +35,7 @@ export class ToggleHolidayStatusFormSubmitHandler extends BaseModalFormSubmitHan
   public constructor(
     private readonly holidaysService: HolidaysService,
     private readonly holidaysTabService: HolidaysTabService,
-    private readonly confirmationModalViewService: ConfirmationModalView,
+    private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super();
   }
@@ -78,7 +78,9 @@ export class ToggleHolidayStatusFormSubmitHandler extends BaseModalFormSubmitHan
     user: IUserViewModel,
     metadata: IConfirmationModalViewMetadata,
   ): ViewResponseAction {
-    const pageMetadata = jsonParse<IHolidaysTabMetadata>(metadata.pageMetadata);
+    const pageMetadata = jsonParse<IHolidaysTabMetadata>(
+      metadata.pageMetadata!,
+    );
 
     if (!pageMetadata) {
       throw new Error('Page metadata is required');
@@ -90,7 +92,7 @@ export class ToggleHolidayStatusFormSubmitHandler extends BaseModalFormSubmitHan
     });
 
     return SlackViewResponseFactory.update(
-      this.confirmationModalViewService.getSuccessView(
+      this.confirmationModalView.getSuccessView(
         `✅ Holiday '${entity.name}' has been successfully ${
           !entity.isDisabled ? 'activated' : 'deactivated'
         }.`,
@@ -113,7 +115,7 @@ export class ToggleHolidayStatusFormSubmitHandler extends BaseModalFormSubmitHan
           holidayId: meta.id,
           user,
           errorMessage,
-          pageMetadata: meta.pageMetadata,
+          pageMetadata: meta.pageMetadata!,
         },
       ),
     );

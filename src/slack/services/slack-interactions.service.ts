@@ -3,7 +3,7 @@ import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interacti
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { SlackHandlersRegistry } from 'src/slack/slack-handlers.registry';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { ActionForbiddenView } from 'src/slack/common/views/action-forbidden.view';
+import { ActionForbiddenView } from 'src/slack/common/views/components/action-forbidden.view';
 
 @Injectable()
 class SlackInteractionsService {

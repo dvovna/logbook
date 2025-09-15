@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { TeamModalView } from 'src/slack/tabs/teams/views/team-modal.view';
-import TeamsService from 'src/teams/teams.service';
+import TeamsService from 'src/teams/services/teams.service';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
 import {
   TeamsTabModalName,
   TeamsTabService,
 } from 'src/slack/tabs/teams/services/teams-tab.service';
-import { IConfirmationModalViewMetadata } from 'src/slack/common/views/confirmation-modal.view';
+import ConfirmationModalView, {
+  IConfirmationModalViewMetadata,
+} from 'src/slack/common/views/components/confirmation-modal.view';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
@@ -31,7 +32,7 @@ export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   ITeamViewModel
 > {
   public constructor(
-    private readonly teamModalViewService: TeamModalView,
+    private readonly confirmationModalView: ConfirmationModalView,
     private readonly teamsService: TeamsService,
     private readonly teamsTabService: TeamsTabService,
     private readonly tabNavigationService: TabNavigationService,
@@ -41,7 +42,7 @@ export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
 
   protected successResponse(team: ITeamViewModel): ViewResponseAction {
     return SlackViewResponseFactory.update(
-      this.teamModalViewService.getSuccessView(
+      this.confirmationModalView.getSuccessView(
         `✅ Team '${team.name}' has been successfully deleted.`,
       ),
     );
@@ -58,6 +59,7 @@ export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
         teamId: meta.id,
         user,
         errorMessage,
+        pageMetadata: meta.pageMetadata!,
       }),
     );
   }

@@ -6,7 +6,7 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import TeamModalViewValuesParser, {
   ITeamFormViewData,
 } from 'src/slack/tabs/teams/parsers/team-modal-view-values.parser';
-import TeamsService from 'src/teams/teams.service';
+import TeamsService from 'src/teams/services/teams.service';
 import {
   ITeamModalViewMetadata,
   TeamModalView,
@@ -22,6 +22,7 @@ import {
   TeamsTabService,
 } from 'src/slack/tabs/teams/services/teams-tab.service';
 import UserRole from 'src/common/enums/user-role.enum';
+import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
 
 @Injectable()
 @SlackHandler({
@@ -97,6 +98,12 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
         name: data.name,
         description: data.description,
         vacationPolicyId: data.policy.value,
+        managerApprovers: data.manager_approvers?.map((option) => option.value),
+        hrApprovers: data.hr_approvers?.map((option) => option.value),
+        approvalNotificationRecipients: data.approval_notification_recipients,
+        managerApproversRule:
+          data.manager_approvers_rule?.[0]?.value || ApprovalRule.Any,
+        hrApproversRule: data.hr_approvers_rule?.[0]?.value || ApprovalRule.Any,
       },
       user,
     );
@@ -127,6 +134,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
         teamId: metadata.id,
         errorMessage,
         user,
+        pageMetadata: metadata.pageMetadata,
       });
     }
 

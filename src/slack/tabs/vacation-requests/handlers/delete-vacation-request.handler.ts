@@ -4,7 +4,7 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { IVacationRequestsTabMetadata } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
-} from 'src/slack/common/views/confirmation-modal.view';
+} from 'src/slack/common/views/components/confirmation-modal.view';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import {
   VacationRequestsTabModalName,
@@ -87,7 +87,7 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<ICo
           user,
           errorMessage:
             'An error occurred while deleting. Please try again later.',
-          pageMetadata: metadata.pageMetadata,
+          pageMetadata: metadata.pageMetadata!,
         },
       ),
     );

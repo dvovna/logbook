@@ -1,5 +1,5 @@
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { TeamsRepository } from 'src/teams/teams.repository';
+import { TeamsRepository } from 'src/teams/repositories/teams.repository';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import { UsersService } from 'src/users/users.service';
@@ -12,11 +12,17 @@ import {
 import ITeamViewModel from 'src/teams/types/team.interface';
 import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
+import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
 
 interface ICreateTeamParams {
   name: string;
   description?: string;
   vacationPolicyId: string;
+  managerApprovers?: string[];
+  hrApprovers?: string[];
+  approvalNotificationRecipients?: string[];
+  managerApproversRule?: ApprovalRule;
+  hrApproversRule?: ApprovalRule;
   slackTeamId: string;
   isPrimary?: boolean;
 }
@@ -31,6 +37,11 @@ interface IUpdateParams {
   name?: string;
   description?: string;
   vacationPolicyId?: string;
+  managerApprovers?: string[];
+  hrApprovers?: string[];
+  approvalNotificationRecipients?: string[];
+  managerApproversRule?: ApprovalRule;
+  hrApproversRule?: ApprovalRule;
 }
 
 type ISearchTeamsParams = ISearchParams<IFindParams>;
@@ -116,6 +127,13 @@ export default class TeamsService implements ITeamsService {
       description: createParams.description || '',
       slack_team_id: createParams.slackTeamId,
       vacation_policy_id: createParams.vacationPolicyId,
+      manager_approvers: createParams.managerApprovers,
+      hr_approvers: createParams.hrApprovers,
+      approval_notification_recipients:
+        createParams.approvalNotificationRecipients,
+      manager_approvers_rule:
+        createParams.managerApproversRule || ApprovalRule.Any,
+      hr_approvers_rule: createParams.hrApproversRule || ApprovalRule.Any,
       created_at: createdAt,
       updated_at: createdAt,
       created_by: user.id,
@@ -136,6 +154,24 @@ export default class TeamsService implements ITeamsService {
         : {}),
       ...(updateParams.vacationPolicyId
         ? { vacation_policy_id: updateParams.vacationPolicyId }
+        : {}),
+      ...(updateParams.managerApprovers !== undefined
+        ? { manager_approvers: updateParams.managerApprovers }
+        : {}),
+      ...(updateParams.hrApprovers !== undefined
+        ? { hr_approvers: updateParams.hrApprovers }
+        : {}),
+      ...(updateParams.approvalNotificationRecipients !== undefined
+        ? {
+          approval_notification_recipients:
+            updateParams.approvalNotificationRecipients,
+        }
+        : {}),
+      ...(updateParams.managerApproversRule
+        ? { manager_approvers_rule: updateParams.managerApproversRule }
+        : {}),
+      ...(updateParams.hrApproversRule
+        ? { hr_approvers_rule: updateParams.hrApproversRule }
         : {}),
       updated_at: new Date().toISOString(),
       updated_by: user.id,

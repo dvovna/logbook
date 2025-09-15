@@ -5,7 +5,7 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
 import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
-import TeamsService from 'src/teams/teams.service';
+import TeamsService from 'src/teams/services/teams.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   VacationPolicyCreatedEvent,

@@ -117,11 +117,16 @@ export type Database = {
       }
       teams: {
         Row: {
+          approval_notification_recipients: string[] | null
           created_at: string
           created_by: string | null
           description: string | null
+          hr_approvers: string[] | null
+          hr_approvers_rule: string | null
           id: string
           is_primary: boolean
+          manager_approvers: string[] | null
+          manager_approvers_rule: string | null
           name: string
           slack_team_id: string
           updated_at: string
@@ -129,11 +134,16 @@ export type Database = {
           vacation_policy_id: string
         }
         Insert: {
+          approval_notification_recipients?: string[] | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          hr_approvers?: string[] | null
+          hr_approvers_rule?: string | null
           id?: string
           is_primary?: boolean
+          manager_approvers?: string[] | null
+          manager_approvers_rule?: string | null
           name: string
           slack_team_id?: string
           updated_at?: string
@@ -141,11 +151,16 @@ export type Database = {
           vacation_policy_id?: string
         }
         Update: {
+          approval_notification_recipients?: string[] | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          hr_approvers?: string[] | null
+          hr_approvers_rule?: string | null
           id?: string
           is_primary?: boolean
+          manager_approvers?: string[] | null
+          manager_approvers_rule?: string | null
           name?: string
           slack_team_id?: string
           updated_at?: string

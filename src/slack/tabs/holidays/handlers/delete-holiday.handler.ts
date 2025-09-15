@@ -1,6 +1,6 @@
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
-} from 'src/slack/common/views/confirmation-modal.view';
+} from 'src/slack/common/views/components/confirmation-modal.view';
 import HolidaysService from 'src/holidays/services/holidays.service';
 import {
   HolidaysTabModalName,
@@ -50,7 +50,9 @@ export class DeleteHolidayHandler extends BaseModalFormSubmitHandler<IConfirmati
     user: IUserViewModel,
     metadata: IConfirmationModalViewMetadata,
   ): ViewResponseAction {
-    const pageMetadata = jsonParse<IHolidaysTabMetadata>(metadata.pageMetadata);
+    const pageMetadata = jsonParse<IHolidaysTabMetadata>(
+      metadata.pageMetadata!,
+    );
 
     if (!pageMetadata) {
       throw new Error('Page metadata is required');
@@ -83,7 +85,7 @@ export class DeleteHolidayHandler extends BaseModalFormSubmitHandler<IConfirmati
           holidayId: metadata.id,
           user,
           errorMessage,
-          pageMetadata: metadata.pageMetadata,
+          pageMetadata: metadata.pageMetadata!,
         },
       ),
     );

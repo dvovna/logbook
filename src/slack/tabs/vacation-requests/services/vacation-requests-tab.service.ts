@@ -11,8 +11,8 @@ import {
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import { ConfigService } from '@nestjs/config';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import ConfirmationModalView from 'src/slack/common/views/confirmation-modal.view';
-import TeamsService from 'src/teams/teams.service';
+import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
+import TeamsService from 'src/teams/services/teams.service';
 import { VacationRequestModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-modal.view';
 import { TabId } from 'src/slack/common/services/tab-navigation.service';
 import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
@@ -56,17 +56,17 @@ export class VacationRequestsTabService extends BaseTabService<
     private readonly teamsService: TeamsService,
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly vacationRequestsTabViewService: VacationRequestsTabView,
-    private readonly confirmationModalViewService: ConfirmationModalView,
+    private readonly confirmationModalView: ConfirmationModalView,
     private readonly vacationRequestModalView: VacationRequestModalView,
     private readonly config: ConfigService,
   ) {
     super(TabId.VacationRequests, {
       [VacationRequestsTabModalName.CreateRequest]: (params) =>
-        this.createRequestModalView(params),
+        this.getCreateRequestModalView(params),
       [VacationRequestsTabModalName.UpdateRequest]: (params) =>
-        this.editRequestModalView(params),
+        this.getEditRequestModalView(params),
       [VacationRequestsTabModalName.DeleteRequest]: (params) =>
-        this.deleteRequestModalView(params),
+        this.getDeleteRequestModalView(params),
     });
   }
 
@@ -119,20 +119,22 @@ export class VacationRequestsTabService extends BaseTabService<
     });
   }
 
-  private createRequestModalView({
+  private getCreateRequestModalView({
     user,
     errorMessage,
     pageMetadata,
   }: IVacationRequestModalViewParams): View {
-    return this.vacationRequestModalView.getView({
-      errorMessage,
-      pageMetadata,
-      userRole: user.role,
-      callbackId: ViewCallbackId.AdminVacationRequest,
-    });
+    return this.vacationRequestModalView.getView(
+      {
+        errorMessage,
+        userRole: user.role,
+        callbackId: ViewCallbackId.AdminVacationRequest,
+      },
+      { pageMetadata },
+    );
   }
 
-  private async editRequestModalView({
+  private async getEditRequestModalView({
     user,
     errorMessage,
     pageMetadata,
@@ -143,38 +145,47 @@ export class VacationRequestsTabService extends BaseTabService<
       slackTeamId: user.slack_team_id,
     });
 
-    return this.vacationRequestModalView.getView({
-      errorMessage,
-      pageMetadata,
-      initialData: {
-        id: request.id,
-        type: request.type,
-        status: request.status,
-        comment: request.comment || '',
-        start_date: request.start_date,
-        end_date: request.end_date,
-        user: request.user && {
-          id: request.user.id,
-          name: request.user.name,
+    return this.vacationRequestModalView.getView(
+      {
+        errorMessage,
+        initialData: {
+          id: request.id,
+          type: request.type,
+          status: request.status,
+          comment: request.comment || '',
+          start_date: request.start_date,
+          end_date: request.end_date,
+          user: request.user && {
+            id: request.user.id,
+            name: request.user.name,
+          },
         },
+        userRole: user.role,
+        callbackId: ViewCallbackId.AdminVacationRequest,
       },
-      userRole: user.role,
-      callbackId: ViewCallbackId.AdminVacationRequest,
-    });
+      {
+        pageMetadata,
+        id: request.id,
+      },
+    );
   }
 
-  private deleteRequestModalView({
+  private getDeleteRequestModalView({
     errorMessage,
     pageMetadata,
     requestId,
   }: IDeleteVacationRequestModalViewParams): View {
-    return this.confirmationModalViewService.getView({
-      callbackId: ViewCallbackId.DeleteVacationRequest,
-      title: 'Delete Vacation Request',
-      message: `Are you sure you want to delete this Vacation Request?`,
-      entityId: requestId,
-      errorMessage,
-      pageMetadata,
-    });
+    return this.confirmationModalView.getView(
+      {
+        callbackId: ViewCallbackId.DeleteVacationRequest,
+        title: 'Delete Vacation Request',
+        message: `Are you sure you want to delete this Vacation Request?`,
+        errorMessage,
+      },
+      {
+        id: requestId,
+        pageMetadata,
+      },
+    );
   }
 }

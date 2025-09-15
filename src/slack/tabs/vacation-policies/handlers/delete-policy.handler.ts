@@ -4,7 +4,7 @@ import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
-} from 'src/slack/common/views/confirmation-modal.view';
+} from 'src/slack/common/views/components/confirmation-modal.view';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';

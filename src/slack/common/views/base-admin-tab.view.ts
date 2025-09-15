@@ -4,7 +4,7 @@ import {
   IBaseTabViewParams,
 } from 'src/slack/common/views/base-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
-import { AdminTabNavigation } from 'src/slack/common/views/admin-tab-navigation.view';
+import { AdminTabNavigation } from 'src/slack/common/views/components/admin-tab-navigation.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 import UserRole from 'src/common/enums/user-role.enum';
 

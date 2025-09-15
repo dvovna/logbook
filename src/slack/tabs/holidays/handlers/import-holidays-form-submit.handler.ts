@@ -4,13 +4,15 @@ import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { HolidayModalView } from 'src/slack/tabs/holidays/views/holiday-modal.view';
 import {
   HolidaysTabModalName,
   HolidaysTabService,
 } from 'src/slack/tabs/holidays/services/holidays-tab.service';
 import { IHolidaysTabMetadata } from 'src/slack/tabs/holidays/views/holidays-tab.view';
-import { IUploadCountryHolidaysModalViewMetadata } from 'src/slack/tabs/holidays/views/import-holidays-modal.view';
+import {
+  ImportHolidaysModalView,
+  IUploadCountryHolidaysModalViewMetadata,
+} from 'src/slack/tabs/holidays/views/import-holidays-modal.view';
 import ImportHolidaysModalViewValuesParser, {
   IImportHolidaysFormData,
 } from 'src/slack/tabs/holidays/parsers/import-holidays-modal-view-values.parser';
@@ -34,7 +36,7 @@ export class ImportHolidaysFormSubmitHandler extends BaseModalFormSubmitHandler<
   );
 
   public constructor(
-    private readonly holidayModalViewService: HolidayModalView,
+    private readonly importHolidaysModalView: ImportHolidaysModalView,
     private readonly holidayImportService: HolidayImportService,
     private readonly holidaysTabService: HolidaysTabService,
     importHolidaysModalViewValuesParser: ImportHolidaysModalViewValuesParser,
@@ -74,7 +76,7 @@ export class ImportHolidaysFormSubmitHandler extends BaseModalFormSubmitHandler<
 
   protected successResponse(holidaysCreated: number): ViewResponseAction {
     return SlackViewResponseFactory.update(
-      this.holidayModalViewService.getSuccessView(
+      this.importHolidaysModalView.getSuccessView(
         `✅ ${holidaysCreated} holidays were imported successfully!`,
       ),
     );

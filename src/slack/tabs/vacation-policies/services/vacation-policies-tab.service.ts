@@ -8,7 +8,7 @@ import BaseTabService, {
   IPublishBaseParams,
 } from 'src/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
-import ConfirmationModalView from 'src/slack/common/views/confirmation-modal.view';
+import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { TabId } from 'src/slack/common/services/tab-navigation.service';
 
@@ -37,10 +37,10 @@ type VacationPoliciesTabModalViewResolversMapType = {
 @Injectable()
 export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesTabModalViewResolversMapType> {
   public constructor(
-    private readonly vacationPolicyModalViewService: VacationPolicyModalView,
+    private readonly vacationPolicyModalView: VacationPolicyModalView,
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly manageVacationPoliciesViewService: VacationPolicyTabView,
-    private readonly confirmationModalViewService: ConfirmationModalView,
+    private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super(TabId.VacationPolicies, {
       [VacationPoliciesTabModalName.CreatePolicy]: (params) =>
@@ -73,7 +73,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
   }
 
   public getCreateVacationPolicyModalView(errorMessage?: string) {
-    return this.vacationPolicyModalViewService.getView({ errorMessage });
+    return this.vacationPolicyModalView.getView({ errorMessage });
   }
 
   public async getUpdateVacationPolicyModalView(
@@ -86,17 +86,20 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       slackTeamId: user.slack_team_id,
     });
 
-    return this.vacationPolicyModalViewService.getView({
-      initialData: {
-        id: policy.id,
-        name: policy.name,
-        vacation_days: policy.vacation_days,
-        working_days: policy.working_days,
-        bonus_days: policy.bonus_days,
-        carryover_days: policy.carryover_days,
+    return this.vacationPolicyModalView.getView(
+      {
+        initialData: {
+          id: policy.id,
+          name: policy.name,
+          vacation_days: policy.vacation_days,
+          working_days: policy.working_days,
+          bonus_days: policy.bonus_days,
+          carryover_days: policy.carryover_days,
+        },
+        errorMessage,
       },
-      errorMessage,
-    });
+      { id: policy.id },
+    );
   }
 
   public async getDeletePolicyModalView(
@@ -109,12 +112,16 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       slackTeamId: user.slack_team_id,
     });
 
-    return this.confirmationModalViewService.getView({
-      callbackId: ViewCallbackId.DeleteVacationPolicy,
-      entityId: policy.id,
-      title: 'Delete Vacation Policy',
-      message: `:alert: The policy *${policy.name}* will be permanently deleted. This action cannot be undone.`,
-      errorMessage,
-    });
+    return this.confirmationModalView.getView(
+      {
+        callbackId: ViewCallbackId.DeleteVacationPolicy,
+        title: 'Delete Vacation Policy',
+        message: `:alert: The policy *${policy.name}* will be permanently deleted. This action cannot be undone.`,
+        errorMessage,
+      },
+      {
+        id: policy.id,
+      },
+    );
   }
 }

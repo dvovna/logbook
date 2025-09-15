@@ -1,32 +1,39 @@
 import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import BaseModalView from 'src/slack/common/views/base-modal.view';
-import { View } from '@slack/types/dist/views';
+import BaseModalView, {
+  IBaseModalViewParams,
+} from 'src/slack/common/views/base-modal.view';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { PlainTextOption } from '@slack/web-api';
+import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { ROLE_OPTIONS } from 'src/slack/tabs/users/views/options/use-role.options';
 import ITeamViewModel from 'src/teams/types/team.interface';
 
-interface IGetViewParams {
+interface IGetViewParams extends IBaseModalViewParams {
   user: IUserViewModel;
   teams: ITeamViewModel[];
-  errorMessage?: string;
-  pageMetadata?: string;
 }
 
-export type IEditUserModalViewMetadata = {
+export interface IEditUserModalViewMetadata {
   userIdToEdit: string;
   pageMetadata: string;
-};
+}
 
 @Injectable()
-export class EditUserModalView extends BaseModalView<IGetViewParams> {
-  public getView({
+export class EditUserModalView extends BaseModalView<
+  IGetViewParams,
+  IEditUserModalViewMetadata
+> {
+  protected callbackId = ViewCallbackId.UserFormSubmit;
+
+  protected getTitleText(): string {
+    return 'Edit User';
+  }
+
+  public getViewBlocks({
     user,
     teams,
     errorMessage,
-    pageMetadata,
-  }: IGetViewParams): View {
+  }: IGetViewParams): AnyBlock[] {
     const userRole = ROLE_OPTIONS.find(({ value }) => user.role === value);
     const teamOptions = teams.map<PlainTextOption>(({ id, name }) => ({
       value: id,
@@ -37,68 +44,48 @@ export class EditUserModalView extends BaseModalView<IGetViewParams> {
     }));
     const userTeam = teamOptions.find(({ value }) => user.team_id === value)!;
 
-    return {
-      type: 'modal',
-      callback_id: ViewCallbackId.UserFormSubmit,
-      private_metadata: JSON.stringify({
-        userIdToEdit: user.id,
-        pageMetadata,
-      } as IEditUserModalViewMetadata),
-      title: {
-        type: 'plain_text',
-        text: 'Edit User',
+    return [
+      {
+        type: 'section',
+        block_id: 'user_name_block',
+        text: {
+          type: 'mrkdwn',
+          text: `*Name:* ${user.name}`,
+        },
       },
-      submit: {
-        type: 'plain_text',
-        text: 'Save',
+      {
+        type: 'section',
+        block_id: 'user_email_block',
+        text: {
+          type: 'mrkdwn',
+          text: `*Email:* ${user.email}`,
+        },
       },
-      close: {
-        type: 'plain_text',
-        text: 'Cancel',
+      {
+        type: 'input',
+        block_id: 'role_block',
+        label: { type: 'plain_text', text: 'Role' },
+        element: {
+          type: 'static_select',
+          action_id: 'role',
+          options: ROLE_OPTIONS,
+          initial_option: userRole,
+        },
       },
-      blocks: [
-        {
-          type: 'section',
-          block_id: 'user_name_block',
-          text: {
-            type: 'mrkdwn',
-            text: `*Name:* ${user.name}`,
-          },
+      {
+        type: 'input',
+        block_id: 'team_block',
+        label: { type: 'plain_text', text: 'Team' },
+        element: {
+          type: 'static_select',
+          action_id: 'team_id',
+          options: teamOptions,
+          initial_option: user.team_id ? userTeam : undefined,
         },
-        {
-          type: 'section',
-          block_id: 'user_email_block',
-          text: {
-            type: 'mrkdwn',
-            text: `*Email:* ${user.email}`,
-          },
-        },
-        {
-          type: 'input',
-          block_id: 'role_block',
-          label: { type: 'plain_text', text: 'Role' },
-          element: {
-            type: 'static_select',
-            action_id: 'role',
-            options: ROLE_OPTIONS,
-            initial_option: userRole,
-          },
-        },
-        {
-          type: 'input',
-          block_id: 'team_block',
-          label: { type: 'plain_text', text: 'Team' },
-          element: {
-            type: 'static_select',
-            action_id: 'team_id',
-            options: teamOptions,
-            initial_option: user.team_id ? userTeam : undefined,
-          },
-        },
-        this.addUnusedDaysBlock(user.carryover_days),
-        ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
-      ],
-    };
+      },
+      this.addUnusedDaysBlock(user.carryover_days),
+      ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
+    ];
   }
 
   private addUnusedDaysBlock(daysUnused: number | null = 0) {

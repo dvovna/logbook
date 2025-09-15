@@ -2,7 +2,8 @@ import { z } from 'zod';
 import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
 import ViewFieldType from 'src/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
-import { ISelectedOption } from 'src/slack/common/utils/view-utils';
+import { ISelectedOption } from 'src/slack/common/utils/parsing-utils';
+import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
 
 export const MAX_DESCRIPTION_LENGTH = 200;
 
@@ -18,12 +19,52 @@ const teamFormSchema = z.object({
       text: z.string().optional(),
     })
     .required(),
+  manager_approvers: z
+    .array(
+      z.object({
+        value: z.string(),
+        text: z.string(),
+      }),
+    )
+    .optional(),
+  manager_approvers_rule: z
+    .array(
+      z.object({
+        value: z.enum(Object.values(ApprovalRule)),
+        text: z.string(),
+      }),
+    )
+    .optional(),
+  hr_approvers: z
+    .array(
+      z.object({
+        value: z.string(),
+        text: z.string(),
+      }),
+    )
+    .optional(),
+  hr_approvers_rule: z
+    .array(
+      z.object({
+        value: z.enum(Object.values(ApprovalRule)),
+        text: z.string(),
+      }),
+    )
+    .optional(),
+  approval_notification_recipients: z
+    .array(z.string().min(1, 'User ID cannot be empty'))
+    .optional(),
 });
 
 export interface ITeamFormViewData {
   name: string;
   policy: ISelectedOption;
   description?: string;
+  manager_approvers?: ISelectedOption[];
+  manager_approvers_rule?: ISelectedOption<ApprovalRule>[];
+  hr_approvers?: ISelectedOption[];
+  hr_approvers_rule?: ISelectedOption<ApprovalRule>[];
+  approval_notification_recipients?: string[];
 }
 
 @Injectable()
@@ -41,6 +82,26 @@ export default class TeamModalViewValuesParser extends BaseValuesParser<ITeamFor
       policy: {
         blockId: 'policy_block',
         type: ViewFieldType.Select,
+      },
+      manager_approvers: {
+        blockId: 'manager_approvers_block',
+        type: ViewFieldType.MultiSelect,
+      },
+      manager_approvers_rule: {
+        blockId: 'manager_approvers_rule_block',
+        type: ViewFieldType.Checkboxes,
+      },
+      hr_approvers: {
+        blockId: 'hr_approvers_block',
+        type: ViewFieldType.MultiSelect,
+      },
+      hr_approvers_rule: {
+        blockId: 'hr_approvers_rule_block',
+        type: ViewFieldType.Checkboxes,
+      },
+      approval_notification_recipients: {
+        blockId: 'approval_notification_recipients_block',
+        type: ViewFieldType.MultiUserSelect,
       },
     });
   }

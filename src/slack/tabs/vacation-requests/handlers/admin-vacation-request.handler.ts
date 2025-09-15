@@ -143,13 +143,17 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
     };
 
     return SlackViewResponseFactory.update(
-      this.vacationRequestModalView.getView({
-        errorMessage,
-        pageMetadata: metadata.pageMetadata,
-        initialData: initialData || undefined,
-        userRole: user.role,
-        callbackId: ViewCallbackId.AdminVacationRequest,
-      }),
+      this.vacationRequestModalView.getView(
+        {
+          errorMessage,
+          initialData: initialData || undefined,
+          userRole: user.role,
+          callbackId: ViewCallbackId.AdminVacationRequest,
+        },
+        {
+          pageMetadata: metadata.pageMetadata,
+        },
+      ),
     );
   }
 }

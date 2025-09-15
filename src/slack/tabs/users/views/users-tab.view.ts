@@ -10,7 +10,7 @@ import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { PaginatedListView } from 'src/slack/common/views/paginated-list.view';
+import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 

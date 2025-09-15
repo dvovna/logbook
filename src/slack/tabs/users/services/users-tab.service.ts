@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import TeamsService from 'src/teams/teams.service';
+import TeamsService from 'src/teams/services/teams.service';
 import { UsersService } from 'src/users/users.service';
 import {
   IUsersTabMetaData,
@@ -12,7 +12,7 @@ import BaseTabService, {
 } from 'src/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
 import { EditUserModalView } from 'src/slack/tabs/users/views/edit-user-modal.view';
-import ConfirmationModalView from 'src/slack/common/views/confirmation-modal.view';
+import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { TabId } from 'src/slack/common/services/tab-navigation.service';
 
@@ -48,14 +48,14 @@ export class UsersTabService extends BaseTabService<
     private readonly teamsService: TeamsService,
     private readonly usersService: UsersService,
     private readonly usersViewService: UsersTabView,
-    private readonly editUserModalViewService: EditUserModalView,
-    private readonly confirmationModalViewService: ConfirmationModalView,
+    private readonly editUserModalView: EditUserModalView,
+    private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super(TabId.Users, {
       [UsersTabModalName.EditUser]: async (params) =>
-        await this.editUserModalView(params),
+        await this.getEditUserModalView(params),
       [UsersTabModalName.ChangeUserStatus]: async (params) =>
-        await this.changeUserStatusModalView(params),
+        await this.getChangeUserStatusModalView(params),
     });
   }
 
@@ -89,35 +89,39 @@ export class UsersTabService extends BaseTabService<
     );
   }
 
-  public async editUserModalView({
+  public async getEditUserModalView({
     userId,
     user,
+    pageMetadata,
     ...modalParams
   }: IUserModalViewParams) {
-    const userToEdit =
-      userId === user.id
-        ? user
-        : await this.usersService.findOne({
-          id: userId,
-          slackTeamId: user.slack_team_id,
-        });
+    let userToEdit = user;
 
-    if (!userToEdit) {
-      throw new Error(`User with id ${userId} not found`);
+    if (userId !== user.id) {
+      userToEdit = await this.usersService.findOneWithValidation({
+        id: userId,
+        slackTeamId: user.slack_team_id,
+      });
     }
 
     const teams = await this.teamsService.findMany({
       slackTeamId: user.slack_team_id,
     });
 
-    return this.editUserModalViewService.getView({
-      user: userToEdit,
-      teams,
-      ...modalParams,
-    });
+    return this.editUserModalView.getView(
+      {
+        user: userToEdit,
+        teams,
+        ...modalParams,
+      },
+      {
+        userIdToEdit: userId,
+        pageMetadata,
+      },
+    );
   }
 
-  public async changeUserStatusModalView({
+  public async getChangeUserStatusModalView({
     userId,
     user,
     errorMessage,
@@ -133,13 +137,17 @@ export class UsersTabService extends BaseTabService<
       throw new Error(`User with id ${userId} not found`);
     }
 
-    return this.confirmationModalViewService.getView({
-      entityId: userToEdit.id,
-      errorMessage,
-      pageMetadata,
-      title: `${userToEdit.is_active ? 'Deactivate' : 'Activate'} User`,
-      message: `Are you sure you want to ${userToEdit.is_active ? 'deactivate' : 'activate'} the user *${userToEdit.name}*?`,
-      callbackId: ViewCallbackId.ChangeUserStatus,
-    });
+    return this.confirmationModalView.getView(
+      {
+        errorMessage,
+        title: `${userToEdit.is_active ? 'Deactivate' : 'Activate'} User`,
+        message: `Are you sure you want to ${userToEdit.is_active ? 'deactivate' : 'activate'} the user *${userToEdit.name}*?`,
+        callbackId: ViewCallbackId.ChangeUserStatus,
+      },
+      {
+        id: userToEdit.id,
+        pageMetadata,
+      },
+    );
   }
 }

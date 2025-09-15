@@ -3,7 +3,7 @@ import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
 import ViewFieldType from 'src/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 import VacationType from 'src/common/enums/vacation-type.enum';
-import { ISelectedOption } from 'src/slack/common/utils/view-utils';
+import { ISelectedOption } from 'src/slack/common/utils/parsing-utils';
 
 export const MAX_COMMENT_LENGTH = 200;
 

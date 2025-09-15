@@ -1,6 +1,6 @@
 import { ZodError, ZodType } from 'zod';
 import ViewFieldType from 'src/slack/enums/view-field-type.enum';
-import { getValueByType } from 'src/slack/common/utils/view-utils';
+import { getValueByType } from 'src/slack/common/utils/parsing-utils';
 import { IViewStateValues } from 'src/slack/common/types/slack-view-state-values.interface';
 
 export type IViewParseResult<Data> =

@@ -5,15 +5,17 @@ import {
   TeamsTabModalName,
   TeamsTabService,
 } from 'src/slack/tabs/teams/services/teams-tab.service';
-import { OverflowAction } from '@slack/bolt';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { TeamsTabViewActionId } from 'src/slack/tabs/teams/views/teams-tab.view';
+import {
+  ITeamsTabMetaData,
+  TeamsTabViewActionId,
+} from 'src/slack/tabs/teams/views/teams-tab.view';
 import { ActionMapType } from 'src/slack/common/handlers/base-tab-action.handler';
 import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
-import { IUsersTabMetaData } from 'src/slack/tabs/users/views/users-tab.view';
 import { withPagination } from 'src/slack/common/utils/tab-list.utils';
+import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
 
 @Injectable()
 @SlackHandler({
@@ -35,14 +37,17 @@ export default class TeamsTabActionHandler extends BaseAdminTabActionHandler {
 
     this.actionMap = {
       [TeamsTabViewActionId.AddTeam]: this.handleAddTeam,
-      [TeamsTabViewActionId.ManageTeamMenu]: this.handleManageTeamMenuAction,
+      [TeamsTabViewActionId.ManageTeamMenu]: withMenuAction<
+        TeamsTabViewActionId,
+        [IUserViewModel]
+      >(this.handleManageTeamMenuAction),
       [TeamsTabViewActionId.PaginationPrev]: paginationHandler,
       [TeamsTabViewActionId.PaginationNext]: paginationHandler,
     };
   }
 
   private updateTab = async (
-    metadata: IUsersTabMetaData,
+    metadata: ITeamsTabMetaData,
     user: IUserViewModel,
   ) => {
     await this.teamsTabService.publish({
@@ -63,29 +68,17 @@ export default class TeamsTabActionHandler extends BaseAdminTabActionHandler {
   };
 
   private handleManageTeamMenuAction = async (
+    actionType: TeamsTabViewActionId,
+    teamId: string,
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
-    const selectedValue = (payload.actions[0] as OverflowAction).selected_option
-      ?.value;
-
-    if (!selectedValue) {
-      this.logger.warn(
-        `${TeamsTabViewActionId.ManageTeamMenu} triggered without selected_option`,
-      );
-
-      return;
-    }
-
-    // e.g. TeamsTabViewActionId:team_id
-    const [actionType, teamId] = selectedValue.split(':');
-
-    switch (actionType as TeamsTabViewActionId) {
+    switch (actionType) {
       case TeamsTabViewActionId.EditTeam: {
         await this.teamsTabService.openModal(
           payload.trigger_id || user.slack_id,
           TeamsTabModalName.UpdateTeam,
-          { user, teamId },
+          { user, teamId, pageMetadata: payload.view.private_metadata },
         );
 
         break;
@@ -94,7 +87,7 @@ export default class TeamsTabActionHandler extends BaseAdminTabActionHandler {
         await this.teamsTabService.openModal(
           payload.trigger_id || user.slack_id,
           TeamsTabModalName.DeleteTeam,
-          { user, teamId },
+          { user, teamId, pageMetadata: payload.view.private_metadata },
         );
 
         break;

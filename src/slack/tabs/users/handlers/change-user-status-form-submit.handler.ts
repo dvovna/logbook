@@ -12,7 +12,7 @@ import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
-} from 'src/slack/common/views/confirmation-modal.view';
+} from 'src/slack/common/views/components/confirmation-modal.view';
 import { IUserViewModel as IUserEntity } from 'src/users/types/user.interface';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import UserRole from 'src/common/enums/user-role.enum';
@@ -33,7 +33,7 @@ export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandle
   public constructor(
     private readonly usersService: UsersService,
     private readonly usersTabService: UsersTabService,
-    private readonly confirmationModalViewService: ConfirmationModalView,
+    private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super();
   }
@@ -93,7 +93,7 @@ export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandle
     });
 
     return SlackViewResponseFactory.update(
-      this.confirmationModalViewService.getSuccessView(
+      this.confirmationModalView.getSuccessView(
         `✅ User '${updatedUser.name}' has been successfully ${
           updatedUser.is_active ? 'activated' : 'deactivated'
         }.`,
@@ -116,7 +116,7 @@ export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandle
           user,
           userId: meta.id,
           errorMessage,
-          pageMetadata: meta.pageMetadata,
+          pageMetadata: meta.pageMetadata!,
         },
       ),
     );
