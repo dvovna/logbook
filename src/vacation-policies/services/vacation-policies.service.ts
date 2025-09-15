@@ -13,6 +13,9 @@ import {
   VacationPolicyUpdatedEvent,
 } from 'src/vacation-policies/events/vacation-policy.events';
 import VacationPolicyEvent from 'src/vacation-policies/events/vacation-policy-event.enum';
+import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+import { ConfigService } from '@nestjs/config';
+import { ISearchParams, ISearchResult } from 'src/common/types/pagination.types';
 
 export const DEFAULT_VACATION_DAYS = 24;
 export const DEFAULT_WORK_DAYS = 20;
@@ -38,36 +41,59 @@ type ICreatePolicyParams = {
   isPrimary?: boolean;
 };
 
-type IFindParams = {
-  id: string;
+interface IFindParams {
+  id?: string;
   slackTeamId: string;
-};
+}
 
-const MAX_POLICIES_COUNT = 5;
+type ISearchPoliciesParams = ISearchParams<IFindParams>;
+
+interface IVacationPoliciesService {
+  findOne(params: IFindParams): Promise<IVacationPolicyViewModel | null>;
+  findMany(
+    params: Pick<IFindParams, 'slackTeamId'>,
+  ): Promise<IVacationPolicyViewModel[]>;
+  findOneWithValidation(params: IFindParams): Promise<IVacationPolicyViewModel>;
+  create(
+    createParams: ICreatePolicyParams,
+    user: IUserViewModel,
+  ): Promise<IVacationPolicyViewModel>;
+  update(
+    findParams: IFindParams,
+    updateParams: IUpdateParams,
+    user: IUserViewModel,
+  ): Promise<IVacationPolicyViewModel>;
+  search(
+    params: ISearchPoliciesParams,
+  ): Promise<ISearchResult<IVacationPolicyViewModel>>;
+  delete(findParams: IFindParams): Promise<IVacationPolicyViewModel>;
+  createDefaultPolicy(
+    slackTeamId: string,
+    userId?: string,
+  ): Promise<IVacationPolicyViewModel>;
+}
 
 @Injectable()
-export default class VacationPoliciesService {
+export default class VacationPoliciesService
+  implements IVacationPoliciesService
+{
   public constructor(
     private readonly vacationPoliciesRepository: VacationPoliciesRepository,
     private readonly teamsService: TeamsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly config: ConfigService,
   ) {}
 
-  public findOne({
-    id,
-    slackTeamId,
-  }: IFindParams): Promise<IVacationPolicyViewModel | null> {
-    return this.vacationPoliciesRepository.findOne({
-      id,
-      slack_team_id: slackTeamId,
-    });
+  public findOne(
+    params: IFindParams,
+  ): Promise<IVacationPolicyViewModel | null> {
+    return this.vacationPoliciesRepository.findOne(this.getFindQuery(params));
   }
 
   public async findOneWithValidation(params: IFindParams) {
-    const policy = await this.vacationPoliciesRepository.findOne({
-      slack_team_id: params.slackTeamId,
-      id: params.id,
-    });
+    const policy = await this.vacationPoliciesRepository.findOne(
+      this.getFindQuery(params),
+    );
 
     if (!policy) {
       throw new NotFoundException(`Policy with id ${params.id} not found.`);
@@ -76,21 +102,33 @@ export default class VacationPoliciesService {
     return policy;
   }
 
-  public findMany({
-    slackTeamId,
-  }: Pick<IFindParams, 'slackTeamId'>): Promise<IVacationPolicyViewModel[]> {
-    return this.vacationPoliciesRepository.findMany({
-      slack_team_id: slackTeamId,
+  public findMany(params: IFindParams): Promise<IVacationPolicyViewModel[]> {
+    return this.vacationPoliciesRepository.findMany(this.getFindQuery(params));
+  }
+
+  public async search(params: ISearchPoliciesParams) {
+    return this.vacationPoliciesRepository.search({
+      filters: this.getFindQuery(params.filters),
+      page: params.page,
+      pageSize: params.pageSize,
+      orderBy: params.orderBy,
+      searchTerm: params.searchTerm,
     });
   }
 
   public async create(createParams: ICreatePolicyParams, user: IUserViewModel) {
-    const policiesCount = await this.vacationPoliciesRepository.count({
-      slack_team_id: createParams.slackTeamId,
-    });
+    const policiesCount = await this.vacationPoliciesRepository.count(
+      this.getFindQuery({
+        slackTeamId: createParams.slackTeamId,
+      }),
+    );
 
-    if (policiesCount >= MAX_POLICIES_COUNT) {
-      throw new MaxItemsCountReachedError(MAX_POLICIES_COUNT, 'policies');
+    const maxPoliciesCount = this.config.getOrThrow<number>(
+      EnvironmentVariable.MaxPoliciesPerSlackTeam,
+    );
+
+    if (policiesCount >= maxPoliciesCount) {
+      throw new MaxItemsCountReachedError(maxPoliciesCount, 'policies');
     }
 
     const createdAt = new Date().toISOString();
@@ -118,7 +156,7 @@ export default class VacationPoliciesService {
   }
 
   public async update(
-    { id, slackTeamId }: IFindParams,
+    findParams: IFindParams,
     {
       vacationDays,
       bonusDays,
@@ -129,10 +167,7 @@ export default class VacationPoliciesService {
     user: IUserViewModel,
   ) {
     const policy = await this.vacationPoliciesRepository.update(
-      {
-        id,
-        slack_team_id: slackTeamId,
-      },
+      this.getFindQuery(findParams),
       {
         ...(vacationDays !== undefined ? { vacation_days: vacationDays } : {}),
         ...(bonusDays !== undefined ? { bonus_days: bonusDays } : {}),
@@ -154,8 +189,8 @@ export default class VacationPoliciesService {
     return policy;
   }
 
-  public async delete({ id, slackTeamId }: IFindParams) {
-    const policy = await this.findOneWithValidation({ id, slackTeamId });
+  public async delete(findParams: IFindParams) {
+    const policy = await this.findOneWithValidation(findParams);
 
     if (policy.is_primary) {
       throw new PrimaryEntityDeleteError('policy');
@@ -170,10 +205,9 @@ export default class VacationPoliciesService {
       throw new EntityHasDependenciesError('policy', 'teams');
     }
 
-    await this.vacationPoliciesRepository.deleteMany({
-      id: policy.id,
-      slack_team_id: slackTeamId,
-    });
+    await this.vacationPoliciesRepository.deleteMany(
+      this.getFindQuery(findParams),
+    );
 
     this.eventEmitter.emit(
       VacationPolicyEvent.Deleted,
@@ -196,5 +230,12 @@ export default class VacationPoliciesService {
       created_by: userId,
       updated_by: userId,
     });
+  }
+
+  private getFindQuery(params: IFindParams) {
+    return {
+      ...(params.id ? { id: params.id } : {}),
+      slack_team_id: params.slackTeamId,
+    };
   }
 }

@@ -28,7 +28,7 @@ interface IGetViewParams extends IBaseModalViewParams {
 }
 
 export interface ITeamModalViewMetadata {
-  id: string | null;
+  id?: string | null;
   pageMetadata: string;
 }
 

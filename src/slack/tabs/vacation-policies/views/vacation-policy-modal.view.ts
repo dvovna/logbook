@@ -6,7 +6,8 @@ import BaseModalView, {
 import { AnyBlock } from '@slack/web-api';
 
 export interface IVacationPolicyModalViewMetadata {
-  id: string | null;
+  id?: string | null;
+  pageMetadata: string;
 }
 
 interface IGetViewParams extends IBaseModalViewParams {

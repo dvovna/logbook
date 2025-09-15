@@ -7,9 +7,15 @@ import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
+import { ISearchResult } from 'src/common/types/pagination.types';
+import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
 
 interface IGetViewParams extends IBaseTabViewParams {
-  policies: IVacationPolicyViewModel[];
+  policies: ISearchResult<IVacationPolicyViewModel>;
+}
+
+export interface IVacationPoliciesTabMetaData {
+  page?: number;
 }
 
 export enum PolicyTabViewActionId {
@@ -18,12 +24,14 @@ export enum PolicyTabViewActionId {
   EditHolidays = 'edit_holidays',
   DeletePolicy = 'delete_policy',
   ManagePolicyMenu = 'manage_policy_menu',
+  PaginationPrev = 'policies_pagination_prev',
+  PaginationNext = 'policies_pagination_next',
 }
 
 @Injectable()
 export class VacationPolicyTabView extends BaseAdminTabView<
   IGetViewParams,
-  never
+  IVacationPoliciesTabMetaData
 > {
   protected callbackId = ViewCallbackId.VacationPoliciesTabView;
   protected activeTabActionId = AdminNavigationActionId.ManageVacationPolicies;
@@ -49,59 +57,63 @@ export class VacationPolicyTabView extends BaseAdminTabView<
   protected getContentBlocks({ policies }): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    const blocksToAdd = this.getPolicyListBlocks(policies);
+    const listBlocks = PaginatedListView.getBlocks<IVacationPolicyViewModel>({
+      itemsData: policies,
+      getItemBlocks: (item: IVacationPolicyViewModel) =>
+        this.getPolicyListItemBlocks(item),
+      prevPageActionId: PolicyTabViewActionId.PaginationPrev,
+      nextPageActionId: PolicyTabViewActionId.PaginationNext,
+    });
 
-    blocks.push(...blocksToAdd);
+    blocks.push(...listBlocks);
 
     return blocks;
   }
 
-  private getPolicyListBlocks(
-    policies: IVacationPolicyViewModel[],
+  private getPolicyListItemBlocks(
+    policy: IVacationPolicyViewModel,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    for (const policy of policies) {
-      const isPrimary = policy.is_primary ? '⭐️' : '';
-      const updatedAt = new Date(policy.updated_at).toLocaleDateString();
-      const createdAt = new Date(policy.created_at).toLocaleDateString();
+    const isPrimary = policy.is_primary ? '⭐️' : '';
+    const updatedAt = new Date(policy.updated_at).toLocaleDateString();
+    const createdAt = new Date(policy.created_at).toLocaleDateString();
 
-      blocks.push({
-        type: 'section',
-        fields: [
+    blocks.push({
+      type: 'section',
+      fields: [
+        {
+          type: 'mrkdwn',
+          text:
+            `*${policy.name}*${isPrimary}\n` +
+            `Vacation Days: ${policy?.vacation_days || '-'}\n` +
+            `Working Days: ${policy?.working_days || '-'}\n` +
+            `Bonus Days: ${policy?.bonus_days || '-'}\n` +
+            `Created: ${createdAt}\n` +
+            `Updated: ${updatedAt}`,
+        },
+      ],
+      accessory: {
+        type: 'overflow',
+        action_id: PolicyTabViewActionId.ManagePolicyMenu,
+        options: [
           {
-            type: 'mrkdwn',
-            text:
-              `*${policy.name}*${isPrimary}\n` +
-              `Vacation Days: ${policy?.vacation_days || '-'}\n` +
-              `Working Days: ${policy?.working_days || '-'}\n` +
-              `Bonus Days: ${policy?.bonus_days || '-'}\n` +
-              `Created: ${createdAt}\n` +
-              `Updated: ${updatedAt}`,
+            text: { type: 'plain_text', text: 'Edit Policy' },
+            value: `${PolicyTabViewActionId.EditPolicy}:${policy.id}`,
+          },
+          {
+            text: { type: 'plain_text', text: 'Edit Holidays' },
+            value: `${PolicyTabViewActionId.EditHolidays}:${policy.id}`,
+          },
+          {
+            text: { type: 'plain_text', text: 'Delete Policy' },
+            value: `${PolicyTabViewActionId.DeletePolicy}:${policy.id}`,
           },
         ],
-        accessory: {
-          type: 'overflow',
-          action_id: PolicyTabViewActionId.ManagePolicyMenu,
-          options: [
-            {
-              text: { type: 'plain_text', text: 'Edit Policy' },
-              value: `${PolicyTabViewActionId.EditPolicy}:${policy.id}`,
-            },
-            {
-              text: { type: 'plain_text', text: 'Edit Holidays' },
-              value: `${PolicyTabViewActionId.EditHolidays}:${policy.id}`,
-            },
-            {
-              text: { type: 'plain_text', text: 'Delete Policy' },
-              value: `${PolicyTabViewActionId.DeletePolicy}:${policy.id}`,
-            },
-          ],
-        },
-      });
+      },
+    });
 
-      blocks.push({ type: 'divider' });
-    }
+    blocks.push({ type: 'divider' });
 
     return blocks;
   }

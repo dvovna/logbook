@@ -90,6 +90,7 @@ export class DeletePolicyHandler extends BaseModalFormSubmitHandler<
           policyId: metadata.id,
           user,
           errorMessage,
+          pageMetadata: metadata.pageMetadata!,
         },
       ),
     );

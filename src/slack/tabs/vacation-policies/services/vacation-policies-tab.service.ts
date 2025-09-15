@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { VacationPolicyModalView } from 'src/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
-import { VacationPolicyTabView } from 'src/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
+import {
+  IVacationPoliciesTabMetaData,
+  VacationPolicyTabView
+} from 'src/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
@@ -18,13 +21,19 @@ export enum VacationPoliciesTabModalName {
   DeletePolicy = 'DeletePolicy',
 }
 
-interface IPolicyModalViewParams extends IOpenModalBaseParams {
+interface IPolicyModalViewParams extends IOpenModalBaseParams<string> {
   policyId: string;
 }
 
+interface IGetVacationPoliciesTabViewParams extends IPublishBaseParams {
+  metadata?: IVacationPoliciesTabMetaData;
+}
+
+const DEFAULT_POLICIES_PAGE_SIZE = 5;
+
 type VacationPoliciesTabModalViewResolversMapType = {
   [VacationPoliciesTabModalName.CreatePolicy]: (
-    params: IOpenModalBaseParams,
+    params: IOpenModalBaseParams<string>,
   ) => View;
   [VacationPoliciesTabModalName.UpdatePolicy]: (
     params: IPolicyModalViewParams,
@@ -44,25 +53,25 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
   ) {
     super(TabId.VacationPolicies, {
       [VacationPoliciesTabModalName.CreatePolicy]: (params) =>
-        this.getCreateVacationPolicyModalView(params.errorMessage),
+        this.getCreateVacationPolicyModalView(params),
       [VacationPoliciesTabModalName.UpdatePolicy]: (params) =>
-        this.getUpdateVacationPolicyModalView(
-          params.user,
-          params.policyId,
-          params.errorMessage,
-        ),
+        this.getUpdateVacationPolicyModalView(params),
       [VacationPoliciesTabModalName.DeletePolicy]: (params) =>
-        this.getDeletePolicyModalView(
-          params.user,
-          params.policyId,
-          params.errorMessage,
-        ),
+        this.getDeletePolicyModalView(params),
     });
   }
 
-  public async getTabView({ user }: IPublishBaseParams) {
-    const policies = await this.vacationPoliciesService.findMany({
-      slackTeamId: user.slack_team_id,
+  public async getTabView({
+    user,
+    metadata = {},
+  }: IGetVacationPoliciesTabViewParams) {
+    const policies = await this.vacationPoliciesService.search({
+      filters: {
+        slackTeamId: user.slack_team_id,
+      },
+      page: metadata.page,
+      pageSize: DEFAULT_POLICIES_PAGE_SIZE,
+      orderBy: ['is_primary:desc', 'name:asc'],
     });
 
     return this.manageVacationPoliciesViewService.getView({
@@ -72,15 +81,26 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
     });
   }
 
-  public getCreateVacationPolicyModalView(errorMessage?: string) {
-    return this.vacationPolicyModalView.getView({ errorMessage });
+  public getCreateVacationPolicyModalView(
+    params: IOpenModalBaseParams<string>,
+  ) {
+    const { errorMessage, pageMetadata } = params;
+
+    return this.vacationPolicyModalView.getView(
+      { errorMessage },
+      { pageMetadata },
+    );
   }
 
   public async getUpdateVacationPolicyModalView(
-    user: IUserViewModel,
-    policyId: string,
-    errorMessage?: string,
+    params: IPolicyModalViewParams,
   ) {
+    const {
+      user,
+      policyId,
+      errorMessage,
+      pageMetadata,
+    } = params;
     const policy = await this.vacationPoliciesService.findOneWithValidation({
       id: policyId,
       slackTeamId: user.slack_team_id,
@@ -98,15 +118,13 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
         },
         errorMessage,
       },
-      { id: policy.id },
+      { id: policy.id, pageMetadata },
     );
   }
 
-  public async getDeletePolicyModalView(
-    user: IUserViewModel,
-    policyId: string,
-    errorMessage?: string,
-  ) {
+  public async getDeletePolicyModalView(params: IPolicyModalViewParams) {
+    const { user, policyId, errorMessage, pageMetadata } = params;
+
     const policy = await this.vacationPoliciesService.findOneWithValidation({
       id: policyId,
       slackTeamId: user.slack_team_id,
@@ -121,6 +139,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       },
       {
         id: policy.id,
+        pageMetadata,
       },
     );
   }

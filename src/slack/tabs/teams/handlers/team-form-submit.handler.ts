@@ -141,6 +141,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     return this.teamsTabService.getModalView(TeamsTabModalName.CreateTeam, {
       errorMessage,
       user,
+      pageMetadata: metadata.pageMetadata,
     });
   }
 }

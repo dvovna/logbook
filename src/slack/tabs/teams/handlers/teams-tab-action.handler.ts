@@ -63,7 +63,7 @@ export default class TeamsTabActionHandler extends BaseAdminTabActionHandler {
     await this.teamsTabService.openModal(
       payload.trigger_id || user.slack_id,
       TeamsTabModalName.CreateTeam,
-      { user },
+      { user, pageMetadata: payload.view.private_metadata },
     );
   };
 

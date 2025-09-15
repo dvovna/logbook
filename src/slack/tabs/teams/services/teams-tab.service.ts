@@ -35,7 +35,7 @@ const TEAMS_TAB_PAGE_SIZE = 5;
 
 type TeamsTabModalViewResolversMapType = {
   [TeamsTabModalName.CreateTeam]: (
-    params: IOpenModalBaseParams,
+    params: IOpenModalBaseParams<string>,
   ) => Promise<View>;
   [TeamsTabModalName.UpdateTeam]: (
     params: ITeamModalViewParams,
@@ -87,17 +87,23 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
   private async getCreateTeamModalView({
     user,
     errorMessage,
-  }: IOpenModalBaseParams) {
+    pageMetadata,
+  }: IOpenModalBaseParams<string>) {
     const policies = await this.vacationPoliciesService.findMany({
       slackTeamId: user.slack_team_id,
     });
 
-    return this.teamModalView.getView({
-      policies,
-      errorMessage,
-      managers: [],
-      hrUsers: [],
-    });
+    return this.teamModalView.getView(
+      {
+        policies,
+        errorMessage,
+        managers: [],
+        hrUsers: [],
+      },
+      {
+        pageMetadata,
+      },
+    );
   }
 
   private async getUpdateTeamModalView({
