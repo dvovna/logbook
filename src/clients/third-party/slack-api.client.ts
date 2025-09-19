@@ -8,10 +8,13 @@ import {
 
 interface ISendMessageParams {
   channel: string;
-  userId: string;
   text?: string;
-  accessToken: string;
   blocks?: KnownBlock[];
+  accessToken: string;
+}
+
+interface ISendEphemeralMessageParams extends ISendMessageParams {
+  userId: string;
 }
 
 @Injectable()
@@ -22,7 +25,7 @@ export default class SlackApiClient {
     userId,
     blocks = [],
     accessToken,
-  }: ISendMessageParams) {
+  }: ISendEphemeralMessageParams) {
     const client = this.getClient(accessToken);
 
     const result = await client.chat.postEphemeral({
@@ -35,6 +38,50 @@ export default class SlackApiClient {
     if (!result.ok) {
       throw new Error(result.error || 'Failed to send message');
     }
+  }
+
+  public async postMessage({
+    channel,
+    text,
+    blocks = [],
+    accessToken,
+  }: ISendMessageParams) {
+    const client = this.getClient(accessToken);
+
+    const result = await client.chat.postMessage({
+      channel,
+      text,
+      blocks,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to send message');
+    }
+
+    return result;
+  }
+
+  public async updateMessage({
+    channel,
+    ts,
+    text,
+    blocks = [],
+    accessToken,
+  }: ISendMessageParams & { ts: string }) {
+    const client = this.getClient(accessToken);
+
+    const result = await client.chat.update({
+      channel,
+      ts,
+      text,
+      blocks,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to update message');
+    }
+
+    return result;
   }
 
   public async openView(viewOpenArgs: ViewsOpenArguments, accessToken: string) {

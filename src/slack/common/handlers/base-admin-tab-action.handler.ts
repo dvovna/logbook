@@ -1,11 +1,22 @@
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { BaseTabActionHandler } from 'src/slack/common/handlers/base-tab-action.handler';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
+import {
+  BaseActionHandler,
+} from 'src/slack/common/handlers/base-action.handler';
+import {
+  TabId,
+  TabNavigationService,
+} from 'src/slack/common/services/tab-navigation.service';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { CommonViewActionId } from 'src/slack/enums/common-view-action-id.enum';
 
-export abstract class BaseAdminTabActionHandler extends BaseTabActionHandler {
+export abstract class BaseAdminTabActionHandler extends BaseActionHandler {
+  public constructor(
+    protected readonly tabNavigationService: TabNavigationService,
+  ) {
+    super();
+  }
+
   private createOpenTabHandler = (tabId: TabId) => {
     return (_payload: ISlackInteractionPayload, user: IUserViewModel) => {
       this.tabNavigationService.navigate(tabId, { user });

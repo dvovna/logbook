@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { ConfigService } from '@nestjs/config';
 import { UserVacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
@@ -33,7 +33,7 @@ export class VacationRequestsValidationService {
     }
 
     const pendingRequests = userRequests.filter(
-      (request) => request.status === VacationStatus.Pending,
+      (request) => request.status === VacationRequestStatus.Pending,
     );
 
     const maxPendingRequestsLimit = this.config.getOrThrow<number>(

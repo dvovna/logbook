@@ -11,7 +11,7 @@ import {
   ITeamsTabMetaData,
   TeamsTabViewActionId,
 } from 'src/slack/tabs/teams/views/teams-tab.view';
-import { ActionMapType } from 'src/slack/common/handlers/base-tab-action.handler';
+import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
 import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
 import { withPagination } from 'src/slack/common/utils/tab-list.utils';

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { UsersRepository } from 'src/users/users.repository';
 import UserRole from 'src/common/enums/user-role.enum';
 import { IUserViewModel } from 'src/users/types/user.interface';
@@ -153,7 +153,7 @@ export class UsersService implements IUsersService {
     );
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return user;
@@ -177,7 +177,7 @@ export class UsersService implements IUsersService {
           role: {
             operator: 'in',
             value: findParams.roles,
-          }
+          },
         }
         : {}),
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),

@@ -1,5 +1,8 @@
 import { OverflowAction } from '@slack/bolt';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
+import {
+  ISlackBlockActionPayload,
+  ISlackInteractionPayload,
+} from 'src/slack/common/types/slack-interaction-payload.interface';
 
 export function withMenuAction<
   ActionType extends string,
@@ -12,7 +15,7 @@ export function withMenuAction<
     ...args: Arguments
   ) => Promise<void>,
 ) {
-  return async (payload: ISlackInteractionPayload, ...args: Arguments) => {
+  return async (payload: ISlackBlockActionPayload, ...args: Arguments) => {
     const value = (payload.actions[0] as OverflowAction).selected_option?.value;
 
     if (!value) {

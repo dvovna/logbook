@@ -11,7 +11,7 @@ import {
 } from 'src/slack/tabs/users/views/users-tab.view';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { ActionMapType } from 'src/slack/common/handlers/base-tab-action.handler';
+import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
 import {
   withSelectFilter,
   withPagination,

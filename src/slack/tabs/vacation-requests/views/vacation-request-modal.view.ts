@@ -8,7 +8,7 @@ import { STATUS_OPTIONS } from 'src/slack/tabs/vacation-requests/views/options/v
 import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import UserRole from 'src/common/enums/user-role.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { MAX_COMMENT_LENGTH } from 'src/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
 import { AnyBlock } from '@slack/web-api';
 
@@ -22,7 +22,7 @@ interface IGetViewParams
     end_date: string;
     type: VacationType;
     comment: string;
-    status: VacationStatus;
+    status: VacationRequestStatus;
     user: {
       id: string;
       name: string;
@@ -98,7 +98,7 @@ export class VacationRequestModalView extends BaseModalView<
         type: 'input',
         optional: true,
         block_id: 'comment_block',
-        label: { type: 'plain_text', text: 'Comment (optional)' },
+        label: { type: 'plain_text', text: 'Comment' },
         element: {
           type: 'plain_text_input',
           action_id: 'comment',

@@ -9,13 +9,18 @@ import { VacationRequestsValidationService } from 'src/vacation-requests/service
 import { HolidaysModule } from 'src/holidays/holidays.module';
 import { VacationRequestProcessingService } from 'src/vacation-requests/services/vacation-request-processing.service';
 import { RequestWorkflowsModule } from 'src/request-workflows/request-workflows.module';
+import { RequestWorkflowProcessingService } from 'src/vacation-requests/services/request-workflow-processing.service';
+import { UsersModule } from 'src/users/users.module';
+import { SlackCommunicationModule } from 'src/slack-communication/slack-communication.module';
 
 @Module({
   imports: [
     VacationPoliciesModule,
     TeamsModule,
+    UsersModule,
     HolidaysModule,
     RequestWorkflowsModule,
+    SlackCommunicationModule,
   ],
   providers: [
     VacationDaysCalculationService,
@@ -24,6 +29,7 @@ import { RequestWorkflowsModule } from 'src/request-workflows/request-workflows.
     VacationRequestsRepository,
     UserVacationsUsageService,
     VacationRequestProcessingService,
+    RequestWorkflowProcessingService,
   ],
   exports: [VacationRequestsService, UserVacationsUsageService],
 })

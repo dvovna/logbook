@@ -22,6 +22,8 @@ type SupabaseFilterOperator =
   | 'neq'
   | 'gt'
   | 'gte'
+  | 'is'
+  | 'not.is'
   | 'lt'
   | 'lte'
   | 'in'
@@ -216,6 +218,25 @@ export abstract class BaseRepository<
     return this.mapToViewModel(updated as unknown as Entity['Row']);
   }
 
+  public async updateMany(
+    filter: SupabaseFilter,
+    data: Entity['Update'],
+  ): Promise<ViewModel[]> {
+    const query = this.client.from(this.tableName).update(data);
+
+    this.buildMatchQuery(query, filter);
+
+    const { data: updated, error } = await query.select(this.buildSelect());
+
+    if (error) {
+      throw new Error(`[${this.tableName}] updateMany error: ${error.message}`);
+    }
+
+    return (updated as unknown as Entity['Row'][]).map((row) =>
+      this.mapToViewModel(row),
+    );
+  }
+
   public async deleteMany(filter: SupabaseFilter): Promise<number> {
     const query = this.client.from(this.tableName).delete();
 
@@ -277,6 +298,10 @@ export abstract class BaseRepository<
           return query.like(column, value as string);
         case 'ilike':
           return query.ilike(column, value as string);
+        case 'is':
+          return query.is(column, value);
+        case 'not.is':
+          return query.not(column, 'is', value);
         default:
           throw new Error(`Unsupported operator: ${operator}`);
       }

@@ -11,7 +11,7 @@ import {
   VacationPoliciesTabModalName,
   VacationPoliciesTabService,
 } from 'src/slack/tabs/vacation-policies/services/vacation-policies-tab.service';
-import { ActionMapType } from 'src/slack/common/handlers/base-tab-action.handler';
+import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
 import {
   TabId,
   TabNavigationService,

@@ -3,7 +3,7 @@ import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
 import ViewFieldType from 'src/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import {
   FORM_FIELDS_CONFIG,
   IVacationRequestUserFormViewData,
@@ -26,7 +26,7 @@ export const adminVacationRequestSchema = z
       .required(),
     status: z
       .object({
-        value: z.enum(Object.values(VacationStatus), {
+        value: z.enum(Object.values(VacationRequestStatus), {
           message: 'Invalid vacation status',
         }),
         text: z.string().optional(),
@@ -63,7 +63,7 @@ export const adminVacationRequestSchema = z
 export interface IVacationRequestAdminFormViewData
   extends IVacationRequestUserFormViewData {
   [VacationRequestsTabViewActionId.UserField]: ISelectedOption;
-  status: ISelectedOption<VacationStatus>;
+  status: ISelectedOption<VacationRequestStatus>;
 }
 
 @Injectable()

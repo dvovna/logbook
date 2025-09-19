@@ -10,7 +10,7 @@ import {
   IVacationHistoryTabMetadata,
   VacationHistoryTabView,
 } from 'src/slack/tabs/vacation-requests/views/vacation-history-tab.view';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 
 export type IPublishVacationsHistoryTabViewParams =
   IPublishBaseParams<IVacationHistoryTabMetadata>;
@@ -63,7 +63,7 @@ export class VacationHistoryTabService extends BaseTabService<
       filters: {
         slackTeamId: user.slack_team_id,
         userId: user.id,
-        status: VacationStatus.Approved,
+        status: VacationRequestStatus.Approved,
         ...(year && { year }),
         ...(type && { type }),
       },

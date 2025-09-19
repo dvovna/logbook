@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import IHolidayViewModel from 'src/holidays/types/holiday.interface';
 import { HolidaysRepository } from 'src/holidays/repositories/holidays.repository';
 import { IUserViewModel } from 'src/users/types/user.interface';
@@ -89,7 +89,7 @@ export default class HolidaysService implements IHolidaysService {
     const holiday = await this.findOne(findParams);
 
     if (!holiday) {
-      throw new Error('Holiday not found');
+      throw new NotFoundException('Holiday not found');
     }
 
     return holiday;

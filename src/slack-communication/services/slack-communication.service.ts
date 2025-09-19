@@ -29,6 +29,36 @@ export default class SlackCommunicationService {
     });
   }
 
+  public async postMessage(
+    channel: string,
+    payload: SlackMessagePayloadInterface,
+    teamId: string,
+  ) {
+    const accessToken = await this.accessTokenService.getAccessToken(teamId);
+
+    return await this.slackApiClient.postMessage({
+      channel,
+      accessToken,
+      ...payload,
+    });
+  }
+
+  public async updateMessage(
+    channel: string,
+    ts: string,
+    payload: SlackMessagePayloadInterface,
+    teamId: string,
+  ) {
+    const accessToken = await this.accessTokenService.getAccessToken(teamId);
+
+    return await this.slackApiClient.updateMessage({
+      channel,
+      ts,
+      accessToken,
+      ...payload,
+    });
+  }
+
   public async openView(triggerId: string, view: View, teamId: string) {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 

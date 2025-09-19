@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { IVacationUsageByType } from 'src/vacation-requests/types/user-vacations-usage-info.interface';
 import TeamsService from 'src/teams/services/teams.service';
@@ -48,7 +48,10 @@ export class UserVacationsUsageService implements IVacationsUsageService {
         end_date: { operator: 'lte', value: getDateOnly(periodEnd) },
         status: {
           operator: 'in',
-          value: [VacationStatus.Approved, VacationStatus.Pending],
+          value: [
+            VacationRequestStatus.Approved,
+            VacationRequestStatus.Pending,
+          ],
         },
       }),
       this.teamsService.findOne({
@@ -58,7 +61,7 @@ export class UserVacationsUsageService implements IVacationsUsageService {
     ]);
 
     if (!userTeam) {
-      throw new Error('User team not found.');
+      throw new NotFoundException('User team not found.');
     }
 
     const teamVacationPolicy = await this.vacationPoliciesService.getById(
@@ -66,7 +69,9 @@ export class UserVacationsUsageService implements IVacationsUsageService {
     );
 
     if (!teamVacationPolicy) {
-      throw new Error(`Vacation policy for team ${user.team_id} not found.`);
+      throw new NotFoundException(
+        `Vacation policy for team ${user.team_id} not found.`,
+      );
     }
 
     return {

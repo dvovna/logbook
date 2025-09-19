@@ -1,23 +1,23 @@
 import { PlainTextOption } from '@slack/web-api';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
 
 export const STATUS_OPTIONS: PlainTextOption[] = [
   {
     text: { type: 'plain_text', text: 'Approved ✅' },
-    value: VacationStatus.Approved,
+    value: VacationRequestStatus.Approved,
   },
   {
     text: { type: 'plain_text', text: 'Pending ⏳' },
-    value: VacationStatus.Pending,
+    value: VacationRequestStatus.Pending,
   },
   {
     text: { type: 'plain_text', text: 'Rejected ❌' },
-    value: VacationStatus.Rejected,
+    value: VacationRequestStatus.Rejected,
   },
   {
     text: { type: 'plain_text', text: 'Canceled 🛑' },
-    value: VacationStatus.Cancelled,
+    value: VacationRequestStatus.Cancelled,
   },
 ];
 

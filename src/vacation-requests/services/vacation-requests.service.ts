@@ -3,7 +3,7 @@ import { VacationRequestsRepository } from 'src/vacation-requests/repositories/v
 import getDaysBetweenDates from 'src/common/utils/get-days-between-dates';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import {
   ISearchParams,
   ISearchResult,
@@ -24,7 +24,7 @@ interface ICreateParams {
   startDate: Date;
   endDate: Date;
   type: VacationType;
-  status: VacationStatus;
+  status: VacationRequestStatus;
   comment?: string | null;
 }
 
@@ -33,7 +33,7 @@ interface IUpdateParams {
   startDate?: Date;
   endDate?: Date;
   type?: VacationType;
-  status?: VacationStatus;
+  status?: VacationRequestStatus;
   comment?: string | null;
   userId?: string;
 }
@@ -44,7 +44,7 @@ interface IFindParams {
   teamId?: string;
   year?: string;
   startDate?: string;
-  status?: VacationStatus;
+  status?: VacationRequestStatus;
   type?: VacationType;
   slackTeamId?: string;
 }

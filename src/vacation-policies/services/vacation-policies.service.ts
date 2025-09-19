@@ -12,10 +12,13 @@ import {
   VacationPolicyDeletedEvent,
   VacationPolicyUpdatedEvent,
 } from 'src/vacation-policies/events/vacation-policy.events';
-import VacationPolicyEvent from 'src/vacation-policies/events/vacation-policy-event.enum';
+import VacationPolicyEvent from 'src/vacation-policies/enums/vacation-policy-event.enum';
 import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
-import { ISearchParams, ISearchResult } from 'src/common/types/pagination.types';
+import {
+  ISearchParams,
+  ISearchResult,
+} from 'src/common/types/pagination.types';
 
 export const DEFAULT_VACATION_DAYS = 24;
 export const DEFAULT_WORK_DAYS = 20;
@@ -75,7 +78,7 @@ interface IVacationPoliciesService {
 
 @Injectable()
 export default class VacationPoliciesService
-  implements IVacationPoliciesService
+implements IVacationPoliciesService
 {
   public constructor(
     private readonly vacationPoliciesRepository: VacationPoliciesRepository,

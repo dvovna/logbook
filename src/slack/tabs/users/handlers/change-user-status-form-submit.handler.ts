@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
@@ -52,7 +52,7 @@ export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandle
     });
 
     if (!userToChange) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     const updatedUser = await this.usersService.update(

@@ -13,7 +13,7 @@ import {
   HomeTabModalName,
   HomeTabService,
 } from 'src/slack/tabs/home/services/home-tab.service';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 
 @Injectable()
 @SlackHandler({
@@ -44,7 +44,7 @@ export class CancelVacationRequestActionHandler extends BaseModalFormSubmitHandl
         slackTeamId: user.slack_team_id,
       },
       {
-        status: VacationStatus.Cancelled,
+        status: VacationRequestStatus.Cancelled,
       },
       user,
     );

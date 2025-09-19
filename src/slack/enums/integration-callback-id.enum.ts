@@ -2,6 +2,9 @@ export enum ViewCallbackId {
   HomeTabView = 'home_tab_view',
   CancelVacationRequestFormSubmit = 'cancel_vacation_request_form_submit',
 
+  // workflow steps
+  WorkflowStepMessage = 'workflow_step_message',
+
   // holidays
   HolidaysTabView = 'holidays_tab_view',
   ImportHolidays = 'import_holidays',

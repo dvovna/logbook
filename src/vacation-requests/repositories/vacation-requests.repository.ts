@@ -5,7 +5,7 @@ import {
 } from 'src/common/repositories/base.repository';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 
 @Injectable()
 export class VacationRequestsRepository extends BaseRepository<
@@ -15,14 +15,19 @@ export class VacationRequestsRepository extends BaseRepository<
   protected readonly tableName = 'vacation_requests';
 
   protected relations = {
-    user: 'user_id ( id, name, email )',
+    user: 'user_id ( id, name, email, slack_id )',
     team: 'team_id ( id, name )',
   };
 
   protected mapToViewModel = (row: Tables['vacation_requests']['Row']) => {
     const extendedRow = row as Tables['vacation_requests']['Row'] & {
-      user: { id: string; name: string; email: string } | null;
-      team: { id: string; name: string } | null;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        slack_id: string;
+      } | null;
+      team: { id: string; name: string; slack_id: string } | null;
     };
 
     return {
@@ -30,7 +35,7 @@ export class VacationRequestsRepository extends BaseRepository<
       start_date: extendedRow.start_date,
       end_date: extendedRow.end_date,
       type: extendedRow.type as VacationType,
-      status: extendedRow.status as VacationStatus,
+      status: extendedRow.status as VacationRequestStatus,
       days: extendedRow.days,
       working_days: extendedRow.working_days,
       comment: extendedRow.comment || null,

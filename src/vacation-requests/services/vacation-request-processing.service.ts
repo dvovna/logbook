@@ -52,7 +52,6 @@ export class VacationRequestProcessingService {
         team.manager_approvers_rule,
       ),
       this.buildApproverLevel(team.hr_approvers, team.hr_approvers_rule),
-      this.buildNotifierLevel(team.approval_notification_recipients),
     ].filter((level): level is ICreateWorkflowLevelParams => level !== null);
 
     if (levels.length === 0) {
@@ -77,21 +76,6 @@ export class VacationRequestProcessingService {
       steps: approvers.map((slackUserId) => ({
         slackUserId,
         stepType: WorkflowStepType.Approver,
-      })),
-    };
-  }
-
-  private buildNotifierLevel(
-    recipients: string[] | null,
-  ): ICreateWorkflowLevelParams | null {
-    if (!recipients || recipients.length === 0) {
-      return null;
-    }
-
-    return {
-      steps: recipients.map((slackUserId) => ({
-        slackUserId,
-        stepType: WorkflowStepType.Notifier,
       })),
     };
   }

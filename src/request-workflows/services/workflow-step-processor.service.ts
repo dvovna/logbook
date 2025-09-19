@@ -19,4 +19,18 @@ export class WorkflowStepProcessorService {
       await handler.process(step);
     }
   }
+
+  public async completeSteps(steps: IRequestWorkflowStepViewModel[]) {
+    for (const step of steps) {
+      const handler = this.registry.getHandler(step.step_type);
+
+      if (!handler) {
+        throw new Error(`No handler found for step type: ${step.step_type}`);
+      }
+
+      if (handler.complete) {
+        await handler.complete(step);
+      }
+    }
+  }
 }

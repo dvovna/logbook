@@ -12,7 +12,7 @@ import {
   TabId,
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
-import { ActionMapType } from 'src/slack/common/handlers/base-tab-action.handler';
+import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
 import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
 import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
 

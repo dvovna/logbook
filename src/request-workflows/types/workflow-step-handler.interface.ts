@@ -3,4 +3,5 @@ import { IRequestWorkflowStepViewModel } from 'src/request-workflows/types/reque
 export interface IWorkflowStepProcessor {
   supports(step: IRequestWorkflowStepViewModel): boolean;
   process(step: IRequestWorkflowStepViewModel): Promise<void>;
+  complete?(step: IRequestWorkflowStepViewModel): Promise<void>;
 }

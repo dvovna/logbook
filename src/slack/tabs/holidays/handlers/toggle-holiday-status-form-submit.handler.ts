@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
@@ -53,7 +53,7 @@ export class ToggleHolidayStatusFormSubmitHandler extends BaseModalFormSubmitHan
     });
 
     if (!holidayToChange) {
-      throw new Error('Holiday not found');
+      throw new NotFoundException('Holiday not found');
     }
 
     const updatedHoliday = await this.holidaysService.update(

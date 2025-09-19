@@ -5,5 +5,5 @@ export interface ISlackInteractionHandler {
   handle(
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
-  ): Promise<void> | void;
+  ): Promise<unknown> | unknown;
 }

@@ -25,7 +25,9 @@ export class SlackHandlersRegistry implements OnModuleInit {
     const providers = this.discoveryService.getProviders();
 
     for (const wrapper of providers) {
-      if (!wrapper.metatype) continue;
+      if (!wrapper.metatype) {
+        continue;
+      }
 
       const meta = this.reflector.get<ISlackHandlerMeta>(
         SLACK_HANDLER_METADATA,

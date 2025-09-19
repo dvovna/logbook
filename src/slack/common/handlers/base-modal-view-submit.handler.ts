@@ -1,4 +1,4 @@
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
+import { ISlackViewSubmissionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
@@ -21,7 +21,7 @@ export abstract class BaseModalFormSubmitHandler<
   ) {}
 
   public async handle(
-    payload: ISlackInteractionPayload,
+    payload: ISlackViewSubmissionPayload,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     const metadata = parseMetadata<Metadata>(payload);
@@ -57,13 +57,13 @@ export abstract class BaseModalFormSubmitHandler<
   }
 
   protected getFormData(
-    payload: ISlackInteractionPayload,
+    payload: ISlackViewSubmissionPayload,
   ): IViewParseResult<FormData> {
     if (!this.formParser) {
       return { data: {} } as IViewParseResult<FormData>;
     }
 
-    return this.formParser.parse(payload.view.state.values);
+    return this.formParser.parse(payload.view.state?.values || {});
   }
 
   protected abstract onSubmit(

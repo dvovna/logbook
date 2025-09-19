@@ -1,5 +1,5 @@
 import { OverflowAction, ButtonAction } from '@slack/bolt';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
+import { ISlackBlockActionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
 
@@ -11,7 +11,7 @@ type HandlerFn<Metadata> = (
 export function withPagination<Metadata extends { page?: number }>(
   handler: HandlerFn<Metadata>,
 ) {
-  return async (payload: ISlackInteractionPayload, user: IUserViewModel) => {
+  return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
     const value = (payload.actions[0] as ButtonAction)?.value;
 
     if (!value) {
@@ -19,7 +19,7 @@ export function withPagination<Metadata extends { page?: number }>(
     }
 
     const page = parseInt(value, 10);
-    const metadata: Metadata = payload.view.private_metadata
+    const metadata: Metadata = payload.view?.private_metadata
       ? JSON.parse(payload.view.private_metadata)
       : {};
 
@@ -37,10 +37,10 @@ export function withSelectFilter<Metadata = unknown>(
   filterKey: string,
   handler: HandlerFn<Metadata>,
 ) {
-  return async (payload: ISlackInteractionPayload, user: IUserViewModel) => {
+  return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
     const selectedValue = (payload.actions[0] as OverflowAction).selected_option
       ?.value;
-    const metadata = payload.view.private_metadata
+    const metadata = payload.view?.private_metadata
       ? JSON.parse(payload.view.private_metadata)
       : {};
 
@@ -62,10 +62,10 @@ export function withAsyncSelectFilter<Metadata = unknown>(
   filterKey: string,
   handler: HandlerFn<Metadata>,
 ) {
-  return async (payload: ISlackInteractionPayload, user: IUserViewModel) => {
+  return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
     const selectedOption = (payload.actions[0] as OverflowAction)
       .selected_option;
-    const metadata = payload.view.private_metadata
+    const metadata = payload.view?.private_metadata
       ? JSON.parse(payload.view.private_metadata)
       : {};
 

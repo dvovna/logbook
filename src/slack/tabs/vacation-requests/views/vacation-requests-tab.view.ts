@@ -4,7 +4,7 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import ITeamViewModel from 'src/teams/types/team.interface';
 import { ISearchResult } from 'src/common/types/pagination.types';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import {
   ALL_STATUSES_OPTION,
   STATUS_OPTIONS,
@@ -30,7 +30,7 @@ export interface IVacationRequestsTabFilters {
   teamId?: string;
   year?: string;
   type?: VacationType;
-  status?: VacationStatus;
+  status?: VacationRequestStatus;
 }
 
 export interface IVacationRequestsTabMetadata {
@@ -125,9 +125,9 @@ export class VacationRequestsTabView extends BaseAdminTabView<
     vacationRequest: IVacationRequestViewModel,
   ): AnyBlock[] => {
     const statusEmoji =
-      vacationRequest.status === VacationStatus.Approved
+      vacationRequest.status === VacationRequestStatus.Approved
         ? '✅'
-        : vacationRequest.status === VacationStatus.Rejected
+        : vacationRequest.status === VacationRequestStatus.Rejected
           ? '❌'
           : '⏳';
 

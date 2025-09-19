@@ -1,5 +1,5 @@
 import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 
 export interface IVacationRequestViewModel {
   id: string;
@@ -8,16 +8,18 @@ export interface IVacationRequestViewModel {
   days: number;
   working_days: number;
   type: VacationType;
-  status: VacationStatus;
+  status: VacationRequestStatus;
   comment?: string | null;
   team: {
     id: string;
     name: string;
+    slack_id: string;
   } | null;
   user: {
     id: string;
     name: string;
     email: string;
+    slack_id: string;
   } | null;
   team_id: string;
   user_id: string;

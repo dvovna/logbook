@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { HomeTabView } from 'src/slack/tabs/home/views/home-tab.view';
 import { UserVacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import BaseTabService, {
   IOpenModalBaseParams,
@@ -54,7 +54,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       await this.vacationsService.findMany({
         userId: user.id,
         startDate: user.contract_start_date || undefined,
-        status: VacationStatus.Pending,
+        status: VacationRequestStatus.Pending,
       }),
     ]);
 

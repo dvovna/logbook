@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
+import {
+  ISlackBlockActionPayload,
+  ISlackInteractionPayload,
+  ISlackViewSubmissionPayload,
+} from 'src/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { SlackHandlersRegistry } from 'src/slack/slack-handlers.registry';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
@@ -18,7 +22,7 @@ class SlackInteractionsService {
     user: IUserViewModel,
   ) {
     const type = payload.type;
-    const callbackId = payload.view?.callback_id;
+    const callbackId = this.getCallbackId(payload);
 
     if (!callbackId) {
       this.logger.warn(`No callback_id for payload type: ${type}`);
@@ -45,6 +49,16 @@ class SlackInteractionsService {
     }
 
     return handler.handle(payload, user);
+  }
+
+  private getCallbackId(payload: ISlackInteractionPayload): string | undefined {
+    if ((payload as ISlackViewSubmissionPayload).view?.callback_id) {
+      return (payload as ISlackViewSubmissionPayload).view.callback_id;
+    }
+
+    if ((payload as ISlackBlockActionPayload).actions?.length) {
+      return (payload as ISlackBlockActionPayload).actions[0].block_id;
+    }
   }
 }
 

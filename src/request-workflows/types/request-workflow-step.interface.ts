@@ -3,7 +3,6 @@ import VacationType from 'src/common/enums/vacation-type.enum';
 
 export enum WorkflowStepType {
   Approver = 'approver',
-  Notifier = 'notifier',
 }
 
 export interface IRequestSnapshotData {
@@ -18,37 +17,25 @@ export interface IRequestSnapshotData {
   comment: string;
 }
 
-interface IBaseStepData {
+export interface IApproverStepData {
   snapshot: IRequestSnapshotData;
-}
-
-export interface IApproverStepData extends IBaseStepData {
   status: 'pending' | 'approved' | 'rejected';
   rule: ApprovalRule;
-  decided_at?: string | null;
   comment?: string | null;
+  decided_at?: string | null;
+  decided_by_slack_id?: string | null;
 }
 
-export interface INotifierStepData extends IBaseStepData {
-  notified_at?: string | null;
-}
-
-interface IBaseWorkflowStep {
+export interface IRequestWorkflowStepViewModel {
   id: string;
   slack_team_id: string;
   request_id: string;
   slack_user_id: string;
+  slack_message_ts?: string | null;
+  slack_channel_id?: string | null;
   step_level: number;
   created_at: string;
   updated_at: string;
+  step_type: WorkflowStepType.Approver;
+  step_data: IApproverStepData;
 }
-
-export type IRequestWorkflowStepViewModel =
-  | (IBaseWorkflowStep & {
-      step_type: WorkflowStepType.Approver;
-      step_data: IApproverStepData;
-    })
-  | (IBaseWorkflowStep & {
-      step_type: WorkflowStepType.Notifier;
-      step_data: INotifierStepData;
-    });

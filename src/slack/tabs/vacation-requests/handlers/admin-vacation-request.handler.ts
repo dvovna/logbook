@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
-import VacationStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
 import VacationRequestAdminViewValuesParser, {
@@ -86,7 +86,7 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
         startDate: new Date(data.start_date),
         endDate: new Date(data.end_date),
         type: data.type_option.value,
-        status: data.status.value || VacationStatus.Pending,
+        status: data.status.value || VacationRequestStatus.Pending,
         comment: data.comment,
       },
       user,

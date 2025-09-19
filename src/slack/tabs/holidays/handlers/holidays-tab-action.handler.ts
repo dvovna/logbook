@@ -11,7 +11,7 @@ import {
   HolidaysTabViewActionId,
   IHolidaysTabMetadata,
 } from 'src/slack/tabs/holidays/views/holidays-tab.view';
-import { ActionMapType } from 'src/slack/common/handlers/base-tab-action.handler';
+import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
 import {
   TabId,
   TabNavigationService,

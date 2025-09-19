@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -23,7 +23,7 @@ export default class AccessTokenService {
     const team = await this.slackTeamsService.findOne({ id: teamId });
 
     if (!team) {
-      throw new Error('Team not found');
+      throw new NotFoundException('Team not found');
     }
 
     await this.cacheManager.set(cacheKey, team.access_token, CACHE_TTL);

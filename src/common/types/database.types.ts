@@ -93,9 +93,12 @@ export type Database = {
       }
       request_workflow_steps: {
         Row: {
+          completed_at: string | null
           created_at: string
           id: string
           request_id: string
+          slack_channel_id: string | null
+          slack_message_ts: string | null
           slack_team_id: string
           slack_user_id: string | null
           step_data: Json
@@ -104,9 +107,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
           id?: string
           request_id: string
+          slack_channel_id?: string | null
+          slack_message_ts?: string | null
           slack_team_id: string
           slack_user_id?: string | null
           step_data?: Json
@@ -115,9 +121,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
           id?: string
           request_id?: string
+          slack_channel_id?: string | null
+          slack_message_ts?: string | null
           slack_team_id?: string
           slack_user_id?: string | null
           step_data?: Json

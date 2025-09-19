@@ -9,7 +9,7 @@ import {
   VacationPolicyDeletedEvent,
   VacationPolicyUpdatedEvent,
 } from 'src/vacation-policies/events/vacation-policy.events';
-import VacationPolicyEvent from 'src/vacation-policies/events/vacation-policy-event.enum';
+import VacationPolicyEvent from 'src/vacation-policies/enums/vacation-policy-event.enum';
 
 @Injectable()
 export class VacationPoliciesCacheService implements OnModuleInit {

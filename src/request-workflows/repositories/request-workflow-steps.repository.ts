@@ -23,8 +23,11 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
       slack_user_id: row.slack_user_id,
       step_level: row.step_level,
       step_type: row.step_type as WorkflowStepType,
+      slack_message_ts: row.slack_message_ts,
+      slack_channel_id: row.slack_channel_id,
       step_data:
         row.step_data as unknown as IRequestWorkflowStepViewModel['step_data'],
+      completed_at: row.completed_at,
       created_at: row.created_at,
       updated_at: row.updated_at,
     } as IRequestWorkflowStepViewModel;

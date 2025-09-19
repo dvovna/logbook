@@ -11,7 +11,7 @@ import {
   VacationRequestsTabModalName,
   VacationRequestsTabService,
 } from 'src/slack/tabs/vacation-requests/services/vacation-requests-tab.service';
-import { ActionMapType } from 'src/slack/common/handlers/base-tab-action.handler';
+import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
 import {
   withSelectFilter,
   withPagination,
