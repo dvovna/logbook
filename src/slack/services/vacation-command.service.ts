@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { UserVacationsUsageService } from 'src/vacation-requests/services/user-vacation-usage.service';
+import { UserVacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { IVacationUsageByType } from 'src/vacation-requests/types/user-vacations-usage-info.interface';

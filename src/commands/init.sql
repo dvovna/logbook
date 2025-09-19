@@ -29,11 +29,11 @@ create table if not exists teams (
     slack_team_id uuid not null references slack_teams(id) on delete cascade,
     vacation_policy_id uuid references vacation_policies(id) on delete set null,
     name text not null,
-    manager_approvers uuid[] default '{}',
-    hr_approvers uuid[] default '{}',
+    manager_approvers text[] default '{}',
+    hr_approvers text[] default '{}',
     approval_notification_recipients text[] default '{}',
-    manager_approvers_rule text default 'any',
-    hr_approvers_rule text default 'any',
+    manager_approvers_rule text default 'ANY',
+    hr_approvers_rule text default 'ANY',
     is_primary boolean default false,
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now(),
@@ -86,10 +86,20 @@ create table if not exists vacation_requests (
     type text not null default 'annual_leave' check (type in ('annual_leave', 'bonus_day', 'sick_leave', 'unpaid_leave', 'other')),
     status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'cancelled')),
     comments text,
-    approved_by_manager boolean default false,
-    approved_by_hr boolean default false,
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now(),
     created_by uuid references users(id) not null,
     updated_by uuid references users(id) not null
+);
+
+-- VACATION_REQUEST_STEPS
+create table if not exists vacation_request_workflow_steps (
+    id uuid primary key default gen_random_uuid(),
+    vacation_request_id uuid not null references vacation_requests(id) on delete cascade,
+    slack_user_id text not null,
+    step_order integer not null,
+    step_type text not null check (step_type in ('approver', 'notifier')),
+    step_data jsonb not null default '{}'::jsonb,
+    created_at timestamp with time zone default now() not null,
+    updated_at timestamp with time zone default now() not null
 );

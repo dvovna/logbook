@@ -24,6 +24,7 @@
     "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/platform-express": "^11.1.5",
     "@nestjs/serve-static": "^5.0.3",
+    "@nestjs/typeorm": "^11.0.0",
     "@slack/bolt": "^4.4.0",
     "@slack/web-api": "^7.9.3",
     "@supabase/supabase-js": "^2.52.0",
@@ -38,6 +39,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "supabase": ">=1.8.1",
+    "typeorm": "^0.3.26",
     "zod": "^4.0.17"
   },
   "devDependencies": {

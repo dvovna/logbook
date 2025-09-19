@@ -6,6 +6,7 @@ import { SlackCommunicationModule } from 'src/slack-communication/slack-communic
 import { SlackCommonModule } from 'src/slack/common/slack-common.module';
 import { VacationRequestsModule } from 'src/vacation-requests/vacation-requests.module';
 import { VacationRequestsTabModule } from 'src/slack/tabs/vacation-requests/vacation-requests-tab.module';
+import { CancelVacationRequestActionHandler } from 'src/slack/tabs/home/handlers/cancel-vacation-request-action.handler';
 
 @Module({
   imports: [
@@ -14,7 +15,12 @@ import { VacationRequestsTabModule } from 'src/slack/tabs/vacation-requests/vaca
     VacationRequestsModule,
     VacationRequestsTabModule,
   ],
-  providers: [HomeTabView, HomeTabActionHandler, HomeTabService],
+  providers: [
+    HomeTabView,
+    HomeTabActionHandler,
+    HomeTabService,
+    CancelVacationRequestActionHandler,
+  ],
   exports: [HomeTabService],
 })
 export class HomeTabModule {}

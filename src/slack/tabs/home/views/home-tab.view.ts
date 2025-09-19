@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import { IVacationPeriodUsageData } from 'src/vacation-requests/services/user-vacation-usage.service';
+import { IVacationPeriodUsageData } from 'src/vacation-requests/services/vacation-usage.service';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
@@ -17,6 +17,8 @@ interface IGetViewParams extends IBaseTabViewParams {
 export enum HomeTabActionId {
   OpenVacationModal = 'open_vacation_modal',
   ViewHistory = 'view_history',
+  CancelRequest = 'cancel_vacation_request',
+  ManagePendingRequestMenu = 'manage_pending_request_menu',
 }
 
 @Injectable()
@@ -159,15 +161,11 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
         },
         accessory: {
           type: 'overflow',
-          action_id: `vacation_actions_${vacation.id}`,
+          action_id: HomeTabActionId.ManagePendingRequestMenu,
           options: [
             {
-              text: { type: 'plain_text', text: '✏ Edit' },
-              value: `edit_${vacation.id}`,
-            },
-            {
               text: { type: 'plain_text', text: '❌ Cancel' },
-              value: `cancel_${vacation.id}`,
+              value: `${HomeTabActionId.CancelRequest}:${vacation.id}`,
             },
           ],
         },

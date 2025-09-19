@@ -1,7 +1,7 @@
 enum VacationPolicyEvent {
-  Created = 'created',
-  Updated = 'updated',
-  Deleted = 'deleted',
+  Created = 'vacation_policy.created',
+  Updated = 'vacation_policy.updated',
+  Deleted = 'vacation_policy.deleted',
 }
 
 export default VacationPolicyEvent;

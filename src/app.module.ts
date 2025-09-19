@@ -17,6 +17,7 @@ import { SlackCommunicationModule } from './slack-communication/slack-communicat
 import { TeamsModule } from './teams/teams.module';
 import { envSchema } from 'src/env.schema';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { RequestWorkflowsModule } from './request-workflows/request-workflows.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     UserDataImportModule,
     TeamSetupModule,
     TeamsModule,
+    RequestWorkflowsModule,
   ],
   controllers: [AppController],
 })

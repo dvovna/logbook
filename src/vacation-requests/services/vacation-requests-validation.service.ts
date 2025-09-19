@@ -1,8 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
 import VacationStatus from 'src/common/enums/vacation-status.enum';
 import { ConfigService } from '@nestjs/config';
-import { UserVacationsUsageService } from 'src/vacation-requests/services/user-vacation-usage.service';
+import { UserVacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { ValidationError } from 'src/common/errors/validation.error';

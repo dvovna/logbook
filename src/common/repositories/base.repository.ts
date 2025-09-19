@@ -170,7 +170,7 @@ export abstract class BaseRepository<
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       .insert(data)
-      .select()
+      .select(this.buildSelect())
       .single();
 
     if (error) {
@@ -205,7 +205,9 @@ export abstract class BaseRepository<
 
     this.buildMatchQuery(query, filter);
 
-    const { data: updated, error } = await query.select().single();
+    const { data: updated, error } = await query
+      .select(this.buildSelect())
+      .single();
 
     if (error) {
       throw new Error(`[${this.tableName}] update error: ${error.message}`);
@@ -286,10 +288,11 @@ export abstract class BaseRepository<
       }
 
       if (Array.isArray(filter)) {
-        if (filter.length === 0) continue;
+        if (filter.length === 0) {
+          continue;
+        }
 
-        if (typeof filter[0] === 'string' || typeof filter[0] === 'number') {
-        } else {
+        if (typeof filter[0] !== 'string' && typeof filter[0] !== 'number') {
           for (const params of filter) {
             if (typeof params === 'object') {
               query = applyFilter(query, column, params);

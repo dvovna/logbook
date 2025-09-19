@@ -1,5 +1,6 @@
 export enum ViewCallbackId {
   HomeTabView = 'home_tab_view',
+  CancelVacationRequestFormSubmit = 'cancel_vacation_request_form_submit',
 
   // holidays
   HolidaysTabView = 'holidays_tab_view',

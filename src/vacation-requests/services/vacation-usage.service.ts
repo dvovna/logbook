@@ -16,14 +16,14 @@ export interface IVacationPeriodUsageData {
   usage: IVacationUsageByType;
 }
 
-interface IUserVacationsUsageService {
+interface IVacationsUsageService {
   getCurrentVacationPeriodUsage(
     user: IUserViewModel,
   ): Promise<IVacationPeriodUsageData>;
 }
 
 @Injectable()
-export class UserVacationsUsageService implements IUserVacationsUsageService {
+export class UserVacationsUsageService implements IVacationsUsageService {
   public constructor(
     private readonly vacationRequestsRepository: VacationRequestsRepository,
     private readonly teamsService: TeamsService,

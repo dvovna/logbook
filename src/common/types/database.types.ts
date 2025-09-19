@@ -91,6 +91,57 @@ export type Database = {
           },
         ]
       }
+      request_workflow_steps: {
+        Row: {
+          created_at: string
+          id: string
+          request_id: string
+          slack_team_id: string
+          slack_user_id: string | null
+          step_data: Json
+          step_level: number
+          step_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          request_id: string
+          slack_team_id: string
+          slack_user_id?: string | null
+          step_data?: Json
+          step_level: number
+          step_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          request_id?: string
+          slack_team_id?: string
+          slack_user_id?: string | null
+          step_data?: Json
+          step_level?: number
+          step_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_workflow_steps_slack_team_id_fkey"
+            columns: ["slack_team_id"]
+            isOneToOne: false
+            referencedRelation: "slack_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vacation_request_workflow_steps_vacation_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slack_teams: {
         Row: {
           created_at: string | null
@@ -122,11 +173,11 @@ export type Database = {
           created_by: string | null
           description: string | null
           hr_approvers: string[] | null
-          hr_approvers_rule: string | null
+          hr_approvers_rule: string
           id: string
           is_primary: boolean
           manager_approvers: string[] | null
-          manager_approvers_rule: string | null
+          manager_approvers_rule: string
           name: string
           slack_team_id: string
           updated_at: string
@@ -139,11 +190,11 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           hr_approvers?: string[] | null
-          hr_approvers_rule?: string | null
+          hr_approvers_rule?: string
           id?: string
           is_primary?: boolean
           manager_approvers?: string[] | null
-          manager_approvers_rule?: string | null
+          manager_approvers_rule?: string
           name: string
           slack_team_id?: string
           updated_at?: string
@@ -156,11 +207,11 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           hr_approvers?: string[] | null
-          hr_approvers_rule?: string | null
+          hr_approvers_rule?: string
           id?: string
           is_primary?: boolean
           manager_approvers?: string[] | null
-          manager_approvers_rule?: string | null
+          manager_approvers_rule?: string
           name?: string
           slack_team_id?: string
           updated_at?: string

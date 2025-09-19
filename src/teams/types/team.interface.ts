@@ -9,8 +9,8 @@ interface ITeamViewModel {
   manager_approvers: string[] | null;
   hr_approvers: string[] | null;
   approval_notification_recipients: string[] | null;
-  manager_approvers_rule: ApprovalRule | null;
-  hr_approvers_rule: ApprovalRule | null;
+  manager_approvers_rule: ApprovalRule;
+  hr_approvers_rule: ApprovalRule;
   slack_team_id: string;
   created_at: string;
   updated_at: string;

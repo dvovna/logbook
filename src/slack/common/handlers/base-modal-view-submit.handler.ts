@@ -9,6 +9,7 @@ import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.er
 import { ForbiddenException } from '@nestjs/common';
 import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
 import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
+import { ValidationError } from 'src/common/errors/validation.error';
 
 export abstract class BaseModalFormSubmitHandler<
   Metadata extends object,
@@ -35,13 +36,21 @@ export abstract class BaseModalFormSubmitHandler<
 
       return this.successResponse(result, user, metadata);
     } catch (error) {
-      const errorMessage =
+      const isKnownError =
         error instanceof PrimaryEntityDeleteError ||
         error instanceof ForbiddenException ||
+        error instanceof ValidationError ||
         error instanceof MaxItemsCountReachedError ||
-        error instanceof EntityHasDependenciesError
-          ? error.message
-          : 'Something went wrong. Please try again later.';
+        error instanceof EntityHasDependenciesError;
+
+      if (!isKnownError) {
+        // eslint-disable-next-line no-console
+        console.error('Unexpected error in modal form submission:', error);
+      }
+
+      const errorMessage = isKnownError
+        ? error.message
+        : 'Something went wrong. Please try again later.';
 
       return this.errorResponse(errorMessage, data, metadata, user);
     }

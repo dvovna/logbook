@@ -19,11 +19,11 @@ export interface IVacationRequestViewModel {
     name: string;
     email: string;
   } | null;
+  team_id: string;
+  user_id: string;
   slack_team_id: string;
   created_at: string | null;
   updated_at: string | null;
-  approved_by_hr: boolean | null;
-  approved_by_manager: boolean | null;
   updated_by: string | null;
   created_by: string | null;
 }
