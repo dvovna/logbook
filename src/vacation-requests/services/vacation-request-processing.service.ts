@@ -5,9 +5,11 @@ import { VacationRequestCreatedEvent } from 'src/vacation-requests/events/vacati
 import TeamsService from 'src/teams/services/teams.service';
 import { WorkflowStepType } from 'src/request-workflows/types/request-workflow-step.interface';
 import {
+  ICreateWorkflowLevelParams,
   ICreateWorkflowParams,
   RequestWorkflowService,
 } from 'src/request-workflows/services/request-workflow.service';
+import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
 
 @Injectable()
 export class VacationRequestProcessingService {
@@ -27,14 +29,6 @@ export class VacationRequestProcessingService {
       return;
     }
 
-    const {
-      manager_approvers,
-      manager_approvers_rule,
-      hr_approvers,
-      hr_approvers_rule,
-      approval_notification_recipients,
-    } = team;
-
     const workflow: ICreateWorkflowParams = {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
@@ -52,47 +46,53 @@ export class VacationRequestProcessingService {
       levels: [],
     };
 
-    if (manager_approvers && manager_approvers.length > 0) {
-      const managerLevel = {
-        rule: manager_approvers_rule,
-        steps: manager_approvers.map((slackUserId) => ({
-          slackUserId,
-          stepType: WorkflowStepType.Approver,
-        })),
-      };
+    const levels: ICreateWorkflowLevelParams[] = [
+      this.buildApproverLevel(
+        team.manager_approvers,
+        team.manager_approvers_rule,
+      ),
+      this.buildApproverLevel(team.hr_approvers, team.hr_approvers_rule),
+      this.buildNotifierLevel(team.approval_notification_recipients),
+    ].filter((level): level is ICreateWorkflowLevelParams => level !== null);
 
-      workflow.levels.push(managerLevel);
-    }
-
-    if (hr_approvers && hr_approvers.length > 0) {
-      const hrLevel = {
-        rule: hr_approvers_rule,
-        steps: hr_approvers.map((slackUserId) => ({
-          slackUserId,
-          stepType: WorkflowStepType.Approver,
-        })),
-      };
-
-      workflow.levels.push(hrLevel);
-    }
-
-    if (
-      approval_notification_recipients &&
-      approval_notification_recipients.length > 0
-    ) {
-      const notificationLevel = {
-        steps: approval_notification_recipients.map((slackUserId) => ({
-          slackUserId,
-          stepType: WorkflowStepType.Notifier,
-        })),
-      };
-      workflow.levels.push(notificationLevel);
-    }
-
-    if (workflow.levels.length === 0) {
+    if (levels.length === 0) {
       return;
     }
 
+    workflow.levels = levels;
+
     await this.requestWorkflowService.create(workflow);
+  }
+
+  private buildApproverLevel(
+    approvers: string[] | null,
+    rule: ApprovalRule,
+  ): ICreateWorkflowLevelParams | null {
+    if (!approvers || approvers.length === 0) {
+      return null;
+    }
+
+    return {
+      rule,
+      steps: approvers.map((slackUserId) => ({
+        slackUserId,
+        stepType: WorkflowStepType.Approver,
+      })),
+    };
+  }
+
+  private buildNotifierLevel(
+    recipients: string[] | null,
+  ): ICreateWorkflowLevelParams | null {
+    if (!recipients || recipients.length === 0) {
+      return null;
+    }
+
+    return {
+      steps: recipients.map((slackUserId) => ({
+        slackUserId,
+        stepType: WorkflowStepType.Notifier,
+      })),
+    };
   }
 }

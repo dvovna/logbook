@@ -8,17 +8,19 @@ import { Injectable } from '@nestjs/common';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
 import { WorkflowStepProcessorService } from 'src/request-workflows/services/workflow-step-processor.service';
 
+export interface ICreateWorkflowLevelParams {
+  rule?: ApprovalRule;
+  steps: {
+    slackUserId: string;
+    stepType: WorkflowStepType;
+  }[];
+}
+
 export interface ICreateWorkflowParams {
   requestId: string;
   slackTeamId: string;
   snapshot: IRequestSnapshotData;
-  levels: {
-    rule?: ApprovalRule;
-    steps: {
-      slackUserId: string;
-      stepType: WorkflowStepType;
-    }[];
-  }[];
+  levels: ICreateWorkflowLevelParams[];
 }
 
 const DEFAULT_STEP_STATUS = 'pending';
