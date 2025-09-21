@@ -5,6 +5,7 @@ import { SlackUserGuard } from 'src/common/guards/slack-user.guard';
 import { Request } from 'express';
 import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import { BlockSuggestion } from '@slack/bolt/dist/types/options';
+import { UsersTabViewActionId } from 'src/slack/tabs/users/views/users-tab.view';
 
 @Controller('api/slack/options')
 @UseGuards(SlackSignatureGuard, SlackUserGuard)
@@ -19,6 +20,7 @@ export class SlackOptionsController {
 
     switch (actionId) {
       case VacationRequestsTabViewActionId.UserField:
+      case UsersTabViewActionId.FilterUsersByUser:
       case VacationRequestsTabViewActionId.FilterRequestsByUser: {
         return this.userOptionsService.searchUsers(payload.value, req.user!);
       }

@@ -15,6 +15,7 @@ import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
 import {
   withSelectFilter,
   withPagination,
+  withAsyncSelectFilter,
 } from 'src/slack/common/utils/tab-list.utils';
 import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
 import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
@@ -45,6 +46,10 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
       >(this.handleManageUserMenuAction),
       [UsersTabViewActionId.PaginationPrev]: paginationHandler,
       [UsersTabViewActionId.PaginationNext]: paginationHandler,
+      [UsersTabViewActionId.FilterUsersByUser]: withAsyncSelectFilter(
+        'user',
+        this.updateTab,
+      ),
       [UsersTabViewActionId.FilterUsersByRole]: withSelectFilter(
         'role',
         this.updateTab,

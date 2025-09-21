@@ -2,6 +2,7 @@ import { OverflowAction, ButtonAction } from '@slack/bolt';
 import { ISlackBlockActionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
+import { StaticSelectAction } from '@slack/bolt/dist/types/actions/block-action';
 
 type HandlerFn<Metadata> = (
   metadata: Metadata,
@@ -38,8 +39,8 @@ export function withSelectFilter<Metadata = unknown>(
   handler: HandlerFn<Metadata>,
 ) {
   return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
-    const selectedValue = (payload.actions[0] as OverflowAction).selected_option
-      ?.value;
+    const selectedValue = (payload.actions[0] as StaticSelectAction)
+      .selected_option?.value;
     const metadata = payload.view?.private_metadata
       ? JSON.parse(payload.view.private_metadata)
       : {};

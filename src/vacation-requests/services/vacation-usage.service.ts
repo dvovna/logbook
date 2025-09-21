@@ -5,7 +5,6 @@ import VacationType from 'src/common/enums/vacation-type.enum';
 import { IVacationUsageByType } from 'src/vacation-requests/types/user-vacations-usage-info.interface';
 import TeamsService from 'src/teams/services/teams.service';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
 import { VacationPoliciesCacheService } from 'src/vacation-policies/services/vacation-policies-cache.service';
 import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
 import { getDateOnly } from 'src/common/utils/date.utils';
@@ -74,25 +73,36 @@ export class UserVacationsUsageService implements IVacationsUsageService {
       );
     }
 
+    const carryoverDays = user.carryover_days || 0;
+    const usage = this.getResult(vacationRequests, {
+      vacationDays: carryoverDays + teamVacationPolicy.vacation_days,
+      bonusDays: teamVacationPolicy.bonus_days,
+      workingDays: carryoverDays + teamVacationPolicy.working_days,
+    });
+
     return {
       periodStart,
       periodEnd,
-      usage: this.getResult(vacationRequests, teamVacationPolicy),
+      usage,
     };
   }
 
   private getResult(
     vacations: IVacationRequestViewModel[],
-    policy: IVacationPolicyViewModel,
+    daysAvailable: {
+      vacationDays: number;
+      bonusDays: number;
+      workingDays: number;
+    },
   ) {
     const result: IVacationUsageByType = {
       [VacationType.AnnualLeave]: {
         used: 0,
-        available: policy.vacation_days,
+        available: daysAvailable.vacationDays,
         working_days_used: 0,
-        working_days_available: policy.working_days,
+        working_days_available: daysAvailable.workingDays,
       },
-      [VacationType.BonusDay]: { used: 0, available: policy.bonus_days },
+      [VacationType.BonusDay]: { used: 0, available: daysAvailable.bonusDays },
       [VacationType.SickLeave]: { used: 0 },
       [VacationType.UnpaidLeave]: { used: 0 },
       [VacationType.Other]: { used: 0 },

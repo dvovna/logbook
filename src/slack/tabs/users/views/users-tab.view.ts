@@ -53,6 +53,7 @@ export enum UsersTabViewActionId {
   FilterUsersByRole = 'filter_users_by_role',
   FilterUsersByTeam = 'filter_users_by_team',
   FilterUsersByStatus = 'filter_users_by_status',
+  FilterUsersByUser = 'filter_users_by_users',
 }
 
 @Injectable()
@@ -166,6 +167,22 @@ export class UsersTabView extends BaseAdminTabView<
     return {
       type: 'actions',
       elements: [
+        {
+          type: 'external_select',
+          action_id: UsersTabViewActionId.FilterUsersByUser,
+          placeholder: {
+            type: 'plain_text',
+            text: 'Filter by User',
+          },
+          min_query_length: 2,
+          initial_option: filters?.user && {
+            text: {
+              type: 'plain_text',
+              text: filters.user.name,
+            },
+            value: filters.user.value,
+          },
+        },
         {
           type: 'static_select',
           placeholder: { type: 'plain_text', text: 'Filter by Role' },
