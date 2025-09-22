@@ -6,9 +6,10 @@ import { Request } from 'express';
 import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import { BlockSuggestion } from '@slack/bolt/dist/types/options';
 import { UsersTabViewActionId } from 'src/slack/tabs/users/views/users-tab.view';
+import { SlackActiveUserGuard } from 'src/common/guards/slack-active-user.guard';
 
 @Controller('api/slack/options')
-@UseGuards(SlackSignatureGuard, SlackUserGuard)
+@UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)
 export class SlackOptionsController {
   public constructor(
     private readonly userOptionsService: SlackUserOptionsService,

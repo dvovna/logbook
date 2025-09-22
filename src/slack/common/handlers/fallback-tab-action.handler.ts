@@ -4,7 +4,7 @@ import {
 } from 'src/slack/common/handlers/base-action.handler';
 import { withButtonAction } from 'src/slack/common/utils/view.utils';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { FallbackTabViewActionId } from 'src/slack/tabs/fallback/views/fallback-tab.view';
+import { FallbackTabViewActionId } from 'src/slack/common/views/fallback-tab.view';
 import {
   TabId,
   TabNavigationService,

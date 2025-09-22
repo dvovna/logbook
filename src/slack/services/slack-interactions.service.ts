@@ -8,6 +8,7 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import { SlackHandlersRegistry } from 'src/slack/slack-handlers.registry';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
 import { ActionForbiddenView } from 'src/slack/common/views/components/action-forbidden.view';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 @Injectable()
 class SlackInteractionsService {
@@ -22,7 +23,7 @@ class SlackInteractionsService {
     user: IUserViewModel,
   ) {
     const type = payload.type;
-    const callbackId = this.getCallbackId(payload);
+    const callbackId = this.getCallbackId(payload) as ViewCallbackId;
 
     if (!callbackId) {
       this.logger.warn(`No callback_id for payload type: ${type}`);
@@ -38,6 +39,12 @@ class SlackInteractionsService {
       );
 
       return;
+    }
+
+    if (!user.is_active && callbackId !== ViewCallbackId.FallbackTabView) {
+      this.logger.warn(`Inactive user ${user.id} tried to interact with Slack`);
+
+      return SlackViewResponseFactory.update(ActionForbiddenView.getView());
     }
 
     if (allowedRoles?.length && !allowedRoles.includes(user.role)) {

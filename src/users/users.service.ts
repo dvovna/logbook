@@ -183,7 +183,6 @@ export class UsersService implements IUsersService {
   public async findBySlackId(slackId: string) {
     return await this.userRepository.findOne({
       slack_id: slackId,
-      is_active: true,
     });
   }
 

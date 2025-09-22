@@ -15,10 +15,16 @@ import SlackPromptsService from 'src/slack-communication/services/slack-prompts.
 import { RequireRoles } from 'src/common/decorators/user-role.decorator';
 import { UserRoleGuard } from 'src/common/guards/user-role.guard';
 import { SlackForbiddenExceptionFilter } from 'src/slack/filters/slack-forbidden-exception.filter';
+import { SlackActiveUserGuard } from 'src/common/guards/slack-active-user.guard';
 
 @Controller('api/slack/admin')
 @UseFilters(SlackForbiddenExceptionFilter)
-@UseGuards(SlackSignatureGuard, SlackUserGuard, UserRoleGuard)
+@UseGuards(
+  SlackSignatureGuard,
+  SlackUserGuard,
+  SlackActiveUserGuard,
+  UserRoleGuard,
+)
 @RequireRoles([UserRole.Admin])
 export default class AdminCommandsController {
   public constructor(

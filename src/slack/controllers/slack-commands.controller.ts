@@ -15,9 +15,10 @@ import VacationCommandService, {
 import { SlackSignatureGuard } from 'src/common/guards/slack-signature.guard';
 import { SlackUserGuard } from 'src/common/guards/slack-user.guard';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
+import { SlackActiveUserGuard } from 'src/common/guards/slack-active-user.guard';
 
 @Controller('api/slack')
-@UseGuards(SlackSignatureGuard, SlackUserGuard)
+@UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)
 export default class SlackCommandsController {
   private readonly logger = new Logger(SlackCommandsController.name);
 

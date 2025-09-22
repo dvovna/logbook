@@ -7,7 +7,8 @@ import {
   TabId,
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
-import { FallbackTabView } from 'src/slack/tabs/fallback/views/fallback-tab.view';
+import { FallbackTabView } from 'src/slack/common/views/fallback-tab.view';
+import { InactiveUserTabView } from 'src/slack/common/views/inactive-user-tab.view';
 
 export type IOpenModalBaseParams<PageMetadata = undefined> = {
   user: IUserViewModel;
@@ -42,6 +43,9 @@ export default abstract class BaseTabService<
 
   @Inject(FallbackTabView)
   private readonly fallbackTabView: FallbackTabView;
+
+  @Inject(InactiveUserTabView)
+  private readonly inactiveTabView: InactiveUserTabView;
 
   protected constructor(
     private tabId: TabId,
@@ -99,6 +103,13 @@ export default abstract class BaseTabService<
 
   private async getSafeTabView(params: PublishParams) {
     try {
+      if (!params.user.is_active) {
+        return this.inactiveTabView.getView({
+          userId: params.user.slack_id,
+          userRole: params.user.role,
+        });
+      }
+
       return await this.getTabView(params);
     } catch (error) {
       this.logger.error(error);
