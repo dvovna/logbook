@@ -33,4 +33,7 @@ export enum ViewCallbackId {
   AdminVacationRequest = 'admin_vacation_request',
   UserVacationRequest = 'user_vacation_request',
   DeleteVacationRequest = 'delete_vacation_request',
+
+  // general
+  FallbackTabView = 'fallback_tab_view',
 }

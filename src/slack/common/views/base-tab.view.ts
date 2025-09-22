@@ -14,7 +14,7 @@ export interface IBaseTabViewParams {
 
 export abstract class BaseTabView<
   GetParams extends IBaseTabViewParams,
-  Metadata,
+  Metadata = unknown,
 > {
   protected abstract callbackId: ViewCallbackId;
 

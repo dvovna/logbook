@@ -23,7 +23,7 @@ export interface IGetUsersTabViewParams extends IPublishBaseParams {
 export interface IUsersTabViewFilters {
   teamId?: string;
   role?: UserRole;
-  user?: { value: string, name: string };
+  user?: { value: string; name: string };
   status?: 'active_only' | 'inactive_only';
 }
 

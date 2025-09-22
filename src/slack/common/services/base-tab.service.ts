@@ -1,5 +1,5 @@
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
 import { View } from '@slack/types/dist/views';
@@ -7,6 +7,7 @@ import {
   TabId,
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
+import { FallbackTabView } from 'src/slack/tabs/fallback/views/fallback-tab.view';
 
 export type IOpenModalBaseParams<PageMetadata = undefined> = {
   user: IUserViewModel;
@@ -31,11 +32,16 @@ export default abstract class BaseTabService<
   ModalViewResolversMap extends ModalViewResolversMapType,
   PublishParams extends IPublishBaseParams = IPublishBaseParams,
 > {
+  private readonly logger = new Logger(BaseTabService.name);
+
   @Inject(SlackCommunicationService)
   private readonly slackCommunicationService: SlackCommunicationService;
 
   @Inject(TabNavigationService)
   private readonly tabNavigationService: TabNavigationService;
+
+  @Inject(FallbackTabView)
+  private readonly fallbackTabView: FallbackTabView;
 
   protected constructor(
     private tabId: TabId,
@@ -51,7 +57,7 @@ export default abstract class BaseTabService<
 
   public publish = async (params: PublishParams) => {
     await this.slackCommunicationService.publishView(
-      await this.getTabView(params),
+      await this.getSafeTabView(params),
       params.user.slack_team_id,
     );
   };
@@ -72,6 +78,14 @@ export default abstract class BaseTabService<
     params: PublishParams,
   ): Promise<ViewsPublishArguments>;
 
+  protected getFallbackTabView(params: PublishParams) {
+    return this.fallbackTabView.getView({
+      userId: params.user.slack_id,
+      userRole: params.user.role,
+      tabId: this.tabId,
+    });
+  }
+
   public getModalView<Name extends keyof ModalViewResolversMap>(
     modalName: Name,
     params: Parameters<ModalViewResolversMap[Name]>[0],
@@ -81,5 +95,15 @@ export default abstract class BaseTabService<
     }
 
     return this.modalViewResolversMap[modalName](params);
+  }
+
+  private async getSafeTabView(params: PublishParams) {
+    try {
+      return await this.getTabView(params);
+    } catch (error) {
+      this.logger.error(error);
+
+      return this.getFallbackTabView(params);
+    }
   }
 }
