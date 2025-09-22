@@ -31,6 +31,7 @@ interface IFindParams {
   id?: string;
   slackTeamId: string;
   vacationPolicyId?: string;
+  isPrimary?: boolean;
 }
 
 interface IUpdateParams {
@@ -213,6 +214,9 @@ export default class TeamsService implements ITeamsService {
   private getFindQuery(params: IFindParams) {
     return {
       ...(params.id ? { id: params.id } : {}),
+      ...(params.isPrimary !== undefined
+        ? { is_primary: params.isPrimary }
+        : {}),
       slack_team_id: params.slackTeamId,
       ...(params.vacationPolicyId
         ? { vacation_policy_id: params.vacationPolicyId }

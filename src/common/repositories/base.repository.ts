@@ -237,6 +237,31 @@ export abstract class BaseRepository<
     );
   }
 
+  public async upsert(
+    data: Entity['Insert'] | Entity['Insert'][],
+    onConflict: string | string[] = 'id',
+  ): Promise<ViewModel | ViewModel[]> {
+    const isArray = Array.isArray(data);
+
+    const { data: upserted, error } = await this.client
+      .from(this.tableName)
+      // @ts-expect-error: supabase types can be too strict here
+      .upsert(data, { onConflict })
+      .select(this.buildSelect());
+
+    if (error) {
+      throw new Error(`[${this.tableName}] upsert error: ${error.message}`);
+    }
+
+    if (!upserted) {
+      return isArray ? [] : (null as unknown as ViewModel);
+    }
+
+    return isArray
+      ? (upserted as unknown as Entity['Row'][]).map(this.mapToViewModel)
+      : this.mapToViewModel(upserted[0] as unknown as Entity['Row']);
+  }
+
   public async deleteMany(filter: SupabaseFilter): Promise<number> {
     const query = this.client.from(this.tableName).delete();
 

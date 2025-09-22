@@ -69,6 +69,27 @@ export class UsersService implements IUsersService {
     });
   }
 
+  public async upsert({
+    email,
+    name,
+    role,
+    isActive,
+    slackId,
+    teamId,
+    slackTeamId,
+  }: ICreateUserParams) {
+    return await this.userRepository.upsert({
+      created_at: new Date().toISOString(),
+      email,
+      name,
+      role,
+      is_active: isActive,
+      team_id: teamId,
+      slack_team_id: slackTeamId,
+      slack_id: slackId,
+    });
+  }
+
   public async search(
     params: ISearchUsersParams,
   ): Promise<ISearchResult<IUserViewModel>> {

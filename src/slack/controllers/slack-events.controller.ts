@@ -17,6 +17,6 @@ export default class SlackEventsController {
 
     const event = req.body.event;
 
-    return this.slackEventsService.handleSlackEvent(event, req.user!);
+    return this.slackEventsService.handleSlackEvent(event, req.user);
   }
 }
