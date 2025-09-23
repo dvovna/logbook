@@ -21,7 +21,6 @@ export interface IApproverStepData {
   snapshot: IRequestSnapshotData;
   status: 'pending' | 'approved' | 'rejected';
   rule: ApprovalRule;
-  comment?: string | null;
   decided_at?: string | null;
   decided_by_slack_id?: string | null;
 }

@@ -39,7 +39,7 @@ export interface IVacationRequestModalViewMetadata {
 const ADMIN_VIEW_USER_ROLES = [UserRole.Admin, UserRole.HR];
 
 @Injectable()
-export class VacationRequestModalView extends BaseModalView<
+export class VacationRequestFormModalView extends BaseModalView<
   IGetViewParams,
   IVacationRequestModalViewMetadata
 > {

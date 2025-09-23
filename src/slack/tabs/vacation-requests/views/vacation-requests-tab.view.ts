@@ -50,6 +50,7 @@ export enum VacationRequestsTabViewActionId {
   ManageRequestMenu = 'manage_request_menu',
   UserField = 'user',
   CreateRequest = 'create_request',
+  ViewDetails = 'view_details',
   EditRequest = 'edit_request',
   DeleteRequest = 'delete_request',
   FilterRequestsByUser = 'filter_requests_by_user',
@@ -142,29 +143,29 @@ export class VacationRequestsTabView extends BaseAdminTabView<
             type: 'mrkdwn',
             text: `*${vacationRequest.user?.name || 'Unknown'}* (${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]})`,
           },
+          { type: 'mrkdwn', text: `📅 ${start} → ${end}` },
           {
             type: 'mrkdwn',
             text: `Team: ${vacationRequest.team?.name || '-'}`,
           },
-          { type: 'mrkdwn', text: `📅 ${start} → ${end}` },
+          { type: 'mrkdwn', text: `Days: ${vacationRequest.days}` },
           {
             type: 'mrkdwn',
             text: `Status: ${statusEmoji} ${capitalize(vacationRequest.status)}`,
           },
-          { type: 'mrkdwn', text: `Days: ${vacationRequest.days}` },
           {
             type: 'mrkdwn',
             text: `Working Days: ${vacationRequest.working_days}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `Comment: ${vacationRequest.comment || '-'}`,
           },
         ],
         accessory: {
           type: 'overflow',
           action_id: VacationRequestsTabViewActionId.ManageRequestMenu,
           options: [
+            {
+              text: { type: 'plain_text', text: 'View Details' },
+              value: `${VacationRequestsTabViewActionId.ViewDetails}:${vacationRequest.id}`,
+            },
             {
               text: { type: 'plain_text', text: 'Edit Request' },
               value: `${VacationRequestsTabViewActionId.EditRequest}:${vacationRequest.id}`,

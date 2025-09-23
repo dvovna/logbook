@@ -3,7 +3,7 @@ import { UserVacationsUsageService } from 'src/vacation-requests/services/vacati
 import { IUserViewModel } from 'src/users/types/user.interface';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { IVacationUsageByType } from 'src/vacation-requests/types/user-vacations-usage-info.interface';
-import { VacationRequestModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-modal.view';
+import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 
 export enum VacationCommand {
@@ -17,7 +17,7 @@ export default class VacationCommandService {
   public constructor(
     private readonly userVacationUsageService: UserVacationsUsageService,
     private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly vacationRequestViewService: VacationRequestModalView,
+    private readonly vacationRequestViewService: VacationRequestFormModalView,
   ) {}
 
   public async handleCommand(

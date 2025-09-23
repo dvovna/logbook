@@ -1,0 +1,44 @@
+import { Injectable } from '@nestjs/common';
+import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import BaseModalView, {
+  IBaseModalViewParams,
+} from 'src/slack/common/views/base-modal.view';
+import { AnyBlock } from '@slack/web-api';
+import { MAX_COMMENT_LENGTH } from 'src/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
+
+export interface IApproverStepCommentModalViewMetadata {
+  stepId: string;
+}
+
+@Injectable()
+export class ApproverStepCommentModalView extends BaseModalView<
+  IBaseModalViewParams,
+  IApproverStepCommentModalViewMetadata
+> {
+  protected callbackId = ViewCallbackId.ApproverMessageCommentFormSubmit;
+
+  protected getTitleText() {
+    return 'Add comment';
+  }
+
+  public getViewBlocks({ errorMessage }: IBaseModalViewParams): AnyBlock[] {
+    return [
+      {
+        type: 'input',
+        block_id: 'comment_block',
+        element: {
+          type: 'plain_text_input',
+          action_id: 'comment',
+          initial_value: '',
+          multiline: true,
+          max_length: MAX_COMMENT_LENGTH,
+        },
+        label: {
+          type: 'plain_text',
+          text: 'Comment',
+        },
+      },
+      ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
+    ];
+  }
+}

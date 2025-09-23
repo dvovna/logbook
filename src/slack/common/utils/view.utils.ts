@@ -14,12 +14,8 @@ export const toPlainTextOption = ({ id, name }: IOption): PlainTextOption => {
   };
 };
 
-export function withButtonAction<ActionType = unknown>(
-  handler: (
-    actionType: ActionType,
-    value: string,
-    user: IUserViewModel,
-  ) => unknown,
+export function withButtonAction(
+  handler: (value: string, user: IUserViewModel, trigger_id: string) => unknown,
 ) {
   return (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
     const buttonValue = (payload.actions[0] as ButtonAction).value;
@@ -30,6 +26,6 @@ export function withButtonAction<ActionType = unknown>(
       throw new Error('Invalid button value format');
     }
 
-    return handler(action as ActionType, value, user);
+    return handler(value, user, payload.trigger_id);
   };
 }

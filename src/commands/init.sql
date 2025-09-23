@@ -97,9 +97,33 @@ create table if not exists vacation_request_workflow_steps (
     id uuid primary key default gen_random_uuid(),
     vacation_request_id uuid not null references vacation_requests(id) on delete cascade,
     slack_user_id text not null,
-    step_order integer not null,
-    step_type text not null check (step_type in ('approver', 'notifier')),
+    step_level integer not null,
+    step_type text not null check (step_type in ('approver')),
     step_data jsonb not null default '{}'::jsonb,
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null
 );
+
+-- VACATION_REQUEST_STEP_COMMENTS
+CREATE TABLE request_workflow_step_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_id UUID NOT NULL,
+    slack_team_id TEXT NOT NULL,
+    slack_user_id TEXT NOT NULL,
+    step_id UUID NOT NULL,
+    created_by UUID NOT NULL,
+    step_level integer NOT NULL,
+    comment TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+CONSTRAINT fk_request
+    FOREIGN KEY (request_id) REFERENCES vacation_requests(id) ON DELETE CASCADE,
+CONSTRAINT fk_step
+    FOREIGN KEY (step_id) REFERENCES request_workflow_steps(id) ON DELETE CASCADE,
+CONSTRAINT fk_user
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Optional: index for lookups by request
+CREATE INDEX idx_request_workflow_step_comments_request_id
+    ON request_workflow_step_comments(request_id);

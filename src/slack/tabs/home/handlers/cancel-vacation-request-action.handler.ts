@@ -74,7 +74,7 @@ export class CancelVacationRequestActionHandler extends BaseModalFormSubmitHandl
       await this.homeTabService.getModalView(
         HomeTabModalName.CancelVacationRequest,
         {
-          vacationRequestId: meta.id,
+          requestId: meta.id,
           user,
           errorMessage,
         },

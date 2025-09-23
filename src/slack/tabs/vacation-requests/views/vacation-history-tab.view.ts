@@ -30,6 +30,8 @@ interface IGetViewParams extends IBaseTabViewParams {
 }
 
 export enum VacationHistoryTabViewActionId {
+  ManageRequestMenu = 'manage_request_menu',
+  ViewDetails = 'vacation_view_details',
   PaginationPrev = 'requests_pagination_prev',
   PaginationNext = 'requests_pagination_next',
   FilterRequestsByYear = 'filter_requests_by_year',
@@ -99,17 +101,23 @@ export class VacationHistoryTabView extends BaseTabView<
             type: 'mrkdwn',
             text: `*${vacationRequest.user?.name || 'Unknown'}* (${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]})`,
           },
-          { type: 'mrkdwn', text: `📅 ${start} → ${end}` },
           { type: 'mrkdwn', text: `Days: ${vacationRequest.days}` },
+          { type: 'mrkdwn', text: `📅 ${start} → ${end}` },
           {
             type: 'mrkdwn',
             text: `Working Days: ${vacationRequest.working_days}`,
           },
-          {
-            type: 'mrkdwn',
-            text: `Comment: ${vacationRequest.comment || '-'}`,
-          },
         ],
+        accessory: {
+          type: 'overflow',
+          action_id: VacationHistoryTabViewActionId.ManageRequestMenu,
+          options: [
+            {
+              text: { type: 'plain_text', text: 'View Details' },
+              value: `${VacationHistoryTabViewActionId.ViewDetails}:${vacationRequest.id}`,
+            },
+          ],
+        },
       },
       { type: 'divider' },
     ];

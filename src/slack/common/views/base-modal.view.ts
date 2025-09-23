@@ -11,7 +11,7 @@ export interface IBaseModalViewParams<
 }
 
 export interface IActionButtons {
-  submit: PlainTextElement;
+  submit?: PlainTextElement;
   close: PlainTextElement;
 }
 
@@ -31,13 +31,14 @@ export default abstract class BaseModalView<
 {
   protected callbackId?: ViewCallbackId;
 
-  public getView(viewParams: ViewParams, metadata?: Metadata): View {
+  public getView(viewParams?: ViewParams, metadata?: Metadata): View {
     return {
       type: 'modal',
-      callback_id: viewParams.callbackId || this.callbackId,
+      callback_id: viewParams?.callbackId || this.callbackId,
       private_metadata: JSON.stringify(metadata || {}),
       title: {
         type: 'plain_text',
+        emoji: true,
         text: this.getTitleText(viewParams),
       },
       ...this.getActionButtons(viewParams),
@@ -46,13 +47,13 @@ export default abstract class BaseModalView<
   }
 
   protected abstract getViewBlocks(
-    viewParams: ViewParams,
+    viewParams?: ViewParams,
     metadata?: Metadata,
   ): AnyBlock[];
 
-  protected abstract getTitleText(viewParams: ViewParams): string;
+  protected abstract getTitleText(viewParams?: ViewParams): string;
 
-  protected getActionButtons(_viewParams: ViewParams): IActionButtons {
+  protected getActionButtons(_viewParams?: ViewParams): IActionButtons {
     return {
       submit: { type: 'plain_text', text: 'Submit' },
       close: { type: 'plain_text', text: 'Cancel' },

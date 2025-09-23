@@ -7,15 +7,18 @@ import {
   ICreateParams,
   RequestWorkflowStepsService,
 } from 'src/request-workflows/services/request-workflow-steps.service';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
 import { WorkflowStepProcessorService } from 'src/request-workflows/services/workflow-step-processor.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { VacationWorkflowEventEnum } from 'src/common/enums/vacation-workflow-event.enum';
 import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
 import { IVacationWorkflow } from 'src/common/types/vacation-workflow.types';
 import { VacationWorkflowFinished } from 'src/common/events/vacation-workflow.events';
+import { WorkflowStepCommentEvent } from 'src/request-workflows/enums/workflow-step-comment-event.enum';
+import { RequestWorkflowStepCommentsService } from 'src/request-workflows/services/request-workflow-step-comments.service';
+import { RequestWorkflowStepCommentAddedEvent } from 'src/request-workflows/events/request-workflow-step-comment.events';
 
 export interface ICreateWorkflowLevelParams {
   rule: ApprovalRule;
@@ -36,9 +39,12 @@ const INITIAL_STEP_STATUS = 'pending';
 
 @Injectable()
 export class RequestWorkflowService {
+  private readonly logger = new Logger(RequestWorkflowService.name);
+
   public constructor(
     private readonly requestWorkflowStepsService: RequestWorkflowStepsService,
     private readonly workflowStepProcessorService: WorkflowStepProcessorService,
+    private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -78,7 +84,7 @@ export class RequestWorkflowService {
       throw new NotFoundException('No steps found for the first level');
     }
 
-    await this.workflowStepProcessorService.activateSteps(firstLevelSteps);
+    await this.workflowStepProcessorService.processSteps(firstLevelSteps, []);
   }
 
   public async approveStep(stepId: string, approvedBy: IUserViewModel) {
@@ -110,7 +116,16 @@ export class RequestWorkflowService {
       stepsToComplete.push(...levelSteps);
     }
 
-    await this.workflowStepProcessorService.completeSteps(stepsToComplete);
+    const levelComments =
+      await this.requestWorkflowStepCommentsService.findMany({
+        requestId: step.request_id,
+        slackTeamId: step.slack_team_id,
+      });
+
+    await this.workflowStepProcessorService.completeSteps(
+      stepsToComplete,
+      levelComments,
+    );
 
     const isLevelComplete =
       step.step_data.rule === ApprovalRule.Any ||
@@ -137,14 +152,54 @@ export class RequestWorkflowService {
       rejectedBy,
     );
 
-    await this.workflowStepProcessorService.completeSteps(steps);
+    const approverComments =
+      await this.requestWorkflowStepCommentsService.findMany({
+        requestId: step.request_id,
+        slackTeamId: step.slack_team_id,
+      });
+
+    await this.workflowStepProcessorService.completeSteps(
+      steps,
+      approverComments,
+    );
 
     this.finishWorkflow({
       requestId: step.request_id,
       status: RequestWorkflowStatus.Rejected,
       slackTeamId: rejectedBy.slack_team_id,
       approvedBy: rejectedBy.id,
+      reviewComments: approverComments,
     });
+  }
+
+  @OnEvent(WorkflowStepCommentEvent.Added)
+  private async handleStepCommentAdded({
+    comment,
+  }: RequestWorkflowStepCommentAddedEvent) {
+    const stepsToUpdate = await this.requestWorkflowStepsService.findMany({
+      stepLevel: comment.step_level,
+      requestId: comment.request_id,
+      slackTeamId: comment.slack_team_id,
+      completed: false,
+    });
+
+    if (stepsToUpdate.length === 0) {
+      this.logger.warn(
+        `No steps found for comment ID ${comment.id} at level ${comment.step_level} for request ID ${comment.request_id}`,
+      );
+
+      return;
+    }
+
+    const comments = await this.requestWorkflowStepCommentsService.findMany({
+      requestId: comment.request_id,
+      slackTeamId: comment.slack_team_id,
+    });
+
+    await this.workflowStepProcessorService.updateStepMessages(
+      stepsToUpdate,
+      comments,
+    );
   }
 
   private async completeLevelSteps(
@@ -195,8 +250,18 @@ export class RequestWorkflowService {
       completed: false,
     });
 
+    const approverComments =
+      await this.requestWorkflowStepCommentsService.findMany({
+        requestId: step.request_id,
+        slackTeamId: step.slack_team_id,
+      });
+
     if (nextLevelSteps.length > 0) {
-      await this.workflowStepProcessorService.activateSteps(nextLevelSteps);
+      await this.workflowStepProcessorService.processSteps(
+        nextLevelSteps,
+        approverComments,
+      );
+
       return;
     }
 
@@ -205,6 +270,7 @@ export class RequestWorkflowService {
       status: RequestWorkflowStatus.Approved,
       slackTeamId: step.slack_team_id,
       approvedBy: approvedBy.id,
+      reviewComments: approverComments,
     });
   }
 }

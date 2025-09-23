@@ -40,7 +40,7 @@ export type SupabaseFilter = Record<
   SupabaseSimpleValue | undefined | IFilterParams | IFilterParams[]
 >;
 
-interface IQueryOptions {
+export interface IQueryOptions {
   limit?: number;
   offset?: number;
   orderBy?: string[];

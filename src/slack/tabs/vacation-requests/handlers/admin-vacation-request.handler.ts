@@ -10,8 +10,8 @@ import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import {
   IVacationRequestModalViewMetadata,
-  VacationRequestModalView,
-} from 'src/slack/tabs/vacation-requests/views/vacation-request-modal.view';
+  VacationRequestFormModalView,
+} from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
 import { IVacationRequestsTabMetadata } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
@@ -36,7 +36,7 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly tabNavigationService: TabNavigationService,
-    private readonly vacationRequestModalView: VacationRequestModalView,
+    private readonly vacationRequestModalView: VacationRequestFormModalView,
     private readonly usersService: UsersService,
     vacationRequestAdminViewValuesParser: VacationRequestAdminViewValuesParser,
   ) {
@@ -87,7 +87,7 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
         endDate: new Date(data.end_date),
         type: data.type_option.value,
         status: data.status.value || VacationRequestStatus.Pending,
-        comment: data.comment,
+        userComment: data.comment,
       },
       user,
     );
@@ -113,7 +113,7 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
         userId: data.user.value,
         type: data.type_option.value,
         status: data.status.value,
-        comment: data.comment,
+        userComment: data.comment,
         startDate: new Date(data.start_date),
         endDate: new Date(data.end_date),
       },

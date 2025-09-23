@@ -6,6 +6,7 @@ import { RequestWorkflowStepsRepository } from 'src/request-workflows/repositori
 import { Json } from 'src/common/types/database.types';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+  IQueryOptions,
   SupabaseFilter,
   Tables,
 } from 'src/common/repositories/base.repository';
@@ -23,6 +24,7 @@ export interface ICreateParams {
 interface IUpdateParams {
   slackMessageTs?: string;
   slackChannelId?: string;
+  processedAt?: string;
   stepData?: IApproverStepData;
   completedAt?: string;
 }
@@ -31,6 +33,7 @@ interface IFindParams {
   id?: string;
   requestId?: string;
   slackUserId?: string;
+  processed?: boolean;
   stepLevel?: number;
   stepType?: WorkflowStepType;
   slackTeamId: string;
@@ -88,6 +91,9 @@ export class RequestWorkflowStepsService {
         ...(updateData.slackChannelId
           ? { slack_channel_id: updateData.slackChannelId }
           : {}),
+        ...(updateData.processedAt
+          ? { processed_at: updateData.processedAt }
+          : {}),
         updated_at: new Date().toISOString(),
         ...(updateData.stepData
           ? { step_data: updateData.stepData as unknown as Json | undefined }
@@ -136,10 +142,13 @@ export class RequestWorkflowStepsService {
     );
   }
 
-  public findMany(findParams: IFindParams) {
+  public findMany(findParams: IFindParams, options: IQueryOptions = {}) {
     return this.requestWorkflowStepsRepository.findMany(
       this.getFindQuery(findParams),
-      { orderBy: ['step_level:asc'] },
+      {
+        orderBy: ['step_level:asc'],
+        ...options,
+      },
     );
   }
 
@@ -166,6 +175,13 @@ export class RequestWorkflowStepsService {
       ...(params.completed !== undefined
         ? {
           completed_at: params.completed
+            ? { operator: 'not.is', value: null }
+            : { operator: 'is', value: null },
+        }
+        : {}),
+      ...(params.processed !== undefined
+        ? {
+          processed_at: params.processed
             ? { operator: 'not.is', value: null }
             : { operator: 'is', value: null },
         }

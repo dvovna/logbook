@@ -30,6 +30,7 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
       completed_at: row.completed_at,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      processed_at: row.processed_at,
     } as IRequestWorkflowStepViewModel;
   };
 }

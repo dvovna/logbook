@@ -94,6 +94,19 @@ export default class VacationRequestsTabActionsHandler extends BaseAdminTabActio
     user: IUserViewModel,
   ) => {
     switch (actionType) {
+      case VacationRequestsTabViewActionId.ViewDetails: {
+        await this.vacationRequestsTabService.openModal(
+          payload.trigger_id || user.slack_id,
+          VacationRequestsTabModalName.ViewRequest,
+          {
+            user,
+            requestId,
+            pageMetadata: payload.view.private_metadata,
+          },
+        );
+
+        break;
+      }
       case VacationRequestsTabViewActionId.EditRequest: {
         await this.vacationRequestsTabService.openModal(
           payload.trigger_id || user.slack_id,

@@ -8,21 +8,26 @@ import BaseTabService, {
   IPublishBaseParams,
 } from 'src/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
-import { VacationRequestModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-modal.view';
+import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { TabId } from 'src/slack/common/services/tab-navigation.service';
 import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
+import { VacationDetailsModalService } from 'src/slack/tabs/vacation-requests/services/vacation-details-modal.service';
 
 export enum HomeTabModalName {
+  ViewVacationRequest = 'ViewVacationRequest',
   CreateVacationRequest = 'CreateVacationRequest',
   CancelVacationRequest = 'CancelVacationRequest',
 }
 
 interface IRequestModalParams extends IOpenModalBaseParams {
-  vacationRequestId: string;
+  requestId: string;
 }
 
 type HomeTabModalViewResolversMapType = {
+  [HomeTabModalName.ViewVacationRequest]: (
+    params: IRequestModalParams,
+  ) => Promise<View>;
   [HomeTabModalName.CreateVacationRequest]: (
     params: IOpenModalBaseParams,
   ) => View;
@@ -37,10 +42,13 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly homeTabViewService: HomeTabView,
     private readonly userVacationsUsageService: UserVacationsUsageService,
     private readonly vacationsService: VacationRequestsService,
-    private readonly vacationRequestModalView: VacationRequestModalView,
+    private readonly vacationRequestModalView: VacationRequestFormModalView,
+    private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super(TabId.Home, {
+      [HomeTabModalName.ViewVacationRequest]: (params) =>
+        this.getViewVacationRequestModal(params),
       [HomeTabModalName.CreateVacationRequest]: (params) =>
         this.getCreateVacationRequestModal(params),
       [HomeTabModalName.CancelVacationRequest]: (params) =>
@@ -66,6 +74,10 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     });
   }
 
+  private getViewVacationRequestModal(params: IRequestModalParams) {
+    return this.vacationDetailsModalService.getModal(params);
+  }
+
   private getCreateVacationRequestModal(params: IOpenModalBaseParams) {
     return this.vacationRequestModalView.getView({
       errorMessage: params.errorMessage,
@@ -74,7 +86,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
   }
 
   private getCancelVacationRequestModal(params: IRequestModalParams) {
-    const { vacationRequestId, errorMessage } = params;
+    const { requestId, errorMessage } = params;
 
     return this.confirmationModalView.getView(
       {
@@ -84,7 +96,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
         errorMessage,
       },
       {
-        id: vacationRequestId,
+        id: requestId,
       },
     );
   }

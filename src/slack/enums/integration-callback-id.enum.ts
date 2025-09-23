@@ -33,6 +33,10 @@ export enum ViewCallbackId {
   AdminVacationRequest = 'admin_vacation_request',
   UserVacationRequest = 'user_vacation_request',
   DeleteVacationRequest = 'delete_vacation_request',
+  ViewVacationRequestDetails = 'view_vacation_request_details',
+
+  // approver-step-comments
+  ApproverMessageCommentFormSubmit = 'approver_message_comment_form_submit',
 
   // general
   FallbackTabView = 'fallback_tab_view',

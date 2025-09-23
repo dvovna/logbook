@@ -9,7 +9,7 @@ export interface IVacationRequestViewModel {
   working_days: number;
   type: VacationType;
   status: VacationRequestStatus;
-  comment?: string | null;
+  user_comment?: string | null;
   team: {
     id: string;
     name: string;

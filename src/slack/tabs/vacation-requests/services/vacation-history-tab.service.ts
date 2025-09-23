@@ -11,23 +11,42 @@ import {
   VacationHistoryTabView,
 } from 'src/slack/tabs/vacation-requests/views/vacation-history-tab.view';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import {
+  IViewVacationRequestModalViewParams,
+  VacationDetailsModalService,
+} from 'src/slack/tabs/vacation-requests/services/vacation-details-modal.service';
+import { View } from '@slack/types';
 
 export type IPublishVacationsHistoryTabViewParams =
   IPublishBaseParams<IVacationHistoryTabMetadata>;
 
 const VACATION_HISTORY_PAGE_SIZE = 5;
 
+export enum HistoryTabModalName {
+  ViewRequestDetails = 'ViewRequestDetails',
+}
+
+type HistoryTabModalViewResolversMapType = {
+  [HistoryTabModalName.ViewRequestDetails]: (
+    params: IViewVacationRequestModalViewParams,
+  ) => Promise<View>;
+};
+
 @Injectable()
 export class VacationHistoryTabService extends BaseTabService<
-  never,
+  HistoryTabModalViewResolversMapType,
   IPublishVacationsHistoryTabViewParams
 > {
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly vacationsHistoryTabView: VacationHistoryTabView,
+    private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly config: ConfigService,
   ) {
-    super(TabId.VacationsHistory);
+    super(TabId.VacationsHistory, {
+      [HistoryTabModalName.ViewRequestDetails]: (params) =>
+        this.getViewRequestDetailsModal(params),
+    });
   }
 
   protected async getTabView(params: IPublishVacationsHistoryTabViewParams) {
@@ -50,6 +69,12 @@ export class VacationHistoryTabService extends BaseTabService<
     );
   }
 
+  private async getViewRequestDetailsModal(
+    params: IViewVacationRequestModalViewParams,
+  ): Promise<View> {
+    return this.vacationDetailsModalService.getModal(params);
+  }
+
   private async getVacationRequests({
     user,
     metadata = {},
@@ -59,7 +84,7 @@ export class VacationHistoryTabService extends BaseTabService<
     return this.vacationRequestsService.search({
       page: metadata.page,
       pageSize: VACATION_HISTORY_PAGE_SIZE,
-      orderBy: ['start_date:desc'],
+      orderBy: ['start_date:desc', 'created_at:desc'],
       filters: {
         slackTeamId: user.slack_team_id,
         userId: user.id,

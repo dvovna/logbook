@@ -18,6 +18,7 @@ export enum HomeTabActionId {
   OpenVacationModal = 'open_vacation_modal',
   ViewHistory = 'view_history',
   CancelRequest = 'cancel_vacation_request',
+  ViewDetails = 'view_vacation_request_details',
   ManagePendingRequestMenu = 'manage_pending_request_menu',
 }
 
@@ -163,6 +164,13 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
           type: 'overflow',
           action_id: HomeTabActionId.ManagePendingRequestMenu,
           options: [
+            {
+              text: {
+                type: 'plain_text',
+                text: '📋 View Details',
+              },
+              value: `${HomeTabActionId.ViewDetails}:${vacation.id}`,
+            },
             {
               text: { type: 'plain_text', text: '❌ Cancel' },
               value: `${HomeTabActionId.CancelRequest}:${vacation.id}`,

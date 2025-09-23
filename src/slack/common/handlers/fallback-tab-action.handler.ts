@@ -27,16 +27,13 @@ export class FallbackTabActionHandler extends BaseActionHandler {
     super();
 
     this.actionMap = {
-      [FallbackTabViewActionId.Retry]:
-        withButtonAction<FallbackTabViewActionId>(this.handleButtonAction),
+      [FallbackTabViewActionId.Retry]: withButtonAction(
+        this.handleButtonAction,
+      ),
     };
   }
 
-  private handleButtonAction = (
-    _: FallbackTabViewActionId,
-    tabId: TabId,
-    user: IUserViewModel,
-  ) => {
+  private handleButtonAction = (tabId: TabId, user: IUserViewModel) => {
     this.tabNavigationService.navigate(tabId, { user });
   };
 }

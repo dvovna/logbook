@@ -25,7 +25,7 @@ interface ICreateParams {
   endDate: Date;
   type: VacationType;
   status: VacationRequestStatus;
-  comment?: string | null;
+  userComment?: string | null;
 }
 
 interface IUpdateParams {
@@ -34,7 +34,7 @@ interface IUpdateParams {
   endDate?: Date;
   type?: VacationType;
   status?: VacationRequestStatus;
-  comment?: string | null;
+  userComment?: string | null;
   userId?: string;
 }
 
@@ -121,7 +121,7 @@ export class VacationRequestsService implements IVacationRequestsService {
       working_days: workingDays,
       type,
       status: createParams.status,
-      comment: createParams.comment || null,
+      user_comment: createParams.userComment || null,
       slack_team_id: user.slack_team_id,
       created_at: now,
       updated_at: now,
@@ -159,7 +159,7 @@ export class VacationRequestsService implements IVacationRequestsService {
       startDate = new Date(existingRequest.start_date),
       endDate = new Date(existingRequest.end_date),
       type = existingRequest.type,
-      comment,
+      userComment,
       status,
       userId,
       teamId,
@@ -203,7 +203,7 @@ export class VacationRequestsService implements IVacationRequestsService {
           ? { end_date: endDate.toISOString() }
           : {}),
         ...(type !== undefined ? { type } : {}),
-        ...(comment !== undefined ? { comment: comment } : {}),
+        ...(userComment !== undefined ? { user_comment: userComment } : {}),
         ...(status !== undefined ? { status: status } : {}),
         ...(userId !== undefined ? { user_id: userId } : {}),
         ...(teamId !== undefined ? { team_id: teamId } : {}),

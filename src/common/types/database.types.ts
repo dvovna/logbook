@@ -91,11 +91,70 @@ export type Database = {
           },
         ]
       }
+      request_workflow_step_comments: {
+        Row: {
+          comment: string
+          created_at: string
+          created_by: string
+          id: string
+          request_id: string
+          slack_team_id: string
+          slack_user_id: string
+          step_id: string
+          step_level: number
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          request_id: string
+          slack_team_id: string
+          slack_user_id: string
+          step_id: string
+          step_level: number
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          request_id?: string
+          slack_team_id?: string
+          slack_user_id?: string
+          step_id?: string
+          step_level?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_request"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_step"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "request_workflow_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_workflow_step_comments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       request_workflow_steps: {
         Row: {
           completed_at: string | null
           created_at: string
           id: string
+          processed_at: string | null
           request_id: string
           slack_channel_id: string | null
           slack_message_ts: string | null
@@ -110,6 +169,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
+          processed_at?: string | null
           request_id: string
           slack_channel_id?: string | null
           slack_message_ts?: string | null
@@ -124,6 +184,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
+          processed_at?: string | null
           request_id?: string
           slack_channel_id?: string | null
           slack_message_ts?: string | null
@@ -392,7 +453,6 @@ export type Database = {
         Row: {
           approved_by_hr: boolean | null
           approved_by_manager: boolean | null
-          comment: string | null
           created_at: string | null
           created_by: string
           days: number
@@ -405,13 +465,13 @@ export type Database = {
           type: string
           updated_at: string | null
           updated_by: string
+          user_comment: string | null
           user_id: string
           working_days: number
         }
         Insert: {
           approved_by_hr?: boolean | null
           approved_by_manager?: boolean | null
-          comment?: string | null
           created_at?: string | null
           created_by: string
           days: number
@@ -424,13 +484,13 @@ export type Database = {
           type?: string
           updated_at?: string | null
           updated_by: string
+          user_comment?: string | null
           user_id: string
           working_days: number
         }
         Update: {
           approved_by_hr?: boolean | null
           approved_by_manager?: boolean | null
-          comment?: string | null
           created_at?: string | null
           created_by?: string
           days?: number
@@ -443,6 +503,7 @@ export type Database = {
           type?: string
           updated_at?: string | null
           updated_by?: string
+          user_comment?: string | null
           user_id?: string
           working_days?: number
         }

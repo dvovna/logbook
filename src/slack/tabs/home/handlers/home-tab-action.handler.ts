@@ -58,16 +58,23 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
 
   private handleMenuAction = async (
     actionType: HomeTabActionId,
-    vacationRequestId: string,
+    requestId: string,
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
     switch (actionType) {
+      case HomeTabActionId.ViewDetails: {
+        return this.homeTabService.openModal(
+          payload.trigger_id || user.slack_id,
+          HomeTabModalName.ViewVacationRequest,
+          { user, requestId },
+        );
+      }
       case HomeTabActionId.CancelRequest: {
         return this.homeTabService.openModal(
           payload.trigger_id || user.slack_id,
           HomeTabModalName.CancelVacationRequest,
-          { user, vacationRequestId },
+          { user, requestId },
         );
       }
       default: {

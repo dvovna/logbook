@@ -39,7 +39,7 @@ export class VacationRequestProcessingService {
         start_date: request.start_date,
         end_date: request.end_date,
         type: request.type,
-        comment: request.comment || '',
+        comment: request.user_comment || '',
         days: request.days,
         working_days: request.working_days,
       },
