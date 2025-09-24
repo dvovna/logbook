@@ -60,6 +60,7 @@ export class RequestWorkflowStepCommentsService {
   public findMany(params: IFindParams) {
     return this.requestWorkflowStepCommentsRepository.findMany(
       this.getFindQuery(params),
+      { orderBy: ['created_at:asc'] },
     );
   }
 
