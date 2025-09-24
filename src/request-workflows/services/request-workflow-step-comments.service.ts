@@ -4,6 +4,7 @@ import { SupabaseFilter } from 'src/common/repositories/base.repository';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RequestWorkflowStepCommentAddedEvent } from 'src/request-workflows/events/request-workflow-step-comment.events';
 import { WorkflowStepCommentEvent } from 'src/request-workflows/enums/workflow-step-comment-event.enum';
+import { ValidationError } from 'src/common/errors/validation.error';
 
 interface ICreateParams {
   requestId: string;
@@ -25,6 +26,8 @@ interface IFindParams {
   slackTeamId: string;
 }
 
+const MAX_COMMENTS_PER_STEP = 10;
+
 @Injectable()
 export class RequestWorkflowStepCommentsService {
   public constructor(
@@ -33,6 +36,17 @@ export class RequestWorkflowStepCommentsService {
   ) {}
 
   public async create(commentData: ICreateParams) {
+    const stepCommentsTotal =
+      await this.requestWorkflowStepCommentsRepository.count({
+        request_id: commentData.requestId,
+        slack_team_id: commentData.slackTeamId,
+        step_id: commentData.stepId,
+      });
+
+    if (stepCommentsTotal >= MAX_COMMENTS_PER_STEP) {
+      throw new ValidationError('Comment limit reached for this step');
+    }
+
     const comment = await this.requestWorkflowStepCommentsRepository.create({
       request_id: commentData.requestId,
       slack_team_id: commentData.slackTeamId,
