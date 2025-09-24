@@ -39,7 +39,7 @@ export class VacationDetailsModalService {
           processed: true,
         },
         {
-          orderBy: ['step_level:asc', 'processed_at:desc'],
+          orderBy: ['step_level:asc', 'completed_at:asc', 'processed_at:desc'],
         },
       ),
       this.requestWorkflowStepCommentsService.findMany({

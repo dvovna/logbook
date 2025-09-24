@@ -63,7 +63,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
           },
           {
             type: 'mrkdwn',
-            text: `📌 *Status:*\n${request.status.toUpperCase()}`,
+            text: `📌 *Status:*\n${capitalize(request.status)}`,
           },
         ],
       },
@@ -90,30 +90,24 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
     });
 
     const commentsByStep = this.getGroupedCommentsByStep(reviewComments);
+    const groupedStepsByLevel = this.getGroupedStepsByLevel(steps);
 
-    steps.forEach((step) => {
-      const stepComments = commentsByStep[step.id] || [];
+    const sortedLevels = this.getSortedLevels(Object.keys(groupedStepsByLevel));
 
-      const statusEmoji =
-        step.step_data.status === 'approved'
-          ? '✅'
-          : step.step_data.status === 'rejected'
-            ? '❌'
-            : '⏳';
+    sortedLevels.forEach((level) => {
+      const steps = groupedStepsByLevel[level];
 
-      const decidedBy = step.step_data.decided_by_slack_id
-        ? `<@${step.step_data.decided_by_slack_id}>`
-        : `<@${step.slack_user_id}>`;
+      const lines: string[] = [`*Step ${level}*`];
 
-      const lines: string[] = [
-        `${statusEmoji} *${capitalize(step.step_data.status)}* by ${decidedBy}`,
-      ];
+      steps.forEach((step) => {
+        const stepComments = commentsByStep[step.id] || [];
 
-      if (stepComments.length > 0) {
-        stepComments.forEach((c) => {
-          lines.push(`• ${c.comment} (by <@${c.slack_user_id}>)`);
+        const stepSummary = this.getStepSummary(step, stepComments);
+
+        stepSummary.forEach((summaryLine) => {
+          lines.push(`    ${summaryLine}`);
         });
-      }
+      });
 
       blocks.push({
         type: 'context',
@@ -138,6 +132,34 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
     return blocks;
   }
 
+  private getStepSummary(
+    step: IRequestWorkflowStepViewModel,
+    stepComments: IWorkflowStepCommentViewModel[],
+  ) {
+    const statusEmoji =
+      step.step_data.status === 'approved'
+        ? '✅'
+        : step.step_data.status === 'rejected'
+          ? '❌'
+          : '⏳';
+
+    const decidedBy = step.step_data.decided_by_slack_id
+      ? `<@${step.step_data.decided_by_slack_id}>`
+      : `<@${step.slack_user_id}>`;
+
+    const lines: string[] = [
+      `${statusEmoji} *${capitalize(step.step_data.status)}* by ${decidedBy}`,
+    ];
+
+    if (stepComments.length > 0) {
+      stepComments.forEach((c) => {
+        lines.push(`• ${c.comment} (by <@${c.slack_user_id}>)`);
+      });
+    }
+
+    return lines;
+  }
+
   private getGroupedCommentsByStep(comments: IWorkflowStepCommentViewModel[]) {
     return comments.reduce(
       (acc, comment) => {
@@ -151,5 +173,24 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
       },
       {} as Record<string, IWorkflowStepCommentViewModel[]>,
     );
+  }
+
+  private getGroupedStepsByLevel(steps: IRequestWorkflowStepViewModel[]) {
+    return steps.reduce(
+      (acc, step) => {
+        if (!acc[step.step_level]) {
+          acc[step.step_level] = [];
+        }
+
+        acc[step.step_level].push(step);
+
+        return acc;
+      },
+      {} as Record<number, IRequestWorkflowStepViewModel[]>,
+    );
+  }
+
+  private getSortedLevels(levels: string[]) {
+    return levels.map((level) => parseInt(level, 10)).sort((a, b) => a - b);
   }
 }
