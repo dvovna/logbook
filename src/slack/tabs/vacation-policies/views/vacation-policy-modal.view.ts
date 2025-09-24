@@ -112,7 +112,7 @@ export class VacationPolicyModalView extends BaseModalView<
         },
         label: {
           type: 'plain_text',
-          text: 'Carryover Days (from previous period)',
+          text: 'Max Carryover Days (from previous period)',
         },
       },
       ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),

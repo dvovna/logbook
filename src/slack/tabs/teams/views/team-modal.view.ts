@@ -101,11 +101,11 @@ export class TeamModalView extends BaseModalView<
         actionId: 'manager_approvers_rule',
         label: 'Managers Approval Rule',
         options: [
-          { name: 'All listed approvers must approve', id: 'all_must_approve' },
+          { name: 'All listed approvers must approve', id: ApprovalRule.All },
         ],
         initialValues:
           params.initialData?.managerApproversRule === ApprovalRule.All
-            ? ['all_must_approve']
+            ? [ApprovalRule.All]
             : [],
         optional: true,
       }),
@@ -125,11 +125,11 @@ export class TeamModalView extends BaseModalView<
         actionId: 'hr_approvers_rule',
         label: 'HR Approval Rule',
         options: [
-          { name: 'All listed approvers must approve', id: 'all_must_approve' },
+          { name: 'All listed approvers must approve', id: ApprovalRule.All },
         ],
         initialValues:
           params.initialData?.hrApproversRule === ApprovalRule.All
-            ? ['all_must_approve']
+            ? [ApprovalRule.All]
             : [],
         optional: true,
       }),
