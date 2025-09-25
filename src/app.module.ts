@@ -18,9 +18,11 @@ import { TeamsModule } from './teams/teams.module';
 import { envSchema } from 'src/env.schema';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RequestWorkflowsModule } from './request-workflows/request-workflows.module';
+import { LoggerModule } from 'nestjs-pino';
 
 @Module({
   imports: [
+    LoggerModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       validate: (config) => {
