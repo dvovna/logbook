@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { ConfigService } from '@nestjs/config';
-import { UserVacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
+import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
@@ -12,7 +12,7 @@ import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
 export class VacationRequestsValidationService {
   public constructor(
     private readonly vacationRequestsRepository: VacationRequestsRepository,
-    private readonly userVacationsUsageService: UserVacationsUsageService,
+    private readonly userVacationsUsageService: VacationsUsageService,
     private readonly config: ConfigService,
   ) {}
 

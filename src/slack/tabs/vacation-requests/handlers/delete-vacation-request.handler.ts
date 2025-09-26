@@ -62,10 +62,13 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<ICo
     metadata: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ) {
-    await this.vacationRequestsService.delete({
-      id: metadata.id,
-      slackTeamId: user.slack_team_id,
-    });
+    await this.vacationRequestsService.delete(
+      {
+        id: metadata.id,
+        slackTeamId: user.slack_team_id,
+      },
+      user,
+    );
   }
 
   protected async errorResponse(

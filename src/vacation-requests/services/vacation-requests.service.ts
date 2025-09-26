@@ -15,7 +15,10 @@ import { VacationDaysCalculationService } from 'src/vacation-requests/services/v
 import TeamsService from 'src/teams/services/teams.service';
 import { getDateOnly } from 'src/common/utils/date.utils';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
-import { VacationRequestCreatedEvent } from 'src/vacation-requests/events/vacation-request.events';
+import {
+  VacationRequestCreatedEvent,
+  VacationRequestUpdatedEvent,
+} from 'src/vacation-requests/events/vacation-request.events';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 interface ICreateParams {
@@ -135,7 +138,7 @@ export class VacationRequestsService implements IVacationRequestsService {
 
     this.eventEmitter.emit(
       VacationRequestEvent.Created,
-      new VacationRequestCreatedEvent(request),
+      new VacationRequestCreatedEvent(request, user),
     );
 
     return request;
@@ -191,7 +194,7 @@ export class VacationRequestsService implements IVacationRequestsService {
       );
     }
 
-    return await this.vacationRequestsRepository.update(
+    const updatedRequest = await this.vacationRequestsRepository.update(
       {
         id,
         slack_team_id: slackTeamId,
@@ -212,6 +215,13 @@ export class VacationRequestsService implements IVacationRequestsService {
         updated_at: new Date().toISOString(),
       },
     );
+
+    this.eventEmitter.emit(
+      VacationRequestEvent.Updated,
+      new VacationRequestUpdatedEvent(updatedRequest, user),
+    );
+
+    return updatedRequest;
   }
 
   public findOne(
@@ -250,11 +260,16 @@ export class VacationRequestsService implements IVacationRequestsService {
     });
   }
 
-  public async delete(findParams: IFindParams) {
+  public async delete(findParams: IFindParams, user: IUserViewModel) {
     const request = await this.findOneWithValidation(findParams);
 
     await this.vacationRequestsRepository.deleteMany(
       this.getFindQuery(findParams),
+    );
+
+    this.eventEmitter.emit(
+      VacationRequestEvent.Deleted,
+      new VacationRequestUpdatedEvent(request, user),
     );
 
     return request;

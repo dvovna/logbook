@@ -6,6 +6,7 @@ interface ITeamViewModel {
   description: string;
   is_primary: boolean;
   vacation_policy_id: string;
+  vacation_policy: { id: string; name: string } | null;
   manager_approvers: string[] | null;
   hr_approvers: string[] | null;
   approval_notification_recipients: string[] | null;

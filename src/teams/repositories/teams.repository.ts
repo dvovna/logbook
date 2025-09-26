@@ -14,23 +14,34 @@ export class TeamsRepository extends BaseRepository<
 > {
   protected tableName: TableName = 'teams';
 
+  protected relations = {
+    vacation_policy: 'vacation_policy_id ( id, name )',
+  };
+
   protected mapToViewModel = (row: Tables['teams']['Row']) => {
+    const extendedRow = row as Tables['teams']['Row'] & {
+      vacation_policy: { id: string; name: string } | null;
+    };
+
     return {
-      id: row.id,
-      name: row.name,
-      description: row.description || '',
-      slack_team_id: row.slack_team_id,
-      vacation_policy_id: row.vacation_policy_id,
-      manager_approvers: row.manager_approvers,
-      hr_approvers: row.hr_approvers,
-      approval_notification_recipients: row.approval_notification_recipients,
-      manager_approvers_rule: row.manager_approvers_rule as ApprovalRule,
-      hr_approvers_rule: row.hr_approvers_rule as ApprovalRule,
-      is_primary: row.is_primary,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      created_by: row.created_by,
-      updated_by: row.updated_by,
+      id: extendedRow.id,
+      name: extendedRow.name,
+      description: extendedRow.description || '',
+      slack_team_id: extendedRow.slack_team_id,
+      vacation_policy_id: extendedRow.vacation_policy_id,
+      vacation_policy: extendedRow.vacation_policy,
+      manager_approvers: extendedRow.manager_approvers,
+      hr_approvers: extendedRow.hr_approvers,
+      approval_notification_recipients:
+        extendedRow.approval_notification_recipients,
+      manager_approvers_rule:
+        extendedRow.manager_approvers_rule as ApprovalRule,
+      hr_approvers_rule: extendedRow.hr_approvers_rule as ApprovalRule,
+      is_primary: extendedRow.is_primary,
+      created_at: extendedRow.created_at,
+      updated_at: extendedRow.updated_at,
+      created_by: extendedRow.created_by,
+      updated_by: extendedRow.updated_by,
     };
   };
 }

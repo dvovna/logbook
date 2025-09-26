@@ -2,13 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import ITeamViewModel from 'src/teams/types/team.interface';
-import { VacationPoliciesCacheService } from 'src/vacation-policies/services/vacation-policies-cache.service';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
 import { ISearchResult } from 'src/common/types/pagination.types';
-import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 
@@ -39,7 +37,6 @@ export class TeamsTabView extends BaseAdminTabView<
   protected activeTabActionId = AdminNavigationActionId.ManageTeams;
 
   public constructor(
-    private readonly vacationPoliciesCacheService: VacationPoliciesCacheService,
     protected readonly slackActionPermissionsService: SlackActionPermissionsService,
   ) {
     super(slackActionPermissionsService);
@@ -57,18 +54,13 @@ export class TeamsTabView extends BaseAdminTabView<
     };
   }
 
-  protected async getContentBlocks({
-    teamsData,
-    usersCountByTeam,
-  }): Promise<AnyBlock[]> {
+  protected getContentBlocks({ teamsData, usersCountByTeam }): AnyBlock[] {
     const blocks: AnyBlock[] = [];
-
-    const teamPoliciesMap = await this.getTeamPoliciesMap(teamsData.items);
 
     const listBlocks = PaginatedListView.getBlocks<ITeamViewModel>({
       itemsData: teamsData,
       getItemBlocks: (item: ITeamViewModel) =>
-        this.getTeamListItemBlocks(item, usersCountByTeam, teamPoliciesMap),
+        this.getTeamListItemBlocks(item, usersCountByTeam),
       prevPageActionId: TeamsTabViewActionId.PaginationPrev,
       nextPageActionId: TeamsTabViewActionId.PaginationNext,
     });
@@ -78,28 +70,9 @@ export class TeamsTabView extends BaseAdminTabView<
     return blocks;
   }
 
-  private async getTeamPoliciesMap(teams: ITeamViewModel[]) {
-    const policyIds = teams.map(({ vacation_policy_id }) => vacation_policy_id);
-
-    const policies =
-      await this.vacationPoliciesCacheService.getByIds(policyIds);
-
-    return policies
-      .filter((policy) => !!policy)
-      .reduce(
-        (acc, policy) => {
-          acc[policy.id] = policy;
-
-          return acc;
-        },
-        {} as Record<string, IVacationPolicyViewModel>,
-      );
-  }
-
   private getTeamListItemBlocks(
     team: ITeamViewModel,
     usersCountByTeam: Record<string, number>,
-    teamPoliciesMap: Record<string, IVacationPolicyViewModel>,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
@@ -107,7 +80,6 @@ export class TeamsTabView extends BaseAdminTabView<
     const updatedAt = new Date(team.updated_at).toLocaleDateString();
     const createdAt = new Date(team.created_at).toLocaleDateString();
     const teamUsersCount = usersCountByTeam[team.id] || 0;
-    const policy = teamPoliciesMap[team.vacation_policy_id];
 
     blocks.push({
       type: 'section',
@@ -116,7 +88,7 @@ export class TeamsTabView extends BaseAdminTabView<
           type: 'mrkdwn',
           text:
             `*${team.name}*${isPrimary}\n` +
-            `Vacation Policy: ${policy?.name || '-'}\n` +
+            `Vacation Policy: ${team.vacation_policy?.name || '-'}\n` +
             `Description: ${team.description || '-'}\n` +
             `Users Count: ${teamUsersCount}\n` +
             `Created: ${createdAt}\n` +

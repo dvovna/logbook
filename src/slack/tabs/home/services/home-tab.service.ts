@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { HomeTabView } from 'src/slack/tabs/home/views/home-tab.view';
-import { UserVacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
+import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import BaseTabService, {
@@ -40,7 +40,7 @@ type HomeTabModalViewResolversMapType = {
 export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapType> {
   public constructor(
     private readonly homeTabViewService: HomeTabView,
-    private readonly userVacationsUsageService: UserVacationsUsageService,
+    private readonly userVacationsUsageService: VacationsUsageService,
     private readonly vacationsService: VacationRequestsService,
     private readonly vacationRequestModalView: VacationRequestFormModalView,
     private readonly vacationDetailsModalService: VacationDetailsModalService,

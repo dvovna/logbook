@@ -127,11 +127,19 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     ]);
 
     const managers = users
-      .filter((user) => [UserRole.Manager, UserRole.Admin].includes(user.role))
+      .filter(
+        (user) =>
+          [UserRole.Manager, UserRole.Admin].includes(user.role) ||
+          team.manager_approvers?.includes(user.slack_id),
+      )
       .map((user) => ({ name: user.name, id: user.slack_id }));
 
     const hrUsers = users
-      .filter((user) => [UserRole.HR, UserRole.Admin].includes(user.role))
+      .filter(
+        (user) =>
+          [UserRole.HR, UserRole.Admin].includes(user.role) ||
+          team.hr_approvers?.includes(user.slack_id),
+      )
       .map((user) => ({ name: user.name, id: user.slack_id }));
 
     return this.teamModalView.getView(
