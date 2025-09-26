@@ -20,7 +20,7 @@ import { RequestWorkflowStepsService } from 'src/request-workflows/services/requ
 @SlackHandler({
   callbackId: ViewCallbackId.ApproverMessageCommentFormSubmit,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
 })
 export class ApproverStepCommentFormSubmitHandler extends BaseModalFormSubmitHandler<
   never,

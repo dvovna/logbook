@@ -19,11 +19,13 @@ import {
 import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
 import { withPagination } from 'src/slack/common/utils/tab-list.utils';
 import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.VacationPoliciesTabView,
   type: 'block_actions',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export default class VacationPoliciesTabActionsHandler extends BaseAdminTabActionHandler {
   private readonly logger = new Logger(VacationPoliciesTabActionsHandler.name);

@@ -11,11 +11,13 @@ import { withButtonAction } from 'src/slack/common/utils/view.utils';
 import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { ApproverStepCommentModalView } from 'src/request-workflows/views/approver-step-comment-modal.view';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.WorkflowStepMessage,
   type: 'block_actions',
+  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
 })
 export class ApproverStepMessageHandler extends BaseActionHandler {
   protected actionMap: ActionMapType;

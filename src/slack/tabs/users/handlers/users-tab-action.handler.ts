@@ -18,11 +18,13 @@ import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
 import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
 import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.UsersTabView,
   type: 'block_actions',
+  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
 })
 export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
   private readonly logger = new Logger(UsersTabActionHandler.name);
