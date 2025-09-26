@@ -24,7 +24,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 @SlackHandler({
   callbackId: ViewCallbackId.DeleteTeam,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin],
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,

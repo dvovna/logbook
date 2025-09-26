@@ -1,5 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import {
+  IUserViewModel,
+  IUserViewModel as IUserEntity,
+} from 'src/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
 import { UsersService } from 'src/users/users.service';
@@ -13,7 +16,6 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
 } from 'src/slack/common/views/components/confirmation-modal.view';
-import { IUserViewModel as IUserEntity } from 'src/users/types/user.interface';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
 import UserRole from 'src/common/enums/user-role.enum';
 
@@ -21,7 +23,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 @SlackHandler({
   callbackId: ViewCallbackId.ChangeUserStatus,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin],
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,

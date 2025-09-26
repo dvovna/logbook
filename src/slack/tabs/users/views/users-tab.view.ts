@@ -15,6 +15,7 @@ import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
+import UserRole from 'src/common/enums/user-role.enum';
 
 export interface IUsersTabMetaData {
   page?: number;
@@ -64,12 +65,15 @@ export class UsersTabView extends BaseAdminTabView<
     return '*👥 Users Management*\nList of employees with vacation balances and details.';
   }
 
-  protected getContentBlocks({ users, teams }, { filters }): AnyBlock[] {
+  protected getContentBlocks(
+    { users, teams, userRole },
+    { filters },
+  ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
     blocks.push(this.getFiltersBlock(teams, filters));
 
-    const blocksToAdd = this.getUsersListBlocks(users, teams);
+    const blocksToAdd = this.getUsersListBlocks(users, teams, userRole);
 
     blocks.push(...blocksToAdd);
 
@@ -79,6 +83,7 @@ export class UsersTabView extends BaseAdminTabView<
   private getUsersListBlocks(
     usersData: ISearchResult<IUserViewModel>,
     teams: ITeamViewModel[],
+    userRole: UserRole,
   ): AnyBlock[] {
     const teamsById = teams.reduce(
       (acc, team) => {
@@ -90,7 +95,8 @@ export class UsersTabView extends BaseAdminTabView<
 
     return PaginatedListView.getBlocks<IUserViewModel>({
       itemsData: usersData,
-      getItemBlocks: (item) => this.getUserListItemBlocks(item, teamsById),
+      getItemBlocks: (item) =>
+        this.getUserListItemBlocks(item, teamsById, userRole),
       prevPageActionId: UsersTabViewActionId.PaginationPrev,
       nextPageActionId: UsersTabViewActionId.PaginationNext,
       emptyText: '_No users found_',
@@ -99,9 +105,10 @@ export class UsersTabView extends BaseAdminTabView<
 
   private getUserRowAccessory(
     user: IUserViewModel,
+    userRole: UserRole,
   ): SectionBlockAccessory | undefined {
     return this.slackActionPermissionsService.can(
-      user.role,
+      userRole,
       UsersTabViewActionId.ManageUserMenu,
     )
       ? {
@@ -131,6 +138,7 @@ export class UsersTabView extends BaseAdminTabView<
   private getUserListItemBlocks(
     user: IUserViewModel,
     teamsById: Record<string, ITeamViewModel>,
+    userRole: UserRole,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
@@ -148,7 +156,7 @@ export class UsersTabView extends BaseAdminTabView<
             `Carryover Days: ${user.carryover_days || '-'}`,
         },
       ],
-      accessory: this.getUserRowAccessory(user),
+      accessory: this.getUserRowAccessory(user, userRole),
     });
 
     blocks.push({ type: 'divider' });

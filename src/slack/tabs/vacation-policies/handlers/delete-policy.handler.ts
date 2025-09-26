@@ -23,7 +23,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 @SlackHandler({
   callbackId: ViewCallbackId.DeleteVacationPolicy,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin],
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class DeletePolicyHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,
