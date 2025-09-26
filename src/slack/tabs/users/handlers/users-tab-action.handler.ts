@@ -5,10 +5,7 @@ import {
   UsersTabModalName,
   UsersTabService,
 } from 'src/slack/tabs/users/services/users-tab.service';
-import {
-  IUsersTabMetaData,
-  UsersTabViewActionId,
-} from 'src/slack/tabs/users/views/users-tab.view';
+import { IUsersTabMetaData } from 'src/slack/tabs/users/views/users-tab.view';
 import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
@@ -20,6 +17,7 @@ import {
 import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
 import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
+import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
 
 @Injectable()
 @SlackHandler({

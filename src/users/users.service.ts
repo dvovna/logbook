@@ -25,6 +25,7 @@ interface IFindParams {
   slackTeamId: string;
   id?: string;
   teamId?: string;
+  teamIds?: string[];
   role?: UserRole;
   roles?: UserRole[];
   slackId?: string;
@@ -190,7 +191,6 @@ export class UsersService implements IUsersService {
     return {
       slack_team_id: findParams.slackTeamId,
       ...(findParams.id ? { id: findParams.id } : {}),
-      ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
       ...(findParams.role ? { role: findParams.role } : {}),
       ...(findParams.roles
         ? {
@@ -199,6 +199,10 @@ export class UsersService implements IUsersService {
             value: findParams.roles,
           },
         }
+        : {}),
+      ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
+      ...(findParams.teamIds
+        ? { team_id: { operator: 'in', value: findParams.teamIds } }
         : {}),
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
       ...(findParams.isActive !== undefined

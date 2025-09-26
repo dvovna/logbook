@@ -20,6 +20,9 @@ import {
   IViewVacationRequestModalViewParams,
   VacationDetailsModalService,
 } from 'src/slack/tabs/vacation-requests/services/vacation-details-modal.service';
+import UserRole from 'src/common/enums/user-role.enum';
+import { IUserViewModel } from 'src/users/types/user.interface';
+import ITeamViewModel from 'src/teams/types/team.interface';
 
 export enum VacationRequestsTabModalName {
   ViewRequest = 'ViewRequest',
@@ -82,12 +85,8 @@ export class VacationRequestsTabService extends BaseTabService<
   }
 
   protected async getTabView(params: IPublishVacationRequestsTabViewParams) {
-    const [requests, teams] = await Promise.all([
-      this.getVacationRequests(params),
-      this.teamsService.findMany({
-        slackTeamId: params.user.slack_team_id,
-      }),
-    ]);
+    const userTeams = await this.getUserTeams(params.user);
+    const requests = await this.getVacationRequests(params, userTeams);
 
     const minYear = this.config.getOrThrow<number>(EnvironmentVariable.MinYear);
     const maxYear = this.config.getOrThrow<number>(EnvironmentVariable.MaxYear);
@@ -97,7 +96,7 @@ export class VacationRequestsTabService extends BaseTabService<
         userId: params.user.slack_id,
         userRole: params.user.role,
         requests,
-        teams,
+        teams: userTeams,
         years: Array.from(
           { length: maxYear - minYear + 1 },
           (_, index) => index + minYear,
@@ -107,10 +106,22 @@ export class VacationRequestsTabService extends BaseTabService<
     );
   }
 
-  private async getVacationRequests({
-    user,
-    metadata = {},
-  }: IPublishVacationRequestsTabViewParams) {
+  private getUserTeams(user: IUserViewModel) {
+    return this.teamsService.findMany({
+      slackTeamId: user.slack_team_id,
+      ...(user.role === UserRole.Manager
+        ? { managerApprovers: [user.slack_id] }
+        : {}),
+    });
+  }
+
+  private async getVacationRequests(
+    { user, metadata = {} }: IPublishVacationRequestsTabViewParams,
+    userTeams: ITeamViewModel[],
+  ) {
+    const userTeamIdsRange =
+      user.role === UserRole.Manager ? userTeams.map((team) => team.id) : null;
+
     return this.vacationRequestsService.search({
       page: metadata.page,
       filters: {
@@ -120,6 +131,9 @@ export class VacationRequestsTabService extends BaseTabService<
           : {}),
         ...(metadata?.filters?.user
           ? { userId: metadata?.filters.user.value }
+          : {}),
+        ...(userTeamIdsRange && !metadata?.filters?.teamId
+          ? { teamIds: userTeamIdsRange }
           : {}),
         ...(metadata?.filters?.type ? { type: metadata?.filters.type } : {}),
         ...(metadata?.filters?.year ? { year: metadata?.filters.year } : {}),

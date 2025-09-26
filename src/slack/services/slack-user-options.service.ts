@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
+import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()
 export class SlackUserOptionsService {
@@ -12,6 +13,9 @@ export class SlackUserOptionsService {
       pageSize: 30,
       filters: {
         slackTeamId: user.slack_team_id,
+        ...(user.role === UserRole.Manager
+          ? { managerApprovers: [user.slack_id] }
+          : {}),
         includeInactive: true,
       },
     });

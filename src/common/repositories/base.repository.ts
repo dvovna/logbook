@@ -28,7 +28,10 @@ type SupabaseFilterOperator =
   | 'lte'
   | 'in'
   | 'like'
-  | 'ilike';
+  | 'ilike'
+  | 'cs'
+  | 'cd'
+  | 'ov';
 
 interface IFilterParams {
   operator: SupabaseFilterOperator;
@@ -327,6 +330,12 @@ export abstract class BaseRepository<
           return query.is(column, value);
         case 'not.is':
           return query.not(column, 'is', value);
+        case 'cs':
+          return query.contains(column, value as unknown[]);
+        case 'cd':
+          return query.containedBy(column, value as unknown[]);
+        case 'ov':
+          return query.overlaps(column, value as unknown[]);
         default:
           throw new Error(`Unsupported operator: ${operator}`);
       }

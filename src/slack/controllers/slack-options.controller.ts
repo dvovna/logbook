@@ -5,8 +5,8 @@ import { SlackUserGuard } from 'src/common/guards/slack-user.guard';
 import { Request } from 'express';
 import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import { BlockSuggestion } from '@slack/bolt/dist/types/options';
-import { UsersTabViewActionId } from 'src/slack/tabs/users/views/users-tab.view';
 import { SlackActiveUserGuard } from 'src/common/guards/slack-active-user.guard';
+import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
 
 @Controller('api/slack/options')
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)

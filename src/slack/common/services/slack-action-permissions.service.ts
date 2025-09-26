@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import UserRole from 'src/common/enums/user-role.enum';
 import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
 
 @Injectable()
 export class SlackActionPermissionsService {
@@ -20,12 +21,25 @@ export class SlackActionPermissionsService {
       UserRole.HR,
       UserRole.Manager,
     ],
-    [AdminNavigationActionId.ManageUsers]: [UserRole.Admin, UserRole.HR],
+    [AdminNavigationActionId.ManageUsers]: [
+      UserRole.Admin,
+      UserRole.HR,
+      UserRole.Manager,
+    ],
+    [UsersTabViewActionId.ManageUserMenu]: [UserRole.Admin, UserRole.HR],
     [AdminNavigationActionId.ManageTeams]: [UserRole.Admin, UserRole.HR],
     [AdminNavigationActionId.ManageVacationRequests]: [
       UserRole.Admin,
       UserRole.HR,
       UserRole.Manager,
+    ],
+    [VacationRequestsTabViewActionId.DeleteRequest]: [
+      UserRole.Admin,
+      UserRole.HR,
+    ],
+    [VacationRequestsTabViewActionId.EditRequest]: [
+      UserRole.Admin,
+      UserRole.HR,
     ],
     [AdminNavigationActionId.ManageVacationPolicies]: [
       UserRole.Admin,

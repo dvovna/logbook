@@ -20,6 +20,7 @@ import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
+import UserRole from 'src/common/enums/user-role.enum';
 
 export interface IVacationRequestsTabFilters {
   user?: {
@@ -109,7 +110,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
   }
 
   protected getContentBlocks(
-    { requests, teams, years }: IGetViewParams,
+    { requests, teams, years, userRole }: IGetViewParams,
     metadata?: IVacationRequestsTabMetadata,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
@@ -117,13 +118,14 @@ export class VacationRequestsTabView extends BaseAdminTabView<
 
     blocks.push(this.getFiltersBlock(teams, years, filters));
 
-    blocks.push(...this.getRequestsListBlocks(requests));
+    blocks.push(...this.getRequestsListBlocks(requests, userRole));
 
     return blocks;
   }
 
   private getRequestItemBlocks = (
     vacationRequest: IVacationRequestViewModel,
+    userRole: UserRole,
   ): AnyBlock[] => {
     const statusEmoji =
       vacationRequest.status === VacationRequestStatus.Approved
@@ -161,32 +163,58 @@ export class VacationRequestsTabView extends BaseAdminTabView<
         accessory: {
           type: 'overflow',
           action_id: VacationRequestsTabViewActionId.ManageRequestMenu,
-          options: [
-            {
-              text: { type: 'plain_text', text: 'View Details' },
-              value: `${VacationRequestsTabViewActionId.ViewDetails}:${vacationRequest.id}`,
-            },
-            {
-              text: { type: 'plain_text', text: 'Edit Request' },
-              value: `${VacationRequestsTabViewActionId.EditRequest}:${vacationRequest.id}`,
-            },
-            {
-              text: { type: 'plain_text', text: 'Delete Request' },
-              value: `${VacationRequestsTabViewActionId.DeleteRequest}:${vacationRequest.id}`,
-            },
-          ],
+          options: this.getManageRequestMenuOptions(vacationRequest, userRole),
         },
       },
       { type: 'divider' },
     ];
   };
 
+  private getManageRequestMenuOptions(
+    vacationRequest: IVacationRequestViewModel,
+    userRole: UserRole,
+  ): PlainTextOption[] {
+    const options: PlainTextOption[] = [
+      {
+        text: { type: 'plain_text', text: 'View Details' },
+        value: `${VacationRequestsTabViewActionId.ViewDetails}:${vacationRequest.id}`,
+      },
+    ];
+
+    if (
+      this.slackActionPermissionsService.can(
+        userRole,
+        VacationRequestsTabViewActionId.EditRequest,
+      )
+    ) {
+      options.push({
+        text: { type: 'plain_text', text: 'Edit Request' },
+        value: `${VacationRequestsTabViewActionId.EditRequest}:${vacationRequest.id}`,
+      });
+    }
+
+    if (
+      this.slackActionPermissionsService.can(
+        userRole,
+        VacationRequestsTabViewActionId.DeleteRequest,
+      )
+    ) {
+      options.push({
+        text: { type: 'plain_text', text: 'Delete Request' },
+        value: `${VacationRequestsTabViewActionId.DeleteRequest}:${vacationRequest.id}`,
+      });
+    }
+
+    return options;
+  }
+
   private getRequestsListBlocks(
     requestsData: ISearchResult<IVacationRequestViewModel>,
+    userRole: UserRole,
   ): AnyBlock[] {
     return PaginatedListView.getBlocks<IVacationRequestViewModel>({
       itemsData: requestsData,
-      getItemBlocks: (item) => this.getRequestItemBlocks(item),
+      getItemBlocks: (item) => this.getRequestItemBlocks(item, userRole),
       prevPageActionId: VacationRequestsTabViewActionId.PaginationPrev,
       nextPageActionId: VacationRequestsTabViewActionId.PaginationNext,
       emptyText: '_No vacation requests found_',

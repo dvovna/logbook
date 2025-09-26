@@ -42,6 +42,7 @@ interface IFindParams {
   id?: string;
   userId?: string;
   teamId?: string;
+  teamIds?: string[];
   year?: string;
   startDate?: string;
   status?: VacationRequestStatus;
@@ -312,6 +313,9 @@ export class VacationRequestsService implements IVacationRequestsService {
       ...(params.status ? { status: params.status } : {}),
       ...(params.type ? { type: params.type } : {}),
       ...(params.teamId ? { team_id: params.teamId } : {}),
+      ...(params.teamIds?.length
+        ? { team_id: { operator: 'in', value: params.teamIds } }
+        : {}),
       ...(params.year
         ? {
           start_date: { operator: 'lte', value: `${params.year}-12-31` },

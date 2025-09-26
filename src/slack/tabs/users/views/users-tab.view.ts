@@ -13,6 +13,8 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
+import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
+import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
 
 export interface IUsersTabMetaData {
   page?: number;
@@ -43,18 +45,6 @@ const ALL_TEAMS_SELECT_OPTION = {
   text: { type: 'plain_text', text: 'All Teams' },
   value: ALL_OPTION_VALUE,
 };
-
-export enum UsersTabViewActionId {
-  PaginationPrev = 'users_pagination_prev',
-  PaginationNext = 'users_pagination_next',
-  ManageUserMenu = 'manage_user_menu',
-  EditUser = 'edit_user',
-  ChangeStatus = 'change_status',
-  FilterUsersByRole = 'filter_users_by_role',
-  FilterUsersByTeam = 'filter_users_by_team',
-  FilterUsersByStatus = 'filter_users_by_status',
-  FilterUsersByUser = 'filter_users_by_users',
-}
 
 @Injectable()
 export class UsersTabView extends BaseAdminTabView<
@@ -107,6 +97,37 @@ export class UsersTabView extends BaseAdminTabView<
     });
   }
 
+  private getUserRowAccessory(
+    user: IUserViewModel,
+  ): SectionBlockAccessory | undefined {
+    return this.slackActionPermissionsService.can(
+      user.role,
+      UsersTabViewActionId.ManageUserMenu,
+    )
+      ? {
+        type: 'overflow',
+        action_id: UsersTabViewActionId.ManageUserMenu,
+        options: [
+          ...(user.is_active
+            ? [
+              {
+                text: { type: 'plain_text', text: 'Edit User' },
+                value: `${UsersTabViewActionId.EditUser}:${user.id}`,
+              } as PlainTextOption,
+            ]
+            : []),
+          {
+            text: {
+              type: 'plain_text',
+              text: `${user.is_active ? 'Deactivate' : 'Activate'} User`,
+            },
+            value: `${UsersTabViewActionId.ChangeStatus}:${user.id}`,
+          },
+        ],
+      }
+      : undefined;
+  }
+
   private getUserListItemBlocks(
     user: IUserViewModel,
     teamsById: Record<string, ITeamViewModel>,
@@ -127,27 +148,7 @@ export class UsersTabView extends BaseAdminTabView<
             `Carryover Days: ${user.carryover_days || '-'}`,
         },
       ],
-      accessory: {
-        type: 'overflow',
-        action_id: UsersTabViewActionId.ManageUserMenu,
-        options: [
-          ...(user.is_active
-            ? [
-              {
-                text: { type: 'plain_text', text: 'Edit User' },
-                value: `${UsersTabViewActionId.EditUser}:${user.id}`,
-              } as PlainTextOption,
-            ]
-            : []),
-          {
-            text: {
-              type: 'plain_text',
-              text: `${user.is_active ? 'Deactivate' : 'Activate'} User`,
-            },
-            value: `${UsersTabViewActionId.ChangeStatus}:${user.id}`,
-          },
-        ],
-      },
+      accessory: this.getUserRowAccessory(user),
     });
 
     blocks.push({ type: 'divider' });

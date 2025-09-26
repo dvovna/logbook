@@ -13,6 +13,7 @@ import ITeamViewModel from 'src/teams/types/team.interface';
 import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import { SupabaseFilter } from 'src/common/repositories/base.repository';
 
 interface ICreateTeamParams {
   name: string;
@@ -32,6 +33,7 @@ interface IFindParams {
   slackTeamId: string;
   vacationPolicyId?: string;
   isPrimary?: boolean;
+  managerApprovers?: string[];
 }
 
 interface IUpdateParams {
@@ -211,11 +213,19 @@ export default class TeamsService implements ITeamsService {
     return this.teamsRepository.count(this.getFindQuery(params));
   }
 
-  private getFindQuery(params: IFindParams) {
+  private getFindQuery(params: IFindParams): SupabaseFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
       ...(params.isPrimary !== undefined
         ? { is_primary: params.isPrimary }
+        : {}),
+      ...(params.managerApprovers !== undefined
+        ? {
+          manager_approvers: {
+            operator: 'ov',
+            value: params.managerApprovers,
+          },
+        }
         : {}),
       slack_team_id: params.slackTeamId,
       ...(params.vacationPolicyId

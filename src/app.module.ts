@@ -22,7 +22,23 @@ import { LoggerModule } from 'nestjs-pino';
 
 @Module({
   imports: [
-    LoggerModule.forRoot(),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? {
+              target: 'pino-pretty',
+              options: {
+                colorize: true,
+                singleLine: true,
+                translateTime: 'HH:MM:ss.l',
+                ignore: 'pid,hostname',
+              },
+            }
+            : undefined,
+      },
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       validate: (config) => {

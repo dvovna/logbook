@@ -15,6 +15,8 @@ import { EditUserModalView } from 'src/slack/tabs/users/views/edit-user-modal.vi
 import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { TabId } from 'src/slack/common/services/tab-navigation.service';
+import { IUserViewModel } from 'src/users/types/user.interface';
+import ITeamViewModel from 'src/teams/types/team.interface';
 
 export interface IGetUsersTabViewParams extends IPublishBaseParams {
   metadata?: IUsersTabMetaData;
@@ -60,36 +62,18 @@ export class UsersTabService extends BaseTabService<
     });
   }
 
-  protected async getTabView({ user, metadata = {} }: IGetUsersTabViewParams) {
-    const [users, teams] = await Promise.all([
-      this.usersService.search({
-        filters: {
-          slackTeamId: user.slack_team_id,
-          ...(metadata?.filters?.teamId
-            ? { teamId: metadata?.filters.teamId }
-            : {}),
-          ...(metadata?.filters?.role ? { role: metadata?.filters.role } : {}),
-          ...(metadata?.filters?.user
-            ? { id: metadata?.filters.user.value }
-            : {}),
-          ...(metadata?.filters?.status === 'inactive_only'
-            ? { isActive: false }
-            : {}),
-        },
-        orderBy: ['name:asc'],
-        page: metadata.page,
-      }),
-      this.teamsService.findMany({ slackTeamId: user.slack_team_id }),
-    ]);
+  protected async getTabView(params: IGetUsersTabViewParams) {
+    const userTeams = await this.getUserTeams(params.user);
+    const users = await this.getUsers(params, userTeams);
 
     return this.usersViewService.getView(
       {
-        userId: user.slack_id,
-        userRole: user.role,
-        teams,
+        userId: params.user.slack_id,
+        userRole: params.user.role,
+        teams: userTeams,
         users,
       },
-      metadata,
+      params.metadata || {},
     );
   }
 
@@ -153,5 +137,43 @@ export class UsersTabService extends BaseTabService<
         pageMetadata,
       },
     );
+  }
+
+  private getUsers(
+    { user, metadata = {} }: IGetUsersTabViewParams,
+    userTeams: ITeamViewModel[],
+  ) {
+    const userTeamIdsRange =
+      user.role === UserRole.Manager ? userTeams.map((team) => team.id) : null;
+
+    return this.usersService.search({
+      filters: {
+        slackTeamId: user.slack_team_id,
+        ...(metadata?.filters?.teamId
+          ? { teamId: metadata?.filters.teamId }
+          : {}),
+        ...(userTeamIdsRange && !metadata?.filters?.teamId
+          ? { teamIds: userTeamIdsRange }
+          : {}),
+        ...(metadata?.filters?.role ? { role: metadata?.filters.role } : {}),
+        ...(metadata?.filters?.user
+          ? { id: metadata?.filters.user.value }
+          : {}),
+        ...(metadata?.filters?.status === 'inactive_only'
+          ? { isActive: false }
+          : {}),
+      },
+      orderBy: ['name:asc'],
+      page: metadata.page,
+    });
+  }
+
+  private getUserTeams(user: IUserViewModel) {
+    return this.teamsService.findMany({
+      slackTeamId: user.slack_team_id,
+      ...(user.role === UserRole.Manager
+        ? { managerApprovers: [user.slack_id] }
+        : {}),
+    });
   }
 }
