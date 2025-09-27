@@ -9,9 +9,16 @@ import { EditUserModalView } from 'src/slack/tabs/users/views/edit-user-modal.vi
 import UsersTabActionHandler from 'src/slack/tabs/users/handlers/users-tab-action.handler';
 import { SlackCommonModule } from 'src/slack/common/slack-common.module';
 import { TeamsModule } from 'src/teams/teams.module';
+import { UserVacationUsageModalView } from 'src/slack/tabs/users/views/user-vacation-usage-modal.view';
+import { VacationRequestsModule } from 'src/vacation-requests/vacation-requests.module';
 
 @Module({
-  imports: [UsersModule, TeamsModule, SlackCommonModule],
+  imports: [
+    UsersModule,
+    TeamsModule,
+    SlackCommonModule,
+    VacationRequestsModule,
+  ],
   providers: [
     UsersTabService,
     UsersTabView,
@@ -19,6 +26,7 @@ import { TeamsModule } from 'src/teams/teams.module';
     EditUserFormSubmitHandler,
     ChangeUserStatusFormSubmitHandler,
     EditUserModalView,
+    UserVacationUsageModalView,
     UsersTabView,
     UsersTabActionHandler,
   ],

@@ -10,7 +10,7 @@ import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 
 interface IGetViewParams extends IBaseTabViewParams {
-  vacationUsageInfo: IVacationPeriodUsageData;
+  vacationUsageInfo: IVacationPeriodUsageData | null;
   requestedVacations?: IVacationRequestViewModel[];
 }
 
@@ -45,7 +45,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   }
 
   private getUserViewBlocks(
-    usageInfo: IVacationPeriodUsageData,
+    usageInfo: IVacationPeriodUsageData | null,
     requestedVacations?: IVacationRequestViewModel[],
   ): AnyBlock[] {
     return [
@@ -73,8 +73,20 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   }
 
   private getVacationUsageBlocks(
-    vacationsUsageInfo: IVacationPeriodUsageData,
+    vacationsUsageInfo: IVacationPeriodUsageData | null,
   ): AnyBlock[] {
+    if (!vacationsUsageInfo) {
+      return [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '_No vacation usage data available._',
+          },
+        },
+      ];
+    }
+
     const optionalBlocks: AnyBlock[] = [];
     const { usage, periodStart, periodEnd } = vacationsUsageInfo;
 

@@ -16,7 +16,7 @@ export interface IVacationPeriodUsageData {
 interface IVacationsUsageService {
   getCurrentVacationPeriodUsage(
     user: IUserViewModel,
-  ): Promise<IVacationPeriodUsageData>;
+  ): Promise<IVacationPeriodUsageData | null>;
 }
 
 @Injectable()
@@ -29,9 +29,7 @@ export class VacationsUsageService implements IVacationsUsageService {
 
   public async getCurrentVacationPeriodUsage(user: IUserViewModel) {
     if (!user.contract_start_date) {
-      throw new Error(
-        `User ${user.email} does not have a contract start date.`,
-      );
+      return null;
     }
 
     const { periodStart, periodEnd } = getCurrentVacationPeriod(

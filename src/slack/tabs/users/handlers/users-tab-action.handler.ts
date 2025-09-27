@@ -10,9 +10,9 @@ import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
 import {
-  withSelectFilter,
-  withPagination,
   withAsyncSelectFilter,
+  withPagination,
+  withSelectFilter,
 } from 'src/slack/common/utils/tab-list.utils';
 import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
 import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
@@ -82,6 +82,15 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
     user: IUserViewModel,
   ) => {
     switch (actionType) {
+      case UsersTabViewActionId.ViewVacationUsage: {
+        await this.usersTabService.openModal(
+          payload.trigger_id || user.slack_id,
+          UsersTabModalName.ViewVacationUsage,
+          { userId, user, pageMetadata: payload.view.private_metadata },
+        );
+
+        break;
+      }
       case UsersTabViewActionId.EditUser: {
         await this.usersTabService.openModal(
           payload.trigger_id || user.slack_id,

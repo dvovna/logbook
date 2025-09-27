@@ -17,6 +17,8 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { TabId } from 'src/slack/common/services/tab-navigation.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import ITeamViewModel from 'src/teams/types/team.interface';
+import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
+import { UserVacationUsageModalView } from 'src/slack/tabs/users/views/user-vacation-usage-modal.view';
 
 export interface IGetUsersTabViewParams extends IPublishBaseParams {
   metadata?: IUsersTabMetaData;
@@ -34,6 +36,7 @@ interface IUserModalViewParams extends IOpenModalBaseParams<string> {
 }
 
 export enum UsersTabModalName {
+  ViewVacationUsage = 'ViewVacationUsage',
   EditUser = 'EditUser',
   ChangeUserStatus = 'ChangeUserStatus',
 }
@@ -52,9 +55,13 @@ export class UsersTabService extends BaseTabService<
     private readonly usersService: UsersService,
     private readonly usersViewService: UsersTabView,
     private readonly editUserModalView: EditUserModalView,
+    private readonly userVacationUsageModalView: UserVacationUsageModalView,
     private readonly confirmationModalView: ConfirmationModalView,
+    private readonly vacationsUsageService: VacationsUsageService,
   ) {
     super(TabId.Users, {
+      [UsersTabModalName.ViewVacationUsage]: async (params) =>
+        await this.getViewUserVacationUsageModalView(params),
       [UsersTabModalName.EditUser]: async (params) =>
         await this.getEditUserModalView(params),
       [UsersTabModalName.ChangeUserStatus]: async (params) =>
@@ -77,7 +84,34 @@ export class UsersTabService extends BaseTabService<
     );
   }
 
-  public async getEditUserModalView({
+  private async getViewUserVacationUsageModalView({
+    userId,
+    user,
+    pageMetadata,
+    errorMessage,
+  }: IUserModalViewParams) {
+    const userToView = await this.usersService.findOneWithValidation({
+      id: userId,
+      slackTeamId: user.slack_team_id,
+    });
+    const usage =
+      await this.vacationsUsageService.getCurrentVacationPeriodUsage(
+        userToView,
+      );
+
+    return this.userVacationUsageModalView.getView(
+      {
+        user: userToView,
+        usage,
+        errorMessage,
+      },
+      {
+        pageMetadata,
+      },
+    );
+  }
+
+  private async getEditUserModalView({
     userId,
     user,
     pageMetadata,
@@ -109,7 +143,7 @@ export class UsersTabService extends BaseTabService<
     );
   }
 
-  public async getChangeUserStatusModalView({
+  private async getChangeUserStatusModalView({
     userId,
     user,
     errorMessage,

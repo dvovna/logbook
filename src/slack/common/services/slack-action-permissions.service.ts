@@ -26,7 +26,11 @@ export class SlackActionPermissionsService {
       UserRole.HR,
       UserRole.Manager,
     ],
-    [UsersTabViewActionId.ManageUserMenu]: [UserRole.Admin, UserRole.HR],
+    [UsersTabViewActionId.ManageUserMenu]: [
+      UserRole.Admin,
+      UserRole.HR,
+      UserRole.Manager,
+    ],
     [AdminNavigationActionId.ManageTeams]: [UserRole.Admin, UserRole.HR],
     [AdminNavigationActionId.ManageVacationRequests]: [
       UserRole.Admin,

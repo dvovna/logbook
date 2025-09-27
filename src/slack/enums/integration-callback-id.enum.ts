@@ -16,6 +16,7 @@ export enum ViewCallbackId {
   UsersTabView = 'users_tab_view',
   UserFormSubmit = 'user_form_submit',
   ChangeUserStatus = 'change_user_status',
+  ViewUserVacationUsage = 'view_user_vacation_usage',
 
   // teams
   TeamsTabView = 'teams_tab_view',

@@ -115,6 +115,10 @@ export class UsersTabView extends BaseAdminTabView<
         type: 'overflow',
         action_id: UsersTabViewActionId.ManageUserMenu,
         options: [
+          {
+            text: { type: 'plain_text', text: 'View Vacation Usage' },
+            value: `${UsersTabViewActionId.ViewVacationUsage}:${user.id}`,
+          },
           ...(user.is_active
             ? [
               {

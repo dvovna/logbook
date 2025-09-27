@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
+import {
+  IVacationPeriodUsageData,
+  VacationsUsageService,
+} from 'src/vacation-requests/services/vacation-usage.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { IVacationUsageByType } from 'src/vacation-requests/types/user-vacations-usage-info.interface';
 import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
+import VacationType from 'src/common/enums/vacation-type.enum';
 
 export enum VacationCommand {
   Usage = 'usage',
@@ -27,14 +31,14 @@ export default class VacationCommandService {
   ) {
     switch (subcommand) {
       case VacationCommand.Usage: {
-        const { usage } =
+        const usageData =
           await this.userVacationUsageService.getCurrentVacationPeriodUsage(
             user,
           );
 
         await this.slackCommunicationService.postEphemeral(
           user.slack_id,
-          this.getUserVacationsInfoMessage(usage),
+          this.getUserVacationsInfoMessage(usageData),
           user.slack_team_id,
         );
 
@@ -65,24 +69,40 @@ export default class VacationCommandService {
     }
   }
 
-  private getUserVacationsInfoMessage(usageInfo: IVacationUsageByType) {
+  private getUserVacationsInfoMessage(
+    usageData: IVacationPeriodUsageData | null,
+  ) {
+    if (!usageData) {
+      return {
+        text: 'No vacation usage data available.',
+      };
+    }
+
+    const { usage } = usageData;
+
     return {
       text: `
-        📊 Your vacation usage:
+📊 Your vacation usage:
 
-        ✅ Annual Leave:
-           • Used: ${usageInfo.annual_leave.used} days
-           • Remaining: ${usageInfo.annual_leave.available} days
+${getVacationTypeIcon(VacationType.AnnualLeave)} Annual Leave:
+   • Used: ${usage.annual_leave.used} days
+   • Remaining: ${usage.annual_leave.available} days
+   • Working days used: ${usage.annual_leave.working_days_used}
+   • Working days remaining: ${usage.annual_leave.working_days_available}
 
-        ✨ Bonus Days:
-           • Used: ${usageInfo.bonus_day.used} days
-           • Remaining: ${usageInfo.bonus_day.available} days
+${getVacationTypeIcon(VacationType.BonusDay)} Bonus Days:
+   • Used: ${usage.bonus_day.used} days
+   • Remaining: ${usage.bonus_day.available} days
 
-        🩺 Sick Leave:
-           • Used: ${usageInfo.sick_leave.used} days
+${getVacationTypeIcon(VacationType.SickLeave)} Sick Leave:
+   • Used: ${usage.sick_leave.used} days
 
-        ℹ️ Note: Only approved vacations are counted in usage.
-      `,
+${getVacationTypeIcon(VacationType.UnpaidLeave)}️ Unpaid Leave:
+   • Used: ${usage.unpaid_leave.used} days
+
+${getVacationTypeIcon(VacationType.Other)} Other:
+   • Used: ${usage.other.used} days
+`,
     };
   }
 }

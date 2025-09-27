@@ -57,8 +57,14 @@ export class VacationRequestsValidationService {
   ) {
     const { calendarDays, workingDays } = daysRequest;
 
-    const { usage } =
+    const usageData =
       await this.userVacationsUsageService.getCurrentVacationPeriodUsage(user);
+
+    if (!usageData) {
+      return;
+    }
+
+    const { usage } = usageData;
 
     switch (vacationType) {
       case VacationType.AnnualLeave: {
