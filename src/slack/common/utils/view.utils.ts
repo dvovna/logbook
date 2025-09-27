@@ -3,6 +3,7 @@ import { PlainTextOption } from '@slack/web-api';
 import { ISlackBlockActionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ButtonAction } from '@slack/bolt';
+import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
 
 export const toPlainTextOption = ({ id, name }: IOption): PlainTextOption => {
   return {
@@ -29,3 +30,19 @@ export function withButtonAction(
     return handler(value, user, payload.trigger_id);
   };
 }
+
+export const getApproverCommentLines = (
+  approverComments: IWorkflowStepCommentViewModel[],
+) => {
+  const lines: string[] = [];
+
+  if (approverComments && approverComments.length > 0) {
+    lines.push(`\n📝 Approver comments:`);
+
+    approverComments.forEach((comment) => {
+      lines.push(`• ${comment.comment} (by <@${comment.slack_user_id}>)`);
+    });
+  }
+
+  return lines;
+};

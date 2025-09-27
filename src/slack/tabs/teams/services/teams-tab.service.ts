@@ -78,12 +78,15 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       this.usersService.getUsersCountByTeam(user.slack_team_id),
     ]);
 
-    return await this.teamsTabView.getView({
-      userId: user.slack_id,
-      userRole: user.role,
-      teamsData,
-      usersCountByTeam,
-    });
+    return await this.teamsTabView.getView(
+      {
+        userId: user.slack_id,
+        userRole: user.role,
+        teamsData,
+        usersCountByTeam,
+      },
+      metadata,
+    );
   }
 
   private async getCreateTeamModalView({

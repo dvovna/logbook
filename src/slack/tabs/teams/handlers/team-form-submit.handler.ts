@@ -23,6 +23,7 @@ import {
 } from 'src/slack/tabs/teams/services/teams-tab.service';
 import UserRole from 'src/common/enums/user-role.enum';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import { ITeamsTabMetaData } from 'src/slack/tabs/teams/views/teams-tab.view';
 
 @Injectable()
 @SlackHandler({
@@ -50,7 +51,14 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     user: IUserViewModel,
     metadata: ITeamModalViewMetadata,
   ) {
-    this.tabNavigationService.navigate(TabId.Teams, { user });
+    const pageMetadata = metadata.pageMetadata
+      ? (JSON.parse(metadata.pageMetadata) as ITeamsTabMetaData)
+      : {};
+
+    this.tabNavigationService.navigate(TabId.Teams, {
+      user,
+      metadata: pageMetadata,
+    });
 
     return SlackViewResponseFactory.update(
       this.teamModalView.getSuccessView(

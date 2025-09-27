@@ -11,6 +11,8 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import TeamsService from 'src/teams/services/teams.service';
 import { VacationWorkflowFinished } from 'src/common/events/vacation-workflow.events';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
+import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+import { getApproverCommentLines } from 'src/slack/common/utils/view.utils';
 
 @Injectable()
 export class RequestWorkflowProcessingService {
@@ -61,26 +63,33 @@ export class RequestWorkflowProcessingService {
     );
 
     if (updatedRequest.status === VacationRequestStatus.Approved) {
-      await this.notifyOnApproval(updatedRequest, approvedBy);
+      await this.notifyOnApproval(
+        updatedRequest,
+        approvedBy,
+        workflow.reviewComments,
+      );
     }
 
-    await this.notifyUser(updatedRequest);
+    await this.notifyUser(updatedRequest, workflow.reviewComments);
   }
 
-  private async notifyUser(request: IVacationRequestViewModel) {
+  private async notifyUser(
+    request: IVacationRequestViewModel,
+    comments: IWorkflowStepCommentViewModel[] = [],
+  ) {
     const message =
       request.status === VacationRequestStatus.Approved
         ? {
           text: `✅ Great news! Your vacation request has been approved 🎉
 
-${this.getRequestDetails(request)}
+${this.getRequestDetails(request, comments)}
 
 🧳 Pack your bags, ${request.user?.name}! Don’t forget sunscreen 😎`,
         }
         : {
           text: `❌ Bad news... Your vacation request has been rejected 💔
 
-${this.getRequestDetails(request)}
+${this.getRequestDetails(request, comments)}
 
 💼 Looks like it's back to work… but coffee is waiting ☕🙂`,
         };
@@ -92,16 +101,22 @@ ${this.getRequestDetails(request)}
     );
   }
 
-  private getRequestDetails(request: IVacationRequestViewModel) {
+  private getRequestDetails(
+    request: IVacationRequestViewModel,
+    comments: IWorkflowStepCommentViewModel[],
+  ) {
     return `
 📅 ${request.start_date} → ${request.end_date} (${request.days} calendar days, ${request.working_days} working days)
 🏖️ Type: ${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]}
+
+${getApproverCommentLines(comments).join('\n')}
     `;
   }
 
   private async notifyOnApproval(
     request: IVacationRequestViewModel,
     approvedBy: IUserViewModel,
+    comments: IWorkflowStepCommentViewModel[],
   ) {
     const team = await this.teamsService.findOneWithValidation({
       id: request.team_id,
@@ -112,19 +127,24 @@ ${this.getRequestDetails(request)}
       for (const recipientSlackId of team.approval_notification_recipients) {
         await this.communicationService.postMessage(
           recipientSlackId,
-          this.getNotificationMessage(request),
+          this.getNotificationMessage(request, comments),
           approvedBy.slack_team_id,
         );
       }
     }
   }
 
-  private getNotificationMessage(request: IVacationRequestViewModel) {
+  private getNotificationMessage(
+    request: IVacationRequestViewModel,
+    comments: IWorkflowStepCommentViewModel[],
+  ) {
     return {
       text: `✅ Vacation request approved for ${request.user!.name}:
 
 📅 ${request.start_date} → ${request.end_date} (${request.days} calendar days, ${request.working_days} working days)
-🏖️ Type: ${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]}`,
+🏖️ Type: ${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]}
+
+${getApproverCommentLines(comments).join('\n')}`,
     };
   }
 }

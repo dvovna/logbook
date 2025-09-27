@@ -67,7 +67,7 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
         continue;
       }
 
-      const emoji = getVacationTypeIcon[type];
+      const emoji = getVacationTypeIcon(type);
       const lines: string[] = [`${emoji} *${capitalize(type)}*`];
 
       if ('used' in typeUsage && 'available' in typeUsage) {

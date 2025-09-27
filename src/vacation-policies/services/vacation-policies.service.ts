@@ -177,7 +177,7 @@ implements IVacationPoliciesService
         ...(carryoverDays !== undefined
           ? { carryover_days: carryoverDays }
           : {}),
-        ...(workingDays !== undefined ? { carryover_days: carryoverDays } : {}),
+        ...(workingDays !== undefined ? { working_days: workingDays } : {}),
         ...(name ? { name } : {}),
         updated_by: user.id,
         updated_at: new Date().toISOString(),

@@ -5,32 +5,40 @@ import { Injectable } from '@nestjs/common';
 
 export const MAX_POLICY_NAME_LENGTH = 100;
 
-const policyFormSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Policy name is required')
-    .max(MAX_POLICY_NAME_LENGTH, 'Policy name must be at most 100 characters'),
-  vacation_days: z.coerce
-    .number()
-    .min(0, 'Calendar days cannot be negative')
-    .max(30, 'Calendar days cannot exceed 30')
-    .default(0),
-  working_days: z.coerce
-    .number()
-    .min(0, 'Working days cannot be negative')
-    .max(30, 'Working days cannot exceed 30')
-    .default(0),
-  carryover_days: z.coerce
-    .number()
-    .min(0, 'Carryover days cannot be negative')
-    .max(30, 'Carryover days cannot exceed 30')
-    .default(0),
-  bonus_days: z.coerce
-    .number()
-    .min(0, 'Bonus days cannot be negative')
-    .max(30, 'Bonus days cannot exceed 30')
-    .default(0),
-});
+const policyFormSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, 'Policy name is required')
+      .max(
+        MAX_POLICY_NAME_LENGTH,
+        'Policy name must be at most 100 characters',
+      ),
+    vacation_days: z.coerce
+      .number()
+      .min(0, 'Calendar days cannot be negative')
+      .max(30, 'Calendar days cannot exceed 30')
+      .default(0),
+    working_days: z.coerce
+      .number()
+      .min(0, 'Working days cannot be negative')
+      .max(30, 'Working days cannot exceed 30')
+      .default(0),
+    carryover_days: z.coerce
+      .number()
+      .min(0, 'Carryover days cannot be negative')
+      .max(30, 'Carryover days cannot exceed 30')
+      .default(0),
+    bonus_days: z.coerce
+      .number()
+      .min(0, 'Bonus days cannot be negative')
+      .max(30, 'Bonus days cannot exceed 30')
+      .default(0),
+  })
+  .refine((data) => data.working_days <= data.vacation_days, {
+    message: 'Working days cannot exceed calendar vacation days',
+    path: ['working_days'],
+  });
 
 export interface IVacationPolicyFormData {
   name: string;

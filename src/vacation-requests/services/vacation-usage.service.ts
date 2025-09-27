@@ -55,6 +55,16 @@ export class VacationsUsageService implements IVacationsUsageService {
       });
 
     const carryoverDays = user.carryover_days || 0;
+    const availableDays =
+      carryoverDays +
+      teamVacationPolicy.vacation_days -
+      periodUsage.annualLeaveUsed;
+    const availableWorkingDays =
+      carryoverDays +
+      teamVacationPolicy.working_days -
+      periodUsage.annualLeaveWorkingDaysUsed;
+    const availableBonusDays =
+      teamVacationPolicy.bonus_days - periodUsage.bonusUsed;
 
     return {
       periodStart,
@@ -62,14 +72,14 @@ export class VacationsUsageService implements IVacationsUsageService {
       usage: {
         [VacationType.AnnualLeave]: {
           used: periodUsage.annualLeaveUsed,
-          available: carryoverDays + teamVacationPolicy.vacation_days,
+          available: availableDays < 0 ? 0 : availableDays,
           working_days_used: periodUsage.annualLeaveWorkingDaysUsed,
           working_days_available:
-            carryoverDays + teamVacationPolicy.working_days,
+            availableWorkingDays < 0 ? 0 : availableWorkingDays,
         },
         [VacationType.BonusDay]: {
           used: periodUsage.bonusUsed,
-          available: teamVacationPolicy.bonus_days,
+          available: availableBonusDays < 0 ? 0 : availableBonusDays,
         },
         [VacationType.SickLeave]: { used: periodUsage.sickUsed },
         [VacationType.UnpaidLeave]: { used: periodUsage.unpaidUsed },

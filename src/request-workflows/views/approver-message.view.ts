@@ -3,6 +3,7 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { ApproverMessageActionId } from 'src/request-workflows/enums/approver-message-action-id.enum';
 import { IRequestWorkflowStepViewModel } from 'src/request-workflows/types/request-workflow-step.interface';
 import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+import { getApproverCommentLines } from 'src/slack/common/utils/view.utils';
 
 interface IGetMessageParams {
   step: IRequestWorkflowStepViewModel;
@@ -109,7 +110,7 @@ ${this.getRequestDetails(step, comments)}`,
     lines.push(`👤 Employee: ${step.step_data.snapshot.user_name}`);
     lines.push(...this.getBasicRequestLines(step));
     lines.push(...this.getUserCommentLines(step));
-    lines.push(...this.getApproverCommentLines(approverComments));
+    lines.push(...getApproverCommentLines(approverComments));
 
     return lines.join('\n');
   }
@@ -127,7 +128,7 @@ ${this.getRequestDetails(step, comments)}`,
       lines.push(`💬 User comment: ${step.step_data.snapshot.comment}`);
     }
 
-    lines.push(...this.getApproverCommentLines(approverComments));
+    lines.push(...getApproverCommentLines(approverComments));
     lines.push(`⚡ Needs your approval`);
 
     return lines.join('\n');
@@ -144,21 +145,5 @@ ${this.getRequestDetails(step, comments)}`,
     return step.step_data.snapshot.comment
       ? [`💬 User comment: ${step.step_data.snapshot.comment}\n`]
       : [];
-  }
-
-  private static getApproverCommentLines(
-    approverComments: IWorkflowStepCommentViewModel[],
-  ) {
-    const lines: string[] = [];
-
-    if (approverComments && approverComments.length > 0) {
-      lines.push(`\n📝 Approver comments:`);
-
-      approverComments.forEach((comment) => {
-        lines.push(`• ${comment.comment} (by <@${comment.slack_user_id}>)`);
-      });
-    }
-
-    return lines;
   }
 }
