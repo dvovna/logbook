@@ -10,7 +10,9 @@ export class SupabaseService {
 
   public constructor(private readonly config: ConfigService) {
     const url = this.config.get<string>(EnvironmentVariable.SupabaseUrl);
-    const key = this.config.get<string>(EnvironmentVariable.SupabaseAnonKey);
+    const key = this.config.get<string>(
+      EnvironmentVariable.SupabaseServiceRoleKey,
+    );
 
     if (!url || !key) {
       throw new Error('Supabase configuration missing');

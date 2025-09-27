@@ -79,6 +79,12 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
         description: data.description,
         vacationPolicyId: data.policy.value,
         slackTeamId: user.slack_team_id,
+        managerApprovers: data.manager_approvers?.map((option) => option.value),
+        hrApprovers: data.hr_approvers?.map((option) => option.value),
+        approvalNotificationRecipients: data.approval_notification_recipients,
+        managerApproversRule:
+          data.manager_approvers_rule?.[0]?.value || ApprovalRule.Any,
+        hrApproversRule: data.hr_approvers_rule?.[0]?.value || ApprovalRule.Any,
       },
       user,
     );

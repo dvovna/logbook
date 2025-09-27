@@ -10,6 +10,7 @@ import {
 } from 'src/slack/common/services/tab-navigation.service';
 import { UsersService } from 'src/users/users.service';
 import TeamsService from 'src/teams/services/teams.service';
+import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall.service';
 
 interface IFileSharedEvent {
   type: SlackEventType.FileShared;
@@ -63,12 +64,20 @@ export interface IUserChangeEvent {
   };
 }
 
+export interface IAppUninstalledEvent {
+  type: SlackEventType.AppUninstalled;
+  team_id: string;
+  enterprise_id: string | null;
+  user_id: string;
+}
+
 export interface IUnknownSlackEvent {
   type: Exclude<
     string,
     | SlackEventType.FileShared
     | SlackEventType.HomeTabOpened
     | SlackEventType.TeamJoin
+    | SlackEventType.AppUninstalled
     | SlackEventType.UserChange
   >;
   [key: string]: unknown;
@@ -78,6 +87,7 @@ export type SlackEvent =
   | IFileSharedEvent
   | IHomeTabOpenedEvent
   | ITeamJoinEvent
+  | IAppUninstalledEvent
   | IUserChangeEvent;
 
 @Injectable()
@@ -90,6 +100,7 @@ export default class SlackEventsService {
     private readonly tabNavigationService: TabNavigationService,
     private readonly usersService: UsersService,
     private readonly teamsService: TeamsService,
+    private readonly slackAppUninstallService: SlackAppUninstallService,
   ) {}
 
   public handleSlackEvent(event: SlackEvent, user?: IUserViewModel) {
@@ -110,6 +121,11 @@ export default class SlackEventsService {
         this.handleUserChange(event);
 
         break;
+      case SlackEventType.AppUninstalled: {
+        this.handleAppUninstalled(event);
+
+        break;
+      }
       default:
         throw new Error(
           `Unsupported event type: ${(event as IUnknownSlackEvent).type}`,
@@ -117,6 +133,10 @@ export default class SlackEventsService {
     }
 
     return { ok: true };
+  }
+
+  private async handleAppUninstalled(event: IAppUninstalledEvent) {
+    await this.slackAppUninstallService.uninstall(event.team_id);
   }
 
   private async handleUserChange(event: IUserChangeEvent) {

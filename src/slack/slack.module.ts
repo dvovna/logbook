@@ -33,6 +33,7 @@ import { TeamsTabModule } from 'src/slack/tabs/teams/teams-tab.module';
 import { UsersTabModule } from 'src/slack/tabs/users/users-tab.module';
 import { HomeTabModule } from 'src/slack/tabs/home/home-tab.module';
 import { SlackCommonModule } from 'src/slack/common/slack-common.module';
+import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall.service';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { SlackCommonModule } from 'src/slack/common/slack-common.module';
   ],
   providers: [
     SlackOauthService,
+    SlackAppUninstallService,
     VacationCommandService,
     SlackInteractionsService,
     SlackUserAccessService,

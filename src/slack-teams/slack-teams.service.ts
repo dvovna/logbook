@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SlackTeamsRepository } from 'src/slack-teams/slack-teams.repository';
+import { SupabaseFilter } from 'src/common/repositories/base.repository';
 
 interface ICreateTeamParams {
   name: string;
@@ -9,7 +10,7 @@ interface ICreateTeamParams {
 
 interface IFindParams {
   id?: string;
-  slack_id?: string;
+  slackId?: string;
 }
 
 @Injectable()
@@ -28,13 +29,21 @@ export class SlackTeamsService {
   }
 
   public async findOne(findParams: IFindParams) {
-    return await this.slackTeamsRepository.findOne({
-      ...(findParams.id ? { id: findParams.id } : {}),
-      ...(findParams.slack_id ? { slack_id: findParams.slack_id } : {}),
-    });
+    return await this.slackTeamsRepository.findOne(
+      this.getFilterQuery(findParams),
+    );
   }
 
-  public async delete(teamId: string) {
-    return await this.slackTeamsRepository.deleteMany({ id: teamId });
+  public async delete(findParams: IFindParams) {
+    return await this.slackTeamsRepository.deleteMany(
+      this.getFilterQuery(findParams),
+    );
+  }
+
+  private getFilterQuery(findParams: IFindParams): SupabaseFilter {
+    return {
+      ...(findParams.id ? { id: findParams.id } : {}),
+      ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
+    };
   }
 }

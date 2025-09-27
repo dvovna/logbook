@@ -75,7 +75,7 @@ export class TeamSetupWorkflowService {
         });
       }, 5000);
     } catch (error) {
-      await this.slackTeamsService.delete(slackTeam.id);
+      await this.slackTeamsService.delete({ id: slackTeam.id });
       throw error;
     }
   }

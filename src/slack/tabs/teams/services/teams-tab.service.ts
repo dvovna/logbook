@@ -16,6 +16,8 @@ import { View } from '@slack/types/dist/views';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { TabId } from 'src/slack/common/services/tab-navigation.service';
 import UserRole from 'src/common/enums/user-role.enum';
+import { IUserViewModel } from 'src/users/types/user.interface';
+import ITeamViewModel from 'src/teams/types/team.interface';
 
 interface ITeamModalViewParams extends IOpenModalBaseParams<string> {
   teamId: string;
@@ -89,16 +91,14 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     errorMessage,
     pageMetadata,
   }: IOpenModalBaseParams<string>) {
-    const policies = await this.vacationPoliciesService.findMany({
-      slackTeamId: user.slack_team_id,
-    });
+    const { policies, managers, hrUsers } = await this.getTeamFormData(user);
 
     return this.teamModalView.getView(
       {
         policies,
         errorMessage,
-        managers: [],
-        hrUsers: [],
+        managers,
+        hrUsers,
       },
       {
         pageMetadata,
@@ -112,35 +112,15 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     pageMetadata,
     errorMessage,
   }: ITeamModalViewParams) {
-    const [team, policies, users] = await Promise.all([
-      this.teamsService.findOneWithValidation({
-        id: teamId,
-        slackTeamId: user.slack_team_id,
-      }),
-      this.vacationPoliciesService.findMany({
-        slackTeamId: user.slack_team_id,
-      }),
-      this.usersService.findMany({
-        slackTeamId: user.slack_team_id,
-        roles: [UserRole.HR, UserRole.Manager, UserRole.Admin],
-      }),
-    ]);
+    const team = await this.teamsService.findOneWithValidation({
+      id: teamId,
+      slackTeamId: user.slack_team_id,
+    });
 
-    const managers = users
-      .filter(
-        (user) =>
-          [UserRole.Manager, UserRole.Admin].includes(user.role) ||
-          team.manager_approvers?.includes(user.slack_id),
-      )
-      .map((user) => ({ name: user.name, id: user.slack_id }));
-
-    const hrUsers = users
-      .filter(
-        (user) =>
-          [UserRole.HR, UserRole.Admin].includes(user.role) ||
-          team.hr_approvers?.includes(user.slack_id),
-      )
-      .map((user) => ({ name: user.name, id: user.slack_id }));
+    const { policies, managers, hrUsers } = await this.getTeamFormData(
+      user,
+      team,
+    );
 
     return this.teamModalView.getView(
       {
@@ -188,5 +168,39 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
         pageMetadata,
       },
     );
+  }
+
+  private async getTeamFormData(user: IUserViewModel, team?: ITeamViewModel) {
+    const [policies, users] = await Promise.all([
+      this.vacationPoliciesService.findMany({
+        slackTeamId: user.slack_team_id,
+      }),
+      this.usersService.findMany({
+        slackTeamId: user.slack_team_id,
+        roles: [UserRole.HR, UserRole.Manager, UserRole.Admin],
+      }),
+    ]);
+
+    const managers = users
+      .filter(
+        (user) =>
+          [UserRole.Manager, UserRole.Admin].includes(user.role) ||
+          team?.manager_approvers?.includes(user.slack_id),
+      )
+      .map((user) => ({ name: user.name, id: user.slack_id }));
+
+    const hrUsers = users
+      .filter(
+        (user) =>
+          [UserRole.HR, UserRole.Admin].includes(user.role) ||
+          team?.hr_approvers?.includes(user.slack_id),
+      )
+      .map((user) => ({ name: user.name, id: user.slack_id }));
+
+    return {
+      policies,
+      managers,
+      hrUsers,
+    };
   }
 }
