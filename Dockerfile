@@ -14,6 +14,7 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile --production
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/public ./public
 
 ENV PORT=10000
 
