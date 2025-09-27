@@ -17,7 +17,7 @@ export const STATUS_OPTIONS: PlainTextOption[] = [
   },
   {
     text: { type: 'plain_text', text: 'Canceled 🛑' },
-    value: VacationRequestStatus.Cancelled,
+    value: VacationRequestStatus.Canceled,
   },
 ];
 

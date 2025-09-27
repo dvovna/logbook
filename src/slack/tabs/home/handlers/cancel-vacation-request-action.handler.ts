@@ -44,7 +44,7 @@ export class CancelVacationRequestActionHandler extends BaseModalFormSubmitHandl
         slackTeamId: user.slack_team_id,
       },
       {
-        status: VacationRequestStatus.Cancelled,
+        status: VacationRequestStatus.Canceled,
       },
       user,
     );

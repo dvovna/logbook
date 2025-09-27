@@ -43,7 +43,7 @@ export class RequestWorkflowProcessingService {
 
     if (
       statusToSet === request.status ||
-      request.status === VacationRequestStatus.Cancelled
+      request.status === VacationRequestStatus.Canceled
     ) {
       this.logger.warn('Request status is already set. Skipping update.');
       return;

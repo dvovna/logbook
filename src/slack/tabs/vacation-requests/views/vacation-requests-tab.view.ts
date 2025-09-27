@@ -21,6 +21,7 @@ import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 import UserRole from 'src/common/enums/user-role.enum';
+import { getVacationStatusEmoji } from 'src/slack/tabs/vacation-requests/utils/vacation-status-icon';
 
 export interface IVacationRequestsTabFilters {
   user?: {
@@ -127,12 +128,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
     vacationRequest: IVacationRequestViewModel,
     userRole: UserRole,
   ): AnyBlock[] => {
-    const statusEmoji =
-      vacationRequest.status === VacationRequestStatus.Approved
-        ? '✅'
-        : vacationRequest.status === VacationRequestStatus.Rejected
-          ? '❌'
-          : '⏳';
+    const statusEmoji = getVacationStatusEmoji(vacationRequest.status);
 
     const start = new Date(vacationRequest.start_date).toLocaleDateString();
     const end = new Date(vacationRequest.end_date).toLocaleDateString();

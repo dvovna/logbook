@@ -2,7 +2,7 @@ enum VacationRequestStatus {
   Pending = 'pending',
   Approved = 'approved',
   Rejected = 'rejected',
-  Cancelled = 'cancelled',
+  Canceled = 'canceled',
 }
 
 export default VacationRequestStatus;
