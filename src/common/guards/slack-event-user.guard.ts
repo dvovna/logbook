@@ -19,11 +19,7 @@ export class SlackEventUserGuard implements CanActivate {
       return true;
     }
 
-    const slackUserId =
-      body.user_id ||
-      body.event?.user_id ||
-      body.event?.user?.id ||
-      body.user?.id;
+    const slackUserId = this.getUserId(req);
 
     if (!slackUserId) {
       return true;
@@ -38,5 +34,15 @@ export class SlackEventUserGuard implements CanActivate {
     req.user = user;
 
     return true;
+  }
+
+  private getUserId({ body }: ISlackRequest) {
+    if (typeof body.event.user === 'object') {
+      return body.event.user.id;
+    }
+
+    return (
+      body.user_id || body.event?.user_id || body.event?.user || body.user?.id
+    );
   }
 }

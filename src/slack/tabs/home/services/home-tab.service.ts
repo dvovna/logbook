@@ -57,7 +57,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
   }
 
   public async getTabView({ user }: IPublishBaseParams) {
-    const [userVacationsUsageInfo, requestedVacations] = await Promise.all([
+    const [vacationUsageInfo, requestedVacations] = await Promise.all([
       await this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
       await this.vacationsService.findMany({
         userId: user.id,
@@ -69,7 +69,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     return this.homeTabViewService.getView({
       userId: user.slack_id,
       userRole: user.role,
-      vacationUsageInfo: userVacationsUsageInfo,
+      vacationUsageInfo,
       requestedVacations,
     });
   }
