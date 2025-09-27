@@ -126,7 +126,7 @@ export default class SlackEventsService {
 
         break;
       case SlackEventType.UserChange:
-        this.handleUserChange(event);
+        this.handleUserChange(event, user);
 
         break;
       case SlackEventType.AppUninstalled: {
@@ -149,15 +149,17 @@ export default class SlackEventsService {
     await this.slackAppUninstallService.uninstall(teamSlackId);
   }
 
-  private async handleUserChange(event: IUserChangeEvent) {
-    const existingUser = await this.usersService.findOneWithValidation({
-      slackTeamId: event.user.team_id,
-      slackId: event.user.id,
-    });
+  private async handleUserChange(
+    event: IUserChangeEvent,
+    user?: IUserViewModel,
+  ) {
+    if (!user) {
+      return;
+    }
 
     this.logger.log('Handling user change', {
       slackId: event.user.id,
-      teamId: existingUser?.team_id,
+      teamId: user?.team_id,
       email: event.user.profile.email,
       name: event.user.real_name,
       isActive: !event.user.deleted,
@@ -166,8 +168,8 @@ export default class SlackEventsService {
 
     await this.usersService.upsert({
       slackId: event.user.id,
-      teamId: existingUser?.team_id,
-      role: existingUser.role,
+      teamId: user?.team_id,
+      role: user.role,
       email: event.user.profile.email!,
       name: event.user.real_name,
       isActive: !event.user.deleted,

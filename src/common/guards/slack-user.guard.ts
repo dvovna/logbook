@@ -23,10 +23,6 @@ export class SlackUserGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<ISlackRequest>();
     const body = req.body;
 
-    if (body.type === 'url_verification') {
-      return true;
-    }
-
     const slackUserId =
       body.user_id ||
       body.event?.user_id ||
