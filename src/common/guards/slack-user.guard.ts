@@ -21,12 +21,17 @@ export class SlackUserGuard implements CanActivate {
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<ISlackRequest>();
+    const body = req.body;
+
+    if (body.type === 'url_verification') {
+      return true;
+    }
 
     const slackUserId =
-      req.body.user_id ||
-      req.body.event?.user_id ||
-      req.body.event?.user ||
-      req.body.user?.id;
+      body.user_id ||
+      body.event?.user_id ||
+      body.event?.user?.id ||
+      body.user?.id;
 
     if (!slackUserId) {
       this.logger.log('SlackUserGuard: Missing slack user id');

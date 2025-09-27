@@ -7,20 +7,20 @@ export class SlackAppUninstallService {
 
   public constructor(private readonly slackTeamService: SlackTeamsService) {}
 
-  public async uninstall(slackTeamId: string): Promise<void> {
+  public async uninstall(teamSlackId: string): Promise<void> {
     const slackTeam = await this.slackTeamService.findOne({
-      slackId: slackTeamId,
+      slackId: teamSlackId,
     });
 
     if (!slackTeam) {
-      this.logger.warn(`Slack team with ID ${slackTeamId} not found.`);
+      this.logger.warn(`Slack team with ID ${teamSlackId} not found.`);
       return;
     }
 
-    await this.slackTeamService.delete({ slackId: slackTeam.id });
+    await this.slackTeamService.delete({ id: slackTeam.id });
 
     this.logger.log(
-      `Deleted Slack team with ID ${slackTeamId} and name ${slackTeam.name}.`,
+      `Deleted Slack team with ID ${teamSlackId} and name ${slackTeam.name}.`,
     );
   }
 }

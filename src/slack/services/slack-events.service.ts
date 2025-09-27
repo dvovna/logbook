@@ -64,7 +64,11 @@ export interface IUserChangeEvent {
   };
 }
 
-export interface IAppUninstalledEvent {
+interface IAppUninstalledEvent {
+  type: SlackEventType.AppUninstalled;
+}
+
+export interface IAppUninstalledEventBodyData {
   type: SlackEventType.AppUninstalled;
   team_id: string;
   enterprise_id: string | null;
@@ -103,7 +107,11 @@ export default class SlackEventsService {
     private readonly slackAppUninstallService: SlackAppUninstallService,
   ) {}
 
-  public handleSlackEvent(event: SlackEvent, user?: IUserViewModel) {
+  public handleSlackEvent(
+    event: SlackEvent,
+    user: IUserViewModel | undefined,
+    body: Record<string, unknown>,
+  ) {
     switch (event.type) {
       case SlackEventType.FileShared:
         this.handleFileShared(event, user!);
@@ -122,7 +130,9 @@ export default class SlackEventsService {
 
         break;
       case SlackEventType.AppUninstalled: {
-        this.handleAppUninstalled(event);
+        this.handleAppUninstalled(
+          (body as unknown as IAppUninstalledEventBodyData).team_id,
+        );
 
         break;
       }
@@ -135,8 +145,8 @@ export default class SlackEventsService {
     return { ok: true };
   }
 
-  private async handleAppUninstalled(event: IAppUninstalledEvent) {
-    await this.slackAppUninstallService.uninstall(event.team_id);
+  private async handleAppUninstalled(teamSlackId: string) {
+    await this.slackAppUninstallService.uninstall(teamSlackId);
   }
 
   private async handleUserChange(event: IUserChangeEvent) {
