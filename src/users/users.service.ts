@@ -7,6 +7,7 @@ import {
   ISearchResult,
 } from 'src/common/types/pagination.types';
 import { SupabaseFilter } from 'src/common/repositories/base.repository';
+import { ValidationError } from 'src/common/errors/validation.error';
 
 interface ICreateUserParams {
   email: string;
@@ -15,7 +16,7 @@ interface ICreateUserParams {
   slackTeamId: string;
   teamId: string | null;
   slackId: string;
-  contractStartDate?: string;
+  contractStartDate?: Date | null;
   carryoverDays?: number;
   isActive?: boolean;
   updatedBy?: string;
@@ -129,7 +130,7 @@ export class UsersService implements IUsersService {
       ...(params.email ? { email: params.email } : {}),
       ...(params.teamId ? { team_id: params.teamId } : {}),
       ...(params.contractStartDate
-        ? { contract_start_date: params.contractStartDate }
+        ? { contract_start_date: params.contractStartDate.toISOString() }
         : {}),
       ...(params.carryoverDays ? { carryover_days: params.carryoverDays } : {}),
       ...(params.isActive !== undefined ? { is_active: params.isActive } : {}),
@@ -156,7 +157,7 @@ export class UsersService implements IUsersService {
         team_id: teamId,
         slack_team_id: slackTeamId,
         slack_id: slackId,
-        contract_start_date: contractStartDate || null,
+        contract_start_date: contractStartDate?.toISOString() || null,
         created_at: new Date().toISOString(),
       }),
     );
@@ -201,16 +202,16 @@ export class UsersService implements IUsersService {
       is_active: true,
     });
 
-    const isCurrentUserAdmin = await this.userRepository.count({
+    const isCurrentUserAdmin = !!(await this.userRepository.count({
       slack_team_id: findParams.slackTeamId,
-      ...findParams,
+      ...this.getFindQuery(findParams),
       role: UserRole.Admin,
       is_active: true,
-    });
+    }));
 
     if (adminCount <= 1 && isCurrentUserAdmin) {
-      throw new Error(
-        'Cannot change role. At least one active admin is required.',
+      throw new ValidationError(
+        'Cannot update user. At least one active admin is required.',
       );
     }
   };

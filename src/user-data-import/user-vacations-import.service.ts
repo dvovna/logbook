@@ -84,7 +84,7 @@ export class UserVacationsImportService {
             slackTeamId: existingUser.slack_team_id,
           },
           {
-            contractStartDate: record.contractStartDate.toString(),
+            contractStartDate: record.contractStartDate,
           },
         );
 

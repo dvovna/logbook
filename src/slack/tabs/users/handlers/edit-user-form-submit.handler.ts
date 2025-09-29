@@ -53,13 +53,15 @@ export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
     meta: IEditUserModalViewMetadata,
     user: IUserViewModel,
   ): Promise<IUserViewModel | null> {
-    return this.usersService.update(
+    return await this.usersService.update(
       { id: meta.userIdToEdit, slackTeamId: user.slack_team_id },
       {
         role: data.role.value,
         teamId:
           data.team_id.value === NO_TEAM_VALUE ? null : data.team_id.value,
-        contractStartDate: data.contract_start_date,
+        contractStartDate: data.contract_start_date
+          ? new Date(data.contract_start_date)
+          : null,
         carryoverDays: data.carryover_days,
         updatedBy: user.id,
       },
@@ -105,6 +107,7 @@ export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
       await this.usersTabService.getModalView(UsersTabModalName.EditUser, {
         user,
         errorMessage:
+          errorMessage ||
           'An error occurred while updating the user. Please try again later.',
         userId: metadata.userIdToEdit,
         pageMetadata: metadata.pageMetadata,
