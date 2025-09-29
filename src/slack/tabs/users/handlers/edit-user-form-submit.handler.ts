@@ -57,6 +57,7 @@ export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
       {
         role: data.role.value,
         teamId: data.team_id.value,
+        contractStartDate: data.contract_start_date,
         carryoverDays: data.carryover_days,
         updatedBy: user.id,
       },

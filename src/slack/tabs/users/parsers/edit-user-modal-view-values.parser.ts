@@ -16,6 +16,7 @@ export const editUserFormSchema = z.object({
     value: z.string().min(1, 'Team is required'),
     text: z.string(),
   }),
+  contract_start_date: z.string().optional(),
   carryover_days: z.coerce
     .number()
     .min(0, 'Carryover days cannot be negative')
@@ -26,6 +27,7 @@ export const editUserFormSchema = z.object({
 export interface IEditUserFormData {
   role: ISelectedOption<UserRole>;
   team_id: ISelectedOption;
+  contract_start_date?: string;
   carryover_days: number;
 }
 
@@ -36,6 +38,10 @@ export default class EditUserModalViewValuesParser extends BaseValuesParser<IEdi
       role: {
         blockId: 'role_block',
         type: ViewFieldType.Select,
+      },
+      contract_start_date: {
+        blockId: 'contract_start_date_block',
+        type: ViewFieldType.Date,
       },
       team_id: {
         blockId: 'team_block',

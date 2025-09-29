@@ -77,6 +77,17 @@ export class EditUserModalView extends BaseModalView<
       },
       {
         type: 'input',
+        block_id: 'contract_start_date_block',
+        label: { type: 'plain_text', text: 'Contract Start Date' },
+        element: {
+          type: 'datepicker',
+          action_id: 'contract_start_date',
+          placeholder: { type: 'plain_text', text: 'Select a date' },
+          initial_date: user.contract_start_date || undefined,
+        },
+      },
+      {
+        type: 'input',
         block_id: 'role_block',
         label: { type: 'plain_text', text: 'Role' },
         element: {
