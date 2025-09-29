@@ -182,6 +182,7 @@ export class TeamModalView extends BaseModalView<
     return {
       type: 'input',
       block_id: 'policy_block',
+      optional: true,
       element: {
         type: 'static_select',
         action_id: 'policy',
