@@ -3,8 +3,8 @@ import { UsersRepository } from 'src/users/users.repository';
 import UserRole from 'src/common/enums/user-role.enum';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import {
-  ISearchResult,
   ISearchParams,
+  ISearchResult,
 } from 'src/common/types/pagination.types';
 import { SupabaseFilter } from 'src/common/repositories/base.repository';
 
@@ -94,25 +94,6 @@ export class UsersService implements IUsersService {
     );
   }
 
-  public async updateMany(
-    findParams: IFindParams,
-    params: Partial<ICreateUserParams>,
-  ) {
-    return await this.userRepository.updateMany(this.getFindQuery(findParams), {
-      ...(params.role ? { role: params.role } : {}),
-      ...(params.name ? { name: params.name } : {}),
-      ...(params.email ? { email: params.email } : {}),
-      ...(params.teamId ? { team_id: params.teamId } : {}),
-      ...(params.contractStartDate
-        ? { contract_start_date: params.contractStartDate }
-        : {}),
-      ...(params.carryoverDays ? { carryover_days: params.carryoverDays } : {}),
-      ...(params.isActive !== undefined ? { is_active: params.isActive } : {}),
-      updated_at: new Date().toISOString(),
-      updated_by: params.updatedBy || null,
-    });
-  }
-
   public async search(
     params: ISearchUsersParams,
   ): Promise<ISearchResult<IUserViewModel>> {
@@ -138,6 +119,10 @@ export class UsersService implements IUsersService {
     params: Partial<ICreateUserParams>,
     updatedBy?: IUserViewModel,
   ): Promise<IUserViewModel | null> {
+    if (params.role !== UserRole.Admin || params.isActive === false) {
+      await this.validateAtLeastOneActiveAdmin(findParams);
+    }
+
     return await this.userRepository.update(this.getFindQuery(findParams), {
       ...(params.role ? { role: params.role } : {}),
       ...(params.name ? { name: params.name } : {}),
@@ -208,6 +193,27 @@ export class UsersService implements IUsersService {
       slack_id: slackId,
     });
   }
+
+  private validateAtLeastOneActiveAdmin = async (findParams: IFindParams) => {
+    const adminCount = await this.userRepository.count({
+      slack_team_id: findParams.slackTeamId,
+      role: UserRole.Admin,
+      is_active: true,
+    });
+
+    const isCurrentUserAdmin = await this.userRepository.count({
+      slack_team_id: findParams.slackTeamId,
+      ...findParams,
+      role: UserRole.Admin,
+      is_active: true,
+    });
+
+    if (adminCount <= 1 && isCurrentUserAdmin) {
+      throw new Error(
+        'Cannot change role. At least one active admin is required.',
+      );
+    }
+  };
 
   private getFindQuery(findParams: IFindParams): SupabaseFilter {
     return {
