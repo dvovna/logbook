@@ -79,16 +79,19 @@ export class UsersService implements IUsersService {
     teamId,
     slackTeamId,
   }: ICreateUserParams) {
-    return await this.userRepository.upsert({
-      created_at: new Date().toISOString(),
-      email,
-      name,
-      role,
-      is_active: isActive,
-      team_id: teamId,
-      slack_team_id: slackTeamId,
-      slack_id: slackId,
-    });
+    return await this.userRepository.upsert(
+      {
+        created_at: new Date().toISOString(),
+        email,
+        name,
+        role,
+        is_active: isActive,
+        team_id: teamId,
+        slack_team_id: slackTeamId,
+        slack_id: slackId,
+      },
+      ['slack_id'],
+    );
   }
 
   public async updateMany(
