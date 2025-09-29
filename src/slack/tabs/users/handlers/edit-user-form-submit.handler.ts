@@ -5,6 +5,7 @@ import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory
 import {
   EditUserModalView,
   IEditUserModalViewMetadata,
+  NO_TEAM_VALUE,
 } from 'src/slack/tabs/users/views/edit-user-modal.view';
 import { UsersService } from 'src/users/users.service';
 import {
@@ -56,7 +57,8 @@ export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
       { id: meta.userIdToEdit, slackTeamId: user.slack_team_id },
       {
         role: data.role.value,
-        teamId: data.team_id.value,
+        teamId:
+          data.team_id.value === NO_TEAM_VALUE ? null : data.team_id.value,
         contractStartDate: data.contract_start_date,
         carryoverDays: data.carryover_days,
         updatedBy: user.id,
