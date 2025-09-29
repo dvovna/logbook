@@ -7,9 +7,9 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { AnyBlock } from '@slack/web-api';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationType from 'src/common/enums/vacation-type.enum';
-import capitalize from 'src/common/utils/capitalize';
 import { IVacationPeriodUsageData } from 'src/vacation-requests/services/vacation-usage.service';
 import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
 
 interface IGetParams extends IBaseModalViewParams {
   user: IUserViewModel;
@@ -58,41 +58,90 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
         ],
       },
       { type: 'divider' },
+      this.buildAnnualLeaveBlock(usage.usage.annual_leave, usage.limits),
     ];
 
-    for (const type of Object.values(VacationType)) {
-      const typeUsage = usage.usage[type];
-
-      if (!typeUsage.used) {
-        continue;
-      }
-
-      const emoji = getVacationTypeIcon(type);
-      const lines: string[] = [`${emoji} *${capitalize(type)}*`];
-
-      if ('used' in typeUsage && 'available' in typeUsage) {
-        lines.push(
-          `• Used: *${typeUsage.used}* / Available: *${typeUsage.available}*`,
-        );
-      }
-      if (
-        'working_days_used' in typeUsage &&
-        'working_days_available' in typeUsage
-      ) {
-        lines.push(
-          `• Working days used: *${typeUsage.working_days_used}* / Available: *${typeUsage.working_days_available}*`,
-        );
-      }
-
-      blocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: lines.join('\n'),
-        },
-      });
+    if (usage.usage.bonus_day.used > 0 || usage.usage.bonus_day.available > 0) {
+      blocks.push(
+        this.buildBonusDaysBlock(usage.usage.bonus_day, usage.limits),
+      );
     }
 
+    [
+      VacationType.SickLeave,
+      VacationType.UnpaidLeave,
+      VacationType.Other,
+    ].forEach((type) => {
+      const leave = usage.usage[type];
+      if (leave.used > 0) {
+        blocks.push(this.buildSimpleLeaveBlock(type, leave.used));
+      }
+    });
+
     return blocks;
+  }
+
+  private buildAnnualLeaveBlock(
+    usage: IVacationPeriodUsageData['usage']['annual_leave'],
+    limits?: IVacationPeriodUsageData['limits'],
+  ) {
+    const usedDays = usage.used ?? 0;
+    const workingUsed = usage.working_days_used ?? 0;
+    const available = usage.available ?? 0;
+    const limit = limits ? limits.vacationDays : '-';
+    const carryover = limits?.carryoverDays ?? 0;
+
+    let usedText = `Used: *${usedDays}* days`;
+    if (workingUsed > 0 && workingUsed !== usedDays) {
+      usedText += ` (*${workingUsed}* working)`;
+    }
+
+    let availableText = `Available: ${
+      limits ? `*${available}* / Limit: *${limit}* days` : '-'
+    }`;
+
+    if (carryover > 0) {
+      availableText += ` (+*${carryover}* carryover)`;
+    }
+
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*📅 Annual Leave*\n\n${usedText}\n${availableText}`,
+      },
+    } as AnyBlock;
+  }
+
+  private buildBonusDaysBlock(
+    usage: IVacationPeriodUsageData['usage']['bonus_day'],
+    limits?: IVacationPeriodUsageData['limits'],
+  ) {
+    const used = usage.used ?? 0;
+    const available = usage.available ?? 0;
+    const limit = limits?.bonusDays ?? 0;
+
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*🎁 Bonus Days*\n\nUsed: *${used}* days\nAvailable: ${
+          limits ? `*${available}* / Limit: *${limit}* days` : '-'
+        }`,
+      },
+    } as AnyBlock;
+  }
+
+  private buildSimpleLeaveBlock(type: VacationType, used: number) {
+    const emoji = getVacationTypeIcon(type);
+    const title = VACATION_TYPE_DISPLAY_NAME_MAP[type];
+
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${emoji} ${title}*\nUsed: *${used}* days`,
+      },
+    } as AnyBlock;
   }
 }
