@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import TeamsService from 'src/teams/services/teams.service';
 import { TeamModalView } from 'src/slack/tabs/teams/views/team-modal.view';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import {
   ITeamsTabMetaData,
   TeamsTabView,

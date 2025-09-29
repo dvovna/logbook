@@ -8,7 +8,7 @@ import {
   TabId,
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall.service';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 

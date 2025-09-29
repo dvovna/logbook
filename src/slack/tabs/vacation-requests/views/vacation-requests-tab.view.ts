@@ -22,6 +22,7 @@ import { PaginatedListView } from 'src/slack/common/views/components/paginated-l
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 import UserRole from 'src/common/enums/user-role.enum';
 import { getVacationStatusEmoji } from 'src/slack/tabs/vacation-requests/utils/vacation-status-icon';
+import { SeparatorComponent } from 'src/slack/common/views/components/separator';
 
 export interface IVacationRequestsTabFilters {
   user?: {
@@ -92,7 +93,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle(): string {
-    return '*🌴 Vacation Requests Management*\nSubmit and manage employee vacation requests';
+    return '*🌴 Vacation Requests Management*\n\nSubmit and manage employee vacation requests';
   }
 
   protected getTitleAccessory({
@@ -162,7 +163,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
           options: this.getManageRequestMenuOptions(vacationRequest, userRole),
         },
       },
-      { type: 'divider' },
+      ...SeparatorComponent.getBlocks(),
     ];
   };
 

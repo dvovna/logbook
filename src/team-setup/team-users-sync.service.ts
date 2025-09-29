@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import UserRole from 'src/common/enums/user-role.enum';
 

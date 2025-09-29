@@ -19,7 +19,7 @@ import {
   TabId,
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import UserRole from 'src/common/enums/user-role.enum';
 
 @Injectable()

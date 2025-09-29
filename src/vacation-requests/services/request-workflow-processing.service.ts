@@ -3,7 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { VacationWorkflowEventEnum } from 'src/common/enums/vacation-workflow-event.enum';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
@@ -83,7 +83,6 @@ export class RequestWorkflowProcessingService {
           text: `✅ Great news! Your vacation request has been approved 🎉
 
 ${this.getRequestDetails(request, comments)}
-
 🧳 Pack your bags, ${request.user?.name}! Don’t forget sunscreen 😎`,
         }
         : {

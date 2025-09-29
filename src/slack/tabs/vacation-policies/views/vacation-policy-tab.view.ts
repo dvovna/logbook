@@ -9,6 +9,7 @@ import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
 import { ISearchResult } from 'src/common/types/pagination.types';
 import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
+import { SeparatorComponent } from 'src/slack/common/views/components/separator';
 
 interface IGetViewParams extends IBaseTabViewParams {
   policies: ISearchResult<IVacationPolicyViewModel>;
@@ -43,7 +44,7 @@ export class VacationPolicyTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle() {
-    return '*🏢 Vacation Policy Management*\nRules for vacation accrual, periods, and entitlements.';
+    return '*🏢 Vacation Policy Management*\n\nRules for vacation accrual, periods, and entitlements.';
   }
 
   protected getTitleAccessory(): SectionBlockAccessory | null {
@@ -112,7 +113,7 @@ export class VacationPolicyTabView extends BaseAdminTabView<
       },
     });
 
-    blocks.push({ type: 'divider' });
+    blocks.push(...SeparatorComponent.getBlocks());
 
     return blocks;
   }

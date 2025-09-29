@@ -13,6 +13,7 @@ import {
 } from 'src/slack/common/views/base-tab.view';
 import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
 import { CommonViewActionId } from 'src/slack/enums/common-view-action-id.enum';
+import { SeparatorComponent } from 'src/slack/common/views/components/separator';
 
 export interface IVacationHistoryTabFilters {
   year?: string;
@@ -119,7 +120,7 @@ export class VacationHistoryTabView extends BaseTabView<
           ],
         },
       },
-      { type: 'divider' },
+      ...SeparatorComponent.getBlocks(),
     ];
   };
 

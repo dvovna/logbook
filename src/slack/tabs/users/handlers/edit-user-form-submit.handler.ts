@@ -7,7 +7,7 @@ import {
   IEditUserModalViewMetadata,
   NO_TEAM_VALUE,
 } from 'src/slack/tabs/users/views/edit-user-modal.view';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import {
   UsersTabModalName,
   UsersTabService,

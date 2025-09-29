@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import UserRole from 'src/common/enums/user-role.enum';
 

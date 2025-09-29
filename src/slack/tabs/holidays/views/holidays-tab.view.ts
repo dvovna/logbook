@@ -153,7 +153,7 @@ export class HolidaysTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle({ policyName }: IGetHolidaysViewParams) {
-    return `*Holidays for Vacation Policy '${policyName}'*\nCompany-wide public holidays and non-working days.`;
+    return `*Holidays for Vacation Policy '${policyName}'*\n\nCompany-wide public holidays and non-working days.`;
   }
 
   private getFilterBlocks(selectedYear: number, years: number[]) {

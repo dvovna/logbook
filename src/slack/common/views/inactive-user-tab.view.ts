@@ -12,8 +12,7 @@ export class InactiveUserTabView extends BaseTabView<IBaseTabViewParams> {
   protected callbackId = ViewCallbackId.FallbackTabView;
 
   protected getTabTitle(): string {
-    return `👋 Hey there!  
-Looks like your account is not active yet 🚧`;
+    return `👋 Hey there!\n\nLooks like your account is not active yet 🚧`;
   }
 
   public getContentBlocks() {

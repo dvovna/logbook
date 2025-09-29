@@ -3,7 +3,7 @@ import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
 import ViewFieldType from 'src/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 
-export const MAX_POLICY_NAME_LENGTH = 100;
+export const MAX_POLICY_NAME_LENGTH = 50;
 
 const policyFormSchema = z
   .object({
@@ -12,7 +12,7 @@ const policyFormSchema = z
       .min(1, 'Policy name is required')
       .max(
         MAX_POLICY_NAME_LENGTH,
-        'Policy name must be at most 100 characters',
+        `Policy name must be at most ${MAX_POLICY_NAME_LENGTH} characters`,
       ),
     vacation_days: z.coerce
       .number()

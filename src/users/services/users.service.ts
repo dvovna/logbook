@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { UsersRepository } from 'src/users/users.repository';
+import { UsersRepository } from 'src/users/repositories/users.repository';
 import UserRole from 'src/common/enums/user-role.enum';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import {
@@ -7,7 +7,7 @@ import {
   ISearchResult,
 } from 'src/common/types/pagination.types';
 import { SupabaseFilter } from 'src/common/repositories/base.repository';
-import { ValidationError } from 'src/common/errors/validation.error';
+import { UserUpdateValidatorService } from 'src/users/services/user-update-validator.service';
 
 interface ICreateUserParams {
   email: string;
@@ -48,7 +48,10 @@ interface IUsersService {
 
 @Injectable()
 export class UsersService implements IUsersService {
-  public constructor(private readonly userRepository: UsersRepository) {}
+  public constructor(
+    private readonly userRepository: UsersRepository,
+    private readonly userUpdateValidatorService: UserUpdateValidatorService,
+  ) {}
 
   public async create({
     email,
@@ -82,7 +85,6 @@ export class UsersService implements IUsersService {
   }: ICreateUserParams) {
     return await this.userRepository.upsert(
       {
-        created_at: new Date().toISOString(),
         email,
         name,
         role,
@@ -90,6 +92,7 @@ export class UsersService implements IUsersService {
         team_id: teamId,
         slack_team_id: slackTeamId,
         slack_id: slackId,
+        updated_at: new Date().toISOString(),
       },
       ['slack_id'],
     );
@@ -120,20 +123,12 @@ export class UsersService implements IUsersService {
     params: Partial<ICreateUserParams>,
     updatedBy?: IUserViewModel,
   ): Promise<IUserViewModel | null> {
-    if (params.role !== UserRole.Admin || params.isActive === false) {
-      await this.validateAtLeastOneActiveAdmin(findParams);
-    }
+    const userBeforeUpdate = await this.findOneWithValidation(findParams);
+
+    await this.userUpdateValidatorService.validate(userBeforeUpdate, params);
 
     return await this.userRepository.update(this.getFindQuery(findParams), {
-      ...(params.role ? { role: params.role } : {}),
-      ...(params.name ? { name: params.name } : {}),
-      ...(params.email ? { email: params.email } : {}),
-      ...(params.teamId ? { team_id: params.teamId } : {}),
-      ...(params.contractStartDate
-        ? { contract_start_date: params.contractStartDate.toISOString() }
-        : {}),
-      ...(params.carryoverDays ? { carryover_days: params.carryoverDays } : {}),
-      ...(params.isActive !== undefined ? { is_active: params.isActive } : {}),
+      ...this.mapToDbUser(params),
       updated_at: new Date().toISOString(),
       updated_by: updatedBy?.id || null,
     });
@@ -152,6 +147,7 @@ export class UsersService implements IUsersService {
       }) => ({
         email,
         name,
+        is_active: true,
         carryover_days: 0,
         role: role || UserRole.Member,
         team_id: teamId,
@@ -195,27 +191,6 @@ export class UsersService implements IUsersService {
     });
   }
 
-  private validateAtLeastOneActiveAdmin = async (findParams: IFindParams) => {
-    const adminCount = await this.userRepository.count({
-      slack_team_id: findParams.slackTeamId,
-      role: UserRole.Admin,
-      is_active: true,
-    });
-
-    const isCurrentUserAdmin = !!(await this.userRepository.count({
-      slack_team_id: findParams.slackTeamId,
-      ...this.getFindQuery(findParams),
-      role: UserRole.Admin,
-      is_active: true,
-    }));
-
-    if (adminCount <= 1 && isCurrentUserAdmin) {
-      throw new ValidationError(
-        'Cannot update user. At least one active admin is required.',
-      );
-    }
-  };
-
   private getFindQuery(findParams: IFindParams): SupabaseFilter {
     return {
       slack_team_id: findParams.slackTeamId,
@@ -238,6 +213,21 @@ export class UsersService implements IUsersService {
         ? { is_active: findParams.isActive }
         : { is_active: findParams.includeInactive ? undefined : true }),
       ...(findParams.email ? { email: findParams.email } : {}),
+    };
+  }
+
+  private mapToDbUser(params: Partial<ICreateUserParams>) {
+    return {
+      ...(params.name ? { name: params.name } : {}),
+      ...(params.email ? { email: params.email } : {}),
+      ...(params.teamId ? { team_id: params.teamId } : {}),
+      ...(params.contractStartDate
+        ? { contract_start_date: params.contractStartDate.toISOString() }
+        : {}),
+      ...(params.carryoverDays !== undefined
+        ? { carryover_days: params.carryoverDays }
+        : {}),
+      ...(params.isActive !== undefined ? { is_active: params.isActive } : {}),
     };
   }
 }

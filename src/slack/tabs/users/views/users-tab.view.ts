@@ -16,6 +16,7 @@ import { SlackActionPermissionsService } from 'src/slack/common/services/slack-a
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import UserRole from 'src/common/enums/user-role.enum';
+import { SeparatorComponent } from 'src/slack/common/views/components/separator';
 
 export interface IUsersTabMetaData {
   page?: number;
@@ -62,7 +63,7 @@ export class UsersTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle(): string {
-    return '*👥 Users Management*\nList of employees with vacation balances and details.';
+    return '*👥 Users Management*\n\nList of employees with vacation balances and details.';
   }
 
   protected getContentBlocks(
@@ -115,10 +116,6 @@ export class UsersTabView extends BaseAdminTabView<
         type: 'overflow',
         action_id: UsersTabViewActionId.ManageUserMenu,
         options: [
-          {
-            text: { type: 'plain_text', text: 'View Vacation Usage' },
-            value: `${UsersTabViewActionId.ViewVacationUsage}:${user.id}`,
-          },
           ...(user.is_active
             ? [
               {
@@ -127,6 +124,10 @@ export class UsersTabView extends BaseAdminTabView<
               } as PlainTextOption,
             ]
             : []),
+          {
+            text: { type: 'plain_text', text: 'View Vacation Usage' },
+            value: `${UsersTabViewActionId.ViewVacationUsage}:${user.id}`,
+          },
           {
             text: {
               type: 'plain_text',
@@ -164,7 +165,7 @@ export class UsersTabView extends BaseAdminTabView<
       accessory: this.getUserRowAccessory(user, userRole),
     });
 
-    blocks.push({ type: 'divider' });
+    blocks.push(...SeparatorComponent.getBlocks());
 
     return blocks;
   }

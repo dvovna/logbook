@@ -43,7 +43,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   }
 
   protected getTabTitle() {
-    return `*🏝 Welcome to Marina Bot*\nHere you can track and request your vacations.`;
+    return `*🏝 Welcome to Marina Bot*\n\nHere you can track and request your vacations.`;
   }
 
   private getUserViewBlocks(

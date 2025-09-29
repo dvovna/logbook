@@ -5,7 +5,7 @@ import {
 } from 'src/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import {
   UsersTabModalName,
   UsersTabService,

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import TeamsService from 'src/teams/services/teams.service';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import {
   IUsersTabMetaData,
   UsersTabView,

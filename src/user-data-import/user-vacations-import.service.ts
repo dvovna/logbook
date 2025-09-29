@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import UserVacationsCsvParser, {
   IUserVacationRecord,

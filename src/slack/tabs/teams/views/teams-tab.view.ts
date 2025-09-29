@@ -9,6 +9,7 @@ import { PaginatedListView } from 'src/slack/common/views/components/paginated-l
 import { ISearchResult } from 'src/common/types/pagination.types';
 import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
+import { SeparatorComponent } from 'src/slack/common/views/components/separator';
 
 interface IGetViewParams extends IBaseTabViewParams {
   teamsData: ISearchResult<ITeamViewModel>;
@@ -43,7 +44,7 @@ export class TeamsTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle() {
-    return '🏢 *Teams Management*\nManage team membership, assign vacation policies, \nand configure approvers/notification recipients.';
+    return '🏢 *Teams Management*\n\nManage team membership, assign vacation policies, \nand configure approvers/notification recipients.';
   }
 
   protected getTitleAccessory(): SectionBlockAccessory {
@@ -113,7 +114,7 @@ export class TeamsTabView extends BaseAdminTabView<
       },
     });
 
-    blocks.push({ type: 'divider' });
+    blocks.push(...SeparatorComponent.getBlocks());
 
     return blocks;
   }

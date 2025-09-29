@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import UserRole from 'src/common/enums/user-role.enum';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/services/users.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from 'src/team-setup/team-users-sync.service';
 
