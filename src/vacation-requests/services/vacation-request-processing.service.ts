@@ -20,10 +20,12 @@ export class VacationRequestProcessingService {
 
   @OnEvent(VacationRequestEvent.Created)
   public async handleRequestCreated({ request }: VacationRequestCreatedEvent) {
-    const team = await this.teamsService.findOne({
-      id: request.team!.id,
-      slackTeamId: request.slack_team_id,
-    });
+    const team = request.team?.id
+      ? await this.teamsService.findOne({
+        id: request.team?.id,
+        slackTeamId: request.slack_team_id,
+      })
+      : null;
 
     if (!team) {
       return;
