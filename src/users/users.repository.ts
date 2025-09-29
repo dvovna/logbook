@@ -28,7 +28,9 @@ export class UsersRepository extends BaseRepository<
 
     return (data || []).reduce<Record<string, number>>(
       (acc, row) => {
-        acc[row.team_id] = (acc[row.team_id] || 0) + 1;
+        if (row.team_id) {
+          acc[row.team_id] = (acc[row.team_id] || 0) + 1;
+        }
 
         return acc;
       },
@@ -50,7 +52,7 @@ export class UsersRepository extends BaseRepository<
       team_id: row.team_id,
       created_at: row.created_at,
       updated_at: row.updated_at,
-      updated_by: row.updated_by || null,
+      updated_by: row.updated_by,
     };
   };
 }

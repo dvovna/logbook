@@ -9,6 +9,7 @@ import TeamModalViewValuesParser, {
 import TeamsService from 'src/teams/services/teams.service';
 import {
   ITeamModalViewMetadata,
+  NO_POLICY_VALUE,
   TeamModalView,
 } from 'src/slack/tabs/teams/views/team-modal.view';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
@@ -85,7 +86,8 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       {
         name: data.name,
         description: data.description,
-        vacationPolicyId: data.policy.value,
+        vacationPolicyId:
+          data.policy?.value === NO_POLICY_VALUE ? null : data.policy?.value,
         slackTeamId: user.slack_team_id,
         managerApprovers: data.manager_approvers?.map((option) => option.value),
         hrApprovers: data.hr_approvers?.map((option) => option.value),
@@ -111,7 +113,8 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       {
         name: data.name,
         description: data.description,
-        vacationPolicyId: data.policy.value,
+        vacationPolicyId:
+          data.policy?.value === NO_POLICY_VALUE ? null : data.policy?.value,
         managerApprovers: data.manager_approvers?.map((option) => option.value),
         hrApprovers: data.hr_approvers?.map((option) => option.value),
         approvalNotificationRecipients: data.approval_notification_recipients,

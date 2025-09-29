@@ -4,7 +4,6 @@ import SlackUsersService from 'src/slack-communication/services/slack-users.serv
 import UserRole from 'src/common/enums/user-role.enum';
 
 interface ISyncUsersParams {
-  defaultTeamId: string;
   userSlackIdsToIgnore?: string[];
   slackTeamId: string;
 }
@@ -19,7 +18,6 @@ export class TeamUsersSyncService {
   ) {}
 
   public async syncUsers({
-    defaultTeamId,
     userSlackIdsToIgnore = [],
     slackTeamId,
   }: ISyncUsersParams) {
@@ -34,7 +32,7 @@ export class TeamUsersSyncService {
       .filter(({ id: slackId }) => !userSlackIdsToIgnore.includes(slackId))
       .map(({ id, email, real_name, profile }) => ({
         slackId: id,
-        teamId: defaultTeamId,
+        teamId: null,
         slackTeamId: slackTeamId,
         email: profile.email || email,
         name: real_name || 'Unknown User',

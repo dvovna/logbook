@@ -16,7 +16,6 @@ export default class VacationPoliciesRepository extends BaseRepository<
   protected mapToViewModel = (data: Tables['vacation_policies']['Row']) => {
     return {
       id: data.id,
-      is_primary: data.is_primary,
       vacation_days: data.vacation_days,
       slack_team_id: data.slack_team_id,
       bonus_days: data.bonus_days,

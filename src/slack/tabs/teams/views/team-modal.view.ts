@@ -4,7 +4,7 @@ import { MAX_DESCRIPTION_LENGTH } from 'src/slack/tabs/teams/parsers/team-modal-
 import BaseModalView, {
   IBaseModalViewParams,
 } from 'src/slack/common/views/base-modal.view';
-import { AnyBlock } from '@slack/web-api';
+import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { SlackMultiStaticSelectView } from 'src/slack/common/views/components/slack-multi-static-select.view';
 import { IOption } from 'src/slack/common/types/option.interface';
 import { SlackInputCheckboxesView } from 'src/slack/common/views/components/slack-input-checkboxes.view';
@@ -15,7 +15,7 @@ interface IGetViewParams extends IBaseModalViewParams {
     id: string;
     name: string;
     description?: string;
-    vacation_policy_id: string;
+    vacation_policy_id: string | null;
     managerApprovers: string[] | undefined;
     hrApprovers: string[] | undefined;
     approvalNotificationRecipients: string[] | undefined;
@@ -31,6 +31,13 @@ export interface ITeamModalViewMetadata {
   id?: string | null;
   pageMetadata: string;
 }
+
+export const NO_POLICY_VALUE = 'NO_POLICY';
+
+const NO_POLICY_OPTION: PlainTextOption = {
+  text: { type: 'plain_text', text: 'No Policy' },
+  value: NO_POLICY_VALUE,
+};
 
 @Injectable()
 export class TeamModalView extends BaseModalView<
@@ -154,11 +161,23 @@ export class TeamModalView extends BaseModalView<
 
   private getPolicyBlock(
     policies: { id: string; name: string }[],
-    teamPolicyId?: string,
+    teamPolicyId?: string | null,
   ) {
-    const vacationPolicyName = policies.find(
-      (policy) => policy.id === teamPolicyId,
-    )?.name;
+    const policyOptions = policies.map((policy) => ({
+      text: {
+        type: 'plain_text',
+        text: policy.name,
+      },
+      value: policy.id,
+    }));
+
+    const options = [NO_POLICY_OPTION, ...policyOptions];
+
+    const selectedPolicy =
+      teamPolicyId !== undefined &&
+      options.find(
+        (policy) => policy.value === teamPolicyId || NO_POLICY_VALUE,
+      );
 
     return {
       type: 'input',
@@ -170,20 +189,8 @@ export class TeamModalView extends BaseModalView<
           type: 'plain_text',
           text: 'Select a vacation policy',
         },
-        options: policies.map((policy) => ({
-          text: {
-            type: 'plain_text',
-            text: policy.name,
-          },
-          value: policy.id,
-        })),
-        initial_option: vacationPolicyName && {
-          text: {
-            type: 'plain_text',
-            text: vacationPolicyName,
-          },
-          value: teamPolicyId,
-        },
+        options,
+        ...(selectedPolicy && { initial_option: selectedPolicy }),
       },
       label: {
         type: 'plain_text',

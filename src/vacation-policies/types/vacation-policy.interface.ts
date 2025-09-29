@@ -1,7 +1,6 @@
 interface IVacationPolicyViewModel {
   id: string;
   name: string;
-  is_primary: boolean;
   slack_team_id: string;
   working_days: number;
   vacation_days: number;

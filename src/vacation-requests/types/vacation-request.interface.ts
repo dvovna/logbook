@@ -21,7 +21,7 @@ export interface IVacationRequestViewModel {
     email: string;
     slack_id: string;
   } | null;
-  team_id: string;
+  team_id: string | null;
   user_id: string;
   slack_team_id: string;
   created_at: string | null;

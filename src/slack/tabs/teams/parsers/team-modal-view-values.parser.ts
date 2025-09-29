@@ -15,10 +15,10 @@ const teamFormSchema = z.object({
     .optional(),
   policy: z
     .object({
-      value: z.string().min(1, 'Policy is required'),
-      text: z.string().optional(),
+      value: z.string(),
+      text: z.string(),
     })
-    .required(),
+    .optional(),
   manager_approvers: z
     .array(
       z.object({
@@ -58,7 +58,7 @@ const teamFormSchema = z.object({
 
 export interface ITeamFormViewData {
   name: string;
-  policy: ISelectedOption;
+  policy?: ISelectedOption;
   description?: string;
   manager_approvers?: ISelectedOption[];
   manager_approvers_rule?: ISelectedOption<ApprovalRule>[];

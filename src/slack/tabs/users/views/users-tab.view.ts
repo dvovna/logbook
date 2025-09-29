@@ -146,7 +146,7 @@ export class UsersTabView extends BaseAdminTabView<
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    const team = teamsById[user.team_id];
+    const team = user.team_id ? teamsById[user.team_id] : null;
 
     blocks.push({
       type: 'section',
@@ -156,7 +156,7 @@ export class UsersTabView extends BaseAdminTabView<
           text:
             `*${user.name}* (${user.email})\n` +
             `Role: ${user.role}\n` +
-            `Team: ${team.name || '-'}\n` +
+            `Team: ${team?.name || '-'}\n` +
             `Carryover Days: ${user.carryover_days || '-'}`,
         },
       ],

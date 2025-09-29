@@ -8,6 +8,8 @@ import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
 import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
 import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
 import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
+import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
+import VacationType from 'src/common/enums/vacation-type.enum';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;
@@ -50,8 +52,11 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   ): AnyBlock[] {
     return [
       ...this.getVacationUsageBlocks(usageInfo),
+      { type: 'section', text: { type: 'plain_text', text: '\n' } },
       { type: 'divider' },
+      { type: 'section', text: { type: 'plain_text', text: '\n' } },
       ...this.getRequestedVacationsBlocks(requestedVacations),
+      { type: 'section', text: { type: 'plain_text', text: '\n' } },
       { type: 'divider' },
       {
         type: 'actions',
@@ -72,6 +77,60 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
     ];
   }
 
+  private buildAnnualLeaveBlock(
+    usage: IVacationPeriodUsageData['usage']['annual_leave'],
+    limits?: IVacationPeriodUsageData['limits'],
+  ) {
+    const usedDays = usage.used ?? 0;
+    const workingUsed = usage.working_days_used ?? 0;
+    const available = usage.available ?? 0;
+    const limit = limits ? limits.vacationDays : '-';
+    const carryover = limits?.carryoverDays ?? 0;
+
+    let usedText = `Used: *${usedDays}* days`;
+
+    if (workingUsed > 0 && workingUsed !== usedDays) {
+      usedText += ` (*${workingUsed}* working)`;
+    }
+
+    let availableText = `Available: ${limits ? `*${available}* / Limit: *${limit}* days` : '-'}`;
+
+    if (carryover > 0) {
+      availableText += ` (+*${carryover}* carryover)`;
+    }
+
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*📅 Annual Leave*\n\n${usedText}\n${availableText}`,
+      },
+    } as AnyBlock;
+  }
+
+  private buildBonusDaysBlock(
+    usage: IVacationPeriodUsageData['usage']['bonus_day'],
+    limits?: IVacationPeriodUsageData['limits'],
+  ) {
+    const used = usage.used ?? 0;
+    const available = usage.available ?? 0;
+    const limit = limits?.bonusDays ?? 0;
+
+    const lines: string[] = [
+      `*🎁 Bonus Days*\n`,
+      `Used: *${used}* days`,
+      `Available: ${limits ? `*${available}* / Limit: *${limit}* days` : '-'}`,
+    ];
+
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: lines.join('\n'),
+      },
+    } as AnyBlock;
+  }
+
   private getVacationUsageBlocks(
     vacationsUsageInfo: IVacationPeriodUsageData | null,
   ): AnyBlock[] {
@@ -87,63 +146,55 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
       ];
     }
 
-    const optionalBlocks: AnyBlock[] = [];
-    const { usage, periodStart, periodEnd } = vacationsUsageInfo;
-
-    if (usage.sick_leave.used > 0) {
-      optionalBlocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*🤒 Sick Leave*\n*Used:* ${usage.sick_leave.used} days`,
-        },
-      });
-    }
-
-    if (usage.unpaid_leave.used > 0) {
-      optionalBlocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*🚫 Unpaid Leave*\n*Used:* ${usage.unpaid_leave.used} days`,
-        },
-      });
-    }
-
-    if (usage.other.used > 0) {
-      optionalBlocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*📌 Other*\n*Used:* ${usage.other.used} days`,
-        },
-      });
-    }
-
-    return [
+    const blocks: AnyBlock[] = [
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `Here's your vacation usage for the period ${periodStart.toDateString()} – ${periodEnd.toDateString()}:`,
+          text: `Here's your vacation usage for the period *${vacationsUsageInfo.periodStart.toDateString()} – ${vacationsUsageInfo.periodEnd.toDateString()}*:`,
         },
       },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*📅 Annual Leave*\n*Used:* ${usage.annual_leave.used} days\n*Available:* ${usage.annual_leave.available} days`,
-        },
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*🎁 Bonus Days*\n*Used:* ${usage.bonus_day.used} days\n*Available:* ${usage.bonus_day.available} days`,
-        },
-      },
-      ...optionalBlocks,
+      this.buildAnnualLeaveBlock(
+        vacationsUsageInfo.usage.annual_leave,
+        vacationsUsageInfo.limits,
+      ),
     ];
+
+    if (
+      vacationsUsageInfo.usage.bonus_day.used > 0 ||
+      vacationsUsageInfo.usage.bonus_day.available > 0
+    ) {
+      blocks.push(
+        this.buildBonusDaysBlock(
+          vacationsUsageInfo.usage.bonus_day,
+          vacationsUsageInfo.limits,
+        ),
+      );
+    }
+
+    [
+      VacationType.SickLeave,
+      VacationType.UnpaidLeave,
+      VacationType.Other,
+    ].forEach((type) => {
+      const leave =
+        vacationsUsageInfo.usage[type as keyof typeof vacationsUsageInfo.usage];
+
+      if (leave.used > 0) {
+        const emoji = getVacationTypeIcon(type);
+        const title = VACATION_TYPE_DISPLAY_NAME_MAP[type];
+
+        blocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*${emoji} ${title}*\nUsed: ${leave.used} days`,
+          },
+        });
+      }
+    });
+
+    return blocks;
   }
 
   private getRequestedVacationsBlocks(
@@ -166,30 +217,32 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
     ];
 
     vacations.forEach((vacation) => {
+      const vacationType =
+        VACATION_TYPE_DISPLAY_NAME_MAP[vacation.type] ?? 'Unknown';
+
+      const overflowOptions = [
+        {
+          text: { type: 'plain_text', text: '📋 View Details' },
+          value: `${HomeTabActionId.ViewDetails}:${vacation.id}`,
+        },
+        {
+          text: { type: 'plain_text', text: '❌ Cancel' },
+          value: `${HomeTabActionId.CancelRequest}:${vacation.id}`,
+        },
+      ];
+
       blocks.push({
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*${vacation.start_date} – ${vacation.end_date}* (${VACATION_TYPE_DISPLAY_NAME_MAP[vacation.type]})\n*Days:* ${vacation.days}\n`,
+          text: `*${vacation.start_date} – ${vacation.end_date}* (${vacationType})\n*Days:* ${vacation.days}`,
         },
         accessory: {
           type: 'overflow',
           action_id: HomeTabActionId.ManagePendingRequestMenu,
-          options: [
-            {
-              text: {
-                type: 'plain_text',
-                text: '📋 View Details',
-              },
-              value: `${HomeTabActionId.ViewDetails}:${vacation.id}`,
-            },
-            {
-              text: { type: 'plain_text', text: '❌ Cancel' },
-              value: `${HomeTabActionId.CancelRequest}:${vacation.id}`,
-            },
-          ],
+          options: overflowOptions,
         },
-      });
+      } as AnyBlock);
     });
 
     return blocks;

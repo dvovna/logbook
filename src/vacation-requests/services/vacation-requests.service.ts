@@ -23,7 +23,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 interface ICreateParams {
   userId: string;
-  teamId: string;
+  teamId: string | null;
   startDate: Date;
   endDate: Date;
   type: VacationType;
@@ -32,7 +32,7 @@ interface ICreateParams {
 }
 
 interface IUpdateParams {
-  teamId?: string;
+  teamId?: string | null;
   startDate?: Date;
   endDate?: Date;
   type?: VacationType;
@@ -87,17 +87,22 @@ export class VacationRequestsService implements IVacationRequestsService {
   public async create(createParams: ICreateParams, user: IUserViewModel) {
     const { userId, teamId, startDate, endDate, type } = createParams;
 
-    await this.vacationRequestsValidator.validateRequestLimits(userId, teamId);
+    await this.vacationRequestsValidator.validateRequestLimits(
+      userId,
+      user.slack_team_id,
+    );
 
-    const userTeam = await this.teamsService.findOneWithValidation({
-      id: teamId,
-      slackTeamId: user.slack_team_id,
-    });
+    const userTeam = teamId
+      ? await this.teamsService.findOne({
+        id: teamId,
+        slackTeamId: user.slack_team_id,
+      })
+      : null;
 
     const workingDays = await this.workingDaysCalculationService.calculate(
       startDate,
       endDate,
-      userTeam.vacation_policy_id,
+      userTeam?.vacation_policy_id || null,
       user.slack_team_id,
     );
 
@@ -154,10 +159,13 @@ export class VacationRequestsService implements IVacationRequestsService {
       slackTeamId,
     });
 
-    const userTeam = await this.teamsService.findOneWithValidation({
-      id: updateParams.teamId || existingRequest.team!.id,
-      slackTeamId: user.slack_team_id,
-    });
+    const userTeamId = updateParams.teamId || existingRequest.team?.id;
+    const userTeam = userTeamId
+      ? await this.teamsService.findOneWithValidation({
+        id: updateParams.teamId || existingRequest.team?.id,
+        slackTeamId: user.slack_team_id,
+      })
+      : null;
 
     const {
       startDate = new Date(existingRequest.start_date),
@@ -172,7 +180,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     const workingDays = await this.workingDaysCalculationService.calculate(
       startDate,
       endDate,
-      userTeam.vacation_policy_id,
+      userTeam?.vacation_policy_id || null,
       user.slack_team_id,
     );
 
@@ -285,10 +293,12 @@ export class VacationRequestsService implements IVacationRequestsService {
       slack_team_id: replacedBy.slack_team_id,
     });
 
-    const userTeam = await this.teamsService.findOneWithValidation({
-      id: user.team_id,
-      slackTeamId: replacedBy.slack_team_id,
-    });
+    const userTeam = user.team_id
+      ? await this.teamsService.findOne({
+        id: user.team_id,
+        slackTeamId: replacedBy.slack_team_id,
+      })
+      : null;
 
     const now = new Date().toISOString();
     const vacationRecords = await Promise.all(
@@ -296,7 +306,7 @@ export class VacationRequestsService implements IVacationRequestsService {
         const workingDays = await this.workingDaysCalculationService.calculate(
           vacation.startDate,
           vacation.endDate,
-          userTeam.vacation_policy_id,
+          userTeam?.vacation_policy_id || null,
           user.slack_team_id,
         );
 

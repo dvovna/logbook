@@ -7,10 +7,19 @@ import VacationPoliciesService from 'src/vacation-policies/services/vacation-pol
 import { getCurrentVacationPeriod } from 'src/vacation-requests/utils/vacation-period.utils';
 import { VacationPeriodUsageService } from 'src/vacation-requests/services/vacation-period-usage.service';
 
+export interface IVacationLimits {
+  vacationDays: number;
+  daysTotal: number;
+  workingDays: number;
+  bonusDays: number;
+  carryoverDays: number;
+}
+
 export interface IVacationPeriodUsageData {
   periodStart: Date;
   periodEnd: Date;
   usage: IVacationUsageByType;
+  limits: IVacationLimits | null;
 }
 
 interface IVacationsUsageService {
@@ -36,39 +45,31 @@ export class VacationsUsageService implements IVacationsUsageService {
       user.contract_start_date,
     );
 
-    const [periodUsage, userTeam] = await Promise.all([
-      this.vacationPeriodUsageService.getPeriodUsage(
-        user,
-        periodStart,
-        periodEnd,
-      ),
-      this.teamsService.findOneWithValidation({
-        id: user.team_id,
-        slackTeamId: user.slack_team_id,
-      }),
-    ]);
+    const periodUsage = await this.vacationPeriodUsageService.getPeriodUsage(
+      user,
+      periodStart,
+      periodEnd,
+    );
 
-    const teamVacationPolicy =
-      await this.vacationPoliciesService.findOneWithValidation({
-        id: userTeam.vacation_policy_id,
-        slackTeamId: user.slack_team_id,
-      });
+    const limits = await this.getVacationPeriodLimits(user);
 
-    const carryoverDays = user.carryover_days || 0;
+    const {
+      carryoverDays = 0,
+      vacationDays = 0,
+      workingDays = 0,
+      bonusDays = 0,
+    } = limits || {};
+
     const availableDays =
-      carryoverDays +
-      teamVacationPolicy.vacation_days -
-      periodUsage.annualLeaveUsed;
+      carryoverDays + vacationDays - periodUsage.annualLeaveUsed;
     const availableWorkingDays =
-      carryoverDays +
-      teamVacationPolicy.working_days -
-      periodUsage.annualLeaveWorkingDaysUsed;
-    const availableBonusDays =
-      teamVacationPolicy.bonus_days - periodUsage.bonusUsed;
+      carryoverDays + workingDays - periodUsage.annualLeaveWorkingDaysUsed;
+    const availableBonusDays = bonusDays - periodUsage.bonusUsed;
 
     return {
       periodStart,
       periodEnd,
+      limits,
       usage: {
         [VacationType.AnnualLeave]: {
           used: periodUsage.annualLeaveUsed,
@@ -86,5 +87,37 @@ export class VacationsUsageService implements IVacationsUsageService {
         [VacationType.Other]: { used: periodUsage.otherUsed },
       },
     };
+  }
+
+  private async getVacationPeriodLimits(user: IUserViewModel) {
+    const teamVacationPolicy = await this.getVacationPolicyIfExists(user);
+
+    return teamVacationPolicy && {
+      vacationDays: teamVacationPolicy?.vacation_days || 0,
+      workingDays: teamVacationPolicy?.working_days || 0,
+      bonusDays: teamVacationPolicy?.bonus_days || 0,
+      carryoverDays: user.carryover_days || 0,
+        daysTotal:
+          (teamVacationPolicy?.vacation_days || 0) +
+        (user.carryover_days || 0),
+    };
+  }
+
+  private async getVacationPolicyIfExists(user: IUserViewModel) {
+    const userTeam = user.team_id
+      ? await this.teamsService.findOneWithValidation({
+        id: user.team_id,
+        slackTeamId: user.slack_team_id,
+      })
+      : null;
+
+    if (!userTeam || !userTeam.vacation_policy_id) {
+      return null;
+    }
+
+    return this.vacationPoliciesService.findOne({
+      id: userTeam.vacation_policy_id,
+      slackTeamId: user.slack_team_id,
+    });
   }
 }

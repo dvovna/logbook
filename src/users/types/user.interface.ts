@@ -8,7 +8,7 @@ export interface IUserViewModel {
   is_active: boolean;
   contract_start_date?: string | null;
   carryover_days?: number | null;
-  team_id: string;
+  team_id: string | null;
   slack_team_id: string;
   slack_id: string;
   created_at: string;

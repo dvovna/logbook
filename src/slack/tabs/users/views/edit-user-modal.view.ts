@@ -18,6 +18,13 @@ export interface IEditUserModalViewMetadata {
   pageMetadata: string;
 }
 
+export const NO_TEAM_VALUE = 'NO_TEAM';
+
+const NO_TEAM_OPTION: PlainTextOption = {
+  text: { type: 'plain_text', text: 'No Team' },
+  value: NO_TEAM_VALUE,
+};
+
 @Injectable()
 export class EditUserModalView extends BaseModalView<
   IGetViewParams,
@@ -35,14 +42,21 @@ export class EditUserModalView extends BaseModalView<
     errorMessage,
   }: IGetViewParams): AnyBlock[] {
     const userRole = ROLE_OPTIONS.find(({ value }) => user.role === value);
-    const teamOptions = teams.map<PlainTextOption>(({ id, name }) => ({
-      value: id,
-      text: {
-        type: 'plain_text',
-        text: name,
-      },
-    }));
-    const userTeam = teamOptions.find(({ value }) => user.team_id === value)!;
+    const teamOptions = [
+      NO_TEAM_OPTION,
+      ...teams.map<PlainTextOption>(({ id, name }) => ({
+        value: id,
+        text: {
+          type: 'plain_text',
+          text: name,
+        },
+      })),
+    ];
+    const selectedTeam =
+      user.team_id !== undefined &&
+      teamOptions.find(
+        (policy) => policy.value === user.team_id || NO_TEAM_VALUE,
+      );
 
     return [
       {
@@ -80,7 +94,7 @@ export class EditUserModalView extends BaseModalView<
           type: 'static_select',
           action_id: 'team_id',
           options: teamOptions,
-          initial_option: user.team_id ? userTeam : undefined,
+          ...(selectedTeam && { initial_option: selectedTeam }),
         },
       },
       this.addUnusedDaysBlock(user.carryover_days),

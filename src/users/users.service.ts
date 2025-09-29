@@ -13,7 +13,7 @@ interface ICreateUserParams {
   name: string;
   role: UserRole;
   slackTeamId: string;
-  teamId: string;
+  teamId: string | null;
   slackId: string;
   contractStartDate?: string;
   carryoverDays?: number;
@@ -88,6 +88,25 @@ export class UsersService implements IUsersService {
       team_id: teamId,
       slack_team_id: slackTeamId,
       slack_id: slackId,
+    });
+  }
+
+  public async updateMany(
+    findParams: IFindParams,
+    params: Partial<ICreateUserParams>,
+  ) {
+    return await this.userRepository.updateMany(this.getFindQuery(findParams), {
+      ...(params.role ? { role: params.role } : {}),
+      ...(params.name ? { name: params.name } : {}),
+      ...(params.email ? { email: params.email } : {}),
+      ...(params.teamId ? { team_id: params.teamId } : {}),
+      ...(params.contractStartDate
+        ? { contract_start_date: params.contractStartDate }
+        : {}),
+      ...(params.carryoverDays ? { carryover_days: params.carryoverDays } : {}),
+      ...(params.isActive !== undefined ? { is_active: params.isActive } : {}),
+      updated_at: new Date().toISOString(),
+      updated_by: params.updatedBy || null,
     });
   }
 

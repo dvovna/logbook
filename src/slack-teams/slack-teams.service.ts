@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { SlackTeamsRepository } from 'src/slack-teams/slack-teams.repository';
 import { SupabaseFilter } from 'src/common/repositories/base.repository';
 
@@ -32,6 +32,18 @@ export class SlackTeamsService {
     return await this.slackTeamsRepository.findOne(
       this.getFilterQuery(findParams),
     );
+  }
+
+  public async findOneWithValidation(findParams: IFindParams) {
+    const team = await this.slackTeamsRepository.findOne(
+      this.getFilterQuery(findParams),
+    );
+
+    if (!team) {
+      throw new NotFoundException(`Slack team not found`);
+    }
+
+    return team;
   }
 
   public async delete(findParams: IFindParams) {

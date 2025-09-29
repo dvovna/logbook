@@ -9,8 +9,8 @@ import {
   TabNavigationService,
 } from 'src/slack/common/services/tab-navigation.service';
 import { UsersService } from 'src/users/users.service';
-import TeamsService from 'src/teams/services/teams.service';
 import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall.service';
+import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 
 interface IFileSharedEvent {
   type: SlackEventType.FileShared;
@@ -103,8 +103,8 @@ export default class SlackEventsService {
     private readonly fileUploadService: FileUploadService,
     private readonly tabNavigationService: TabNavigationService,
     private readonly usersService: UsersService,
-    private readonly teamsService: TeamsService,
     private readonly slackAppUninstallService: SlackAppUninstallService,
+    private readonly slackTeamService: SlackTeamsService,
   ) {}
 
   public handleSlackEvent(
@@ -157,44 +157,47 @@ export default class SlackEventsService {
       return;
     }
 
+    const existingUser = await this.usersService.findBySlackId(event.user.id);
+    const slackTeam = await this.slackTeamService.findOneWithValidation({
+      slackId: event.user.team_id,
+    });
+
     this.logger.log('Handling user change', {
       slackId: event.user.id,
       teamId: user?.team_id,
       email: event.user.profile.email,
       name: event.user.real_name,
       isActive: !event.user.deleted,
-      slackTeamId: event.user.team_id,
+      slackTeamId: slackTeam.slack_id,
     });
 
     await this.usersService.upsert({
       slackId: event.user.id,
-      teamId: user?.team_id,
+      teamId: existingUser?.team_id || null,
       role: user.role,
       email: event.user.profile.email!,
       name: event.user.real_name,
       isActive: !event.user.deleted,
-      slackTeamId: event.user.team_id,
+      slackTeamId: slackTeam?.id,
     });
   }
 
   private async handleUserJoin(event: ITeamJoinEvent) {
-    const primaryTeam = await this.teamsService.findOneWithValidation({
-      slackTeamId: event.user.team_id,
-      isPrimary: true,
+    const slackTeam = await this.slackTeamService.findOneWithValidation({
+      slackId: event.user.team_id,
     });
 
     this.logger.log('Handling new user join', {
       slackId: event.user.id,
-      teamId: primaryTeam?.id,
       email: event.user.profile.email,
       name: event.user.real_name,
       isActive: !event.user.deleted,
-      slackTeamId: event.user.team_id,
+      slackTeamId: slackTeam.slack_id,
     });
 
     await this.usersService.upsert({
       slackId: event.user.id,
-      teamId: primaryTeam?.id,
+      teamId: null,
       role:
         event.user.is_admin || event.user.is_owner
           ? UserRole.Admin
@@ -202,7 +205,7 @@ export default class SlackEventsService {
       email: event.user.profile.email!,
       name: event.user.real_name,
       isActive: !event.user.deleted,
-      slackTeamId: event.user.team_id,
+      slackTeamId: slackTeam.slack_id,
     });
   }
 

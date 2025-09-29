@@ -16,10 +16,10 @@ export class VacationRequestsValidationService {
     private readonly config: ConfigService,
   ) {}
 
-  public async validateRequestLimits(userId: string, teamId: string) {
+  public async validateRequestLimits(userId: string, slackTeamId: string) {
     const userRequests = await this.vacationRequestsRepository.findMany({
       user_id: userId,
-      team_id: teamId,
+      slack_team_id: slackTeamId,
     });
 
     const maxRequestsLimit = this.config.getOrThrow<number>(
@@ -60,7 +60,7 @@ export class VacationRequestsValidationService {
     const usageData =
       await this.userVacationsUsageService.getCurrentVacationPeriodUsage(user);
 
-    if (!usageData) {
+    if (!usageData || !usageData.limits) {
       return;
     }
 

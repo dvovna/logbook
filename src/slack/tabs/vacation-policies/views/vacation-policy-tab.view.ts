@@ -75,7 +75,6 @@ export class VacationPolicyTabView extends BaseAdminTabView<
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    const isPrimary = policy.is_primary ? '⭐️' : '';
     const updatedAt = new Date(policy.updated_at).toLocaleDateString();
     const createdAt = new Date(policy.created_at).toLocaleDateString();
 
@@ -85,7 +84,7 @@ export class VacationPolicyTabView extends BaseAdminTabView<
         {
           type: 'mrkdwn',
           text:
-            `*${policy.name}*${isPrimary}\n` +
+            `*${policy.name}*\n` +
             `Vacation Days: ${policy?.vacation_days || '-'}\n` +
             `Working Days: ${policy?.working_days || '-'}\n` +
             `Bonus Days: ${policy?.bonus_days || '-'}\n` +

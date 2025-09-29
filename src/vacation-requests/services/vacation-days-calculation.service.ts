@@ -9,16 +9,12 @@ export class VacationDaysCalculationService {
   public async calculate(
     start: Date,
     end: Date,
-    vacationPolicyId: string,
+    vacationPolicyId: string | null,
     slackTeamId: string,
   ): Promise<number> {
-    const holidays = await this.holidaysService.findMany({
-      slackTeamId,
-      vacationPolicyId,
-      startDate: start,
-      endDate: end,
-      excludeDisabled: true,
-    });
+    const holidays = vacationPolicyId
+      ? await this.getHolidaysInRange(vacationPolicyId, slackTeamId, start, end)
+      : [];
 
     const holidayDates = holidays.map((holiday) => holiday.date);
 
@@ -37,5 +33,20 @@ export class VacationDaysCalculationService {
     }
 
     return workingDays;
+  }
+
+  private getHolidaysInRange(
+    vacationPolicyId: string,
+    slackTeamId: string,
+    start: Date,
+    end: Date,
+  ) {
+    return this.holidaysService.findMany({
+      slackTeamId,
+      vacationPolicyId,
+      startDate: start,
+      endDate: end,
+      excludeDisabled: true,
+    });
   }
 }

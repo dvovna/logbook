@@ -147,6 +147,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "request_workflow_step_comments_slack_team_id_fkey"
+            columns: ["slack_team_id"]
+            isOneToOne: false
+            referencedRelation: "slack_teams"
+            referencedColumns: ["id"]
+          },
         ]
       }
       request_workflow_steps: {
@@ -252,7 +259,7 @@ export type Database = {
           slack_team_id: string
           updated_at: string
           updated_by: string | null
-          vacation_policy_id: string
+          vacation_policy_id: string | null
         }
         Insert: {
           approval_notification_recipients?: string[] | null
@@ -269,7 +276,7 @@ export type Database = {
           slack_team_id?: string
           updated_at?: string
           updated_by?: string | null
-          vacation_policy_id?: string
+          vacation_policy_id?: string | null
         }
         Update: {
           approval_notification_recipients?: string[] | null
@@ -286,7 +293,7 @@ export type Database = {
           slack_team_id?: string
           updated_at?: string
           updated_by?: string | null
-          vacation_policy_id?: string
+          vacation_policy_id?: string | null
         }
         Relationships: [
           {
@@ -294,6 +301,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_slack_team_id_fkey"
+            columns: ["slack_team_id"]
+            isOneToOne: false
+            referencedRelation: "slack_teams"
             referencedColumns: ["id"]
           },
           {
@@ -324,7 +338,7 @@ export type Database = {
           role: string
           slack_id: string
           slack_team_id: string
-          team_id: string
+          team_id: string | null
           updated_at: string | null
           updated_by: string | null
         }
@@ -339,7 +353,7 @@ export type Database = {
           role: string
           slack_id: string
           slack_team_id?: string
-          team_id?: string
+          team_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -354,7 +368,7 @@ export type Database = {
           role?: string
           slack_id?: string
           slack_team_id?: string
-          team_id?: string
+          team_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -461,7 +475,7 @@ export type Database = {
           slack_team_id: string
           start_date: string
           status: string
-          team_id: string
+          team_id: string | null
           type: string
           updated_at: string | null
           updated_by: string
@@ -480,7 +494,7 @@ export type Database = {
           slack_team_id?: string
           start_date: string
           status?: string
-          team_id?: string
+          team_id?: string | null
           type?: string
           updated_at?: string | null
           updated_by: string
@@ -499,7 +513,7 @@ export type Database = {
           slack_team_id?: string
           start_date?: string
           status?: string
-          team_id?: string
+          team_id?: string | null
           type?: string
           updated_at?: string | null
           updated_by?: string
@@ -516,17 +530,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "vacation_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "vacations_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vacations_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {

@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS vacation_policies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     slack_team_id UUID NOT NULL REFERENCES slack_teams(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    is_primary BOOLEAN DEFAULT FALSE,
     vacation_days INTEGER NOT NULL,
     working_days INTEGER NOT NULL,
     bonus_days INTEGER DEFAULT 0 NOT NULL,
@@ -44,7 +43,6 @@ CREATE TABLE IF NOT EXISTS teams (
     approval_notification_recipients TEXT[] DEFAULT '{}',
     manager_approvers_rule TEXT DEFAULT 'ANY',
     hr_approvers_rule TEXT DEFAULT 'ANY',
-    is_primary BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -61,7 +59,7 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
-    team_id UUID REFERENCES teams(id) NOT NULL,
+    team_id UUID REFERENCES teams(id),
     slack_team_id UUID REFERENCES slack_teams(id) NOT NULL ON DELETE CASCADE,
     slack_id TEXT UNIQUE NOT NULL,
     carryover_days INTEGER DEFAULT 0,
@@ -74,7 +72,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_by UUID REFERENCES users(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_users_team_id ON users(team_id);
+CREATE INDEX idx_users_team_id ON users(team_id) ON DELETE SET NULL;
 CREATE INDEX idx_users_slack_team_id ON users(slack_team_id);
 
 -- =====================
@@ -103,7 +101,7 @@ CREATE INDEX idx_holidays_team_date ON holidays(slack_team_id, date);
 CREATE TABLE IF NOT EXISTS vacation_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    team_id UUID REFERENCES teams(id),
     slack_team_id UUID NOT NULL REFERENCES slack_teams(id) ON DELETE CASCADE,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
@@ -119,7 +117,7 @@ CREATE TABLE IF NOT EXISTS vacation_requests (
 );
 
 CREATE INDEX idx_vacation_requests_user_id ON vacation_requests(user_id);
-CREATE INDEX idx_vacation_requests_team_id ON vacation_requests(team_id);
+CREATE INDEX idx_vacation_requests_team_id ON vacation_requests(team_id) ON DELETE SET NULL;
 CREATE INDEX idx_vacation_requests_slack_team_id ON vacation_requests(slack_team_id);
 CREATE INDEX idx_vacation_requests_dates ON vacation_requests(start_date, end_date);
 CREATE INDEX idx_vacation_requests_status ON vacation_requests(status);

@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { VacationPolicyModalView } from 'src/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
 import {
   IVacationPoliciesTabMetaData,
-  VacationPolicyTabView
+  VacationPolicyTabView,
 } from 'src/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import BaseTabService, {
   IOpenModalBaseParams,
@@ -71,7 +70,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       },
       page: metadata.page,
       pageSize: DEFAULT_POLICIES_PAGE_SIZE,
-      orderBy: ['is_primary:desc', 'name:asc'],
+      orderBy: ['name:asc'],
     });
 
     return this.manageVacationPoliciesViewService.getView({
@@ -95,12 +94,8 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
   public async getUpdateVacationPolicyModalView(
     params: IPolicyModalViewParams,
   ) {
-    const {
-      user,
-      policyId,
-      errorMessage,
-      pageMetadata,
-    } = params;
+    const { user, policyId, errorMessage, pageMetadata } = params;
+
     const policy = await this.vacationPoliciesService.findOneWithValidation({
       id: policyId,
       slackTeamId: user.slack_team_id,

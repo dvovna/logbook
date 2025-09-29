@@ -2,9 +2,6 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import { TeamsRepository } from 'src/teams/repositories/teams.repository';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
-import { UsersService } from 'src/users/users.service';
-import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
-import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
 import {
   ISearchParams,
   ISearchResult,
@@ -18,7 +15,7 @@ import { SupabaseFilter } from 'src/common/repositories/base.repository';
 interface ICreateTeamParams {
   name: string;
   description?: string;
-  vacationPolicyId: string;
+  vacationPolicyId?: string | null;
   managerApprovers?: string[];
   hrApprovers?: string[];
   approvalNotificationRecipients?: string[];
@@ -39,7 +36,7 @@ interface IFindParams {
 interface IUpdateParams {
   name?: string;
   description?: string;
-  vacationPolicyId?: string;
+  vacationPolicyId?: string | null;
   managerApprovers?: string[];
   hrApprovers?: string[];
   approvalNotificationRecipients?: string[];
@@ -78,7 +75,6 @@ const MAX_TEAMS_COUNT = 5;
 export default class TeamsService implements ITeamsService {
   public constructor(
     private readonly teamsRepository: TeamsRepository,
-    private readonly usersService: UsersService,
     private readonly config: ConfigService,
   ) {}
 
@@ -141,7 +137,6 @@ export default class TeamsService implements ITeamsService {
       updated_at: createdAt,
       created_by: user.id,
       updated_by: user.id,
-      is_primary: createParams.isPrimary ?? false,
     });
   }
 
@@ -187,20 +182,6 @@ export default class TeamsService implements ITeamsService {
       slackTeamId: user.slack_team_id,
     });
 
-    if (team.is_primary) {
-      throw new PrimaryEntityDeleteError('team');
-    }
-
-    const teamUsersCount = await this.usersService.count({
-      teamId,
-      slackTeamId: team.slack_team_id,
-      isActive: true,
-    });
-
-    if (teamUsersCount > 0) {
-      throw new EntityHasDependenciesError('team', 'users');
-    }
-
     await this.teamsRepository.deleteMany({
       id: teamId,
       slack_team_id: user.slack_team_id,
@@ -216,9 +197,6 @@ export default class TeamsService implements ITeamsService {
   private getFindQuery(params: IFindParams): SupabaseFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
-      ...(params.isPrimary !== undefined
-        ? { is_primary: params.isPrimary }
-        : {}),
       ...(params.managerApprovers !== undefined
         ? {
           manager_approvers: {
@@ -246,7 +224,6 @@ export default class TeamsService implements ITeamsService {
       updated_at: createdAt,
       created_by: null,
       updated_by: null,
-      is_primary: true,
     });
   }
 }

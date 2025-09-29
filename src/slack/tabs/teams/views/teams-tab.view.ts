@@ -76,7 +76,6 @@ export class TeamsTabView extends BaseAdminTabView<
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    const isPrimary = team.is_primary ? '⭐️' : '';
     const updatedAt = new Date(team.updated_at).toLocaleDateString();
     const createdAt = new Date(team.created_at).toLocaleDateString();
     const teamUsersCount = usersCountByTeam[team.id] || 0;
@@ -87,7 +86,7 @@ export class TeamsTabView extends BaseAdminTabView<
         {
           type: 'mrkdwn',
           text:
-            `*${team.name}*${isPrimary}\n` +
+            `*${team.name}*\n` +
             `Vacation Policy: ${team.vacation_policy?.name || '-'}\n` +
             `Description: ${team.description || '-'}\n` +
             `Users Count: ${teamUsersCount}\n` +

@@ -37,7 +37,6 @@ export class TeamsRepository extends BaseRepository<
       manager_approvers_rule:
         extendedRow.manager_approvers_rule as ApprovalRule,
       hr_approvers_rule: extendedRow.hr_approvers_rule as ApprovalRule,
-      is_primary: extendedRow.is_primary,
       created_at: extendedRow.created_at,
       updated_at: extendedRow.updated_at,
       created_by: extendedRow.created_by,

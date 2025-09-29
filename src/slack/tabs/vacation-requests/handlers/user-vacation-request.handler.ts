@@ -57,12 +57,10 @@ export class UserVacationRequestHandler extends BaseModalFormSubmitHandler<
 
   protected onSubmit(
     data: IVacationRequestUserFormViewData,
-    metadata: IVacationRequestModalViewMetadata,
+    _metadata: IVacationRequestModalViewMetadata,
     user: IUserViewModel,
   ) {
-    return metadata.id
-      ? this.update(metadata.id, data, user)
-      : this.create(data, user);
+    return this.create(data, user);
   }
 
   private create(data: IVacationRequestUserFormViewData, user: IUserViewModel) {
@@ -75,27 +73,6 @@ export class UserVacationRequestHandler extends BaseModalFormSubmitHandler<
         type: data.type_option.value,
         status: VacationRequestStatus.Pending,
         userComment: data.comment,
-      },
-      user,
-    );
-  }
-
-  private update(
-    id: string,
-    data: IVacationRequestUserFormViewData,
-    user: IUserViewModel,
-  ) {
-    return this.vacationRequestsService.update(
-      {
-        id,
-        slackTeamId: user.slack_team_id,
-      },
-      {
-        teamId: user.team_id,
-        type: data.type_option.value,
-        userComment: data.comment,
-        startDate: new Date(data.start_date),
-        endDate: new Date(data.end_date),
       },
       user,
     );

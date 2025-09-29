@@ -71,7 +71,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     const [teamsData, usersCountByTeam] = await Promise.all([
       this.teamsService.search({
         filters: { slackTeamId: user.slack_team_id },
-        orderBy: ['is_primary:desc', 'name:asc'],
+        orderBy: ['name:asc'],
         page: metadata.page,
         pageSize: TEAMS_TAB_PAGE_SIZE,
       }),

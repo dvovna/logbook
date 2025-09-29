@@ -118,6 +118,14 @@ ${getApproverCommentLines(comments).join('\n')}
     approvedBy: IUserViewModel,
     comments: IWorkflowStepCommentViewModel[],
   ) {
+    if (!request.team_id) {
+      this.logger.warn(
+        `Request ${request.id} has no team_id. Skipping approval notification.`,
+      );
+
+      return;
+    }
+
     const team = await this.teamsService.findOneWithValidation({
       id: request.team_id,
       slackTeamId: request.slack_team_id,

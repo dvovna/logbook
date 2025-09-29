@@ -3,9 +3,6 @@ import VacationPoliciesRepository from 'src/vacation-policies/repositories/vacat
 import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
-import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
-import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
-import TeamsService from 'src/teams/services/teams.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   VacationPolicyCreatedEvent,
@@ -19,6 +16,7 @@ import {
   ISearchParams,
   ISearchResult,
 } from 'src/common/types/pagination.types';
+import HolidaysService from 'src/holidays/services/holidays.service';
 
 export const DEFAULT_VACATION_DAYS = 24;
 export const DEFAULT_WORK_DAYS = 20;
@@ -78,11 +76,11 @@ interface IVacationPoliciesService {
 
 @Injectable()
 export default class VacationPoliciesService
-implements IVacationPoliciesService
+  implements IVacationPoliciesService
 {
   public constructor(
     private readonly vacationPoliciesRepository: VacationPoliciesRepository,
-    private readonly teamsService: TeamsService,
+    private readonly holidaysService: HolidaysService,
     private readonly eventEmitter: EventEmitter2,
     private readonly config: ConfigService,
   ) {}
@@ -147,7 +145,6 @@ implements IVacationPoliciesService
       updated_at: createdAt,
       created_by: user.id,
       updated_by: user.id,
-      is_primary: createParams.isPrimary ?? false,
     });
 
     this.eventEmitter.emit(
@@ -195,22 +192,14 @@ implements IVacationPoliciesService
   public async delete(findParams: IFindParams) {
     const policy = await this.findOneWithValidation(findParams);
 
-    if (policy.is_primary) {
-      throw new PrimaryEntityDeleteError('policy');
-    }
-
-    const teamsCount = await this.teamsService.count({
-      vacationPolicyId: policy.id,
-      slackTeamId: policy.slack_team_id,
-    });
-
-    if (teamsCount > 0) {
-      throw new EntityHasDependenciesError('policy', 'teams');
-    }
-
     await this.vacationPoliciesRepository.deleteMany(
       this.getFindQuery(findParams),
     );
+
+    await this.holidaysService.deleteMany({
+      slackTeamId: policy.slack_team_id,
+      vacationPolicyId: policy.id,
+    });
 
     this.eventEmitter.emit(
       VacationPolicyEvent.Deleted,
