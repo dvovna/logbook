@@ -28,15 +28,20 @@ export class RequestWorkflowProcessingService {
   @OnEvent(VacationWorkflowEventEnum.Finished)
   public async handleWorkflowFinished({ workflow }: VacationWorkflowFinished) {
     const [request, approvedBy] = await Promise.all([
-      this.vacationRequestsService.findOneWithValidation({
+      this.vacationRequestsService.findOne({
         id: workflow.requestId,
         slackTeamId: workflow.slackTeamId,
       }),
       this.usersService.findOneWithValidation({
         id: workflow.approvedBy,
         slackTeamId: workflow.slackTeamId,
+        includeInactive: true,
       }),
     ]);
+
+    if (!request) {
+      return;
+    }
 
     const statusToSet =
       workflow.status === RequestWorkflowStatus.Approved
