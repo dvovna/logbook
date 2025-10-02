@@ -14,7 +14,7 @@ export interface IImportResult {
 }
 
 const MAX_RECORDS = 1000; // Limit for the number of records to process
-const MAX_ALLOWED_VACATIONS = 1000;
+const MAX_ALLOWED_VACATIONS = 100;
 
 @Injectable()
 export class UserVacationsImportService {
