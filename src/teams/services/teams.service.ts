@@ -28,6 +28,7 @@ interface ICreateTeamParams {
 
 interface IFindParams {
   id?: string;
+  name?: string;
   slackTeamId: string;
   vacationPolicyId?: string;
   isPrimary?: boolean;
@@ -208,6 +209,7 @@ export default class TeamsService implements ITeamsService {
   private getFindQuery(params: IFindParams): SupabaseFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
+      ...(params.name ? { name: params.name } : {}),
       ...(params.managerApprovers !== undefined
         ? {
           manager_approvers: {

@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export default class SlackPromptsService {
-  public getUploadFilePromptMessage() {
+export default class SlackCommandPromptsService {
+  public getUploadVacationsPromptMessage() {
     return {
       text: `📎 Please upload a 'user-vacations.csv' file containing user vacations(max 100 vacations).
         Expected format:
@@ -23,6 +23,18 @@ export default class SlackPromptsService {
 
         Sample row:
         \`john.doe@example.com,2022-01-01,2024-08-01,2024-08-10,annual_leave,approved,2024-09-15,2024-09-15,bonus_day,pending\`
+        `,
+    };
+  }
+
+  public getUserTeamMappingUploadPromptMessage() {
+    return {
+      text: `📎 Please upload a 'user-team-mapping.csv' file containing user to team mappings.
+        Expected format:
+        \`email,team_name\`
+
+        Sample row:
+        \`john@doe@example.com,Engineering\`
         `,
     };
   }

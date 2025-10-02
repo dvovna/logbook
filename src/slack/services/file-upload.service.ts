@@ -3,13 +3,15 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import {
   IImportResult,
   UserVacationsImportService,
-} from 'src/user-data-import/user-vacations-import.service';
+} from 'src/user-data-import/services/user-vacations-import.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
+import { UserTeamMappingImportService } from 'src/user-data-import/services/user-team-mapping-import.service';
 
 @Injectable()
 export default class FileUploadService {
   public constructor(
     private readonly userVacationsImportService: UserVacationsImportService,
+    private readonly userTeamMappingImportService: UserTeamMappingImportService,
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {}
 
@@ -38,15 +40,26 @@ export default class FileUploadService {
 
         await this.slackCommunicationService.postEphemeral(
           user.slack_id,
-          this.getUserVacationsImportSuccessfulMessage(result),
+          this.getImportSuccessfulMessage(result),
           user.slack_team_id,
         );
 
         break;
       }
-      case 'user-teams.csv':
-        // import user teams with user managers
+      case 'user-team-mapping.csv': {
+        const result = await this.userTeamMappingImportService.handle(
+          fileContent,
+          user,
+        );
+
+        await this.slackCommunicationService.postEphemeral(
+          user.slack_id,
+          this.getImportSuccessfulMessage(result),
+          user.slack_team_id,
+        );
+
         break;
+      }
       default: {
         await this.slackCommunicationService.postEphemeral(
           user.slack_id,
@@ -57,7 +70,7 @@ export default class FileUploadService {
     }
   }
 
-  public getUserVacationsImportSuccessfulMessage(result: IImportResult) {
+  private getImportSuccessfulMessage(result: IImportResult) {
     if (result.errors.length) {
       return {
         text: `Import was not successful: \n ${result.errors.join('\n')}`,
