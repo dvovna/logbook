@@ -10,6 +10,7 @@ import { ForbiddenException } from '@nestjs/common';
 import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
 import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
 import { ValidationError } from 'src/common/errors/validation.error';
+import { DuplicateError } from 'src/common/errors/diplicate.error';
 
 export abstract class BaseModalFormSubmitHandler<
   Metadata extends object,
@@ -40,6 +41,7 @@ export abstract class BaseModalFormSubmitHandler<
         error instanceof PrimaryEntityDeleteError ||
         error instanceof ForbiddenException ||
         error instanceof ValidationError ||
+        error instanceof DuplicateError ||
         error instanceof MaxItemsCountReachedError ||
         error instanceof EntityHasDependenciesError;
 

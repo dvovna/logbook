@@ -11,6 +11,7 @@ import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
 import { SupabaseFilter } from 'src/common/repositories/base.repository';
+import { DuplicateError } from 'src/common/errors/diplicate.error';
 
 interface ICreateTeamParams {
   name: string;
@@ -121,23 +122,33 @@ export default class TeamsService implements ITeamsService {
 
     const createdAt = new Date().toISOString();
 
-    return await this.teamsRepository.create({
-      name: createParams.name,
-      description: createParams.description || '',
-      slack_team_id: createParams.slackTeamId,
-      vacation_policy_id: createParams.vacationPolicyId,
-      manager_approvers: createParams.managerApprovers,
-      hr_approvers: createParams.hrApprovers,
-      approval_notification_recipients:
-        createParams.approvalNotificationRecipients,
-      manager_approvers_rule:
-        createParams.managerApproversRule || ApprovalRule.Any,
-      hr_approvers_rule: createParams.hrApproversRule || ApprovalRule.Any,
-      created_at: createdAt,
-      updated_at: createdAt,
-      created_by: user.id,
-      updated_by: user.id,
-    });
+    try {
+      return await this.teamsRepository.create({
+        name: createParams.name,
+        description: createParams.description || '',
+        slack_team_id: createParams.slackTeamId,
+        vacation_policy_id: createParams.vacationPolicyId,
+        manager_approvers: createParams.managerApprovers,
+        hr_approvers: createParams.hrApprovers,
+        approval_notification_recipients:
+          createParams.approvalNotificationRecipients,
+        manager_approvers_rule:
+          createParams.managerApproversRule || ApprovalRule.Any,
+        hr_approvers_rule: createParams.hrApproversRule || ApprovalRule.Any,
+        created_at: createdAt,
+        updated_at: createdAt,
+        created_by: user.id,
+        updated_by: user.id,
+      });
+    } catch (error) {
+      if (error.message.includes('duplicate key value')) {
+        throw new DuplicateError(
+          `Team with name '${createParams.name}' already exists.`,
+        );
+      }
+
+      throw error;
+    }
   }
 
   public update(
