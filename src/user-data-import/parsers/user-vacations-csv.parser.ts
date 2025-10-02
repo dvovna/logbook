@@ -82,7 +82,7 @@ export default class UserVacationsCsvParser extends AbstractCsvParser<IUserVacat
         );
       }
 
-      if (!Object.values(VacationType).includes(type)) {
+      if (!Object.values(VacationRequestStatus).includes(status)) {
         throw new Error(
           `Vacation ${i + 1} for ${email} is invalid: field status should be one of ${Object.values(VacationRequestStatus).join(', ')}`,
         );
