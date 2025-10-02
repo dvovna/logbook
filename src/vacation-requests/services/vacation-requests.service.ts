@@ -219,6 +219,12 @@ export class VacationRequestsService implements IVacationRequestsService {
         ...(status !== undefined ? { status: status } : {}),
         ...(userId !== undefined ? { user_id: userId } : {}),
         ...(teamId !== undefined ? { team_id: teamId } : {}),
+        ...(calendarDays !== existingRequest.days
+          ? { days: calendarDays }
+          : {}),
+        ...(workingDays !== existingRequest.working_days
+          ? { working_days: workingDays }
+          : {}),
         updated_by: user.id,
         updated_at: new Date().toISOString(),
       },
