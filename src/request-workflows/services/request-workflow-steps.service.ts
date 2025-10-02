@@ -11,6 +11,7 @@ import {
   Tables,
 } from 'src/common/repositories/base.repository';
 import { IUserViewModel } from 'src/users/types/user.interface';
+import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
 
 export interface ICreateParams {
   requestId: string;
@@ -104,7 +105,7 @@ export class RequestWorkflowStepsService {
 
   public async updateStatus(
     findParams: IFindParams,
-    status: 'approved' | 'rejected',
+    status: RequestWorkflowStatus,
     decidedBy: IUserViewModel,
   ) {
     const stepsToUpdate = await this.requestWorkflowStepsRepository.findMany(

@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
-import { VacationRequestCreatedEvent } from 'src/vacation-requests/events/vacation-request.events';
+import {
+  VacationRequestCreatedEvent,
+  VacationRequestUpdatedEvent,
+} from 'src/vacation-requests/events/vacation-request.events';
 import TeamsService from 'src/teams/services/teams.service';
 import { WorkflowStepType } from 'src/request-workflows/types/request-workflow-step.interface';
 import {
@@ -36,6 +39,7 @@ export class VacationRequestProcessingService {
       slackTeamId: request.slack_team_id,
       snapshot: {
         user_id: request.user!.id,
+        slack_user_id: request.user!.slack_id,
         user_name: request.user!.name,
         user_email: request.user!.email,
         start_date: request.start_date,
@@ -63,6 +67,14 @@ export class VacationRequestProcessingService {
     workflow.levels = levels;
 
     await this.requestWorkflowService.create(workflow);
+  }
+
+  @OnEvent(VacationRequestEvent.Updated)
+  public async handleRequestUpdated({
+    request,
+    user: updatedBy,
+  }: VacationRequestUpdatedEvent) {
+    await this.requestWorkflowService.cancel(request.id, updatedBy);
   }
 
   private buildApproverLevel(

@@ -24,7 +24,7 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
     return step.step_type === WorkflowStepType.Approver;
   }
 
-  public async process(
+  public async processPending(
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
   ): Promise<void> {
@@ -49,7 +49,7 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
     }
   }
 
-  public async complete(
+  public async processCompleted(
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
   ): Promise<void> {
@@ -66,9 +66,25 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
     );
   }
 
+  public async processCanceled(
+    step: IRequestWorkflowStepViewModel,
+  ): Promise<void> {
+    await this.updateMessage(step);
+
+    await this.requestWorkflowStepsService.update(
+      {
+        id: step.id,
+        slackTeamId: step.slack_team_id,
+      },
+      {
+        completedAt: new Date().toISOString(),
+      },
+    );
+  }
+
   public async updateMessage(
     step: IRequestWorkflowStepViewModel,
-    comments: IWorkflowStepCommentViewModel[],
+    comments?: IWorkflowStepCommentViewModel[],
   ): Promise<void> {
     if (!step.slack_message_ts || !step.slack_channel_id) {
       this.logger.error('Step message timestamp or channel are missing');

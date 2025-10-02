@@ -19,7 +19,7 @@ export class WorkflowStepProcessorService {
     for (const step of steps) {
       const handler = this.getHandler(step.step_type);
 
-      await handler.process(step, comments);
+      await handler.processPending(step, comments);
     }
   }
 
@@ -30,13 +30,13 @@ export class WorkflowStepProcessorService {
     for (const step of steps) {
       const handler = this.getHandler(step.step_type);
 
-      await handler.complete(step, comments);
+      await handler.processCompleted(step, comments);
     }
   }
 
   public async updateStepMessages(
     steps: IRequestWorkflowStepViewModel[],
-    comments: IWorkflowStepCommentViewModel[],
+    comments: IWorkflowStepCommentViewModel[] = [],
   ): Promise<void> {
     for (const step of steps) {
       const handler = this.getHandler(step.step_type);

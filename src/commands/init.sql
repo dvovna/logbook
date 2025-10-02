@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS vacation_requests (
     days INTEGER NOT NULL,
     working_days INTEGER NOT NULL,
     type TEXT NOT NULL DEFAULT 'annual_leave' CHECK (type IN ('annual_leave', 'bonus_day', 'sick_leave', 'unpaid_leave', 'other')),
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'canceled')),
     comments TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),

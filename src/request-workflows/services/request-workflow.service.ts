@@ -1,6 +1,7 @@
 import {
   IRequestSnapshotData,
   IRequestWorkflowStepViewModel,
+  WorkflowStepStatus,
   WorkflowStepType,
 } from 'src/request-workflows/types/request-workflow-step.interface';
 import {
@@ -35,7 +36,7 @@ export interface ICreateWorkflowParams {
   levels: ICreateWorkflowLevelParams[];
 }
 
-const INITIAL_STEP_STATUS = 'pending';
+const INITIAL_STEP_STATUS = WorkflowStepStatus.Pending;
 
 @Injectable()
 export class RequestWorkflowService {
@@ -87,6 +88,28 @@ export class RequestWorkflowService {
     await this.workflowStepProcessorService.processSteps(firstLevelSteps, []);
   }
 
+  public async cancel(requestId: string, canceledBy: IUserViewModel) {
+    const canceledSteps = await this.requestWorkflowStepsService.updateStatus(
+      {
+        requestId,
+        slackTeamId: canceledBy.slack_team_id,
+        completed: false,
+      },
+      RequestWorkflowStatus.Canceled,
+      canceledBy,
+    );
+
+    const processedSteps = canceledSteps.filter(
+      (step) => step.processed_at !== null,
+    );
+
+    if (processedSteps.length === 0) {
+      return;
+    }
+
+    await this.workflowStepProcessorService.updateStepMessages(processedSteps);
+  }
+
   public async approveStep(stepId: string, approvedBy: IUserViewModel) {
     const step = await this.requestWorkflowStepsService.findOneWithValidation({
       id: stepId,
@@ -100,7 +123,7 @@ export class RequestWorkflowService {
         id: stepId,
         slackTeamId: approvedBy.slack_team_id,
       },
-      'approved',
+      RequestWorkflowStatus.Approved,
       approvedBy,
     );
 
@@ -148,7 +171,7 @@ export class RequestWorkflowService {
         stepLevel: step.step_level,
         slackTeamId: rejectedBy.slack_team_id,
       },
-      'rejected',
+      RequestWorkflowStatus.Rejected,
       rejectedBy,
     );
 
@@ -213,7 +236,7 @@ export class RequestWorkflowService {
         stepLevel: level,
         slackTeamId: approvedBy.slack_team_id,
       },
-      'approved',
+      RequestWorkflowStatus.Approved,
       approvedBy,
     );
   }

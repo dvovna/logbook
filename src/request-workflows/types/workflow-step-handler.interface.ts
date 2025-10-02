@@ -3,14 +3,15 @@ import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workf
 
 export interface IWorkflowStepProcessor {
   supports(step: IRequestWorkflowStepViewModel): boolean;
-  process(
+  processPending(
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
   ): Promise<void>;
-  complete(
+  processCompleted(
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
   ): Promise<void>;
+  processCanceled(step: IRequestWorkflowStepViewModel): Promise<void>;
   updateMessage(
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
