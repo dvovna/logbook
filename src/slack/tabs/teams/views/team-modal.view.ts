@@ -173,11 +173,9 @@ export class TeamModalView extends BaseModalView<
 
     const options = [NO_POLICY_OPTION, ...policyOptions];
 
-    const selectedPolicy =
-      teamPolicyId !== undefined &&
-      options.find(
-        (policy) => policy.value === teamPolicyId || NO_POLICY_VALUE,
-      );
+    const selectedPolicy = options.find(
+      (policy) => policy.value === teamPolicyId || NO_POLICY_VALUE,
+    );
 
     return {
       type: 'input',
