@@ -107,14 +107,14 @@ export default class SlackEventsService {
     private readonly slackTeamService: SlackTeamsService,
   ) {}
 
-  public handleSlackEvent(
+  public async handleSlackEvent(
     event: SlackEvent,
     user: IUserViewModel | undefined,
     body: Record<string, unknown>,
   ) {
     switch (event.type) {
       case SlackEventType.FileShared:
-        this.handleFileShared(event, user!);
+        await this.handleFileShared(event, user!);
 
         break;
       case SlackEventType.HomeTabOpened:
@@ -122,15 +122,15 @@ export default class SlackEventsService {
 
         break;
       case SlackEventType.TeamJoin:
-        this.handleUserJoin(event);
+        await this.handleUserJoin(event);
 
         break;
       case SlackEventType.UserChange:
-        this.handleUserChange(event, user);
+        await this.handleUserChange(event, user);
 
         break;
       case SlackEventType.AppUninstalled: {
-        this.handleAppUninstalled(
+        await this.handleAppUninstalled(
           (body as unknown as IAppUninstalledEventBodyData).team_id,
         );
 
