@@ -6,7 +6,7 @@ export default class SlackCommandPromptsService {
     return {
       text: `📎 Please upload a 'user-vacations.csv' file containing user vacations(max 100 vacations).
         Expected format:
-        \`email,contractStartDate,vacation[0].startDate,vacation[0].endDate,vacation[0].type,vacation[0].status,...\`
+        \`email;contractStartDate;vacation[0].startDate;vacation[0].endDate;vacation[0].type;vacation[0].status;...\`
 
         Examples of \`type\`:
         - \`annual_leave\` — regular paid vacation
@@ -22,7 +22,7 @@ export default class SlackCommandPromptsService {
         - \`canceled\` — vacation request was canceled
 
         Sample row:
-        \`john.doe@example.com,2022-01-01,2024-08-01,2024-08-10,annual_leave,approved,2024-09-15,2024-09-15,bonus_day,pending\`
+        \`john.doe@example.com;2022-01-01;2024-08-01;2024-08-10;annual_leave;approved;2024-09-15;2024-09-15;bonus_day;pending\`
         `,
     };
   }
@@ -31,10 +31,10 @@ export default class SlackCommandPromptsService {
     return {
       text: `📎 Please upload a 'user-team-mapping.csv' file containing user to team mappings.
         Expected format:
-        \`email,team_name\`
+        \`email;team_name\`
 
         Sample row:
-        \`john@doe@example.com,Engineering\`
+        \`john@doe@example.com;Engineering\`
         `,
     };
   }

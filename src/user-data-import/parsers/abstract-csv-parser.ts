@@ -11,6 +11,7 @@ export abstract class AbstractCsvParser<T> {
       columns: true,
       skip_empty_lines: true,
       trim: true,
+      delimiter: ';',
     });
 
     return new Promise((resolve, reject) => {
