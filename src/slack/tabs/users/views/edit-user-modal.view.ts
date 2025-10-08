@@ -52,11 +52,10 @@ export class EditUserModalView extends BaseModalView<
         },
       })),
     ];
-    const selectedTeam =
-      user.team_id !== undefined &&
-      teamOptions.find(
-        (policy) => policy.value === user.team_id || NO_TEAM_VALUE,
-      );
+    const selectedTeamId = user.team_id || NO_TEAM_VALUE;
+    const selectedTeam = teamOptions.find(
+      (team) => team.value === selectedTeamId,
+    );
 
     return [
       {
