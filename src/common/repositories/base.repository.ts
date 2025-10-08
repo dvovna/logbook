@@ -60,7 +60,7 @@ export abstract class BaseRepository<
 
   protected relations: Record<string, unknown> | null = null;
 
-  protected readonly defaultLimit = 100;
+  protected readonly defaultLimit = 10000;
 
   protected readonly defaultPageLimit = 10;
 
