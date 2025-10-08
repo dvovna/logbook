@@ -156,7 +156,7 @@ export class UsersTabView extends BaseAdminTabView<
           type: 'mrkdwn',
           text:
             `*${user.name}* (${user.email})\n` +
-            `Role: ${user.role}\n` +
+            `Role: ${capitalize(user.role)}\n` +
             `Team: ${team?.name || '-'}\n` +
             `Contract Start Date: ${user.contract_start_date || '-'}\n` +
             `Carryover Days: ${user.carryover_days || '-'}`,
