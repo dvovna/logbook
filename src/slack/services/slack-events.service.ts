@@ -202,6 +202,7 @@ export default class SlackEventsService {
         event.user.is_admin || event.user.is_owner
           ? UserRole.Admin
           : UserRole.Member,
+      contractStartDate: new Date(),
       email: event.user.profile.email!,
       name: event.user.real_name,
       isActive: !event.user.deleted,
