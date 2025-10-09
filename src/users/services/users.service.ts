@@ -221,6 +221,7 @@ export class UsersService implements IUsersService {
       ...(params.name ? { name: params.name } : {}),
       ...(params.email ? { email: params.email } : {}),
       ...(params.teamId ? { team_id: params.teamId } : {}),
+      ...(params.role ? { role: params.role } : {}),
       ...(params.contractStartDate
         ? { contract_start_date: params.contractStartDate.toISOString() }
         : {}),
