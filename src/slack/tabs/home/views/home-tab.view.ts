@@ -94,10 +94,12 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
       usedText += ` (*${workingUsed}* working)`;
     }
 
-    let availableText = `Available: ${limits ? `*${available}* / Limit: *${limit}* days` : '-'}`;
+    let availableText = `Available: ${limits ? `*${available}*` : '-'}`;
     if (workingAvailable > 0 && workingAvailable !== available) {
       availableText += ` (*${workingAvailable}* working)`;
     }
+
+    availableText += ` / Limit: *${limit}* days`;
 
     if (carryover > 0) {
       availableText += ` (+*${carryover}* carryover)`;
