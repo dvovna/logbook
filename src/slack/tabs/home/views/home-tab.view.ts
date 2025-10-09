@@ -84,6 +84,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
     const usedDays = usage.used ?? 0;
     const workingUsed = usage.working_days_used ?? 0;
     const available = usage.available ?? 0;
+    const workingAvailable = usage.working_days_available ?? 0;
     const limit = limits ? limits.vacationDays : '-';
     const carryover = limits?.carryoverDays ?? 0;
 
@@ -94,6 +95,9 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
     }
 
     let availableText = `Available: ${limits ? `*${available}* / Limit: *${limit}* days` : '-'}`;
+    if (workingAvailable > 0 && workingAvailable !== available) {
+      availableText += ` (*${workingAvailable}* working)`;
+    }
 
     if (carryover > 0) {
       availableText += ` (+*${carryover}* carryover)`;
