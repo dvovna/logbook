@@ -9,6 +9,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
 import { getCurrentVacationPeriod } from 'src/vacation-requests/utils/vacation-period.utils';
+import { UsersService } from 'src/users/services/users.service';
 
 export interface IVacationDaysCacheValue {
   annualLeaveUsed: number;
@@ -25,7 +26,10 @@ const DEFAULT_TTL_SECONDS = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
 export class VacationPeriodUsageCacheService {
   private readonly logger = new Logger(VacationPeriodUsageCacheService.name);
 
-  public constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  public constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly usersService: UsersService,
+  ) {}
 
   private getCacheKey(
     userId: string,
@@ -74,12 +78,17 @@ export class VacationPeriodUsageCacheService {
       | VacationRequestUpdatedEvent
       | VacationRequestDeletedEvent,
   ) {
-    const { user } = event;
+    const { request } = event;
+    const user = await this.usersService.findOneWithValidation({
+      id: request.user_id,
+      slackTeamId: request.slack_team_id,
+    });
 
     if (!user.contract_start_date) {
       this.logger.warn(
         `User ${user.id} does not have a contract start date. Skipping cache invalidation.`,
       );
+
       return;
     }
 
