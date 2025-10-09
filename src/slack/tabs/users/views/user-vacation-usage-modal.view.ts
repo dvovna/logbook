@@ -117,7 +117,6 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
     } as AnyBlock;
   }
 
-
   private buildBonusDaysBlock(
     usage: IVacationPeriodUsageData['usage']['bonus_day'],
     limits?: IVacationPeriodUsageData['limits'],

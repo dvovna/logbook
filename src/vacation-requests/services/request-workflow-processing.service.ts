@@ -23,7 +23,6 @@ export class RequestWorkflowProcessingService {
 
   private readonly approvedGifs = [
     'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
-    'https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif',
     'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjdoMTdyOTNkbnNvbWwzY2Z3dW9iMnJkOXpyeXFpbzJqcDlkaXlxYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/cXblnKXr2BQOaYnTni/giphy.gif',
     'https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWsybXA5eG11MTNhNWVqZ25odnJyMmlwOTNueDlrMTZiZG12YWd2ZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/mKklyHxxGDDa37zOuA/giphy.gif',
     'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWJzdDFzOGg4bDBxY2p1ejl0cGJsczRnY3Q0YXB2ZGxob2d2M2NpYyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/CQwNV6b8ScIFvTSO6u/giphy.gif',
