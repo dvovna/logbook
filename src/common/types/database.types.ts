@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -26,7 +26,7 @@ export type Database = {
           name: string
           slack_team_id: string
           updated_at: string
-          updated_by: string
+          updated_by: string | null
           vacation_policy_id: string
           year: number | null
         }
@@ -41,7 +41,7 @@ export type Database = {
           name: string
           slack_team_id: string
           updated_at?: string
-          updated_by: string
+          updated_by?: string | null
           vacation_policy_id: string
           year?: number | null
         }
@@ -56,7 +56,7 @@ export type Database = {
           name?: string
           slack_team_id?: string
           updated_at?: string
-          updated_by?: string
+          updated_by?: string | null
           vacation_policy_id?: string
           year?: number | null
         }
@@ -106,7 +106,7 @@ export type Database = {
         Insert: {
           comment: string
           created_at?: string
-          created_by?: string
+          created_by: string
           id?: string
           request_id: string
           slack_team_id: string
@@ -127,20 +127,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_request"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "vacation_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_step"
-            columns: ["step_id"]
-            isOneToOne: false
-            referencedRelation: "request_workflow_steps"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "request_workflow_step_comments_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -148,10 +134,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "request_workflow_step_comments_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_requests"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "request_workflow_step_comments_slack_team_id_fkey"
             columns: ["slack_team_id"]
             isOneToOne: false
             referencedRelation: "slack_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_workflow_step_comments_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "request_workflow_steps"
             referencedColumns: ["id"]
           },
         ]
@@ -204,38 +204,38 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "request_workflow_steps_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_requests"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "request_workflow_steps_slack_team_id_fkey"
             columns: ["slack_team_id"]
             isOneToOne: false
             referencedRelation: "slack_teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "vacation_request_workflow_steps_vacation_request_id_fkey"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "vacation_requests"
-            referencedColumns: ["id"]
-          },
         ]
       }
       slack_teams: {
         Row: {
-          created_at: string | null
+          created_at: string
           id: string
           name: string
           slack_id: string
           slack_token: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           name: string
           slack_id: string
           slack_token: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           name?: string
           slack_id?: string
@@ -252,7 +252,6 @@ export type Database = {
           hr_approvers: string[] | null
           hr_approvers_rule: string
           id: string
-          is_primary: boolean
           manager_approvers: string[] | null
           manager_approvers_rule: string
           name: string
@@ -269,11 +268,10 @@ export type Database = {
           hr_approvers?: string[] | null
           hr_approvers_rule?: string
           id?: string
-          is_primary?: boolean
           manager_approvers?: string[] | null
           manager_approvers_rule?: string
           name: string
-          slack_team_id?: string
+          slack_team_id: string
           updated_at?: string
           updated_by?: string | null
           vacation_policy_id?: string | null
@@ -286,7 +284,6 @@ export type Database = {
           hr_approvers?: string[] | null
           hr_approvers_rule?: string
           id?: string
-          is_primary?: boolean
           manager_approvers?: string[] | null
           manager_approvers_rule?: string
           name?: string
@@ -339,7 +336,7 @@ export type Database = {
           slack_id: string
           slack_team_id: string
           team_id: string | null
-          updated_at: string | null
+          updated_at: string
           updated_by: string | null
         }
         Insert: {
@@ -352,9 +349,9 @@ export type Database = {
           name: string
           role: string
           slack_id: string
-          slack_team_id?: string
+          slack_team_id: string
           team_id?: string | null
-          updated_at?: string | null
+          updated_at?: string
           updated_by?: string | null
         }
         Update: {
@@ -369,7 +366,7 @@ export type Database = {
           slack_id?: string
           slack_team_id?: string
           team_id?: string | null
-          updated_at?: string | null
+          updated_at?: string
           updated_by?: string | null
         }
         Relationships: [
@@ -403,7 +400,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          is_primary: boolean
           name: string
           slack_team_id: string
           updated_at: string
@@ -417,9 +413,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          is_primary?: boolean
           name?: string
-          slack_team_id?: string
+          slack_team_id: string
           updated_at?: string
           updated_by?: string | null
           vacation_days?: number
@@ -431,7 +426,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          is_primary?: boolean
           name?: string
           slack_team_id?: string
           updated_at?: string
@@ -441,15 +435,8 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "team_settings_created_by_fkey"
+            foreignKeyName: "vacation_policies_created_by_fkey"
             columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "team_settings_updated_by_fkey"
-            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -461,13 +448,20 @@ export type Database = {
             referencedRelation: "slack_teams"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vacation_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vacation_requests: {
         Row: {
-          approved_by_hr: boolean | null
-          approved_by_manager: boolean | null
-          created_at: string | null
+          approved_by_hr: boolean
+          approved_by_manager: boolean
+          created_at: string
           created_by: string
           days: number
           end_date: string
@@ -477,35 +471,35 @@ export type Database = {
           status: string
           team_id: string | null
           type: string
-          updated_at: string | null
-          updated_by: string
+          updated_at: string
+          updated_by: string | null
           user_comment: string | null
           user_id: string
           working_days: number
         }
         Insert: {
-          approved_by_hr?: boolean | null
-          approved_by_manager?: boolean | null
-          created_at?: string | null
+          approved_by_hr?: boolean
+          approved_by_manager?: boolean
+          created_at?: string
           created_by: string
           days: number
           end_date: string
           id?: string
-          slack_team_id?: string
+          slack_team_id: string
           start_date: string
           status?: string
           team_id?: string | null
           type?: string
-          updated_at?: string | null
-          updated_by: string
+          updated_at?: string
+          updated_by?: string | null
           user_comment?: string | null
           user_id: string
           working_days: number
         }
         Update: {
-          approved_by_hr?: boolean | null
-          approved_by_manager?: boolean | null
-          created_at?: string | null
+          approved_by_hr?: boolean
+          approved_by_manager?: boolean
+          created_at?: string
           created_by?: string
           days?: number
           end_date?: string
@@ -515,13 +509,20 @@ export type Database = {
           status?: string
           team_id?: string | null
           type?: string
-          updated_at?: string | null
-          updated_by?: string
+          updated_at?: string
+          updated_by?: string | null
           user_comment?: string | null
           user_id?: string
           working_days?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "vacation_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vacation_requests_slack_team_id_fkey"
             columns: ["slack_team_id"]
@@ -537,21 +538,14 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "vacations_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vacations_updated_by_fkey"
+            foreignKeyName: "vacation_requests_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "vacations_user_id_fkey"
+            foreignKeyName: "vacation_requests_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"

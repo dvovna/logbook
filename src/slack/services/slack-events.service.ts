@@ -118,7 +118,7 @@ export default class SlackEventsService {
 
         break;
       case SlackEventType.HomeTabOpened:
-        this.handleHomeTapOpened(user!);
+        this.handleHomeTapOpened(user);
 
         break;
       case SlackEventType.TeamJoin:
@@ -218,7 +218,11 @@ export default class SlackEventsService {
     this.fileUploadService.handleFileUpload(fileId, user);
   }
 
-  public handleHomeTapOpened(user: IUserViewModel) {
+  public handleHomeTapOpened(user?: IUserViewModel) {
+    if (!user) {
+      return;
+    }
+
     this.tabNavigationService.navigate(TabId.Home, { user });
   }
 }

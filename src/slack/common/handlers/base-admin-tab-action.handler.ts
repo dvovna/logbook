@@ -1,8 +1,6 @@
 import { IUserViewModel } from 'src/users/types/user.interface';
 import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import {
-  BaseActionHandler,
-} from 'src/slack/common/handlers/base-action.handler';
+import { BaseActionHandler } from 'src/slack/common/handlers/base-action.handler';
 import {
   TabId,
   TabNavigationService,
