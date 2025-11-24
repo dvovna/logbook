@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IPublishBaseParams } from 'src/slack/common/services/base-tab.service';
+import { IPublishBaseParams } from '@modules/slack/common/services/base-tab.service';
 
 export enum TabId {
   Home = 'home_tab',

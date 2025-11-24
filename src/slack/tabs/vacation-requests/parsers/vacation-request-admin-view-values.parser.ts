@@ -1,16 +1,16 @@
 import { z } from 'zod';
-import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
-import ViewFieldType from 'src/slack/enums/view-field-type.enum';
+import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
+import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import VacationType from '@common/enums/vacation-type.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import {
   FORM_FIELDS_CONFIG,
   IVacationRequestUserFormViewData,
   MAX_COMMENT_LENGTH,
-} from 'src/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
-import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
-import { ISelectedOption } from 'src/slack/common/utils/parsing-utils';
+} from '@modules/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
+import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
 
 export const adminVacationRequestSchema = z
   .object({

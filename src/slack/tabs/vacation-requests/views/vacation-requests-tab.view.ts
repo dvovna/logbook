@@ -1,28 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import ITeamViewModel from 'src/teams/types/team.interface';
-import { ISearchResult } from 'src/common/types/pagination.types';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import { ISearchResult } from '@common/types/pagination.types';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import {
   ALL_STATUSES_OPTION,
   STATUS_OPTIONS,
-} from 'src/slack/tabs/vacation-requests/views/options/vacation-status.options';
-import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
-import capitalize from 'src/common/utils/capitalize';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
-import { VACATION_TYPE_OPTIONS } from 'src/slack/tabs/vacation-requests/views/options/vacation-type.options';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
-import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+} from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
+import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
+import capitalize from '@common/utils/capitalize';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
+import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
+import VacationType from '@common/enums/vacation-type.enum';
+import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
-import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
-import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
-import UserRole from 'src/common/enums/user-role.enum';
-import { getVacationStatusEmoji } from 'src/slack/tabs/vacation-requests/utils/vacation-status-icon';
-import { SeparatorComponent } from 'src/slack/common/views/components/separator';
+import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
+import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
+import UserRole from '@common/enums/user-role.enum';
+import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
+import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
 
 export interface IVacationRequestsTabFilters {
   user?: {

@@ -1,31 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   IVacationRequestsTabMetadata,
-  VacationRequestsTabViewActionId
-} from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
+} from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import {
   ActionMapType,
   BaseActionHandler,
-} from 'src/slack/common/handlers/base-action.handler';
+} from '@modules/slack/common/handlers/base-action.handler';
 import {
   withPagination,
   withSelectFilter,
-} from 'src/slack/common/utils/tab-list.utils';
+} from '@modules/slack/common/utils/tab-list.utils';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
+} from '@modules/slack/common/services/tab-navigation.service';
 import {
   HistoryTabModalName,
-  VacationHistoryTabService
-} from 'src/slack/tabs/vacation-requests/services/vacation-history-tab.service';
-import { VacationHistoryTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-history-tab.view';
-import { CommonViewActionId } from 'src/slack/enums/common-view-action-id.enum';
-import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
+  VacationHistoryTabService,
+} from '@modules/slack/tabs/vacation-requests/services/vacation-history-tab.service';
+import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/views/vacation-history-tab.view';
+import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
+import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
+import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 
 @Injectable()
 @SlackHandler({
@@ -49,7 +48,7 @@ export default class VacationHistoryTabActionsHandler extends BaseActionHandler 
       [VacationHistoryTabViewActionId.ManageRequestMenu]: withMenuAction<
         VacationHistoryTabViewActionId,
         [IUserViewModel]
-      >(this.handleManageRequestMenuAction),
+      >(this.handleManageRequestMenuAction, this.logger),
       [CommonViewActionId.BackToHomeTab]: (_payload, user) => {
         this.tabNavigationService.navigate(TabId.Home, { user });
       },

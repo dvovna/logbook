@@ -1,12 +1,12 @@
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { ApproverMessageActionId } from 'src/request-workflows/enums/approver-message-action-id.enum';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { ApproverMessageActionId } from '@modules/request-workflows/enums/approver-message-action-id.enum';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepStatus,
-} from 'src/request-workflows/types/request-workflow-step.interface';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
-import { getApproverCommentLines } from 'src/slack/common/utils/view.utils';
+} from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
 
 interface IGetMessageParams {
   step: IRequestWorkflowStepViewModel;

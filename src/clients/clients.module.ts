@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import SlackApiClient from 'src/clients/third-party/slack-api.client';
+import SlackApiClient from '@modules/clients/third-party/slack-api.client';
 
 @Module({
   providers: [SlackApiClient],

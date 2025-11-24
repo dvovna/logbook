@@ -1,22 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import VacationPoliciesRepository from 'src/vacation-policies/repositories/vacation-policies.repository';
-import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
+import VacationPoliciesRepository from '@modules/vacation-policies/repositories/vacation-policies.repository';
+import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   VacationPolicyCreatedEvent,
   VacationPolicyDeletedEvent,
   VacationPolicyUpdatedEvent,
-} from 'src/vacation-policies/events/vacation-policy.events';
-import VacationPolicyEvent from 'src/vacation-policies/enums/vacation-policy-event.enum';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+} from '@modules/vacation-policies/events/vacation-policy.events';
+import VacationPolicyEvent from '@modules/vacation-policies/enums/vacation-policy-event.enum';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import {
   ISearchParams,
   ISearchResult,
-} from 'src/common/types/pagination.types';
-import HolidaysService from 'src/holidays/services/holidays.service';
+} from '@common/types/pagination.types';
+import HolidaysService from '@modules/holidays/services/holidays.service';
 
 export const DEFAULT_VACATION_DAYS = 24;
 export const DEFAULT_WORK_DAYS = 20;
@@ -76,8 +76,7 @@ interface IVacationPoliciesService {
 
 @Injectable()
 export default class VacationPoliciesService
-  implements IVacationPoliciesService
-{
+implements IVacationPoliciesService {
   public constructor(
     private readonly vacationPoliciesRepository: VacationPoliciesRepository,
     private readonly holidaysService: HolidaysService,

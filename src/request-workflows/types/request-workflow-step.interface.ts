@@ -1,5 +1,5 @@
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
-import VacationType from 'src/common/enums/vacation-type.enum';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import VacationType from '@common/enums/vacation-type.enum';
 
 export enum WorkflowStepType {
   Approver = 'approver',

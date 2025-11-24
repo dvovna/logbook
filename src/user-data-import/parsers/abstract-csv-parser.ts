@@ -18,6 +18,7 @@ export abstract class AbstractCsvParser<T> {
       parser.on('readable', () => {
         let row: Record<string, string>;
 
+        // eslint-disable-next-line no-cond-assign
         while ((row = parser.read()) !== null) {
           try {
             const result = this.parseRow(row);

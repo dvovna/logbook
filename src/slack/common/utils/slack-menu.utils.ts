@@ -2,7 +2,8 @@ import { OverflowAction } from '@slack/bolt';
 import {
   ISlackBlockActionPayload,
   ISlackInteractionPayload,
-} from 'src/slack/common/types/slack-interaction-payload.interface';
+} from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { Logger } from '@nestjs/common';
 
 export function withMenuAction<
   ActionType extends string,
@@ -14,12 +15,13 @@ export function withMenuAction<
     payload: ISlackInteractionPayload,
     ...args: Arguments
   ) => Promise<void>,
+  logger: Logger,
 ) {
   return async (payload: ISlackBlockActionPayload, ...args: Arguments) => {
     const value = (payload.actions[0] as OverflowAction).selected_option?.value;
 
     if (!value) {
-      console.warn('MenuAction triggered without selected_option');
+      logger.warn('MenuAction triggered without selected_option');
       return;
     }
 

@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { UsersRepository } from 'src/users/repositories/users.repository';
-import UserRole from 'src/common/enums/user-role.enum';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { UsersRepository } from '@modules/users/repositories/users.repository';
+import UserRole from '@common/enums/user-role.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   ISearchParams,
   ISearchResult,
-} from 'src/common/types/pagination.types';
-import { SupabaseFilter } from 'src/common/repositories/base.repository';
-import { UserUpdateValidatorService } from 'src/users/services/user-update-validator.service';
+} from '@common/types/pagination.types';
+import { SupabaseFilter } from '@common/repositories/base.repository';
+import { UserUpdateValidatorService } from '@modules/users/services/user-update-validator.service';
 
 interface ICreateUserParams {
   email: string;

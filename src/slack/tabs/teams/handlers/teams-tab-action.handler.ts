@@ -1,21 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   TeamsTabModalName,
   TeamsTabService,
-} from 'src/slack/tabs/teams/services/teams-tab.service';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+} from '@modules/slack/tabs/teams/services/teams-tab.service';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   ITeamsTabMetaData,
   TeamsTabViewActionId,
-} from 'src/slack/tabs/teams/views/teams-tab.view';
-import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
-import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
-import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
-import { withPagination } from 'src/slack/common/utils/tab-list.utils';
-import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
+} from '@modules/slack/tabs/teams/views/teams-tab.view';
+import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
+import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
+import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
+import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 
 @Injectable()
 @SlackHandler({
@@ -40,7 +40,7 @@ export default class TeamsTabActionHandler extends BaseAdminTabActionHandler {
       [TeamsTabViewActionId.ManageTeamMenu]: withMenuAction<
         TeamsTabViewActionId,
         [IUserViewModel]
-      >(this.handleManageTeamMenuAction),
+      >(this.handleManageTeamMenuAction, this.logger),
       [TeamsTabViewActionId.PaginationPrev]: paginationHandler,
       [TeamsTabViewActionId.PaginationNext]: paginationHandler,
     };

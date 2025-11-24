@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import BaseTabService, {
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
+} from '@modules/slack/common/services/base-tab.service';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { ConfigService } from '@nestjs/config';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import {
   IVacationHistoryTabMetadata,
   VacationHistoryTabView,
-} from 'src/slack/tabs/vacation-requests/views/vacation-history-tab.view';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+} from '@modules/slack/tabs/vacation-requests/views/vacation-history-tab.view';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import {
   IViewVacationRequestModalViewParams,
   VacationDetailsModalService,
-} from 'src/slack/tabs/vacation-requests/services/vacation-details-modal.service';
+} from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
 import { View } from '@slack/types';
 
 export type IPublishVacationsHistoryTabViewParams =

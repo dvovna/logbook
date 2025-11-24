@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import UserRole from 'src/common/enums/user-role.enum';
-import { VacationRequestsTabViewActionId } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
-import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
+import UserRole from '@common/enums/user-role.enum';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 
 @Injectable()
 export class SlackActionPermissionsService {

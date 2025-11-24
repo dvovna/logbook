@@ -2,7 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import {
   NagerDateClient,
   INagerDateHoliday,
-} from '../clients/nager-date.client';
+} from '@modules/holidays/clients/nager-date.client';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 
 export interface ICountryHoliday {

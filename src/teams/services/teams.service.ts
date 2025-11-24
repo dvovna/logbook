@@ -1,17 +1,17 @@
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { TeamsRepository } from 'src/teams/repositories/teams.repository';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { TeamsRepository } from '@modules/teams/repositories/teams.repository';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
+import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import {
   ISearchParams,
   ISearchResult,
-} from 'src/common/types/pagination.types';
-import ITeamViewModel from 'src/teams/types/team.interface';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+} from '@common/types/pagination.types';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
-import { SupabaseFilter } from 'src/common/repositories/base.repository';
-import { DuplicateError } from 'src/common/errors/diplicate.error';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { SupabaseFilter } from '@common/repositories/base.repository';
+import { DuplicateError } from '@common/errors/diplicate.error';
 
 interface ICreateTeamParams {
   name: string;
@@ -174,7 +174,7 @@ export default class TeamsService implements ITeamsService {
       ...(updateParams.approvalNotificationRecipients !== undefined
         ? {
           approval_notification_recipients:
-            updateParams.approvalNotificationRecipients,
+              updateParams.approvalNotificationRecipients,
         }
         : {}),
       ...(updateParams.managerApproversRule

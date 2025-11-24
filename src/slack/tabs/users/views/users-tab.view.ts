@@ -1,22 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
-import ITeamViewModel from 'src/teams/types/team.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { ISearchResult } from 'src/common/types/pagination.types';
-import capitalize from 'src/common/utils/capitalize';
-import { IUsersTabViewFilters } from 'src/slack/tabs/users/services/users-tab.service';
-import { ROLE_OPTIONS } from 'src/slack/tabs/users/views/options/use-role.options';
-import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
-import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
-import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
-import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { ISearchResult } from '@common/types/pagination.types';
+import capitalize from '@common/utils/capitalize';
+import { IUsersTabViewFilters } from '@modules/slack/tabs/users/services/users-tab.service';
+import { ROLE_OPTIONS } from '@modules/slack/tabs/users/views/options/use-role.options';
+import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
+import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
+import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
-import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
-import UserRole from 'src/common/enums/user-role.enum';
-import { SeparatorComponent } from 'src/slack/common/views/components/separator';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
+import UserRole from '@common/enums/user-role.enum';
+import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
 
 export interface IUsersTabMetaData {
   page?: number;
@@ -118,10 +118,10 @@ export class UsersTabView extends BaseAdminTabView<
         options: [
           ...(user.is_active
             ? [
-              {
-                text: { type: 'plain_text', text: 'Edit User' },
-                value: `${UsersTabViewActionId.EditUser}:${user.id}`,
-              } as PlainTextOption,
+                  {
+                    text: { type: 'plain_text', text: 'Edit User' },
+                    value: `${UsersTabViewActionId.EditUser}:${user.id}`,
+                  } as PlainTextOption,
             ]
             : []),
           {

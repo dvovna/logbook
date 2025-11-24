@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { MAX_DESCRIPTION_LENGTH } from 'src/slack/tabs/teams/parsers/team-modal-view-values.parser';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { MAX_DESCRIPTION_LENGTH } from '@modules/slack/tabs/teams/parsers/team-modal-view-values.parser';
 import BaseModalView, {
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
+} from '@modules/slack/common/views/base-modal.view';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
-import { SlackMultiStaticSelectView } from 'src/slack/common/views/components/slack-multi-static-select.view';
-import { IOption } from 'src/slack/common/types/option.interface';
-import { SlackInputCheckboxesView } from 'src/slack/common/views/components/slack-input-checkboxes.view';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import { SlackMultiStaticSelectView } from '@modules/slack/common/views/components/slack-multi-static-select.view';
+import { IOption } from '@modules/slack/common/types/option.interface';
+import { SlackInputCheckboxesView } from '@modules/slack/common/views/components/slack-input-checkboxes.view';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 
 interface IGetViewParams extends IBaseModalViewParams {
   initialData?: {

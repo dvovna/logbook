@@ -1,5 +1,5 @@
-import { IRequestWorkflowStepViewModel } from 'src/request-workflows/types/request-workflow-step.interface';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+import { IRequestWorkflowStepViewModel } from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 export interface IWorkflowStepProcessor {
   supports(step: IRequestWorkflowStepViewModel): boolean;

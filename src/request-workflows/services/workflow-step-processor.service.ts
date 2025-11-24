@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { WorkflowStepProcessorsRegistry } from 'src/request-workflows/workflow-step-processor.registry';
+import { WorkflowStepProcessorsRegistry } from '@modules/request-workflows/workflow-step-processor.registry';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepType,
-} from 'src/request-workflows/types/request-workflow-step.interface';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+} from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 @Injectable()
 export class WorkflowStepProcessorService {

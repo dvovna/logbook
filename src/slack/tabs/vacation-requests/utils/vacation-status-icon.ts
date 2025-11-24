@@ -1,4 +1,4 @@
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 
 export function getVacationStatusEmoji(status: VacationRequestStatus): string {
   switch (status) {

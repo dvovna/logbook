@@ -1,20 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   HomeTabModalName,
   HomeTabService,
-} from 'src/slack/tabs/home/services/home-tab.service';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { HomeTabActionId } from 'src/slack/tabs/home/views/home-tab.view';
+} from '@modules/slack/tabs/home/services/home-tab.service';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
-import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
-import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
+} from '@modules/slack/common/services/tab-navigation.service';
+import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
+import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 
 @Injectable()
 @SlackHandler({ callbackId: ViewCallbackId.HomeTabView, type: 'block_actions' })
@@ -34,6 +34,7 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
       [HomeTabActionId.ViewHistory]: this.handleViewHistory,
       [HomeTabActionId.ManagePendingRequestMenu]: withMenuAction(
         this.handleMenuAction,
+        this.logger,
       ),
     };
   }

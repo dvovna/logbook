@@ -2,14 +2,14 @@ import { Injectable } from '@nestjs/common';
 import BaseModalView, {
   IActionButtons,
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+} from '@modules/slack/common/views/base-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { AnyBlock } from '@slack/web-api';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import { IVacationPeriodUsageData } from 'src/vacation-requests/services/vacation-usage.service';
-import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import VacationType from '@common/enums/vacation-type.enum';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
+import { getVacationTypeIcon } from '@common/utils/get-vacation-type-icon';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 
 interface IGetParams extends IBaseModalViewParams {
   user: IUserViewModel;

@@ -1,5 +1,5 @@
 import { PlainTextOption } from '@slack/web-api';
-import VacationType from 'src/common/enums/vacation-type.enum';
+import VacationType from '@common/enums/vacation-type.enum';
 
 export const VACATION_TYPE_OPTIONS: PlainTextOption[] = [
   {

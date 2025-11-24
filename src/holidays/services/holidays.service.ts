@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import IHolidayViewModel from 'src/holidays/types/holiday.interface';
-import { HolidaysRepository } from 'src/holidays/repositories/holidays.repository';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import IHolidayViewModel from '@modules/holidays/types/holiday.interface';
+import { HolidaysRepository } from '@modules/holidays/repositories/holidays.repository';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   ISearchParams,
   ISearchResult,
-} from 'src/common/types/pagination.types';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
-import { getDateOnly } from 'src/common/utils/date.utils';
-import { SupabaseFilter } from 'src/common/repositories/base.repository';
+} from '@common/types/pagination.types';
+import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
+import { getDateOnly } from '@common/utils/date.utils';
+import { SupabaseFilter } from '@common/repositories/base.repository';
 
 interface ICreateParams {
   name: string;

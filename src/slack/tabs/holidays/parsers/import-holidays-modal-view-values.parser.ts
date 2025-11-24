@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
-import ViewFieldType from 'src/slack/enums/view-field-type.enum';
-import { ISelectedOption } from 'src/slack/common/utils/parsing-utils';
+import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
+import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
+import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
 
 const importHolidaysSchema = z.object({
   country: z

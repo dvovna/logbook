@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 

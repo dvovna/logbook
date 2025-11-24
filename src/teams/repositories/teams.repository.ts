@@ -3,9 +3,9 @@ import {
   BaseRepository,
   TableName,
   Tables,
-} from 'src/common/repositories/base.repository';
-import ITeamViewModel from 'src/teams/types/team.interface';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+} from '@common/repositories/base.repository';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 
 @Injectable()
 export class TeamsRepository extends BaseRepository<

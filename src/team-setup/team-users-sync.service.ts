@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UsersService } from 'src/users/services/users.service';
-import SlackUsersService from 'src/slack-communication/services/slack-users.service';
-import UserRole from 'src/common/enums/user-role.enum';
+import { UsersService } from '@modules/users/services/users.service';
+import SlackUsersService from '@modules/slack-communication/services/slack-users.service';
+import UserRole from '@common/enums/user-role.enum';
 
 interface ISyncUsersParams {
   userSlackIdsToIgnore?: string[];
@@ -33,7 +33,7 @@ export class TeamUsersSyncService {
       .map(({ id, email, real_name, profile }) => ({
         slackId: id,
         teamId: null,
-        slackTeamId: slackTeamId,
+        slackTeamId,
         email: profile.email || email,
         name: real_name || 'Unknown User',
         role: UserRole.Member,

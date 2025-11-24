@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import UserRole from 'src/common/enums/user-role.enum';
-import { ValidationError } from 'src/common/errors/validation.error';
-import TeamsService from 'src/teams/services/teams.service';
-import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
-import { UsersRepository } from 'src/users/repositories/users.repository';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import UserRole from '@common/enums/user-role.enum';
+import { ValidationError } from '@common/errors/validation.error';
+import TeamsService from '@modules/teams/services/teams.service';
+import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import { UsersRepository } from '@modules/users/repositories/users.repository';
 
 interface IUpdateUserParams {
   role?: UserRole;

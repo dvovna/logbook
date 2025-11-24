@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
-import ViewFieldType from 'src/slack/enums/view-field-type.enum';
+import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
+import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 
 export const MAX_POLICY_NAME_LENGTH = 50;

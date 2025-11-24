@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import validator from 'validator';
-import { AbstractCsvParser } from 'src/user-data-import/parsers/abstract-csv-parser';
+import { AbstractCsvParser } from '@modules/user-data-import/parsers/abstract-csv-parser';
 
 export interface IUserTeamRecord {
   email: string;

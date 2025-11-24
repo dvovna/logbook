@@ -1,26 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import VacationRequestAdminViewValuesParser, {
   IVacationRequestAdminFormViewData,
-} from 'src/slack/tabs/vacation-requests/parsers/vacation-request-admin-view-values.parser';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+} from '@modules/slack/tabs/vacation-requests/parsers/vacation-request-admin-view-values.parser';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   IVacationRequestModalViewMetadata,
   VacationRequestFormModalView,
-} from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
-import { IVacationRequestsTabMetadata } from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
-import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
+} from '@modules/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
+import { IVacationRequestsTabMetadata } from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
+import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import { UsersService } from 'src/users/services/users.service';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/common/services/tab-navigation.service';
+import { UsersService } from '@modules/users/services/users.service';
+import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({

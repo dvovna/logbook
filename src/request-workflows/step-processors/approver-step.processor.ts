@@ -2,13 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepType,
-} from 'src/request-workflows/types/request-workflow-step.interface';
-import { IWorkflowStepProcessor } from 'src/request-workflows/types/workflow-step-handler.interface';
-import { WorkflowStepProcessor } from 'src/request-workflows/decorators/workflow-step-handler.decorator';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { RequestWorkflowStepsService } from 'src/request-workflows/services/request-workflow-steps.service';
-import { ApproverMessageView } from 'src/request-workflows/views/approver-message.view';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+} from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IWorkflowStepProcessor } from '@modules/request-workflows/types/workflow-step-handler.interface';
+import { WorkflowStepProcessor } from '@modules/request-workflows/decorators/workflow-step-handler.decorator';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
+import { ApproverMessageView } from '@modules/request-workflows/views/approver-message.view';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 @Injectable()
 @WorkflowStepProcessor(WorkflowStepType.Approver)

@@ -2,27 +2,27 @@ import { Injectable } from '@nestjs/common';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
+} from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types';
 import {
   IVacationRequestsTabMetadata,
   VacationRequestsTabView,
-} from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
+} from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { ConfigService } from '@nestjs/config';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
-import TeamsService from 'src/teams/services/teams.service';
-import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import TeamsService from '@modules/teams/services/teams.service';
+import { VacationRequestFormModalView } from '@modules/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import {
   IViewVacationRequestModalViewParams,
   VacationDetailsModalService,
-} from 'src/slack/tabs/vacation-requests/services/vacation-details-modal.service';
-import UserRole from 'src/common/enums/user-role.enum';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import ITeamViewModel from 'src/teams/types/team.interface';
+} from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
+import UserRole from '@common/enums/user-role.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import ITeamViewModel from '@modules/teams/types/team.interface';
 
 export enum VacationRequestsTabModalName {
   ViewRequest = 'ViewRequest',

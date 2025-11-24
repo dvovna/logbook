@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import { IVacationUsageByType } from 'src/vacation-requests/types/user-vacations-usage-info.interface';
-import TeamsService from 'src/teams/services/teams.service';
-import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
-import { getCurrentVacationPeriod } from 'src/vacation-requests/utils/vacation-period.utils';
-import { VacationPeriodUsageService } from 'src/vacation-requests/services/vacation-period-usage.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import VacationType from '@common/enums/vacation-type.enum';
+import { IVacationUsageByType } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
+import TeamsService from '@modules/teams/services/teams.service';
+import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import { getCurrentVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
+import { VacationPeriodUsageService } from '@modules/vacation-requests/services/vacation-period-usage.service';
 
 export interface IVacationLimits {
   vacationDays: number;
@@ -92,15 +92,16 @@ export class VacationsUsageService implements IVacationsUsageService {
   private async getVacationPeriodLimits(user: IUserViewModel) {
     const teamVacationPolicy = await this.getVacationPolicyIfExists(user);
 
-    return teamVacationPolicy && {
-      vacationDays: teamVacationPolicy?.vacation_days || 0,
-      workingDays: teamVacationPolicy?.working_days || 0,
-      bonusDays: teamVacationPolicy?.bonus_days || 0,
-      carryoverDays: user.carryover_days || 0,
+    return (
+      teamVacationPolicy && {
+        vacationDays: teamVacationPolicy?.vacation_days || 0,
+        workingDays: teamVacationPolicy?.working_days || 0,
+        bonusDays: teamVacationPolicy?.bonus_days || 0,
+        carryoverDays: user.carryover_days || 0,
         daysTotal:
-          (teamVacationPolicy?.vacation_days || 0) +
-        (user.carryover_days || 0),
-    };
+          (teamVacationPolicy?.vacation_days || 0) + (user.carryover_days || 0),
+      }
+    );
   }
 
   private async getVacationPolicyIfExists(user: IUserViewModel) {

@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 
 @Catch(ForbiddenException)
 export class SlackForbiddenExceptionFilter implements ExceptionFilter {

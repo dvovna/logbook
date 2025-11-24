@@ -1,4 +1,4 @@
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 
 export const ADMIN_TABS = [
   {

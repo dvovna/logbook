@@ -1,23 +1,22 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { Injectable } from '@nestjs/common';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
-} from 'src/slack/common/views/components/confirmation-modal.view';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
+} from '@modules/slack/common/views/components/confirmation-modal.view';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import {
   VacationPoliciesTabModalName,
   VacationPoliciesTabService,
-} from 'src/slack/tabs/vacation-policies/services/vacation-policies-tab.service';
-import { jsonParse } from 'src/common/utils/json-parse';
-import { IHolidaysTabMetadata } from 'src/slack/tabs/holidays/views/holidays-tab.view';
-import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
-import { DeleteHolidayHandler } from 'src/slack/tabs/holidays/handlers/delete-holiday.handler';
-import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/tabs/vacation-policies/services/vacation-policies-tab.service';
+import { jsonParse } from '@common/utils/json-parse';
+import { IHolidaysTabMetadata } from '@modules/slack/tabs/holidays/views/holidays-tab.view';
+import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
+import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
+import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
@@ -30,8 +29,6 @@ export class DeletePolicyHandler extends BaseModalFormSubmitHandler<
   never,
   IVacationPolicyViewModel
 > {
-  private readonly logger = new Logger(DeleteHolidayHandler.name);
-
   public constructor(
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly policiesService: VacationPoliciesService,

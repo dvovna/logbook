@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { ISearchResult } from 'src/common/types/pagination.types';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
-import { VACATION_TYPE_OPTIONS } from 'src/slack/tabs/vacation-requests/views/options/vacation-type.options';
-import VacationType from 'src/common/enums/vacation-type.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { ISearchResult } from '@common/types/pagination.types';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
+import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
+import VacationType from '@common/enums/vacation-type.enum';
 import {
   BaseTabView,
   IBaseTabViewParams,
-} from 'src/slack/common/views/base-tab.view';
-import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
-import { CommonViewActionId } from 'src/slack/enums/common-view-action-id.enum';
-import { SeparatorComponent } from 'src/slack/common/views/components/separator';
+} from '@modules/slack/common/views/base-tab.view';
+import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
+import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
+import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
 
 export interface IVacationHistoryTabFilters {
   year?: string;

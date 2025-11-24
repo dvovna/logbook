@@ -3,8 +3,8 @@ import {
   BaseRepository,
   TableName,
   Tables,
-} from 'src/common/repositories/base.repository';
-import ISlackTeamViewModel from 'src/slack-teams/types/slack-team.interface';
+} from '@common/repositories/base.repository';
+import ISlackTeamViewModel from '@modules/slack-teams/types/slack-team.interface';
 
 @Injectable()
 export class SlackTeamsRepository extends BaseRepository<

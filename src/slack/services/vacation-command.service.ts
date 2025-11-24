@@ -2,13 +2,13 @@ import { Injectable } from '@nestjs/common';
 import {
   IVacationPeriodUsageData,
   VacationsUsageService,
-} from 'src/vacation-requests/services/vacation-usage.service';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
-import VacationType from 'src/common/enums/vacation-type.enum';
+} from '@modules/vacation-requests/services/vacation-usage.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import { VacationRequestFormModalView } from '@modules/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { getVacationTypeIcon } from '@common/utils/get-vacation-type-icon';
+import VacationType from '@common/enums/vacation-type.enum';
 
 export enum VacationCommand {
   Usage = 'usage',

@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import {
   BaseRepository,
   Tables,
-} from 'src/common/repositories/base.repository';
-import UserRole from 'src/common/enums/user-role.enum';
-import { IUserViewModel } from 'src/users/types/user.interface';
+} from '@common/repositories/base.repository';
+import UserRole from '@common/enums/user-role.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 
 @Injectable()
 export class UsersRepository extends BaseRepository<

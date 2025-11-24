@@ -1,7 +1,7 @@
 import { Controller, Get, Logger, Query, Res } from '@nestjs/common';
-import SlackOauthService from 'src/slack/services/slack-oauth.service';
+import SlackOauthService from '@modules/slack/services/slack-oauth.service';
 import { Response } from 'express';
-import { TeamSetupWorkflowService } from 'src/team-setup/team-setup-workflow.service';
+import { TeamSetupWorkflowService } from '@modules/team-setup/team-setup-workflow.service';
 
 @Controller('api/slack')
 export default class SlackOauthController {

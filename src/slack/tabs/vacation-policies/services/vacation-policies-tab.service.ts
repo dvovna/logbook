@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
-import { VacationPolicyModalView } from 'src/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
+import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import { VacationPolicyModalView } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
 import {
   IVacationPoliciesTabMetaData,
   VacationPolicyTabView,
-} from 'src/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
+} from '@modules/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
+} from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
-import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 
 export enum VacationPoliciesTabModalName {
   CreatePolicy = 'CreatePolicy',

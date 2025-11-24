@@ -2,11 +2,11 @@ import { AnyBlock } from '@slack/web-api';
 import {
   BaseTabView,
   IBaseTabViewParams,
-} from 'src/slack/common/views/base-tab.view';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
-import { AdminTabNavigation } from 'src/slack/common/views/components/admin-tab-navigation.view';
-import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/common/views/base-tab.view';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { AdminTabNavigation } from '@modules/slack/common/views/components/admin-tab-navigation.view';
+import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
+import UserRole from '@common/enums/user-role.enum';
 
 export abstract class BaseAdminTabView<
   GetParams extends IBaseTabViewParams,

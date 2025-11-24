@@ -2,14 +2,14 @@ import { Injectable } from '@nestjs/common';
 import BaseModalView, {
   IActionButtons,
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
+} from '@modules/slack/common/views/base-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { AnyBlock } from '@slack/web-api';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import { IRequestWorkflowStepViewModel } from 'src/request-workflows/types/request-workflow-step.interface';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
-import capitalize from 'src/common/utils/capitalize';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import { IRequestWorkflowStepViewModel } from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+import capitalize from '@common/utils/capitalize';
 
 interface IGetParams extends IBaseModalViewParams {
   request: IVacationRequestViewModel;

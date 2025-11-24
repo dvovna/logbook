@@ -1,22 +1,24 @@
-import { ISlackViewSubmissionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { ISlackViewSubmissionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { parseMetadata } from 'src/slack/common/utils/slack-metadata.utils';
-import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
-import { IViewParseResult } from 'src/slack/services/slack-view-values.parser';
-import PrimaryEntityDeleteError from 'src/common/errors/primary-entity-delete.error';
-import { ForbiddenException } from '@nestjs/common';
-import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
-import { ValidationError } from 'src/common/errors/validation.error';
-import { DuplicateError } from 'src/common/errors/diplicate.error';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
+import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
+import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
+import { IViewParseResult } from '@modules/slack/services/slack-view-values.parser';
+import PrimaryEntityDeleteError from '@common/errors/primary-entity-delete.error';
+import { ForbiddenException, Logger } from '@nestjs/common';
+import EntityHasDependenciesError from '@common/errors/entity-has-dependencies.error';
+import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
+import { ValidationError } from '@common/errors/validation.error';
+import { DuplicateError } from '@common/errors/diplicate.error';
 
 export abstract class BaseModalFormSubmitHandler<
   Metadata extends object,
   FormData extends object = object,
   SubmitResult = void,
 > {
+  protected readonly logger = new Logger(BaseModalFormSubmitHandler.name);
+
   public constructor(
     private readonly formParser?: BaseValuesParser<FormData>,
   ) {}
@@ -46,8 +48,7 @@ export abstract class BaseModalFormSubmitHandler<
         error instanceof EntityHasDependenciesError;
 
       if (!isKnownError) {
-        // eslint-disable-next-line no-console
-        console.error('Unexpected error in modal form submission:', error);
+        this.logger.error('Unexpected error in modal form submission:', error);
       }
 
       const errorMessage = isKnownError

@@ -1,10 +1,10 @@
-import { IViewStateValues } from 'src/slack/common/types/slack-view-state-values.interface';
+import { IViewStateValues } from '@modules/slack/common/types/slack-view-state-values.interface';
 import {
   DatepickerAction,
   MultiStaticSelectAction,
   StaticSelectAction,
 } from '@slack/bolt/dist/types/actions/block-action';
-import ViewFieldType from 'src/slack/enums/view-field-type.enum';
+import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 
 interface IFieldPathParams {
   blockId: string;

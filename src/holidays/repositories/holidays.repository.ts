@@ -3,8 +3,8 @@ import {
   BaseRepository,
   TableName,
   Tables,
-} from 'src/common/repositories/base.repository';
-import IHolidayViewModel from 'src/holidays/types/holiday.interface';
+} from '@common/repositories/base.repository';
+import IHolidayViewModel from '@modules/holidays/types/holiday.interface';
 
 @Injectable()
 export class HolidaysRepository extends BaseRepository<

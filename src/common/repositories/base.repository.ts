@@ -1,11 +1,11 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database } from 'src/common/types/database.types';
+import { Database } from '@common/types/database.types';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { Injectable } from '@nestjs/common';
 import {
   ISearchResult,
   ISearchParams,
-} from 'src/common/types/pagination.types';
+} from '@common/types/pagination.types';
 
 export type Tables = Database['public']['Tables'];
 export type TableName = keyof Tables;

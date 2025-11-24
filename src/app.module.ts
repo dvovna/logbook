@@ -1,17 +1,17 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { AppController } from './app.controller';
-import { VacationRequestsModule } from 'src/vacation-requests/vacation-requests.module';
+import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 import { SlackModule } from './slack/slack.module';
 import { ConfigModule } from '@nestjs/config';
 import { SupabaseModule } from 'src/supabase/supabase.module';
 import { UsersModule } from './users/users.module';
-import { SlackTeamsModule } from 'src/slack-teams/slack-teams.module';
+import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
 import { ClientsModule } from './clients/clients.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { VacationPoliciesModule } from 'src/vacation-policies/vacation-policies.module';
+import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
 import { CacheModule } from '@nestjs/cache-manager';
-import { UserDataImportModule } from 'src/user-data-import/user-data-import.module';
+import { UserDataImportModule } from '@modules/user-data-import/user-data-import.module';
 import { TeamSetupModule } from './team-setup/team-setup.module';
 import { SlackCommunicationModule } from './slack-communication/slack-communication.module';
 import { TeamsModule } from './teams/teams.module';
@@ -43,8 +43,10 @@ import { LoggerModule } from 'nestjs-pino';
       isGlobal: true,
       validate: (config) => {
         const parsed = envSchema.safeParse(config);
+        const logger = new Logger('ConfigValidation');
+
         if (!parsed.success) {
-          console.error(
+          logger.error(
             '❌ Invalid environment variables',
             parsed.error.flatten().fieldErrors,
           );

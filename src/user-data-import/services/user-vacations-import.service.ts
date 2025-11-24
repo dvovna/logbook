@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UsersService } from 'src/users/services/users.service';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
+import { UsersService } from '@modules/users/services/users.service';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import UserVacationsCsvParser, {
   IUserVacationRecord,
-} from 'src/user-data-import/parsers/user-vacations-csv.parser';
-import { IUserViewModel } from 'src/users/types/user.interface';
+} from '@modules/user-data-import/parsers/user-vacations-csv.parser';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 
 export interface IImportResult {
   created: number;

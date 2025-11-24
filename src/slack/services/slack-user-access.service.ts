@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import UserRole from 'src/common/enums/user-role.enum';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import capitalize from 'src/common/utils/capitalize';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
+import UserRole from '@common/enums/user-role.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import capitalize from '@common/utils/capitalize';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 
 @Injectable()
 export default class SlackUserAccessService {

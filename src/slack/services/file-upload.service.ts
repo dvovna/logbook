@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   IImportResult,
   UserVacationsImportService,
-} from 'src/user-data-import/services/user-vacations-import.service';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { UserTeamMappingImportService } from 'src/user-data-import/services/user-team-mapping-import.service';
+} from '@modules/user-data-import/services/user-vacations-import.service';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import { UserTeamMappingImportService } from '@modules/user-data-import/services/user-team-mapping-import.service';
 
 @Injectable()
 export default class FileUploadService {

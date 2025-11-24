@@ -2,9 +2,9 @@ import {
   BaseRepository,
   TableName,
   Tables,
-} from 'src/common/repositories/base.repository';
+} from '@common/repositories/base.repository';
 import { Injectable } from '@nestjs/common';
-import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
+import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
 
 @Injectable()
 export default class VacationPoliciesRepository extends BaseRepository<

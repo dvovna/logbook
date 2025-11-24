@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { UsersService } from 'src/users/services/users.service';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import UserRole from 'src/common/enums/user-role.enum';
+import { UsersService } from '@modules/users/services/users.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 export class SlackUserOptionsService {

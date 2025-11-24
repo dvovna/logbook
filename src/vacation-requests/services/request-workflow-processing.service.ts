@@ -1,21 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { VacationWorkflowEventEnum } from 'src/common/enums/vacation-workflow-event.enum';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { UsersService } from 'src/users/services/users.service';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
-import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import TeamsService from 'src/teams/services/teams.service';
-import { VacationWorkflowFinished } from 'src/common/events/vacation-workflow.events';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
-import { getApproverCommentLines } from 'src/slack/common/utils/view.utils';
+import { VacationWorkflowEventEnum } from '@common/enums/vacation-workflow-event.enum';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import { UsersService } from '@modules/users/services/users.service';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import TeamsService from '@modules/teams/services/teams.service';
+import { VacationWorkflowFinished } from '@common/events/vacation-workflow.events';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import { ImageBlock } from '@slack/web-api';
-import { SlackMessagePayloadInterface } from 'src/slack-communication/types/slack-message-payload.interface';
+import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
 
 @Injectable()
 export class RequestWorkflowProcessingService {

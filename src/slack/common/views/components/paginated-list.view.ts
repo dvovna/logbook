@@ -1,6 +1,6 @@
 import { AnyBlock } from '@slack/web-api';
-import { ISearchResult } from 'src/common/types/pagination.types';
-import PaginationView from 'src/slack/common/views/components/pagination.view';
+import { ISearchResult } from '@common/types/pagination.types';
+import PaginationView from '@modules/slack/common/views/components/pagination.view';
 
 interface IPaginatedListViewParams<Item = unknown> {
   itemsData: ISearchResult<Item>;

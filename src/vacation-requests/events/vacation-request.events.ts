@@ -1,5 +1,5 @@
-import { IVacationRequestViewModel } from '../types/vacation-request.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 
 export class VacationRequestCreatedEvent {
   public constructor(

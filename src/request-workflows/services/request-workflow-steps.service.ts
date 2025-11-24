@@ -1,17 +1,17 @@
 import {
   IApproverStepData,
   WorkflowStepType,
-} from 'src/request-workflows/types/request-workflow-step.interface';
-import { RequestWorkflowStepsRepository } from 'src/request-workflows/repositories/request-workflow-steps.repository';
-import { Json } from 'src/common/types/database.types';
+} from '@modules/request-workflows/types/request-workflow-step.interface';
+import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
+import { Json } from '@common/types/database.types';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   IQueryOptions,
   SupabaseFilter,
   Tables,
-} from 'src/common/repositories/base.repository';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
+} from '@common/repositories/base.repository';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
 
 export interface ICreateParams {
   requestId: string;

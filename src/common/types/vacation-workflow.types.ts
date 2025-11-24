@@ -1,5 +1,5 @@
-import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 export interface IVacationWorkflow {
   requestId: string;

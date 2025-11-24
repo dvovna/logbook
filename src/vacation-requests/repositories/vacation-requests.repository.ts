@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import {
   BaseRepository,
   Tables,
-} from 'src/common/repositories/base.repository';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+} from '@common/repositories/base.repository';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import VacationType from '@common/enums/vacation-type.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 
 @Injectable()
 export class VacationRequestsRepository extends BaseRepository<

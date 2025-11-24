@@ -1,9 +1,9 @@
-import { IOption } from 'src/slack/common/types/option.interface';
+import { IOption } from '@modules/slack/common/types/option.interface';
 import { PlainTextOption } from '@slack/web-api';
-import { ISlackBlockActionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ButtonAction } from '@slack/bolt';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 export const toPlainTextOption = ({ id, name }: IOption): PlainTextOption => {
   return {

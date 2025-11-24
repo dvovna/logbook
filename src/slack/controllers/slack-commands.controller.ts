@@ -8,14 +8,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { ISlackCommandBodyData } from 'src/common/types/slack.types';
+import { ISlackCommandBodyData } from '@common/types/slack.types';
 import VacationCommandService, {
   VacationCommand,
-} from 'src/slack/services/vacation-command.service';
-import { SlackSignatureGuard } from 'src/common/guards/slack-signature.guard';
-import { SlackUserGuard } from 'src/common/guards/slack-user.guard';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { SlackActiveUserGuard } from 'src/common/guards/slack-active-user.guard';
+} from '@modules/slack/services/vacation-command.service';
+import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
+import { SlackUserGuard } from '@common/guards/slack-user.guard';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import { SlackActiveUserGuard } from '@common/guards/slack-active-user.guard';
 
 @Controller('api/slack')
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import HolidaysService from 'src/holidays/services/holidays.service';
-import { getDateOnly } from 'src/common/utils/date.utils';
+import HolidaysService from '@modules/holidays/services/holidays.service';
+import { getDateOnly } from '@common/utils/date.utils';
 
 @Injectable()
 export class VacationDaysCalculationService {

@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
-import UserRole from 'src/common/enums/user-role.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
+import UserRole from '@common/enums/user-role.enum';
 import CommentModalViewValuesParser, {
   ICommentFormViewData,
-} from 'src/request-workflows/parsers/comment-modal-view-values.parser';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
-import { RequestWorkflowStepCommentsService } from 'src/request-workflows/services/request-workflow-step-comments.service';
+} from '@modules/request-workflows/parsers/comment-modal-view-values.parser';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import {
   ApproverStepCommentModalView,
   IApproverStepCommentModalViewMetadata,
-} from 'src/request-workflows/views/approver-step-comment-modal.view';
-import { RequestWorkflowStepsService } from 'src/request-workflows/services/request-workflow-steps.service';
+} from '@modules/request-workflows/views/approver-step-comment-modal.view';
+import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 
 @Injectable()
 @SlackHandler({

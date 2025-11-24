@@ -1,62 +1,131 @@
-// @ts-check
-import eslint from '@eslint/js';
-import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
+import typescriptEslint from '@typescript-eslint/eslint-plugin';
+import importPlugin from 'eslint-plugin-import';
+import checkFile from 'eslint-plugin-check-file';
+import tsParser from '@typescript-eslint/parser';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import js from '@eslint/js';
+import { FlatCompat } from '@eslint/eslintrc';
 
-export default tseslint.config(
-  {
-    ignores: ['eslint.config.mjs', 'src/types/database.types.ts'],
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+  recommendedConfig: js.configs.recommended,
+  allConfig: js.configs.all
+});
+
+export default [{
+  ignores: [
+    '**/node_modules/',
+    '**/build/',
+    '**/dist/',
+    '**/coverage/',
+    '**/*.min.js',
+    '**/*.js',
+    '**/*.js',
+    '**/*.mjs',
+    '**/migrations/',
+    '.history/'
+  ],
+}, ...compat.extends(
+  'eslint:recommended',
+  'plugin:@typescript-eslint/eslint-recommended',
+  'plugin:@typescript-eslint/recommended',
+), {
+  plugins: {
+    '@typescript-eslint': typescriptEslint,
+    'import': importPlugin,
+    'check-file': checkFile,
   },
-  eslint.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
-  eslintPluginPrettierRecommended,
-  {
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.jest,
+
+  settings: {
+    'import/resolver': {
+      typescript: {
+        project: ['./tsconfig.json'],
+        alwaysTryTypes: true,
       },
-      ecmaVersion: 5,
-      sourceType: 'module',
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
+      node: {
+        extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs'],
       },
     },
   },
-  {
-    rules: {
-      'indent': ['error', 2, { 'SwitchCase': 1 }],
-      'quotes': ['error', 'single', { 'avoidEscape': true, 'allowTemplateLiterals': true }],
-      'semi': ['warn', 'always'],
-      'comma-dangle': ['error', 'always-multiline'],
-      'eqeqeq': 'warn',
-      'no-cond-assign': ['warn', 'always'],
-      'no-unused-vars': 'warn',
-      'no-console': 'warn',
-      'brace-style': ['warn', '1tbs'],
-      'strict': ['error', 'safe'],
-      '@typescript-eslint/naming-convention': [ 'error', {
-        'selector': 'interface',
-        'format': ['PascalCase'],
-        'custom': {
-          'regex': '^I[A-Z]',
-          'match': true
-        }
+
+  languageOptions: {
+    parser: tsParser,
+  },
+
+  rules: {
+    'object-curly-spacing': ['warn', 'always'],
+
+    indent: ['error', 2, {
+      SwitchCase: 1,
+      ignoredNodes: [
+        'PropertyDefinition[decorators]',
+        'MethodDefinition[decorators]',
+      ],
+    }],
+
+    quotes: ['error', 'single', {
+      avoidEscape: true,
+      allowTemplateLiterals: true,
+    }],
+
+    semi: ['warn', 'always'],
+    'comma-dangle': ['error', 'always-multiline'],
+    eqeqeq: 'warn',
+    'no-cond-assign': ['warn', 'always'],
+    'no-unused-vars': 'off',
+    'no-console': 'warn',
+    'brace-style': ['warn', '1tbs'],
+    strict: ['error', 'safe'],
+
+    '@typescript-eslint/naming-convention': ['error', {
+      selector: 'interface',
+      format: ['PascalCase'],
+
+      custom: {
+        regex: '^I[A-Z]',
+        match: true,
+      },
+    }],
+
+    '@typescript-eslint/no-var-requires': 'off',
+    '@typescript-eslint/explicit-module-boundary-types': 'off',
+    '@typescript-eslint/no-non-null-assertion': 'off',
+    '@typescript-eslint/no-unused-vars': ['off', { varsIgnorePattern: '^_' }],
+
+    'object-shorthand': ['error', 'always', {
+      avoidQuotes: true,
+    }],
+
+    'check-file/filename-naming-convention': ['error', { '**/*.{ts,tsx}': 'KEBAB_CASE' }, {
+      ignoreMiddleExtensions: true,
+    }],
+
+    'no-restricted-imports': ['error', {
+      patterns: [{
+        group: ['../*'],
+        message: 'Relative parent imports (..) are forbidden. Use same-level (./) or absolute imports (@libs, @apps).',
       }],
-      '@typescript-eslint/no-var-requires': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'off',
-      '@typescript-eslint/explicit-member-accessibility': ['error'],
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-      '@typescript-eslint/no-floating-promises': 'off',
-      '@typescript-eslint/restrict-template-expressions': 'off',
-      '@typescript-eslint/no-redundant-type-constituents': 'off',
-      '@typescript-eslint/no-unsafe-argument': 'off',
-    },
+    }],
+
+    'import/no-relative-packages': 'error',
+    'import/no-cycle': ['error', {
+      maxDepth: 10,
+      ignoreExternal: true,
+    }],
+    'no-restricted-syntax': [
+      'off',
+      {
+        selector: 'ExportAllDeclaration',
+        message: 'Avoid export *, use named exports for better tree-shaking and clarity',
+      },
+    ],
   },
-);
+}, {
+  files: ['bin/**/*.ts'],
+  rules: {
+    'no-restricted-imports': 'off',
+  },
+}];

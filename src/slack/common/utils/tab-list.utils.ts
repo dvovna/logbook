@@ -1,7 +1,7 @@
 import { OverflowAction, ButtonAction } from '@slack/bolt';
-import { ISlackBlockActionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
+import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
 import { StaticSelectAction } from '@slack/bolt/dist/types/actions/block-action';
 
 type HandlerFn<Metadata> = (

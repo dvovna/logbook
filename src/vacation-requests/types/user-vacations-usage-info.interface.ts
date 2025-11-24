@@ -1,4 +1,4 @@
-import VacationType from 'src/common/enums/vacation-type.enum';
+import VacationType from '@common/enums/vacation-type.enum';
 
 interface IBaseUsage {
   used: number;

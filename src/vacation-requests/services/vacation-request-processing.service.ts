@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
+import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import {
   VacationRequestCreatedEvent,
   VacationRequestUpdatedEvent,
-} from 'src/vacation-requests/events/vacation-request.events';
-import TeamsService from 'src/teams/services/teams.service';
-import { WorkflowStepType } from 'src/request-workflows/types/request-workflow-step.interface';
+} from '@modules/vacation-requests/events/vacation-request.events';
+import TeamsService from '@modules/teams/services/teams.service';
+import { WorkflowStepType } from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
   ICreateWorkflowLevelParams,
   ICreateWorkflowParams,
   RequestWorkflowService,
-} from 'src/request-workflows/services/request-workflow.service';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+} from '@modules/request-workflows/services/request-workflow.service';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 
 @Injectable()
 export class VacationRequestProcessingService {

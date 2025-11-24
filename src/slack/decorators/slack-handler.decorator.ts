@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import UserRole from 'src/common/enums/user-role.enum';
+import UserRole from '@common/enums/user-role.enum';
 
 export const SLACK_HANDLER_METADATA = 'SLACK_HANDLER_METADATA';
 

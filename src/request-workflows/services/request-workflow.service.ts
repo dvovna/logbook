@@ -3,23 +3,23 @@ import {
   IRequestWorkflowStepViewModel,
   WorkflowStepStatus,
   WorkflowStepType,
-} from 'src/request-workflows/types/request-workflow-step.interface';
+} from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
   ICreateParams,
   RequestWorkflowStepsService,
-} from 'src/request-workflows/services/request-workflow-steps.service';
+} from '@modules/request-workflows/services/request-workflow-steps.service';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
-import { WorkflowStepProcessorService } from 'src/request-workflows/services/workflow-step-processor.service';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { WorkflowStepProcessorService } from '@modules/request-workflows/services/workflow-step-processor.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import { VacationWorkflowEventEnum } from 'src/common/enums/vacation-workflow-event.enum';
-import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
-import { IVacationWorkflow } from 'src/common/types/vacation-workflow.types';
-import { VacationWorkflowFinished } from 'src/common/events/vacation-workflow.events';
-import { WorkflowStepCommentEvent } from 'src/request-workflows/enums/workflow-step-comment-event.enum';
-import { RequestWorkflowStepCommentsService } from 'src/request-workflows/services/request-workflow-step-comments.service';
-import { RequestWorkflowStepCommentAddedEvent } from 'src/request-workflows/events/request-workflow-step-comment.events';
+import { VacationWorkflowEventEnum } from '@common/enums/vacation-workflow-event.enum';
+import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
+import { IVacationWorkflow } from '@common/types/vacation-workflow.types';
+import { VacationWorkflowFinished } from '@common/events/vacation-workflow.events';
+import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
+import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
+import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
 
 export interface ICreateWorkflowLevelParams {
   rule: ApprovalRule;

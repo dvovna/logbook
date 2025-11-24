@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import ITeamViewModel from 'src/teams/types/team.interface';
-import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
-import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
-import { ISearchResult } from 'src/common/types/pagination.types';
-import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
-import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
-import { SeparatorComponent } from 'src/slack/common/views/components/separator';
+import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
+import { ISearchResult } from '@common/types/pagination.types';
+import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
+import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
 
 interface IGetViewParams extends IBaseTabViewParams {
   teamsData: ISearchResult<ITeamViewModel>;

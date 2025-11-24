@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UsersService } from 'src/users/services/users.service';
-import TeamsService from 'src/teams/services/teams.service';
+import { UsersService } from '@modules/users/services/users.service';
+import TeamsService from '@modules/teams/services/teams.service';
 import UserTeamMappingCsvParser, {
   IUserTeamRecord,
-} from 'src/user-data-import/parsers/user-team-mapping-csv.parser';
-import { IUserViewModel } from 'src/users/types/user.interface';
+} from '@modules/user-data-import/parsers/user-team-mapping-csv.parser';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 
 export interface ITeamsImportResult {
   created: number;

@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from 'src/common/types/database.types';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+import { Database } from '@common/types/database.types';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 
 @Injectable()
 export class SupabaseService {

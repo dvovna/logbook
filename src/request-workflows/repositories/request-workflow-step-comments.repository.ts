@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import {
   BaseRepository,
   Tables,
-} from 'src/common/repositories/base.repository';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+} from '@common/repositories/base.repository';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 @Injectable()
 export class RequestWorkflowStepCommentsRepository extends BaseRepository<

@@ -1,30 +1,30 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import TeamModalViewValuesParser, {
   ITeamFormViewData,
-} from 'src/slack/tabs/teams/parsers/team-modal-view-values.parser';
-import TeamsService from 'src/teams/services/teams.service';
+} from '@modules/slack/tabs/teams/parsers/team-modal-view-values.parser';
+import TeamsService from '@modules/teams/services/teams.service';
 import {
   ITeamModalViewMetadata,
   NO_POLICY_VALUE,
   TeamModalView,
-} from 'src/slack/tabs/teams/views/team-modal.view';
-import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
+} from '@modules/slack/tabs/teams/views/team-modal.view';
+import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import ITeamViewModel from 'src/teams/types/team.interface';
+} from '@modules/slack/common/services/tab-navigation.service';
+import ITeamViewModel from '@modules/teams/types/team.interface';
 import {
   TeamsTabModalName,
   TeamsTabService,
-} from 'src/slack/tabs/teams/services/teams-tab.service';
-import UserRole from 'src/common/enums/user-role.enum';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
-import { ITeamsTabMetaData } from 'src/slack/tabs/teams/views/teams-tab.view';
+} from '@modules/slack/tabs/teams/services/teams-tab.service';
+import UserRole from '@common/enums/user-role.enum';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.view';
 
 @Injectable()
 @SlackHandler({

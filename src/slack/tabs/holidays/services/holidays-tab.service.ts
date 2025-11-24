@@ -1,24 +1,24 @@
 import { Injectable } from '@nestjs/common';
-import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
-import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
+import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
+} from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   HolidaysTabView,
   IHolidaysTabMetadata,
-} from 'src/slack/tabs/holidays/views/holidays-tab.view';
-import HolidaysService from 'src/holidays/services/holidays.service';
-import { HolidayModalView } from 'src/slack/tabs/holidays/views/holiday-modal.view';
-import { ImportHolidaysModalView } from 'src/slack/tabs/holidays/views/import-holidays-modal.view';
+} from '@modules/slack/tabs/holidays/views/holidays-tab.view';
+import HolidaysService from '@modules/holidays/services/holidays.service';
+import { HolidayModalView } from '@modules/slack/tabs/holidays/views/holiday-modal.view';
+import { ImportHolidaysModalView } from '@modules/slack/tabs/holidays/views/import-holidays-modal.view';
 import { ConfigService } from '@nestjs/config';
-import { jsonParse } from 'src/common/utils/json-parse';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
-import { getDateOnly } from 'src/common/utils/date.utils';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+import { jsonParse } from '@common/utils/json-parse';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
+import { getDateOnly } from '@common/utils/date.utils';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 
 interface IHolidayModalViewParams extends IOpenModalBaseParams<string> {
   holidayId: string;
@@ -135,7 +135,7 @@ export class HolidaysTabService extends BaseTabService<
         companyHolidays,
         policyName: policy.name,
         policyId,
-        selectedYear: selectedYear,
+        selectedYear,
         years: Array.from(
           { length: maxYear - minYear + 1 },
           (_, index) => index + minYear,

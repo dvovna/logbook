@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { HomeTabView } from 'src/slack/tabs/home/views/home-tab.view';
-import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
+import { HomeTabView } from '@modules/slack/tabs/home/views/home-tab.view';
+import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
+} from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
-import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
-import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
-import { VacationDetailsModalService } from 'src/slack/tabs/vacation-requests/services/vacation-details-modal.service';
+import { VacationRequestFormModalView } from '@modules/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
 
 export enum HomeTabModalName {
   ViewVacationRequest = 'ViewVacationRequest',

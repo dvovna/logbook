@@ -1,6 +1,6 @@
 import { PlainTextOption } from '@slack/web-api';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
-import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
 
 export const STATUS_OPTIONS: PlainTextOption[] = [
   {

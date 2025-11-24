@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import { IVacationPeriodUsageData } from 'src/vacation-requests/services/vacation-usage.service';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
-import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
-import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
-import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
-import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
-import VacationType from 'src/common/enums/vacation-type.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
+import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
+import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
+import { getVacationTypeIcon } from '@common/utils/get-vacation-type-icon';
+import VacationType from '@common/enums/vacation-type.enum';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;

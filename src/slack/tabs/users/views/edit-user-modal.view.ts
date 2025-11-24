@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
-import { IUserViewModel } from 'src/users/types/user.interface';
+} from '@modules/slack/common/views/base-modal.view';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
-import { ROLE_OPTIONS } from 'src/slack/tabs/users/views/options/use-role.options';
-import ITeamViewModel from 'src/teams/types/team.interface';
+import { ROLE_OPTIONS } from '@modules/slack/tabs/users/views/options/use-role.options';
+import ITeamViewModel from '@modules/teams/types/team.interface';
 
 interface IGetViewParams extends IBaseModalViewParams {
   user: IUserViewModel;
