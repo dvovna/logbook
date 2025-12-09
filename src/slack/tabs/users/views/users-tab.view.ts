@@ -124,10 +124,14 @@ export class UsersTabView extends BaseAdminTabView<
                   } as PlainTextOption,
             ]
             : []),
-          {
-            text: { type: 'plain_text', text: 'View Vacation Usage' },
-            value: `${UsersTabViewActionId.ViewVacationUsage}:${user.id}`,
-          },
+          ...(user.is_active
+            ? [
+              {
+                text: { type: 'plain_text', text: 'View Vacation Usage' },
+                value: `${UsersTabViewActionId.ViewVacationUsage}:${user.id}`,
+              } as PlainTextOption,
+            ]
+            : []),
           {
             text: {
               type: 'plain_text',
