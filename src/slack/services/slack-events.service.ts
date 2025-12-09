@@ -176,7 +176,7 @@ export default class SlackEventsService {
       teamId: existingUser?.team_id || null,
       role: user.role,
       email: event.user.profile.email!,
-      name: event.user.real_name,
+      name: event.user.real_name || user.name,
       isActive: !event.user.deleted,
       slackTeamId: slackTeam?.id,
     });

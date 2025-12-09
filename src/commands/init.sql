@@ -45,7 +45,7 @@ CREATE TABLE public.users
 (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     slack_team_id       uuid NOT NULL REFERENCES public.slack_teams (id) ON DELETE CASCADE,
-    name                text NOT NULL,
+    name                text,
     email               text NOT NULL UNIQUE,
     slack_id            text NOT NULL UNIQUE,
     role                text NOT NULL CHECK (role IN ('member','admin','hr','manager')),
