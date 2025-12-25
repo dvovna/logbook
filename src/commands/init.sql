@@ -125,7 +125,7 @@ CREATE TABLE public.holidays
     slack_team_id      uuid NOT NULL REFERENCES public.slack_teams (id) ON DELETE CASCADE,
     name               text NOT NULL,
     date               date NOT NULL,
-    year               integer GENERATED ALWAYS AS (EXTRACT(YEAR FROM date)::integer) STORED,
+    year               integer NOT NULL,
     is_company_custom  boolean NOT NULL DEFAULT false,
     is_disabled        boolean NOT NULL DEFAULT false,
     country_code       text,
@@ -135,7 +135,6 @@ CREATE TABLE public.holidays
     updated_at         timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_holidays_policy_date ON public.holidays (vacation_policy_id, date);
 CREATE INDEX idx_holidays_team_date ON public.holidays (slack_team_id, date);
 
 

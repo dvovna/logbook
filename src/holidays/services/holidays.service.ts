@@ -9,6 +9,8 @@ import {
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import { getDateOnly } from '@common/utils/date.utils';
 import { SupabaseFilter } from '@common/repositories/base.repository';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
+import { ConfigService } from '@nestjs/config';
 
 interface ICreateParams {
   name: string;
@@ -63,7 +65,10 @@ interface IHolidaysService {
 
 @Injectable()
 export default class HolidaysService implements IHolidaysService {
-  public constructor(private readonly holidaysRepository: HolidaysRepository) {}
+  constructor(
+    private readonly holidaysRepository: HolidaysRepository,
+    private readonly config: ConfigService,
+  ) {}
 
   public async search(
     params: ISearchHolidaysParams,
@@ -112,6 +117,7 @@ export default class HolidaysService implements IHolidaysService {
     return await this.holidaysRepository.create({
       name: createParams.name,
       date: createParams.date,
+      year: new Date(createParams.date).getFullYear(),
       is_company_custom: createParams.isCompanyCustom,
       slack_team_id: createParams.slackTeamId,
       vacation_policy_id: createParams.vacationPolicyId,
@@ -133,6 +139,7 @@ export default class HolidaysService implements IHolidaysService {
     const holidaysToCreate = createParamsArray.map((createParams) => ({
       name: createParams.name,
       date: createParams.date,
+      year: new Date(createParams.date).getFullYear(),
       is_company_custom: createParams.isCompanyCustom,
       slack_team_id: createParams.slackTeamId,
       vacation_policy_id: createParams.vacationPolicyId,
@@ -213,8 +220,12 @@ export default class HolidaysService implements IHolidaysService {
       }),
     );
 
-    if (count >= 5) {
-      throw new MaxItemsCountReachedError(5, 'company holidays');
+    const maxCompanyHolidays = this.config.getOrThrow<number>(
+      EnvironmentVariable.MaxCompanyHolidaysPerCompanyPerYear,
+    );
+
+    if (count >= maxCompanyHolidays) {
+      throw new MaxItemsCountReachedError(maxCompanyHolidays, 'company holidays');
     }
   }
 }

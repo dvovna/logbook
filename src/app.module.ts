@@ -3,7 +3,7 @@ import { AppController } from './app.controller';
 import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 import { SlackModule } from './slack/slack.module';
 import { ConfigModule } from '@nestjs/config';
-import { SupabaseModule } from 'src/supabase/supabase.module';
+import { DatabaseModule } from 'src/database/database.module';
 import { UsersModule } from './users/users.module';
 import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
 import { ClientsModule } from './clients/clients.module';
@@ -60,7 +60,7 @@ import { LoggerModule } from 'nestjs-pino';
       rootPath: join(__dirname, '..', 'public'),
     }),
     CacheModule.register(),
-    SupabaseModule,
+    DatabaseModule,
     VacationRequestsModule,
     UsersModule,
     SlackTeamsModule,

@@ -1,5 +1,5 @@
 enum EnvironmentVariable {
-  Port = 'Port',
+  Port = 'PORT',
   SupabaseUrl = 'SUPABASE_URL',
   SupabaseServiceRoleKey = 'SUPABASE_SERVICE_ROLE_KEY',
   SlackClientId = 'SLACK_CLIENT_ID',
@@ -12,6 +12,7 @@ enum EnvironmentVariable {
   MaxPendingRequestsPerUser = 'MAX_PENDING_REQUESTS_PER_USER',
   MaxTeamsPerSlackTeam = 'MAX_TEAMS_PER_SLACK_TEAM',
   MaxPoliciesPerSlackTeam = 'MAX_POLICIES_PER_SLACK_TEAM',
+  MaxCompanyHolidaysPerCompanyPerYear = 'MAX_COMPANY_HOLIDAYS_PER_COMPANY_PER_YEAR',
 }
 
 export default EnvironmentVariable;

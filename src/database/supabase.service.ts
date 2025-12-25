@@ -15,7 +15,7 @@ export class SupabaseService {
     );
 
     if (!url || !key) {
-      throw new Error('Supabase configuration missing');
+      throw new Error('Database configuration missing');
     }
 
     this.client = createClient<Database>(url, key);

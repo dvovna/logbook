@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@common/types/database.types';
-import { SupabaseService } from 'src/supabase/supabase.service';
+import { SupabaseService } from 'src/database/supabase.service';
 import { Injectable } from '@nestjs/common';
 import {
   ISearchResult,
