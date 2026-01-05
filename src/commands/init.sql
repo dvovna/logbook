@@ -29,7 +29,7 @@ DROP TABLE IF EXISTS
 CREATE TABLE public.slack_teams
 (
     id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    name        text NOT NULL UNIQUE,
+    name        text NOT NULL,
     slack_id    text NOT NULL UNIQUE,
     slack_token text NOT NULL UNIQUE,
     created_at  timestamptz NOT NULL DEFAULT now()
@@ -46,7 +46,7 @@ CREATE TABLE public.users
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     slack_team_id       uuid NOT NULL REFERENCES public.slack_teams (id) ON DELETE CASCADE,
     name                text,
-    email               text NOT NULL UNIQUE,
+    email               text NOT NULL,
     slack_id            text NOT NULL UNIQUE,
     role                text NOT NULL CHECK (role IN ('member','admin','hr','manager')),
     is_active           boolean NOT NULL DEFAULT true,
@@ -99,8 +99,8 @@ CREATE TABLE public.teams
     manager_approvers                uuid[] DEFAULT '{}',
     hr_approvers                     uuid[] DEFAULT '{}',
     approval_notification_recipients text[] DEFAULT '{}',
-    manager_approvers_rule           text NOT NULL DEFAULT 'any' CHECK (manager_approvers_rule IN ('any', 'all')),
-    hr_approvers_rule                text NOT NULL DEFAULT 'any' CHECK (hr_approvers_rule IN ('any', 'all'))
+    manager_approvers_rule           text NOT NULL DEFAULT 'ANY' CHECK (manager_approvers_rule IN ('ANY', 'ALL')),
+    hr_approvers_rule                text NOT NULL DEFAULT 'ANY' CHECK (hr_approvers_rule IN ('ANY', 'ALL'))
 );
 
 CREATE INDEX idx_teams_slack_team_id ON public.teams (slack_team_id);

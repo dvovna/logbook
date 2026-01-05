@@ -48,7 +48,7 @@ interface IFindParams {
   teamIds?: string[];
   year?: string;
   startDate?: string;
-  status?: VacationRequestStatus;
+  statuses?: VacationRequestStatus[];
   type?: VacationType;
   slackTeamId?: string;
 }
@@ -341,7 +341,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     return {
       ...(params.id ? { id: params.id } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
-      ...(params.status ? { status: params.status } : {}),
+      ...(params.statuses ? { status: { operator: 'in', value: params.statuses } } : {}),
       ...(params.type ? { type: params.type } : {}),
       ...(params.teamId ? { team_id: params.teamId } : {}),
       ...(params.teamIds?.length

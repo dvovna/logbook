@@ -62,7 +62,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       await this.vacationsService.findMany({
         userId: user.id,
         startDate: user.contract_start_date || undefined,
-        status: VacationRequestStatus.Pending,
+        statuses: [VacationRequestStatus.Pending],
       }),
     ]);
 
