@@ -206,16 +206,19 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
     const start = new Date(vacation.start_date);
     const end = new Date(vacation.end_date);
     const isSameDay = start.getDate() === end.getDate() && start.getMonth() === end.getMonth();
-    const startStr = `${start.getDate()}`;
+    const isSameMonth = start.getMonth() === end.getMonth();
+    const startStr = isSameMonth
+      ? start.getDate()
+      : `${start.getDate()} ${start.toLocaleString('en-US', { month: 'short' })}`;
     const endStr = isSameDay
       ? `${end.toLocaleString('en-US', { month: 'short' })}`
-      : `${end.getDate()} ${end.toLocaleString('en-US', { month: 'short' })}`;
+      : `- ${end.getDate()} ${end.toLocaleString('en-US', { month: 'short' })}`;
 
     return {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${VACATION_TYPE_DISPLAY_NAME_MAP[vacation.type]}*\n${startStr}–${endStr} (${pluralize('day', vacation.days, true)})`,
+        text: `*${VACATION_TYPE_DISPLAY_NAME_MAP[vacation.type]}*\n${startStr} ${endStr} (${pluralize('day', vacation.days, true)})`,
       },
       accessory: {
         type: 'overflow',
