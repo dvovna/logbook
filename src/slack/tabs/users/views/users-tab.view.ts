@@ -17,6 +17,7 @@ import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import UserRole from '@common/enums/user-role.enum';
 import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { BackButton } from '@modules/slack/common/views/components/back-button';
 
 export interface IUsersTabMetaData {
   page?: number;
@@ -53,7 +54,7 @@ export class UsersTabView extends BaseAdminTabView<
   IGetViewParams,
   IUsersTabMetaData
 > {
-  protected activeTabActionId = AdminNavigationActionId.ManageUsers;
+  protected activeTabActionId = AdminNavigationActionId.ManagePeople;
   protected callbackId = ViewCallbackId.UsersTabView;
 
   public constructor(
@@ -63,14 +64,20 @@ export class UsersTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle(): string {
-    return '*👥 Users Management*\n\nList of employees with vacation balances and details.';
+    return '*👥 Users Management*';
+  }
+
+  protected getBackButtonBlocks(): AnyBlock[] {
+    return BackButton.getBlocks(AdminNavigationActionId.ManagePeople);
   }
 
   protected getContentBlocks(
     { users, teams, userRole },
     { filters },
   ): AnyBlock[] {
-    const blocks: AnyBlock[] = [];
+    const blocks: AnyBlock[] = [
+      { type: 'section', text: { type: 'plain_text', text: 'List of employees with vacation balances and details.' } },
+    ];
 
     blocks.push(this.getFiltersBlock(teams, filters));
 

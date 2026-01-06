@@ -7,20 +7,17 @@ import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-
 @Injectable()
 export class SlackActionPermissionsService {
   private readonly permissions: Record<string, UserRole[]> = {
-    [VacationRequestsTabViewActionId.CreateRequest]: [
+    [AdminNavigationActionId.ViewHome]: [
       UserRole.Admin,
       UserRole.HR,
+      UserRole.Manager,
     ],
     [AdminNavigationActionId.ViewAdminPanel]: [
       UserRole.Admin,
       UserRole.HR,
       UserRole.Manager,
     ],
-    [AdminNavigationActionId.ViewHome]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
-    ],
+    // People
     [AdminNavigationActionId.ManageUsers]: [
       UserRole.Admin,
       UserRole.HR,
@@ -32,6 +29,14 @@ export class SlackActionPermissionsService {
       UserRole.Manager,
     ],
     [AdminNavigationActionId.ManageTeams]: [UserRole.Admin, UserRole.HR],
+    //
+    // Time & Billing
+    //
+    // Vacations
+    [VacationRequestsTabViewActionId.CreateRequest]: [
+      UserRole.Admin,
+      UserRole.HR,
+    ],
     [AdminNavigationActionId.ManageVacationRequests]: [
       UserRole.Admin,
       UserRole.HR,
@@ -46,6 +51,16 @@ export class SlackActionPermissionsService {
       UserRole.Admin,
       UserRole.HR,
     ],
+    //
+    // New entries
+    [AdminNavigationActionId.ManagePeople]: [
+      UserRole.Admin,
+      UserRole.HR,
+      UserRole.Manager,
+    ],
+    [AdminNavigationActionId.ManageTime]: [UserRole.Admin, UserRole.HR],
+    [AdminNavigationActionId.ManageVacations]: [UserRole.Admin, UserRole.HR],
+    //
   } as const;
 
   public can(

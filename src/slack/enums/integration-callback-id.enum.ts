@@ -41,4 +41,7 @@ export enum ViewCallbackId {
 
   // general
   FallbackTabView = 'fallback_tab_view',
+
+  // people
+  PeopleTabView = 'people_tab_view',
 }

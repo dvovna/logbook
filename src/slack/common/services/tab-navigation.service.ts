@@ -5,6 +5,7 @@ import { IPublishBaseParams } from '@modules/slack/common/services/base-tab.serv
 export enum TabId {
   Home = 'home_tab',
   Holidays = 'holidays_tab',
+  People = 'people_tab',
   Users = 'users_tab',
   VacationPolicies = 'vacation_policies_tab',
   Teams = 'teams_tab',

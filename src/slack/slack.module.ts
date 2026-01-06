@@ -34,6 +34,7 @@ import { UsersTabModule } from '@modules/slack/tabs/users/users-tab.module';
 import { HomeTabModule } from '@modules/slack/tabs/home/home-tab.module';
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import { SlackAppUninstallService } from '@modules/slack/services/slack-app-uninstall.service';
+import { PeopleTabModule } from '@modules/slack/tabs/people/people-tab.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { SlackAppUninstallService } from '@modules/slack/services/slack-app-unin
     UsersTabModule,
     HomeTabModule,
     SlackCommonModule,
+    PeopleTabModule,
   ],
   controllers: [
     SlackOauthController,

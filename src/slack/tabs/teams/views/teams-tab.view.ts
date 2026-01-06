@@ -10,6 +10,7 @@ import { ISearchResult } from '@common/types/pagination.types';
 import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { BackButton } from '@modules/slack/common/views/components/back-button';
 
 interface IGetViewParams extends IBaseTabViewParams {
   teamsData: ISearchResult<ITeamViewModel>;
@@ -35,7 +36,7 @@ export class TeamsTabView extends BaseAdminTabView<
   ITeamsTabMetaData
 > {
   protected callbackId = ViewCallbackId.TeamsTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManageTeams;
+  protected activeTabActionId = AdminNavigationActionId.ManagePeople;
 
   public constructor(
     protected readonly slackActionPermissionsService: SlackActionPermissionsService,
@@ -53,6 +54,10 @@ export class TeamsTabView extends BaseAdminTabView<
       text: { type: 'plain_text', text: '➕ Add Team' },
       action_id: TeamsTabViewActionId.AddTeam,
     };
+  }
+
+  protected getBackButtonBlocks(): AnyBlock[] {
+    return BackButton.getBlocks(AdminNavigationActionId.ManagePeople);
   }
 
   protected getContentBlocks({ teamsData, usersCountByTeam }): AnyBlock[] {

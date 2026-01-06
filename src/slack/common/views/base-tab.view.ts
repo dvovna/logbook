@@ -38,9 +38,14 @@ export abstract class BaseTabView<
     metadata?: Metadata,
   ): Promise<AnyBlock[]> {
     return [
+      ...this.getBackButtonBlocks(params),
       ...this.getTitleBlocks(params),
       ...(await this.getContentBlocks(params, metadata)),
     ];
+  }
+
+  protected getBackButtonBlocks(_params: GetParams): AnyBlock[] {
+    return [];
   }
 
   protected getTitleBlocks(params: GetParams): AnyBlock[] {

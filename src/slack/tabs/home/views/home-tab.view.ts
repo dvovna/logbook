@@ -10,6 +10,7 @@ import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.vie
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import VacationType from '@common/enums/vacation-type.enum';
 import * as pluralize from 'pluralize';
+import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;
@@ -52,6 +53,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   ): AnyBlock[] {
     return [
       { type: 'section', text: { type: 'plain_text', text: 'Your personal work & vacation overview' } },
+      ...SeparatorComponent.getBlocks(),
       ...this.getTimeTrackingBlocks(),
       ...this.getVacationUsageBlocks(usageInfo),
       ...this.getRequestedVacationsBlocks(requestedVacations),

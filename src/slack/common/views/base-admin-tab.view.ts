@@ -23,6 +23,7 @@ export abstract class BaseAdminTabView<
   protected async getTabBlocks(params: GetParams, metadata?: Metadata) {
     return [
       ...this.getNavigation(params),
+      ...this.getBackButtonBlocks(params),
       ...this.getTitleBlocks(params),
       ...(await this.getContentBlocks(params, metadata)),
     ];
