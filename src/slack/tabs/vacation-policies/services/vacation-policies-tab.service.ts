@@ -47,7 +47,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
   public constructor(
     private readonly vacationPolicyModalView: VacationPolicyModalView,
     private readonly vacationPoliciesService: VacationPoliciesService,
-    private readonly manageVacationPoliciesViewService: VacationPolicyTabView,
+    private readonly vacationPoliciesTabView: VacationPolicyTabView,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super(TabId.VacationPolicies, {
@@ -73,7 +73,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       orderBy: ['name:asc'],
     });
 
-    return this.manageVacationPoliciesViewService.getView({
+    return this.vacationPoliciesTabView.getView({
       userId: user.slack_id,
       userRole: user.role,
       policies,

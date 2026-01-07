@@ -41,7 +41,7 @@ export class PeopleTabView extends BaseAdminTabView<
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*👤 Users*\n*${usersCount}* ${pluralize('user', usersCount)} across all teams`,
+          text: `*👤 Users*\n\n*${usersCount}* ${pluralize('user', usersCount)} across all teams`,
         },
         accessory: {
           type: 'button',
@@ -54,7 +54,7 @@ export class PeopleTabView extends BaseAdminTabView<
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*:office: Teams*\n*${teamsCount}* active ${teamsCount === 1 ? 'team' : 'teams'}`,
+          text: `*:office: Teams*\n\n*${teamsCount}* active ${teamsCount === 1 ? 'team' : 'teams'}`,
         },
         accessory: {
           type: 'button',

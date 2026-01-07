@@ -250,7 +250,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
       { type: 'section', text: { type: 'plain_text', text: '\n' } },
       {
         type: 'section',
-        text: { type: 'mrkdwn', text: '*🗓 Pending Vacation Requests*' },
+        text: { type: 'mrkdwn', text: '*🗓 Your Pending Vacation Requests*' },
       },
       ...vacations.map((data) => this.buildVacationBlock(data)),
     ];

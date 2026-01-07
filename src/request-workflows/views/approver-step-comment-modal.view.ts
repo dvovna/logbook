@@ -18,7 +18,7 @@ export class ApproverStepCommentModalView extends BaseModalView<
   protected callbackId = ViewCallbackId.ApproverMessageCommentFormSubmit;
 
   protected getTitleText() {
-    return 'Add comment';
+    return 'Add Comment';
   }
 
   public getViewBlocks({ errorMessage }: IBaseModalViewParams): AnyBlock[] {

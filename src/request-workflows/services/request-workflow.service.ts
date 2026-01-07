@@ -114,6 +114,7 @@ export class RequestWorkflowService {
     const step = await this.requestWorkflowStepsService.findOneWithValidation({
       id: stepId,
       slackTeamId: approvedBy.slack_team_id,
+      completed: false,
     });
 
     const stepsToComplete: IRequestWorkflowStepViewModel[] = [];

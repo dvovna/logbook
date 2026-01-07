@@ -23,6 +23,10 @@ import { SlackActionPermissionsService } from '@modules/slack/common/services/sl
 import UserRole from '@common/enums/user-role.enum';
 import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
 import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import {
+  VacationRequestsTabViewActionId,
+} from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import { BackButton } from '@modules/slack/common/views/components/back-button';
 
 export interface IVacationRequestsTabFilters {
   user?: {
@@ -47,22 +51,6 @@ interface IGetViewParams extends IBaseTabViewParams {
   years: number[];
 }
 
-export enum VacationRequestsTabViewActionId {
-  PaginationPrev = 'requests_pagination_prev',
-  PaginationNext = 'requests_pagination_next',
-  ManageRequestMenu = 'manage_request_menu',
-  UserField = 'user',
-  CreateRequest = 'create_request',
-  ViewDetails = 'view_details',
-  EditRequest = 'edit_request',
-  DeleteRequest = 'delete_request',
-  FilterRequestsByUser = 'filter_requests_by_user',
-  FilterRequestsByTeam = 'filter_requests_by_team',
-  FilterRequestsByYear = 'filter_requests_by_year',
-  FilterRequestsByType = 'filter_requests_by_type',
-  FilterRequestsByStatus = 'filter_requests_by_status',
-}
-
 const ALL_TEAMS_OPTION: PlainTextOption = {
   text: { type: 'plain_text', text: 'All Teams' },
   value: ALL_OPTION_VALUE,
@@ -84,7 +72,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
   IVacationRequestsTabMetadata
 > {
   protected callbackId: ViewCallbackId = ViewCallbackId.VacationRequestsTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManageVacationRequests;
+  protected activeTabActionId = AdminNavigationActionId.ManageVacations;
 
   public constructor(
     protected slackActionPermissionsService: SlackActionPermissionsService,
@@ -94,6 +82,10 @@ export class VacationRequestsTabView extends BaseAdminTabView<
 
   protected getTabTitle(): string {
     return '*🌴 Vacation Requests Management*\n\nSubmit and manage employee vacation requests';
+  }
+
+  protected getBackButtonBlocks(): AnyBlock[] {
+    return BackButton.getBlocks(AdminNavigationActionId.ManageVacations);
   }
 
   protected getTitleAccessory({

@@ -12,6 +12,7 @@ import {
 } from '@common/repositories/base.repository';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
+import { ISearchParams } from '@common/types/pagination.types';
 
 export interface ICreateParams {
   requestId: string;
@@ -40,6 +41,8 @@ interface IFindParams {
   slackTeamId: string;
   completed?: boolean;
 }
+
+type ISearchStepsParams = ISearchParams<IFindParams>;
 
 @Injectable()
 export class RequestWorkflowStepsService {
@@ -151,6 +154,16 @@ export class RequestWorkflowStepsService {
         ...options,
       },
     );
+  }
+
+  public search(params: ISearchStepsParams) {
+    return this.requestWorkflowStepsRepository.search({
+      filters: this.getFindQuery(params.filters),
+      page: params.page,
+      pageSize: params.pageSize,
+      orderBy: params.orderBy,
+      searchTerm: params.searchTerm,
+    });
   }
 
   public async findOneWithValidation(findParams: IFindParams) {

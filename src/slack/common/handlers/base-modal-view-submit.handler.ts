@@ -48,7 +48,10 @@ export abstract class BaseModalFormSubmitHandler<
         error instanceof EntityHasDependenciesError;
 
       if (!isKnownError) {
-        this.logger.error('Unexpected error in modal form submission:', error);
+        this.logger.error(
+          `Unexpected error in modal form submission: ${error.message}`,
+          error,
+        );
       }
 
       const errorMessage = isKnownError

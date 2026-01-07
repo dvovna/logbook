@@ -22,7 +22,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
   protected callbackId = ViewCallbackId.ViewVacationRequestDetails;
 
   protected getTitleText() {
-    return 'Vacation request details';
+    return 'Vacation Request Details';
   }
 
   protected getActionButtons(): IActionButtons {
@@ -191,6 +191,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
   }
 
   private getSortedLevels(levels: string[]) {
-    return levels.map((level) => parseInt(level, 10)).sort((a, b) => a - b);
+    return levels.map((level) => parseInt(level, 10))
+      .sort((a, b) => a - b);
   }
 }

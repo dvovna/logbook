@@ -11,6 +11,7 @@ import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
+import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 
 interface IGetViewParams extends IBaseTabViewParams {
   teamsData: ISearchResult<ITeamViewModel>;
@@ -19,15 +20,6 @@ interface IGetViewParams extends IBaseTabViewParams {
 
 export interface ITeamsTabMetaData {
   page?: number;
-}
-
-export enum TeamsTabViewActionId {
-  AddTeam = 'add_team',
-  EditTeam = 'edit_team',
-  DeleteTeam = 'delete_team',
-  ManageTeamMenu = 'manage_team_menu',
-  PaginationPrev = 'teams_pagination_prev',
-  PaginationNext = 'teams_pagination_next',
 }
 
 @Injectable()

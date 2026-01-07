@@ -10,6 +10,7 @@ import { SlackActionPermissionsService } from '@modules/slack/common/services/sl
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
 import { ISearchResult } from '@common/types/pagination.types';
+import { BackButton } from '@modules/slack/common/views/components/back-button';
 
 interface IGetViewParams extends IBaseTabViewParams {
   policies: ISearchResult<IVacationPolicyViewModel>;
@@ -35,7 +36,7 @@ export class VacationPolicyTabView extends BaseAdminTabView<
   IVacationPoliciesTabMetaData
 > {
   protected callbackId = ViewCallbackId.VacationPoliciesTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManageVacationPolicies;
+  protected activeTabActionId = AdminNavigationActionId.ManageVacations;
 
   public constructor(
     protected slackActionPermissionsService: SlackActionPermissionsService,
@@ -45,6 +46,10 @@ export class VacationPolicyTabView extends BaseAdminTabView<
 
   protected getTabTitle() {
     return '*🏢 Vacation Policy Management*\n\nRules for vacation accrual, periods, and entitlements.';
+  }
+
+  protected getBackButtonBlocks(): AnyBlock[] {
+    return BackButton.getBlocks(AdminNavigationActionId.ManageVacations);
   }
 
   protected getTitleAccessory(): SectionBlockAccessory | null {

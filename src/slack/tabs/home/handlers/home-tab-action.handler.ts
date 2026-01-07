@@ -79,7 +79,7 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
         );
       }
       default: {
-        this.logger.warn(`Unhandled Team Tab Menu actionType: ${actionType}`);
+        this.logger.warn(`Unhandled Home Tab Menu actionType: ${actionType}`);
       }
     }
   };

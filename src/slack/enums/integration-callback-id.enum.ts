@@ -4,6 +4,8 @@ export enum ViewCallbackId {
 
   // workflow steps
   WorkflowStepMessage = 'workflow_step_message',
+  ApproveRequestStepMessage = 'approve_request_step_message',
+  RejectRequestStepMessage = 'reject_request_step_message',
 
   // holidays
   HolidaysTabView = 'holidays_tab_view',
@@ -44,4 +46,7 @@ export enum ViewCallbackId {
 
   // people
   PeopleTabView = 'people_tab_view',
+
+  // vacations
+  VacationsTabView = 'vacations_tab_view',
 }

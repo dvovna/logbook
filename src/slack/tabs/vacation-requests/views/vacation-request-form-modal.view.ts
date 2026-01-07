@@ -5,12 +5,14 @@ import BaseModalView, {
 } from '@modules/slack/common/views/base-modal.view';
 import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
 import { STATUS_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
-import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import UserRole from '@common/enums/user-role.enum';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { MAX_COMMENT_LENGTH } from '@modules/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
 import { AnyBlock } from '@slack/web-api';
+import {
+  VacationRequestsTabViewActionId,
+} from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 
 interface IGetViewParams
   extends IBaseModalViewParams<

@@ -9,13 +9,13 @@ import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator'
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   ITeamsTabMetaData,
-  TeamsTabViewActionId,
 } from '@modules/slack/tabs/teams/views/teams-tab.view';
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
 import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
+import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 
 @Injectable()
 @SlackHandler({

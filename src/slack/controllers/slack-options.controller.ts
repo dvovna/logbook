@@ -5,10 +5,10 @@ import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
 import { SlackUserGuard } from '@common/guards/slack-user.guard';
 import { SlackActiveUserGuard } from '@common/guards/slack-active-user.guard';
 import { SlackUserOptionsService } from '@modules/slack/services/slack-user-options.service';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import {
   VacationRequestsTabViewActionId,
-} from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
-import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
+} from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 
 @Controller('api/slack/options')
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)

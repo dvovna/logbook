@@ -96,8 +96,8 @@ CREATE TABLE public.teams
     updated_by                       uuid REFERENCES public.users (id) ON DELETE SET NULL,
     created_at                       timestamptz NOT NULL DEFAULT now(),
     updated_at                       timestamptz NOT NULL DEFAULT now(),
-    manager_approvers                uuid[] DEFAULT '{}',
-    hr_approvers                     uuid[] DEFAULT '{}',
+    manager_approvers                text[] DEFAULT '{}',
+    hr_approvers                     text[] DEFAULT '{}',
     approval_notification_recipients text[] DEFAULT '{}',
     manager_approvers_rule           text NOT NULL DEFAULT 'ANY' CHECK (manager_approvers_rule IN ('ANY', 'ALL')),
     hr_approvers_rule                text NOT NULL DEFAULT 'ANY' CHECK (hr_approvers_rule IN ('ANY', 'ALL'))

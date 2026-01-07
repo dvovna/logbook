@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
-import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
+import {
+  VacationRequestsTabViewActionId,
+} from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 
 @Injectable()
 export class SlackActionPermissionsService {
@@ -59,7 +61,7 @@ export class SlackActionPermissionsService {
       UserRole.Manager,
     ],
     [AdminNavigationActionId.ManageTime]: [UserRole.Admin, UserRole.HR],
-    [AdminNavigationActionId.ManageVacations]: [UserRole.Admin, UserRole.HR],
+    [AdminNavigationActionId.ManageVacations]: [UserRole.Admin, UserRole.HR, UserRole.Manager],
     //
   } as const;
 
