@@ -9,19 +9,21 @@ create extension if not exists "pgcrypto";
 -- Clients
 -- ============================================================
 create table if not exists clients (
-                                       id uuid primary key default gen_random_uuid(),
+    id uuid primary key default gen_random_uuid(),
 
     name text not null,
+    description text,
     slack_team_id uuid not null references slack_teams(id) on delete cascade,
-
-    is_archived boolean not null default false,
-
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
+    created_by uuid references users (id) on delete set null,
+    updated_by uuid references users (id) on delete set null,
+    archived_at timestamptz NULL,
+    archived_by uuid references users(id) on delete set null,
 
     constraint clients_team_name_uniq
     unique (slack_team_id, name)
-    );
+);
 
 comment on table clients is 'Clients for time tracking and billing';
 comment on column clients.is_archived is 'Hidden from UI but preserved for history';
@@ -36,7 +38,9 @@ create table if not exists projects (
     client_id uuid not null references clients(id) on delete cascade,
 
     name text not null,
-    is_archived boolean not null default false,
+    description text,
+    archived_at timestamptz NULL,
+    archived_by uuid references users(id) on delete set null,
 
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
@@ -66,7 +70,8 @@ create table if not exists time_entries (
 
     description text,
 
-    is_deleted boolean not null default false,
+    deleted_at timestamptz NULL,
+    deleted_by uuid references users(id) on delete set null,
 
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),

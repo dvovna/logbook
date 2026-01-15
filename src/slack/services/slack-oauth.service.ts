@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import SlackApiClient from '@modules/clients/third-party/slack-api.client';
+import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
 import { ConfigService } from '@nestjs/config';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 

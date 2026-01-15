@@ -6,7 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from 'src/database/database.module';
 import { UsersModule } from './users/users.module';
 import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
-import { ClientsModule } from './clients/clients.module';
+import { ApiClientsModule } from 'src/api-clients/api-clients.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
@@ -19,6 +19,7 @@ import { envSchema } from 'src/env.schema';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RequestWorkflowsModule } from './request-workflows/request-workflows.module';
 import { LoggerModule } from 'nestjs-pino';
+import { ClientsModule } from '@modules/clients/clients.module';
 
 @Module({
   imports: [
@@ -64,13 +65,14 @@ import { LoggerModule } from 'nestjs-pino';
     VacationRequestsModule,
     UsersModule,
     SlackTeamsModule,
-    ClientsModule,
+    ApiClientsModule,
     SlackModule,
     SlackCommunicationModule,
     VacationPoliciesModule,
     UserDataImportModule,
     TeamSetupModule,
     TeamsModule,
+    ClientsModule,
     RequestWorkflowsModule,
   ],
   controllers: [AppController],

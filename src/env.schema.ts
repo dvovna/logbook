@@ -25,6 +25,7 @@ export const envSchema = z.object({
   MAX_PENDING_REQUESTS_PER_USER: z.coerce.number().int().min(1),
 
   MAX_TEAMS_PER_SLACK_TEAM: z.coerce.number().int().min(1),
+  MAX_CLIENTS_PER_SLACK_TEAM: z.coerce.number().int().min(1),
   MAX_POLICIES_PER_SLACK_TEAM: z.coerce.number().int().min(1),
   MAX_COMPANY_HOLIDAYS_PER_COMPANY_PER_YEAR: z.coerce.number().int().min(1),
 });

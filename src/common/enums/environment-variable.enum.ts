@@ -11,6 +11,7 @@ enum EnvironmentVariable {
   MaxRequestsPerUser = 'MAX_REQUESTS_PER_USER',
   MaxPendingRequestsPerUser = 'MAX_PENDING_REQUESTS_PER_USER',
   MaxTeamsPerSlackTeam = 'MAX_TEAMS_PER_SLACK_TEAM',
+  MaxClientsPerSlackTeam = 'MAX_CLIENTS_PER_SLACK_TEAM',
   MaxPoliciesPerSlackTeam = 'MAX_POLICIES_PER_SLACK_TEAM',
   MaxCompanyHolidaysPerCompanyPerYear = 'MAX_COMPANY_HOLIDAYS_PER_COMPANY_PER_YEAR',
 }

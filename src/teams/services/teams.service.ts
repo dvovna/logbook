@@ -71,7 +71,6 @@ interface ITeamsService {
 }
 
 const DEFAULT_TEAM_NAME = 'Main Team';
-const MAX_TEAMS_COUNT = 5;
 
 @Injectable()
 export default class TeamsService implements ITeamsService {
@@ -118,7 +117,7 @@ export default class TeamsService implements ITeamsService {
     );
 
     if (teamsCount >= maxTeamsCount) {
-      throw new MaxItemsCountReachedError(MAX_TEAMS_COUNT, 'teams');
+      throw new MaxItemsCountReachedError(maxTeamsCount, 'teams');
     }
 
     const createdAt = new Date().toISOString();

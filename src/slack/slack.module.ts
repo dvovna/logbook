@@ -1,7 +1,7 @@
 import { MiddlewareConsumer, Module } from '@nestjs/common';
 import SlackOauthController from '@modules/slack/controllers/slack-oauth.controller';
 import SlackOauthService from '@modules/slack/services/slack-oauth.service';
-import { ClientsModule } from '@modules/clients/clients.module';
+import { ApiClientsModule } from 'src/api-clients/api-clients.module';
 import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
 import { UsersModule } from '@modules/users/users.module';
 import SlackCommandsController from '@modules/slack/controllers/slack-commands.controller';
@@ -42,7 +42,7 @@ import { TimeAndBillingTabModule } from '@modules/slack/tabs/time-and-billing/ti
   imports: [
     DiscoveryModule,
     UsersModule,
-    ClientsModule,
+    ApiClientsModule,
     SlackTeamsModule,
     VacationRequestsModule,
     TeamsModule,

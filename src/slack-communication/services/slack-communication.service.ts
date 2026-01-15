@@ -1,4 +1,4 @@
-import SlackApiClient from '@modules/clients/third-party/slack-api.client';
+import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
 import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
 import { Injectable } from '@nestjs/common';
 import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
