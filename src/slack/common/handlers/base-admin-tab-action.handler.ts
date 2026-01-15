@@ -38,6 +38,9 @@ export abstract class BaseAdminTabActionHandler extends BaseActionHandler {
     [AdminNavigationActionId.ManagePeople]: this.createOpenTabHandler(
       TabId.People,
     ),
+    [AdminNavigationActionId.ManageTimeAndBilling]: this.createOpenTabHandler(
+      TabId.TimeAndBilling,
+    ),
     [AdminNavigationActionId.ManageVacations]: this.createOpenTabHandler(
       TabId.Vacations,
     ),

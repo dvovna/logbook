@@ -19,7 +19,6 @@ export class SlackActionPermissionsService {
       UserRole.HR,
       UserRole.Manager,
     ],
-    // People
     [AdminNavigationActionId.ManageUsers]: [
       UserRole.Admin,
       UserRole.HR,
@@ -31,10 +30,6 @@ export class SlackActionPermissionsService {
       UserRole.Manager,
     ],
     [AdminNavigationActionId.ManageTeams]: [UserRole.Admin, UserRole.HR],
-    //
-    // Time & Billing
-    //
-    // Vacations
     [VacationRequestsTabViewActionId.CreateRequest]: [
       UserRole.Admin,
       UserRole.HR,
@@ -53,16 +48,13 @@ export class SlackActionPermissionsService {
       UserRole.Admin,
       UserRole.HR,
     ],
-    //
-    // New entries
     [AdminNavigationActionId.ManagePeople]: [
       UserRole.Admin,
       UserRole.HR,
       UserRole.Manager,
     ],
-    [AdminNavigationActionId.ManageTime]: [UserRole.Admin, UserRole.HR],
+    [AdminNavigationActionId.ManageTimeAndBilling]: [UserRole.Admin, UserRole.HR, UserRole.Manager],
     [AdminNavigationActionId.ManageVacations]: [UserRole.Admin, UserRole.HR, UserRole.Manager],
-    //
   } as const;
 
   public can(

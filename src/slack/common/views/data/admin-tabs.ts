@@ -10,7 +10,7 @@ export const ADMIN_TABS = [
     title: '👥 People',
   },
   {
-    actionId: AdminNavigationActionId.ManageTime,
+    actionId: AdminNavigationActionId.ManageTimeAndBilling,
     title: '⏱ Time & Billing',
   },
   {

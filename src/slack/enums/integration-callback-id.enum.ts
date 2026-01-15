@@ -49,4 +49,7 @@ export enum ViewCallbackId {
 
   // vacations
   VacationsTabView = 'vacations_tab_view',
+
+  // time-and-billing
+  TimeAndBillingTabView = 'time_and_billing_tab_view',
 }
