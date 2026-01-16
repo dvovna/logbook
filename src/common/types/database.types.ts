@@ -274,35 +274,41 @@ export type Database = {
         Row: {
           archived_at: string | null
           archived_by: string | null
-          client_id: string
+          client_id: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
           name: string
           slack_team_id: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           archived_at?: string | null
           archived_by?: string | null
-          client_id: string
+          client_id?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           name: string
           slack_team_id?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           archived_at?: string | null
           archived_by?: string | null
-          client_id?: string
+          client_id?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           name?: string
           slack_team_id?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -320,10 +326,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "projects_slack_team_id_fkey"
             columns: ["slack_team_id"]
             isOneToOne: false
             referencedRelation: "slack_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -604,9 +624,10 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           id: string
-          is_deleted: boolean
           minutes: number
           project_id: string
           slack_team_id: string
@@ -618,9 +639,10 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           id?: string
-          is_deleted?: boolean
           minutes: number
           project_id: string
           slack_team_id: string
@@ -632,9 +654,10 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           id?: string
-          is_deleted?: boolean
           minutes?: number
           project_id?: string
           slack_team_id?: string
@@ -649,6 +672,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {

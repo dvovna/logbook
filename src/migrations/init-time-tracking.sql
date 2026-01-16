@@ -35,15 +35,19 @@ create table if not exists projects (
     id uuid primary key default gen_random_uuid(),
 
     slack_team_id uuid not null references slack_teams(id) on delete cascade,
-    client_id uuid not null references clients(id) on delete cascade,
+    client_id uuid references clients(id) on delete set null,
 
     name text not null,
     description text,
+
     archived_at timestamptz NULL,
     archived_by uuid references users(id) on delete set null,
 
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
+
+    created_by uuid references users (id) on delete set null,
+    updated_by uuid references users (id) on delete set null,
 
     constraint projects_client_name_uniq
     unique (client_id, name)
