@@ -163,7 +163,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       {
         callbackId: ViewCallbackId.DeleteTeam,
         title: 'Delete Team',
-        message: `:alert: The team *${team.name}* will be permanently deleted. This action cannot be undone.`,
+        message: `The team *${team.name}* will be permanently deleted. This action cannot be undone.`,
         errorMessage,
       },
       {

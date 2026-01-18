@@ -52,4 +52,9 @@ export enum ViewCallbackId {
 
   // time-and-billing
   TimeAndBillingTabView = 'time_and_billing_tab_view',
+
+  // projects
+  ProjectsTabView = 'projects_tab_view',
+  ArchiveProject = 'archive_project',
+  ProjectFormSubmit = 'project_form_submit',
 }

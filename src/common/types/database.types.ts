@@ -274,6 +274,7 @@ export type Database = {
         Row: {
           archived_at: string | null
           archived_by: string | null
+          billable: boolean
           client_id: string | null
           created_at: string
           created_by: string | null
@@ -281,12 +282,14 @@ export type Database = {
           id: string
           name: string
           slack_team_id: string
+          status: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           archived_at?: string | null
           archived_by?: string | null
+          billable?: boolean
           client_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -294,12 +297,14 @@ export type Database = {
           id?: string
           name: string
           slack_team_id?: string
+          status?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           archived_at?: string | null
           archived_by?: string | null
+          billable?: boolean
           client_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -307,6 +312,7 @@ export type Database = {
           id?: string
           name?: string
           slack_team_id?: string
+          status?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -986,10 +992,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_projects_list:
+        | {
+            Args: never
+            Returns: {
+              billable: boolean
+              client_name: string
+              id: string
+              name: string
+              status: string
+              teams: string[]
+              users_count: number
+            }[]
+          }
+        | {
+            Args: {
+              p_billable?: boolean
+              p_client_id?: string
+              p_limit?: number
+              p_offset?: number
+              p_search?: string
+              p_slack_team_id: string
+              p_status?: string
+            }
+            Returns: {
+              billable: boolean
+              client_name: string
+              id: string
+              name: string
+              status: string
+              teams: string[]
+              total_count: number
+              users_count: number
+            }[]
+          }
     }
     Enums: {
-      [_ in never]: never
+      ProjectStatus: "active" | "completed" | "on-hold"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1116,6 +1155,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      ProjectStatus: ["active", "completed", "on-hold"],
+    },
   },
 } as const

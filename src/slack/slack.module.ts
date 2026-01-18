@@ -37,6 +37,7 @@ import { SlackAppUninstallService } from '@modules/slack/services/slack-app-unin
 import { PeopleTabModule } from '@modules/slack/tabs/people/people-tab.module';
 import { VacationsTabModule } from '@modules/slack/tabs/vacations/vacations-tab.module';
 import { TimeAndBillingTabModule } from '@modules/slack/tabs/time-and-billing/time-and-billing-tab.module';
+import { ProjectsTabModule } from '@modules/slack/tabs/projects/projects-tab.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { TimeAndBillingTabModule } from '@modules/slack/tabs/time-and-billing/ti
     VacationRequestsTabModule,
     HolidaysTabModule,
     VacationPoliciesTabModule,
+    ProjectsTabModule,
     TeamsTabModule,
     UsersTabModule,
     HomeTabModule,

@@ -50,5 +50,8 @@ export abstract class BaseAdminTabActionHandler extends BaseActionHandler {
     [AdminNavigationActionId.ManageVacationPolicies]: this.createOpenTabHandler(
       TabId.VacationPolicies,
     ),
+    [AdminNavigationActionId.ManageProjects]: this.createOpenTabHandler(
+      TabId.Projects,
+    ),
   };
 }

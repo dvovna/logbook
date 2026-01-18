@@ -26,7 +26,8 @@ export default [{
     '**/*.js',
     '**/*.mjs',
     '**/migrations/',
-    '.history/'
+    '.history/',
+    '**/database.types.ts'
   ],
 }, ...compat.extends(
   'eslint:recommended',

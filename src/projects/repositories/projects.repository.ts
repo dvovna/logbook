@@ -5,6 +5,7 @@ import {
   Tables,
 } from '@common/repositories/base.repository';
 import IProjectViewModel from 'src/projects/types/project.interface';
+import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 
 @Injectable()
 export class ProjectsRepository extends BaseRepository<
@@ -19,6 +20,8 @@ export class ProjectsRepository extends BaseRepository<
     return {
       id: row.id,
       name: row.name,
+      status: row.status as ProjectStatus,
+      billable: row.billable,
       description: row.description || '',
       slack_team_id: row.slack_team_id,
       client_id: row.client_id || null,

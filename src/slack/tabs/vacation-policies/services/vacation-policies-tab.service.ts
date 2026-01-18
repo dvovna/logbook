@@ -129,7 +129,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       {
         callbackId: ViewCallbackId.DeleteVacationPolicy,
         title: 'Delete Vacation Policy',
-        message: `:alert: The policy *${policy.name}* will be permanently deleted. This action cannot be undone.`,
+        message: `The policy *${policy.name}* will be permanently deleted. This action cannot be undone.`,
         errorMessage,
       },
       {

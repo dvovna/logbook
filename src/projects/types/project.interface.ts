@@ -1,6 +1,10 @@
+import { ProjectStatus } from 'src/projects/enums/project-status.enum';
+
 interface IProjectViewModel {
   id: string;
   name: string;
+  billable: boolean;
+  status: ProjectStatus;
   description?: string;
   slack_team_id: string;
   client_id: string | null;

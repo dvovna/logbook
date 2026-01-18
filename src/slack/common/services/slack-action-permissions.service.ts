@@ -54,6 +54,7 @@ export class SlackActionPermissionsService {
       UserRole.Manager,
     ],
     [AdminNavigationActionId.ManageTimeAndBilling]: [UserRole.Admin, UserRole.HR, UserRole.Manager],
+    [AdminNavigationActionId.ManageProjects]: [UserRole.Admin, UserRole.HR, UserRole.Manager],
     [AdminNavigationActionId.ManageVacations]: [UserRole.Admin, UserRole.HR, UserRole.Manager],
   } as const;
 

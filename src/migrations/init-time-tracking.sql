@@ -36,6 +36,8 @@ create table if not exists projects (
 
     slack_team_id uuid not null references slack_teams(id) on delete cascade,
     client_id uuid references clients(id) on delete set null,
+    status text not null default 'active' check (status in ('active', 'completed', 'on-hold')),
+    billable boolean not null default true,
 
     name text not null,
     description text,
@@ -55,6 +57,10 @@ create table if not exists projects (
 
 comment on table projects is 'Projects under a client';
 comment on column projects.is_archived is 'Archived projects cannot receive new entries';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_project_name_per_team
+ON projects (slack_team_id, name)
+WHERE archived_at IS NULL;
 
 -- ============================================================
 -- Time entries

@@ -11,9 +11,12 @@ import { SupabaseFilter } from '@common/repositories/base.repository';
 import { DuplicateError } from '@common/errors/diplicate.error';
 import { ProjectsRepository } from 'src/projects/repositories/projects.repository';
 import IProjectViewModel from 'src/projects/types/project.interface';
+import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 
 interface ICreateProjectParams {
   name: string;
+  billable: boolean;
+  status: ProjectStatus;
   description?: string;
   slackTeamId: string;
   clientId?: string;
@@ -50,7 +53,7 @@ interface IProjectsService {
     updateParams: IUpdateParams,
     user: IUserViewModel,
   ): Promise<IProjectViewModel>;
-  delete(clientId: string, user: IUserViewModel): Promise<IProjectViewModel>;
+  archive(clientId: string, user: IUserViewModel): Promise<IProjectViewModel>;
   count(params: IFindParams): Promise<number>;
 }
 
@@ -73,7 +76,7 @@ export default class ProjectsService implements IProjectsService {
     const project = await this.projectsRepository.findOne(this.getFindQuery(params));
 
     if (!project) {
-      throw new NotFoundException(`Project with id ${params.id} not found`);
+      throw new NotFoundException(`Project with id ${params.id} not found.`);
     }
 
     return project;
@@ -108,17 +111,20 @@ export default class ProjectsService implements IProjectsService {
       return await this.projectsRepository.create({
         name: createParams.name,
         description: createParams.description || '',
+        billable: createParams.billable,
+        status: createParams.status,
         slack_team_id: createParams.slackTeamId,
         client_id: createParams.clientId || null,
         created_at: createdAt,
         updated_at: createdAt,
         created_by: user.id,
         updated_by: user.id,
+        archived_by: null,
       });
     } catch (error) {
       if (error.message.includes('duplicate key value')) {
         throw new DuplicateError(
-          `Client with name '${createParams.name}' already exists.`,
+          `Project with name '${createParams.name}' already exists.`,
         );
       }
 
@@ -148,15 +154,20 @@ export default class ProjectsService implements IProjectsService {
     });
   }
 
-  public async delete(projectId: string, user: IUserViewModel) {
+  public async archive(projectId: string, user: IUserViewModel) {
     const project = await this.findOneWithValidation({
       id: projectId,
       slackTeamId: user.slack_team_id,
     });
 
-    await this.projectsRepository.deleteMany({
+    await this.projectsRepository.update({
       id: projectId,
       slack_team_id: user.slack_team_id,
+    }, {
+      archived_at: new Date().toISOString(),
+      archived_by: user.id,
+      updated_at: new Date().toISOString(),
+      updated_by: user.id,
     });
 
     return project;
