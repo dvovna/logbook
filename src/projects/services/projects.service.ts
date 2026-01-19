@@ -34,6 +34,8 @@ interface IUpdateParams {
   name?: string;
   clientId?: string;
   description?: string;
+  billable?: boolean;
+  status?: ProjectStatus;
   archivedAt?: string | null;
 }
 
@@ -143,6 +145,8 @@ export default class ProjectsService implements IProjectsService {
         ? { description: updateParams.description }
         : {}),
       ...(updateParams.clientId ? { clientId: updateParams.clientId } : {}),
+      ...(updateParams.status ? { status: updateParams.status } : {}),
+      ...(updateParams.billable !== undefined ? { billable: updateParams.billable } : {}),
       ...(updateParams.archivedAt
         ? { archived_at: updateParams.archivedAt }
         : {}),

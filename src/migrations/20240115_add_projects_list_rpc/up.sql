@@ -10,6 +10,7 @@ CREATE OR REPLACE FUNCTION get_projects_list(
 RETURNS TABLE (
     id uuid,
     name text,
+    description text,
     status text,
     billable boolean,
     created_at timestamptz,
@@ -39,6 +40,7 @@ projects_with_meta AS (
     SELECT
         fp.id,
         fp.name,
+        fp.description,
         fp.status,
         fp.billable,
         fp.created_at,

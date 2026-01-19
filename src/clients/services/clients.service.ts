@@ -22,7 +22,7 @@ interface IFindParams {
   id?: string;
   name?: string;
   slackTeamId: string;
-  isArchived?: boolean;
+  includeArchived?: boolean;
 }
 
 interface IUpdateParams {
@@ -163,15 +163,10 @@ export default class ClientsService implements IClientsService {
 
   private getFindQuery(params: IFindParams): SupabaseFilter {
     return {
+      slack_team_id: params.slackTeamId,
+      archived_at: params.includeArchived ? undefined : { operator: 'is', value: null },
       ...(params.id ? { id: params.id } : {}),
       ...(params.name ? { name: params.name } : {}),
-      ...(params.slackTeamId ? { slack_team_id: params.slackTeamId } : {}),
-      ...(params.isArchived !== undefined
-        ? { archived_at: params.isArchived ? {
-          operator: 'neq',
-          value: null,
-        } : null }
-        : {}),
     };
   }
 }

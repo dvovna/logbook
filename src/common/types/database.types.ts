@@ -1018,11 +1018,14 @@ export type Database = {
             Returns: {
               billable: boolean
               client_name: string
+              created_at: string
+              description: string
               id: string
               name: string
               status: string
               teams: string[]
               total_count: number
+              updated_at: string
               users_count: number
             }[]
           }

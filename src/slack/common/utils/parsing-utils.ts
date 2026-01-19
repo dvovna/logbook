@@ -116,6 +116,8 @@ export const getValueByType = (
       return getSelectedUsers(values, blockId, actionId);
     case ViewFieldType.Date:
       return getSelectedDate(values, blockId, actionId);
+    case ViewFieldType.RadioButtons:
+      return getSelectedOption(values, blockId, actionId);
     default:
       throw new Error(`Unsupported field type: ${fieldType}`);
   }

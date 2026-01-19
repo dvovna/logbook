@@ -8,4 +8,7 @@ export interface IProjectListItem {
   client_name: string | null;
   users_count: number;
   teams: string[];
+  description: string;
+  updated_at: string;
+  created_at: string;
 }

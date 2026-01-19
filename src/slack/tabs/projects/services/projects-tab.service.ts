@@ -11,6 +11,7 @@ import ProjectsService from 'src/projects/services/projects.service';
 import { ProjectModalView } from '@modules/slack/tabs/projects/views/project-modal.view';
 import { IProjectsTabMetaData, ProjectsTabView } from '@modules/slack/tabs/projects/views/projects-tab.view';
 import { ProjectsListQuery } from 'src/projects/queries/projects-list-query';
+import ClientsService from '@modules/clients/services/clients.service';
 
 interface IProjectModalViewParams extends IOpenModalBaseParams<string> {
   projectId: string;
@@ -44,6 +45,7 @@ type ProjectsTabModalViewResolversMapType = {
 export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResolversMapType> {
   public constructor(
     private readonly projectsService: ProjectsService,
+    private readonly clientsService: ClientsService,
     private readonly projectsListQuery: ProjectsListQuery,
     private readonly projectModalView: ProjectModalView,
     private readonly projectsTabView: ProjectsTabView,
@@ -80,9 +82,15 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
   private async getCreateProjectModalView({
     errorMessage,
     pageMetadata,
+    user,
   }: IOpenModalBaseParams<string>) {
+    const clients = await this.clientsService.findMany({
+      slackTeamId: user.slack_team_id,
+      includeArchived: false,
+    });
+
     return this.projectModalView.getView(
-      { errorMessage },
+      { errorMessage, clients },
       { pageMetadata },
     );
   }
@@ -93,18 +101,37 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     pageMetadata,
     errorMessage,
   }: IProjectModalViewParams) {
-    const project = await this.projectsService.findOneWithValidation({
-      id: projectId,
-      slackTeamId: user.slack_team_id,
-    });
+    const [project, clients] = await Promise.all([
+      this.projectsService.findOneWithValidation({
+        id: projectId,
+        slackTeamId: user.slack_team_id,
+      }),
+      this.clientsService.findMany({
+        slackTeamId: user.slack_team_id,
+      }),
+    ]);
+
+    const selectedClient = clients.find(
+      (client) => client.id === project.client_id,
+    );
+
+    if (project.client_id && !selectedClient) {
+      // If the selected client is archived or deleted, include it in the list
+      const archivedClient = await this.clientsService.findOne({
+        id: project.client_id,
+        slackTeamId: user.slack_team_id,
+        includeArchived: true,
+      });
+
+      if (archivedClient) {
+        clients.unshift(archivedClient);
+      }
+    }
 
     return this.projectModalView.getView(
       {
-        initialData: {
-          id: project.id,
-          name: project.name,
-          description: project.description,
-        },
+        initialData: project,
+        clients,
         errorMessage,
       },
       { id: project.id, pageMetadata },

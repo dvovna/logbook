@@ -10,10 +10,12 @@ import ProjectModalViewValuesParser from '@modules/slack/tabs/projects/parsers/p
 import {
   DeleteProjectFormSubmitHandler,
 } from '@modules/slack/tabs/projects/handlers/delete-project-form-submit.handler';
+import { ClientsModule } from '@modules/clients/clients.module';
 
 @Module({
   imports: [
     ProjectsModule,
+    ClientsModule,
     SlackCommonModule,
   ],
   providers: [

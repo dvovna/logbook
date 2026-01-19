@@ -14,7 +14,6 @@ import ProjectModalViewValuesParser, {
   IProjectFormViewData,
 } from '@modules/slack/tabs/projects/parsers/project-modal-view-values.parser';
 import { IProjectsTabMetaData } from '@modules/slack/tabs/projects/views/projects-tab.view';
-import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 
 @Injectable()
 @SlackHandler({
@@ -77,8 +76,8 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
         name: data.name,
         description: data.description,
         slackTeamId: user.slack_team_id,
-        billable: true,
-        status: ProjectStatus.Active,
+        billable: data.billable?.value === 'true',
+        status: data.status.value,
       },
       user,
     );
@@ -97,6 +96,8 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
       {
         name: data.name,
         description: data.description,
+        billable: data.billable?.value === 'true',
+        status: data.status.value,
       },
       user,
     );
