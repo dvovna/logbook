@@ -8,7 +8,7 @@ import { MAX_DESCRIPTION_LENGTH } from '@modules/slack/tabs/projects/parsers/pro
 import IClientViewModel from '@modules/clients/types/client.interface';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { ProjectStatusDisplayNameMap } from 'src/projects/static/project-status-display-name.map';
-import IProjectViewModel from 'src/projects/types/project.interface';
+import IProjectViewModel from 'src/projects/types/project.types';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
 interface IGetViewParams extends IBaseModalViewParams {

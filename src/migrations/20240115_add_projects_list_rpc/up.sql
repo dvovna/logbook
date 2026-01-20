@@ -51,10 +51,10 @@ projects_with_meta AS (
             FILTER (WHERE t.name IS NOT NULL) AS teams
     FROM filtered_projects fp
         LEFT JOIN clients c ON c.id = fp.client_id
-        LEFT JOIN team_projects tp ON tp.project_id = fp.id
+        LEFT JOIN project_teams tp ON tp.project_id = fp.id
         LEFT JOIN teams t ON t.id = tp.team_id
-        LEFT JOIN user_projects up ON up.project_id = fp.id
-    GROUP BY fp.id, fp.name, fp.status, fp.billable, fp.created_at, fp.updated_at, c.name
+        LEFT JOIN project_users up ON up.project_id = fp.id
+    GROUP BY fp.id, fp.name, fp.status, fp.billable, fp.created_at, fp.updated_at, c.name, fp.description
 ),
 paged_projects AS (
     SELECT *

@@ -25,6 +25,7 @@ interface ICreateUserParams {
 interface IFindParams {
   slackTeamId: string;
   id?: string;
+  ids?: string[];
   teamId?: string;
   teamIds?: string[];
   role?: UserRole;
@@ -201,6 +202,14 @@ export class UsersService implements IUsersService {
           role: {
             operator: 'in',
             value: findParams.roles,
+          },
+        }
+        : {}),
+      ...(findParams.ids
+        ? {
+          id: {
+            operator: 'in',
+            value: findParams.ids,
           },
         }
         : {}),

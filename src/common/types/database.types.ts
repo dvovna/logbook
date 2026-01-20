@@ -270,6 +270,86 @@ export type Database = {
           },
         ]
       }
+      project_teams: {
+        Row: {
+          project_id: string
+          slack_team_id: string
+          team_id: string
+        }
+        Insert: {
+          project_id: string
+          slack_team_id?: string
+          team_id: string
+        }
+        Update: {
+          project_id?: string
+          slack_team_id?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_projects_slack_team_id_fkey"
+            columns: ["slack_team_id"]
+            isOneToOne: false
+            referencedRelation: "slack_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_projects_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_users: {
+        Row: {
+          project_id: string
+          slack_team_id: string
+          user_id: string
+        }
+        Insert: {
+          project_id: string
+          slack_team_id: string
+          user_id: string
+        }
+        Update: {
+          project_id?: string
+          slack_team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_projects_slack_team_id_fkey"
+            columns: ["slack_team_id"]
+            isOneToOne: false
+            referencedRelation: "slack_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           archived_at: string | null
@@ -506,46 +586,6 @@ export type Database = {
         }
         Relationships: []
       }
-      team_projects: {
-        Row: {
-          project_id: string
-          slack_team_id: string
-          team_id: string
-        }
-        Insert: {
-          project_id: string
-          slack_team_id?: string
-          team_id: string
-        }
-        Update: {
-          project_id?: string
-          slack_team_id?: string
-          team_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "team_projects_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "team_projects_slack_team_id_fkey"
-            columns: ["slack_team_id"]
-            isOneToOne: false
-            referencedRelation: "slack_teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "team_projects_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       teams: {
         Row: {
           approval_notification_recipients: string[] | null
@@ -710,46 +750,6 @@ export type Database = {
           },
           {
             foreignKeyName: "time_entries_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_projects: {
-        Row: {
-          project_id: string
-          slack_team_id: string
-          user_id: string
-        }
-        Insert: {
-          project_id: string
-          slack_team_id: string
-          user_id: string
-        }
-        Update: {
-          project_id?: string
-          slack_team_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_projects_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_projects_slack_team_id_fkey"
-            columns: ["slack_team_id"]
-            isOneToOne: false
-            referencedRelation: "slack_teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_projects_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -992,6 +992,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_project_assignments: {
+        Args: {
+          p_project_id: string
+          p_slack_team_id: string
+          p_team_ids: string[]
+          p_user_ids: string[]
+        }
+        Returns: undefined
+      }
+      assign_project_teams: {
+        Args: {
+          p_project_id: string
+          p_slack_team_id: string
+          p_team_ids: string[]
+        }
+        Returns: undefined
+      }
+      assign_project_users: {
+        Args: {
+          p_project_id: string
+          p_slack_team_id: string
+          p_user_ids: string[]
+        }
+        Returns: undefined
+      }
       get_projects_list:
         | {
             Args: never

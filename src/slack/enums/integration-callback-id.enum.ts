@@ -57,4 +57,5 @@ export enum ViewCallbackId {
   ProjectsTabView = 'projects_tab_view',
   ArchiveProject = 'archive_project',
   ProjectFormSubmit = 'project_form_submit',
+  ProjectAssignmentsFormSubmit = 'project_assignments_form_submit',
 }

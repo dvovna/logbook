@@ -87,6 +87,15 @@ export default class ProjectsTabActionHandler extends BaseAdminTabActionHandler 
 
         break;
       }
+      case ProjectsTabViewActionId.ManageProjectAssignments: {
+        await this.projectsTabService.openModal(
+          payload.trigger_id || user.slack_id,
+          ProjectsTabModalName.ManageProjectAssignments,
+          { user, projectId, pageMetadata: payload.view.private_metadata },
+        );
+
+        break;
+      }
       default: {
         this.logger.warn(`Unhandled Tab Menu actionType: ${actionType}`);
       }

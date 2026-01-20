@@ -12,7 +12,7 @@ import { SeparatorComponent } from '@modules/slack/common/views/components/separ
 import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { IProjectsListData } from 'src/projects/types/projects-list.types';
-import { IProjectListItem } from 'src/projects/types/project-list-item';
+import { IProjectListItem } from 'src/projects/types/project-list-item.types';
 import capitalize from '@common/utils/capitalize';
 
 interface IGetProjectsViewParams extends IBaseTabViewParams {
@@ -100,6 +100,10 @@ export class ProjectsTabView extends BaseAdminTabView<
           {
             text: { type: 'plain_text', text: 'Edit Project' },
             value: `${ProjectsTabViewActionId.EditProject}:${project.id}`,
+          },
+          {
+            text: { type: 'plain_text', text: 'Manage Assignments' },
+            value: `${ProjectsTabViewActionId.ManageProjectAssignments}:${project.id}`,
           },
           {
             text: {

@@ -95,9 +95,9 @@ comment on column time_entries.minutes is 'Tracked time in minutes';
 comment on column time_entries.is_deleted is 'Soft delete for audit safety';
 
 -- ============================================================
--- Team projects
+-- Project teams
 -- ============================================================
-create table if not exists team_projects (
+create table if not exists project_teams (
     slack_team_id uuid not null references slack_teams(id) on delete cascade,
     team_id uuid not null references teams(id) on delete cascade,
     project_id uuid not null references projects(id) on delete cascade,
@@ -105,15 +105,15 @@ create table if not exists team_projects (
     primary key (team_id, project_id)
 );
 
-comment on table team_projects is 'Links teams to projects available for time tracking';
+comment on table project_teams is 'Links teams to projects available for time tracking';
 
-create index if not exists idx_team_projects_team
-    on team_projects (team_id);
+create index if not exists idx_project_teams_team
+    on project_teams (team_id);
 
 -- ============================================================
 -- User projects
 -- ============================================================
-create table if not exists user_projects (
+create table if not exists project_users (
     slack_team_id uuid not null references slack_teams(id) on delete cascade,
     user_id uuid not null references users(id) on delete cascade,
     project_id uuid not null references projects(id) on delete cascade,
@@ -121,10 +121,10 @@ create table if not exists user_projects (
     primary key (user_id, project_id)
 );
 
-comment on table user_projects is 'Links users to projects they are allowed to log time against';
+comment on table project_users is 'Links users to projects they are allowed to log time against';
 
-create index if not exists idx_user_projects_user
-    on user_projects (user_id);
+create index if not exists idx_project_users_user
+    on project_users (user_id);
 
 -- ============================================================
 -- Billing reports

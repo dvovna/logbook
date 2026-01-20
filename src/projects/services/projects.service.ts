@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { SupabaseFilter } from '@common/repositories/base.repository';
 import { DuplicateError } from '@common/errors/diplicate.error';
 import { ProjectsRepository } from 'src/projects/repositories/projects.repository';
-import IProjectViewModel from 'src/projects/types/project.interface';
+import IProjectViewModel from 'src/projects/types/project.types';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 
 interface ICreateProjectParams {

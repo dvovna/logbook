@@ -66,6 +66,8 @@ export abstract class BaseRepository<
 
   protected searchableColumns: string[] = [];
 
+  protected defaultOrderBy: string[] = ['created_at:desc'];
+
   public constructor(private supabaseService: SupabaseService) {
     this.client = this.supabaseService.getClient();
   }
@@ -107,7 +109,7 @@ export abstract class BaseRepository<
     const {
       page = 1,
       pageSize = this.defaultPageLimit,
-      orderBy = ['created_at:desc'],
+      orderBy = this.defaultOrderBy,
       searchTerm,
       filters = {},
     } = params;
@@ -125,16 +127,11 @@ export abstract class BaseRepository<
     if (searchTerm && this.searchableColumns.length > 0) {
       const ilikeFilter = `%${searchTerm}%`;
 
-      query = query.ilike(this.searchableColumns[0], ilikeFilter);
+      const orConditions = this.searchableColumns
+        .map((col) => `${col}.ilike.${ilikeFilter}`)
+        .join(',');
 
-      if (this.searchableColumns.length > 1) {
-        const orConditions = this.searchableColumns
-          .slice(1)
-          .map((col) => `${col}.ilike.${ilikeFilter}`)
-          .join(',');
-
-        query = query.or(orConditions);
-      }
+      query = query.or(orConditions);
     }
 
     const { data, error, count } = await query;
@@ -388,13 +385,11 @@ export abstract class BaseRepository<
       query.limit(options?.limit ?? this.defaultLimit);
     }
 
-    if (options?.orderBy) {
-      options.orderBy.forEach((order) => {
-        const [column, direction = 'asc'] = order.split(':');
-        query = query.order(column, { ascending: direction === 'asc' });
-      });
-    } else {
-      query = query.order('created_at', { ascending: false });
-    }
+    const orderByOptions = options?.orderBy ?? this.defaultOrderBy;
+
+    orderByOptions.forEach((order) => {
+      const [column, direction = 'asc'] = order.split(':');
+      query = query.order(column, { ascending: direction === 'asc' });
+    });
   }
 }

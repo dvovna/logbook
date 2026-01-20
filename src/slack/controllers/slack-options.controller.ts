@@ -9,6 +9,9 @@ import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-
 import {
   VacationRequestsTabViewActionId,
 } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import {
+  ProjectAssignmentModalViewActionId,
+} from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
 
 @Controller('api/slack/options')
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)
@@ -25,7 +28,18 @@ export class SlackOptionsController {
       case VacationRequestsTabViewActionId.UserField:
       case UsersTabViewActionId.FilterUsersByUser:
       case VacationRequestsTabViewActionId.FilterRequestsByUser: {
-        return this.userOptionsService.searchUsers(payload.value, req.user!);
+        return this.userOptionsService.searchUsers({
+          query: payload.value,
+          user: req.user!,
+          includeInactive: true,
+        });
+      }
+      case ProjectAssignmentModalViewActionId.ProjectUsers: {
+        return this.userOptionsService.searchUsers({
+          query: payload.value,
+          user: req.user!,
+          includeInactive: false,
+        });
       }
       default: {
         return { options: [] };

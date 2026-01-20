@@ -13,7 +13,7 @@ import {
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
 import UserRole from '@common/enums/user-role.enum';
-import IProjectViewModel from 'src/projects/types/project.interface';
+import IProjectViewModel from 'src/projects/types/project.types';
 import ProjectsService from 'src/projects/services/projects.service';
 import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/projects/services/projects-tab.service';
 

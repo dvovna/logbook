@@ -1,4 +1,4 @@
-import { IProjectListItem } from 'src/projects/types/project-list-item';
+import { IProjectListItem } from 'src/projects/types/project-list-item.types';
 
 export interface IProjectsListQueryParams {
   slackTeamId: string;

@@ -10,8 +10,12 @@ import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 import ProjectsService from 'src/projects/services/projects.service';
 import { ProjectModalView } from '@modules/slack/tabs/projects/views/project-modal.view';
 import { IProjectsTabMetaData, ProjectsTabView } from '@modules/slack/tabs/projects/views/projects-tab.view';
-import { ProjectsListQuery } from 'src/projects/queries/projects-list-query';
+import { ProjectsListQuery } from 'src/projects/queries/projects-list.query';
 import ClientsService from '@modules/clients/services/clients.service';
+import { ProjectAssignmentsModalView } from '@modules/slack/tabs/projects/views/project-assignments-modal.view';
+import TeamsService from '@modules/teams/services/teams.service';
+import { ProjectAssignmentsService } from 'src/projects/services/project-assignments.service';
+import { UsersService } from '@modules/users/services/users.service';
 
 interface IProjectModalViewParams extends IOpenModalBaseParams<string> {
   projectId: string;
@@ -21,6 +25,7 @@ export enum ProjectsTabModalName {
   CreateProject = 'CreateProject',
   UpdateProject = 'UpdateProject',
   ArchiveProject = 'ArchiveProject',
+  ManageProjectAssignments = 'ManageProjectAssignments',
 }
 
 interface IGetProjectsTabViewParams extends IPublishBaseParams {
@@ -39,15 +44,22 @@ type ProjectsTabModalViewResolversMapType = {
   [ProjectsTabModalName.ArchiveProject]: (
     params: IProjectModalViewParams,
   ) => Promise<View>;
+  [ProjectsTabModalName.ManageProjectAssignments]: (
+    params: IProjectModalViewParams,
+  ) => Promise<View>;
 };
 
 @Injectable()
 export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResolversMapType> {
   public constructor(
     private readonly projectsService: ProjectsService,
+    private readonly teamsService: TeamsService,
+    private readonly usersService: UsersService,
     private readonly clientsService: ClientsService,
+    private readonly projectAssignmentsService: ProjectAssignmentsService,
     private readonly projectsListQuery: ProjectsListQuery,
     private readonly projectModalView: ProjectModalView,
+    private readonly projectAssignmentsModalView: ProjectAssignmentsModalView,
     private readonly projectsTabView: ProjectsTabView,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
@@ -58,6 +70,8 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         this.getUpdateProjectModalView(params),
       [ProjectsTabModalName.ArchiveProject]: (params) =>
         this.getDeleteProjectModalView(params),
+      [ProjectsTabModalName.ManageProjectAssignments]: (params) =>
+        this.getManageProjectAssignmentsModalView(params),
     });
   }
 
@@ -154,6 +168,45 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         callbackId: ViewCallbackId.ArchiveProject,
         title: 'Archive Project',
         message: `The project *${project.name}* will be archived.`,
+        errorMessage,
+      },
+      {
+        id: project.id,
+        pageMetadata,
+      },
+    );
+  }
+
+  private async getManageProjectAssignmentsModalView({
+    projectId,
+    user,
+    errorMessage,
+    pageMetadata,
+  }: IProjectModalViewParams) {
+    const [project, teams, assignments] = await Promise.all([
+      this.projectsService.findOneWithValidation({
+        id: projectId,
+        slackTeamId: user.slack_team_id,
+      }),
+      this.teamsService.findMany({
+        slackTeamId: user.slack_team_id,
+      }),
+      this.projectAssignmentsService.getAssignments({
+        projectId,
+        slackTeamId: user.slack_team_id,
+      }),
+    ]);
+
+    const selectedUsers = await this.usersService.findMany({
+      slackTeamId: user.slack_team_id,
+      ids: assignments.userIds,
+    });
+
+    return this.projectAssignmentsModalView.getView(
+      {
+        assignments,
+        teams,
+        selectedUsers,
         errorMessage,
       },
       {

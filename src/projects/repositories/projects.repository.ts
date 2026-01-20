@@ -4,7 +4,7 @@ import {
   TableName,
   Tables,
 } from '@common/repositories/base.repository';
-import IProjectViewModel from 'src/projects/types/project.interface';
+import IProjectViewModel from 'src/projects/types/project.types';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 
 @Injectable()
