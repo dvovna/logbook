@@ -85,12 +85,16 @@ export class ProjectsTabView extends BaseAdminTabView<
           type: 'mrkdwn',
           text:
             `*${project.name}*\n` +
-            `Status: ${capitalize(project.status)}\n` +
-            `Billable: ${project.billable ? 'Yes' : 'No'}\n` +
             `Client: ${project.client_name || '-'}\n` +
-            `Description: ${truncate(project.description || '-')}\n` +
+            `Status: ${capitalize(project.status)}\n` +
+            `Billable: ${project.billable ? 'Yes' : 'No'}\n`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `Teams: ${project.teams?.length || '0'} · Users: ${project.users_count}\n` +
             `Created: ${createdAt}\n` +
-            `Updated: ${updatedAt}`,
+            `Updated: ${updatedAt}\n` +
+            `Description: ${truncate(project.description || '-')}`,
         },
       ],
       accessory: {
