@@ -28,7 +28,6 @@ export interface IUsersTabViewFilters {
   teamId?: string;
   role?: UserRole;
   user?: { value: string; name: string };
-  status?: 'active_only' | 'inactive_only';
 }
 
 interface IUserModalViewParams extends IOpenModalBaseParams<string> {
@@ -193,8 +192,8 @@ export class UsersTabService extends BaseTabService<
         ...(metadata?.filters?.user
           ? { id: metadata?.filters.user.value }
           : {}),
-        ...(metadata?.filters?.status === 'inactive_only'
-          ? { isActive: false }
+        ...(metadata?.includeInactive
+          ? { includeInactive: metadata?.includeInactive }
           : {}),
       },
       orderBy: ['name:asc'],

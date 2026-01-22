@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import {
+  ISlackBlockActionPayload,
+  ISlackInteractionPayload,
+} from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   UsersTabModalName,
@@ -11,7 +14,7 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import {
   withAsyncSelectFilter,
-  withPagination,
+  withPagination, withResetFilters,
   withSelectFilter,
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
@@ -19,6 +22,9 @@ import { TabNavigationService } from '@modules/slack/common/services/tab-navigat
 import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import UserRole from '@common/enums/user-role.enum';
+import { getCheckboxActionValues } from '@modules/slack/common/utils/payload.utils';
+import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
+import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 
 @Injectable()
 @SlackHandler({
@@ -58,10 +64,8 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
         'teamId',
         this.updateTab,
       ),
-      [UsersTabViewActionId.FilterUsersByStatus]: withSelectFilter(
-        'status',
-        this.updateTab,
-      ),
+      [UsersTabViewActionId.IncludeInactive]: this.handleIncludeInactiveFilter,
+      [UsersTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
     };
   }
 
@@ -72,6 +76,26 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
     await this.usersTabService.publish({
       user,
       metadata,
+    });
+  };
+
+  private handleIncludeInactiveFilter = async (
+    payload: ISlackBlockActionPayload,
+    user: IUserViewModel,
+  ) => {
+    const values = getCheckboxActionValues(payload);
+    const metadata = parseMetadata<IUsersTabMetaData>(payload);
+
+    const updatedMetadata: IUsersTabMetaData = {
+      ...metadata,
+      includeInactive: values[0] === YesNoValue.Yes,
+    };
+
+    await this.updateTab(updatedMetadata, user);
+
+    await this.usersTabService.publish({
+      user,
+      metadata: updatedMetadata,
     });
   };
 

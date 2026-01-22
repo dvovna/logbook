@@ -7,6 +7,7 @@ export enum UsersTabViewActionId {
   ChangeStatus = 'change_status',
   FilterUsersByRole = 'filter_users_by_role',
   FilterUsersByTeam = 'filter_users_by_team',
-  FilterUsersByStatus = 'filter_users_by_status',
+  IncludeInactive = 'include_inactive_users',
   FilterUsersByUser = 'filter_users_by_users',
+  ResetFilters = 'reset_users_filters',
 }

@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
+import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchResult } from '@common/types/pagination.types';
 import capitalize from '@common/utils/capitalize';
 import { IUsersTabViewFilters } from '@modules/slack/tabs/users/services/users-tab.service';
 import { ROLE_OPTIONS } from '@modules/slack/tabs/users/views/options/use-role.options';
-import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
 import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -18,10 +17,14 @@ import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-
 import UserRole from '@common/enums/user-role.enum';
 import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
+import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
+import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 
 export interface IUsersTabMetaData {
   page?: number;
   filters?: IUsersTabViewFilters;
+  includeInactive?: boolean;
 }
 
 interface IGetViewParams extends IBaseTabViewParams {
@@ -29,25 +32,12 @@ interface IGetViewParams extends IBaseTabViewParams {
   teams: ITeamViewModel[];
 }
 
-const SHOW_INACTIVE_OPTION = {
-  text: { type: 'plain_text', text: 'Inactive Only' },
-  value: 'inactive_only',
-};
-
-const SHOW_ACTIVE_OPTION = {
-  text: { type: 'plain_text', text: 'Active Users Only' },
-  value: 'active_only',
-};
-
-const ALL_ROLES_SELECT_OPTION = {
-  text: { type: 'plain_text', text: 'All Roles' },
-  value: ALL_OPTION_VALUE,
-};
-
-const ALL_TEAMS_SELECT_OPTION = {
-  text: { type: 'plain_text', text: 'All Teams' },
-  value: ALL_OPTION_VALUE,
-};
+const INACTIVE_PLAIN_TEXT_OPTIONS: PlainTextOption[] = [
+  toPlainTextOption({
+    name: 'Include inactive users',
+    id: YesNoValue.Yes,
+  }),
+];
 
 @Injectable()
 export class UsersTabView extends BaseAdminTabView<
@@ -73,13 +63,22 @@ export class UsersTabView extends BaseAdminTabView<
 
   protected getContentBlocks(
     { users, teams, userRole },
-    { filters },
+    { filters, includeInactive },
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [
       { type: 'section', text: { type: 'plain_text', text: 'List of employees with vacation balances and details.' } },
     ];
 
     blocks.push(...this.getFiltersBlocks(teams, filters));
+    blocks.push({
+      type: 'actions',
+      elements: [{
+        type: 'checkboxes',
+        action_id: UsersTabViewActionId.IncludeInactive,
+        options: INACTIVE_PLAIN_TEXT_OPTIONS,
+        initial_options: includeInactive ? INACTIVE_PLAIN_TEXT_OPTIONS : undefined,
+      }],
+    });
 
     const blocksToAdd = this.getUsersListBlocks(users, teams, userRole);
 
@@ -184,79 +183,46 @@ export class UsersTabView extends BaseAdminTabView<
   private getFiltersBlocks(
     teams: ITeamViewModel[],
     filters?: IUsersTabViewFilters,
-  ): ActionsBlock[] {
-    const teamOptions = teams.map((team) => ({
-      text: { type: 'plain_text', text: team.name },
-      value: team.id,
-    }));
+  ) {
+    const teamOptions = teams.map(toPlainTextOption);
 
-    return [
+    const userFilters: IFiltersConfig[] = [
       {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: '*Filters*',
-        },
+        type: 'external_select',
+        actionId: UsersTabViewActionId.FilterUsersByUser,
+        placeholder: 'Filter by User',
+        minQueryLength: 2,
+        initialOption: filters?.user && toPlainTextOption({
+          name: filters.user.name,
+          id: filters.user.value,
+        }),
       },
       {
-        type: 'actions',
-        elements: [
-          {
-            type: 'external_select',
-            action_id: UsersTabViewActionId.FilterUsersByUser,
-            placeholder: {
-              type: 'plain_text',
-              text: 'Filter by User',
-            },
-            min_query_length: 2,
-            initial_option: filters?.user && {
-              text: {
-                type: 'plain_text',
-                text: filters.user.name,
-              },
-              value: filters.user.value,
-            },
-          },
-          {
-            type: 'static_select',
-            placeholder: { type: 'plain_text', text: 'Filter by Role' },
-            action_id: UsersTabViewActionId.FilterUsersByRole,
-            initial_option: {
-              text: {
-                type: 'plain_text',
-                text: filters?.role ? capitalize(filters.role) : 'All Roles',
-              },
-              value: filters?.role || ALL_OPTION_VALUE,
-            },
-            options: [ALL_ROLES_SELECT_OPTION, ...ROLE_OPTIONS],
-          },
-          {
-            type: 'static_select',
-            placeholder: { type: 'plain_text', text: 'Filter by Team' },
-            action_id: UsersTabViewActionId.FilterUsersByTeam,
-            initial_option: {
-              text: {
-                type: 'plain_text',
-                text:
-                  teams.find((team) => team.id === filters?.teamId)?.name ||
-                  'All Teams',
-              },
-              value: filters?.teamId || ALL_OPTION_VALUE,
-            },
-            options: [ALL_TEAMS_SELECT_OPTION, ...teamOptions],
-          },
-          {
-            type: 'static_select',
-            placeholder: { type: 'plain_text', text: 'Filter by Status' },
-            action_id: UsersTabViewActionId.FilterUsersByStatus,
-            initial_option:
-              filters?.status === 'inactive_only'
-                ? SHOW_INACTIVE_OPTION
-                : SHOW_ACTIVE_OPTION,
-            options: [SHOW_ACTIVE_OPTION, SHOW_INACTIVE_OPTION],
-          },
-        ],
+        type: 'static_select',
+        actionId: UsersTabViewActionId.FilterUsersByRole,
+        placeholder: 'Filter by Role',
+        options: ROLE_OPTIONS,
+        initialOption: filters?.role ? toPlainTextOption({
+          name: capitalize(filters.role),
+          id: filters.role,
+        }) : undefined,
       },
-    ] as ActionsBlock[];
+      {
+        type: 'static_select',
+        actionId: UsersTabViewActionId.FilterUsersByTeam,
+        placeholder: 'Filter by Team',
+        options: teamOptions,
+        initialOption: filters?.teamId ? toPlainTextOption({
+          name: teams.find((team) => team.id === filters.teamId)?.name || 'N/A',
+          id: filters.teamId,
+        }) : undefined,
+      },
+    ];
+
+    return FiltersBlockBuilder.build({
+      filtersConfigs: userFilters,
+      resetButtonActionId: UsersTabViewActionId.ResetFilters,
+      separator: false,
+    });
   }
 }
