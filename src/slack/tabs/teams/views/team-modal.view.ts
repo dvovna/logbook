@@ -7,7 +7,7 @@ import BaseModalView, {
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { SlackMultiStaticSelectView } from '@modules/slack/common/views/components/slack-multi-static-select.view';
 import { IOption } from '@modules/slack/common/types/option.interface';
-import { SlackInputCheckboxesView } from '@modules/slack/common/views/components/slack-input-checkboxes.view';
+import { InputCheckboxesBlockBuilder } from '@modules/slack/common/views/builders/input-checkboxes-block.builder';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 
 interface IGetViewParams extends IBaseModalViewParams {
@@ -103,7 +103,7 @@ export class TeamModalView extends BaseModalView<
         options: params.managers,
         initialValues: params.initialData?.managerApprovers,
       }),
-      ...SlackInputCheckboxesView.getView({
+      ...InputCheckboxesBlockBuilder.build({
         blockId: 'manager_approvers_rule_block',
         actionId: 'manager_approvers_rule',
         label: 'Managers Approval Rule',
@@ -127,7 +127,7 @@ export class TeamModalView extends BaseModalView<
         options: params.hrUsers,
         initialValues: params.initialData?.hrApprovers,
       }),
-      ...SlackInputCheckboxesView.getView({
+      ...InputCheckboxesBlockBuilder.build({
         blockId: 'hr_approvers_rule_block',
         actionId: 'hr_approvers_rule',
         label: 'HR Approval Rule',

@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import {
+  ISlackBlockActionPayload,
+  ISlackInteractionPayload,
+} from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -7,7 +10,7 @@ import { ActionMapType } from '@modules/slack/common/handlers/base-action.handle
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
 import {
-  withAsyncSelectFilter, withCheckboxFilter,
+  withAsyncSelectFilter,
   withPagination,
   withResetFilters,
   withSelectFilter,
@@ -16,6 +19,9 @@ import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/projects/services/projects-tab.service';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { IProjectsTabMetaData } from '@modules/slack/tabs/projects/views/projects-tab.view';
+import { getCheckboxActionValues } from '@modules/slack/common/utils/payload.utils';
+import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
+import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 
 @Injectable()
 @SlackHandler({
@@ -55,10 +61,7 @@ export default class ProjectsTabActionHandler extends BaseAdminTabActionHandler 
         'billable',
         this.updateTab,
       ),
-      [ProjectsTabViewActionId.IncludeArchivedProjects]: withCheckboxFilter(
-        'includeArchived',
-        this.updateTab,
-      ),
+      [ProjectsTabViewActionId.IncludeArchivedProjects]: this.handleIncludeArchivedProjectsFilter,
       [ProjectsTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
     };
   }
@@ -82,6 +85,21 @@ export default class ProjectsTabActionHandler extends BaseAdminTabActionHandler 
       ProjectsTabModalName.CreateProject,
       { user, pageMetadata: payload.view.private_metadata },
     );
+  };
+
+  private handleIncludeArchivedProjectsFilter = async (
+    payload: ISlackBlockActionPayload,
+    user: IUserViewModel,
+  ) => {
+    const values = getCheckboxActionValues(payload);
+    const metadata = parseMetadata<IProjectsTabMetaData>(payload);
+
+    const updatedMetadata: IProjectsTabMetaData = {
+      ...metadata,
+      includeArchived: values[0] === YesNoValue.Yes,
+    };
+
+    await this.updateTab(updatedMetadata, user);
   };
 
   private handleManageProjectMenuAction = async (

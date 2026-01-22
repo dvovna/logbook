@@ -1,8 +1,13 @@
-import { OverflowAction, ButtonAction } from '@slack/bolt';
+import { ButtonAction } from '@slack/bolt';
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
-import { CheckboxesAction, StaticSelectAction } from '@slack/bolt/dist/types/actions/block-action';
+import { getCheckboxActionValues, getSelectActionValue } from '@modules/slack/common/utils/payload.utils';
+import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
+
+interface IMetadataWithFilters {
+  filters?: Record<string, unknown>;
+}
 
 type HandlerFn<Metadata> = (
   metadata: Metadata,
@@ -20,9 +25,7 @@ export function withPagination<Metadata extends { page?: number }>(
     }
 
     const page = parseInt(value, 10);
-    const metadata: Metadata = payload.view?.private_metadata
-      ? JSON.parse(payload.view.private_metadata)
-      : {};
+    const metadata = parseMetadata<Metadata>(payload);
 
     await handler(
       {
@@ -34,16 +37,13 @@ export function withPagination<Metadata extends { page?: number }>(
   };
 }
 
-export function withSelectFilter<Metadata = unknown>(
+export function withSelectFilter<Metadata extends IMetadataWithFilters>(
   filterKey: string,
   handler: HandlerFn<Metadata>,
 ) {
   return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
-    const selectedValue = (payload.actions[0] as StaticSelectAction)
-      .selected_option?.value;
-    const metadata = payload.view?.private_metadata
-      ? JSON.parse(payload.view.private_metadata)
-      : {};
+    const selectedOption = getSelectActionValue(payload);
+    const metadata = parseMetadata<Metadata>(payload);
 
     const updatedMetadata: Metadata = {
       ...metadata,
@@ -51,7 +51,7 @@ export function withSelectFilter<Metadata = unknown>(
       filters: {
         ...metadata.filters,
         [filterKey]:
-          selectedValue === ALL_OPTION_VALUE ? undefined : selectedValue,
+          selectedOption?.id === ALL_OPTION_VALUE ? undefined : selectedOption?.id,
       },
     };
 
@@ -59,23 +59,20 @@ export function withSelectFilter<Metadata = unknown>(
   };
 }
 
-export function withCheckboxFilter<Metadata = unknown>(
+export function withCheckboxFilter<Metadata extends IMetadataWithFilters>(
   filterKey: string,
   handler: HandlerFn<Metadata>,
 ) {
   return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
-    const selectedOptions = (payload.actions[0] as CheckboxesAction)
-      .selected_options;
-    const metadata = payload.view?.private_metadata
-      ? JSON.parse(payload.view.private_metadata)
-      : {};
+    const selectedValues = getCheckboxActionValues(payload);
+    const metadata = parseMetadata<Metadata>(payload);
 
     const updatedMetadata: Metadata = {
       ...metadata,
       page: 1,
       filters: {
         ...metadata.filters,
-        [filterKey]: selectedOptions.map((option) => option.value),
+        [filterKey]: selectedValues,
       },
     };
 
@@ -83,16 +80,13 @@ export function withCheckboxFilter<Metadata = unknown>(
   };
 }
 
-export function withAsyncSelectFilter<Metadata = unknown>(
+export function withAsyncSelectFilter<Metadata extends IMetadataWithFilters>(
   filterKey: string,
   handler: HandlerFn<Metadata>,
 ) {
   return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
-    const selectedOption = (payload.actions[0] as OverflowAction)
-      .selected_option;
-    const metadata = payload.view?.private_metadata
-      ? JSON.parse(payload.view.private_metadata)
-      : {};
+    const selectedOption = getSelectActionValue(payload);
+    const metadata = parseMetadata<Metadata>(payload);
 
     const updatedMetadata: Metadata = {
       ...metadata,
@@ -100,10 +94,10 @@ export function withAsyncSelectFilter<Metadata = unknown>(
       filters: {
         ...metadata.filters,
         [filterKey]:
-          selectedOption && selectedOption.value !== ALL_OPTION_VALUE
+          selectedOption && selectedOption.id !== ALL_OPTION_VALUE
             ? {
-              value: selectedOption.value,
-              name: selectedOption.text.text,
+              value: selectedOption.id,
+              name: selectedOption.name,
             }
             : undefined,
       },
@@ -117,9 +111,7 @@ export function withResetFilters<Metadata = unknown>(
   handler: HandlerFn<Metadata>,
 ) {
   return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
-    const metadata = payload.view?.private_metadata
-      ? JSON.parse(payload.view.private_metadata)
-      : {};
+    const metadata = parseMetadata<Metadata>(payload);
 
     const updatedMetadata: Metadata = {
       ...metadata,

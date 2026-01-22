@@ -11,8 +11,8 @@ interface ISelectViewParams {
   optional?: boolean;
 }
 
-export class SlackInputCheckboxesView {
-  public static getView({
+export class InputCheckboxesBlockBuilder {
+  public static build({
     blockId,
     actionId,
     label,

@@ -7,6 +7,8 @@ import {
   IProjectListItemWithTotalCount,
 } from 'src/projects/types/projects-list.types';
 
+const DEFAULT_PROJECTS_PAGE_SIZE = 5;
+
 @Injectable()
 export class ProjectsListQuery {
   constructor(private readonly supabase: SupabaseService) {}
@@ -15,7 +17,7 @@ export class ProjectsListQuery {
     const {
       slackTeamId,
       page = 1,
-      pageSize = 10,
+      pageSize = DEFAULT_PROJECTS_PAGE_SIZE,
       clientId,
       status,
       billable,

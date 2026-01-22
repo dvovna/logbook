@@ -79,7 +79,7 @@ export class UsersTabView extends BaseAdminTabView<
       { type: 'section', text: { type: 'plain_text', text: 'List of employees with vacation balances and details.' } },
     ];
 
-    blocks.push(this.getFiltersBlock(teams, filters));
+    blocks.push(...this.getFiltersBlocks(teams, filters));
 
     const blocksToAdd = this.getUsersListBlocks(users, teams, userRole);
 
@@ -181,73 +181,82 @@ export class UsersTabView extends BaseAdminTabView<
     return blocks;
   }
 
-  private getFiltersBlock(
+  private getFiltersBlocks(
     teams: ITeamViewModel[],
     filters?: IUsersTabViewFilters,
-  ): ActionsBlock {
+  ): ActionsBlock[] {
     const teamOptions = teams.map((team) => ({
       text: { type: 'plain_text', text: team.name },
       value: team.id,
     }));
 
-    return {
-      type: 'actions',
-      elements: [
-        {
-          type: 'external_select',
-          action_id: UsersTabViewActionId.FilterUsersByUser,
-          placeholder: {
-            type: 'plain_text',
-            text: 'Filter by User',
-          },
-          min_query_length: 2,
-          initial_option: filters?.user && {
-            text: {
+    return [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Filters*',
+        },
+      },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'external_select',
+            action_id: UsersTabViewActionId.FilterUsersByUser,
+            placeholder: {
               type: 'plain_text',
-              text: filters.user.name,
+              text: 'Filter by User',
             },
-            value: filters.user.value,
-          },
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Role' },
-          action_id: UsersTabViewActionId.FilterUsersByRole,
-          initial_option: {
-            text: {
-              type: 'plain_text',
-              text: filters?.role ? capitalize(filters.role) : 'All Roles',
+            min_query_length: 2,
+            initial_option: filters?.user && {
+              text: {
+                type: 'plain_text',
+                text: filters.user.name,
+              },
+              value: filters.user.value,
             },
-            value: filters?.role || ALL_OPTION_VALUE,
           },
-          options: [ALL_ROLES_SELECT_OPTION, ...ROLE_OPTIONS],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Team' },
-          action_id: UsersTabViewActionId.FilterUsersByTeam,
-          initial_option: {
-            text: {
-              type: 'plain_text',
-              text:
-                teams.find((team) => team.id === filters?.teamId)?.name ||
-                'All Teams',
+          {
+            type: 'static_select',
+            placeholder: { type: 'plain_text', text: 'Filter by Role' },
+            action_id: UsersTabViewActionId.FilterUsersByRole,
+            initial_option: {
+              text: {
+                type: 'plain_text',
+                text: filters?.role ? capitalize(filters.role) : 'All Roles',
+              },
+              value: filters?.role || ALL_OPTION_VALUE,
             },
-            value: filters?.teamId || ALL_OPTION_VALUE,
+            options: [ALL_ROLES_SELECT_OPTION, ...ROLE_OPTIONS],
           },
-          options: [ALL_TEAMS_SELECT_OPTION, ...teamOptions],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Status' },
-          action_id: UsersTabViewActionId.FilterUsersByStatus,
-          initial_option:
-            filters?.status === 'inactive_only'
-              ? SHOW_INACTIVE_OPTION
-              : SHOW_ACTIVE_OPTION,
-          options: [SHOW_ACTIVE_OPTION, SHOW_INACTIVE_OPTION],
-        },
-      ],
-    } as ActionsBlock;
+          {
+            type: 'static_select',
+            placeholder: { type: 'plain_text', text: 'Filter by Team' },
+            action_id: UsersTabViewActionId.FilterUsersByTeam,
+            initial_option: {
+              text: {
+                type: 'plain_text',
+                text:
+                  teams.find((team) => team.id === filters?.teamId)?.name ||
+                  'All Teams',
+              },
+              value: filters?.teamId || ALL_OPTION_VALUE,
+            },
+            options: [ALL_TEAMS_SELECT_OPTION, ...teamOptions],
+          },
+          {
+            type: 'static_select',
+            placeholder: { type: 'plain_text', text: 'Filter by Status' },
+            action_id: UsersTabViewActionId.FilterUsersByStatus,
+            initial_option:
+              filters?.status === 'inactive_only'
+                ? SHOW_INACTIVE_OPTION
+                : SHOW_ACTIVE_OPTION,
+            options: [SHOW_ACTIVE_OPTION, SHOW_INACTIVE_OPTION],
+          },
+        ],
+      },
+    ] as ActionsBlock[];
   }
 }

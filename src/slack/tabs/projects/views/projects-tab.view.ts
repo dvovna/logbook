@@ -17,8 +17,9 @@ import capitalize from '@common/utils/capitalize';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { ProjectStatusDisplayNameMap } from 'src/projects/static/project-status-display-name.map';
-import { IProjectTabFilters } from '@modules/slack/tabs/projects/services/projects-tab.service';
+import { IProjectTabFilters, PROJECTS_TAB_PAGE_SIZE } from '@modules/slack/tabs/projects/services/projects-tab.service';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
+import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
 
 interface IGetProjectsViewParams extends IBaseTabViewParams {
   projectsListData: IProjectsListData;
@@ -26,6 +27,7 @@ interface IGetProjectsViewParams extends IBaseTabViewParams {
 
 export interface IProjectsTabMetaData {
   page?: number;
+  includeArchived?: boolean;
   filters?: IProjectTabFilters;
 }
 
@@ -36,6 +38,21 @@ const BILLABLE_PLAIN_TEXT_OPTIONS: PlainTextOption[] = [{
   text: { type: 'plain_text', text: 'No' },
   value: YesNoValue.No,
 }];
+
+const ARCHIVED_PLAIN_TEXT_OPTIONS: PlainTextOption[] = [
+  toPlainTextOption({
+    name: 'Include archived projects',
+    id: YesNoValue.Yes,
+  }),
+];
+
+const PROJECT_STATUS_PLAIN_TEXT_OPTIONS: PlainTextOption[] = Object.values(ProjectStatus)
+  .map((status) =>
+    toPlainTextOption({
+      id: status,
+      name: ProjectStatusDisplayNameMap[status],
+    }),
+  );
 
 @Injectable()
 export class ProjectsTabView extends BaseAdminTabView<
@@ -67,13 +84,29 @@ export class ProjectsTabView extends BaseAdminTabView<
     return BackButton.getBlocks(AdminNavigationActionId.ManageTimeAndBilling);
   }
 
-  protected getContentBlocks({ projectsListData }, { filters }): AnyBlock[] {
+  protected getContentBlocks(
+    { projectsListData }: IGetProjectsViewParams,
+    { filters, includeArchived, page }: IProjectsTabMetaData,
+  ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
     blocks.push(...this.getFiltersBlocks(filters));
+    blocks.push({
+      type: 'actions',
+      elements: [{
+        type: 'checkboxes',
+        action_id: ProjectsTabViewActionId.IncludeArchivedProjects,
+        options: ARCHIVED_PLAIN_TEXT_OPTIONS,
+        initial_options: includeArchived ? ARCHIVED_PLAIN_TEXT_OPTIONS : undefined,
+      }],
+    });
 
     const listBlocks = PaginatedListView.getBlocks<IProjectListItem>({
-      itemsData: projectsListData,
+      itemsData: {
+        ...projectsListData,
+        page: page || 1,
+        pageSize: PROJECTS_TAB_PAGE_SIZE,
+      },
       getItemBlocks: (item: IProjectListItem) =>
         this.getProjectListItemBlocks(item),
       prevPageActionId: ProjectsTabViewActionId.PaginationPrev,
@@ -144,97 +177,42 @@ export class ProjectsTabView extends BaseAdminTabView<
     return blocks;
   }
 
-  private getFiltersBlocks(filters?: IProjectTabFilters): AnyBlock[] {
-    const projectStatusOptions = Object.values(ProjectStatus).map((status) =>
-      toPlainTextOption({
-        id: status,
-        name: ProjectStatusDisplayNameMap[status],
-      }),
-    );
-    const selectedProjectStatusOption = projectStatusOptions.find(
-      ({ value }) => value === filters?.status,
-    );
-
-    return [
+  private getFiltersBlocks(filters?: IProjectTabFilters) {
+    const projectFilters: IFiltersConfig[] = [
       {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: '*Filters*',
-        },
+        type: 'external_select',
+        actionId: ProjectsTabViewActionId.FindProjectByName,
+        placeholder: 'Find Project',
+        minQueryLength: 2,
+        initialOption: filters?.project && toPlainTextOption({
+          id: filters.project.value,
+          name: filters.project.name,
+        }),
       },
       {
-        type: 'actions',
-        elements: [
-          {
-            type: 'external_select',
-            action_id: ProjectsTabViewActionId.FindProjectByName,
-            placeholder: {
-              type: 'plain_text',
-              text: 'Find Project',
-            },
-            min_query_length: 2,
-            initial_option: filters?.project && {
-              text: {
-                type: 'plain_text',
-                text: filters.project.name,
-              },
-              value: filters.project.value,
-            },
-          },
-          {
-            type: 'static_select',
-            action_id: ProjectsTabViewActionId.FilterByStatus,
-            placeholder: {
-              type: 'plain_text',
-              text: 'Status',
-            },
-            initial_option: selectedProjectStatusOption,
-            options: projectStatusOptions,
-          },
-          {
-            type: 'static_select',
-            action_id: ProjectsTabViewActionId.FilterByBillable,
-            placeholder: {
-              type: 'plain_text',
-              text: 'Billable',
-            },
-            initial_option: BILLABLE_PLAIN_TEXT_OPTIONS.find(
-              ({ value }) => value === filters?.billable,
-            ),
-            options: BILLABLE_PLAIN_TEXT_OPTIONS,
-          },
-          {
-            type: 'button',
-            text: {
-              type: 'plain_text',
-              text: 'Reset',
-            },
-            action_id: ProjectsTabViewActionId.ResetFilters,
-          },
-          {
-            type: 'checkboxes',
-            action_id: ProjectsTabViewActionId.IncludeArchivedProjects,
-            options: [
-              {
-                text: {
-                  type: 'plain_text',
-                  text: 'Include archived projects',
-                },
-                value: YesNoValue.Yes,
-              },
-            ],
-            initial_options: filters?.includeArchived?.includes(YesNoValue.Yes) ? [{
-              text: {
-                type: 'plain_text',
-                text: 'Include archived projects',
-              },
-              value: YesNoValue.Yes,
-            }] : undefined,
-          },
-        ],
+        type: 'static_select',
+        actionId: ProjectsTabViewActionId.FilterByStatus,
+        placeholder: 'Status',
+        options: PROJECT_STATUS_PLAIN_TEXT_OPTIONS,
+        initialOption: PROJECT_STATUS_PLAIN_TEXT_OPTIONS.find(
+          ({ value }) => value === filters?.status,
+        ),
       },
-      ...SeparatorComponent.getBlocks(),
+      {
+        type: 'static_select',
+        actionId: ProjectsTabViewActionId.FilterByBillable,
+        placeholder: 'Billable',
+        options: BILLABLE_PLAIN_TEXT_OPTIONS,
+        initialOption: BILLABLE_PLAIN_TEXT_OPTIONS.find(
+          ({ value }) => value === filters?.billable,
+        ),
+      },
     ];
+
+    return FiltersBlockBuilder.build({
+      filtersConfigs: projectFilters,
+      separator: false,
+      resetButtonActionId: ProjectsTabViewActionId.ResetFilters,
+    });
   }
 }

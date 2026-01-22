@@ -38,10 +38,9 @@ export interface IProjectTabFilters {
   project?: { value: string; name: string };
   status?: ProjectStatus;
   billable?: YesNoValue;
-  includeArchived?: [YesNoValue.Yes];
 }
 
-const PROJECTS_TAB_PAGE_SIZE = 5;
+export const PROJECTS_TAB_PAGE_SIZE = 5;
 
 type ProjectsTabModalViewResolversMapType = {
   [ProjectsTabModalName.CreateProject]: (
@@ -94,7 +93,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         ? metadata?.filters?.billable === YesNoValue.Yes
         : undefined,
       projectId: metadata?.filters?.project?.value,
-      includeArchived: metadata?.filters?.includeArchived?.includes(YesNoValue.Yes),
+      includeArchived: metadata?.includeArchived,
     });
 
     return await this.projectsTabView.getView(
