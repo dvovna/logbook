@@ -8,10 +8,10 @@ import {
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseFilter } from '@common/repositories/base.repository';
-import { DuplicateError } from '@common/errors/diplicate.error';
 import { ProjectsRepository } from 'src/projects/repositories/projects.repository';
 import IProjectViewModel from 'src/projects/types/project.types';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
+import CatchDuplicatedRecord from '@common/decorators/catch-duplicated-record';
 
 interface ICreateProjectParams {
   name: string;
@@ -27,7 +27,7 @@ interface IFindParams {
   name?: string;
   slackTeamId: string;
   clientId?: string;
-  isArchived?: boolean;
+  includeArchived?: boolean;
 }
 
 interface IUpdateParams {
@@ -37,6 +37,7 @@ interface IUpdateParams {
   billable?: boolean;
   status?: ProjectStatus;
   archivedAt?: string | null;
+  archivedBy?: string | null;
 }
 
 type ISearchClientsParams = ISearchParams<IFindParams>;
@@ -58,6 +59,8 @@ interface IProjectsService {
   archive(clientId: string, user: IUserViewModel): Promise<IProjectViewModel>;
   count(params: IFindParams): Promise<number>;
 }
+
+const CatchDuplicatedProject = CatchDuplicatedRecord('Project with same name already exists.');
 
 @Injectable()
 export default class ProjectsService implements IProjectsService {
@@ -94,6 +97,7 @@ export default class ProjectsService implements IProjectsService {
     });
   }
 
+  @CatchDuplicatedProject
   public async create(createParams: ICreateProjectParams, user: IUserViewModel) {
     const projectsCount = await this.projectsRepository.count({
       slack_team_id: createParams.slackTeamId,
@@ -109,32 +113,23 @@ export default class ProjectsService implements IProjectsService {
 
     const createdAt = new Date().toISOString();
 
-    try {
-      return await this.projectsRepository.create({
-        name: createParams.name,
-        description: createParams.description || '',
-        billable: createParams.billable,
-        status: createParams.status,
-        slack_team_id: createParams.slackTeamId,
-        client_id: createParams.clientId || null,
-        created_at: createdAt,
-        updated_at: createdAt,
-        created_by: user.id,
-        updated_by: user.id,
-        archived_by: null,
-      });
-    } catch (error) {
-      if (error.message.includes('duplicate key value')) {
-        throw new DuplicateError(
-          `Project with name '${createParams.name}' already exists.`,
-        );
-      }
-
-      throw error;
-    }
+    return await this.projectsRepository.create({
+      name: createParams.name,
+      description: createParams.description || '',
+      billable: createParams.billable,
+      status: createParams.status,
+      slack_team_id: createParams.slackTeamId,
+      client_id: createParams.clientId || null,
+      created_at: createdAt,
+      updated_at: createdAt,
+      created_by: user.id,
+      updated_by: user.id,
+      archived_by: null,
+    });
   }
 
-  public update(
+  @CatchDuplicatedProject
+  public async update(
     findParams: IFindParams,
     updateParams: IUpdateParams,
     user: IUserViewModel,
@@ -147,11 +142,11 @@ export default class ProjectsService implements IProjectsService {
       ...(updateParams.clientId ? { clientId: updateParams.clientId } : {}),
       ...(updateParams.status ? { status: updateParams.status } : {}),
       ...(updateParams.billable !== undefined ? { billable: updateParams.billable } : {}),
-      ...(updateParams.archivedAt
+      ...(updateParams.archivedAt !== undefined
         ? { archived_at: updateParams.archivedAt }
         : {}),
-      ...(updateParams.archivedAt !== undefined
-        ? { archived_by: updateParams.archivedAt ? user.id : null }
+      ...(updateParams.archivedBy || updateParams.archivedAt !== undefined
+        ? { archived_by: updateParams.archivedBy || user.id }
         : {}),
       updated_at: new Date().toISOString(),
       updated_by: user.id,
@@ -187,12 +182,7 @@ export default class ProjectsService implements IProjectsService {
       ...(params.name ? { name: params.name } : {}),
       ...(params.slackTeamId ? { slack_team_id: params.slackTeamId } : {}),
       ...(params.clientId ? { client_id: params.clientId } : {}),
-      ...(params.isArchived !== undefined
-        ? { archived_at: params.isArchived ? {
-          operator: 'neq',
-          value: null,
-        } : null }
-        : {}),
+      archived_at: params.includeArchived ? undefined : { operator: 'is', value: null },
     };
   }
 }

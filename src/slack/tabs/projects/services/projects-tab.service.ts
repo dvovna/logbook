@@ -16,6 +16,8 @@ import { ProjectAssignmentsModalView } from '@modules/slack/tabs/projects/views/
 import TeamsService from '@modules/teams/services/teams.service';
 import { ProjectAssignmentsService } from 'src/projects/services/project-assignments.service';
 import { UsersService } from '@modules/users/services/users.service';
+import { ProjectStatus } from 'src/projects/enums/project-status.enum';
+import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 
 interface IProjectModalViewParams extends IOpenModalBaseParams<string> {
   projectId: string;
@@ -24,12 +26,19 @@ interface IProjectModalViewParams extends IOpenModalBaseParams<string> {
 export enum ProjectsTabModalName {
   CreateProject = 'CreateProject',
   UpdateProject = 'UpdateProject',
-  ArchiveProject = 'ArchiveProject',
+  ChangeProjectStatus = 'ChangeProjectStatus',
   ManageProjectAssignments = 'ManageProjectAssignments',
 }
 
 interface IGetProjectsTabViewParams extends IPublishBaseParams {
   metadata?: IProjectsTabMetaData;
+}
+
+export interface IProjectTabFilters {
+  project?: { value: string; name: string };
+  status?: ProjectStatus;
+  billable?: YesNoValue;
+  includeArchived?: [YesNoValue.Yes];
 }
 
 const PROJECTS_TAB_PAGE_SIZE = 5;
@@ -41,7 +50,7 @@ type ProjectsTabModalViewResolversMapType = {
   [ProjectsTabModalName.UpdateProject]: (
     params: IProjectModalViewParams,
   ) => Promise<View>;
-  [ProjectsTabModalName.ArchiveProject]: (
+  [ProjectsTabModalName.ChangeProjectStatus]: (
     params: IProjectModalViewParams,
   ) => Promise<View>;
   [ProjectsTabModalName.ManageProjectAssignments]: (
@@ -68,8 +77,8 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         this.getCreateProjectModalView(params),
       [ProjectsTabModalName.UpdateProject]: (params) =>
         this.getUpdateProjectModalView(params),
-      [ProjectsTabModalName.ArchiveProject]: (params) =>
-        this.getDeleteProjectModalView(params),
+      [ProjectsTabModalName.ChangeProjectStatus]: (params) =>
+        this.getChangeProjectStatusModalView(params),
       [ProjectsTabModalName.ManageProjectAssignments]: (params) =>
         this.getManageProjectAssignmentsModalView(params),
     });
@@ -78,9 +87,14 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
   public async getTabView({ user, metadata = {} }: IGetProjectsTabViewParams) {
     const projectsListData = await this.projectsListQuery.execute({
       slackTeamId: user.slack_team_id,
-      search: metadata.search,
       page: metadata.page,
       pageSize: PROJECTS_TAB_PAGE_SIZE,
+      status: metadata?.filters?.status,
+      billable: metadata?.filters?.billable !== undefined
+        ? metadata?.filters?.billable === YesNoValue.Yes
+        : undefined,
+      projectId: metadata?.filters?.project?.value,
+      includeArchived: metadata?.filters?.includeArchived?.includes(YesNoValue.Yes),
     });
 
     return await this.projectsTabView.getView(
@@ -119,6 +133,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
       this.projectsService.findOneWithValidation({
         id: projectId,
         slackTeamId: user.slack_team_id,
+        includeArchived: true,
       }),
       this.clientsService.findMany({
         slackTeamId: user.slack_team_id,
@@ -152,7 +167,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     );
   }
 
-  private async getDeleteProjectModalView({
+  private async getChangeProjectStatusModalView({
     projectId,
     user,
     errorMessage,
@@ -161,13 +176,14 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     const project = await this.projectsService.findOneWithValidation({
       id: projectId,
       slackTeamId: user.slack_team_id,
+      includeArchived: true,
     });
 
     return this.confirmationModalView.getView(
       {
         callbackId: ViewCallbackId.ArchiveProject,
-        title: 'Archive Project',
-        message: `The project *${project.name}* will be archived.`,
+        title: `${project.archived_at ? 'Restore' : 'Archive'} Project`,
+        message: `The project *${project.name}* will be ${project.archived_at ? 'restored' : 'archived'}.`,
         errorMessage,
       },
       {

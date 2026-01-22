@@ -104,9 +104,9 @@ export class ProjectModalView extends BaseModalView<
           initial_option: {
             text: {
               type: 'plain_text',
-              text: initialData?.billable ? 'Yes' : 'No',
+              text: !initialData || initialData.billable ? 'Yes' : 'No',
             },
-            value: initialData?.billable ? 'true' : 'false',
+            value: !initialData || initialData.billable ? 'true' : 'false',
           },
         },
       },

@@ -11,4 +11,5 @@ export interface IProjectListItem {
   description: string;
   updated_at: string;
   created_at: string;
+  archived_at?: string;
 }

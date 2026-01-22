@@ -2,7 +2,7 @@ import { OverflowAction, ButtonAction } from '@slack/bolt';
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
-import { StaticSelectAction } from '@slack/bolt/dist/types/actions/block-action';
+import { CheckboxesAction, StaticSelectAction } from '@slack/bolt/dist/types/actions/block-action';
 
 type HandlerFn<Metadata> = (
   metadata: Metadata,
@@ -59,6 +59,30 @@ export function withSelectFilter<Metadata = unknown>(
   };
 }
 
+export function withCheckboxFilter<Metadata = unknown>(
+  filterKey: string,
+  handler: HandlerFn<Metadata>,
+) {
+  return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
+    const selectedOptions = (payload.actions[0] as CheckboxesAction)
+      .selected_options;
+    const metadata = payload.view?.private_metadata
+      ? JSON.parse(payload.view.private_metadata)
+      : {};
+
+    const updatedMetadata: Metadata = {
+      ...metadata,
+      page: 1,
+      filters: {
+        ...metadata.filters,
+        [filterKey]: selectedOptions.map((option) => option.value),
+      },
+    };
+
+    await handler(updatedMetadata, user);
+  };
+}
+
 export function withAsyncSelectFilter<Metadata = unknown>(
   filterKey: string,
   handler: HandlerFn<Metadata>,
@@ -83,6 +107,24 @@ export function withAsyncSelectFilter<Metadata = unknown>(
             }
             : undefined,
       },
+    };
+
+    await handler(updatedMetadata, user);
+  };
+}
+
+export function withResetFilters<Metadata = unknown>(
+  handler: HandlerFn<Metadata>,
+) {
+  return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
+    const metadata = payload.view?.private_metadata
+      ? JSON.parse(payload.view.private_metadata)
+      : {};
+
+    const updatedMetadata: Metadata = {
+      ...metadata,
+      page: 1,
+      filters: {},
     };
 
     await handler(updatedMetadata, user);

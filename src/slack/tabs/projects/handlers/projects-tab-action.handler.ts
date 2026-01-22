@@ -6,7 +6,12 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
-import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
+import {
+  withAsyncSelectFilter, withCheckboxFilter,
+  withPagination,
+  withResetFilters,
+  withSelectFilter,
+} from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/projects/services/projects-tab.service';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
@@ -38,6 +43,23 @@ export default class ProjectsTabActionHandler extends BaseAdminTabActionHandler 
       >(this.handleManageProjectMenuAction, this.logger),
       [ProjectsTabViewActionId.PaginationPrev]: paginationHandler,
       [ProjectsTabViewActionId.PaginationNext]: paginationHandler,
+      [ProjectsTabViewActionId.FindProjectByName]: withAsyncSelectFilter(
+        'project',
+        this.updateTab,
+      ),
+      [ProjectsTabViewActionId.FilterByStatus]: withSelectFilter(
+        'status',
+        this.updateTab,
+      ),
+      [ProjectsTabViewActionId.FilterByBillable]: withSelectFilter(
+        'billable',
+        this.updateTab,
+      ),
+      [ProjectsTabViewActionId.IncludeArchivedProjects]: withCheckboxFilter(
+        'includeArchived',
+        this.updateTab,
+      ),
+      [ProjectsTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
     };
   }
 
@@ -81,7 +103,7 @@ export default class ProjectsTabActionHandler extends BaseAdminTabActionHandler 
       case ProjectsTabViewActionId.ArchiveProject: {
         await this.projectsTabService.openModal(
           payload.trigger_id || user.slack_id,
-          ProjectsTabModalName.ArchiveProject,
+          ProjectsTabModalName.ChangeProjectStatus,
           { user, projectId, pageMetadata: payload.view.private_metadata },
         );
 

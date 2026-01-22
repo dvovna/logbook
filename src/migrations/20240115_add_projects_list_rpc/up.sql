@@ -5,7 +5,8 @@ CREATE OR REPLACE FUNCTION get_projects_list(
     p_client_id uuid DEFAULT NULL,
     p_status text DEFAULT NULL,
     p_billable boolean DEFAULT NULL,
-    p_search text DEFAULT NULL
+    p_project_id uuid DEFAULT NULL,
+    p_include_archived boolean DEFAULT false
 )
 RETURNS TABLE (
     id uuid,
@@ -15,6 +16,7 @@ RETURNS TABLE (
     billable boolean,
     created_at timestamptz,
     updated_at timestamptz,
+    archived_at timestamptz,
     client_name text,
     users_count int,
     teams text[],
@@ -27,14 +29,14 @@ WITH filtered_projects AS (
     SELECT p.*
     FROM projects p
     WHERE p.slack_team_id = p_slack_team_id
-      AND p.archived_at IS NULL
+      AND (
+          p_include_archived = true
+          OR p.archived_at IS NULL
+      )
       AND (p_client_id IS NULL OR p.client_id = p_client_id)
       AND (p_status IS NULL OR p.status = p_status)
       AND (p_billable IS NULL OR p.billable = p_billable)
-      AND (
-        p_search IS NULL
-        OR p.name ILIKE '%' || p_search || '%'
-      )
+      AND (p_project_id IS NULL OR p.id = p_project_id)
 ),
 projects_with_meta AS (
     SELECT
@@ -45,6 +47,7 @@ projects_with_meta AS (
         fp.billable,
         fp.created_at,
         fp.updated_at,
+        fp.archived_at,
         c.name AS client_name,
         COUNT(DISTINCT up.user_id) AS users_count,
         ARRAY_AGG(DISTINCT t.name)
@@ -54,7 +57,16 @@ projects_with_meta AS (
         LEFT JOIN project_teams tp ON tp.project_id = fp.id
         LEFT JOIN teams t ON t.id = tp.team_id
         LEFT JOIN project_users up ON up.project_id = fp.id
-    GROUP BY fp.id, fp.name, fp.status, fp.billable, fp.created_at, fp.updated_at, c.name, fp.description
+    GROUP BY
+        fp.id,
+        fp.name,
+        fp.description,
+        fp.status,
+        fp.billable,
+        fp.created_at,
+        fp.updated_at,
+        fp.archived_at,
+        c.name
 ),
 paged_projects AS (
     SELECT *

@@ -8,8 +8,8 @@ import { ProjectsModule } from 'src/projects/projects.module';
 import { ProjectFormSubmitHandler } from '@modules/slack/tabs/projects/handlers/project-form-submit.handler';
 import ProjectModalViewValuesParser from '@modules/slack/tabs/projects/parsers/project-modal-view-values.parser';
 import {
-  DeleteProjectFormSubmitHandler,
-} from '@modules/slack/tabs/projects/handlers/delete-project-form-submit.handler';
+  ChangeProjectStatusFormSubmitHandler,
+} from '@modules/slack/tabs/projects/handlers/change-project-status-form-submit.handler';
 import { ClientsModule } from '@modules/clients/clients.module';
 import { TeamsModule } from '@modules/teams/teams.module';
 import { ProjectAssignmentsModalView } from '@modules/slack/tabs/projects/views/project-assignments-modal.view';
@@ -34,7 +34,7 @@ import {
     ProjectAssignmentsModalViewValuesParser,
     ProjectFormSubmitHandler,
     ProjectsTabActionHandler,
-    DeleteProjectFormSubmitHandler,
+    ChangeProjectStatusFormSubmitHandler,
     ProjectAssignmentsFormSubmitHandler,
     ProjectsTabService,
     ProjectsTabView,

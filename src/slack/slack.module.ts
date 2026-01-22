@@ -25,7 +25,6 @@ import { SlackHandlersRegistry } from '@modules/slack/slack-handlers.registry';
 import { DiscoveryModule } from '@nestjs/core';
 import { HolidaysModule } from '@modules/holidays/holidays.module';
 import { SlackOptionsController } from '@modules/slack/controllers/slack-options.controller';
-import { SlackUserOptionsService } from '@modules/slack/services/slack-user-options.service';
 import { VacationRequestsTabModule } from '@modules/slack/tabs/vacation-requests/vacation-requests-tab.module';
 import { HolidaysTabModule } from '@modules/slack/tabs/holidays/holidays-tab.module';
 import { VacationPoliciesTabModule } from '@modules/slack/tabs/vacation-policies/vacation-policies-tab.module';
@@ -38,6 +37,9 @@ import { PeopleTabModule } from '@modules/slack/tabs/people/people-tab.module';
 import { VacationsTabModule } from '@modules/slack/tabs/vacations/vacations-tab.module';
 import { TimeAndBillingTabModule } from '@modules/slack/tabs/time-and-billing/time-and-billing-tab.module';
 import { ProjectsTabModule } from '@modules/slack/tabs/projects/projects-tab.module';
+import { ProjectsModule } from 'src/projects/projects.module';
+import { ProjectOptionsService } from '@modules/slack/services/option-services/project-options.service';
+import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
 
 @Module({
   imports: [
@@ -52,6 +54,7 @@ import { ProjectsTabModule } from '@modules/slack/tabs/projects/projects-tab.mod
     SlackCommunicationModule,
     UserDataImportModule,
     HolidaysModule,
+    ProjectsModule,
     VacationRequestsTabModule,
     HolidaysTabModule,
     VacationPoliciesTabModule,
@@ -81,7 +84,8 @@ import { ProjectsTabModule } from '@modules/slack/tabs/projects/projects-tab.mod
     SlackEventsService,
     FileUploadService,
     SlackPayloadParsePipe,
-    SlackUserOptionsService,
+    UserOptionsService,
+    ProjectOptionsService,
     SlackHandlersRegistry,
   ],
   exports: [],

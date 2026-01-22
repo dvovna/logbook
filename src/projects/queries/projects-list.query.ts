@@ -19,7 +19,8 @@ export class ProjectsListQuery {
       clientId,
       status,
       billable,
-      search,
+      projectId,
+      includeArchived,
     } = params;
 
     const { data, error } = await this.supabase.getClient().rpc(
@@ -31,7 +32,8 @@ export class ProjectsListQuery {
         p_client_id: clientId,
         p_status: status,
         p_billable: billable,
-        p_search: search,
+        p_project_id: projectId,
+        p_include_archived: includeArchived,
       },
     );
 

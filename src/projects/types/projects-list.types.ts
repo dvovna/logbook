@@ -7,7 +7,8 @@ export interface IProjectsListQueryParams {
   clientId?: string;
   status?: string;
   billable?: boolean;
-  search?: string;
+  projectId?: string;
+  includeArchived?: boolean;
 }
 
 interface ITotalCount {

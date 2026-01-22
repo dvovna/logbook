@@ -16,7 +16,7 @@ interface ISearchUsersOptions {
 const DEFAULT_PAGE_SIZE = 30;
 
 @Injectable()
-export class SlackUserOptionsService {
+export class UserOptionsService {
   public constructor(private readonly usersService: UsersService) {}
 
   public async searchUsers(

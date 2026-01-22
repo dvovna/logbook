@@ -8,9 +8,9 @@ import {
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseFilter } from '@common/repositories/base.repository';
-import { DuplicateError } from '@common/errors/diplicate.error';
 import { ClientsRepository } from '@modules/clients/repositories/clients.repository';
 import IClientViewModel from '@modules/clients/types/client.interface';
+import CatchDuplicatedRecord from '@common/decorators/catch-duplicated-record';
 
 interface ICreateClientParams {
   name: string;
@@ -51,6 +51,8 @@ interface IClientsService {
   count(params: IFindParams): Promise<number>;
 }
 
+const CatchDuplicatedClient = CatchDuplicatedRecord('Client with same name already exists.');
+
 @Injectable()
 export default class ClientsService implements IClientsService {
   public constructor(
@@ -86,6 +88,7 @@ export default class ClientsService implements IClientsService {
     });
   }
 
+  @CatchDuplicatedClient
   public async create(createParams: ICreateClientParams, user: IUserViewModel) {
     const clientsCount = await this.clientsRepository.count({
       slack_team_id: createParams.slackTeamId,
@@ -101,25 +104,15 @@ export default class ClientsService implements IClientsService {
 
     const createdAt = new Date().toISOString();
 
-    try {
-      return await this.clientsRepository.create({
-        name: createParams.name,
-        description: createParams.description || '',
-        slack_team_id: createParams.slackTeamId,
-        created_at: createdAt,
-        updated_at: createdAt,
-        created_by: user.id,
-        updated_by: user.id,
-      });
-    } catch (error) {
-      if (error.message.includes('duplicate key value')) {
-        throw new DuplicateError(
-          `Client with name '${createParams.name}' already exists.`,
-        );
-      }
-
-      throw error;
-    }
+    return await this.clientsRepository.create({
+      name: createParams.name,
+      description: createParams.description || '',
+      slack_team_id: createParams.slackTeamId,
+      created_at: createdAt,
+      updated_at: createdAt,
+      created_by: user.id,
+      updated_by: user.id,
+    });
   }
 
   public update(

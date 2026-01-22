@@ -8,10 +8,7 @@ import ConfirmationModalView, {
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
-import {
-  TabId,
-  TabNavigationService,
-} from '@modules/slack/common/services/tab-navigation.service';
+import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import UserRole from '@common/enums/user-role.enum';
 import IProjectViewModel from 'src/projects/types/project.types';
 import ProjectsService from 'src/projects/services/projects.service';
@@ -21,9 +18,9 @@ import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/pr
 @SlackHandler({
   callbackId: ViewCallbackId.ArchiveProject,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
 })
-export class DeleteProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
+export class ChangeProjectStatusFormSubmitHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,
   never,
   IProjectViewModel
@@ -40,7 +37,9 @@ export class DeleteProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
   protected successResponse(project: IProjectViewModel): ViewResponseAction {
     return SlackViewResponseFactory.update(
       this.confirmationModalView.getSuccessView(
-        `✅ Project '${project.name}' has been successfully archived.`,
+        `✅ Project '${project.name}' has been successfully ${
+          project.archived_at ? 'archived' : 'restored'
+        }.`,
       ),
     );
   }
@@ -52,7 +51,7 @@ export class DeleteProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     return SlackViewResponseFactory.update(
-      await this.projectsTabService.getModalView(ProjectsTabModalName.ArchiveProject, {
+      await this.projectsTabService.getModalView(ProjectsTabModalName.ChangeProjectStatus, {
         projectId: meta.id,
         user,
         errorMessage,
@@ -66,7 +65,27 @@ export class DeleteProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
     meta: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ): Promise<IProjectViewModel> {
-    const project = await this.projectsService.archive(meta.id, user);
+    const projectToUpdate = await this.projectsService.findOneWithValidation({
+      id: meta.id,
+      slackTeamId: user.slack_team_id,
+      includeArchived: true,
+    });
+
+    const updateParams = projectToUpdate.archived_at
+      ? {
+        archivedAt: null,
+        archivedBy: null,
+      }
+      : {
+        archivedAt: new Date().toISOString(),
+        archivedBy: user.id,
+      };
+
+    const project = await this.projectsService.update({
+      id: projectToUpdate.id,
+      slackTeamId: user.slack_team_id,
+      includeArchived: true,
+    }, updateParams, user);
 
     this.tabNavigationService.navigate(TabId.Projects, { user });
 

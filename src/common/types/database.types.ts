@@ -1017,43 +1017,32 @@ export type Database = {
         }
         Returns: undefined
       }
-      get_projects_list:
-        | {
-            Args: never
-            Returns: {
-              billable: boolean
-              client_name: string
-              id: string
-              name: string
-              status: string
-              teams: string[]
-              users_count: number
-            }[]
-          }
-        | {
-            Args: {
-              p_billable?: boolean
-              p_client_id?: string
-              p_limit?: number
-              p_offset?: number
-              p_search?: string
-              p_slack_team_id: string
-              p_status?: string
-            }
-            Returns: {
-              billable: boolean
-              client_name: string
-              created_at: string
-              description: string
-              id: string
-              name: string
-              status: string
-              teams: string[]
-              total_count: number
-              updated_at: string
-              users_count: number
-            }[]
-          }
+      get_projects_list: {
+        Args: {
+          p_billable?: boolean
+          p_client_id?: string
+          p_include_archived?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_project_id?: string
+          p_slack_team_id: string
+          p_status?: string
+        }
+        Returns: {
+          archived_at: string
+          billable: boolean
+          client_name: string
+          created_at: string
+          description: string
+          id: string
+          name: string
+          status: string
+          teams: string[]
+          total_count: number
+          updated_at: string
+          users_count: number
+        }[]
+      }
     }
     Enums: {
       ProjectStatus: "active" | "completed" | "on-hold"

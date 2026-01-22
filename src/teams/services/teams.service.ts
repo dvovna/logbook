@@ -11,7 +11,7 @@ import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { SupabaseFilter } from '@common/repositories/base.repository';
-import { DuplicateError } from '@common/errors/diplicate.error';
+import { DuplicatedRecordError } from '@common/errors/duplicated-record.error';
 
 interface ICreateTeamParams {
   name: string;
@@ -142,7 +142,7 @@ export default class TeamsService implements ITeamsService {
       });
     } catch (error) {
       if (error.message.includes('duplicate key value')) {
-        throw new DuplicateError(
+        throw new DuplicatedRecordError(
           `Team with name '${createParams.name}' already exists.`,
         );
       }
