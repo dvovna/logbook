@@ -1,15 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
+import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { ISearchResult } from '@common/types/pagination.types';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import {
-  ALL_STATUSES_OPTION,
   STATUS_OPTIONS,
 } from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
-import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
 import capitalize from '@common/utils/capitalize';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
@@ -27,6 +25,8 @@ import {
   VacationRequestsTabViewActionId,
 } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
+import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
 export interface IVacationRequestsTabFilters {
   user?: {
@@ -50,21 +50,6 @@ interface IGetViewParams extends IBaseTabViewParams {
   teams: ITeamViewModel[];
   years: number[];
 }
-
-const ALL_TEAMS_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'All Teams' },
-  value: ALL_OPTION_VALUE,
-};
-
-const ALL_TYPES_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'All Types' },
-  value: ALL_OPTION_VALUE,
-};
-
-const ALL_YEARS_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'All Years' },
-  value: ALL_OPTION_VALUE,
-};
 
 @Injectable()
 export class VacationRequestsTabView extends BaseAdminTabView<
@@ -110,7 +95,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
     const blocks: AnyBlock[] = [];
     const filters = metadata?.filters;
 
-    blocks.push(this.getFiltersBlock(teams, years, filters));
+    blocks.push(...this.getFiltersBlocks(teams, years, filters));
 
     blocks.push(...this.getRequestsListBlocks(requests, userRole));
 
@@ -210,87 +195,80 @@ export class VacationRequestsTabView extends BaseAdminTabView<
     });
   }
 
-  private getFiltersBlock(
+  private getFiltersBlocks(
     teams: ITeamViewModel[],
     years: number[],
     filters?: IVacationRequestsTabFilters,
-  ): ActionsBlock {
-    const teamOptions = teams.map<PlainTextOption>((team) => ({
-      text: { type: 'plain_text', text: team.name },
-      value: team.id,
-    }));
+  ) {
+    const teamOptions: PlainTextOption[] = teams.map((team) =>
+      toPlainTextOption({
+        id: team.id,
+        name: team.name,
+      }),
+    );
 
-    const yearsOptions = years.map<PlainTextOption>((year) => ({
-      text: { type: 'plain_text', text: year.toString() },
-      value: year.toString(),
-    }));
+    const yearsOptions: PlainTextOption[] = years.map((year) =>
+      toPlainTextOption({
+        id: year.toString(),
+        name: year.toString(),
+      }),
+    );
 
-    return {
-      type: 'actions',
-      elements: [
-        {
-          type: 'external_select',
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByUser,
-          placeholder: {
-            type: 'plain_text',
-            text: 'All Users',
-          },
-          initial_option: filters?.user?.value
-            ? {
-              value: filters.user.value,
-              text: { type: 'plain_text', text: filters.user.name },
-            }
-            : undefined,
-          min_query_length: 2,
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Type' },
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByType,
-          initial_option:
-            VACATION_TYPE_OPTIONS.find(
-              (type) => type.value === filters?.type,
-            ) || ALL_TYPES_OPTION,
-          options: [ALL_TYPES_OPTION, ...VACATION_TYPE_OPTIONS],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Team' },
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByTeam,
-          initial_option: {
-            text: {
-              type: 'plain_text',
-              text:
-                teams.find((t) => t.id === filters?.teamId)?.name ||
-                'All Teams',
-            },
-            value: filters?.teamId || ALL_OPTION_VALUE,
-          },
-          options: [ALL_TEAMS_OPTION, ...teamOptions],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Year' },
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByYear,
-          initial_option: {
-            text: {
-              type: 'plain_text',
-              text: filters?.year || 'All Years',
-            },
-            value: filters?.year || ALL_OPTION_VALUE,
-          },
-          options: [ALL_YEARS_OPTION, ...yearsOptions],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Status' },
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByStatus,
-          initial_option:
-            STATUS_OPTIONS.find((s) => s.value === filters?.status) ||
-            ALL_STATUSES_OPTION,
-          options: [ALL_STATUSES_OPTION, ...STATUS_OPTIONS],
-        },
-      ],
-    };
+    const vacationRequestsFilters: IFiltersConfig[] = [
+      {
+        type: 'external_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByUser,
+        placeholder: 'Filter by User',
+        minQueryLength: 2,
+        initialOption: filters?.user
+          ? toPlainTextOption({
+            id: filters.user.value,
+            name: filters.user.name,
+          })
+          : undefined,
+      },
+      {
+        type: 'static_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByType,
+        placeholder: 'Filter by Type',
+        options: VACATION_TYPE_OPTIONS,
+        initialOption: VACATION_TYPE_OPTIONS.find(
+          (type) => type.value === filters?.type,
+        ),
+      },
+      {
+        type: 'static_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByTeam,
+        placeholder: 'Filter by Team',
+        options: teamOptions,
+        initialOption: teamOptions.find(
+          (team) => team.value === filters?.teamId,
+        ),
+      },
+      {
+        type: 'static_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByYear,
+        placeholder: 'Filter by Year',
+        options: yearsOptions,
+        initialOption: yearsOptions.find(
+          (year) => year.value === filters?.year,
+        ),
+      },
+      {
+        type: 'static_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByStatus,
+        placeholder: 'Filter by Status',
+        options: STATUS_OPTIONS,
+        initialOption: STATUS_OPTIONS.find(
+          (status) => status.value === filters?.status,
+        ),
+      },
+    ];
+
+    return FiltersBlockBuilder.build({
+      filtersConfigs: vacationRequestsFilters,
+      separator: false,
+      resetButtonActionId: VacationRequestsTabViewActionId.ResetFilters,
+    });
   }
 }

@@ -12,4 +12,5 @@ export enum VacationRequestsTabViewActionId {
   FilterRequestsByYear = 'filter_requests_by_year',
   FilterRequestsByType = 'filter_requests_by_type',
   FilterRequestsByStatus = 'filter_requests_by_status',
+  ResetFilters = 'reset_filters',
 }

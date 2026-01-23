@@ -14,7 +14,7 @@ import { ActionMapType } from '@modules/slack/common/handlers/base-action.handle
 import {
   withSelectFilter,
   withPagination,
-  withAsyncSelectFilter,
+  withAsyncSelectFilter, withResetFilters,
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
@@ -67,6 +67,9 @@ export default class VacationRequestsTabActionsHandler extends BaseAdminTabActio
       ),
       [VacationRequestsTabViewActionId.FilterRequestsByUser]:
         withAsyncSelectFilter('user', this.updateTab),
+      [VacationRequestsTabViewActionId.ResetFilters]: withResetFilters(
+        this.updateTab,
+      ),
     };
   }
 
