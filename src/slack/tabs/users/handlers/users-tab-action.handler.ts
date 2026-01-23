@@ -14,7 +14,8 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import {
   withAsyncSelectFilter,
-  withPagination, withResetFilters,
+  withPagination,
+  withResetFilters,
   withSelectFilter,
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';

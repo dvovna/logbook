@@ -11,6 +11,7 @@ import {
 } from '@modules/slack/common/handlers/base-action.handler';
 import {
   withPagination,
+  withResetFilters,
   withSelectFilter,
 } from '@modules/slack/common/utils/tab-list.utils';
 import {
@@ -21,10 +22,12 @@ import {
   HistoryTabModalName,
   VacationHistoryTabService,
 } from '@modules/slack/tabs/vacation-requests/services/vacation-history-tab.service';
-import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/views/vacation-history-tab.view';
 import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import {
+  VacationHistoryTabViewActionId,
+} from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
 
 @Injectable()
 @SlackHandler({
@@ -62,6 +65,7 @@ export default class VacationHistoryTabActionsHandler extends BaseActionHandler 
         'type',
         this.updateTab,
       ),
+      [VacationHistoryTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
     };
   }
 

@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
+import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ISearchResult } from '@common/types/pagination.types';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
-import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -14,6 +13,11 @@ import {
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
+import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
+import {
+  VacationHistoryTabViewActionId,
+} from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
 
 export interface IVacationHistoryTabFilters {
   year?: string;
@@ -29,25 +33,6 @@ interface IGetViewParams extends IBaseTabViewParams {
   requests: ISearchResult<IVacationRequestViewModel>;
   years: number[];
 }
-
-export enum VacationHistoryTabViewActionId {
-  ManageRequestMenu = 'manage_request_menu',
-  ViewDetails = 'vacation_view_details',
-  PaginationPrev = 'requests_pagination_prev',
-  PaginationNext = 'requests_pagination_next',
-  FilterRequestsByYear = 'filter_requests_by_year',
-  FilterRequestsByType = 'filter_requests_by_type',
-}
-
-const ALL_TYPES_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'All Types' },
-  value: ALL_OPTION_VALUE,
-};
-
-const ALL_YEARS_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'All Years' },
-  value: ALL_OPTION_VALUE,
-};
 
 @Injectable()
 export class VacationHistoryTabView extends BaseTabView<
@@ -68,7 +53,7 @@ export class VacationHistoryTabView extends BaseTabView<
     const filters = metadata?.filters;
 
     blocks.push(this.getBackButtonBlock());
-    blocks.push(this.getFiltersBlock(years, filters));
+    blocks.push(...this.getFilterBlocks(years, filters));
 
     blocks.push(...this.getRequestsListBlocks(requests));
 
@@ -136,42 +121,44 @@ export class VacationHistoryTabView extends BaseTabView<
     });
   }
 
-  private getFiltersBlock(
+  private getFilterBlocks(
     years: number[],
     filters?: IVacationHistoryTabFilters,
-  ): ActionsBlock {
-    const yearsOptions = years.map<PlainTextOption>((year) => ({
-      text: { type: 'plain_text', text: year.toString() },
-      value: year.toString(),
-    }));
+  ) {
+    const yearsOptions = years.map<PlainTextOption>(
+      (year) => toPlainTextOption({
+        name: year.toString(),
+        id: year.toString(),
+      }));
 
-    return {
-      type: 'actions',
-      elements: [
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Vacation Type' },
-          action_id: VacationHistoryTabViewActionId.FilterRequestsByType,
-          initial_option:
-            VACATION_TYPE_OPTIONS.find(
-              (type) => type.value === filters?.type,
-            ) || ALL_TYPES_OPTION,
-          options: [ALL_TYPES_OPTION, ...VACATION_TYPE_OPTIONS],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Year' },
-          action_id: VacationHistoryTabViewActionId.FilterRequestsByYear,
-          initial_option: {
-            text: {
-              type: 'plain_text',
-              text: filters?.year || 'All Years',
-            },
-            value: filters?.year || ALL_OPTION_VALUE,
-          },
-          options: [ALL_YEARS_OPTION, ...yearsOptions],
-        },
-      ],
-    };
+    const vacationHistoryFilters: IFiltersConfig[] = [
+      {
+        type: 'static_select',
+        actionId: VacationHistoryTabViewActionId.FilterRequestsByType,
+        placeholder: 'Vacation Type',
+        options: VACATION_TYPE_OPTIONS,
+        initialOption:
+          VACATION_TYPE_OPTIONS.find(
+            (type) => type.value === filters?.type,
+          ),
+      },
+      {
+        type: 'static_select',
+        actionId: VacationHistoryTabViewActionId.FilterRequestsByYear,
+        placeholder: 'Year',
+        options: yearsOptions,
+        initialOption: filters?.year
+          ? toPlainTextOption({
+            name: filters.year,
+            id: filters.year,
+          })
+          : undefined,
+      },
+    ];
+
+    return FiltersBlockBuilder.build({
+      filtersConfigs: vacationHistoryFilters,
+      resetButtonActionId: VacationHistoryTabViewActionId.ResetFilters,
+    });
   }
 }
