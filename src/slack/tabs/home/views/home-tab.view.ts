@@ -23,6 +23,8 @@ export enum HomeTabActionId {
   CancelRequest = 'cancel_vacation_request',
   ViewDetails = 'view_vacation_request_details',
   ManagePendingRequestMenu = 'manage_pending_request_menu',
+  LogTime = 'log_time',
+  EditEntries = 'edit_time',
 }
 
 @Injectable()

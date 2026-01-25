@@ -42,6 +42,8 @@ create table if not exists projects (
     name text not null,
     description text,
 
+    status text not null default 'draft' check (status in ('draft', 'submitted', 'approved', 'rejected', 'cancelled')),
+
     archived_at timestamptz NULL,
     archived_by uuid references users(id) on delete set null,
 
@@ -72,7 +74,7 @@ create table if not exists time_entries (
     team_id uuid not null references teams(id) on delete cascade,
     user_id uuid not null references users(id) on delete cascade,
 
-    client_id uuid not null references clients(id),
+    client_id uuid nullable references clients(id),
     project_id uuid not null references projects(id),
 
     work_date date not null,
@@ -85,6 +87,9 @@ create table if not exists time_entries (
 
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
+
+    created_by uuid references users (id) on delete set null,
+    updated_by uuid references users (id) on delete set null,
 
     constraint time_entries_user_day_project_uniq
     unique (user_id, work_date, project_id)

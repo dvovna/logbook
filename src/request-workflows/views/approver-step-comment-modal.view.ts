@@ -15,7 +15,7 @@ export class ApproverStepCommentModalView extends BaseModalView<
   IBaseModalViewParams,
   IApproverStepCommentModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.ApproverMessageCommentFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.ApproverMessageCommentFormSubmit;
 
   protected getTitleText() {
     return 'Add Comment';

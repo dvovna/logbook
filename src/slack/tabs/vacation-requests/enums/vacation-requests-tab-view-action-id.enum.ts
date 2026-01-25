@@ -13,4 +13,5 @@ export enum VacationRequestsTabViewActionId {
   FilterRequestsByType = 'filter_requests_by_type',
   FilterRequestsByStatus = 'filter_requests_by_status',
   ResetFilters = 'reset_filters',
+  SelectStatus = 'select_status',
 }

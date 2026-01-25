@@ -5,10 +5,12 @@ import {
 } from '@modules/vacation-requests/services/vacation-usage.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
-import { VacationRequestFormModalView } from '@modules/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { getVacationTypeIcon } from '@common/utils/get-vacation-type-icon';
 import VacationType from '@common/enums/vacation-type.enum';
+import {
+  VacationRequestModalService,
+} from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 
 export enum VacationCommand {
   Usage = 'usage',
@@ -21,7 +23,7 @@ export default class VacationCommandService {
   public constructor(
     private readonly userVacationUsageService: VacationsUsageService,
     private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly vacationRequestViewService: VacationRequestFormModalView,
+    private readonly vacationRequestModalService: VacationRequestModalService,
   ) {}
 
   public async handleCommand(
@@ -47,7 +49,8 @@ export default class VacationCommandService {
       case VacationCommand.Request: {
         await this.slackCommunicationService.openView(
           triggerId || user.slack_id,
-          this.vacationRequestViewService.getView({
+          await this.vacationRequestModalService.getModal({
+            user,
             callbackId: ViewCallbackId.UserVacationRequest,
           }),
           user.slack_team_id,

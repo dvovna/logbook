@@ -7,6 +7,7 @@ import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 import { VacationRequestsTabModule } from '@modules/slack/tabs/vacation-requests/vacation-requests-tab.module';
 import { CancelVacationRequestActionHandler } from '@modules/slack/tabs/home/handlers/cancel-vacation-request-action.handler';
+import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-tracking.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CancelVacationRequestActionHandler } from '@modules/slack/tabs/home/han
     SlackCommonModule,
     VacationRequestsModule,
     VacationRequestsTabModule,
+    TimeTrackingModule,
   ],
   providers: [
     HomeTabView,

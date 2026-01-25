@@ -36,6 +36,7 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
         this.handleMenuAction,
         this.logger,
       ),
+      [HomeTabActionId.LogTime]: this.handleLogTime,
     };
   }
 
@@ -46,6 +47,17 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
     await this.homeTabService.openModal(
       payload.trigger_id || user.slack_id,
       HomeTabModalName.CreateVacationRequest,
+      { user },
+    );
+  };
+
+  private handleLogTime = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    await this.homeTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      HomeTabModalName.CreateTimeEntry,
       { user },
     );
   };

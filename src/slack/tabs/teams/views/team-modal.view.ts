@@ -44,7 +44,7 @@ export class TeamModalView extends BaseModalView<
   IGetViewParams,
   ITeamModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.TeamFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.TeamFormSubmit;
 
   protected getTitleText(viewParams: IGetViewParams): string {
     return viewParams.initialData ? 'Edit Team' : 'Create Team';

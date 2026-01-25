@@ -5,7 +5,12 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ButtonAction } from '@slack/bolt';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
-export const toPlainTextOption = ({ id, name }: IOption): PlainTextOption => {
+export const toPlainTextOption = <
+  OptionType extends IOption = IOption
+>({
+    id,
+    name,
+  }: OptionType): PlainTextOption => {
   return {
     text: {
       type: 'plain_text',

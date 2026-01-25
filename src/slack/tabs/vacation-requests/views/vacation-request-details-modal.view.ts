@@ -19,7 +19,7 @@ interface IGetParams extends IBaseModalViewParams {
 
 @Injectable()
 export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
-  protected callbackId = ViewCallbackId.ViewVacationRequestDetails;
+  protected defaultCallbackId = ViewCallbackId.ViewVacationRequestDetails;
 
   protected getTitleText() {
     return 'Vacation Request Details';

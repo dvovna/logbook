@@ -28,12 +28,12 @@ export default abstract class BaseModalView<
   ViewParams extends IBaseModalViewParams,
   Metadata = Record<string, unknown>,
 > implements IBaseViewService<ViewParams, Metadata> {
-  protected callbackId?: ViewCallbackId;
+  protected defaultCallbackId?: ViewCallbackId;
 
   public getView(viewParams?: ViewParams, metadata?: Metadata): View {
     return {
       type: 'modal',
-      callback_id: viewParams?.callbackId || this.callbackId,
+      callback_id: viewParams?.callbackId || this.defaultCallbackId,
       private_metadata: JSON.stringify(metadata || {}),
       title: {
         type: 'plain_text',

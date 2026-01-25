@@ -1,13 +1,16 @@
-import { AnyBlock, PlainTextOption } from '@slack/web-api';
+import { AnyBlock } from '@slack/web-api';
 import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { IOption } from '@modules/slack/common/types/option.interface';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
-export type IFiltersConfig = {
+export type IFiltersConfig<OptionType extends IOption = IOption> = {
   type: 'static_select' | 'external_select' | 'checkboxes' | 'button';
   actionId: string;
   placeholder?: string;
-  options?: PlainTextOption[];
-  initialOption?: PlainTextOption;
-  initialOptions?: PlainTextOption[];
+  options?: OptionType[];
+  initialValue?: string;
+  initialValues?: string[];
+  initialOption?: OptionType;
   minQueryLength?: number;
   text?: string;
 };
@@ -41,14 +44,26 @@ export class FiltersBlockBuilder {
     }
 
     const elements = filtersConfigs.map((config) => {
+      const mappedOptions = config.options?.length
+        ? config.options.map(toPlainTextOption)
+        : [];
+
+      if (config.type === 'static_select' && !mappedOptions.length) {
+        return;
+      }
+
+      const initialMappedOption = config.initialValue
+        ? mappedOptions.find((option) => option.value === config.initialValue)
+        : undefined;
+
       switch (config.type) {
         case 'static_select':
           return {
             type: 'static_select',
             action_id: config.actionId,
             placeholder: { type: 'plain_text', text: config.placeholder },
-            options: config.options,
-            initial_option: config.initialOption,
+            options: mappedOptions,
+            initial_option: initialMappedOption,
           };
         case 'external_select':
           return {
@@ -56,14 +71,18 @@ export class FiltersBlockBuilder {
             action_id: config.actionId,
             placeholder: { type: 'plain_text', text: config.placeholder },
             min_query_length: config.minQueryLength,
-            initial_option: config.initialOption,
+            initial_option: config.initialOption
+              && toPlainTextOption(config.initialOption),
           };
         case 'checkboxes':
           return {
             type: 'checkboxes',
             action_id: config.actionId,
-            options: config.options,
-            initial_options: config.initialOptions,
+            options: mappedOptions,
+            initial_options: mappedOptions.filter(
+              (option) =>
+                config.initialValues?.includes(option.value!),
+            ),
           };
         case 'button':
           return {
@@ -72,7 +91,7 @@ export class FiltersBlockBuilder {
             text: { type: 'plain_text', text: config.text },
           };
       }
-    });
+    }).filter(Boolean);
 
     if (includeReset) {
       elements.push({

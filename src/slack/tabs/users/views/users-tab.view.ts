@@ -184,38 +184,27 @@ export class UsersTabView extends BaseAdminTabView<
     teams: ITeamViewModel[],
     filters?: IUsersTabViewFilters,
   ) {
-    const teamOptions = teams.map(toPlainTextOption);
-
     const userFilters: IFiltersConfig[] = [
       {
         type: 'external_select',
         actionId: UsersTabViewActionId.FilterUsersByUser,
         placeholder: 'Filter by User',
         minQueryLength: 2,
-        initialOption: filters?.user && toPlainTextOption({
-          name: filters.user.name,
-          id: filters.user.value,
-        }),
+        initialOption: filters?.user,
       },
       {
         type: 'static_select',
         actionId: UsersTabViewActionId.FilterUsersByRole,
         placeholder: 'Filter by Role',
         options: ROLE_OPTIONS,
-        initialOption: filters?.role ? toPlainTextOption({
-          name: capitalize(filters.role),
-          id: filters.role,
-        }) : undefined,
+        initialValue: filters?.role,
       },
       {
         type: 'static_select',
         actionId: UsersTabViewActionId.FilterUsersByTeam,
         placeholder: 'Filter by Team',
-        options: teamOptions,
-        initialOption: filters?.teamId ? toPlainTextOption({
-          name: teams.find((team) => team.id === filters.teamId)?.name || 'N/A',
-          id: filters.teamId,
-        }) : undefined,
+        options: teams,
+        initialValue: filters?.teamId,
       },
     ];
 

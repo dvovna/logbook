@@ -6,6 +6,7 @@ import { ProjectAssignmentsService } from 'src/projects/services/project-assignm
 import { ProjectTeamsRepository } from 'src/projects/repositories/project-teams.repository';
 import { ProjectUsersRepository } from 'src/projects/repositories/project-users.repository';
 import { AssignProjectAssignmentsQuery } from 'src/projects/queries/assign-project-assignments.query';
+import { GetUserProjectsQuery } from 'src/projects/queries/get-user-projects.query';
 
 @Module({
   providers: [
@@ -16,7 +17,13 @@ import { AssignProjectAssignmentsQuery } from 'src/projects/queries/assign-proje
     ProjectsListQuery,
     AssignProjectAssignmentsQuery,
     ProjectAssignmentsService,
+    GetUserProjectsQuery,
   ],
-  exports: [ProjectsService, ProjectsListQuery, ProjectAssignmentsService],
+  exports: [
+    ProjectsService,
+    ProjectsListQuery,
+    ProjectAssignmentsService,
+    GetUserProjectsQuery,
+  ],
 })
 export class ProjectsModule {}

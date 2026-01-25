@@ -20,6 +20,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RequestWorkflowsModule } from './request-workflows/request-workflows.module';
 import { LoggerModule } from 'nestjs-pino';
 import { ClientsModule } from '@modules/clients/clients.module';
+import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { ClientsModule } from '@modules/clients/clients.module';
     TeamsModule,
     ClientsModule,
     RequestWorkflowsModule,
+    TimeEntriesModule,
   ],
   controllers: [AppController],
 })

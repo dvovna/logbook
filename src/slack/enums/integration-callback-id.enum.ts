@@ -58,4 +58,8 @@ export enum ViewCallbackId {
   ArchiveProject = 'archive_project',
   ProjectFormSubmit = 'project_form_submit',
   ProjectAssignmentsFormSubmit = 'project_assignments_form_submit',
+
+  // time-entries
+  UserTimeEntry = 'user_time_entry',
+  AdminTimeEntry = 'admin_time_entry',
 }

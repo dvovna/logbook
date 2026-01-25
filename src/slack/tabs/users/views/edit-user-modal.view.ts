@@ -4,9 +4,11 @@ import BaseModalView, {
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { AnyBlock, PlainTextOption } from '@slack/web-api';
+import { AnyBlock } from '@slack/web-api';
 import { ROLE_OPTIONS } from '@modules/slack/tabs/users/views/options/use-role.options';
 import ITeamViewModel from '@modules/teams/types/team.interface';
+import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
+import { IOption } from '@modules/slack/common/types/option.interface';
 
 interface IGetViewParams extends IBaseModalViewParams {
   user: IUserViewModel;
@@ -20,9 +22,9 @@ export interface IEditUserModalViewMetadata {
 
 export const NO_TEAM_VALUE = 'NO_TEAM';
 
-const NO_TEAM_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'No Team' },
-  value: NO_TEAM_VALUE,
+const NO_TEAM_OPTION: IOption = {
+  name: 'No Team',
+  id: NO_TEAM_VALUE,
 };
 
 @Injectable()
@@ -30,7 +32,7 @@ export class EditUserModalView extends BaseModalView<
   IGetViewParams,
   IEditUserModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.UserFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.UserFormSubmit;
 
   protected getTitleText(): string {
     return 'Edit User';
@@ -41,21 +43,14 @@ export class EditUserModalView extends BaseModalView<
     teams,
     errorMessage,
   }: IGetViewParams): AnyBlock[] {
-    const userRole = ROLE_OPTIONS.find(({ value }) => user.role === value);
     const teamOptions = [
       NO_TEAM_OPTION,
-      ...teams.map<PlainTextOption>(({ id, name }) => ({
-        value: id,
-        text: {
-          type: 'plain_text',
-          text: name,
-        },
+      ...teams.map<IOption>(({ id, name }) => ({
+        id,
+        name,
       })),
     ];
     const selectedTeamId = user.team_id || NO_TEAM_VALUE;
-    const selectedTeam = teamOptions.find(
-      (team) => team.value === selectedTeamId,
-    );
 
     return [
       {
@@ -86,28 +81,22 @@ export class EditUserModalView extends BaseModalView<
           initial_date: user.contract_start_date || undefined,
         },
       },
-      {
-        type: 'input',
-        block_id: 'role_block',
-        label: { type: 'plain_text', text: 'Role' },
-        element: {
-          type: 'static_select',
-          action_id: 'role',
-          options: ROLE_OPTIONS,
-          initial_option: userRole,
-        },
-      },
-      {
-        type: 'input',
-        block_id: 'team_block',
-        label: { type: 'plain_text', text: 'Team' },
-        element: {
-          type: 'static_select',
-          action_id: 'team_id',
-          options: teamOptions,
-          ...(selectedTeam && { initial_option: selectedTeam }),
-        },
-      },
+      ...SlackStaticSelectView.getView({
+        blockId: 'role_block',
+        actionId: 'role',
+        label: 'Role',
+        placeholder: 'Select role',
+        options: ROLE_OPTIONS,
+        initialValue: user.role,
+      }),
+      ...SlackStaticSelectView.getView({
+        blockId: 'team_block',
+        actionId: 'team_id',
+        label: 'Team',
+        placeholder: 'Select team',
+        options: teamOptions,
+        initialValue: selectedTeamId,
+      }),
       this.addUnusedDaysBlock(user.carryover_days),
       ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
     ];

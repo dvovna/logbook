@@ -14,12 +14,12 @@ import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/proj
 import { IProjectsListData } from 'src/projects/types/projects-list.types';
 import { IProjectListItem } from 'src/projects/types/project-list-item.types';
 import capitalize from '@common/utils/capitalize';
-import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
-import { ProjectStatusDisplayNameMap } from 'src/projects/static/project-status-display-name.map';
 import { IProjectTabFilters, PROJECTS_TAB_PAGE_SIZE } from '@modules/slack/tabs/projects/services/projects-tab.service';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
+import { PROJECT_STATUS_OPTIONS } from '@modules/slack/tabs/projects/data/project-status-options';
+import { BILLABLE_PLAIN_TEXT_OPTIONS } from '@modules/slack/tabs/projects/data/billable-options';
 
 interface IGetProjectsViewParams extends IBaseTabViewParams {
   projectsListData: IProjectsListData;
@@ -31,28 +31,12 @@ export interface IProjectsTabMetaData {
   filters?: IProjectTabFilters;
 }
 
-const BILLABLE_PLAIN_TEXT_OPTIONS: PlainTextOption[] = [{
-  text: { type: 'plain_text', text: 'Yes' },
-  value: YesNoValue.Yes,
-}, {
-  text: { type: 'plain_text', text: 'No' },
-  value: YesNoValue.No,
-}];
-
 const ARCHIVED_PLAIN_TEXT_OPTIONS: PlainTextOption[] = [
   toPlainTextOption({
     name: 'Include archived projects',
     id: YesNoValue.Yes,
   }),
 ];
-
-const PROJECT_STATUS_PLAIN_TEXT_OPTIONS: PlainTextOption[] = Object.values(ProjectStatus)
-  .map((status) =>
-    toPlainTextOption({
-      id: status,
-      name: ProjectStatusDisplayNameMap[status],
-    }),
-  );
 
 @Injectable()
 export class ProjectsTabView extends BaseAdminTabView<
@@ -184,28 +168,21 @@ export class ProjectsTabView extends BaseAdminTabView<
         actionId: ProjectsTabViewActionId.FindProjectByName,
         placeholder: 'Find Project',
         minQueryLength: 2,
-        initialOption: filters?.project && toPlainTextOption({
-          id: filters.project.value,
-          name: filters.project.name,
-        }),
+        initialOption: filters?.project,
       },
       {
         type: 'static_select',
         actionId: ProjectsTabViewActionId.FilterByStatus,
         placeholder: 'Status',
-        options: PROJECT_STATUS_PLAIN_TEXT_OPTIONS,
-        initialOption: PROJECT_STATUS_PLAIN_TEXT_OPTIONS.find(
-          ({ value }) => value === filters?.status,
-        ),
+        options: PROJECT_STATUS_OPTIONS,
+        initialValue: filters?.status,
       },
       {
         type: 'static_select',
         actionId: ProjectsTabViewActionId.FilterByBillable,
         placeholder: 'Billable',
         options: BILLABLE_PLAIN_TEXT_OPTIONS,
-        initialOption: BILLABLE_PLAIN_TEXT_OPTIONS.find(
-          ({ value }) => value === filters?.billable,
-        ),
+        initialValue: filters?.billable,
       },
     ];
 

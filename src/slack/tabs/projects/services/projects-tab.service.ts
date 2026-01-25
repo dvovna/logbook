@@ -18,6 +18,7 @@ import { ProjectAssignmentsService } from 'src/projects/services/project-assignm
 import { UsersService } from '@modules/users/services/users.service';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
+import { IOption } from '@modules/slack/common/types/option.interface';
 
 interface IProjectModalViewParams extends IOpenModalBaseParams<string> {
   projectId: string;
@@ -35,7 +36,7 @@ interface IGetProjectsTabViewParams extends IPublishBaseParams {
 }
 
 export interface IProjectTabFilters {
-  project?: { value: string; name: string };
+  project?: IOption;
   status?: ProjectStatus;
   billable?: YesNoValue;
 }
@@ -92,7 +93,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
       billable: metadata?.filters?.billable !== undefined
         ? metadata?.filters?.billable === YesNoValue.Yes
         : undefined,
-      projectId: metadata?.filters?.project?.value,
+      projectId: metadata?.filters?.project?.id,
       includeArchived: metadata?.includeArchived,
     });
 

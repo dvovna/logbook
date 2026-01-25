@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AnyBlock, PlainTextOption } from '@slack/web-api';
+import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ISearchResult } from '@common/types/pagination.types';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
@@ -13,7 +13,6 @@ import {
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
-import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
 import {
   VacationHistoryTabViewActionId,
@@ -125,8 +124,8 @@ export class VacationHistoryTabView extends BaseTabView<
     years: number[],
     filters?: IVacationHistoryTabFilters,
   ) {
-    const yearsOptions = years.map<PlainTextOption>(
-      (year) => toPlainTextOption({
+    const yearsOptions = years.map(
+      (year) => ({
         name: year.toString(),
         id: year.toString(),
       }));
@@ -137,22 +136,14 @@ export class VacationHistoryTabView extends BaseTabView<
         actionId: VacationHistoryTabViewActionId.FilterRequestsByType,
         placeholder: 'Vacation Type',
         options: VACATION_TYPE_OPTIONS,
-        initialOption:
-          VACATION_TYPE_OPTIONS.find(
-            (type) => type.value === filters?.type,
-          ),
+        initialValue: filters?.type,
       },
       {
         type: 'static_select',
         actionId: VacationHistoryTabViewActionId.FilterRequestsByYear,
         placeholder: 'Year',
         options: yearsOptions,
-        initialOption: filters?.year
-          ? toPlainTextOption({
-            name: filters.year,
-            id: filters.year,
-          })
-          : undefined,
+        initialValue: filters?.year,
       },
     ];
 

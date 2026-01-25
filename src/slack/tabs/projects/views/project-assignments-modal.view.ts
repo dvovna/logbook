@@ -38,7 +38,7 @@ export class ProjectAssignmentsModalView extends BaseModalView<
   IGetViewParams,
   IProjectAssignmentsModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.ProjectAssignmentsFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.ProjectAssignmentsFormSubmit;
 
   protected getTitleText(): string {
     return 'Manage Assignments';

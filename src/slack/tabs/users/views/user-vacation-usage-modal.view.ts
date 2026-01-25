@@ -18,7 +18,7 @@ interface IGetParams extends IBaseModalViewParams {
 
 @Injectable()
 export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
-  protected callbackId = ViewCallbackId.ViewUserVacationUsage;
+  protected defaultCallbackId = ViewCallbackId.ViewUserVacationUsage;
 
   protected getTitleText() {
     return `Vacation Period Usage`;

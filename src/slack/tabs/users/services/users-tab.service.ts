@@ -19,6 +19,7 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
 import { UserVacationUsageModalView } from '@modules/slack/tabs/users/views/user-vacation-usage-modal.view';
+import { IOption } from '@modules/slack/common/types/option.interface';
 
 export interface IGetUsersTabViewParams extends IPublishBaseParams {
   metadata?: IUsersTabMetaData;
@@ -27,7 +28,7 @@ export interface IGetUsersTabViewParams extends IPublishBaseParams {
 export interface IUsersTabViewFilters {
   teamId?: string;
   role?: UserRole;
-  user?: { value: string; name: string };
+  user?: IOption;
 }
 
 interface IUserModalViewParams extends IOpenModalBaseParams<string> {
@@ -190,7 +191,7 @@ export class UsersTabService extends BaseTabService<
           : {}),
         ...(metadata?.filters?.role ? { role: metadata?.filters.role } : {}),
         ...(metadata?.filters?.user
-          ? { id: metadata?.filters.user.value }
+          ? { id: metadata?.filters.user.id }
           : {}),
         ...(metadata?.includeInactive
           ? { includeInactive: metadata?.includeInactive }

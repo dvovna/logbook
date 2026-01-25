@@ -668,8 +668,9 @@ export type Database = {
       }
       time_entries: {
         Row: {
-          client_id: string
+          client_id: string | null
           created_at: string
+          created_by: string
           deleted_at: string | null
           deleted_by: string | null
           description: string | null
@@ -677,14 +678,17 @@ export type Database = {
           minutes: number
           project_id: string
           slack_team_id: string
-          team_id: string
+          status: string
+          team_id: string | null
           updated_at: string
+          updated_by: string
           user_id: string
           work_date: string
         }
         Insert: {
-          client_id: string
+          client_id?: string | null
           created_at?: string
+          created_by: string
           deleted_at?: string | null
           deleted_by?: string | null
           description?: string | null
@@ -692,14 +696,17 @@ export type Database = {
           minutes: number
           project_id: string
           slack_team_id: string
-          team_id: string
+          status?: string
+          team_id?: string | null
           updated_at?: string
+          updated_by: string
           user_id: string
           work_date: string
         }
         Update: {
-          client_id?: string
+          client_id?: string | null
           created_at?: string
+          created_by?: string
           deleted_at?: string | null
           deleted_by?: string | null
           description?: string | null
@@ -707,8 +714,10 @@ export type Database = {
           minutes?: number
           project_id?: string
           slack_team_id?: string
-          team_id?: string
+          status?: string
+          team_id?: string | null
           updated_at?: string
+          updated_by?: string
           user_id?: string
           work_date?: string
         }
@@ -718,6 +727,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -746,6 +762,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -1041,6 +1064,17 @@ export type Database = {
           total_count: number
           updated_at: string
           users_count: number
+        }[]
+      }
+      get_user_projects: {
+        Args: {
+          p_include_archived?: boolean
+          p_slack_team_id: string
+          p_user_id: string
+        }
+        Returns: {
+          project_id: string
+          project_name: string
         }[]
       }
     }

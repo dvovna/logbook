@@ -21,7 +21,7 @@ export class HolidayModalView extends BaseModalView<
   IGetViewParams,
   IHolidayModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.HolidayFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.HolidayFormSubmit;
 
   protected getTitleText({ holiday }: IGetViewParams): string {
     return holiday ? 'Edit Holiday' : 'Create Holiday';

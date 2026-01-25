@@ -33,7 +33,7 @@ export class ProjectModalView extends BaseModalView<
   IGetViewParams,
   IProjectModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.ProjectFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.ProjectFormSubmit;
 
   protected getTitleText(viewParams: IGetViewParams): string {
     return viewParams.initialData ? 'Edit Project' : 'Create Project';

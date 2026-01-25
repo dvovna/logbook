@@ -26,7 +26,7 @@ export class VacationPolicyModalView extends BaseModalView<
   IGetViewParams,
   IVacationPolicyModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.VacationPolicyFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.VacationPolicyFormSubmit;
 
   protected getTitleText({ initialData }: IGetViewParams): string {
     return initialData ? 'Edit Policy' : 'Create Policy';

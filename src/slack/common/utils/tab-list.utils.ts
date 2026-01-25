@@ -96,7 +96,7 @@ export function withAsyncSelectFilter<Metadata extends IMetadataWithFilters>(
         [filterKey]:
           selectedOption && selectedOption.id !== ALL_OPTION_VALUE
             ? {
-              value: selectedOption.id,
+              id: selectedOption.id,
               name: selectedOption.name,
             }
             : undefined,

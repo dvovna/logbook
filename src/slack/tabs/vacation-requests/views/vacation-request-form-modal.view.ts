@@ -13,6 +13,8 @@ import { AnyBlock } from '@slack/web-api';
 import {
   VacationRequestsTabViewActionId,
 } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
 interface IGetViewParams
   extends IBaseModalViewParams<
@@ -45,7 +47,7 @@ export class VacationRequestFormModalView extends BaseModalView<
   IGetViewParams,
   IVacationRequestModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.UserVacationRequest;
+  protected defaultCallbackId = ViewCallbackId.UserVacationRequest;
 
   protected getTitleText({ initialData }: IGetViewParams): string {
     return initialData ? 'Edit Vacation Request' : 'New Vacation Request';
@@ -56,9 +58,6 @@ export class VacationRequestFormModalView extends BaseModalView<
     initialData,
     userRole,
   }: IGetViewParams): AnyBlock[] {
-    const selectedVacationTypeOption = VACATION_TYPE_OPTIONS.find(
-      ({ value }) => value === initialData?.type,
-    );
     const isAdminView = userRole && ADMIN_VIEW_USER_ROLES.includes(userRole);
 
     return [
@@ -85,17 +84,14 @@ export class VacationRequestFormModalView extends BaseModalView<
           initial_date: initialData?.end_date,
         },
       },
-      {
-        type: 'input',
-        block_id: 'type_block',
-        label: { type: 'plain_text', text: 'Vacation Type' },
-        element: {
-          type: 'static_select',
-          action_id: 'type_option',
-          options: VACATION_TYPE_OPTIONS,
-          initial_option: selectedVacationTypeOption,
-        },
-      },
+      ...SlackStaticSelectView.getView({
+        blockId: 'type_block',
+        actionId: 'type_option',
+        label: 'Vacation Type',
+        placeholder: 'Select vacation type',
+        options: VACATION_TYPE_OPTIONS,
+        initialValue: initialData?.type,
+      }),
       {
         type: 'input',
         optional: true,
@@ -118,10 +114,6 @@ export class VacationRequestFormModalView extends BaseModalView<
   }
 
   private getAdminViewBlocks(data?: IGetViewParams['initialData']) {
-    const selectedStatusOption = STATUS_OPTIONS.find(
-      ({ value }) => value === data?.status,
-    );
-
     return [
       {
         type: 'input',
@@ -135,25 +127,19 @@ export class VacationRequestFormModalView extends BaseModalView<
             type: 'plain_text',
             text: 'All Users',
           },
-          initial_option: data?.user?.id
-            ? {
-              value: data?.user?.id,
-              text: { type: 'plain_text', text: data?.user?.name },
-            }
+          initial_option: data?.user
+            ? toPlainTextOption(data?.user)
             : undefined,
         },
       },
-      {
-        type: 'input',
-        block_id: 'status_block',
-        label: { type: 'plain_text', text: 'Vacation Status' },
-        element: {
-          type: 'static_select',
-          action_id: 'status',
-          options: STATUS_OPTIONS,
-          initial_option: selectedStatusOption,
-        },
-      },
+      ...SlackStaticSelectView.getView({
+        blockId: 'status_block',
+        actionId: VacationRequestsTabViewActionId.SelectStatus,
+        label: 'Vacation Status',
+        placeholder: 'Select vacation status',
+        options: STATUS_OPTIONS,
+        initialValue: data?.status,
+      }),
     ];
   }
 }

@@ -17,7 +17,7 @@ export class ImportHolidaysModalView extends BaseModalView<
   IGetViewParams,
   IUploadCountryHolidaysModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.ImportHolidays;
+  protected defaultCallbackId = ViewCallbackId.ImportHolidays;
 
   protected getTitleText(): string {
     return 'Upload Country Holidays';
