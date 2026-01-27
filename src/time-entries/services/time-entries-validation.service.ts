@@ -8,6 +8,7 @@ import UserRole from '@common/enums/user-role.enum';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { ValidationError } from '@common/errors/validation.error';
 
 const MAX_MINUTES_PER_DAY = 24 * 60; // 1440
 
@@ -28,15 +29,15 @@ export class TimeEntriesValidationService {
     actor: IUserViewModel,
   ) {
     this.validateMinutes(params.minutes);
-    this.validateWorkDate(params.workDate, actor);
     this.validateCreatePermissions(params.userId, actor);
     this.validateStatusOnCreate(params.status, actor);
 
-    await this.validateDuplicate(
+    await this.validateTotalDailyTime(
       params.userId,
       params.projectId,
       params.workDate,
       actor.slack_team_id,
+      params.minutes,
     );
   }
 
@@ -55,10 +56,6 @@ export class TimeEntriesValidationService {
 
     if (update.minutes !== undefined) {
       this.validateMinutes(update.minutes);
-    }
-
-    if (update.workDate !== undefined) {
-      this.validateWorkDate(update.workDate, actor);
     }
 
     if (update.status !== undefined) {
@@ -82,11 +79,12 @@ export class TimeEntriesValidationService {
       update.projectId ||
       update.workDate
     ) {
-      await this.validateDuplicate(
+      await this.validateTotalDailyTime(
         targetUserId,
         targetProjectId,
         targetWorkDate,
         actor.slack_team_id,
+        existing.minutes,
         existing.id,
       );
     }
@@ -102,23 +100,6 @@ export class TimeEntriesValidationService {
     if (minutes > MAX_MINUTES_PER_DAY) {
       throw new BadRequestException(
         `Logged minutes cannot exceed ${MAX_MINUTES_PER_DAY}`,
-      );
-    }
-  }
-
-  private validateWorkDate(
-    date: Date,
-    actor: IUserViewModel,
-  ) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const target = new Date(date);
-    target.setHours(0, 0, 0, 0);
-
-    if (target > today && !this.isAdmin(actor)) {
-      throw new BadRequestException(
-        'You cannot log time for future dates',
       );
     }
   }
@@ -165,8 +146,8 @@ export class TimeEntriesValidationService {
     actor: IUserViewModel,
   ) {
     if (
-      status === TimeEntryStatus.Approved &&
-      !this.isAdmin(actor)
+      status === TimeEntryStatus.Approved
+      && !this.isAdmin(actor)
     ) {
       throw new ForbiddenException(
         'Only admins can create approved entries',
@@ -184,8 +165,8 @@ export class TimeEntriesValidationService {
     }
 
     if (
-      to === TimeEntryStatus.Approved &&
-      !this.isAdmin(actor)
+      to === TimeEntryStatus.Approved
+      && !this.isAdmin(actor)
     ) {
       throw new ForbiddenException(
         'Only admins can approve entries',
@@ -193,8 +174,8 @@ export class TimeEntriesValidationService {
     }
 
     if (
-      from === TimeEntryStatus.Approved &&
-      !this.isAdmin(actor)
+      from === TimeEntryStatus.Approved
+      && !this.isAdmin(actor)
     ) {
       throw new ForbiddenException(
         'Approved entries cannot be modified',
@@ -202,25 +183,29 @@ export class TimeEntriesValidationService {
     }
   }
 
-  private async validateDuplicate(
+  private async validateTotalDailyTime(
     userId: string,
     projectId: string,
     workDate: Date,
     slackTeamId: string,
+    newLogDurationMinutes: number,
     excludeId?: string,
   ) {
-    const existing =
-      await this.timeEntriesRepository.findOne({
-        user_id: userId,
-        project_id: projectId,
-        work_date: workDate.toISOString(),
-        slack_team_id: slackTeamId,
-        deleted_at: null,
-      });
+    const existingLogs = await this.timeEntriesRepository.findMany({
+      user_id: userId,
+      project_id: projectId,
+      work_date: workDate.toISOString(),
+      slack_team_id: slackTeamId,
+      deleted_at: { operator: 'is', value: null },
+    });
 
-    if (existing && existing.id !== excludeId) {
-      throw new BadRequestException(
-        'Time entry for this project and date already exists',
+    const totalMinutes = existingLogs
+      .filter(log => log.id !== excludeId)
+      .reduce((sum, log) => sum + (log.minutes || 0), 0);
+
+    if (totalMinutes + newLogDurationMinutes > MAX_MINUTES_PER_DAY) {
+      throw new ValidationError(
+        'Total logged time for this project and date cannot exceed 24 hours',
       );
     }
   }

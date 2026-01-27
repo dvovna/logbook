@@ -90,9 +90,6 @@ create table if not exists time_entries (
 
     created_by uuid references users (id) on delete set null,
     updated_by uuid references users (id) on delete set null,
-
-    constraint time_entries_user_day_project_uniq
-    unique (user_id, work_date, project_id)
 );
 
 comment on table time_entries is 'Daily time tracking entries';

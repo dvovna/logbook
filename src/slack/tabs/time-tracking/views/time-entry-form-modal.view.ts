@@ -39,7 +39,7 @@ interface IGetViewParams
   userRole?: UserRole;
 }
 
-export interface ITimeEntryModalMetadata {
+export interface ITimeEntryModalViewMetadata {
   id?: string | null;
   pageMetadata: string;
 }
@@ -47,7 +47,7 @@ export interface ITimeEntryModalMetadata {
 @Injectable()
 export class TimeEntryFormModalView extends BaseModalView<
   IGetViewParams,
-  ITimeEntryModalMetadata
+  ITimeEntryModalViewMetadata
 > {
   protected defaultCallbackId = ViewCallbackId.UserTimeEntry;
 
@@ -62,7 +62,7 @@ export class TimeEntryFormModalView extends BaseModalView<
     userRole,
   }: IGetViewParams): AnyBlock[] {
     const isAdminView =
-      userRole && !ADMIN_VIEW_USER_ROLES.includes(userRole);
+      userRole && ADMIN_VIEW_USER_ROLES.includes(userRole);
     const defaultProjectOption = userProjects.length === 1 ? userProjects[0] : undefined;
     const selectedProjectId = initialData?.project?.id
       || defaultProjectOption?.id;
@@ -71,7 +71,7 @@ export class TimeEntryFormModalView extends BaseModalView<
       ...(isAdminView ? this.getAdminBlocks(initialData) : []),
       ...SlackStaticSelectView.getView({
         blockId: 'project_block',
-        actionId: TimeTrackingTabViewActionId.SelectProject,
+        actionId: 'projectId',
         label: 'Project',
         placeholder: 'Select project',
         emptyText: 'No projects available',
@@ -84,7 +84,7 @@ export class TimeEntryFormModalView extends BaseModalView<
         label: { type: 'plain_text', text: 'Date' },
         element: {
           type: 'datepicker',
-          action_id: 'date',
+          action_id: 'workDate',
           initial_date: initialData?.workDate || getDateOnly(new Date()),
         },
       },
@@ -108,22 +108,11 @@ export class TimeEntryFormModalView extends BaseModalView<
         label: { type: 'plain_text', text: 'Comment' },
         element: {
           type: 'plain_text_input',
-          action_id: 'comment',
+          action_id: 'description',
           multiline: true,
           initial_value: initialData?.comment,
         },
       },
-      ...(isAdminView
-        ? SlackStaticSelectView.getView({
-          blockId: 'status_block',
-          actionId: TimeTrackingTabViewActionId.SelectStatus,
-          label: 'Status',
-          placeholder: 'Select status',
-          options: TIME_LOG_STATUS_OPTIONS,
-          initialValue: initialData?.status,
-        })
-        : []),
-
       ...(errorMessage
         ? [this.getGeneralErrorBlock(errorMessage)]
         : []),
@@ -155,6 +144,14 @@ export class TimeEntryFormModalView extends BaseModalView<
             : undefined,
         },
       },
+      ...SlackStaticSelectView.getView({
+        blockId: 'status_block',
+        actionId: 'status',
+        label: 'Status',
+        placeholder: 'Select status',
+        options: TIME_LOG_STATUS_OPTIONS,
+        initialValue: data?.status,
+      }),
     ];
   }
 }

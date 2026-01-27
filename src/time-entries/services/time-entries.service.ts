@@ -9,6 +9,7 @@ import { SupabaseFilter } from '@common/repositories/base.repository';
 
 interface ICreateParams {
   userId: string;
+  clientId?: string;
   projectId: string;
   workDate: Date;
   minutes: number;
@@ -59,6 +60,7 @@ export class TimeEntriesService {
     const record = {
       user_id: createParams.userId,
       project_id: createParams.projectId,
+      client_id: createParams.clientId,
       work_date: createParams.workDate.toISOString(),
       minutes: createParams.minutes,
       description: createParams.description || null,
@@ -190,10 +192,10 @@ export class TimeEntriesService {
         ? { status: { operator: 'in', value: params.statuses } }
         : {}),
       ...(params.dateFrom
-        ? { date: { operator: 'gte', value: params.dateFrom } }
+        ? { work_date: { operator: 'gte', value: params.dateFrom } }
         : {}),
       ...(params.dateTo
-        ? { date: { operator: 'lte', value: params.dateTo } }
+        ? { work_date: { operator: 'lte', value: params.dateTo } }
         : {}),
       ...(params.slackTeamId
         ? { slack_team_id: params.slackTeamId }
