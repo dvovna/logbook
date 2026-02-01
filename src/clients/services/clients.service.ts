@@ -29,6 +29,7 @@ interface IUpdateParams {
   name?: string;
   description?: string;
   archivedAt?: string | null;
+  archivedBy?: string | null;
 }
 
 type ISearchClientsParams = ISearchParams<IFindParams>;
@@ -112,9 +113,11 @@ export default class ClientsService implements IClientsService {
       updated_at: createdAt,
       created_by: user.id,
       updated_by: user.id,
+      archived_by: null,
     });
   }
 
+  @CatchDuplicatedClient
   public update(
     findParams: IFindParams,
     updateParams: IUpdateParams,
@@ -125,11 +128,11 @@ export default class ClientsService implements IClientsService {
       ...(updateParams.description
         ? { description: updateParams.description }
         : {}),
-      ...(updateParams.archivedAt
+      ...(updateParams.archivedAt !== undefined
         ? { archived_at: updateParams.archivedAt }
         : {}),
-      ...(updateParams.archivedAt !== undefined
-        ? { archived_by: updateParams.archivedAt ? user.id : null }
+      ...(updateParams.archivedBy !== undefined
+        ? { archived_by: updateParams.archivedBy }
         : {}),
       updated_at: new Date().toISOString(),
       updated_by: user.id,

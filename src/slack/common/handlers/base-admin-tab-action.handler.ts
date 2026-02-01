@@ -53,5 +53,8 @@ export abstract class BaseAdminTabActionHandler extends BaseActionHandler {
     [AdminNavigationActionId.ManageProjects]: this.createOpenTabHandler(
       TabId.Projects,
     ),
+    [AdminNavigationActionId.ManageClients]: this.createOpenTabHandler(
+      TabId.Clients,
+    ),
   };
 }

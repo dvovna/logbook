@@ -12,6 +12,7 @@ export enum TabId {
   Users = 'users_tab',
   VacationPolicies = 'vacation_policies_tab',
   Teams = 'teams_tab',
+  Clients = 'clients_tab',
   VacationRequests = 'vacation_requests_tab',
   VacationsHistory = 'vacations_history_tab',
 }

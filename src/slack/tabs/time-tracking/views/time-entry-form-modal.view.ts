@@ -13,6 +13,8 @@ import { TIME_LOG_STATUS_OPTIONS } from '@modules/slack/tabs/time-tracking/data/
 import { IOption } from '@modules/slack/common/types/option.interface';
 import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
 import { getDateOnly } from '@common/utils/date.utils';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
 const ADMIN_VIEW_USER_ROLES = [UserRole.Admin, UserRole.HR];
 
@@ -29,14 +31,14 @@ interface IGetViewParams
       name: string;
     };
     hours: number;
-    comment?: string;
-    status?: TimeEntryStatus;
-    user?: {
+    comment: string;
+    status: TimeEntryStatus;
+    user: {
       id: string;
       name: string;
     };
   };
-  userRole?: UserRole;
+  user: IUserViewModel;
 }
 
 export interface ITimeEntryModalViewMetadata {
@@ -59,16 +61,16 @@ export class TimeEntryFormModalView extends BaseModalView<
     initialData,
     userProjects,
     errorMessage,
-    userRole,
+    user,
   }: IGetViewParams): AnyBlock[] {
     const isAdminView =
-      userRole && ADMIN_VIEW_USER_ROLES.includes(userRole);
+      user.role && ADMIN_VIEW_USER_ROLES.includes(user.role);
     const defaultProjectOption = userProjects.length === 1 ? userProjects[0] : undefined;
     const selectedProjectId = initialData?.project?.id
       || defaultProjectOption?.id;
 
     return [
-      ...(isAdminView ? this.getAdminBlocks(initialData) : []),
+      ...(isAdminView ? this.getAdminBlocks(initialData, user) : []),
       ...SlackStaticSelectView.getView({
         blockId: 'project_block',
         actionId: 'projectId',
@@ -119,7 +121,9 @@ export class TimeEntryFormModalView extends BaseModalView<
     ];
   }
 
-  private getAdminBlocks(data?: IGetViewParams['initialData']): AnyBlock[] {
+  private getAdminBlocks(data: IGetViewParams['initialData'] | undefined, user: IUserViewModel): AnyBlock[] {
+    const preselectedUser = data ? data.user : user;
+
     return [
       {
         type: 'input',
@@ -133,15 +137,7 @@ export class TimeEntryFormModalView extends BaseModalView<
             type: 'plain_text',
             text: 'Select user',
           },
-          initial_option: data?.user
-            ? {
-              value: data.user.id,
-              text: {
-                type: 'plain_text',
-                text: data.user.name,
-              },
-            }
-            : undefined,
+          initial_option: toPlainTextOption(preselectedUser),
         },
       },
       ...SlackStaticSelectView.getView({
@@ -150,7 +146,7 @@ export class TimeEntryFormModalView extends BaseModalView<
         label: 'Status',
         placeholder: 'Select status',
         options: TIME_LOG_STATUS_OPTIONS,
-        initialValue: data?.status,
+        initialValue: data?.status || TimeEntryStatus.Draft,
       }),
     ];
   }

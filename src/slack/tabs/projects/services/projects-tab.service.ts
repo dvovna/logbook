@@ -181,7 +181,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
 
     return this.confirmationModalView.getView(
       {
-        callbackId: ViewCallbackId.ArchiveProject,
+        callbackId: ViewCallbackId.ChangeProjectStatus,
         title: `${project.archived_at ? 'Restore' : 'Archive'} Project`,
         message: `The project *${project.name}* will be ${project.archived_at ? 'restored' : 'archived'}.`,
         errorMessage,

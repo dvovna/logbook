@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { truncate } from 'lodash';
-import { AnyBlock, PlainTextOption } from '@slack/web-api';
+import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
@@ -14,12 +14,11 @@ import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/proj
 import { IProjectsListData } from 'src/projects/types/projects-list.types';
 import { IProjectListItem } from 'src/projects/types/project-list-item.types';
 import capitalize from '@common/utils/capitalize';
-import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { IProjectTabFilters, PROJECTS_TAB_PAGE_SIZE } from '@modules/slack/tabs/projects/services/projects-tab.service';
-import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
 import { PROJECT_STATUS_OPTIONS } from '@modules/slack/tabs/projects/data/project-status-options';
 import { BILLABLE_PLAIN_TEXT_OPTIONS } from '@modules/slack/tabs/projects/data/billable-options';
+import { IncludeArchivedButtonView } from '@modules/slack/common/views/components/include-archvied-button.view';
 
 interface IGetProjectsViewParams extends IBaseTabViewParams {
   projectsListData: IProjectsListData;
@@ -30,13 +29,6 @@ export interface IProjectsTabMetaData {
   includeArchived?: boolean;
   filters?: IProjectTabFilters;
 }
-
-const ARCHIVED_PLAIN_TEXT_OPTIONS: PlainTextOption[] = [
-  toPlainTextOption({
-    name: 'Include archived projects',
-    id: YesNoValue.Yes,
-  }),
-];
 
 @Injectable()
 export class ProjectsTabView extends BaseAdminTabView<
@@ -75,15 +67,13 @@ export class ProjectsTabView extends BaseAdminTabView<
     const blocks: AnyBlock[] = [];
 
     blocks.push(...this.getFiltersBlocks(filters));
-    blocks.push({
-      type: 'actions',
-      elements: [{
-        type: 'checkboxes',
-        action_id: ProjectsTabViewActionId.IncludeArchivedProjects,
-        options: ARCHIVED_PLAIN_TEXT_OPTIONS,
-        initial_options: includeArchived ? ARCHIVED_PLAIN_TEXT_OPTIONS : undefined,
-      }],
-    });
+    blocks.push(
+      IncludeArchivedButtonView.getView({
+        actionId: ProjectsTabViewActionId.IncludeArchivedProjects,
+        title: 'Include Archived Projects',
+        includeArchived,
+      }),
+    );
 
     const listBlocks = PaginatedListView.getBlocks<IProjectListItem>({
       itemsData: {

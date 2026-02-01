@@ -36,7 +36,7 @@ export class TimeEntryModalService {
         userProjects,
         callbackId,
         errorMessage,
-        userRole: user.role,
+        user,
       },
       {
         pageMetadata,

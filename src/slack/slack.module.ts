@@ -41,6 +41,7 @@ import { ProjectsModule } from 'src/projects/projects.module';
 import { ProjectOptionsService } from '@modules/slack/services/option-services/project-options.service';
 import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
 import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-tracking.module';
+import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-track
     VacationsTabModule,
     TimeAndBillingTabModule,
     TimeTrackingModule,
+    ClientsTabModule,
   ],
   controllers: [
     SlackOauthController,

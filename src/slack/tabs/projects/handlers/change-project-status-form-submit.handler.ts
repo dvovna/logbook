@@ -16,7 +16,7 @@ import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/pr
 
 @Injectable()
 @SlackHandler({
-  callbackId: ViewCallbackId.ArchiveProject,
+  callbackId: ViewCallbackId.ChangeProjectStatus,
   type: 'view_submission',
   allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
 })

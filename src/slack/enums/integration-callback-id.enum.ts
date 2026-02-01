@@ -55,11 +55,16 @@ export enum ViewCallbackId {
 
   // projects
   ProjectsTabView = 'projects_tab_view',
-  ArchiveProject = 'archive_project',
+  ChangeProjectStatus = 'change_project_status',
   ProjectFormSubmit = 'project_form_submit',
   ProjectAssignmentsFormSubmit = 'project_assignments_form_submit',
 
   // time-entries
   UserTimeEntry = 'user_time_entry',
   AdminTimeEntry = 'admin_time_entry',
+
+  // clients
+  ClientsTabView = 'clients_tab_view',
+  ClientFormSubmit = 'client_form_submit',
+  ChangeClientStatus = 'change_client_status',
 }
