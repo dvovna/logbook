@@ -76,6 +76,7 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
         name: data.name,
         description: data.description,
         slackTeamId: user.slack_team_id,
+        clientId: data.clientId?.value,
         billable: data.billable?.value === 'true',
         status: data.status.value,
       },
@@ -95,6 +96,7 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
       },
       {
         name: data.name,
+        clientId: data.clientId?.value,
         description: data.description,
         billable: data.billable?.value === 'true',
         status: data.status.value,

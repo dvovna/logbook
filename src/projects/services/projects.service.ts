@@ -139,7 +139,7 @@ export default class ProjectsService implements IProjectsService {
       ...(updateParams.description
         ? { description: updateParams.description }
         : {}),
-      ...(updateParams.clientId ? { clientId: updateParams.clientId } : {}),
+      ...(updateParams.clientId ? { client_id: updateParams.clientId } : {}),
       ...(updateParams.status ? { status: updateParams.status } : {}),
       ...(updateParams.billable !== undefined ? { billable: updateParams.billable } : {}),
       ...(updateParams.archivedAt !== undefined

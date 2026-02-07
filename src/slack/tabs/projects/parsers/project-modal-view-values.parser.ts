@@ -20,7 +20,11 @@ export const projectFormSchema = z.object({
     .string()
     .max(MAX_DESCRIPTION_LENGTH, `Description must be at most ${MAX_DESCRIPTION_LENGTH} characters`)
     .optional(),
-  clientId: z.string().uuid().optional(),
+  clientId: z
+    .object({
+      value: z.string(),
+      text: z.string(),
+    }),
   status: z
     .object({
       value: z.enum(Object.values(ProjectStatus)),
@@ -36,7 +40,7 @@ export const projectFormSchema = z.object({
 export interface IProjectFormViewData {
   name: string;
   description?: string;
-  clientId?: string;
+  clientId?: ISelectedOption;
   status: ISelectedOption<ProjectStatus>;
   billable?: ISelectedOption<'true' | 'false'>;
 }

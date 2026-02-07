@@ -76,7 +76,7 @@ export class ProjectModalView extends BaseModalView<
         label: { type: 'plain_text', text: 'Client' },
         element: {
           type: 'static_select',
-          action_id: 'client_id',
+          action_id: 'clientId',
           options: [NO_CLIENT_OPTION, ...clientOptions],
           initial_option: selectedClient,
         },
