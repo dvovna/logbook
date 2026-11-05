@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "include": ["src/**/*.ts"],
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -18,5 +17,6 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  "include": ["src/**/*.ts"]
 }
