@@ -14,13 +14,18 @@ yarn start:dev        # watch mode
 yarn start:debug      # watch + inspector
 yarn build            # nest build -> dist/
 yarn start:prod       # node dist/main
-yarn lint             # eslint with --fix (it rewrites files)
+yarn lint             # eslint with --fix on all of src (see note below)
 yarn format           # prettier
 npx tsc --noEmit      # type-check only
+yarn test             # jest
+yarn test src/request-workflows/services/request-workflow.service.spec.ts   # one file
+yarn test -t 'finishes the workflow'                                        # by test name
+yarn db:init          # apply src/commands/init.sql to SUPABASE_DB_URL from .env
 ```
 
-- **There are no tests.** Jest is in devDependencies but there is no jest config, no `test` script and no spec files.
-- `yarn db:init` doesn't map to any command in `src/` (nest-commander and TypeORM are installed but unused). The schema is in `src/commands/init.sql` and has to be applied by hand.
+- Tests are `*.spec.ts` files next to the code (rootDir `src`, config in `jest.config.ts`). They build services directly with `jest.fn()` mocks rather than through a Nest testing module. `jest.config.ts` pins `TZ=UTC`, because the date code mixes local `getDay()` with `toISOString()` and production runs in UTC.
+- `yarn db:init` runs `src/commands/db-init.ts` through ts-node and applies `init.sql` in a single transaction. The SQL is idempotent, so running it again on an existing DB is safe. `src/commands` is excluded from `nest build`.
+- The codebase is not lint-clean: about 140 prettier and other errors already exist. `yarn lint` uses `--fix`, so it rewrites many unrelated files. To lint only what you touched, run `npx eslint <files>`.
 - The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if any are missing. Copy `.env.example` to `.env` first.
 - Local Slack development needs a public HTTPS URL (ngrok). Slack's request URLs point to `/api/slack/...`, and installation goes through `https://slack.com/oauth/v2/authorize?client_id=...&scope=commands,users:read,users:read.email,channels:read,chat:write&redirect_uri=https://{ngrok_domain}/api/slack/oauth/redirect`.
 
@@ -29,12 +34,21 @@ npx tsc --noEmit      # type-check only
 - Interfaces must be prefixed with `I` (`@typescript-eslint/naming-convention` reports an error otherwise).
 - Every class member needs an explicit `public`/`private`/`protected` (`explicit-member-accessibility`).
 - Use single quotes, trailing commas and 2-space indent.
-- Imports use absolute `src/...` paths (`baseUrl: ./`), not relative paths.
-- `src/common/types/database.types.ts` is the generated Supabase `Database` type. The ESLint ignore entry points to a stale path (`src/types/...`), so `yarn lint` will reformat this generated file.
+- Imports use absolute `src/...` paths (`baseUrl: ./`), not relative paths. Jest maps them with `moduleNameMapper`.
+- `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint and Prettier both ignore it.
 
-## Schema source of truth
+## Schema
 
-`database.types.ts` reflects the live schema. `init.sql` has drifted from it: for example it lacks `teams.description` and `vacation_requests.user_comment`, and its `users.role` CHECK doesn't include `manager`. When you change the schema, update `database.types.ts` and the repository `mapToViewModel`, not only `init.sql`.
+There are two schema files, and they are kept in sync column for column, including nullability:
+- `src/common/types/database.types.ts`: generated from the live Supabase DB.
+- `src/commands/init.sql`.
+
+When you change the schema, update `init.sql` (idempotent DDL: `IF NOT EXISTS`, plus a `DO` block for FKs added after the fact), `database.types.ts`, and the repository's `mapToViewModel`.
+
+How `init.sql` handles foreign keys:
+- Every table has an FK to `slack_teams` with `ON DELETE CASCADE`. Uninstalling the app deletes the `slack_teams` row and relies on this cascade.
+- NOT NULL audit columns (`created_by`/`updated_by`) use the default `NO ACTION`. That way a single user can't be hard-deleted while their rows remain (users are deactivated instead), but the workspace cascade still goes through.
+- RLS is enabled on every table with no policies. The app uses the service-role key, which bypasses RLS.
 
 ## Architecture
 
@@ -133,6 +147,6 @@ Request create/update/delete events also invalidate `VacationPeriodUsageCacheSer
 
 - **Working days:** `VacationDaysCalculationService` excludes weekends and the enabled holidays of the user's vacation policy. Holidays can be imported per country from Nager.Date (`src/holidays/clients/nager-date.client.ts`).
 - **CSV import of historical vacations:** an admin command posts a prompt, the admin uploads a file, Slack sends `file_shared`, and the file goes through `FileUploadService` and then `src/user-data-import/`.
-- **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens, vacation usage). With more than one instance, the caches won't share data or invalidations.
+- **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens, vacation usage). That's fine because production runs a single instance. Running more instances would need a shared store, for example Redis via Keyv.
 - **Logging:** `nestjs-pino`, pretty-printed unless `NODE_ENV=production`.
 - **Deploy:** multi-stage `Dockerfile` (Node 20 alpine, `PORT=10000`). The `public/` folder is served statically; the OAuth flow redirects to `/success.html`.
