@@ -146,8 +146,21 @@ export const fillForm = (view: View, values: Record<string, FieldValue>) => {
   return state;
 };
 
+// Whether choosing `value` in `element` is possible: a button with that
+// value, a menu or select with that option, or any element without options.
+const offers = (element: AnyElement, value: string) => {
+  if (element.type === 'button') {
+    return element.value === value;
+  }
+
+  const options = optionsOf(element);
+
+  return !options.length || options.some((option) => option.value === value);
+};
+
 // Finds an interactive element in a view or message by its action_id and,
-// for buttons, its value.
+// when `value` is given, the one that offers it (e.g. the menu of one of
+// several list items).
 export const findAction = (
   blocks: AnyElement[],
   actionId: string,
@@ -162,7 +175,7 @@ export const findAction = (
     const element = elements.find(
       (item) =>
         item.action_id === actionId &&
-        (value === undefined || item.type !== 'button' || item.value === value),
+        (value === undefined || offers(item, value)),
     );
 
     if (element) {

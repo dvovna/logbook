@@ -22,11 +22,18 @@ import {
 import { TIME_ENTRIES_TAB_PAGE_SIZE } from '@modules/slack/tabs/time-tracking/services/time-entries-tab-data.service';
 import { getDisplayTime } from '@common/utils/time.utils';
 import { TIME_ENTRY_STATUS_DISPLAY_NAME } from '@modules/slack/tabs/time-tracking/data/time-log-status.options';
+import UserRole from '@common/enums/user-role.enum';
+import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
+import { isOpenTimeEntry } from 'src/time-entries/constants/open-time-entry-statuses';
 
 interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
   timeEntriesListData: ITimeEntryListData;
   // Only a list of everyone's entries can be narrowed down to one user.
   canFilterByUser: boolean;
+  // The viewer's users.id: their own entries have more actions.
+  viewerId: string;
+  // The viewer's drafts and rejected entries, on their own list.
+  openEntriesCount: number;
 }
 
 export interface ITimeEntriesTabMetaData {
@@ -72,10 +79,33 @@ export class TimeEntriesTabView extends BaseAdminTabView<
   }
 
   protected getContentBlocks(
-    { timeEntriesListData, canFilterByUser }: IGetTimeEntriesViewParams,
+    {
+      timeEntriesListData,
+      canFilterByUser,
+      viewerId,
+      userRole,
+      openEntriesCount,
+    }: IGetTimeEntriesViewParams,
     { filters, page }: ITimeEntriesTabMetaData,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
+
+    if (openEntriesCount > 0) {
+      blocks.push({
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: {
+              type: 'plain_text',
+              text: `📤 Submit drafts (${openEntriesCount})`,
+            },
+            style: 'primary',
+            action_id: TimeEntriesTabViewActionId.SubmitDrafts,
+          },
+        ],
+      });
+    }
 
     blocks.push(...this.getFiltersBlocks(canFilterByUser, filters));
 
@@ -86,7 +116,7 @@ export class TimeEntriesTabView extends BaseAdminTabView<
         pageSize: TIME_ENTRIES_TAB_PAGE_SIZE,
       },
       getItemBlocks: (item) =>
-        this.getTimeEntryListItemBlocks(item),
+        this.getTimeEntryListItemBlocks(item, viewerId, userRole),
       prevPageActionId: TimeEntriesTabViewActionId.PaginationPrev,
       nextPageActionId: TimeEntriesTabViewActionId.PaginationNext,
       emptyText: '_No time entries found_',
@@ -99,9 +129,12 @@ export class TimeEntriesTabView extends BaseAdminTabView<
 
   private getTimeEntryListItemBlocks(
     entry: ITimeEntryListItem,
+    viewerId: string,
+    userRole: UserRole,
   ): AnyBlock[] {
     const workDate = new Date(entry.work_date).toLocaleDateString();
     const createdAt = new Date(entry.created_at).toLocaleDateString();
+    const menuOptions = this.getMenuOptions(entry, viewerId, userRole);
 
     return [
       {
@@ -124,23 +157,45 @@ export class TimeEntriesTabView extends BaseAdminTabView<
               `Description: ${truncate(entry.description || '-', { length: 80 })}`,
           },
         ],
-        accessory: {
-          type: 'overflow',
-          action_id: TimeEntriesTabViewActionId.ManageTimeEntryMenu,
-          options: [
-            {
-              text: { type: 'plain_text', text: 'Edit' },
-              value: `${TimeEntriesTabViewActionId.EditTimeEntry}:${entry.id}`,
+        ...(menuOptions.length
+          ? {
+            accessory: {
+              type: 'overflow',
+              action_id: TimeEntriesTabViewActionId.ManageTimeEntryMenu,
+              options: menuOptions,
             },
-            {
-              text: { type: 'plain_text', text: 'Delete' },
-              value: `${TimeEntriesTabViewActionId.DeleteTimeEntry}:${entry.id}`,
-            },
-          ],
-        },
+          }
+          : {}),
       },
       ...Divider.getBlocks(),
     ];
+  }
+
+  // The owner changes and submits only drafts and rejected entries; Admin and
+  // HR change any entry.
+  private getMenuOptions(
+    entry: ITimeEntryListItem,
+    viewerId: string,
+    userRole: UserRole,
+  ) {
+    const isOpen = isOpenTimeEntry(entry.status);
+    const canChange = isOpen || isTimeEntriesAdmin(userRole);
+    const items = [
+      ...(canChange
+        ? [{ id: TimeEntriesTabViewActionId.EditTimeEntry, name: 'Edit' }]
+        : []),
+      ...(isOpen && entry.user_id === viewerId
+        ? [{ id: TimeEntriesTabViewActionId.SubmitTimeEntry, name: 'Submit' }]
+        : []),
+      ...(canChange
+        ? [{ id: TimeEntriesTabViewActionId.DeleteTimeEntry, name: 'Delete' }]
+        : []),
+    ];
+
+    return items.map(({ id, name }) => ({
+      text: { type: 'plain_text' as const, text: name },
+      value: `${id}:${entry.id}`,
+    }));
   }
 
   private getFiltersBlocks(

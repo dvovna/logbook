@@ -52,9 +52,11 @@ export class UserTimeEntryFormSubmitHandler extends BaseTimeEntryFormSubmitHandl
     data: ITimeEntryFormViewData,
     user: IUserViewModel,
   ) {
+    // Only a draft or a rejected entry can be edited by its owner; a fixed
+    // one is a draft again.
     return this.timeEntriesService.update(
       { id, slackTeamId: user.slack_team_id },
-      this.getEntryFields(data),
+      { ...this.getEntryFields(data), status: TimeEntryStatus.Draft },
       user,
     );
   }

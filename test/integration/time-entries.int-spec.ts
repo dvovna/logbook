@@ -626,6 +626,160 @@ describe('Time entries', () => {
     });
   });
 
+  describe('submitting for approval', () => {
+    const statusOf = async (entry: Tables<'time_entries'>) =>
+      (await workspace.row('time_entries', entry.id)).status;
+
+    it('submits all drafts and rejected entries at once', async () => {
+      const draft = await workspace.addTimeEntry(member, website);
+      const rejected = await workspace.addTimeEntry(member, website, {
+        status: TimeEntryStatus.Rejected,
+      });
+      const approved = await workspace.addTimeEntry(member, website, {
+        status: TimeEntryStatus.Approved,
+      });
+      const myEntries = await openAppHomeTab(
+        t,
+        workspace,
+        member,
+        MY_ENTRIES_TAB,
+      );
+      expect(textOf(myEntries)).toContain('Submit drafts (2)');
+
+      const updated = await actOnTab(
+        t,
+        workspace,
+        member,
+        myEntries,
+        TimeEntriesTabViewActionId.SubmitDrafts,
+      );
+
+      expect(await statusOf(draft)).toBe(TimeEntryStatus.Submitted);
+      expect(await statusOf(rejected)).toBe(TimeEntryStatus.Submitted);
+      expect(await statusOf(approved)).toBe(TimeEntryStatus.Approved);
+      expect(textOf(updated)).not.toContain(
+        TimeEntriesTabViewActionId.SubmitDrafts,
+      );
+      expect(textOf(updated)).toContain('Status: Submitted');
+    });
+
+    it('submits one entry from its menu', async () => {
+      const first = await workspace.addTimeEntry(member, website);
+      const second = await workspace.addTimeEntry(member, website);
+      const myEntries = await openAppHomeTab(
+        t,
+        workspace,
+        member,
+        MY_ENTRIES_TAB,
+      );
+
+      const updated = await actOnTab(
+        t,
+        workspace,
+        member,
+        myEntries,
+        TimeEntriesTabViewActionId.ManageTimeEntryMenu,
+        `${TimeEntriesTabViewActionId.SubmitTimeEntry}:${first.id}`,
+      );
+
+      expect(await statusOf(first)).toBe(TimeEntryStatus.Submitted);
+      expect(await statusOf(second)).toBe(TimeEntryStatus.Draft);
+      expect(textOf(updated)).toContain('Submit drafts (1)');
+    });
+
+    it('takes away the menu of a submitted entry from its owner', async () => {
+      await workspace.addTimeEntry(member, website, {
+        status: TimeEntryStatus.Submitted,
+      });
+
+      const myEntries = await openAppHomeTab(
+        t,
+        workspace,
+        member,
+        MY_ENTRIES_TAB,
+      );
+
+      expect(textOf(myEntries)).toContain('Status: Submitted');
+      expect(textOf(myEntries)).not.toContain(
+        TimeEntriesTabViewActionId.ManageTimeEntryMenu,
+      );
+    });
+
+    it('refuses an edit that arrives after the entry was submitted', async () => {
+      const entry = await workspace.addTimeEntry(member, website);
+      const modal = await openModalFrom(
+        t,
+        workspace,
+        member,
+        await openAppHomeTab(t, workspace, member, MY_ENTRIES_TAB),
+        TimeEntriesTabViewActionId.ManageTimeEntryMenu,
+        `${TimeEntriesTabViewActionId.EditTimeEntry}:${entry.id}`,
+      );
+      await t.db
+        .from('time_entries')
+        .update({ status: TimeEntryStatus.Submitted })
+        .eq('id', entry.id);
+
+      const response = await t.slack
+        .submitView(workspace, member, modal, { hours: '2' })
+        .expect(200);
+
+      expect(textOf(response.body.view)).toContain(
+        'Submitted time entries cannot be edited',
+      );
+      expect((await workspace.row('time_entries', entry.id)).minutes).toBe(60);
+    });
+
+    it('makes a fixed rejected entry a draft again', async () => {
+      const entry = await workspace.addTimeEntry(member, website, {
+        status: TimeEntryStatus.Rejected,
+      });
+      const modal = await openModalFrom(
+        t,
+        workspace,
+        member,
+        await openAppHomeTab(t, workspace, member, MY_ENTRIES_TAB),
+        TimeEntriesTabViewActionId.ManageTimeEntryMenu,
+        `${TimeEntriesTabViewActionId.EditTimeEntry}:${entry.id}`,
+      );
+
+      await t.slack
+        .submitView(workspace, member, modal, { hours: '2' })
+        .expect(200);
+
+      expect(await workspace.row('time_entries', entry.id)).toMatchObject({
+        minutes: 120,
+        status: TimeEntryStatus.Draft,
+      });
+    });
+
+    it('lets HR still correct a submitted entry', async () => {
+      const hr = await workspace.addUser({ role: UserRole.HR });
+      const entry = await workspace.addTimeEntry(member, website, {
+        status: TimeEntryStatus.Submitted,
+      });
+      const modal = await openModalFrom(
+        t,
+        workspace,
+        hr,
+        await openAppHomeTab(t, workspace, hr, TIME_LOGS_TAB),
+        TimeEntriesTabViewActionId.ManageTimeEntryMenu,
+        `${TimeEntriesTabViewActionId.EditTimeEntry}:${entry.id}`,
+      );
+
+      await t.slack
+        .submitView(workspace, hr, modal, { hours: '0.5' })
+        .expect(200);
+
+      expect(await workspace.row('time_entries', entry.id)).toMatchObject({
+        user_id: member.id,
+        minutes: 30,
+        status: TimeEntryStatus.Submitted,
+        updated_by: hr.id,
+      });
+    });
+  });
+
   describe('changing an entry', () => {
     // The modal behind the entry's menu item `item` in the time entries tab
     // that `path` leads `user` to.

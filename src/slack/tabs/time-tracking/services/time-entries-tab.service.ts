@@ -16,6 +16,8 @@ import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/service
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
+import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
+import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 
 interface ITimeEntryModalViewParams extends IOpenModalBaseParams<string> {
   entryId: string;
@@ -44,6 +46,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     private readonly timeEntryModalService: TimeEntryModalService,
     private readonly timeEntriesTabView: TimeEntriesTabView,
     private readonly confirmationModalView: ConfirmationModalView,
+    private readonly timeEntriesService: TimeEntriesService,
   ) {
     super(TabId.TimeEntries, {
       [TimeEntriesTabModalName.CreateTimeEntry]:
@@ -61,8 +64,8 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
   public async getTabView({ user, metadata = {} }: IGetTimeEntriesTabViewParams) {
     const seesAllEntries =
       isTimeEntriesAdmin(user.role) && !metadata.ownEntriesOnly;
-    const timeEntriesListData =
-      await this.timeEntriesTabDataService.getTimeEntriesTabData({
+    const [timeEntriesListData, openEntriesCount] = await Promise.all([
+      this.timeEntriesTabDataService.getTimeEntriesTabData({
         slackTeamId: user.slack_team_id,
         page: metadata.page,
         filters: {
@@ -71,7 +74,16 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
           fromDate: metadata?.filters?.fromDate,
           toDate: metadata?.filters?.toDate,
         },
-      });
+      }),
+      // What the viewer can still submit, offered on their own list only.
+      seesAllEntries
+        ? 0
+        : this.timeEntriesService.count({
+          userId: user.id,
+          slackTeamId: user.slack_team_id,
+          statuses: OPEN_TIME_ENTRY_STATUSES,
+        }),
+    ]);
 
     return this.timeEntriesTabView.getView(
       {
@@ -81,6 +93,8 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
           ? CommonViewActionId.BackToHomeTab
           : undefined,
         canFilterByUser: seesAllEntries,
+        viewerId: user.id,
+        openEntriesCount,
         timeEntriesListData,
       },
       metadata,

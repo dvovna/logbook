@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
@@ -8,6 +12,10 @@ import { TimeEntriesValidationService } from 'src/time-entries/services/time-ent
 import { SupabaseFilter } from '@common/repositories/base.repository';
 import ProjectsService from 'src/projects/services/projects.service';
 import { ValidationError } from '@common/errors/validation.error';
+import {
+  isOpenTimeEntry,
+  OPEN_TIME_ENTRY_STATUSES,
+} from 'src/time-entries/constants/open-time-entry-statuses';
 
 interface ICreateParams {
   userId: string;
@@ -185,6 +193,43 @@ export class TimeEntriesService {
       orderBy: params.orderBy,
       searchTerm: params.searchTerm,
     });
+  }
+
+  // Sends the user's own entry `id`, or all their drafts and rejected entries,
+  // for approval.
+  public async submit(
+    { id, slackTeamId }: { id?: string; slackTeamId: string },
+    user: IUserViewModel,
+  ): Promise<ITimeEntryViewModel[]> {
+    if (id) {
+      const entry = await this.findOneWithValidation({ id, slackTeamId });
+
+      if (entry.user_id !== user.id) {
+        throw new ForbiddenException('You can only submit your own time entries');
+      }
+
+      if (!isOpenTimeEntry(entry.status)) {
+        throw new ValidationError('This time entry has already been submitted');
+      }
+    }
+
+    return this.timeEntriesRepository.updateMany(
+      this.getFindQuery({
+        id,
+        userId: user.id,
+        slackTeamId,
+        statuses: OPEN_TIME_ENTRY_STATUSES,
+      }),
+      {
+        status: TimeEntryStatus.Submitted,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      },
+    );
+  }
+
+  public count(params: IFindParams): Promise<number> {
+    return this.timeEntriesRepository.count(this.getFindQuery(params));
   }
 
   public async delete(

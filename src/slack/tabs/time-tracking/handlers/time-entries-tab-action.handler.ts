@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import {
   ISlackInteractionPayload,
 } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
+import { ValidationError } from '@common/errors/validation.error';
+import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -37,6 +40,7 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
   public constructor(
     tabNavigationService: TabNavigationService,
     private readonly timeEntriesTabService: TimeEntriesTabService,
+    private readonly timeEntriesService: TimeEntriesService,
   ) {
     super(tabNavigationService);
 
@@ -44,6 +48,8 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
 
     this.actionMap = {
       [TimeEntriesTabViewActionId.AddTimeEntry]: this.handleAddEntry,
+      [TimeEntriesTabViewActionId.SubmitDrafts]: (payload, user) =>
+        this.submit(payload, user),
       [TimeEntriesTabViewActionId.ManageTimeEntryMenu]: withMenuAction<
         TimeEntriesTabViewActionId,
         [IUserViewModel]
@@ -93,6 +99,32 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
     );
   };
 
+  // Sends the user's entry `entryId`, or all their drafts, for approval and
+  // shows the result. An entry already submitted in the meantime just shows
+  // up as such.
+  private submit = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+    entryId?: string,
+  ) => {
+    try {
+      await this.timeEntriesService.submit(
+        { id: entryId, slackTeamId: user.slack_team_id },
+        user,
+      );
+    } catch (error) {
+      if (
+        !(error instanceof ValidationError || error instanceof ForbiddenException)
+      ) {
+        throw error;
+      }
+
+      this.logger.warn(`Time entry not submitted: ${error.message}`);
+    }
+
+    await this.updateTab(parseMetadata<ITimeEntriesTabMetaData>(payload), user);
+  };
+
   private handleManageTimeEntryMenuAction = async (
     actionType: TimeEntriesTabViewActionId,
     entryId: string,
@@ -113,6 +145,11 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
           TimeEntriesTabModalName.UpdateTimeEntry,
           params,
         );
+
+        break;
+      }
+      case TimeEntriesTabViewActionId.SubmitTimeEntry: {
+        await this.submit(payload, user, entryId);
 
         break;
       }
