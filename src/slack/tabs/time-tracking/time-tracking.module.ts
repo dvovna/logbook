@@ -3,7 +3,11 @@ import { TimeEntryFormModalView } from '@modules/slack/tabs/time-tracking/views/
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 import { ProjectsModule } from 'src/projects/projects.module';
-import { CreateUserTimeEntryHandler } from '@modules/slack/tabs/time-tracking/handlers/create-user-time-entry.handler';
+import { UserTimeEntryFormSubmitHandler } from '@modules/slack/tabs/time-tracking/handlers/user-time-entry-form-submit.handler';
+import { AdminTimeEntryFormSubmitHandler } from '@modules/slack/tabs/time-tracking/handlers/admin-time-entry-form-submit.handler';
+import AdminTimeEntryModalViewValuesParser
+  from '@modules/slack/tabs/time-tracking/parsers/admin-time-entry-modal-view-values.parser';
+import { UsersModule } from '@modules/users/users.module';
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import UserTimeEntryModalViewValuesParser
   from '@modules/slack/tabs/time-tracking/parsers/user-time-entry-modal-view-values.parser';
@@ -18,12 +22,15 @@ import { TimeEntriesTabView } from '@modules/slack/tabs/time-tracking/views/time
     TimeEntriesModule,
     ProjectsModule,
     SlackCommonModule,
+    UsersModule,
   ],
   providers: [
     TimeEntryFormModalView,
     TimeEntryModalService,
     UserTimeEntryModalViewValuesParser,
-    CreateUserTimeEntryHandler,
+    AdminTimeEntryModalViewValuesParser,
+    UserTimeEntryFormSubmitHandler,
+    AdminTimeEntryFormSubmitHandler,
     TimeEntriesListQuery,
     TimeEntriesTabDataService,
     TimeEntriesTabService,

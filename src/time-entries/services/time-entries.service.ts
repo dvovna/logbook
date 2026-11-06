@@ -6,12 +6,14 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
 import { SupabaseFilter } from '@common/repositories/base.repository';
+import ProjectsService from 'src/projects/services/projects.service';
+import { ValidationError } from '@common/errors/validation.error';
 
 interface ICreateParams {
   userId: string;
-  clientId?: string;
+  // The team of the user the time is logged for.
+  teamId: string | null;
   projectId: string;
-  billable: boolean;
   workDate: Date;
   minutes: number;
   description?: string | null;
@@ -20,9 +22,9 @@ interface ICreateParams {
 
 interface IUpdateParams {
   userId?: string;
+  teamId?: string | null;
   projectId?: string;
   workDate?: Date;
-  billable?: boolean;
   minutes?: number;
   description?: string | null;
   status?: TimeEntryStatus;
@@ -47,12 +49,18 @@ export class TimeEntriesService {
   public constructor(
     private readonly timeEntriesRepository: TimeEntriesRepository,
     private readonly timeEntriesValidationService: TimeEntriesValidationService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   public async create(
     createParams: ICreateParams,
     user: IUserViewModel,
   ): Promise<ITimeEntryViewModel> {
+    const project = await this.getProject(
+      createParams.projectId,
+      user.slack_team_id,
+    );
+
     await this.timeEntriesValidationService.validateCreate(
       createParams,
       user,
@@ -62,14 +70,14 @@ export class TimeEntriesService {
 
     const record = {
       user_id: createParams.userId,
-      project_id: createParams.projectId,
-      client_id: createParams.clientId,
+      project_id: project.id,
+      client_id: project.client_id,
       work_date: createParams.workDate.toISOString(),
       minutes: createParams.minutes,
       description: createParams.description || null,
-      billable: createParams.billable,
+      billable: project.billable,
       status: createParams.status,
-      team_id: user.team_id,
+      team_id: createParams.teamId,
       slack_team_id: user.slack_team_id,
       created_at: now,
       updated_at: now,
@@ -90,6 +98,11 @@ export class TimeEntriesService {
       slackTeamId,
     });
 
+    const project =
+      updateParams.projectId !== undefined
+        ? await this.getProject(updateParams.projectId, user.slack_team_id)
+        : undefined;
+
     await this.timeEntriesValidationService.validateUpdate(
       existingEntry,
       updateParams,
@@ -105,8 +118,15 @@ export class TimeEntriesService {
         ...(updateParams.userId !== undefined
           ? { user_id: updateParams.userId }
           : {}),
-        ...(updateParams.projectId !== undefined
-          ? { project_id: updateParams.projectId }
+        ...(updateParams.teamId !== undefined
+          ? { team_id: updateParams.teamId }
+          : {}),
+        ...(project
+          ? {
+            project_id: project.id,
+            client_id: project.client_id,
+            billable: project.billable,
+          }
           : {}),
         ...(updateParams.workDate !== undefined
           ? {
@@ -114,10 +134,6 @@ export class TimeEntriesService {
               updateParams.workDate.toISOString(),
           }
           : {}),
-        ...(updateParams.billable !== undefined
-          ? { billable: updateParams.billable }
-          : {}
-        ),
         ...(updateParams.minutes !== undefined
           ? { minutes: updateParams.minutes }
           : {}),
@@ -186,6 +202,21 @@ export class TimeEntriesService {
     );
 
     return entry;
+  }
+
+  // An entry takes its client and billability from its project, which has to
+  // be an active project of the workspace.
+  private async getProject(projectId: string, slackTeamId: string) {
+    const project = await this.projectsService.findOne({
+      id: projectId,
+      slackTeamId,
+    });
+
+    if (!project) {
+      throw new ValidationError('This project is not available.');
+    }
+
+    return project;
   }
 
   private getFindQuery(params: IFindParams): SupabaseFilter {

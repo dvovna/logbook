@@ -156,11 +156,7 @@ describe('Time entries', () => {
       await publishedHome(t, workspace, admin, since);
     });
 
-    // BUG: a member's Log Time modal has the callback_id user_time_entry
-    // (time-entry-modal.service.ts:50), but only admin_time_entry has a
-    // handler (create-user-time-entry.handler.ts:23). Slack gets an empty
-    // 200, closes the modal and nothing is saved.
-    it.failing("logs a member's time", async () => {
+    it("logs a member's time as a draft", async () => {
       const modal = await openLogTimeModal(member);
 
       const response = await t.slack
@@ -180,70 +176,62 @@ describe('Time entries', () => {
           team_id: design.id,
           project_id: website.id,
           minutes: 90,
+          status: TimeEntryStatus.Draft,
+          created_by: member.id,
         }),
       ]);
     });
 
-    // BUG: the modal has no client or billable field, yet the handler reads
-    // them from the form (create-user-time-entry.handler.ts:64, :69), so every
-    // entry has no client and is not billable.
-    it.failing(
-      'takes the client and billability from the project',
-      async () => {
-        await workspace.assignToProject(website, { users: [admin] });
-        const modal = await openLogTimeModal(admin);
+    it('takes the client and billability from the project', async () => {
+      await workspace.assignToProject(website, { users: [admin] });
+      const modal = await openLogTimeModal(admin);
 
-        await t.slack
-          .submitView(workspace, admin, modal, { hours: '1' })
-          .expect(200);
+      await t.slack
+        .submitView(workspace, admin, modal, { hours: '1' })
+        .expect(200);
 
-        expect(await entries()).toEqual([
-          expect.objectContaining({ client_id: acme.id, billable: true }),
-        ]);
-      },
-    );
+      expect(await entries()).toEqual([
+        expect.objectContaining({ client_id: acme.id, billable: true }),
+      ]);
+    });
 
-    // BUG: the handler ignores the User and Status fields and always logs a
-    // draft for the admin (create-user-time-entry.handler.ts:67-68).
-    it.failing(
-      'logs time for the user and in the status the admin picks',
-      async () => {
-        await workspace.assignToProject(website, { users: [admin] });
-        const modal = await openLogTimeModal(admin);
+    it('logs time for the user and in the status the admin picks', async () => {
+      await workspace.assignToProject(website, { users: [admin] });
+      const modal = await openLogTimeModal(admin);
 
-        const suggestions = await t.slack
-          .suggest(
-            workspace,
-            admin,
-            modal,
-            TimeEntriesTabViewActionId.SelectUser,
-            'mia',
-          )
-          .expect(acknowledged);
-        expect(suggestions.body.options).toEqual([
-          {
-            text: { type: 'plain_text', text: 'Mia Member' },
-            value: member.id,
-          },
-        ]);
+      const suggestions = await t.slack
+        .suggest(
+          workspace,
+          admin,
+          modal,
+          TimeEntriesTabViewActionId.SelectUser,
+          'mia',
+        )
+        .expect(acknowledged);
+      expect(suggestions.body.options).toEqual([
+        {
+          text: { type: 'plain_text', text: 'Mia Member' },
+          value: member.id,
+        },
+      ]);
 
-        await t.slack
-          .submitView(workspace, admin, modal, {
-            [TimeEntriesTabViewActionId.SelectUser]: member.id,
-            status: TimeEntryStatus.Submitted,
-            hours: '1',
-          })
-          .expect(200);
+      await t.slack
+        .submitView(workspace, admin, modal, {
+          [TimeEntriesTabViewActionId.SelectUser]: member.id,
+          status: TimeEntryStatus.Submitted,
+          hours: '1',
+        })
+        .expect(200);
 
-        expect(await entries()).toEqual([
-          expect.objectContaining({
-            user_id: member.id,
-            status: TimeEntryStatus.Submitted,
-            created_by: admin.id,
-          }),
-        ]);
-      },
-    );
+      expect(await entries()).toEqual([
+        expect.objectContaining({
+          user_id: member.id,
+          team_id: design.id,
+          status: TimeEntryStatus.Submitted,
+          created_by: admin.id,
+        }),
+      ]);
+    });
   });
 
   describe('validation', () => {
