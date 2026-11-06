@@ -33,7 +33,7 @@ $ npx tsc --noEmit
 
 ### Integration tests
 
-`test/integration` runs the whole app (the real `AppModule` and the request pipeline from `main.ts`) against the local Supabase stack. Only the Slack Web API is replaced: `SlackApiClient` is swapped for a fake that records every call. The tests send signed Slack requests to the real routes (events, slash commands, interactions, the OAuth redirect) and check the database and the calls the app made to Slack.
+`test/integration` runs the whole app (the real `AppModule` and the request pipeline from `main.ts`) against the local Supabase stack. Only the Slack Web API is replaced: `SlackApiClient` is swapped for a fake that records every call. The tests send signed Slack requests to the real routes (events, slash commands, interactions, external select options, the OAuth redirect) and check the database and the calls the app made to Slack.
 
 Start the stack first (see [Database](#1-database)). If the local database is missing a migration, the run stops and says how to apply it. The tests take their Supabase URLs and keys from `supabase status`, never from `.env`, and refuse to run against anything but localhost.
 
@@ -43,6 +43,8 @@ Each test creates its own workspace (a `slack_teams` row with a random `T…` ID
 $ yarn test:int test/integration/vacation-approval.int-spec.ts   # one file
 $ LOG_LEVEL=debug yarn test:int                                  # with the app's logs
 ```
+
+A bug a test has found but nobody has fixed yet stays in the suite as `it.failing`, with a `BUG:` comment that points at the code. Such a test passes while the bug is there and fails once it is fixed; then make it a plain `it`.
 
 CI runs them in a separate job on a fresh stack.
 

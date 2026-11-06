@@ -105,6 +105,96 @@ export class TestWorkspace implements ISlackWorkspace {
     );
   }
 
+  public async addClient(
+    fields: Partial<TablesInsert<'clients'>> = {},
+  ): Promise<Tables<'clients'>> {
+    return unwrap(
+      await this.db
+        .from('clients')
+        .insert({
+          slack_team_id: this.id,
+          name: `Client ${randomUUID().slice(0, 8)}`,
+          ...fields,
+        })
+        .select()
+        .single(),
+    );
+  }
+
+  public async addProject(
+    fields: Partial<TablesInsert<'projects'>> = {},
+  ): Promise<Tables<'projects'>> {
+    return unwrap(
+      await this.db
+        .from('projects')
+        .insert({
+          slack_team_id: this.id,
+          name: `Project ${randomUUID().slice(0, 8)}`,
+          ...fields,
+        })
+        .select()
+        .single(),
+    );
+  }
+
+  // Lets the members of `teams` and the `users` log time on the project.
+  public async assignToProject(
+    project: Tables<'projects'>,
+    {
+      teams = [],
+      users = [],
+    }: {
+      teams?: Tables<'teams'>[];
+      users?: Tables<'users'>[];
+    },
+  ) {
+    const link = { slack_team_id: this.id, project_id: project.id };
+
+    if (teams.length) {
+      unwrap(
+        await this.db
+          .from('project_teams')
+          .insert(teams.map((team) => ({ ...link, team_id: team.id })))
+          .select(),
+      );
+    }
+
+    if (users.length) {
+      unwrap(
+        await this.db
+          .from('project_users')
+          .insert(users.map((user) => ({ ...link, user_id: user.id })))
+          .select(),
+      );
+    }
+  }
+
+  // An hour of today's work by `user` on `project`, unless `fields` says otherwise.
+  public async addTimeEntry(
+    user: Tables<'users'>,
+    project: Tables<'projects'>,
+    fields: Partial<TablesInsert<'time_entries'>> = {},
+  ): Promise<Tables<'time_entries'>> {
+    return unwrap(
+      await this.db
+        .from('time_entries')
+        .insert({
+          slack_team_id: this.id,
+          user_id: user.id,
+          team_id: user.team_id,
+          project_id: project.id,
+          client_id: project.client_id,
+          work_date: new Date().toISOString().slice(0, 10),
+          minutes: 60,
+          created_by: user.id,
+          updated_by: user.id,
+          ...fields,
+        })
+        .select()
+        .single(),
+    );
+  }
+
   public async rows<T extends Exclude<TableName, 'slack_teams'>>(
     table: T,
   ): Promise<Tables<T>[]> {

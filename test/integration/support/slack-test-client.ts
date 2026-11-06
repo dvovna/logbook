@@ -122,6 +122,34 @@ export class SlackTestClient {
     });
   }
 
+  // What Slack sends while the user types `value` into an external select of
+  // `view`; the response body holds the options the app suggests.
+  public suggest(
+    workspace: ISlackWorkspace,
+    user: ISlackActor,
+    view: View,
+    actionId: string,
+    value: string,
+  ) {
+    const { blockId } = findAction(view.blocks, actionId);
+
+    return this.post(
+      '/api/slack/options',
+      new URLSearchParams({
+        payload: JSON.stringify({
+          type: 'block_suggestion',
+          team: { id: workspace.slackId },
+          user: { id: user.slack_id },
+          action_id: actionId,
+          block_id: blockId,
+          value,
+          view: { team_id: workspace.slackId, ...view },
+        }),
+      }).toString(),
+      'application/x-www-form-urlencoded',
+    );
+  }
+
   public submitView(
     workspace: ISlackWorkspace,
     user: ISlackActor,

@@ -31,6 +31,37 @@ const findOption = (element: AnyElement, value: string) => {
   return option;
 };
 
+// External selects carry no options in the view: only the initial ones are
+// known, any other value gets its value as its text.
+const externalOption = (element: AnyElement, value: string) =>
+  [element.initial_option, ...(element.initial_options ?? [])].find(
+    (option) => option?.value === value,
+  ) ?? { text: { type: 'plain_text', text: value }, value };
+
+// The value of an element the user did not touch.
+const initialValue = (element: AnyElement): FieldValue => {
+  switch (element.type) {
+    case 'datepicker':
+      return element.initial_date;
+    case 'timepicker':
+      return element.initial_time;
+    case 'static_select':
+    case 'external_select':
+    case 'radio_buttons':
+      return element.initial_option?.value;
+    case 'multi_static_select':
+    case 'multi_external_select':
+    case 'checkboxes':
+      return element.initial_options?.map((option) => option.value);
+    case 'users_select':
+      return element.initial_user;
+    case 'multi_users_select':
+      return element.initial_users;
+    default:
+      return element.initial_value;
+  }
+};
+
 // What Slack puts in view.state.values for one input element.
 const elementState = (element: AnyElement, value: FieldValue) => {
   const { type } = element;
@@ -46,6 +77,7 @@ const elementState = (element: AnyElement, value: FieldValue) => {
     case 'url_text_input':
       return { type, value: value ?? null };
     case 'static_select':
+    case 'radio_buttons':
       return {
         type,
         selected_option: value ? findOption(element, value as string) : null,
@@ -54,7 +86,7 @@ const elementState = (element: AnyElement, value: FieldValue) => {
       return {
         type,
         selected_option: value
-          ? { text: { type: 'plain_text', text: value }, value }
+          ? externalOption(element, value as string)
           : null,
       };
     case 'multi_static_select':
@@ -63,6 +95,13 @@ const elementState = (element: AnyElement, value: FieldValue) => {
         type,
         selected_options: ((value as string[]) ?? []).map((item) =>
           findOption(element, item),
+        ),
+      };
+    case 'multi_external_select':
+      return {
+        type,
+        selected_options: ((value as string[]) ?? []).map((item) =>
+          externalOption(element, item),
         ),
       };
     case 'users_select':
@@ -75,9 +114,10 @@ const elementState = (element: AnyElement, value: FieldValue) => {
 };
 
 // Builds view.state.values the way Slack does when the user submits `view`
-// with `values` (keyed by action_id). Throws when `values` names a field the
-// view does not have, so a renamed field breaks the test instead of passing
-// silently.
+// with `values` (keyed by action_id). A field missing from `values` keeps its
+// initial value, like one the user did not touch; `undefined` clears it.
+// Throws when `values` names a field the view does not have, so a renamed
+// field breaks the test instead of passing silently.
 export const fillForm = (view: View, values: Record<string, FieldValue>) => {
   const state: Record<string, Record<string, unknown>> = {};
   const unused = new Set(Object.keys(values));
@@ -88,10 +128,14 @@ export const fillForm = (view: View, values: Record<string, FieldValue>) => {
     }
 
     const { element } = block;
+    const value =
+      element.action_id in values
+        ? values[element.action_id]
+        : initialValue(element);
     unused.delete(element.action_id);
 
     state[block.block_id] = {
-      [element.action_id]: elementState(element, values[element.action_id]),
+      [element.action_id]: elementState(element, value),
     };
   }
 
@@ -113,6 +157,7 @@ export const findAction = (
     const elements = [
       ...(block.elements ?? []),
       ...(block.accessory ? [block.accessory] : []),
+      ...(block.element ? [block.element] : []),
     ];
     const element = elements.find(
       (item) =>
@@ -130,7 +175,8 @@ export const findAction = (
   throw new Error(`No element with action_id ${actionId} found`);
 };
 
-// The `actions[0]` Slack sends when the user clicks/chooses `element`.
+// The `actions[0]` Slack sends when the user clicks/chooses `element`. For
+// checkboxes `value` is the option that ends up checked; none when omitted.
 export const actionPayload = (
   { blockId, element }: IFoundAction,
   value?: string,
@@ -148,6 +194,12 @@ export const actionPayload = (
     case 'overflow':
     case 'static_select':
       return { ...base, selected_option: findOption(element, value!) };
+    case 'checkboxes':
+      return {
+        ...base,
+        selected_options:
+          value === undefined ? [] : [findOption(element, value)],
+      };
     default:
       throw new Error(`actionPayload does not support ${element.type}`);
   }

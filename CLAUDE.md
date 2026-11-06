@@ -29,7 +29,8 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 - Tests are `*.spec.ts` files next to the code (rootDir `src`, config in `jest.config.ts`). They build services directly with `jest.fn()` mocks rather than through a Nest testing module. `jest.config.ts` pins `TZ=UTC`, because the date code mixes local `getDay()` with `toISOString()` and production runs in UTC.
 - Integration tests are `test/integration/*.int-spec.ts` (config in `jest.integration.config.ts`, details in README → "Integration tests"):
   - They build the real `AppModule` through `configureApp` (`src/app.setup.ts`, shared with `main.ts`) and replace only `SlackApiClient` with `FakeSlackApiClient`, which records every Slack call.
-  - `SlackTestClient` sends signed events, slash commands and interactions. `submitView` builds `view.state.values` from the modal the app opened, so a form field that doesn't match its parser fails the test.
+  - `SlackTestClient` sends signed events, slash commands, interactions and external select suggestions (`suggest`). `submitView` builds `view.state.values` from the modal the app opened, so a form field that doesn't match its parser fails the test. Fields the test leaves out keep their initial value, as when the user doesn't touch them.
+  - A known, unfixed bug stays as an `it.failing` test with a `BUG:` comment pointing at the code; when the bug is fixed the test fails, and it becomes a plain `it`.
   - Every test works in its own `TestWorkspace` (random `T…` ID, deleted with a cascade at the end).
   - `global-setup.ts` reads the URLs and keys from `supabase status` and refuses non-local URLs. It also stops when the local database lacks a migration from `supabase/migrations`.
   - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners), so assert with `eventually(...)`.
