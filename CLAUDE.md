@@ -70,8 +70,9 @@ To change the schema:
 `src/db-init/*.sql` are older hand-written copies of the schema. They no longer match the database, and `init-time-tracking.sql` does not even apply to an empty one, so don't use them as a reference.
 
 Pushing to the dev project:
-- The dev project already has every object of the baseline. It ran the five migrations after it through `supabase db push` or the dashboard.
-- The baseline is dated before them, so the first `supabase db push` after this change needs `--include-all`. Pushing it changes nothing.
+- The dev project has every migration applied, the baseline included (it was a no-op there). New migrations go out with `supabase db push`.
+- The direct DB host is IPv6-only. From an IPv4 network, use the session pooler (`aws-1-us-east-1.pooler.supabase.com:5432`, user `postgres.<project-ref>`).
+- Any other database that has the schema but not the migration history needs `--include-all` on its first push.
 
 How the tables handle foreign keys:
 - Every table has an FK to `slack_teams` with `ON DELETE CASCADE`. Uninstalling the app deletes the `slack_teams` row and relies on this cascade.
@@ -116,6 +117,8 @@ Controllers are in `src/slack/controllers/`:
   - Calls `onSubmit`.
   - Maps known domain errors (`ValidationError`, `MaxItemsCountReachedError`, `EntityHasDependenciesError`, `PrimaryEntityDeleteError`, `ForbiddenException`) to a message shown in the modal. Any other error shows a generic message.
   - Build responses with `SlackViewResponseFactory`.
+  - A parser reads each field by its config key as the `action_id`, so the view element must use that key as its `action_id`. The integration tests' `submitView` fills forms from the real view and catches a mismatch.
+- Slack shows an interaction as failed when the answer takes over 3 seconds. Work that updates several messages or notifies people (deciding workflow steps, "Approve for Approvers") runs after the answer through `runInBackground` (`src/common/utils/run-in-background.ts`), which logs its errors. Checks that can fail run before it, so the modal can still show them.
 
 To add an interaction:
 1. Add a `ViewCallbackId` value (`src/slack/enums/integration-callback-id.enum.ts`).
