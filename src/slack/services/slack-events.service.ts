@@ -205,7 +205,7 @@ export default class SlackEventsService {
       email: event.user.profile.email!,
       name: event.user.real_name,
       isActive: !event.user.deleted,
-      slackTeamId: slackTeam.slack_id,
+      slackTeamId: slackTeam.id,
     });
   }
 
