@@ -29,6 +29,8 @@ interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
 export interface ITimeEntriesTabMetaData {
   page?: number;
   filters?: ITimeEntriesListFilters;
+  // Opened from Home → Edit Entries: the viewer's entries even for Admin/HR.
+  ownEntriesOnly?: boolean;
 }
 
 @Injectable()

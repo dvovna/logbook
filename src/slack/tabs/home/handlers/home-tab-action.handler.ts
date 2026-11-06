@@ -74,7 +74,10 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
     _payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
-    this.tabNavigationService.navigate(TabId.TimeEntries, { user });
+    this.tabNavigationService.navigate(TabId.TimeEntries, {
+      user,
+      metadata: { ownEntriesOnly: true },
+    });
   };
 
   private handleMenuAction = async (

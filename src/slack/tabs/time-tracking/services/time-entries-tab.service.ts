@@ -14,6 +14,7 @@ import { TimeEntriesTabDataService } from '@modules/slack/tabs/time-tracking/ser
 import { View } from '@slack/types/dist/views';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
+import UserRole from '@common/enums/user-role.enum';
 
 interface ITimeEntryModalViewParams extends IOpenModalBaseParams<string> {
   entryId: string;
@@ -30,6 +31,9 @@ type TimeEntriesTabModalViewResolversMap = {
     params: ITimeEntryModalViewParams,
   ) => Promise<View>;
 };
+
+// Who may see (and edit) everyone's entries; everyone else sees their own.
+const ALL_ENTRIES_ROLES = [UserRole.Admin, UserRole.HR];
 
 interface IGetTimeEntriesTabViewParams extends IPublishBaseParams {
   metadata?: ITimeEntriesTabMetaData;
@@ -57,13 +61,15 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
   }
 
   public async getTabView({ user, metadata = {} }: IGetTimeEntriesTabViewParams) {
+    const seesAllEntries =
+      ALL_ENTRIES_ROLES.includes(user.role) && !metadata.ownEntriesOnly;
     const timeEntriesListData =
       await this.timeEntriesTabDataService.getTimeEntriesTabData({
         slackTeamId: user.slack_team_id,
         page: metadata.page,
         filters: {
           projectId: metadata.filters?.project?.id,
-          userId: user.id,
+          userId: seesAllEntries ? undefined : user.id,
           fromDate: metadata?.filters?.fromDate,
           toDate: metadata?.filters?.toDate,
         },

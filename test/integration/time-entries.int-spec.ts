@@ -415,25 +415,62 @@ describe('Time entries', () => {
       expect(textOf(secondPage).match(/Day \d/g)).toEqual(['Day 5']);
     });
 
-    // BUG?: the tab always filters by the viewer (time-entries-tab.service.ts:66),
-    // so under Time & Billing → Time logs an admin sees only their own entries,
-    // although the tab offers a User filter.
-    it.failing(
-      "shows an admin everyone's entries under Time logs",
-      async () => {
+    it.each([UserRole.Admin, UserRole.HR])(
+      "shows %s everyone's entries under Time logs",
+      async (role) => {
+        const viewer = await workspace.addUser({ role });
         await workspace.addTimeEntry(member, website, {
           description: 'Kickoff',
         });
-        await workspace.addTimeEntry(admin, website, { description: 'Review' });
+        await workspace.addTimeEntry(viewer, website, {
+          description: 'Review',
+        });
 
         const timeLogs = textOf(
-          await openAppHomeTab(t, workspace, admin, TIME_LOGS_TAB),
+          await openAppHomeTab(t, workspace, viewer, TIME_LOGS_TAB),
         );
 
         expect(timeLogs).toContain('Review');
         expect(timeLogs).toContain('Kickoff');
+        expect(timeLogs).toContain('Total Count: 2');
       },
     );
+
+    it('shows a manager only their own entries under Time logs', async () => {
+      const manager = await workspace.addUser({ role: UserRole.Manager });
+      await workspace.addTimeEntry(member, website, { description: 'Kickoff' });
+      await workspace.addTimeEntry(manager, website, { description: 'Review' });
+
+      const timeLogs = textOf(
+        await openAppHomeTab(t, workspace, manager, TIME_LOGS_TAB),
+      );
+
+      expect(timeLogs).toContain('Review');
+      expect(timeLogs).not.toContain('Kickoff');
+    });
+
+    it('shows an admin only their own entries under Edit Entries, on every page', async () => {
+      await addWeekOfWork();
+      await workspace.addTimeEntry(member, website, { description: 'Kickoff' });
+
+      const firstPage = await openAppHomeTab(
+        t,
+        workspace,
+        admin,
+        MY_ENTRIES_TAB,
+      );
+      expect(textOf(firstPage)).not.toContain('Kickoff');
+      expect(textOf(firstPage)).toContain('Total Count: 6');
+
+      const secondPage = await actOnTab(
+        t,
+        workspace,
+        admin,
+        firstPage,
+        TimeEntriesTabViewActionId.PaginationNext,
+      );
+      expect(textOf(secondPage).match(/Day \d|Kickoff/g)).toEqual(['Day 5']);
+    });
   });
 
   describe('changing an entry', () => {
