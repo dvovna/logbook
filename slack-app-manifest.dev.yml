@@ -18,9 +18,13 @@ features:
       url: https://NGROK_DOMAIN/api/slack/vacations
       description: Request and manage vacations
       should_escape: false
-    - command: /vacations-upload
+    - command: /upload-vacations
       url: https://NGROK_DOMAIN/api/slack/admin/user-vacations-upload
       description: Upload a CSV with vacation history (admins)
+      should_escape: false
+    - command: /user-team-mapping
+      url: https://NGROK_DOMAIN/api/slack/admin/user-team-mapping-upload
+      description: Upload a CSV that assigns users to teams (admins)
       should_escape: false
 oauth_config:
   redirect_urls:

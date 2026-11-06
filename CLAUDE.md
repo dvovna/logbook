@@ -154,7 +154,9 @@ Request create/update/delete events also invalidate `VacationPeriodUsageCacheSer
 ### Other pieces
 
 - **Working days:** `VacationDaysCalculationService` excludes weekends and the enabled holidays of the user's vacation policy. Holidays can be imported per country from Nager.Date (`src/holidays/clients/nager-date.client.ts`).
-- **CSV import of historical vacations:** an admin command posts a prompt, the admin uploads a file, Slack sends `file_shared`, and the file goes through `FileUploadService` and then `src/user-data-import/`.
+- **CSV imports:** an admin command posts a prompt, the admin uploads a file, Slack sends `file_shared`, and `FileUploadService` routes the file **by its name** to `src/user-data-import/`:
+  - `user-vacations.csv` (`/upload-vacations`): sets the contract start date and replaces the user's vacations;
+  - `user-teams.csv` (`/user-team-mapping`): `email,team`, moves users to teams matched by name (case-insensitive).
 - **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens, vacation usage). That's fine because production runs a single instance. Running more instances would need a shared store, for example Redis via Keyv.
 - **Logging:** `nestjs-pino`, pretty-printed unless `NODE_ENV=production`.
 - **Deploy:** multi-stage `Dockerfile` (Node 20 alpine, `PORT=10000`). The `public/` folder is served statically; the OAuth flow redirects to `/success.html`.
