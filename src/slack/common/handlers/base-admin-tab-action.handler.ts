@@ -59,5 +59,8 @@ export abstract class BaseAdminTabActionHandler extends BaseActionHandler {
     [AdminNavigationActionId.ManageTimeLogs]: this.createOpenTabHandler(
       TabId.TimeEntries,
     ),
+    [AdminNavigationActionId.ManageTimeApprovals]: this.createOpenTabHandler(
+      TabId.TimeApprovals,
+    ),
   };
 }

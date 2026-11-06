@@ -39,6 +39,7 @@ import { TimeAndBillingTabModule } from '@modules/slack/tabs/time-and-billing/ti
 import { ProjectsTabModule } from '@modules/slack/tabs/projects/projects-tab.module';
 import { ProjectsModule } from 'src/projects/projects.module';
 import { ProjectOptionsService } from '@modules/slack/services/option-services/project-options.service';
+import { TimeApprovalsTabModule } from '@modules/slack/tabs/time-approvals/time-approvals-tab.module';
 import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
 import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-tracking.module';
 import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module';
@@ -70,6 +71,7 @@ import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module
     TimeAndBillingTabModule,
     TimeTrackingModule,
     ClientsTabModule,
+    TimeApprovalsTabModule,
   ],
   controllers: [
     SlackOauthController,

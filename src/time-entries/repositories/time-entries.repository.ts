@@ -18,6 +18,7 @@ export class TimeEntriesRepository extends BaseRepository<
     user: 'user_id ( id, name, email, slack_id )',
     team: 'team_id ( id, name )',
     client: 'client_id ( id, name )',
+    project: 'project_id ( id, name )',
   };
 
   protected mapToViewModel = (
@@ -27,6 +28,7 @@ export class TimeEntriesRepository extends BaseRepository<
       user?: { id: string; name: string; email: string; slack_id: string };
       team?: { id: string; name: string };
       client?: { id: string; name: string };
+      project?: { id: string; name: string };
     };
 
     return {
@@ -44,6 +46,10 @@ export class TimeEntriesRepository extends BaseRepository<
       client: extendedRow.client ? {
         id: extendedRow.client.id,
         name: extendedRow.client.name,
+      } : null,
+      project: extendedRow.project ? {
+        id: extendedRow.project.id,
+        name: extendedRow.project.name,
       } : null,
       team: extendedRow.team ? {
         id: extendedRow.team.id,

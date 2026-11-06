@@ -67,6 +67,11 @@ export enum ViewCallbackId {
   UserTimeEntry = 'user_time_entry',
   AdminTimeEntry = 'admin_time_entry',
 
+  // time-approvals
+  TimeApprovalsTabView = 'time_approvals_tab_view',
+  RejectTimeEntry = 'reject_time_entry',
+  ApproveAllTimeEntries = 'approve_all_time_entries',
+
   // clients
   ClientsTabView = 'clients_tab_view',
   ClientFormSubmit = 'client_form_submit',

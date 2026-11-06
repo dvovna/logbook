@@ -13,5 +13,6 @@ export enum AdminNavigationActionId {
   ManageClients = 'manage_clients',
   ManageProjects = 'manage_projects',
   ManageTimeLogs = 'manage_time_logs',
+  ManageTimeApprovals = 'manage_time_approvals',
   ManageBillingReports = 'manage_billing_reports',
 }

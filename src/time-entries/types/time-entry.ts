@@ -31,4 +31,8 @@ export interface ITimeEntryViewModel {
     id: string;
     name: string;
   } | null;
+  project?: {
+    id: string;
+    name: string;
+  } | null;
 }

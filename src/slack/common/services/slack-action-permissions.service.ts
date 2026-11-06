@@ -70,6 +70,8 @@ export class SlackActionPermissionsService {
     [ProjectsTabViewActionId.EditProject]: [UserRole.Admin, UserRole.HR],
     [ProjectsTabViewActionId.ManageProjectAssignments]: [UserRole.Admin, UserRole.HR, UserRole.Manager],
     [ProjectsTabViewActionId.ArchiveProject]: [UserRole.Admin, UserRole.HR, UserRole.Manager],
+    [AdminNavigationActionId.ManageTimeApprovals]: [UserRole.Admin, UserRole.HR, UserRole.Manager],
+    [AdminNavigationActionId.ManageBillingReports]: [UserRole.Admin, UserRole.HR],
   } as const;
 
   public can(

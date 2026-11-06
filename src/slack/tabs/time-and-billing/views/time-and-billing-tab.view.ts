@@ -8,9 +8,8 @@ import { Divider } from '@modules/slack/common/views/components/separator';
 import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
 
 interface IGetViewParams extends IBaseTabViewParams {
-  totalLoggedIn?: number;
-  billableHours?: number;
-  activeProjects?: number;
+  // Submitted entries waiting for the viewer's decision.
+  pendingApprovals: number;
 }
 
 @Injectable()
@@ -31,7 +30,13 @@ export class TimeAndBillingTabView extends BaseAdminTabView<
     return '*🕒 Time & Billing*';
   }
 
-  protected getContentBlocks(): AnyBlock[] {
+  protected getContentBlocks({
+    pendingApprovals,
+    userRole,
+  }: IGetViewParams): AnyBlock[] {
+    const can = (actionId: AdminNavigationActionId) =>
+      this.slackActionPermissionsService.can(userRole, actionId);
+
     return [
       {
         type: 'section',
@@ -57,11 +62,24 @@ export class TimeAndBillingTabView extends BaseAdminTabView<
         'View and manage logged work time',
         AdminNavigationActionId.ManageTimeLogs,
       ),
-      this.buildManageBlock(
-        '📊 Billing reports',
-        'Generate and export billing reports',
-        AdminNavigationActionId.ManageBillingReports,
-      ),
+      ...(can(AdminNavigationActionId.ManageTimeApprovals)
+        ? [
+          this.buildManageBlock(
+            `✅ Approvals${pendingApprovals ? ` (${pendingApprovals})` : ''}`,
+            'Submitted time entries waiting for your decision',
+            AdminNavigationActionId.ManageTimeApprovals,
+          ),
+        ]
+        : []),
+      ...(can(AdminNavigationActionId.ManageBillingReports)
+        ? [
+          this.buildManageBlock(
+            '📊 Billing reports',
+            'Approved hours by client, project and person',
+            AdminNavigationActionId.ManageBillingReports,
+          ),
+        ]
+        : []),
       ...Divider.getBlocks(),
       {
         type: 'section',
