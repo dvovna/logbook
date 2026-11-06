@@ -34,7 +34,7 @@ export default class SlackCommandPromptsService {
         \`email;team_name\`
 
         Sample row:
-        \`john@doe@example.com;Engineering\`
+        \`john.doe@example.com;Engineering\`
         `,
     };
   }
