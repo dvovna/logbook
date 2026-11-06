@@ -390,6 +390,7 @@ describe('Time entries', () => {
       expect(myEntries).toContain('Project: Website');
       expect(myEntries).toContain('Client: Acme');
       expect(myEntries).toContain('Time: 1h 30m');
+      expect(myEntries).toContain('Status: Draft');
       expect(myEntries).toContain('Description: Kickoff');
       expect(myEntries).not.toContain('Deleted work');
       expect(myEntries).not.toContain('Not mine');

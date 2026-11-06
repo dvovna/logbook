@@ -1,5 +1,6 @@
 import { IOption } from '@modules/slack/common/types/option.interface';
 import { ITotalCount } from '@common/types/list.types';
+import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
 
 export interface ITimeEntryListItem {
   id: string;
@@ -10,6 +11,8 @@ export interface ITimeEntryListItem {
   client_name: string;
   minutes: number;
   description: string;
+  user_id: string;
+  status: TimeEntryStatus;
 }
 
 export interface ITimeEntriesListFilters {

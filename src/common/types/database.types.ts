@@ -1069,65 +1069,41 @@ export type Database = {
           users_count: number
         }[]
       }
-      get_time_entries_list:
-        | {
-            Args: {
-              p_client_id?: string
-              p_limit?: number
-              p_offset?: number
-              p_project_id?: string
-              p_slack_team_id: string
-              p_team_id?: string
-              p_user_id?: string
-              p_work_date?: string
-            }
-            Returns: {
-              client_name: string
-              created_at: string
-              description: string
-              id: string
-              minutes: number
-              project_id: string
-              project_name: string
-              team_id: string
-              total_count: number
-              updated_at: string
-              user_id: string
-              user_name: string
-              work_date: string
-            }[]
-          }
-        | {
-            Args: {
-              p_billable?: boolean
-              p_client_id?: string
-              p_from_work_date?: string
-              p_limit?: number
-              p_offset?: number
-              p_project_id?: string
-              p_slack_team_id: string
-              p_team_id?: string
-              p_to_work_date?: string
-              p_user_id?: string
-              p_work_date?: string
-            }
-            Returns: {
-              billable: boolean
-              client_name: string
-              created_at: string
-              description: string
-              id: string
-              minutes: number
-              project_id: string
-              project_name: string
-              team_id: string
-              total_count: number
-              updated_at: string
-              user_id: string
-              user_name: string
-              work_date: string
-            }[]
-          }
+      get_time_entries_list: {
+        Args: {
+          p_billable?: boolean
+          p_client_id?: string
+          p_exclude_user_id?: string
+          p_from_work_date?: string
+          p_limit?: number
+          p_offset?: number
+          p_project_id?: string
+          p_slack_team_id: string
+          p_status?: string
+          p_team_id?: string
+          p_team_ids?: string[]
+          p_to_work_date?: string
+          p_user_id?: string
+          p_work_date?: string
+        }
+        Returns: {
+          billable: boolean
+          client_name: string
+          created_at: string
+          description: string
+          id: string
+          minutes: number
+          project_id: string
+          project_name: string
+          status: string
+          team_id: string
+          total_count: number
+          updated_at: string
+          user_id: string
+          user_name: string
+          work_date: string
+        }[]
+      }
       get_user_projects: {
         Args: {
           p_include_archived?: boolean

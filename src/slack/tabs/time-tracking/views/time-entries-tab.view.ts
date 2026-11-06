@@ -21,6 +21,7 @@ import {
 } from 'src/time-entries/types/time-entries-list.types';
 import { TIME_ENTRIES_TAB_PAGE_SIZE } from '@modules/slack/tabs/time-tracking/services/time-entries-tab-data.service';
 import { getDisplayTime } from '@common/utils/time.utils';
+import { TIME_ENTRY_STATUS_DISPLAY_NAME } from '@modules/slack/tabs/time-tracking/data/time-log-status.options';
 
 interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
   timeEntriesListData: ITimeEntryListData;
@@ -118,6 +119,7 @@ export class TimeEntriesTabView extends BaseAdminTabView<
             text:
               `Date: ${workDate}\n` +
               `Time: ${getDisplayTime(entry.minutes)}\n` +
+              `Status: ${TIME_ENTRY_STATUS_DISPLAY_NAME[entry.status]}\n` +
               `Created: ${createdAt}\n` +
               `Description: ${truncate(entry.description || '-', { length: 80 })}`,
           },
