@@ -141,8 +141,13 @@ describe('Clients', () => {
       );
 
       const since = t.slackApi.mark();
-      await t.slack.submitView(workspace, admin, confirmation).expect(200);
+      const response = await t.slack
+        .submitView(workspace, admin, confirmation)
+        .expect(200);
 
+      expect(textOf(response.body.view)).toContain(
+        "Client 'Acme' has been successfully archived.",
+      );
       expect(await workspace.row('clients', client.id)).toMatchObject({
         archived_at: expect.any(String),
         archived_by: admin.id,
@@ -184,29 +189,17 @@ describe('Clients', () => {
         'The client *Acme* will be restored',
       );
 
-      await t.slack.submitView(workspace, admin, confirmation).expect(200);
-
-      expect(await workspace.row('clients', client.id)).toMatchObject({
-        archived_at: null,
-        archived_by: null,
-      });
-    });
-
-    // BUG: the success message is built from the client as it was before the
-    // change (change-client-status-form-submit.handler.ts:44 gets the row read
-    // at :71), so archiving says "restored" and restoring says "archived".
-    it.failing('says the client was archived', async () => {
-      const client = await workspace.addClient({ name: 'Acme' });
-      const clientsTab = await openAppHomeTab(t, workspace, admin, CLIENTS_TAB);
-      const confirmation = await openConfirmation(clientsTab, client);
-
       const response = await t.slack
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
       expect(textOf(response.body.view)).toContain(
-        "Client 'Acme' has been successfully archived.",
+        "Client 'Acme' has been successfully restored.",
       );
+      expect(await workspace.row('clients', client.id)).toMatchObject({
+        archived_at: null,
+        archived_by: null,
+      });
     });
   });
 });

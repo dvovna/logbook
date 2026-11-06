@@ -84,7 +84,7 @@ export class ChangeClientStatusFormSubmitHandler extends BaseModalFormSubmitHand
         archivedBy: user.id,
       };
 
-    await this.clientsService.update(
+    const updatedClient = await this.clientsService.update(
       {
         id: client.id,
         slackTeamId: user.slack_team_id,
@@ -96,6 +96,6 @@ export class ChangeClientStatusFormSubmitHandler extends BaseModalFormSubmitHand
 
     this.tabNavigationService.navigate(TabId.Clients, { user });
 
-    return client;
+    return updatedClient;
   }
 }
