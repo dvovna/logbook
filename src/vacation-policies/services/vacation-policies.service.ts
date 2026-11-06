@@ -17,6 +17,8 @@ import {
   ISearchResult,
 } from 'src/common/types/pagination.types';
 import HolidaysService from 'src/holidays/services/holidays.service';
+import TeamsService from 'src/teams/services/teams.service';
+import EntityHasDependenciesError from 'src/common/errors/entity-has-dependencies.error';
 
 export const DEFAULT_VACATION_DAYS = 24;
 export const DEFAULT_WORK_DAYS = 20;
@@ -81,6 +83,7 @@ export default class VacationPoliciesService
   public constructor(
     private readonly vacationPoliciesRepository: VacationPoliciesRepository,
     private readonly holidaysService: HolidaysService,
+    private readonly teamsService: TeamsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly config: ConfigService,
   ) {}
@@ -191,6 +194,18 @@ export default class VacationPoliciesService
 
   public async delete(findParams: IFindParams) {
     const policy = await this.findOneWithValidation(findParams);
+
+    const teamsCount = await this.teamsService.count({
+      slackTeamId: policy.slack_team_id,
+      vacationPolicyId: policy.id,
+    });
+
+    if (teamsCount > 0) {
+      throw new EntityHasDependenciesError(
+        'policy',
+        `used by ${teamsCount} team${teamsCount === 1 ? '' : 's'}`,
+      );
+    }
 
     await this.vacationPoliciesRepository.deleteMany(
       this.getFindQuery(findParams),
