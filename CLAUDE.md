@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A multi-tenant Slack app (NestJS 11, TypeScript) for managing vacation requests: users request time off from the bot's App Home, the request goes through an approval workflow, and admins/HR manage users, teams, policies and holidays. Data lives in Supabase (Postgres).
+Logbook, a multi-tenant Slack app (NestJS 11, TypeScript) for vacation requests and time tracking: users request time off from the bot's App Home, the request goes through an approval workflow, and admins/HR manage users, teams, policies and holidays. Data lives in Supabase (Postgres).
 
 ## Commands
 

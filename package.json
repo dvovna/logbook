@@ -1,7 +1,7 @@
 {
-  "name": "slack-vacations-bot",
+  "name": "logbook",
   "version": "0.1.0",
-  "description": "Slack app for vacation requests with approvals, leave policies and holidays, plus time tracking",
+  "description": "Logbook: vacation requests with approvals, leave policies, holidays and time tracking in Slack",
   "author": "Dzmitry Vouna",
   "private": true,
   "license": "AGPL-3.0-or-later",

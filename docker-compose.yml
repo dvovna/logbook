@@ -1,7 +1,7 @@
 services:
-  slack-bot:
+  logbook:
     build: .
-    container_name: slack-bot
+    container_name: logbook
     restart: always
     env_file: .env
     # The image defaults to 10000; keep the app and the published port in sync.

@@ -3,17 +3,17 @@
 # the public domain the bot runs on, e.g.:
 #   sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml
 # For local development use your ngrok domain and a separate app (an app has
-# one set of request URLs), e.g. named "Vacations Bot (dev)".
+# one set of request URLs), e.g. named "Logbook (dev)".
 display_information:
-  name: Vacations Bot
-  description: Vacation requests, approvals and time tracking in Slack
+  name: Logbook
+  description: "Your team's hours and time off: vacation requests, approvals and time tracking"
 features:
   app_home:
     home_tab_enabled: true
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
   bot_user:
-    display_name: vacations
+    display_name: logbook
     always_online: true
   slash_commands:
     - command: /vacations
