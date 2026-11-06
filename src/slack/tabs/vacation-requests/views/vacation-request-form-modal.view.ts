@@ -57,8 +57,15 @@ export class VacationRequestFormModalView extends BaseModalView<
     errorMessage,
     initialData,
     userRole,
+    callbackId,
   }: IGetViewParams): AnyBlock[] {
-    const isAdminView = userRole && ADMIN_VIEW_USER_ROLES.includes(userRole);
+    // Only the admin form lets HR and admins pick the user and the status. A
+    // request from Home or `/vacations request` is the user's own, and its
+    // handler ignores those fields.
+    const isAdminView =
+      callbackId === ViewCallbackId.AdminVacationRequest &&
+      !!userRole &&
+      ADMIN_VIEW_USER_ROLES.includes(userRole);
 
     return [
       ...(isAdminView ? this.getAdminViewBlocks(initialData) : []),
@@ -134,7 +141,8 @@ export class VacationRequestFormModalView extends BaseModalView<
       },
       ...SlackStaticSelectView.getView({
         blockId: 'status_block',
-        actionId: VacationRequestsTabViewActionId.SelectStatus,
+        // The parser reads the field by this action_id.
+        actionId: 'status',
         label: 'Vacation Status',
         placeholder: 'Select vacation status',
         options: STATUS_OPTIONS,

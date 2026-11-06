@@ -23,6 +23,7 @@ import {
   VacationDaysCalculationService,
 } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import TeamsService from '@modules/teams/services/teams.service';
+import { UsersService } from '@modules/users/services/users.service';
 import { getDateOnly } from '@common/utils/date.utils';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { ValidationError } from '@common/errors/validation.error';
@@ -93,6 +94,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     private readonly workingDaysCalculationService: VacationDaysCalculationService,
     private readonly teamsService: TeamsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly usersService: UsersService,
   ) {}
 
   public async create(createParams: ICreateParams, user: IUserViewModel) {
@@ -137,7 +139,7 @@ export class VacationRequestsService implements IVacationRequestsService {
         workingDays,
       },
       type,
-      user,
+      await this.getRequestOwner(userId, user),
     );
 
     const now = new Date().toISOString();
@@ -237,7 +239,7 @@ export class VacationRequestsService implements IVacationRequestsService {
           workingDays,
         },
         type,
-        user,
+        await this.getRequestOwner(userId ?? existingRequest.user_id, user),
       );
     }
 
@@ -422,5 +424,18 @@ export class VacationRequestsService implements IVacationRequestsService {
         ? { start_date: { value: params.startDate, operator: 'gte' } }
         : {}),
     };
+  }
+
+  // Whose vacation it is: the acting user, unless HR or an admin acts for
+  // someone else. Their team's policy and their balance are what count.
+  private async getRequestOwner(ownerId: string, actor: IUserViewModel) {
+    if (ownerId === actor.id) {
+      return actor;
+    }
+
+    return this.usersService.findOneWithValidation({
+      id: ownerId,
+      slackTeamId: actor.slack_team_id,
+    });
   }
 }

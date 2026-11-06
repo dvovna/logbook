@@ -1,0 +1,152 @@
+import UserRole from '@common/enums/user-role.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import VacationType from '@common/enums/vacation-type.enum';
+import { Tables } from '@common/types/database.types';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import { createTestApp, ITestApp } from './support/test-app';
+import { TestWorkspace } from './support/test-workspace';
+import { workWeek } from './support/dates';
+import { textOf } from './support/block-kit';
+import { openAppHomeTab, openModalFrom } from './support/app-home';
+import {
+  approvalMessageTo,
+  requestVacation,
+  VACATIONS_COMMAND,
+} from './support/vacation-flows';
+import { acknowledged } from './support/slack-test-client';
+import { eventually } from './support/eventually';
+
+describe('Requests HR files for someone else', () => {
+  let t: ITestApp;
+  let workspace: TestWorkspace;
+  let hr: Tables<'users'>;
+  let manager: Tables<'users'>;
+
+  beforeAll(async () => {
+    t = await createTestApp();
+  });
+
+  afterAll(() => t.close());
+
+  beforeEach(async () => {
+    workspace = await t.createWorkspace();
+    // HR is in no team, so neither their team nor their balance may count.
+    hr = await workspace.addUser({ role: UserRole.HR });
+    manager = await workspace.addUser({ role: UserRole.Manager });
+  });
+
+  const openRequestsTab = () =>
+    openAppHomeTab(t, workspace, hr, [
+      AdminNavigationActionId.ManageVacations,
+      AdminNavigationActionId.ManageVacationRequests,
+    ]);
+
+  // Vacations → Vacation Requests → Create, filled in for `user`.
+  const fileRequestFor = async (user: Tables<'users'>) => {
+    const requestsTab = await openRequestsTab();
+    const form = await openModalFrom(
+      t,
+      workspace,
+      hr,
+      requestsTab,
+      VacationRequestsTabViewActionId.CreateRequest,
+    );
+    const { start, end } = workWeek(2);
+
+    const response = await t.slack
+      .submitView(workspace, hr, form, {
+        [VacationRequestsTabViewActionId.UserField]: user.id,
+        status: VacationRequestStatus.Pending,
+        start_date: start,
+        end_date: end,
+        type_option: VacationType.AnnualLeave,
+      })
+      .expect(200);
+
+    return JSON.stringify(response.body);
+  };
+
+  it("files the request in the user's team, so it goes to that team's approvers", async () => {
+    const team = await workspace.addTeam({
+      manager_approvers: [manager.slack_id],
+    });
+    const member = await workspace.addUser({ team_id: team.id });
+
+    expect(await fileRequestFor(member)).toContain('created successfully');
+
+    const [request] = await workspace.rows('vacation_requests');
+    expect(request).toMatchObject({
+      user_id: member.id,
+      team_id: team.id,
+      status: VacationRequestStatus.Pending,
+    });
+    await approvalMessageTo(t, workspace, manager);
+  });
+
+  it("checks the user's balance, not HR's", async () => {
+    const policy = await workspace.addVacationPolicy({
+      vacation_days: 3,
+      working_days: 3,
+    });
+    const team = await workspace.addTeam({ vacation_policy_id: policy.id });
+    const member = await workspace.addUser({ team_id: team.id });
+
+    expect(await fileRequestFor(member)).toContain(
+      'Not enough vacation days. Requested: 5, available: 3',
+    );
+    expect(await workspace.rows('vacation_requests')).toEqual([]);
+  });
+
+  it('changes the status from Edit Request and closes the approval', async () => {
+    const team = await workspace.addTeam({
+      manager_approvers: [manager.slack_id],
+    });
+    const member = await workspace.addUser({ team_id: team.id });
+    const request = await requestVacation(t, workspace, member, workWeek(2));
+    const approval = await approvalMessageTo(t, workspace, manager);
+
+    const form = await openModalFrom(
+      t,
+      workspace,
+      hr,
+      await openRequestsTab(),
+      VacationRequestsTabViewActionId.ManageRequestMenu,
+      `${VacationRequestsTabViewActionId.EditRequest}:${request.id}`,
+    );
+    const response = await t.slack
+      .submitView(workspace, hr, form, {
+        [VacationRequestsTabViewActionId.UserField]: member.id,
+        status: VacationRequestStatus.Approved,
+        start_date: request.start_date,
+        end_date: request.end_date,
+        type_option: VacationType.AnnualLeave,
+      })
+      .expect(200);
+
+    expect(JSON.stringify(response.body)).toContain('updated successfully');
+    expect((await workspace.row('vacation_requests', request.id)).status).toBe(
+      VacationRequestStatus.Approved,
+    );
+    await eventually(() => {
+      const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+      expect(textOf(update)).toContain(`Canceled by <@${hr.slack_id}>`);
+    });
+  });
+
+  it("shows HR's own request form without the user and status fields", async () => {
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .command(VACATIONS_COMMAND, workspace, hr, 'request')
+      .expect(acknowledged);
+
+    const form = await eventually(() =>
+      t.slackApi.openedModal(workspace.token, { since }),
+    );
+    const blockIds = form.blocks.map((block) => block.block_id);
+
+    expect(blockIds).not.toContain('user_id_block');
+    expect(blockIds).not.toContain('status_block');
+  });
+});

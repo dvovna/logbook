@@ -5,6 +5,7 @@ import { VacationRequestsRepository } from 'src/vacation-requests/repositories/v
 import { VacationRequestsValidationService } from 'src/vacation-requests/services/vacation-requests-validation.service';
 import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
 import TeamsService from 'src/teams/services/teams.service';
+import { UsersService } from 'src/users/services/users.service';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
@@ -61,6 +62,7 @@ describe('VacationRequestsService', () => {
     jest.Mock
   >;
   let eventEmitter: { emit: jest.Mock };
+  let usersService: { findOneWithValidation: jest.Mock };
   let service: VacationRequestsService;
 
   beforeEach(() => {
@@ -75,6 +77,7 @@ describe('VacationRequestsService', () => {
       validateDaysRequested: jest.fn(),
     };
     eventEmitter = { emit: jest.fn() };
+    usersService = { findOneWithValidation: jest.fn() };
 
     service = new VacationRequestsService(
       repository as unknown as VacationRequestsRepository,
@@ -84,6 +87,7 @@ describe('VacationRequestsService', () => {
       } as unknown as VacationDaysCalculationService,
       {} as TeamsService,
       eventEmitter as unknown as EventEmitter2,
+      usersService as unknown as UsersService,
     );
   });
 
@@ -149,6 +153,80 @@ describe('VacationRequestsService', () => {
       );
 
       expect(validator.validateNoOverlap).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('a request HR or an admin makes for someone else', () => {
+    const admin: IUserViewModel = {
+      ...requester,
+      id: 'admin-1',
+      slack_id: 'U_ADMIN',
+      role: UserRole.Admin,
+    };
+
+    it("checks the requester's balance, not the admin's", async () => {
+      usersService.findOneWithValidation.mockResolvedValue(requester);
+
+      await service.create(
+        {
+          userId: requester.id,
+          teamId: null,
+          startDate: new Date('2026-02-02'),
+          endDate: new Date('2026-02-06'),
+          type: VacationType.AnnualLeave,
+          status: VacationRequestStatus.Pending,
+        },
+        admin,
+      );
+
+      expect(usersService.findOneWithValidation).toHaveBeenCalledWith({
+        id: requester.id,
+        slackTeamId: SLACK_TEAM_ID,
+      });
+      expect(validator.validateDaysRequested).toHaveBeenCalledWith(
+        expect.anything(),
+        VacationType.AnnualLeave,
+        requester,
+      );
+    });
+
+    it("checks the requester's balance when the admin changes the dates", async () => {
+      usersService.findOneWithValidation.mockResolvedValue(requester);
+      repository.findOne.mockResolvedValue(buildRequest());
+      repository.update.mockResolvedValue(buildRequest());
+
+      await service.update(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { endDate: new Date('2026-02-09') },
+        admin,
+      );
+
+      expect(validator.validateDaysRequested).toHaveBeenCalledWith(
+        expect.anything(),
+        VacationType.AnnualLeave,
+        requester,
+      );
+    });
+
+    it('needs no lookup when users request for themselves', async () => {
+      await service.create(
+        {
+          userId: requester.id,
+          teamId: null,
+          startDate: new Date('2026-02-02'),
+          endDate: new Date('2026-02-06'),
+          type: VacationType.AnnualLeave,
+          status: VacationRequestStatus.Pending,
+        },
+        requester,
+      );
+
+      expect(usersService.findOneWithValidation).not.toHaveBeenCalled();
+      expect(validator.validateDaysRequested).toHaveBeenCalledWith(
+        expect.anything(),
+        VacationType.AnnualLeave,
+        requester,
+      );
     });
   });
 

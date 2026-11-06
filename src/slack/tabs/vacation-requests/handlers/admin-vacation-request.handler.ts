@@ -75,13 +75,20 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
       : this.create(data, user);
   }
 
-  private create(
+  // HR or an admin creates the request for the user chosen in the form, so
+  // the request belongs to that user's team (and goes to its approvers).
+  private async create(
     data: IVacationRequestAdminFormViewData,
     user: IUserViewModel,
   ): Promise<IVacationRequestViewModel> {
+    const selectedUser = await this.usersService.findOneWithValidation({
+      id: data.user.value,
+      slackTeamId: user.slack_team_id,
+    });
+
     return this.vacationRequestsService.create(
       {
-        teamId: user.team_id,
+        teamId: selectedUser.team_id,
         userId: data.user.value,
         startDate: new Date(data.start_date),
         endDate: new Date(data.end_date),

@@ -73,6 +73,22 @@ export class TestWorkspace implements ISlackWorkspace {
     );
   }
 
+  public async addVacationPolicy(
+    fields: Partial<TablesInsert<'vacation_policies'>> = {},
+  ): Promise<Tables<'vacation_policies'>> {
+    return unwrap(
+      await this.db
+        .from('vacation_policies')
+        .insert({
+          slack_team_id: this.id,
+          name: `Policy ${randomUUID().slice(0, 8)}`,
+          ...fields,
+        })
+        .select()
+        .single(),
+    );
+  }
+
   public async addTeam(
     fields: Partial<TablesInsert<'teams'>> = {},
   ): Promise<Tables<'teams'>> {
