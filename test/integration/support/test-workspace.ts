@@ -2,7 +2,6 @@ import { randomUUID } from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database, Tables, TablesInsert } from '@common/types/database.types';
 import UserRole from '@common/enums/user-role.enum';
-import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { ISlackWorkspace } from './slack-test-client';
 
 type TableName = keyof Database['public']['Tables'];
@@ -83,10 +82,6 @@ export class TestWorkspace implements ISlackWorkspace {
         .insert({
           slack_team_id: this.id,
           name: `Team ${randomUUID().slice(0, 8)}`,
-          // The column defaults are broken in the schema (the literal text
-          // `'ANY'::text`), so the rules always have to be given.
-          manager_approvers_rule: ApprovalRule.Any,
-          hr_approvers_rule: ApprovalRule.Any,
           ...fields,
         })
         .select()
