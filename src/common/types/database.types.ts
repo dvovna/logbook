@@ -278,7 +278,7 @@ export type Database = {
         }
         Insert: {
           project_id: string
-          slack_team_id?: string
+          slack_team_id: string
           team_id: string
         }
         Update: {
@@ -376,7 +376,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
-          slack_team_id?: string
+          slack_team_id: string
           status?: string
           updated_at?: string
           updated_by?: string | null
