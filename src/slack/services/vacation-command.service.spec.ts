@@ -85,7 +85,11 @@ describe('VacationCommandService', () => {
 
       await service.handleCommand(VacationCommand.Usage, user);
 
-      expect(getText()).toContain('usage for 2026-01-01 – 2026-12-31');
+      // Same local-date format as the home tab, so the period doesn't shift
+      // by a day outside UTC.
+      expect(getText()).toContain(
+        'usage for Thu Jan 01 2026 – Thu Dec 31 2026',
+      );
       expect(getText()).toContain('Used: 5 days');
       expect(getText()).toContain('Remaining: not limited');
       expect(getText()).not.toContain('Remaining: 19 days');

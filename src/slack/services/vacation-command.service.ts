@@ -10,7 +10,6 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
-import { getDateOnly } from 'src/common/utils/date.utils';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import { CancelVacationRequestSelectModalView } from 'src/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 
@@ -107,7 +106,7 @@ export default class VacationCommandService {
 
     return {
       text: `
-📊 Your vacation usage for ${getDateOnly(periodStart)} – ${getDateOnly(periodEnd)}:
+📊 Your vacation usage for ${periodStart.toDateString()} – ${periodEnd.toDateString()}:
 
 ${getVacationTypeIcon(VacationType.AnnualLeave)} Annual Leave:
    • Used: ${usage.annual_leave.used} days
