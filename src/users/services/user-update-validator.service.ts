@@ -33,7 +33,8 @@ export class UserUpdateValidatorService {
     params: IUpdateUserParams,
   ) {
     const isCurrentRoleAdmin = userBeforeUpdate.role === UserRole.Admin;
-    const roleChangedToNonAdmin = params.role !== UserRole.Admin;
+    const roleChangedToNonAdmin =
+      params.role !== undefined && params.role !== UserRole.Admin;
     const deactivated = params.isActive === false;
 
     if (isCurrentRoleAdmin && (roleChangedToNonAdmin || deactivated)) {
