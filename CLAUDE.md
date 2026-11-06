@@ -21,13 +21,19 @@ yarn test             # jest
 yarn test src/request-workflows/services/request-workflow.service.spec.ts   # one file
 yarn test -t 'finishes the workflow'                                        # by test name
 yarn db:init          # apply src/commands/init.sql to SUPABASE_DB_URL from .env
+npx supabase@latest start                                                    # local Supabase in Docker
+yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # signed event to the local app
 ```
 
 - Tests are `*.spec.ts` files next to the code (rootDir `src`, config in `jest.config.ts`). They build services directly with `jest.fn()` mocks rather than through a Nest testing module. `jest.config.ts` pins `TZ=UTC`, because the date code mixes local `getDay()` with `toISOString()` and production runs in UTC.
 - `yarn db:init` runs `src/commands/db-init.ts` through ts-node and applies `init.sql` in a single transaction. The SQL is idempotent, so running it again on an existing DB is safe. `src/commands` is excluded from `nest build`.
 - The codebase is not lint-clean: about 140 prettier and other errors already exist. `yarn lint` uses `--fix`, so it rewrites many unrelated files. To lint only what you touched, run `npx eslint <files>`.
 - The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if any are missing. Copy `.env.example` to `.env` first.
-- Local Slack development needs a public HTTPS URL (ngrok). Slack's request URLs point to `/api/slack/...`, and installation goes through `https://slack.com/oauth/v2/authorize?client_id=...&scope=commands,users:read,users:read.email,channels:read,chat:write&redirect_uri=https://{ngrok_domain}/api/slack/oauth/redirect`.
+- Local setup is in README → "Local development":
+  - Local Supabase from `supabase/config.toml`. Only Postgres, the API, auth and Studio are enabled. Auth is unused by the app but the CLI prints the API keys only with it on.
+  - A dev Slack app from `slack-app-manifest.dev.yml`, reached through ngrok.
+  - Install the dev app through the OAuth URL, not the "Install to Workspace" button: only the OAuth redirect creates the `slack_teams` row.
+- `yarn slack:event <payload.json> [--team <T-id>] [--url <url>]` (`src/commands/send-slack-event.ts`) signs a payload with `SLACK_SIGN_IN_SECRET` and posts it to `/api/slack/events`. Use it to exercise event handlers without Slack. Samples in `src/commands/slack-events/` use `T_LOCAL` as the workspace ID, which `--team` replaces.
 
 ## Conventions enforced by lint/config
 
@@ -44,6 +50,8 @@ There are two schema files, and they are kept in sync column for column, includi
 - `src/commands/init.sql`.
 
 When you change the schema, update `init.sql` (idempotent DDL: `IF NOT EXISTS`, plus a `DO` block for FKs added after the fact), `database.types.ts`, and the repository's `mapToViewModel`.
+
+There are no Supabase migrations. The local stack loads `init.sql` as a seed (`[db.seed]` in `supabase/config.toml`) on first start and on `db reset`.
 
 How `init.sql` handles foreign keys:
 - Every table has an FK to `slack_teams` with `ON DELETE CASCADE`. Uninstalling the app deletes the `slack_teams` row and relies on this cascade.
