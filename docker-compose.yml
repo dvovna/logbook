@@ -1,9 +1,11 @@
-version: "3.8"
 services:
   slack-bot:
     build: .
     container_name: slack-bot
     restart: always
-    ports:
-      - "3000:3000"
     env_file: .env
+    # The image defaults to 10000; keep the app and the published port in sync.
+    environment:
+      PORT: ${PORT:-3000}
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"

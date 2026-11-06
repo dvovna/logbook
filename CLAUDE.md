@@ -41,10 +41,10 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - used by the Dockerfile and by CI (`.github/workflows/ci.yml`: tsc, jest, build, non-blocking lint of changed files).
 
   Node images and installs from 26 on have no yarn and no corepack, so the Dockerfile and CI install `yarn@1.22.22` themselves.
-- The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if any are missing. Copy `.env.example` to `.env` first.
-- Local setup is in README → "Local development":
+- The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if a required one is missing. Only the Supabase URL and service role key and the four Slack values are required; the `MAX_*`/year limits have defaults. Copy `.env.example` to `.env` first.
+- Local setup is in README → "Development"; self-hosting is in README → "Self-hosting":
   - Local Supabase from `supabase/config.toml`. Only Postgres, the API, auth and Studio are enabled. Auth is unused by the app but the CLI prints the API keys only with it on.
-  - A dev Slack app from `slack-app-manifest.dev.yml`, reached through ngrok.
+  - A dev Slack app from `slack-app-manifest.yml` (`APP_DOMAIN` replaced with the ngrok domain), reached through ngrok.
   - Install the dev app through the OAuth URL, not the "Install to Workspace" button: only the OAuth redirect creates the `slack_teams` row.
 - `yarn slack:event <payload.json> [--team <T-id>] [--url <url>]` (`src/commands/send-slack-event.ts`) signs a payload with `SLACK_SIGN_IN_SECRET` and posts it to `/api/slack/events`. Use it to exercise event handlers without Slack. Samples in `src/commands/slack-events/` use `T_LOCAL` as the workspace ID, which `--team` replaces.
 
@@ -67,8 +67,6 @@ To change the schema:
 1. Add a new migration (`npx supabase@latest migration new <name>`).
 2. Regenerate `database.types.ts`.
 3. Update the repository's `mapToViewModel`.
-
-`src/db-init/*.sql` are older hand-written copies of the schema. They no longer match the database, and `init-time-tracking.sql` does not even apply to an empty one, so don't use them as a reference.
 
 Pushing to the dev project:
 - The dev project has every migration applied, the baseline included (it was a no-op there). New migrations go out with `supabase db push`.
@@ -187,4 +185,4 @@ Request create/update/delete events also invalidate `VacationPeriodUsageCacheSer
   - `user-team-mapping.csv` (`/user-team-mapping`): `email;team_name` (both CSVs use `;`), moves users to the team with that exact name.
 - **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens, vacation usage). That's fine because production runs a single instance. Running more instances would need a shared store, for example Redis via Keyv.
 - **Logging:** `nestjs-pino`, pretty-printed unless `NODE_ENV=production`.
-- **Deploy:** multi-stage `Dockerfile` (Node 20 alpine, `PORT=10000`). The `public/` folder is served statically; the OAuth flow redirects to `/success.html`.
+- **Deploy:** multi-stage `Dockerfile` (Node 26 alpine, `PORT=10000`; `docker-compose.yml` sets `PORT` from `.env`, default 3000). The `public/` folder is served statically; the OAuth flow redirects to `/success.html`.

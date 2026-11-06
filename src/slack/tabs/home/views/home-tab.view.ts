@@ -46,7 +46,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   }
 
   protected getTabTitle() {
-    return `*Marina Bot*\n`;
+    return `*🏠 Overview*\n`;
   }
 
   private getUserViewBlocks(

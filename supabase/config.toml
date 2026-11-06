@@ -69,8 +69,7 @@ schema_paths = []
 enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-# The schema comes from supabase/migrations (the first one is the baseline built from
-# src/db-init), so there is nothing to seed by default.
+# The schema comes from supabase/migrations, so there is nothing to seed by default.
 sql_paths = ["./seed.sql"]
 
 [db.network_restrictions]
