@@ -4,6 +4,8 @@ This is a Slack bot app that allows managing user vacation requests.
 
 ## Project setup
 
+Node 26 (the version is pinned in `.nvmrc`, so `nvm use` picks it up) and yarn 1.
+
 ```bash
 $ yarn install
 ```
