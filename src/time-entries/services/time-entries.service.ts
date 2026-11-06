@@ -193,8 +193,10 @@ export class TimeEntriesService {
   ): Promise<ITimeEntryViewModel> {
     const entry = await this.findOneWithValidation(params);
 
+    this.timeEntriesValidationService.validateDelete(entry, user);
+
     await this.timeEntriesRepository.update(
-      { id: entry.id },
+      { id: entry.id, slack_team_id: entry.slack_team_id },
       {
         deleted_at: new Date().toISOString(),
         deleted_by: user.id,
@@ -219,8 +221,10 @@ export class TimeEntriesService {
     return project;
   }
 
+  // Deleted entries are kept, but only as history.
   private getFindQuery(params: IFindParams): SupabaseFilter {
     return {
+      deleted_at: { operator: 'is', value: null },
       ...(params.id ? { id: params.id } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
       ...(params.projectId ? { project_id: params.projectId } : {}),

@@ -78,17 +78,25 @@ export class TimeEntriesValidationService {
     if (
       update.userId ||
       update.projectId ||
-      update.workDate
+      update.workDate ||
+      update.minutes !== undefined
     ) {
       await this.validateTotalDailyTime(
         targetUserId,
         targetProjectId,
         targetWorkDate,
         actor.slack_team_id,
-        existing.minutes,
+        update.minutes ?? existing.minutes,
         existing.id,
       );
     }
+  }
+
+  public validateDelete(
+    existing: ITimeEntryViewModel,
+    actor: IUserViewModel,
+  ) {
+    this.validateEditPermissions(existing, actor, 'delete');
   }
 
   private validateMinutes(minutes: number) {
@@ -128,13 +136,14 @@ export class TimeEntriesValidationService {
   private validateEditPermissions(
     entry: ITimeEntryViewModel,
     actor: IUserViewModel,
+    action: 'edit' | 'delete' = 'edit',
   ) {
     if (
       entry.user_id !== actor.id &&
       !this.isAdmin(actor)
     ) {
       throw new ForbiddenException(
-        'You cannot edit this time entry',
+        `You cannot ${action} this time entry`,
       );
     }
 
@@ -143,7 +152,7 @@ export class TimeEntriesValidationService {
       !this.isAdmin(actor)
     ) {
       throw new ForbiddenException(
-        'Approved time entries cannot be edited',
+        `Approved time entries cannot be ${action}d`,
       );
     }
   }

@@ -11,6 +11,7 @@ import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-a
 import {
   withPagination,
 } from '@modules/slack/common/utils/tab-list.utils';
+import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import {
   TimeEntriesTabService,
 } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
@@ -40,26 +41,12 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
 
     this.actionMap = {
       [TimeEntriesTabViewActionId.AddTimeEntry]: this.handleAddEntry,
-      // [ProjectsTabViewActionId.ManageProjectMenu]: withMenuAction<
-      //   ProjectsTabViewActionId,
-      //   [IUserViewModel]
-      // >(this.handleManageProjectMenuAction, this.logger),
-      // [ProjectsTabViewActionId.PaginationPrev]: paginationHandler,
-      // [ProjectsTabViewActionId.PaginationNext]: paginationHandler,
-      // [ProjectsTabViewActionId.FindProjectByName]: withAsyncSelectFilter(
-      //   'project',
-      //   this.updateTab,
-      // ),
-      // [ProjectsTabViewActionId.FilterByStatus]: withSelectFilter(
-      //   'status',
-      //   this.updateTab,
-      // ),
-      // [ProjectsTabViewActionId.FilterByBillable]: withSelectFilter(
-      //   'billable',
-      //   this.updateTab,
-      // ),
-      // [ProjectsTabViewActionId.IncludeArchivedProjects]: this.handleIncludeArchivedProjectsFilter,
-      // [ProjectsTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
+      [TimeEntriesTabViewActionId.ManageTimeEntryMenu]: withMenuAction<
+        TimeEntriesTabViewActionId,
+        [IUserViewModel]
+      >(this.handleManageTimeEntryMenuAction, this.logger),
+      [TimeEntriesTabViewActionId.PaginationPrev]: paginationHandler,
+      [TimeEntriesTabViewActionId.PaginationNext]: paginationHandler,
     };
   }
 
@@ -84,58 +71,41 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
     );
   };
 
-  // private handleIncludeArchivedProjectsFilter = async (
-  //   payload: ISlackBlockActionPayload,
-  //   user: IUserViewModel,
-  // ) => {
-  //   const values = getCheckboxActionValues(payload);
-  //   const metadata = parseMetadata<IProjectsTabMetaData>(payload);
-  //
-  //   const updatedMetadata: IProjectsTabMetaData = {
-  //     ...metadata,
-  //     includeArchived: values[0] === YesNoValue.Yes,
-  //   };
-  //
-  //   await this.updateTab(updatedMetadata, user);
-  // };
-  //
-  // private handleManageProjectMenuAction = async (
-  //   actionType: ProjectsTabViewActionId,
-  //   projectId: string,
-  //   payload: ISlackInteractionPayload,
-  //   user: IUserViewModel,
-  // ) => {
-  //   switch (actionType) {
-  //     case ProjectsTabViewActionId.EditProject: {
-  //       await this.projectsTabService.openModal(
-  //         payload.trigger_id || user.slack_id,
-  //         ProjectsTabModalName.UpdateProject,
-  //         { user, projectId, pageMetadata: payload.view.private_metadata },
-  //       );
-  //
-  //       break;
-  //     }
-  //     case ProjectsTabViewActionId.ArchiveProject: {
-  //       await this.projectsTabService.openModal(
-  //         payload.trigger_id || user.slack_id,
-  //         ProjectsTabModalName.ChangeProjectStatus,
-  //         { user, projectId, pageMetadata: payload.view.private_metadata },
-  //       );
-  //
-  //       break;
-  //     }
-  //     case ProjectsTabViewActionId.ManageProjectAssignments: {
-  //       await this.projectsTabService.openModal(
-  //         payload.trigger_id || user.slack_id,
-  //         ProjectsTabModalName.ManageProjectAssignments,
-  //         { user, projectId, pageMetadata: payload.view.private_metadata },
-  //       );
-  //
-  //       break;
-  //     }
-  //     default: {
-  //       this.logger.warn(`Unhandled Tab Menu actionType: ${actionType}`);
-  //     }
-  //   }
-  // };
+  private handleManageTimeEntryMenuAction = async (
+    actionType: TimeEntriesTabViewActionId,
+    entryId: string,
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    const triggerId = payload.trigger_id || user.slack_id;
+    const params = {
+      user,
+      entryId,
+      pageMetadata: payload.view.private_metadata,
+    };
+
+    switch (actionType) {
+      case TimeEntriesTabViewActionId.EditTimeEntry: {
+        await this.timeEntriesTabService.openModal(
+          triggerId,
+          TimeEntriesTabModalName.UpdateTimeEntry,
+          params,
+        );
+
+        break;
+      }
+      case TimeEntriesTabViewActionId.DeleteTimeEntry: {
+        await this.timeEntriesTabService.openModal(
+          triggerId,
+          TimeEntriesTabModalName.DeleteEntry,
+          params,
+        );
+
+        break;
+      }
+      default: {
+        this.logger.warn(`Unhandled Time Entries Tab Menu actionType: ${actionType}`);
+      }
+    }
+  };
 }

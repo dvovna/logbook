@@ -8,6 +8,7 @@ import { AdminTimeEntryFormSubmitHandler } from '@modules/slack/tabs/time-tracki
 import AdminTimeEntryModalViewValuesParser
   from '@modules/slack/tabs/time-tracking/parsers/admin-time-entry-modal-view-values.parser';
 import { UsersModule } from '@modules/users/users.module';
+import { DeleteTimeEntryFormSubmitHandler } from '@modules/slack/tabs/time-tracking/handlers/delete-time-entry-form-submit.handler';
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import UserTimeEntryModalViewValuesParser
   from '@modules/slack/tabs/time-tracking/parsers/user-time-entry-modal-view-values.parser';
@@ -31,6 +32,7 @@ import { TimeEntriesTabView } from '@modules/slack/tabs/time-tracking/views/time
     AdminTimeEntryModalViewValuesParser,
     UserTimeEntryFormSubmitHandler,
     AdminTimeEntryFormSubmitHandler,
+    DeleteTimeEntryFormSubmitHandler,
     TimeEntriesListQuery,
     TimeEntriesTabDataService,
     TimeEntriesTabService,

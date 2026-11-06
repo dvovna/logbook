@@ -396,9 +396,7 @@ describe('Time entries', () => {
       expect(textOf(firstPage)).toContain('Page 1 of 2');
     });
 
-    // BUG: Next/Prev answer 500: the pagination handler is built but not in
-    // the tab's actionMap (time-entries-tab-action.handler.ts:41).
-    it.failing('pages to older work', async () => {
+    it('pages to older work', async () => {
       await addWeekOfWork();
       const firstPage = await openAppHomeTab(
         t,
@@ -439,27 +437,24 @@ describe('Time entries', () => {
   });
 
   describe('changing an entry', () => {
-    // The modal behind the entry's menu item `item` in Time logs.
+    // The modal behind the entry's menu item `item` in the time entries tab
+    // that `path` leads `user` to.
     const openFromMenu = async (
       item: TimeEntriesTabViewActionId,
       entry: Tables<'time_entries'>,
+      user = admin,
+      path: string[] = TIME_LOGS_TAB,
     ) =>
       openModalFrom(
         t,
         workspace,
-        admin,
-        await openAppHomeTab(t, workspace, admin, TIME_LOGS_TAB),
+        user,
+        await openAppHomeTab(t, workspace, user, path),
         TimeEntriesTabViewActionId.ManageTimeEntryMenu,
         `${item}:${entry.id}`,
       );
 
-    // BUG: the Edit and Delete menu items do nothing: the tab's action
-    // handler has no ManageTimeEntryMenu action
-    // (time-entries-tab-action.handler.ts:41). Behind it, nothing handles the
-    // delete_time_entry confirmation (time-entries-tab.service.ts:117), and the
-    // form handler always creates a new entry, ignoring the edited one's id
-    // (create-user-time-entry.handler.ts:62).
-    it.failing('edits an entry', async () => {
+    it('edits an entry', async () => {
       await workspace.assignToProject(website, { users: [admin] });
       const entry = await workspace.addTimeEntry(admin, website, {
         minutes: 90,
@@ -473,6 +468,7 @@ describe('Time entries', () => {
         '1.5',
       );
 
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, modal, { hours: '2' })
         .expect(200);
@@ -483,21 +479,79 @@ describe('Time entries', () => {
       expect(await entries()).toEqual([
         expect.objectContaining({ id: entry.id, minutes: 120 }),
       ]);
+      expect(textOf(await publishedHome(t, workspace, admin, since))).toContain(
+        'Time: 2h',
+      );
     });
 
-    it.failing('deletes an entry', async () => {
+    it('lets a member edit their own entry from Edit Entries', async () => {
+      const entry = await workspace.addTimeEntry(member, website, {
+        minutes: 90,
+      });
+
+      const modal = await openFromMenu(
+        TimeEntriesTabViewActionId.EditTimeEntry,
+        entry,
+        member,
+        MY_ENTRIES_TAB,
+      );
+      await t.slack
+        .submitView(workspace, member, modal, { description: 'Kickoff call' })
+        .expect(200);
+
+      expect(await entries()).toEqual([
+        expect.objectContaining({
+          id: entry.id,
+          minutes: 90,
+          description: 'Kickoff call',
+          updated_by: member.id,
+        }),
+      ]);
+    });
+
+    it('keeps the daily cap when an entry gets longer', async () => {
+      await workspace.assignToProject(website, { users: [admin] });
+      await workspace.addTimeEntry(admin, website, { minutes: 23 * 60 });
       const entry = await workspace.addTimeEntry(admin, website);
+
+      const modal = await openFromMenu(
+        TimeEntriesTabViewActionId.EditTimeEntry,
+        entry,
+      );
+      const response = await t.slack
+        .submitView(workspace, admin, modal, { hours: '1.25' })
+        .expect(200);
+
+      expect(textOf(response.body.view)).toContain(
+        'Total logged time for this project and date cannot exceed 24 hours',
+      );
+      expect((await workspace.row('time_entries', entry.id)).minutes).toBe(60);
+    });
+
+    it('deletes an entry', async () => {
+      const entry = await workspace.addTimeEntry(admin, website, {
+        description: 'Typo',
+      });
 
       const confirmation = await openFromMenu(
         TimeEntriesTabViewActionId.DeleteTimeEntry,
         entry,
       );
-      await t.slack.submitView(workspace, admin, confirmation).expect(200);
+      const since = t.slackApi.mark();
+      const response = await t.slack
+        .submitView(workspace, admin, confirmation)
+        .expect(200);
 
+      expect(textOf(response.body.view)).toContain(
+        'The time entry has been deleted.',
+      );
       expect(await workspace.row('time_entries', entry.id)).toMatchObject({
         deleted_at: expect.any(String),
         deleted_by: admin.id,
       });
+      expect(
+        textOf(await publishedHome(t, workspace, admin, since)),
+      ).not.toContain('Typo');
     });
   });
 });
