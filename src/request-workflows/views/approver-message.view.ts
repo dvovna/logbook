@@ -106,7 +106,12 @@ ${this.getRequestDetails(step, comments)}`,
     };
   }
 
-  private static getCanceledMessage({ step }: IGetMessageParams) {
+  private static getCanceledMessage({ step, comments }: IGetMessageParams) {
+    // decided_by is whoever closed the step: the requester or an admin who
+    // changed the request.
+    const canceledBy =
+      step.step_data.decided_by_slack_id ?? step.step_data.snapshot.slack_user_id;
+
     return {
       text: '❌ Vacation request canceled',
       blocks: [
@@ -114,9 +119,9 @@ ${this.getRequestDetails(step, comments)}`,
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `❌ Canceled by <@${step.step_data.snapshot.slack_user_id}>
+            text: `❌ Canceled by <@${canceledBy}>
 
-${this.getRequestDetails(step)}`,
+${this.getRequestDetails(step, comments)}`,
           },
         },
       ],

@@ -53,7 +53,10 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
   ): Promise<void> {
-    await this.updateMessage(step, comments);
+    // Steps of a level that was never reached have no message to update.
+    if (step.slack_message_ts) {
+      await this.updateMessage(step, comments);
+    }
 
     await this.requestWorkflowStepsService.update(
       {

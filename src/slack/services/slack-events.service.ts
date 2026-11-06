@@ -114,24 +114,31 @@ export default class SlackEventsService {
   ) {
     switch (event.type) {
       case SlackEventType.FileShared:
-        await this.handleFileShared(event, user!);
+        this.runInBackground(event.type, () =>
+          this.handleFileShared(event, user!),
+        );
 
         break;
       case SlackEventType.HomeTabOpened:
-        this.handleHomeTapOpened(user);
+        this.handleHomeTapOpened(event, user);
 
         break;
       case SlackEventType.TeamJoin:
-        await this.handleUserJoin(event);
+        this.runInBackground(event.type, () => this.handleUserJoin(event));
 
         break;
       case SlackEventType.UserChange:
-        await this.handleUserChange(event, user);
+        this.runInBackground(event.type, () =>
+          this.handleUserChange(event, user),
+        );
 
         break;
       case SlackEventType.AppUninstalled: {
-        await this.handleAppUninstalled(
-          (body as unknown as IAppUninstalledEventBodyData).team_id,
+        const { team_id: teamSlackId } =
+          body as unknown as IAppUninstalledEventBodyData;
+
+        this.runInBackground(event.type, () =>
+          this.handleAppUninstalled(teamSlackId),
         );
 
         break;
@@ -143,6 +150,21 @@ export default class SlackEventsService {
     }
 
     return { ok: true };
+  }
+
+  // Slack expects a response within 3 seconds, so handlers are not awaited.
+  // Their errors are logged here, otherwise an unhandled rejection would
+  // terminate the process.
+  private runInBackground(
+    eventType: SlackEventType,
+    handler: () => Promise<void>,
+  ) {
+    handler().catch((error: Error) => {
+      this.logger.error(
+        `Failed to handle ${eventType} event: ${error.message}`,
+        error.stack,
+      );
+    });
   }
 
   private async handleAppUninstalled(teamSlackId: string) {
@@ -218,8 +240,13 @@ export default class SlackEventsService {
     this.fileUploadService.handleFileUpload(fileId, user);
   }
 
-  public handleHomeTapOpened(user?: IUserViewModel) {
+  public handleHomeTapOpened(
+    event: IHomeTabOpenedEvent,
+    user: IUserViewModel | undefined,
+  ) {
     if (!user) {
+      this.logger.warn(`Skipping home tab for unknown user ${event.user}`);
+
       return;
     }
 

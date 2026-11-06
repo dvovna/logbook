@@ -6,13 +6,16 @@ import {
   VacationRequestUpdatedEvent,
 } from '@modules/vacation-requests/events/vacation-request.events';
 import TeamsService from '@modules/teams/services/teams.service';
-import { WorkflowStepType } from '@modules/request-workflows/types/request-workflow-step.interface';
+import {
+  WorkflowStepType,
+} from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
   ICreateWorkflowLevelParams,
   ICreateWorkflowParams,
   RequestWorkflowService,
 } from '@modules/request-workflows/services/request-workflow.service';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 
 @Injectable()
 export class VacationRequestProcessingService {
@@ -23,6 +26,12 @@ export class VacationRequestProcessingService {
 
   @OnEvent(VacationRequestEvent.Created)
   public async handleRequestCreated({ request }: VacationRequestCreatedEvent) {
+    // Admins can create requests that are already approved or rejected;
+    // only pending ones need approvers.
+    if (request.status !== VacationRequestStatus.Pending) {
+      return;
+    }
+
     const team = request.team?.id
       ? await this.teamsService.findOne({
         id: request.team?.id,
