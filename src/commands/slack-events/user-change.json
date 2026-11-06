@@ -1,0 +1,21 @@
+{
+  "type": "event_callback",
+  "team_id": "T_LOCAL",
+  "event": {
+    "type": "user_change",
+    "user": {
+      "id": "U_LOCAL_MEMBER",
+      "team_id": "T_LOCAL",
+      "name": "local.member",
+      "real_name": "Local Member Renamed",
+      "profile": {
+        "email": "local.member@example.com",
+        "display_name": "Local Member Renamed"
+      },
+      "is_admin": false,
+      "is_owner": false,
+      "is_bot": false,
+      "deleted": false
+    }
+  }
+}
