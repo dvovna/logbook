@@ -10,6 +10,7 @@ import {
   RequestWorkflowService,
 } from 'src/request-workflows/services/request-workflow.service';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 
 @Injectable()
 export class VacationRequestProcessingService {
@@ -20,6 +21,12 @@ export class VacationRequestProcessingService {
 
   @OnEvent(VacationRequestEvent.Created)
   public async handleRequestCreated({ request }: VacationRequestCreatedEvent) {
+    // Admins can create requests that are already approved or rejected;
+    // only pending ones need approvers.
+    if (request.status !== VacationRequestStatus.Pending) {
+      return;
+    }
+
     const team = request.team?.id
       ? await this.teamsService.findOne({
         id: request.team?.id,
