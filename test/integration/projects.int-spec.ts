@@ -189,9 +189,7 @@ describe('Projects', () => {
       });
     });
 
-    // BUG: choosing "No Client" does not unlink the client: update() skips a
-    // null clientId (projects.service.ts:142).
-    it.failing('unlinks the client when "No Client" is chosen', async () => {
+    it('unlinks the client when "No Client" is chosen', async () => {
       const acme = await workspace.addClient({ name: 'Acme' });
       const project = await workspace.addProject({ client_id: acme.id });
 
@@ -450,34 +448,6 @@ describe('Projects', () => {
       expect(textOf(response.body.view)).toContain(
         "Project 'Website' has been successfully restored.",
       );
-      expect(
-        (await workspace.row('projects', project.id)).archived_at,
-      ).toBeNull();
-    });
-
-    // BUG: restoring records the restoring user as archived_by
-    // (projects.service.ts:149 falls back to user.id when archivedBy is null).
-    it.failing('forgets who archived a restored project', async () => {
-      const project = await workspace.addProject({
-        archived_at: new Date().toISOString(),
-        archived_by: admin.id,
-      });
-      const withArchived = await actOnTab(
-        t,
-        workspace,
-        admin,
-        await openProjectsTab(),
-        ProjectsTabViewActionId.IncludeArchivedProjects,
-        YesNoValue.Yes,
-      );
-      const confirmation = await openFromMenu(
-        ProjectsTabViewActionId.ArchiveProject,
-        project,
-        withArchived,
-      );
-
-      await t.slack.submitView(workspace, admin, confirmation).expect(200);
-
       expect(await workspace.row('projects', project.id)).toMatchObject({
         archived_at: null,
         archived_by: null,

@@ -139,14 +139,22 @@ export default class ProjectsService implements IProjectsService {
       ...(updateParams.description
         ? { description: updateParams.description }
         : {}),
-      ...(updateParams.clientId ? { client_id: updateParams.clientId } : {}),
+      // null unlinks the client.
+      ...(updateParams.clientId !== undefined
+        ? { client_id: updateParams.clientId }
+        : {}),
       ...(updateParams.status ? { status: updateParams.status } : {}),
       ...(updateParams.billable !== undefined ? { billable: updateParams.billable } : {}),
       ...(updateParams.archivedAt !== undefined
         ? { archived_at: updateParams.archivedAt }
         : {}),
-      ...(updateParams.archivedBy || updateParams.archivedAt !== undefined
-        ? { archived_by: updateParams.archivedBy || user.id }
+      // A restored project has nobody who archived it.
+      ...(updateParams.archivedAt !== undefined
+        ? {
+          archived_by: updateParams.archivedAt
+            ? updateParams.archivedBy || user.id
+            : null,
+        }
         : {}),
       updated_at: new Date().toISOString(),
       updated_by: user.id,
