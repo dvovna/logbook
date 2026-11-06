@@ -73,7 +73,6 @@ export default async function globalSetup() {
     const stack = readLocalStackEnv();
 
     process.env.SUPABASE_URL = stack.API_URL;
-    process.env.SUPABASE_KEY = stack.ANON_KEY;
     process.env.SUPABASE_SERVICE_ROLE_KEY = stack.SERVICE_ROLE_KEY;
     process.env.SUPABASE_DB_URL = stack.DB_URL;
   }
