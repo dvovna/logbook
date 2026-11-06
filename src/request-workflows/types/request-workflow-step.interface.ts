@@ -1,6 +1,13 @@
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 
+// `canceled` is set when the requester cancels the request before approvers decide.
+export type ApproverStepStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'canceled';
+
 export enum WorkflowStepType {
   Approver = 'approver',
 }
@@ -19,7 +26,7 @@ export interface IRequestSnapshotData {
 
 export interface IApproverStepData {
   snapshot: IRequestSnapshotData;
-  status: 'pending' | 'approved' | 'rejected';
+  status: ApproverStepStatus;
   rule: ApprovalRule;
   decided_at?: string | null;
   decided_by_slack_id?: string | null;

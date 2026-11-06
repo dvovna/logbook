@@ -1,6 +1,7 @@
 export enum ViewCallbackId {
   HomeTabView = 'home_tab_view',
   CancelVacationRequestFormSubmit = 'cancel_vacation_request_form_submit',
+  CancelVacationRequestCommandSubmit = 'cancel_vacation_request_command_submit',
 
   // workflow steps
   WorkflowStepMessage = 'workflow_step_message',

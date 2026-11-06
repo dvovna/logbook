@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ValidationError } from 'src/common/errors/validation.error';
 import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
 import getDaysBetweenDates from 'src/common/utils/get-days-between-dates';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
@@ -10,7 +15,10 @@ import {
 } from 'src/common/types/pagination.types';
 import { SupabaseFilter } from 'src/common/repositories/base.repository';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { VacationRequestsValidationService } from 'src/vacation-requests/services/vacation-requests-validation.service';
+import {
+  ACTIVE_REQUEST_STATUSES,
+  VacationRequestsValidationService,
+} from 'src/vacation-requests/services/vacation-requests-validation.service';
 import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
 import TeamsService from 'src/teams/services/teams.service';
 import { getDateOnly } from 'src/common/utils/date.utils';
@@ -91,6 +99,15 @@ export class VacationRequestsService implements IVacationRequestsService {
       userId,
       user.slack_team_id,
     );
+
+    if (ACTIVE_REQUEST_STATUSES.includes(createParams.status)) {
+      await this.vacationRequestsValidator.validateNoOverlap({
+        userId,
+        slackTeamId: user.slack_team_id,
+        startDate,
+        endDate,
+      });
+    }
 
     const userTeam = teamId
       ? await this.teamsService.findOne({
@@ -191,6 +208,25 @@ export class VacationRequestsService implements IVacationRequestsService {
       (updateParams.endDate &&
         getDateOnly(updateParams.endDate) !== existingRequest.end_date);
 
+    const finalStatus = status ?? existingRequest.status;
+    const isStatusChanged =
+      status !== undefined && status !== existingRequest.status;
+    const isUserChanged =
+      userId !== undefined && userId !== existingRequest.user_id;
+
+    if (
+      ACTIVE_REQUEST_STATUSES.includes(finalStatus) &&
+      (hasDatesChanged || isStatusChanged || isUserChanged)
+    ) {
+      await this.vacationRequestsValidator.validateNoOverlap({
+        userId: userId ?? existingRequest.user_id,
+        slackTeamId: user.slack_team_id,
+        startDate,
+        endDate,
+        excludeRequestId: existingRequest.id,
+      });
+    }
+
     if (hasDatesChanged) {
       await this.vacationRequestsValidator.validateDaysRequested(
         {
@@ -230,6 +266,38 @@ export class VacationRequestsService implements IVacationRequestsService {
     );
 
     return updatedRequest;
+  }
+
+  public async cancel(requestId: string, user: IUserViewModel) {
+    const request = await this.findOneWithValidation({
+      id: requestId,
+      slackTeamId: user.slack_team_id,
+    });
+
+    if (request.user_id !== user.id) {
+      throw new ForbiddenException(
+        'You can cancel only your own vacation requests',
+      );
+    }
+
+    if (request.status !== VacationRequestStatus.Pending) {
+      throw new ValidationError(
+        'Only vacation requests waiting for approval can be canceled',
+      );
+    }
+
+    const canceledRequest = await this.update(
+      { id: requestId, slackTeamId: user.slack_team_id },
+      { status: VacationRequestStatus.Canceled },
+      user,
+    );
+
+    this.eventEmitter.emit(
+      VacationRequestEvent.Canceled,
+      new VacationRequestUpdatedEvent(canceledRequest, user),
+    );
+
+    return canceledRequest;
   }
 
   public findOne(

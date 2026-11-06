@@ -125,16 +125,11 @@ export abstract class BaseRepository<
     if (searchTerm && this.searchableColumns.length > 0) {
       const ilikeFilter = `%${searchTerm}%`;
 
-      query = query.ilike(this.searchableColumns[0], ilikeFilter);
+      const orConditions = this.searchableColumns
+        .map((col) => `${col}.ilike.${ilikeFilter}`)
+        .join(',');
 
-      if (this.searchableColumns.length > 1) {
-        const orConditions = this.searchableColumns
-          .slice(1)
-          .map((col) => `${col}.ilike.${ilikeFilter}`)
-          .join(',');
-
-        query = query.or(orConditions);
-      }
+      query = query.or(orConditions);
     }
 
     const { data, error, count } = await query;
@@ -351,14 +346,17 @@ export abstract class BaseRepository<
           continue;
         }
 
-        if (typeof filter[0] !== 'string' && typeof filter[0] !== 'number') {
-          for (const params of filter) {
-            if (typeof params === 'object') {
-              query = applyFilter(query, column, params);
-            } else {
-              query = query.in(column, filter);
-            }
-          }
+        const isPlainValuesList = filter.every(
+          (value) => typeof value === 'string' || typeof value === 'number',
+        );
+
+        if (isPlainValuesList) {
+          query = query.in(column, filter);
+          continue;
+        }
+
+        for (const params of filter) {
+          query = applyFilter(query, column, params);
         }
       } else if (
         typeof filter === 'object' &&

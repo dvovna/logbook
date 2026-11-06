@@ -13,7 +13,6 @@ import {
   HomeTabModalName,
   HomeTabService,
 } from 'src/slack/tabs/home/services/home-tab.service';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 
 @Injectable()
 @SlackHandler({
@@ -36,18 +35,7 @@ export class CancelVacationRequestActionHandler extends BaseModalFormSubmitHandl
     meta: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ) {
-    const { id: requestId } = meta;
-
-    await this.vacationRequestsService.update(
-      {
-        id: requestId,
-        slackTeamId: user.slack_team_id,
-      },
-      {
-        status: VacationRequestStatus.Canceled,
-      },
-      user,
-    );
+    await this.vacationRequestsService.cancel(meta.id, user);
   }
 
   protected successResponse(_result, user: IUserViewModel): ViewResponseAction {

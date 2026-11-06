@@ -7,9 +7,19 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
 import { AnyBlock } from '@slack/web-api';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import { IRequestWorkflowStepViewModel } from 'src/request-workflows/types/request-workflow-step.interface';
+import {
+  ApproverStepStatus,
+  IRequestWorkflowStepViewModel,
+} from 'src/request-workflows/types/request-workflow-step.interface';
 import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
 import capitalize from 'src/common/utils/capitalize';
+
+const STEP_STATUS_EMOJI: Record<ApproverStepStatus, string> = {
+  pending: '⏳',
+  approved: '✅',
+  rejected: '❌',
+  canceled: '🚫',
+};
 
 interface IGetParams extends IBaseModalViewParams {
   request: IVacationRequestViewModel;
@@ -136,12 +146,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
     step: IRequestWorkflowStepViewModel,
     stepComments: IWorkflowStepCommentViewModel[],
   ) {
-    const statusEmoji =
-      step.step_data.status === 'approved'
-        ? '✅'
-        : step.step_data.status === 'rejected'
-          ? '❌'
-          : '⏳';
+    const statusEmoji = STEP_STATUS_EMOJI[step.step_data.status] ?? '⏳';
 
     const decidedBy = step.step_data.decided_by_slack_id
       ? `<@${step.step_data.decided_by_slack_id}>`

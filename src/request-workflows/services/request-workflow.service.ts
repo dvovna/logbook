@@ -93,6 +93,10 @@ export class RequestWorkflowService {
       slackTeamId: approvedBy.slack_team_id,
     });
 
+    if (this.isStepDecided(step)) {
+      return;
+    }
+
     const stepsToComplete: IRequestWorkflowStepViewModel[] = [];
 
     const updatedStep = await this.requestWorkflowStepsService.updateStatus(
@@ -142,6 +146,10 @@ export class RequestWorkflowService {
       slackTeamId: rejectedBy.slack_team_id,
     });
 
+    if (this.isStepDecided(step)) {
+      return;
+    }
+
     const steps = await this.requestWorkflowStepsService.updateStatus(
       {
         requestId: step.request_id,
@@ -170,6 +178,31 @@ export class RequestWorkflowService {
       approvedBy: rejectedBy.id,
       reviewComments: approverComments,
     });
+  }
+
+  // Called when the requester cancels: approvers who haven't decided yet get
+  // their message updated without buttons, and later levels never start.
+  public async cancel(requestId: string, canceledBy: IUserViewModel) {
+    const openSteps = await this.requestWorkflowStepsService.updateStatus(
+      {
+        requestId,
+        slackTeamId: canceledBy.slack_team_id,
+        completed: false,
+      },
+      'canceled',
+      canceledBy,
+    );
+
+    if (openSteps.length === 0) {
+      return;
+    }
+
+    const comments = await this.requestWorkflowStepCommentsService.findMany({
+      requestId,
+      slackTeamId: canceledBy.slack_team_id,
+    });
+
+    await this.workflowStepProcessorService.completeSteps(openSteps, comments);
   }
 
   @OnEvent(WorkflowStepCommentEvent.Added)
@@ -216,6 +249,20 @@ export class RequestWorkflowService {
       'approved',
       approvedBy,
     );
+  }
+
+  // A button can still be clicked on a message that is already out of date,
+  // e.g. after another approver decided (ANY rule) or the request was canceled.
+  private isStepDecided(step: IRequestWorkflowStepViewModel) {
+    if (step.step_data.status === 'pending') {
+      return false;
+    }
+
+    this.logger.warn(
+      `Step ${step.id} is already ${step.step_data.status}, ignoring the action`,
+    );
+
+    return true;
   }
 
   private finishWorkflow(workflowData: IVacationWorkflow) {

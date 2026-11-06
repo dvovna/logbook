@@ -1,9 +1,19 @@
+// The vacation year runs from the contract anniversary. Users without a
+// contract start date are tracked over the calendar year.
 export const getCurrentVacationPeriod = (
-  contractStartDate: string,
+  contractStartDate: string | null | undefined,
   today = new Date(),
 ) => {
-  const start = new Date(contractStartDate); // e.g. 2020-05-15
   const currentYear = today.getFullYear();
+
+  if (!contractStartDate) {
+    return {
+      periodStart: new Date(currentYear, 0, 1),
+      periodEnd: new Date(currentYear, 11, 31),
+    };
+  }
+
+  const start = new Date(contractStartDate); // e.g. 2020-05-15
 
   const currentPeriodStart = new Date(
     currentYear,

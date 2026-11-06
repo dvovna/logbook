@@ -1,4 +1,5 @@
 import {
+  ApproverStepStatus,
   IApproverStepData,
   WorkflowStepType,
 } from 'src/request-workflows/types/request-workflow-step.interface';
@@ -104,7 +105,7 @@ export class RequestWorkflowStepsService {
 
   public async updateStatus(
     findParams: IFindParams,
-    status: 'approved' | 'rejected',
+    status: Exclude<ApproverStepStatus, 'pending'>,
     decidedBy: IUserViewModel,
   ) {
     const stepsToUpdate = await this.requestWorkflowStepsRepository.findMany(

@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
-import { VacationRequestCreatedEvent } from 'src/vacation-requests/events/vacation-request.events';
+import {
+  VacationRequestCreatedEvent,
+  VacationRequestUpdatedEvent,
+} from 'src/vacation-requests/events/vacation-request.events';
 import TeamsService from 'src/teams/services/teams.service';
 import { WorkflowStepType } from 'src/request-workflows/types/request-workflow-step.interface';
 import {
@@ -10,6 +13,7 @@ import {
   RequestWorkflowService,
 } from 'src/request-workflows/services/request-workflow.service';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 
 @Injectable()
 export class VacationRequestProcessingService {
@@ -20,6 +24,12 @@ export class VacationRequestProcessingService {
 
   @OnEvent(VacationRequestEvent.Created)
   public async handleRequestCreated({ request }: VacationRequestCreatedEvent) {
+    // Admins can create requests that are already approved or rejected;
+    // only pending ones need approvers.
+    if (request.status !== VacationRequestStatus.Pending) {
+      return;
+    }
+
     const team = request.team?.id
       ? await this.teamsService.findOne({
         id: request.team?.id,
@@ -63,6 +73,14 @@ export class VacationRequestProcessingService {
     workflow.levels = levels;
 
     await this.requestWorkflowService.create(workflow);
+  }
+
+  @OnEvent(VacationRequestEvent.Canceled)
+  public async handleRequestCanceled({
+    request,
+    user,
+  }: VacationRequestUpdatedEvent) {
+    await this.requestWorkflowService.cancel(request.id, user);
   }
 
   private buildApproverLevel(

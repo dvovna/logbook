@@ -22,7 +22,27 @@ export class ApproverMessageView {
       case 'pending': {
         return this.getPendingMessage(params);
       }
+      case 'canceled': {
+        return this.getCanceledMessage(params);
+      }
     }
+  }
+
+  private static getCanceledMessage({ step, comments }: IGetMessageParams) {
+    return {
+      text: '🚫 Vacation request canceled',
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `🚫 Canceled by <@${step.step_data.decided_by_slack_id}>
+
+${this.getRequestDetails(step, comments)}`,
+          },
+        },
+      ],
+    };
   }
 
   private static getPendingMessage({ step, comments }: IGetMessageParams) {

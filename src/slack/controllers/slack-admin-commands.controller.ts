@@ -44,4 +44,15 @@ export default class AdminCommandsController {
 
     return;
   }
+
+  @Post('/user-team-mapping-upload')
+  public async uploadUserTeams(@Req() req: Request, @Res() res: Response) {
+    res.status(200).send();
+
+    await this.slackCommunicationService.postEphemeral(
+      req.user!.slack_id,
+      this.slackPromptService.getUploadUserTeamsPromptMessage(),
+      req.user!.slack_team_id,
+    );
+  }
 }

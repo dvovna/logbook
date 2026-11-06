@@ -2,6 +2,21 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export default class SlackPromptsService {
+  public getUploadUserTeamsPromptMessage() {
+    return {
+      text: `📎 Please upload a 'user-teams.csv' file that assigns users to teams.
+        Expected format:
+        \`email,team\`
+
+        \`team\` is the name of an existing team (case-insensitive). Users not found by email and unknown teams are reported and skipped.
+
+        Sample rows:
+        \`john.doe@example.com,Engineering\`
+        \`jane.roe@example.com,Design\`
+        `,
+    };
+  }
+
   public getUploadFilePromptMessage() {
     return {
       text: `📎 Please upload a 'user-vacations.csv' file containing user vacations(max 100 vacations).
