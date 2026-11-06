@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import SlackEventsService, {
   ITeamJoinEvent,
   IUserChangeEvent,
@@ -39,6 +40,8 @@ const flushPromises = () => new Promise((resolve) => setImmediate(resolve));
 describe('SlackEventsService', () => {
   let usersService: { upsert: jest.Mock; findBySlackId: jest.Mock };
   let slackTeamsService: { findOneWithValidation: jest.Mock };
+  let tabNavigationService: { navigate: jest.Mock };
+  let loggerError: jest.SpyInstance;
   let service: SlackEventsService;
 
   beforeEach(() => {
@@ -49,15 +52,55 @@ describe('SlackEventsService', () => {
     slackTeamsService = {
       findOneWithValidation: jest.fn().mockResolvedValue(slackTeam),
     };
+    tabNavigationService = { navigate: jest.fn() };
+    loggerError = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
 
     service = new SlackEventsService(
       {} as SlackUserAccessService,
       {} as FileUploadService,
-      {} as TabNavigationService,
+      tabNavigationService as unknown as TabNavigationService,
       usersService as unknown as UsersService,
       {} as SlackAppUninstallService,
       slackTeamsService as unknown as SlackTeamsService,
     );
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  describe('background handlers', () => {
+    it('logs a failed handler instead of leaving its rejection unhandled', async () => {
+      usersService.upsert.mockRejectedValue(new Error('db is down'));
+
+      const response = service.handleSlackEvent(
+        { type: SlackEventType.TeamJoin, user: slackUser },
+        undefined,
+        {},
+      );
+      await flushPromises();
+
+      expect(response).toEqual({ ok: true });
+      expect(loggerError).toHaveBeenCalledWith(
+        'Failed to handle team_join event: db is down',
+        expect.any(String),
+      );
+    });
+
+    it('does not render the home tab for a user unknown to the bot', () => {
+      service.handleSlackEvent(
+        {
+          type: SlackEventType.HomeTabOpened,
+          user: 'U_UNKNOWN',
+          channel: 'D_UNKNOWN',
+          tab: 'home',
+        },
+        undefined,
+        {},
+      );
+
+      expect(tabNavigationService.navigate).not.toHaveBeenCalled();
+    });
   });
 
   describe('team_join', () => {

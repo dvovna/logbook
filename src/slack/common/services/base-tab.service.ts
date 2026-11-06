@@ -59,11 +59,22 @@ export default abstract class BaseTabService<
     );
   }
 
+  // Callers often don't await publish (tab navigation, after a modal submit),
+  // so it must not reject: an unhandled rejection would terminate the process.
   public publish = async (params: PublishParams) => {
-    await this.slackCommunicationService.publishView(
-      await this.getSafeTabView(params),
-      params.user.slack_team_id,
-    );
+    try {
+      await this.slackCommunicationService.publishView(
+        await this.getSafeTabView(params),
+        params.user.slack_team_id,
+      );
+    } catch (error) {
+      const { message, stack } = error as Error;
+
+      this.logger.error(
+        `Failed to publish ${this.tabId} for ${params.user?.slack_id}: ${message}`,
+        stack,
+      );
+    }
   };
 
   public async openModal<ModalName extends keyof ModalViewResolversMap>(
