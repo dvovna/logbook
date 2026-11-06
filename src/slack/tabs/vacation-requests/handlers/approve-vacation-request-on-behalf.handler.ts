@@ -15,6 +15,7 @@ import { jsonParse } from '@common/utils/json-parse';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import UserRole from '@common/enums/user-role.enum';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
+import { ValidationError } from '@common/errors/validation.error';
 
 // HR or an admin approves the level a request is waiting on, for approvers
 // who are away, so the request moves on along the approval flow.
@@ -33,18 +34,7 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
     super();
   }
 
-  protected successResponse(
-    _result: void,
-    user: IUserViewModel,
-    metadata: IConfirmationModalViewMetadata,
-  ) {
-    this.vacationRequestsTabService.publish({
-      user,
-      metadata:
-        jsonParse<IVacationRequestsTabMetadata>(metadata.pageMetadata || '{}') ??
-        undefined,
-    });
-
+  protected successResponse() {
     return SlackViewResponseFactory.update(
       this.confirmationModalView.getSuccessView(
         '✅ Approved for the approvers. The request moves on.',
@@ -52,12 +42,43 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
     );
   }
 
+  // Slack shows the modal as failed when the answer takes over 3 seconds,
+  // and approving (updating the approvers' messages, notifying the next
+  // ones) can take longer. So only the check that can fail runs before the
+  // answer; the approval itself runs after it.
   protected async onSubmit(
     _data: never,
     metadata: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ) {
-    await this.requestWorkflowService.approveCurrentLevel(metadata.id, user);
+    const waitingSteps = await this.requestWorkflowService.findCurrentLevelSteps(
+      metadata.id,
+      user.slack_team_id,
+    );
+
+    if (waitingSteps.length === 0) {
+      throw new ValidationError(
+        'This request is not waiting for anyone to approve it.',
+      );
+    }
+
+    this.requestWorkflowService
+      .approveCurrentLevel(metadata.id, user)
+      .then(() =>
+        this.vacationRequestsTabService.publish({
+          user,
+          metadata:
+            jsonParse<IVacationRequestsTabMetadata>(
+              metadata.pageMetadata || '{}',
+            ) ?? undefined,
+        }),
+      )
+      .catch((error: Error) => {
+        this.logger.error(
+          `Failed to approve request ${metadata.id} for its approvers: ${error.message}`,
+          error.stack,
+        );
+      });
   }
 
   protected async errorResponse(

@@ -192,14 +192,13 @@ describe('Vacation request approval', () => {
     });
 
     // Home → Vacations → Vacation Requests → the request's menu.
-    const approveForApprovers = async (
-      request: Tables<'vacation_requests'>,
-    ) => {
+    const openConfirmation = async (request: Tables<'vacation_requests'>) => {
       const requestsTab = await openAppHomeTab(t, workspace, hr, [
         AdminNavigationActionId.ManageVacations,
         AdminNavigationActionId.ManageVacationRequests,
       ]);
-      const confirmation = await openModalFrom(
+
+      return openModalFrom(
         t,
         workspace,
         hr,
@@ -207,6 +206,12 @@ describe('Vacation request approval', () => {
         VacationRequestsTabViewActionId.ManageRequestMenu,
         `${VacationRequestsTabViewActionId.ApproveOnBehalf}:${request.id}`,
       );
+    };
+
+    const approveForApprovers = async (
+      request: Tables<'vacation_requests'>,
+    ) => {
+      const confirmation = await openConfirmation(request);
 
       expect(textOf(confirmation)).toContain(
         `waiting for <@${manager.slack_id}>`,
@@ -242,6 +247,21 @@ describe('Vacation request approval', () => {
         expect(textOf(update)).toContain(`Approved by <@${hr.slack_id}>`);
       });
       await approvalMessageTo(t, workspace, hrApprover);
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+    });
+
+    it('says so when nobody has to approve the request', async () => {
+      await addMember(await workspace.addTeam());
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+
+      const confirmation = await openConfirmation(request);
+      expect(textOf(confirmation)).toContain('not waiting for anyone');
+
+      const response = await t.slack
+        .submitView(workspace, hr, confirmation)
+        .expect(200);
+
+      expect(textOf(response.body.view)).toContain('not waiting for anyone');
       expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
     });
 
