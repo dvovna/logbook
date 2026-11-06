@@ -7,19 +7,23 @@ import { TimeEntriesSummaryService } from 'src/time-entries/services/time-entrie
 import { TimeEntriesListQuery } from 'src/time-entries/queries/time-entries-list.query';
 import { ProjectsModule } from 'src/projects/projects.module';
 import { TeamsModule } from '@modules/teams/teams.module';
+import { ClientsModule } from '@modules/clients/clients.module';
+import { BillingReportService } from 'src/time-entries/services/billing-report.service';
 
 @Module({
-  imports: [ProjectsModule, TeamsModule],
+  imports: [ProjectsModule, TeamsModule, ClientsModule],
   providers: [
     TimeEntriesRepository,
     TimeEntriesService,
     TimeEntriesValidationService,
     TimeEntryApprovalsService,
     TimeEntriesSummaryService,
+    BillingReportService,
     TimeEntriesListQuery,
   ],
   exports: [
     TimeEntriesSummaryService,
+    BillingReportService,
     TimeEntriesService,
     TimeEntryApprovalsService,
     TimeEntriesListQuery,

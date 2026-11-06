@@ -72,6 +72,9 @@ export enum ViewCallbackId {
   RejectTimeEntry = 'reject_time_entry',
   ApproveAllTimeEntries = 'approve_all_time_entries',
 
+  // billing-reports
+  BillingReportFormSubmit = 'billing_report_form_submit',
+
   // clients
   ClientsTabView = 'clients_tab_view',
   ClientFormSubmit = 'client_form_submit',
