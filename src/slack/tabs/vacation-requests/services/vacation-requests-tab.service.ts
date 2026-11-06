@@ -25,12 +25,14 @@ import ITeamViewModel from '@modules/teams/types/team.interface';
 import {
   VacationRequestModalService,
 } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
+import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 
 export enum VacationRequestsTabModalName {
   ViewRequest = 'ViewRequest',
   CreateRequest = 'CreateRequest',
   UpdateRequest = 'UpdateRequest',
   DeleteRequest = 'DeleteRequest',
+  ApproveOnBehalf = 'ApproveOnBehalf',
 }
 
 export type IPublishVacationRequestsTabViewParams =
@@ -40,7 +42,7 @@ interface IVacationRequestModalViewParams extends IOpenModalBaseParams<string> {
   requestId?: string;
 }
 
-interface IDeleteVacationRequestModalViewParams
+interface IVacationRequestConfirmationModalViewParams
   extends IOpenModalBaseParams<string> {
   requestId: string;
 }
@@ -56,8 +58,11 @@ type VacationRequestsTabModalViewResolversMapType = {
     params: IVacationRequestModalViewParams,
   ) => Promise<View>;
   [VacationRequestsTabModalName.DeleteRequest]: (
-    params: IDeleteVacationRequestModalViewParams,
+    params: IVacationRequestConfirmationModalViewParams,
   ) => View;
+  [VacationRequestsTabModalName.ApproveOnBehalf]: (
+    params: IVacationRequestConfirmationModalViewParams,
+  ) => Promise<View>;
 };
 
 @Injectable()
@@ -72,6 +77,7 @@ export class VacationRequestsTabService extends BaseTabService<
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly vacationRequestModalService: VacationRequestModalService,
     private readonly vacationDetailsModalService: VacationDetailsModalService,
+    private readonly requestWorkflowService: RequestWorkflowService,
     private readonly config: ConfigService,
   ) {
     super(TabId.VacationRequests, {
@@ -83,6 +89,8 @@ export class VacationRequestsTabService extends BaseTabService<
         this.getRequestModalView(params),
       [VacationRequestsTabModalName.DeleteRequest]: (params) =>
         this.getDeleteRequestModalView(params),
+      [VacationRequestsTabModalName.ApproveOnBehalf]: (params) =>
+        this.getApproveOnBehalfModalView(params),
     });
   }
 
@@ -156,11 +164,41 @@ export class VacationRequestsTabService extends BaseTabService<
     return this.vacationRequestModalService.getModal(params);
   }
 
+  private async getApproveOnBehalfModalView({
+    errorMessage,
+    pageMetadata,
+    requestId,
+    user,
+  }: IVacationRequestConfirmationModalViewParams): Promise<View> {
+    const waitingSteps = await this.requestWorkflowService.findCurrentLevelSteps(
+      requestId,
+      user.slack_team_id,
+    );
+    const approvers = waitingSteps
+      .map(({ slack_user_id }) => `<@${slack_user_id}>`)
+      .join(', ');
+
+    return this.confirmationModalView.getView(
+      {
+        callbackId: ViewCallbackId.ApproveVacationRequestOnBehalf,
+        title: 'Approve for Approvers',
+        message: approvers
+          ? `The request is waiting for ${approvers}. Approve it for them? It then moves on to the next approvers, or gets approved if there are none.`
+          : 'This request is not waiting for anyone to approve it. To change its status, use Edit Request.',
+        errorMessage,
+      },
+      {
+        id: requestId,
+        pageMetadata,
+      },
+    );
+  }
+
   private getDeleteRequestModalView({
     errorMessage,
     pageMetadata,
     requestId,
-  }: IDeleteVacationRequestModalViewParams): View {
+  }: IVacationRequestConfirmationModalViewParams): View {
     return this.confirmationModalView.getView(
       {
         callbackId: ViewCallbackId.DeleteVacationRequest,

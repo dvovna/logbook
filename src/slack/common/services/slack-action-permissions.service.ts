@@ -40,6 +40,10 @@ export class SlackActionPermissionsService {
       UserRole.Manager,
     ],
     [VacationRequestsTabViewActionId.DeleteRequest]: [UserRole.Admin],
+    [VacationRequestsTabViewActionId.ApproveOnBehalf]: [
+      UserRole.Admin,
+      UserRole.HR,
+    ],
     [VacationRequestsTabViewActionId.EditRequest]: [
       UserRole.Admin,
       UserRole.HR,

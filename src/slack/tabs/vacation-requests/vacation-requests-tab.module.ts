@@ -5,6 +5,7 @@ import { VacationRequestFormModalView } from '@modules/slack/tabs/vacation-reque
 import VacationRequestUserViewValuesParser from '@modules/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
 import { UserVacationRequestHandler } from '@modules/slack/tabs/vacation-requests/handlers/user-vacation-request.handler';
 import { DeleteVacationRequestHandler } from '@modules/slack/tabs/vacation-requests/handlers/delete-vacation-request.handler';
+import { ApproveVacationRequestOnBehalfHandler } from '@modules/slack/tabs/vacation-requests/handlers/approve-vacation-request-on-behalf.handler';
 import { TeamsModule } from '@modules/teams/teams.module';
 import { AdminVacationRequestHandler } from '@modules/slack/tabs/vacation-requests/handlers/admin-vacation-request.handler';
 import VacationRequestsTabActionsHandler from '@modules/slack/tabs/vacation-requests/handlers/vacation-requests-tab-actions.handler';
@@ -39,6 +40,7 @@ import {
     VacationHistoryTabService,
     VacationHistoryTabView,
     DeleteVacationRequestHandler,
+    ApproveVacationRequestOnBehalfHandler,
     VacationRequestsTabView,
     VacationRequestFormModalView,
     VacationRequestDetailsModalView,

@@ -123,6 +123,15 @@ export default class VacationRequestsTabActionsHandler extends BaseAdminTabActio
 
         break;
       }
+      case VacationRequestsTabViewActionId.ApproveOnBehalf: {
+        await this.vacationRequestsTabService.openModal(
+          payload.trigger_id || user.slack_id,
+          VacationRequestsTabModalName.ApproveOnBehalf,
+          { user, requestId, pageMetadata: payload.view.private_metadata },
+        );
+
+        break;
+      }
       case VacationRequestsTabViewActionId.DeleteRequest: {
         await this.vacationRequestsTabService.openModal(
           payload.trigger_id || user.slack_id,

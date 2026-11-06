@@ -7,6 +7,7 @@ export enum VacationRequestsTabViewActionId {
   ViewDetails = 'view_details',
   EditRequest = 'edit_request',
   DeleteRequest = 'delete_request',
+  ApproveOnBehalf = 'approve_on_behalf',
   FilterRequestsByUser = 'filter_requests_by_user',
   FilterRequestsByTeam = 'filter_requests_by_team',
   FilterRequestsByYear = 'filter_requests_by_year',
