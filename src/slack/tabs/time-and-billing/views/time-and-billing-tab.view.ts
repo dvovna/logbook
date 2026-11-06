@@ -6,11 +6,16 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { Divider } from '@modules/slack/common/views/components/separator';
 import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import { getDisplayTime } from '@common/utils/time.utils';
+import { IWorkspaceTimeSummary } from 'src/time-entries/services/time-entries-summary.service';
 
 interface IGetViewParams extends IBaseTabViewParams {
   // Submitted entries waiting for the viewer's decision.
   pendingApprovals: number;
+  weekSummary: IWorkspaceTimeSummary;
 }
+
+const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '0h');
 
 @Injectable()
 export class TimeAndBillingTabView extends BaseAdminTabView<
@@ -32,6 +37,7 @@ export class TimeAndBillingTabView extends BaseAdminTabView<
 
   protected getContentBlocks({
     pendingApprovals,
+    weekSummary,
     userRole,
   }: IGetViewParams): AnyBlock[] {
     const can = (actionId: AdminNavigationActionId) =>
@@ -93,9 +99,9 @@ export class TimeAndBillingTabView extends BaseAdminTabView<
         text: {
           type: 'mrkdwn',
           text: [
-            '• *124h* logged total',
-            '• *98h* billable',
-            '• *6* active projects',
+            `• *${hours(weekSummary.weekMinutes)}* logged total`,
+            `• *${hours(weekSummary.weekBillableMinutes)}* billable`,
+            `• *${weekSummary.activeProjects}* active projects`,
           ].join('\n'),
         },
       },

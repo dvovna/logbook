@@ -280,11 +280,17 @@ export class TimeEntriesService {
       ...(params.statuses?.length
         ? { status: { operator: 'in', value: params.statuses } }
         : {}),
-      ...(params.dateFrom
-        ? { work_date: { operator: 'gte', value: params.dateFrom } }
-        : {}),
-      ...(params.dateTo
-        ? { work_date: { operator: 'lte', value: params.dateTo } }
+      ...(params.dateFrom || params.dateTo
+        ? {
+          work_date: [
+            ...(params.dateFrom
+              ? [{ operator: 'gte' as const, value: params.dateFrom }]
+              : []),
+            ...(params.dateTo
+              ? [{ operator: 'lte' as const, value: params.dateTo }]
+              : []),
+          ],
+        }
         : {}),
       ...(params.slackTeamId
         ? { slack_team_id: params.slackTeamId }

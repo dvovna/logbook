@@ -626,6 +626,80 @@ describe('Time entries', () => {
     });
   });
 
+  describe('summaries', () => {
+    // Another day of this week than today.
+    const otherDayThisWeek = () => {
+      const day = new Date(`${today()}T00:00:00Z`).getUTCDay();
+      const monday = addDays(today(), -((day + 6) % 7));
+
+      return monday === today() ? addDays(monday, 6) : monday;
+    };
+
+    it("shows a member today's and this week's time on Home", async () => {
+      const internal = await workspace.addProject({ name: 'Internal' });
+      await workspace.assignToProject(internal, { teams: [design] });
+      await workspace.addTimeEntry(member, website, { minutes: 90 });
+      await workspace.addTimeEntry(member, internal, { minutes: 30 });
+      await workspace.addTimeEntry(member, website, {
+        work_date: otherDayThisWeek(),
+      });
+      await workspace.addTimeEntry(member, website, {
+        work_date: addDays(today(), -7),
+      });
+      await workspace.addTimeEntry(member, website, {
+        deleted_at: new Date().toISOString(),
+        deleted_by: member.id,
+      });
+      await workspace.addTimeEntry(admin, website);
+
+      const home = textOf(await openAppHomeTab(t, workspace, member));
+
+      expect(home).toContain('Today: *2h* (Acme 1h 30m, No client 30m)');
+      expect(home).toContain('This week: *3h* total');
+    });
+
+    it('says when nothing is logged yet', async () => {
+      const home = textOf(await openAppHomeTab(t, workspace, member));
+
+      expect(home).toContain('Today: nothing logged yet');
+      expect(home).toContain('This week: *0h* total');
+    });
+
+    it("sums up the workspace's week under Time & Billing", async () => {
+      const internal = await workspace.addProject({
+        name: 'Internal',
+        billable: false,
+      });
+      await workspace.addProject({
+        name: 'Paused',
+        status: 'on-hold',
+      });
+      await workspace.addProject({
+        name: 'Old',
+        archived_at: new Date().toISOString(),
+      });
+      await workspace.addTimeEntry(member, website, { minutes: 90 });
+      await workspace.addTimeEntry(admin, website, { minutes: 30 });
+      await workspace.addTimeEntry(member, internal, {
+        minutes: 60,
+        billable: false,
+      });
+      await workspace.addTimeEntry(member, website, {
+        work_date: addDays(today(), -7),
+      });
+
+      const timeAndBilling = textOf(
+        await openAppHomeTab(t, workspace, admin, [
+          AdminNavigationActionId.ManageTimeAndBilling,
+        ]),
+      );
+
+      expect(timeAndBilling).toContain('*3h* logged total');
+      expect(timeAndBilling).toContain('*2h* billable');
+      expect(timeAndBilling).toContain('*2* active projects');
+    });
+  });
+
   describe('submitting for approval', () => {
     const statusOf = async (entry: Tables<'time_entries'>) =>
       (await workspace.row('time_entries', entry.id)).status;

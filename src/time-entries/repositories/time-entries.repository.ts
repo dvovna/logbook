@@ -58,6 +58,7 @@ export class TimeEntriesRepository extends BaseRepository<
       client_id: row.client_id || null,
       work_date: row.work_date,
       minutes: row.minutes,
+      billable: row.billable,
       status: row.status as TimeEntryStatus,
       project_id: row.project_id,
       created_at: row.created_at,

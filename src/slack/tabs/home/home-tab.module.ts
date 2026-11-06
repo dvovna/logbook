@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 import HomeTabActionHandler from '@modules/slack/tabs/home/handlers/home-tab-action.handler';
 import {
   HomeTabService,
@@ -35,6 +36,7 @@ import {
     VacationRequestsModule,
     VacationRequestsTabModule,
     TimeTrackingModule,
+    TimeEntriesModule,
   ],
   providers: [
     HomeTabView,

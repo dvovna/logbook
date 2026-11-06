@@ -11,10 +11,13 @@ import { SlackActionPermissionsService } from '@modules/slack/common/services/sl
 import VacationType from '@common/enums/vacation-type.enum';
 import * as pluralize from 'pluralize';
 import { Divider } from '@modules/slack/common/views/components/separator';
+import { getDisplayTime } from '@common/utils/time.utils';
+import { IUserTimeSummary } from 'src/time-entries/services/time-entries-summary.service';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;
   requestedVacations?: IVacationRequestViewModel[];
+  timeSummary: IUserTimeSummary;
 }
 
 export enum HomeTabActionId {
@@ -41,8 +44,15 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   public getContentBlocks({
     vacationUsageInfo,
     requestedVacations,
+    timeSummary,
   }: IGetViewParams) {
-    return [...this.getUserViewBlocks(vacationUsageInfo, requestedVacations)];
+    return [
+      ...this.getUserViewBlocks(
+        vacationUsageInfo,
+        timeSummary,
+        requestedVacations,
+      ),
+    ];
   }
 
   protected getTabTitle() {
@@ -51,12 +61,13 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
 
   private getUserViewBlocks(
     usageInfo: IVacationPeriodUsageData | null,
+    timeSummary: IUserTimeSummary,
     requestedVacations?: IVacationRequestViewModel[],
   ): AnyBlock[] {
     return [
       { type: 'section', text: { type: 'plain_text', text: 'Your personal work & vacation overview' } },
       ...Divider.getBlocks(),
-      ...this.getTimeTrackingBlocks(),
+      ...this.getTimeTrackingBlocks(timeSummary),
       ...this.getVacationUsageBlocks(usageInfo),
       ...this.getRequestedVacationsBlocks(requestedVacations),
       {
@@ -258,7 +269,18 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
     ];
   }
 
-  private getTimeTrackingBlocks(): AnyBlock[] {
+  private getTimeTrackingBlocks({
+    todayMinutes,
+    todayByClient,
+    weekMinutes,
+  }: IUserTimeSummary): AnyBlock[] {
+    const clients = todayByClient
+      .map(
+        ({ clientName, minutes }) =>
+          `${clientName ?? 'No client'} ${getDisplayTime(minutes)}`,
+      )
+      .join(', ');
+
     return [
       {
         type: 'section',
@@ -268,14 +290,16 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `Today: 4h [Client A], 2h [Client B]`,
+          text: todayMinutes
+            ? `Today: *${getDisplayTime(todayMinutes)}* (${clients})`
+            : 'Today: nothing logged yet',
         },
       },
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: 'This week: 20h total',
+          text: `This week: *${weekMinutes ? getDisplayTime(weekMinutes) : '0h'}* total`,
         },
       },
       {

@@ -16,6 +16,7 @@ import {
   VacationRequestModalService,
 } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
+import { TimeEntriesSummaryService } from 'src/time-entries/services/time-entries-summary.service';
 
 export enum HomeTabModalName {
   ViewVacationRequest = 'ViewVacationRequest',
@@ -55,6 +56,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly timeEntryModalService: TimeEntryModalService,
     private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly confirmationModalView: ConfirmationModalView,
+    private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
   ) {
     super(TabId.Home, {
       [HomeTabModalName.ViewVacationRequest]: (params) =>
@@ -69,20 +71,23 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
   }
 
   public async getTabView({ user }: IPublishBaseParams) {
-    const [vacationUsageInfo, requestedVacations] = await Promise.all([
-      await this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
-      await this.vacationsService.findMany({
-        userId: user.id,
-        startDate: user.contract_start_date || undefined,
-        statuses: [VacationRequestStatus.Pending],
-      }),
-    ]);
+    const [vacationUsageInfo, requestedVacations, timeSummary] =
+      await Promise.all([
+        this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
+        this.vacationsService.findMany({
+          userId: user.id,
+          startDate: user.contract_start_date || undefined,
+          statuses: [VacationRequestStatus.Pending],
+        }),
+        this.timeEntriesSummaryService.getUserSummary(user),
+      ]);
 
     return this.homeTabViewService.getView({
       userId: user.slack_id,
       userRole: user.role,
       vacationUsageInfo,
       requestedVacations,
+      timeSummary,
     });
   }
 

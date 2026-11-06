@@ -8,6 +8,7 @@ export interface ITimeEntryViewModel {
   team_id: string | null;
   work_date: string;
   minutes: number;
+  billable: boolean;
   status: TimeEntryStatus;
   description?: string | null;
   slack_team_id: string;
