@@ -83,6 +83,7 @@ export class UsersService implements IUsersService {
     slackId,
     teamId,
     slackTeamId,
+    contractStartDate,
   }: ICreateUserParams) {
     return await this.userRepository.upsert(
       {
@@ -93,6 +94,8 @@ export class UsersService implements IUsersService {
         team_id: teamId,
         slack_team_id: slackTeamId,
         slack_id: slackId,
+        // Left out when not given, so an upsert keeps the existing date.
+        contract_start_date: contractStartDate?.toISOString(),
         updated_at: new Date().toISOString(),
       },
       ['slack_id'],
