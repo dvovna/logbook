@@ -9,7 +9,7 @@ import { PaginatedListView } from '@modules/slack/common/views/components/pagina
 import { ISearchResult } from '@common/types/pagination.types';
 import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 
@@ -111,7 +111,7 @@ export class TeamsTabView extends BaseAdminTabView<
       },
     });
 
-    blocks.push(...SeparatorComponent.getBlocks());
+    blocks.push(...Divider.getBlocks());
 
     return blocks;
   }

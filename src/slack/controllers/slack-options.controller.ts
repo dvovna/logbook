@@ -15,8 +15,8 @@ import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/proj
 import { ProjectOptionsService } from '@modules/slack/services/option-services/project-options.service';
 import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
 import {
-  TimeTrackingTabViewActionId,
-} from '@modules/slack/tabs/time-tracking/enums/time-tracking-tab-view-action-id.enums';
+  TimeEntriesTabViewActionId,
+} from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 
 @Controller('api/slack/options')
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)
@@ -33,7 +33,7 @@ export class SlackOptionsController {
     switch (actionId) {
       case VacationRequestsTabViewActionId.UserField:
       case UsersTabViewActionId.FilterUsersByUser:
-      case TimeTrackingTabViewActionId.SelectUser:
+      case TimeEntriesTabViewActionId.SelectUser:
       case VacationRequestsTabViewActionId.FilterRequestsByUser: {
         return this.userOptionsService.searchUsers({
           query: payload.value,

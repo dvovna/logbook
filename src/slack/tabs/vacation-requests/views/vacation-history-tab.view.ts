@@ -12,7 +12,7 @@ import {
 } from '@modules/slack/common/views/base-tab.view';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
 import {
   VacationHistoryTabViewActionId,
@@ -104,7 +104,7 @@ export class VacationHistoryTabView extends BaseTabView<
           ],
         },
       },
-      ...SeparatorComponent.getBlocks(),
+      ...Divider.getBlocks(),
     ];
   };
 

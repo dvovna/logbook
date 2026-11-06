@@ -8,7 +8,7 @@ import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 import { ISearchResult } from '@common/types/pagination.types';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
 
@@ -118,7 +118,7 @@ export class VacationPolicyTabView extends BaseAdminTabView<
       },
     });
 
-    blocks.push(...SeparatorComponent.getBlocks());
+    blocks.push(...Divider.getBlocks());
 
     return blocks;
   }

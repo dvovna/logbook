@@ -3,6 +3,7 @@ import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
 import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
+import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 
 export const MAX_DESCRIPTION_LENGTH = 200;
 const MAX_HOURS = 24;
@@ -35,10 +36,19 @@ export const timeEntryFormSchema = z.object({
     .transform((val) => Number(val)),
   workDate: z.string().refine((dateStr) =>
     !isNaN(Date.parse(dateStr)), { message: 'Invalid date format' }),
+  billable: z
+    .array(
+      z.object({
+        value: z.enum(Object.values(YesNoValue)),
+        text: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export interface ITimeEntryFormViewData {
   description?: string;
+  billable?: ISelectedOption[];
   clientId?: ISelectedOption;
   projectId: ISelectedOption;
   hours: number;
@@ -68,6 +78,10 @@ export default class UserTimeEntryModalViewValuesParser extends BaseValuesParser
       workDate: {
         blockId: 'date_block',
         type: ViewFieldType.Date,
+      },
+      billable: {
+        blockId: 'billable_block',
+        type: ViewFieldType.Checkboxes,
       },
     });
   }

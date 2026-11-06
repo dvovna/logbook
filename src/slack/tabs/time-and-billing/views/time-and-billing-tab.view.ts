@@ -4,7 +4,7 @@ import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.vie
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
 
 interface IGetViewParams extends IBaseTabViewParams {
@@ -41,7 +41,7 @@ export class TimeAndBillingTabView extends BaseAdminTabView<
             'Manage time tracking, projects, clients and billing reports.',
         },
       },
-      ...SeparatorComponent.getBlocks(),
+      ...Divider.getBlocks(),
       this.buildManageBlock(
         '🏢 Clients',
         'Manage customers and billing entities',
@@ -62,7 +62,7 @@ export class TimeAndBillingTabView extends BaseAdminTabView<
         'Generate and export billing reports',
         AdminNavigationActionId.ManageBillingReports,
       ),
-      ...SeparatorComponent.getBlocks(),
+      ...Divider.getBlocks(),
       {
         type: 'section',
         text: {

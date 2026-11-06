@@ -119,7 +119,6 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
 
     return this.timeEntryModalService.getModal(
       {
-        callbackId: ViewCallbackId.UserTimeEntry,
         user,
         errorMessage,
       },

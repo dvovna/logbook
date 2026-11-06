@@ -11,6 +11,7 @@ import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-en
 import { ValidationError } from '@common/errors/validation.error';
 
 const MAX_MINUTES_PER_DAY = 24 * 60; // 1440
+const MINUTES_STEP = 15;
 
 @Injectable()
 export class TimeEntriesValidationService {
@@ -92,14 +93,20 @@ export class TimeEntriesValidationService {
 
   private validateMinutes(minutes: number) {
     if (minutes <= 0) {
-      throw new BadRequestException(
+      throw new ValidationError(
         'Logged minutes must be greater than 0',
       );
     }
 
     if (minutes > MAX_MINUTES_PER_DAY) {
-      throw new BadRequestException(
+      throw new ValidationError(
         `Logged minutes cannot exceed ${MAX_MINUTES_PER_DAY}`,
+      );
+    }
+
+    if (minutes % MINUTES_STEP !== 0) {
+      throw new ValidationError(
+        `Logged minutes must be in ${MINUTES_STEP} - minute increments`,
       );
     }
   }

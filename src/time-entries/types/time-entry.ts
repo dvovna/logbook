@@ -11,10 +11,24 @@ export interface ITimeEntryViewModel {
   status: TimeEntryStatus;
   description?: string | null;
   slack_team_id: string;
-  created_at: string | null;
-  updated_at: string | null;
+  created_at: string;
+  updated_at: string;
   created_by: string | null;
   updated_by: string | null;
   deleted_by: string | null;
   deleted_at: string | null;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    slack_id: string;
+  } | null;
+  team?: {
+    id: string;
+    name: string;
+  } | null;
+  client?: {
+    id: string;
+    name: string;
+  } | null;
 }

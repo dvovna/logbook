@@ -5,7 +5,7 @@ import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navig
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { VacationsTabViewActionId } from '@modules/slack/tabs/vacations/enums/vacations-tab-view-action-id.enum';
 import { IRequestWorkflowStepViewModel } from '@modules/request-workflows/types/request-workflow-step.interface';
@@ -54,7 +54,7 @@ export class VacationsTabView extends BaseAdminTabView<
       },
     });
 
-    blocks.push(...SeparatorComponent.getBlocks());
+    blocks.push(...Divider.getBlocks());
 
     blocks.push({
       type: 'section',
@@ -78,7 +78,7 @@ export class VacationsTabView extends BaseAdminTabView<
       });
     }
 
-    blocks.push(...SeparatorComponent.getBlocks());
+    blocks.push(...Divider.getBlocks());
 
     blocks.push({
       type: 'section',
@@ -121,7 +121,7 @@ export class VacationsTabView extends BaseAdminTabView<
       });
     }
 
-    blocks.push(...SeparatorComponent.getBlocks());
+    blocks.push(...Divider.getBlocks());
 
     blocks.push({
       type: 'section',

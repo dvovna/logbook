@@ -19,7 +19,7 @@ interface ICreateProjectParams {
   status: ProjectStatus;
   description?: string;
   slackTeamId: string;
-  clientId?: string;
+  clientId?: string | null;
 }
 
 interface IFindParams {
@@ -32,7 +32,7 @@ interface IFindParams {
 
 interface IUpdateParams {
   name?: string;
-  clientId?: string;
+  clientId?: string | null;
   description?: string;
   billable?: boolean;
   status?: ProjectStatus;

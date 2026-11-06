@@ -8,6 +8,7 @@ export enum TabId {
   People = 'people_tab',
   Projects = 'projects_tab',
   TimeAndBilling = 'time_and_billing',
+  TimeEntries = 'time_entries_tab',
   Vacations = 'vacations_tab',
   Users = 'users_tab',
   VacationPolicies = 'vacation_policies_tab',

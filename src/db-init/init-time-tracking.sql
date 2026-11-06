@@ -77,6 +77,8 @@ create table if not exists time_entries (
     client_id uuid nullable references clients(id),
     project_id uuid not null references projects(id),
 
+    billable boolean not null default true,
+
     work_date date not null,
     minutes integer not null check (minutes > 0),
 

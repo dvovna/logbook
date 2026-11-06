@@ -7,18 +7,19 @@ import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/
 
 export const toPlainTextOption = <
   OptionType extends IOption = IOption
->({
-    id,
-    name,
-  }: OptionType): PlainTextOption => {
-  return {
+>({ id, name, description }: OptionType): PlainTextOption => ({
     text: {
       type: 'plain_text',
       text: name,
     },
+    ...(description ? {
+      description: {
+        type: 'plain_text',
+        text: description,
+      },
+    } : {}),
     value: id,
-  };
-};
+  });
 
 export function withButtonAction(
   handler: (value: string, user: IUserViewModel, trigger_id: string) => unknown,

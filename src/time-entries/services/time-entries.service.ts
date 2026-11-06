@@ -11,6 +11,7 @@ interface ICreateParams {
   userId: string;
   clientId?: string;
   projectId: string;
+  billable: boolean;
   workDate: Date;
   minutes: number;
   description?: string | null;
@@ -21,6 +22,7 @@ interface IUpdateParams {
   userId?: string;
   projectId?: string;
   workDate?: Date;
+  billable?: boolean;
   minutes?: number;
   description?: string | null;
   status?: TimeEntryStatus;
@@ -29,6 +31,7 @@ interface IUpdateParams {
 interface IFindParams {
   id?: string;
   userId?: string;
+  billable?: boolean;
   projectId?: string;
   projectIds?: string[];
   dateFrom?: string;
@@ -64,6 +67,7 @@ export class TimeEntriesService {
       work_date: createParams.workDate.toISOString(),
       minutes: createParams.minutes,
       description: createParams.description || null,
+      billable: createParams.billable,
       status: createParams.status,
       team_id: user.team_id,
       slack_team_id: user.slack_team_id,
@@ -110,6 +114,10 @@ export class TimeEntriesService {
               updateParams.workDate.toISOString(),
           }
           : {}),
+        ...(updateParams.billable !== undefined
+          ? { billable: updateParams.billable }
+          : {}
+        ),
         ...(updateParams.minutes !== undefined
           ? { minutes: updateParams.minutes }
           : {}),
@@ -185,6 +193,7 @@ export class TimeEntriesService {
       ...(params.id ? { id: params.id } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
       ...(params.projectId ? { project_id: params.projectId } : {}),
+      ...(params.billable !== undefined ? { billable: params.billable } : {}),
       ...(params.projectIds?.length
         ? { project_id: { operator: 'in', value: params.projectIds } }
         : {}),

@@ -32,6 +32,7 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
     this.actionMap = {
       [HomeTabActionId.OpenVacationModal]: this.handleCreateVacationRequest,
       [HomeTabActionId.ViewHistory]: this.handleViewHistory,
+      [HomeTabActionId.EditTimeEntries]: this.handleViewTimeEntries,
       [HomeTabActionId.ManagePendingRequestMenu]: withMenuAction(
         this.handleMenuAction,
         this.logger,
@@ -67,6 +68,13 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
     user: IUserViewModel,
   ) => {
     this.tabNavigationService.navigate(TabId.VacationsHistory, { user });
+  };
+
+  private handleViewTimeEntries = (
+    _payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    this.tabNavigationService.navigate(TabId.TimeEntries, { user });
   };
 
   private handleMenuAction = async (

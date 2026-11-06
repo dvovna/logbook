@@ -10,7 +10,7 @@ import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.vie
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import VacationType from '@common/enums/vacation-type.enum';
 import * as pluralize from 'pluralize';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;
@@ -24,7 +24,7 @@ export enum HomeTabActionId {
   ViewDetails = 'view_vacation_request_details',
   ManagePendingRequestMenu = 'manage_pending_request_menu',
   LogTime = 'log_time',
-  EditEntries = 'edit_time',
+  EditTimeEntries = 'edit_time_entries',
 }
 
 @Injectable()
@@ -55,7 +55,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   ): AnyBlock[] {
     return [
       { type: 'section', text: { type: 'plain_text', text: 'Your personal work & vacation overview' } },
-      ...SeparatorComponent.getBlocks(),
+      ...Divider.getBlocks(),
       ...this.getTimeTrackingBlocks(),
       ...this.getVacationUsageBlocks(usageInfo),
       ...this.getRequestedVacationsBlocks(requestedVacations),
@@ -290,7 +290,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
           {
             type: 'button',
             text: { type: 'plain_text', text: '✏️ Edit Entries' },
-            action_id: 'edit_time',
+            action_id: HomeTabActionId.EditTimeEntries,
           },
         ],
       },

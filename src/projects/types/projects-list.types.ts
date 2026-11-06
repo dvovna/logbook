@@ -1,4 +1,5 @@
 import { IProjectListItem } from 'src/projects/types/project-list-item.types';
+import { ITotalCount } from '@common/types/list.types';
 
 export interface IProjectsListQueryParams {
   slackTeamId: string;
@@ -11,13 +12,9 @@ export interface IProjectsListQueryParams {
   includeArchived?: boolean;
 }
 
-interface ITotalCount {
-  total_count: number;
-}
-
 export type IProjectListItemWithTotalCount = IProjectListItem & ITotalCount;
 
 export interface IProjectsListData {
-  items: IProjectListItemWithTotalCount[];
+  items: IProjectListItem[];
   totalCount: number;
 }

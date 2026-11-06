@@ -1,10 +1,10 @@
 import { AnyBlock } from '@slack/web-api';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 import { IOption } from '@modules/slack/common/types/option.interface';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
 export type IFiltersConfig<OptionType extends IOption = IOption> = {
-  type: 'static_select' | 'external_select' | 'checkboxes' | 'button';
+  type: 'static_select' | 'external_select' | 'checkboxes' | 'button' | 'datepicker';
   actionId: string;
   placeholder?: string;
   options?: OptionType[];
@@ -90,6 +90,13 @@ export class FiltersBlockBuilder {
             action_id: config.actionId,
             text: { type: 'plain_text', text: config.text },
           };
+        case 'datepicker':
+          return {
+            type: 'datepicker',
+            placeholder: { type: 'plain_text', text: config.placeholder },
+            action_id: config.actionId,
+            initial_value: config.initialValue,
+          };
       }
     }).filter(Boolean);
 
@@ -107,7 +114,7 @@ export class FiltersBlockBuilder {
     } as AnyBlock);
 
     if (separator) {
-      blocks.push(...SeparatorComponent.getBlocks());
+      blocks.push(...Divider.getBlocks());
     }
 
     return blocks;

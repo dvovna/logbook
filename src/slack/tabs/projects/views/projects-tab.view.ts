@@ -8,7 +8,7 @@ import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { IProjectsListData } from 'src/projects/types/projects-list.types';
@@ -146,7 +146,7 @@ export class ProjectsTabView extends BaseAdminTabView<
       },
     });
 
-    blocks.push(...SeparatorComponent.getBlocks());
+    blocks.push(...Divider.getBlocks());
 
     return blocks;
   }

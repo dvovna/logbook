@@ -6,8 +6,8 @@ import BaseModalView, {
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import UserRole from '@common/enums/user-role.enum';
 import {
-  TimeTrackingTabViewActionId,
-} from '@modules/slack/tabs/time-tracking/enums/time-tracking-tab-view-action-id.enums';
+  TimeEntriesTabViewActionId,
+} from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
 import { TIME_LOG_STATUS_OPTIONS } from '@modules/slack/tabs/time-tracking/data/time-log-status.options';
 import { IOption } from '@modules/slack/common/types/option.interface';
@@ -15,29 +15,17 @@ import { SlackStaticSelectView } from '@modules/slack/common/views/components/sl
 import { getDateOnly } from '@common/utils/date.utils';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
+import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
+import { IUserProject } from 'src/projects/queries/get-user-projects.query';
 
-const ADMIN_VIEW_USER_ROLES = [UserRole.Admin, UserRole.HR];
+const ADMIN_VIEW_USER_ROLES = [UserRole.Admin];
 
 interface IGetViewParams
   extends IBaseModalViewParams<
     ViewCallbackId.UserTimeEntry | ViewCallbackId.AdminTimeEntry
   > {
-  userProjects: IOption[];
-  initialData?: {
-    id: string;
-    workDate: string;
-    project: {
-      id: string;
-      name: string;
-    };
-    hours: number;
-    comment: string;
-    status: TimeEntryStatus;
-    user: {
-      id: string;
-      name: string;
-    };
-  };
+  userProjects: IUserProject[];
+  initialData?: ITimeEntryViewModel;
   user: IUserViewModel;
 }
 
@@ -65,9 +53,13 @@ export class TimeEntryFormModalView extends BaseModalView<
   }: IGetViewParams): AnyBlock[] {
     const isAdminView =
       user.role && ADMIN_VIEW_USER_ROLES.includes(user.role);
-    const defaultProjectOption = userProjects.length === 1 ? userProjects[0] : undefined;
-    const selectedProjectId = initialData?.project?.id
-      || defaultProjectOption?.id;
+    const userProjectOptions = this.getUserProjectOptions(userProjects);
+    const defaultProjectOption = userProjectOptions.length === 1
+      ? userProjectOptions[0]
+      : undefined;
+    const selectedProjectId = initialData
+      ? initialData.project_id
+      : defaultProjectOption?.id;
 
     return [
       ...(isAdminView ? this.getAdminBlocks(initialData, user) : []),
@@ -77,7 +69,7 @@ export class TimeEntryFormModalView extends BaseModalView<
         label: 'Project',
         placeholder: 'Select project',
         emptyText: 'No projects available',
-        options: userProjects,
+        options: userProjectOptions,
         initialValue: selectedProjectId,
       }),
       {
@@ -87,7 +79,7 @@ export class TimeEntryFormModalView extends BaseModalView<
         element: {
           type: 'datepicker',
           action_id: 'workDate',
-          initial_date: initialData?.workDate || getDateOnly(new Date()),
+          initial_date: initialData?.work_date || getDateOnly(new Date()),
         },
       },
       {
@@ -100,7 +92,7 @@ export class TimeEntryFormModalView extends BaseModalView<
           is_decimal_allowed: true,
           min_value: '0.25',
           max_value: '24',
-          initial_value: initialData?.hours?.toString(),
+          initial_value: initialData?.minutes ? (initialData.minutes / 60)?.toString() : undefined,
         },
       },
       {
@@ -112,7 +104,7 @@ export class TimeEntryFormModalView extends BaseModalView<
           type: 'plain_text_input',
           action_id: 'description',
           multiline: true,
-          initial_value: initialData?.comment,
+          initial_value: initialData?.description || '',
         },
       },
       ...(errorMessage
@@ -131,13 +123,18 @@ export class TimeEntryFormModalView extends BaseModalView<
         label: { type: 'plain_text', text: 'User' },
         element: {
           type: 'external_select',
-          action_id: TimeTrackingTabViewActionId.SelectUser,
+          action_id: TimeEntriesTabViewActionId.SelectUser,
           min_query_length: 2,
           placeholder: {
             type: 'plain_text',
             text: 'Select user',
           },
-          initial_option: toPlainTextOption(preselectedUser),
+          initial_option: preselectedUser
+            ? toPlainTextOption({
+              id: preselectedUser.id,
+              name: preselectedUser.name || 'Unknown User',
+            })
+            : undefined,
         },
       },
       ...SlackStaticSelectView.getView({
@@ -149,5 +146,13 @@ export class TimeEntryFormModalView extends BaseModalView<
         initialValue: data?.status || TimeEntryStatus.Draft,
       }),
     ];
+  }
+
+  private getUserProjectOptions(userProjects: IUserProject[]): IOption[] {
+    return userProjects.map((project) => ({
+      id: project.id,
+      name: project.name,
+      description: project.clientName,
+    }));
   }
 }

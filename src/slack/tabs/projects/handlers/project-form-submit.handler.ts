@@ -7,7 +7,11 @@ import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-
 import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import UserRole from '@common/enums/user-role.enum';
 import IProjectViewModel from 'src/projects/types/project.types';
-import { IProjectModalViewMetadata, ProjectModalView } from '@modules/slack/tabs/projects/views/project-modal.view';
+import {
+  IProjectModalViewMetadata,
+  NO_CLIENT_VALUE,
+  ProjectModalView,
+} from '@modules/slack/tabs/projects/views/project-modal.view';
 import ProjectsService from 'src/projects/services/projects.service';
 import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/projects/services/projects-tab.service';
 import ProjectModalViewValuesParser, {
@@ -76,7 +80,7 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
         name: data.name,
         description: data.description,
         slackTeamId: user.slack_team_id,
-        clientId: data.clientId?.value,
+        clientId: data.clientId?.value === NO_CLIENT_VALUE ? null : data.clientId?.value,
         billable: data.billable?.value === 'true',
         status: data.status.value,
       },
@@ -96,7 +100,7 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
       },
       {
         name: data.name,
-        clientId: data.clientId?.value,
+        clientId: data.clientId?.value === NO_CLIENT_VALUE ? null : data.clientId?.value,
         description: data.description,
         billable: data.billable?.value === 'true',
         status: data.status.value,

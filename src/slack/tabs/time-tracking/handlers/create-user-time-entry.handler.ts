@@ -16,10 +16,11 @@ import UserTimeEntryModalViewValuesParser, {
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 
 @Injectable()
 @SlackHandler({
-  callbackId: ViewCallbackId.UserTimeEntry,
+  callbackId: ViewCallbackId.AdminTimeEntry,
   type: 'view_submission',
 })
 export class CreateUserTimeEntryHandler extends BaseModalFormSubmitHandler<
@@ -48,7 +49,7 @@ export class CreateUserTimeEntryHandler extends BaseModalFormSubmitHandler<
 
     return SlackViewResponseFactory.update(
       this.timeEntryFormModalView.getSuccessView(
-        `✅ Time Entry was ${metadata.id ? 'updated' : 'created'} successfully!`,
+        `✅ Time Log was ${metadata.id ? 'updated' : 'created'} successfully!`,
       ),
     );
   }
@@ -65,6 +66,7 @@ export class CreateUserTimeEntryHandler extends BaseModalFormSubmitHandler<
         description: data.description,
         status: TimeEntryStatus.Draft,
         userId: user.id,
+        billable: data.billable?.[0]?.value === YesNoValue.Yes,
         workDate: new Date(data.workDate),
         minutes: data.hours * 60,
       },
@@ -81,7 +83,6 @@ export class CreateUserTimeEntryHandler extends BaseModalFormSubmitHandler<
     return SlackViewResponseFactory.update(
       await this.timeEntryModalService.getModal({
         errorMessage,
-        callbackId: ViewCallbackId.UserTimeEntry,
         user,
       }),
     );

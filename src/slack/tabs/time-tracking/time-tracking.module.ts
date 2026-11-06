@@ -7,6 +7,11 @@ import { CreateUserTimeEntryHandler } from '@modules/slack/tabs/time-tracking/ha
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import UserTimeEntryModalViewValuesParser
   from '@modules/slack/tabs/time-tracking/parsers/user-time-entry-modal-view-values.parser';
+import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
+import TimeEntriesTabActionHandler from '@modules/slack/tabs/time-tracking/handlers/time-entries-tab-action.handler';
+import { TimeEntriesTabDataService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab-data.service';
+import { TimeEntriesListQuery } from 'src/time-entries/queries/time-entries-list.query';
+import { TimeEntriesTabView } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
 
 @Module({
   imports: [
@@ -19,6 +24,11 @@ import UserTimeEntryModalViewValuesParser
     TimeEntryModalService,
     UserTimeEntryModalViewValuesParser,
     CreateUserTimeEntryHandler,
+    TimeEntriesListQuery,
+    TimeEntriesTabDataService,
+    TimeEntriesTabService,
+    TimeEntriesTabView,
+    TimeEntriesTabActionHandler,
   ],
   exports: [
     TimeEntryModalService,

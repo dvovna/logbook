@@ -62,7 +62,7 @@ export abstract class BaseRepository<
 
   protected readonly defaultLimit = 10000;
 
-  protected readonly defaultPageLimit = 10;
+  protected readonly defaultPageLimit = 5;
 
   protected searchableColumns: string[] = [];
 

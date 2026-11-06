@@ -51,6 +51,8 @@ export enum ViewCallbackId {
   VacationsTabView = 'vacations_tab_view',
 
   // time-and-billing
+  TimeEntriesTabView = 'time_entries_tab_view',
+  DeleteTimeEntry = 'delete_time_entry',
   TimeAndBillingTabView = 'time_and_billing_tab_view',
 
   // projects

@@ -20,7 +20,7 @@ import { PaginatedListView } from '@modules/slack/common/views/components/pagina
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import UserRole from '@common/enums/user-role.enum';
 import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 import {
   VacationRequestsTabViewActionId,
 } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
@@ -140,7 +140,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
           options: this.getManageRequestMenuOptions(vacationRequest, userRole),
         },
       },
-      ...SeparatorComponent.getBlocks(),
+      ...Divider.getBlocks(),
     ];
   };
 

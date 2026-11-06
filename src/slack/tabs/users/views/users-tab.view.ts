@@ -15,7 +15,7 @@ import { SlackActionPermissionsService } from '@modules/slack/common/services/sl
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import UserRole from '@common/enums/user-role.enum';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
@@ -175,7 +175,7 @@ export class UsersTabView extends BaseAdminTabView<
       accessory: this.getUserRowAccessory(user, userRole),
     });
 
-    blocks.push(...SeparatorComponent.getBlocks());
+    blocks.push(...Divider.getBlocks());
 
     return blocks;
   }

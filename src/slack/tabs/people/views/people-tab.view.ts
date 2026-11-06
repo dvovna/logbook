@@ -6,7 +6,7 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import * as pluralize from 'pluralize';
-import { SeparatorComponent } from '@modules/slack/common/views/components/separator';
+import { Divider } from '@modules/slack/common/views/components/separator';
 
 interface IGetViewParams extends IBaseTabViewParams {
   usersCount: number;
@@ -36,7 +36,7 @@ export class PeopleTabView extends BaseAdminTabView<
   ): AnyBlock[] {
     return [
       { type: 'section', text: { type: 'plain_text', text: 'Manage users and teams within the organization.' } },
-      ...SeparatorComponent.getBlocks(),
+      ...Divider.getBlocks(),
       {
         type: 'section',
         text: {

@@ -25,7 +25,7 @@ interface IGetClientsTabViewParams extends IPublishBaseParams {
   metadata?: IClientsTabMetaData;
 }
 
-const CLIENTS_TAB_PAGE_SIZE = 10;
+const CLIENTS_TAB_PAGE_SIZE = 5;
 
 type ClientsTabModalViewResolversMapType = {
   [ClientsTabModalName.CreateClient]: (
