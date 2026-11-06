@@ -173,6 +173,14 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
 
 Request create/update/delete events also invalidate `VacationPeriodUsageCacheService`.
 
+### Time & Billing
+
+Domain modules `clients`, `projects`, `time-entries`; Slack tabs `clients`, `projects`, `time-tracking` (Log Time modal, entries list), `time-approvals`, `time-and-billing` (hub, billing report).
+- Projects belong to an optional client and are assigned to teams and users (`assign_project_assignments`). People log time on their team's and their own projects (`get_user_projects`). `TIME_ENTRIES_ADMIN_ROLES` (Admin, HR) log for anyone on any active project and see and edit everyone's entries; everyone else sees only their own, and Home → Edit Entries shows only your own for every role.
+- An entry takes its client and billability from its project. Minutes come in 15-minute steps, at most 24 hours per user, project and day (also a check constraint).
+- Status: the owner logs drafts and submits them; a submitted entry is approved or rejected in the Approvals tab by the managers of its team (`manager_approvers`, as for vacations), HR or an admin, never by its owner. A rejection sends the owner a DM. The owner changes only drafts and rejected entries (a fixed one is a draft again).
+- Lists come from `get_time_entries_list`. Billing reports count approved entries of a client's projects for a period.
+
 ### Other pieces
 
 - **Vacation year and limits** (`VacationsUsageService`):
