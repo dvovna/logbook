@@ -13,10 +13,10 @@ export interface ITimeEntryListItem {
 }
 
 export interface ITimeEntriesListFilters {
-  fromDate: string;
-  toDate: string;
-  project: IOption;
-  user: IOption;
+  fromDate?: string;
+  toDate?: string;
+  project?: IOption;
+  user?: IOption;
 }
 
 export type ITimeEntryListItemWithTotalCount = ITimeEntryListItem & ITotalCount;

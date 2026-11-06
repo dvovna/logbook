@@ -1,4 +1,4 @@
-import { ButtonAction } from '@slack/bolt';
+import { ButtonAction, DatepickerAction } from '@slack/bolt';
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
@@ -100,6 +100,28 @@ export function withAsyncSelectFilter<Metadata extends IMetadataWithFilters>(
               name: selectedOption.name,
             }
             : undefined,
+      },
+    };
+
+    await handler(updatedMetadata, user);
+  };
+}
+
+// A date chosen in (or cleared from) a datepicker filter.
+export function withDateFilter<Metadata extends IMetadataWithFilters>(
+  filterKey: string,
+  handler: HandlerFn<Metadata>,
+) {
+  return async (payload: ISlackBlockActionPayload, user: IUserViewModel) => {
+    const { selected_date } = payload.actions[0] as DatepickerAction;
+    const metadata = parseMetadata<Metadata>(payload);
+
+    const updatedMetadata: Metadata = {
+      ...metadata,
+      page: 1,
+      filters: {
+        ...metadata.filters,
+        [filterKey]: selected_date || undefined,
       },
     };
 

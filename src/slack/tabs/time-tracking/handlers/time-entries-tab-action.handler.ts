@@ -9,7 +9,10 @@ import { ActionMapType } from '@modules/slack/common/handlers/base-action.handle
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
 import {
+  withAsyncSelectFilter,
+  withDateFilter,
   withPagination,
+  withResetFilters,
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import {
@@ -47,6 +50,25 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
       >(this.handleManageTimeEntryMenuAction, this.logger),
       [TimeEntriesTabViewActionId.PaginationPrev]: paginationHandler,
       [TimeEntriesTabViewActionId.PaginationNext]: paginationHandler,
+      [TimeEntriesTabViewActionId.FilterByUser]: withAsyncSelectFilter(
+        'user',
+        this.updateTab,
+      ),
+      [TimeEntriesTabViewActionId.FilterByProject]: withAsyncSelectFilter(
+        'project',
+        this.updateTab,
+      ),
+      [TimeEntriesTabViewActionId.FilterByFromDate]: withDateFilter(
+        'fromDate',
+        this.updateTab,
+      ),
+      [TimeEntriesTabViewActionId.FilterByToDate]: withDateFilter(
+        'toDate',
+        this.updateTab,
+      ),
+      [TimeEntriesTabViewActionId.ResetFilters]: withResetFilters(
+        this.updateTab,
+      ),
     };
   }
 

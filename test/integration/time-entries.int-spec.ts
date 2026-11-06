@@ -415,6 +415,108 @@ describe('Time entries', () => {
       expect(home.callback_id).toBe(ViewCallbackId.HomeTabView);
     });
 
+    it("filters everyone's entries by user, project and dates", async () => {
+      const internal = await workspace.addProject({ name: 'Internal' });
+      await workspace.addTimeEntry(member, website, { description: 'Kickoff' });
+      await workspace.addTimeEntry(member, internal, {
+        work_date: addDays(today(), -1),
+        description: 'Planning',
+      });
+      await workspace.addTimeEntry(admin, website, {
+        work_date: addDays(today(), -3),
+        description: 'Audit',
+      });
+      const descriptions = (view: View) =>
+        textOf(view).match(/Kickoff|Planning|Audit/g);
+      const act = (view: View, actionId: string, value?: string) =>
+        actOnTab(t, workspace, admin, view, actionId, value);
+
+      const timeLogs = await openAppHomeTab(t, workspace, admin, TIME_LOGS_TAB);
+      const users = await t.slack
+        .suggest(
+          workspace,
+          admin,
+          timeLogs,
+          TimeEntriesTabViewActionId.FilterByUser,
+          'mia',
+        )
+        .expect(acknowledged);
+      expect(users.body.options).toEqual([
+        { text: { type: 'plain_text', text: 'Mia Member' }, value: member.id },
+      ]);
+
+      const mias = await act(
+        timeLogs,
+        TimeEntriesTabViewActionId.FilterByUser,
+        member.id,
+      );
+      expect(descriptions(mias)).toEqual(['Kickoff', 'Planning']);
+
+      const miasOnWebsite = await act(
+        mias,
+        TimeEntriesTabViewActionId.FilterByProject,
+        website.id,
+      );
+      expect(descriptions(miasOnWebsite)).toEqual(['Kickoff']);
+
+      const everything = await act(
+        miasOnWebsite,
+        TimeEntriesTabViewActionId.ResetFilters,
+      );
+      expect(descriptions(everything)).toEqual([
+        'Kickoff',
+        'Planning',
+        'Audit',
+      ]);
+
+      const sinceYesterday = await act(
+        everything,
+        TimeEntriesTabViewActionId.FilterByFromDate,
+        addDays(today(), -1),
+      );
+      expect(descriptions(sinceYesterday)).toEqual(['Kickoff', 'Planning']);
+      expect(
+        findAction(
+          sinceYesterday.blocks,
+          TimeEntriesTabViewActionId.FilterByFromDate,
+        ).element.initial_date,
+      ).toBe(addDays(today(), -1));
+
+      const yesterday = await act(
+        sinceYesterday,
+        TimeEntriesTabViewActionId.FilterByToDate,
+        addDays(today(), -1),
+      );
+      expect(descriptions(yesterday)).toEqual(['Planning']);
+    });
+
+    it('lets a member filter by their own projects only', async () => {
+      await workspace.addProject({ name: 'Website archive' });
+      const myEntries = await openAppHomeTab(
+        t,
+        workspace,
+        member,
+        MY_ENTRIES_TAB,
+      );
+
+      expect(textOf(myEntries)).not.toContain(
+        TimeEntriesTabViewActionId.FilterByUser,
+      );
+
+      const projects = await t.slack
+        .suggest(
+          workspace,
+          member,
+          myEntries,
+          TimeEntriesTabViewActionId.FilterByProject,
+          'web',
+        )
+        .expect(acknowledged);
+      expect(projects.body.options).toEqual([
+        { text: { type: 'plain_text', text: 'Website' }, value: website.id },
+      ]);
+    });
+
     // Six days of work, today's first.
     const addWeekOfWork = async () => {
       for (let day = 0; day < 6; day += 1) {
@@ -473,14 +575,14 @@ describe('Time entries', () => {
           description: 'Kickoff',
         });
         await workspace.addTimeEntry(viewer, website, {
-          description: 'Review',
+          description: 'Audit',
         });
 
         const timeLogs = textOf(
           await openAppHomeTab(t, workspace, viewer, TIME_LOGS_TAB),
         );
 
-        expect(timeLogs).toContain('Review');
+        expect(timeLogs).toContain('Audit');
         expect(timeLogs).toContain('Kickoff');
         expect(timeLogs).toContain('Total Count: 2');
       },
@@ -489,13 +591,13 @@ describe('Time entries', () => {
     it('shows a manager only their own entries under Time logs', async () => {
       const manager = await workspace.addUser({ role: UserRole.Manager });
       await workspace.addTimeEntry(member, website, { description: 'Kickoff' });
-      await workspace.addTimeEntry(manager, website, { description: 'Review' });
+      await workspace.addTimeEntry(manager, website, { description: 'Audit' });
 
       const timeLogs = textOf(
         await openAppHomeTab(t, workspace, manager, TIME_LOGS_TAB),
       );
 
-      expect(timeLogs).toContain('Review');
+      expect(timeLogs).toContain('Audit');
       expect(timeLogs).not.toContain('Kickoff');
     });
 

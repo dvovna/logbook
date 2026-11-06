@@ -95,7 +95,7 @@ export class FiltersBlockBuilder {
             type: 'datepicker',
             placeholder: { type: 'plain_text', text: config.placeholder },
             action_id: config.actionId,
-            initial_value: config.initialValue,
+            initial_date: config.initialValue,
           };
       }
     }).filter(Boolean);

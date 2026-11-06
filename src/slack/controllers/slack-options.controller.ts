@@ -17,6 +17,7 @@ import { UserOptionsService } from '@modules/slack/services/option-services/user
 import {
   TimeEntriesTabViewActionId,
 } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
+import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
 @Controller('api/slack/options')
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)
@@ -34,6 +35,7 @@ export class SlackOptionsController {
       case VacationRequestsTabViewActionId.UserField:
       case UsersTabViewActionId.FilterUsersByUser:
       case TimeEntriesTabViewActionId.SelectUser:
+      case TimeEntriesTabViewActionId.FilterByUser:
       case VacationRequestsTabViewActionId.FilterRequestsByUser: {
         return this.userOptionsService.searchUsers({
           query: payload.value,
@@ -47,6 +49,16 @@ export class SlackOptionsController {
           user: request.user!,
           includeInactive: false,
         });
+      }
+      case TimeEntriesTabViewActionId.FilterByProject: {
+        const params = { query: payload.value, user: request.user! };
+
+        return isTimeEntriesAdmin(request.user!.role)
+          ? this.projectOptionsService.searchProjects({
+            ...params,
+            includeArchived: true,
+          })
+          : this.projectOptionsService.searchUserProjects(params);
       }
       case ProjectsTabViewActionId.FindProjectByName: {
         return this.projectOptionsService.searchProjects({

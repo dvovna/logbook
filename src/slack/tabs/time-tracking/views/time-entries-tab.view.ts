@@ -24,6 +24,8 @@ import { getDisplayTime } from '@common/utils/time.utils';
 
 interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
   timeEntriesListData: ITimeEntryListData;
+  // Only a list of everyone's entries can be narrowed down to one user.
+  canFilterByUser: boolean;
 }
 
 export interface ITimeEntriesTabMetaData {
@@ -69,12 +71,12 @@ export class TimeEntriesTabView extends BaseAdminTabView<
   }
 
   protected getContentBlocks(
-    { timeEntriesListData }: IGetTimeEntriesViewParams,
+    { timeEntriesListData, canFilterByUser }: IGetTimeEntriesViewParams,
     { filters, page }: ITimeEntriesTabMetaData,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    blocks.push(...this.getFiltersBlocks(filters));
+    blocks.push(...this.getFiltersBlocks(canFilterByUser, filters));
 
     const listBlocks = PaginatedListView.getBlocks<ITimeEntryListItem>({
       itemsData: {
@@ -139,15 +141,22 @@ export class TimeEntriesTabView extends BaseAdminTabView<
     ];
   }
 
-  private getFiltersBlocks(filters?: ITimeEntriesListFilters) {
+  private getFiltersBlocks(
+    canFilterByUser: boolean,
+    filters?: ITimeEntriesListFilters,
+  ) {
     const filtersConfig: IFiltersConfig[] = [
-      {
-        type: 'external_select',
-        actionId: TimeEntriesTabViewActionId.FilterByUser,
-        placeholder: 'User',
-        minQueryLength: 2,
-        initialOption: filters?.user,
-      },
+      ...(canFilterByUser
+        ? [
+          {
+            type: 'external_select',
+            actionId: TimeEntriesTabViewActionId.FilterByUser,
+            placeholder: 'User',
+            minQueryLength: 2,
+            initialOption: filters?.user,
+          } as const,
+        ]
+        : []),
       {
         type: 'external_select',
         actionId: TimeEntriesTabViewActionId.FilterByProject,

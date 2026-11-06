@@ -67,7 +67,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
         page: metadata.page,
         filters: {
           projectId: metadata.filters?.project?.id,
-          userId: seesAllEntries ? undefined : user.id,
+          userId: seesAllEntries ? metadata.filters?.user?.id : user.id,
           fromDate: metadata?.filters?.fromDate,
           toDate: metadata?.filters?.toDate,
         },
@@ -80,6 +80,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
         backButtonActionId: metadata.ownEntriesOnly
           ? CommonViewActionId.BackToHomeTab
           : undefined,
+        canFilterByUser: seesAllEntries,
         timeEntriesListData,
       },
       metadata,
