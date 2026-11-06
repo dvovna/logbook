@@ -20,12 +20,20 @@ npx tsc --noEmit      # type-check only
 yarn test             # jest
 yarn test src/request-workflows/services/request-workflow.service.spec.ts   # one file
 yarn test -t 'finishes the workflow'                                        # by test name
+yarn test:int         # integration tests against the local Supabase stack
 yarn db:init          # recreate the local Supabase database from supabase/migrations
 npx supabase@latest start                                                    # local Supabase in Docker
 yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # signed event to the local app
 ```
 
 - Tests are `*.spec.ts` files next to the code (rootDir `src`, config in `jest.config.ts`). They build services directly with `jest.fn()` mocks rather than through a Nest testing module. `jest.config.ts` pins `TZ=UTC`, because the date code mixes local `getDay()` with `toISOString()` and production runs in UTC.
+- Integration tests are `test/integration/*.int-spec.ts` (config in `jest.integration.config.ts`, details in README → "Integration tests"):
+  - They build the real `AppModule` through `configureApp` (`src/app.setup.ts`, shared with `main.ts`) and replace only `SlackApiClient` with `FakeSlackApiClient`, which records every Slack call.
+  - `SlackTestClient` sends signed events, slash commands and interactions. `submitView` builds `view.state.values` from the modal the app opened, so a form field that doesn't match its parser fails the test.
+  - Every test works in its own `TestWorkspace` (random `T…` ID, deleted with a cascade at the end).
+  - `global-setup.ts` reads the URLs and keys from `supabase status` and refuses non-local URLs. It also stops when the local database lacks a migration from `supabase/migrations`.
+  - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners), so assert with `eventually(...)`.
+  - `users.email` is unique across all workspaces, so test emails must be unique too.
 - `yarn db:init` runs `supabase db reset` against the local stack, which drops the local database and applies `supabase/migrations`. `src/commands` holds dev scripts and is excluded from `nest build`.
 - The codebase is not lint-clean: about 140 prettier and other errors already exist. `yarn lint` uses `--fix`, so it rewrites many unrelated files. To lint only what you touched, run `npx eslint <files>`.
 - Node 26 everywhere:
@@ -159,6 +167,7 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - `ALL`: the level waits until there are no pending steps.
    - A reject at any level ends the workflow.
    - Comments re-render the messages of all pending steps.
+   - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in the Vacation Requests tab (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.
 6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status and notifies the requester and the team's `approval_notification_recipients`.
 
 Request create/update/delete events also invalidate `VacationPeriodUsageCacheService`.
@@ -172,7 +181,7 @@ Request create/update/delete events also invalidate `VacationPeriodUsageCacheSer
 - **Working days:** `VacationDaysCalculationService` excludes weekends and the enabled holidays of the user's vacation policy. Holidays can be imported per country from Nager.Date (`src/holidays/clients/nager-date.client.ts`).
 - **CSV imports:** an admin command posts a prompt, the admin uploads a file, Slack sends `file_shared`, and `FileUploadService` routes the file **by its name** to `src/user-data-import/`:
   - `user-vacations.csv` (`/upload-vacations`): sets the contract start date and replaces the user's vacations;
-  - `user-team-mapping.csv` (`/user-team-mapping`): `email,team_name`, moves users to the team with that exact name.
+  - `user-team-mapping.csv` (`/user-team-mapping`): `email;team_name` (both CSVs use `;`), moves users to the team with that exact name.
 - **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens, vacation usage). That's fine because production runs a single instance. Running more instances would need a shared store, for example Redis via Keyv.
 - **Logging:** `nestjs-pino`, pretty-printed unless `NODE_ENV=production`.
 - **Deploy:** multi-stage `Dockerfile` (Node 20 alpine, `PORT=10000`). The `public/` folder is served statically; the OAuth flow redirects to `/success.html`.

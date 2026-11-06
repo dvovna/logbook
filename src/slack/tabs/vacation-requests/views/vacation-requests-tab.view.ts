@@ -167,6 +167,20 @@ export class VacationRequestsTabView extends BaseAdminTabView<
       });
     }
 
+    // So a request doesn't get stuck when an approver is away.
+    if (
+      vacationRequest.status === VacationRequestStatus.Pending &&
+      this.slackActionPermissionsService.can(
+        userRole,
+        VacationRequestsTabViewActionId.ApproveOnBehalf,
+      )
+    ) {
+      options.push({
+        text: { type: 'plain_text', text: 'Approve for Approvers' },
+        value: `${VacationRequestsTabViewActionId.ApproveOnBehalf}:${vacationRequest.id}`,
+      });
+    }
+
     if (
       this.slackActionPermissionsService.can(
         userRole,

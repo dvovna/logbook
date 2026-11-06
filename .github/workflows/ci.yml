@@ -55,3 +55,31 @@ jobs:
             exit 0
           fi
           npx eslint $files
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
+      - run: npm install -g yarn@1.22.22
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/yarn
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
+
+      - run: yarn install --frozen-lockfile
+
+      # A fresh local stack from supabase/config.toml, with supabase/migrations
+      # applied. The tests only need Postgres and the REST API behind Kong.
+      - name: Start Supabase
+        run: npx --yes supabase@latest start -x studio,postgres-meta
+
+      - name: Integration tests
+        run: yarn test:int --ci

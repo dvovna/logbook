@@ -45,5 +45,5 @@
       "@modules/vacation-requests/*": ["src/vacation-requests/*"]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

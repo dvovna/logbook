@@ -37,6 +37,7 @@ export enum ViewCallbackId {
   AdminVacationRequest = 'admin_vacation_request',
   UserVacationRequest = 'user_vacation_request',
   DeleteVacationRequest = 'delete_vacation_request',
+  ApproveVacationRequestOnBehalf = 'approve_vacation_request_on_behalf',
   ViewVacationRequestDetails = 'view_vacation_request_details',
 
   // approver-step-comments

@@ -16,6 +16,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
+    "test:int": "jest --config jest.integration.config.ts",
     "db:init": "npx --yes supabase@latest db reset",
     "slack:event": "node --env-file=.env -r ts-node/register src/commands/send-slack-event.ts"
   },

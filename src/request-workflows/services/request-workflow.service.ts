@@ -20,6 +20,7 @@ import { VacationWorkflowFinished } from '@common/events/vacation-workflow.event
 import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
+import { ValidationError } from '@common/errors/validation.error';
 
 export interface ICreateWorkflowLevelParams {
   rule: ApprovalRule;
@@ -169,6 +170,63 @@ export class RequestWorkflowService {
     if (isLevelComplete) {
       await this.activateNextLevel(step, approvedBy);
     }
+  }
+
+  // The open steps of the level the request is waiting on: the lowest level
+  // that still has open steps. Empty when nobody's approval is pending.
+  public async findCurrentLevelSteps(requestId: string, slackTeamId: string) {
+    const openSteps = await this.requestWorkflowStepsService.findMany({
+      requestId,
+      slackTeamId,
+      completed: false,
+    });
+
+    const currentLevel = Math.min(...openSteps.map((step) => step.step_level));
+
+    return openSteps.filter((step) => step.step_level === currentLevel);
+  }
+
+  // HR or an admin approves the current level for its approvers, e.g. when a
+  // manager is away, so the request moves on to the next level (or gets
+  // approved) instead of waiting. With the ALL rule every open step of the
+  // level is approved.
+  public async approveCurrentLevel(
+    requestId: string,
+    approvedBy: IUserViewModel,
+  ) {
+    const [currentStep] = await this.findCurrentLevelSteps(
+      requestId,
+      approvedBy.slack_team_id,
+    );
+
+    if (!currentStep) {
+      throw new ValidationError(
+        'This request is not waiting for anyone to approve it.',
+      );
+    }
+
+    const approvedSteps = await this.requestWorkflowStepsService.updateStatus(
+      {
+        requestId,
+        stepLevel: currentStep.step_level,
+        slackTeamId: approvedBy.slack_team_id,
+        completed: false,
+      },
+      RequestWorkflowStatus.Approved,
+      approvedBy,
+    );
+
+    const comments = await this.requestWorkflowStepCommentsService.findMany({
+      requestId,
+      slackTeamId: approvedBy.slack_team_id,
+    });
+
+    await this.workflowStepProcessorService.completeSteps(
+      approvedSteps,
+      comments,
+    );
+
+    await this.activateNextLevel(currentStep, approvedBy);
   }
 
   public async rejectStep(stepId: string, rejectedBy: IUserViewModel) {
