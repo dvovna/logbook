@@ -1,16 +1,17 @@
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { TeamsRepository } from 'src/teams/repositories/teams.repository';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { TeamsRepository } from '@modules/teams/repositories/teams.repository';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import MaxItemsCountReachedError from 'src/common/errors/max-items-count-reached.error';
+import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import {
   ISearchParams,
   ISearchResult,
-} from 'src/common/types/pagination.types';
-import ITeamViewModel from 'src/teams/types/team.interface';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+} from '@common/types/pagination.types';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
-import { SupabaseFilter } from 'src/common/repositories/base.repository';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { SupabaseFilter } from '@common/repositories/base.repository';
+import { DuplicatedRecordError } from '@common/errors/duplicated-record.error';
 
 interface ICreateTeamParams {
   name: string;
@@ -27,6 +28,7 @@ interface ICreateTeamParams {
 
 interface IFindParams {
   id?: string;
+  name?: string;
   slackTeamId: string;
   vacationPolicyId?: string;
   isPrimary?: boolean;
@@ -69,7 +71,6 @@ interface ITeamsService {
 }
 
 const DEFAULT_TEAM_NAME = 'Main Team';
-const MAX_TEAMS_COUNT = 5;
 
 @Injectable()
 export default class TeamsService implements ITeamsService {
@@ -116,28 +117,38 @@ export default class TeamsService implements ITeamsService {
     );
 
     if (teamsCount >= maxTeamsCount) {
-      throw new MaxItemsCountReachedError(MAX_TEAMS_COUNT, 'teams');
+      throw new MaxItemsCountReachedError(maxTeamsCount, 'teams');
     }
 
     const createdAt = new Date().toISOString();
 
-    return await this.teamsRepository.create({
-      name: createParams.name,
-      description: createParams.description || '',
-      slack_team_id: createParams.slackTeamId,
-      vacation_policy_id: createParams.vacationPolicyId,
-      manager_approvers: createParams.managerApprovers,
-      hr_approvers: createParams.hrApprovers,
-      approval_notification_recipients:
-        createParams.approvalNotificationRecipients,
-      manager_approvers_rule:
-        createParams.managerApproversRule || ApprovalRule.Any,
-      hr_approvers_rule: createParams.hrApproversRule || ApprovalRule.Any,
-      created_at: createdAt,
-      updated_at: createdAt,
-      created_by: user.id,
-      updated_by: user.id,
-    });
+    try {
+      return await this.teamsRepository.create({
+        name: createParams.name,
+        description: createParams.description || '',
+        slack_team_id: createParams.slackTeamId,
+        vacation_policy_id: createParams.vacationPolicyId,
+        manager_approvers: createParams.managerApprovers,
+        hr_approvers: createParams.hrApprovers,
+        approval_notification_recipients:
+          createParams.approvalNotificationRecipients,
+        manager_approvers_rule:
+          createParams.managerApproversRule || ApprovalRule.Any,
+        hr_approvers_rule: createParams.hrApproversRule || ApprovalRule.Any,
+        created_at: createdAt,
+        updated_at: createdAt,
+        created_by: user.id,
+        updated_by: user.id,
+      });
+    } catch (error) {
+      if (error.message.includes('duplicate key value')) {
+        throw new DuplicatedRecordError(
+          `Team with name '${createParams.name}' already exists.`,
+        );
+      }
+
+      throw error;
+    }
   }
 
   public update(
@@ -162,7 +173,7 @@ export default class TeamsService implements ITeamsService {
       ...(updateParams.approvalNotificationRecipients !== undefined
         ? {
           approval_notification_recipients:
-            updateParams.approvalNotificationRecipients,
+              updateParams.approvalNotificationRecipients,
         }
         : {}),
       ...(updateParams.managerApproversRule
@@ -197,6 +208,7 @@ export default class TeamsService implements ITeamsService {
   private getFindQuery(params: IFindParams): SupabaseFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
+      ...(params.name ? { name: params.name } : {}),
       ...(params.managerApprovers !== undefined
         ? {
           manager_approvers: {

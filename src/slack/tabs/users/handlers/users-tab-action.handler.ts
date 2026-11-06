@@ -1,24 +1,31 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import {
+  ISlackBlockActionPayload,
+  ISlackInteractionPayload,
+} from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   UsersTabModalName,
   UsersTabService,
-} from 'src/slack/tabs/users/services/users-tab.service';
-import { IUsersTabMetaData } from 'src/slack/tabs/users/views/users-tab.view';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
+} from '@modules/slack/tabs/users/services/users-tab.service';
+import { IUsersTabMetaData } from '@modules/slack/tabs/users/views/users-tab.view';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import {
   withAsyncSelectFilter,
   withPagination,
+  withResetFilters,
   withSelectFilter,
-} from 'src/slack/common/utils/tab-list.utils';
-import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
-import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
-import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
-import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/common/utils/tab-list.utils';
+import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
+import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
+import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
+import UserRole from '@common/enums/user-role.enum';
+import { getCheckboxActionValues } from '@modules/slack/common/utils/payload.utils';
+import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
+import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 
 @Injectable()
 @SlackHandler({
@@ -43,7 +50,7 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
       [UsersTabViewActionId.ManageUserMenu]: withMenuAction<
         UsersTabViewActionId,
         [IUserViewModel]
-      >(this.handleManageUserMenuAction),
+      >(this.handleManageUserMenuAction, this.logger),
       [UsersTabViewActionId.PaginationPrev]: paginationHandler,
       [UsersTabViewActionId.PaginationNext]: paginationHandler,
       [UsersTabViewActionId.FilterUsersByUser]: withAsyncSelectFilter(
@@ -58,10 +65,8 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
         'teamId',
         this.updateTab,
       ),
-      [UsersTabViewActionId.FilterUsersByStatus]: withSelectFilter(
-        'status',
-        this.updateTab,
-      ),
+      [UsersTabViewActionId.IncludeInactive]: this.handleIncludeInactiveFilter,
+      [UsersTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
     };
   }
 
@@ -72,6 +77,26 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
     await this.usersTabService.publish({
       user,
       metadata,
+    });
+  };
+
+  private handleIncludeInactiveFilter = async (
+    payload: ISlackBlockActionPayload,
+    user: IUserViewModel,
+  ) => {
+    const values = getCheckboxActionValues(payload);
+    const metadata = parseMetadata<IUsersTabMetaData>(payload);
+
+    const updatedMetadata: IUsersTabMetaData = {
+      ...metadata,
+      includeInactive: values[0] === YesNoValue.Yes,
+    };
+
+    await this.updateTab(updatedMetadata, user);
+
+    await this.usersTabService.publish({
+      user,
+      metadata: updatedMetadata,
     });
   };
 

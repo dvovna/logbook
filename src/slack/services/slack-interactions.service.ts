@@ -3,12 +3,12 @@ import {
   ISlackBlockActionPayload,
   ISlackInteractionPayload,
   ISlackViewSubmissionPayload,
-} from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { SlackHandlersRegistry } from 'src/slack/slack-handlers.registry';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { ActionForbiddenView } from 'src/slack/common/views/components/action-forbidden.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+} from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { SlackHandlersRegistry } from '@modules/slack/slack-handlers.registry';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
+import { ActionForbiddenView } from '@modules/slack/common/views/components/action-forbidden.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 
 @Injectable()
 class SlackInteractionsService {

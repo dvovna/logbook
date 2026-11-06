@@ -2,16 +2,24 @@ import { Injectable } from '@nestjs/common';
 import {
   IVacationPeriodUsageData,
   VacationsUsageService,
-} from 'src/vacation-requests/services/vacation-usage.service';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
-import { CancelVacationRequestSelectModalView } from 'src/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
+} from '@modules/vacation-requests/services/vacation-usage.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import {
+  ViewCallbackId,
+} from '@modules/slack/enums/integration-callback-id.enum';
+import { getVacationTypeIcon } from '@common/utils/get-vacation-type-icon';
+import VacationType from '@common/enums/vacation-type.enum';
+import {
+  VacationRequestModalService,
+} from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import {
+  VacationRequestsService,
+} from '@modules/vacation-requests/services/vacation-requests.service';
+import {
+  CancelVacationRequestSelectModalView,
+} from '@modules/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 
 export enum VacationCommand {
   Usage = 'usage',
@@ -24,7 +32,7 @@ export default class VacationCommandService {
   public constructor(
     private readonly userVacationUsageService: VacationsUsageService,
     private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly vacationRequestViewService: VacationRequestFormModalView,
+    private readonly vacationRequestModalService: VacationRequestModalService,
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly cancelVacationRequestModalView: CancelVacationRequestSelectModalView,
   ) {}
@@ -52,7 +60,8 @@ export default class VacationCommandService {
       case VacationCommand.Request: {
         await this.slackCommunicationService.openView(
           triggerId || user.slack_id,
-          this.vacationRequestViewService.getView({
+          await this.vacationRequestModalService.getModal({
+            user,
             callbackId: ViewCallbackId.UserVacationRequest,
           }),
           user.slack_team_id,
@@ -64,7 +73,7 @@ export default class VacationCommandService {
         const pendingRequests = await this.vacationRequestsService.findMany({
           userId: user.id,
           slackTeamId: user.slack_team_id,
-          status: VacationRequestStatus.Pending,
+          statuses: [VacationRequestStatus.Pending],
         });
 
         if (pendingRequests.length === 0) {

@@ -1,29 +1,29 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { Injectable } from '@nestjs/common';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import {
   EditUserModalView,
   IEditUserModalViewMetadata,
   NO_TEAM_VALUE,
-} from 'src/slack/tabs/users/views/edit-user-modal.view';
-import { UsersService } from 'src/users/services/users.service';
+} from '@modules/slack/tabs/users/views/edit-user-modal.view';
+import { UsersService } from '@modules/users/services/users.service';
 import {
   UsersTabModalName,
   UsersTabService,
-} from 'src/slack/tabs/users/services/users-tab.service';
+} from '@modules/slack/tabs/users/services/users-tab.service';
 import EditUserModalViewValuesParser, {
   IEditUserFormData,
-} from 'src/slack/tabs/users/parsers/edit-user-modal-view-values.parser';
-import { IUsersTabMetaData } from 'src/slack/tabs/users/views/users-tab.view';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+} from '@modules/slack/tabs/users/parsers/edit-user-modal-view-values.parser';
+import { IUsersTabMetaData } from '@modules/slack/tabs/users/views/users-tab.view';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/common/services/tab-navigation.service';
+import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
+import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
@@ -36,8 +36,6 @@ export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
   IEditUserFormData,
   IUserViewModel | null
 > {
-  private readonly logger = new Logger(EditUserFormSubmitHandler.name);
-
   public constructor(
     private readonly usersService: UsersService,
     private readonly userModalViewService: EditUserModalView,

@@ -1,23 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import TeamsService from 'src/teams/services/teams.service';
-import { TeamModalView } from 'src/slack/tabs/teams/views/team-modal.view';
-import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
-import { UsersService } from 'src/users/services/users.service';
+import TeamsService from '@modules/teams/services/teams.service';
+import { TeamModalView } from '@modules/slack/tabs/teams/views/team-modal.view';
+import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import { UsersService } from '@modules/users/services/users.service';
 import {
   ITeamsTabMetaData,
   TeamsTabView,
-} from 'src/slack/tabs/teams/views/teams-tab.view';
-import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
+} from '@modules/slack/tabs/teams/views/teams-tab.view';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
+} from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
-import UserRole from 'src/common/enums/user-role.enum';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import ITeamViewModel from 'src/teams/types/team.interface';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
+import UserRole from '@common/enums/user-role.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import ITeamViewModel from '@modules/teams/types/team.interface';
 
 interface ITeamModalViewParams extends IOpenModalBaseParams<string> {
   teamId: string;
@@ -163,7 +163,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       {
         callbackId: ViewCallbackId.DeleteTeam,
         title: 'Delete Team',
-        message: `:alert: The team *${team.name}* will be permanently deleted. This action cannot be undone.`,
+        message: `The team *${team.name}* will be permanently deleted. This action cannot be undone.`,
         errorMessage,
       },
       {

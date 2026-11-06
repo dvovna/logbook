@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
-import ViewFieldType from 'src/slack/enums/view-field-type.enum';
+import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
+import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
-import UserRole from 'src/common/enums/user-role.enum';
-import { ISelectedOption } from 'src/slack/common/utils/parsing-utils';
+import UserRole from '@common/enums/user-role.enum';
+import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
 
 export const editUserFormSchema = z.object({
   role: z.object({

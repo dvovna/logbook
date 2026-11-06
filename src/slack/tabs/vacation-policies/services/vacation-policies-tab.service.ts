@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
-import { VacationPolicyModalView } from 'src/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
+import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import { VacationPolicyModalView } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
 import {
   IVacationPoliciesTabMetaData,
   VacationPolicyTabView,
-} from 'src/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
+} from '@modules/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
+} from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
-import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 
 export enum VacationPoliciesTabModalName {
   CreatePolicy = 'CreatePolicy',
@@ -47,7 +47,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
   public constructor(
     private readonly vacationPolicyModalView: VacationPolicyModalView,
     private readonly vacationPoliciesService: VacationPoliciesService,
-    private readonly manageVacationPoliciesViewService: VacationPolicyTabView,
+    private readonly vacationPoliciesTabView: VacationPolicyTabView,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super(TabId.VacationPolicies, {
@@ -73,7 +73,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       orderBy: ['name:asc'],
     });
 
-    return this.manageVacationPoliciesViewService.getView({
+    return this.vacationPoliciesTabView.getView({
       userId: user.slack_id,
       userRole: user.role,
       policies,
@@ -129,7 +129,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       {
         callbackId: ViewCallbackId.DeleteVacationPolicy,
         title: 'Delete Vacation Policy',
-        message: `:alert: The policy *${policy.name}* will be permanently deleted. This action cannot be undone.`,
+        message: `The policy *${policy.name}* will be permanently deleted. This action cannot be undone.`,
         errorMessage,
       },
       {

@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { UsersRepository } from 'src/users/repositories/users.repository';
-import UserRole from 'src/common/enums/user-role.enum';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { UsersRepository } from '@modules/users/repositories/users.repository';
+import UserRole from '@common/enums/user-role.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   ISearchParams,
   ISearchResult,
-} from 'src/common/types/pagination.types';
-import { SupabaseFilter } from 'src/common/repositories/base.repository';
-import { UserUpdateValidatorService } from 'src/users/services/user-update-validator.service';
+} from '@common/types/pagination.types';
+import { SupabaseFilter } from '@common/repositories/base.repository';
+import { UserUpdateValidatorService } from '@modules/users/services/user-update-validator.service';
 
 interface ICreateUserParams {
   email: string;
@@ -25,6 +25,7 @@ interface ICreateUserParams {
 interface IFindParams {
   slackTeamId: string;
   id?: string;
+  ids?: string[];
   teamId?: string;
   teamIds?: string[];
   role?: UserRole;
@@ -82,6 +83,7 @@ export class UsersService implements IUsersService {
     slackId,
     teamId,
     slackTeamId,
+    contractStartDate,
   }: ICreateUserParams) {
     return await this.userRepository.upsert(
       {
@@ -92,6 +94,8 @@ export class UsersService implements IUsersService {
         team_id: teamId,
         slack_team_id: slackTeamId,
         slack_id: slackId,
+        // Left out when not given, so an upsert keeps the existing date.
+        contract_start_date: contractStartDate?.toISOString(),
         updated_at: new Date().toISOString(),
       },
       ['slack_id'],
@@ -204,6 +208,14 @@ export class UsersService implements IUsersService {
           },
         }
         : {}),
+      ...(findParams.ids
+        ? {
+          id: {
+            operator: 'in',
+            value: findParams.ids,
+          },
+        }
+        : {}),
       ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
       ...(findParams.teamIds
         ? { team_id: { operator: 'in', value: findParams.teamIds } }
@@ -221,6 +233,7 @@ export class UsersService implements IUsersService {
       ...(params.name ? { name: params.name } : {}),
       ...(params.email ? { email: params.email } : {}),
       ...(params.teamId ? { team_id: params.teamId } : {}),
+      ...(params.role ? { role: params.role } : {}),
       ...(params.contractStartDate
         ? { contract_start_date: params.contractStartDate.toISOString() }
         : {}),

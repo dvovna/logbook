@@ -6,6 +6,7 @@ import { RequestWorkflowStepCommentsService } from 'src/request-workflows/servic
 import {
   IRequestSnapshotData,
   IRequestWorkflowStepViewModel,
+  WorkflowStepStatus,
   WorkflowStepType,
 } from 'src/request-workflows/types/request-workflow-step.interface';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
@@ -16,12 +17,14 @@ import { VacationWorkflowEventEnum } from 'src/common/enums/vacation-workflow-ev
 import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
 import { VacationWorkflowFinished } from 'src/common/events/vacation-workflow.events';
 import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+import { ValidationError } from 'src/common/errors/validation.error';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 const REQUEST_ID = 'request-1';
 
 const snapshot: IRequestSnapshotData = {
   user_id: 'user-1',
+  slack_user_id: 'U_REQUESTER',
   user_name: 'Requester',
   user_email: 'requester@example.com',
   start_date: '2026-02-02',
@@ -74,7 +77,7 @@ const buildStep = (
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     step_type: WorkflowStepType.Approver,
-    step_data: { snapshot, rule, status: 'pending' },
+    step_data: { snapshot, rule, status: WorkflowStepStatus.Pending },
     ...rest,
   };
 };
@@ -166,7 +169,11 @@ describe('RequestWorkflowService', () => {
           stepLevel: 1,
           stepType: WorkflowStepType.Approver,
           slackTeamId: SLACK_TEAM_ID,
-          stepData: { snapshot, rule: ApprovalRule.Any, status: 'pending' },
+          stepData: {
+            snapshot,
+            rule: ApprovalRule.Any,
+            status: WorkflowStepStatus.Pending,
+          },
         },
         {
           requestId: REQUEST_ID,
@@ -174,7 +181,11 @@ describe('RequestWorkflowService', () => {
           stepLevel: 2,
           stepType: WorkflowStepType.Approver,
           slackTeamId: SLACK_TEAM_ID,
-          stepData: { snapshot, rule: ApprovalRule.All, status: 'pending' },
+          stepData: {
+            snapshot,
+            rule: ApprovalRule.All,
+            status: WorkflowStepStatus.Pending,
+          },
         },
       ]);
       expect(processorService.processSteps).toHaveBeenCalledWith(
@@ -284,6 +295,69 @@ describe('RequestWorkflowService', () => {
     });
   });
 
+  describe('approveCurrentLevel', () => {
+    const hr = { ...approver, id: 'hr-1', slack_id: 'U_HR', role: UserRole.HR };
+
+    it('approves every open step of the lowest open level and activates the next one', async () => {
+      const level1 = [
+        buildStep({ id: 'step-1', rule: ApprovalRule.All }),
+        buildStep({ id: 'step-1b', rule: ApprovalRule.All }),
+      ];
+      const level2 = [buildStep({ id: 'step-2', step_level: 2 })];
+      stepsService.findMany
+        .mockResolvedValueOnce([...level1, ...level2])
+        .mockResolvedValueOnce(level2);
+      stepsService.updateStatus.mockResolvedValue(level1);
+
+      await service.approveCurrentLevel(REQUEST_ID, hr);
+
+      expect(stepsService.updateStatus).toHaveBeenCalledWith(
+        {
+          requestId: REQUEST_ID,
+          stepLevel: 1,
+          slackTeamId: SLACK_TEAM_ID,
+          completed: false,
+        },
+        RequestWorkflowStatus.Approved,
+        hr,
+      );
+      expect(processorService.completeSteps).toHaveBeenCalledWith(
+        level1,
+        comments,
+      );
+      expect(processorService.processSteps).toHaveBeenCalledWith(
+        level2,
+        comments,
+      );
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('finishes the workflow as approved when it was the last level', async () => {
+      const level2 = [buildStep({ id: 'step-2', step_level: 2 })];
+      stepsService.findMany
+        .mockResolvedValueOnce(level2)
+        .mockResolvedValueOnce([]);
+      stepsService.updateStatus.mockResolvedValue(level2);
+
+      await service.approveCurrentLevel(REQUEST_ID, hr);
+
+      expect(getFinishedEvent().workflow).toMatchObject({
+        requestId: REQUEST_ID,
+        status: RequestWorkflowStatus.Approved,
+        approvedBy: hr.id,
+      });
+    });
+
+    it('refuses when nobody has to approve the request', async () => {
+      stepsService.findMany.mockResolvedValue([]);
+
+      await expect(service.approveCurrentLevel(REQUEST_ID, hr)).rejects.toThrow(
+        ValidationError,
+      );
+      expect(stepsService.updateStatus).not.toHaveBeenCalled();
+    });
+  });
+
   describe('rejectStep', () => {
     it('rejects every step of the level and finishes the workflow as rejected', async () => {
       const step = buildStep({ step_level: 1 });
@@ -314,30 +388,29 @@ describe('RequestWorkflowService', () => {
   });
 
   describe('a step that is already decided', () => {
-    const decidedStep = (status: 'approved' | 'rejected' | 'canceled') => {
+    const decidedStep = (status: WorkflowStepStatus) => {
       const step = buildStep();
 
       return { ...step, step_data: { ...step.step_data, status } };
     };
 
-    it.each(['approved', 'rejected', 'canceled'] as const)(
-      'ignores Approve when the step is %s',
-      async (status) => {
-        stepsService.findOneWithValidation.mockResolvedValue(
-          decidedStep(status),
-        );
+    it.each([
+      WorkflowStepStatus.Approved,
+      WorkflowStepStatus.Rejected,
+      WorkflowStepStatus.Cancelled,
+    ])('ignores Approve when the step is %s', async (status) => {
+      stepsService.findOneWithValidation.mockResolvedValue(decidedStep(status));
 
-        await service.approveStep('step-1', approver);
+      await service.approveStep('step-1', approver);
 
-        expect(stepsService.updateStatus).not.toHaveBeenCalled();
-        expect(processorService.processSteps).not.toHaveBeenCalled();
-        expect(eventEmitter.emit).not.toHaveBeenCalled();
-      },
-    );
+      expect(stepsService.updateStatus).not.toHaveBeenCalled();
+      expect(processorService.processSteps).not.toHaveBeenCalled();
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
 
     it('ignores Reject when the step is canceled', async () => {
       stepsService.findOneWithValidation.mockResolvedValue(
-        decidedStep('canceled'),
+        decidedStep(WorkflowStepStatus.Cancelled),
       );
 
       await service.rejectStep('step-1', approver);
@@ -361,7 +434,7 @@ describe('RequestWorkflowService', () => {
 
       expect(stepsService.updateStatus).toHaveBeenCalledWith(
         { requestId: REQUEST_ID, slackTeamId: SLACK_TEAM_ID, completed: false },
-        'canceled',
+        RequestWorkflowStatus.Canceled,
         requester,
       );
       expect(processorService.completeSteps).toHaveBeenCalledWith(

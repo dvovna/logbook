@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import IHolidayViewModel from 'src/holidays/types/holiday.interface';
-import { ISearchResult } from 'src/common/types/pagination.types';
-import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
-import { COUNTRY_OPTIONS } from 'src/slack/tabs/holidays/views/options/country.options';
-import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
-import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
-import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import IHolidayViewModel from '@modules/holidays/types/holiday.interface';
+import { ISearchResult } from '@common/types/pagination.types';
+import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
+import { COUNTRY_OPTIONS } from '@modules/slack/tabs/holidays/views/options/country.options';
+import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
+import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 
 interface IGetHolidaysViewParams extends IBaseTabViewParams {
   countryHolidays: ISearchResult<IHolidayViewModel>;

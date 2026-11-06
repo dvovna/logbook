@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { WebAPICallResult } from '@slack/web-api';
-import delay from 'src/common/utils/delay';
+import delay from '@common/utils/delay';
 
 interface ISlackMember {
   id: string;

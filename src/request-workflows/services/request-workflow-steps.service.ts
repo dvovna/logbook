@@ -1,17 +1,18 @@
 import {
-  ApproverStepStatus,
   IApproverStepData,
   WorkflowStepType,
-} from 'src/request-workflows/types/request-workflow-step.interface';
-import { RequestWorkflowStepsRepository } from 'src/request-workflows/repositories/request-workflow-steps.repository';
-import { Json } from 'src/common/types/database.types';
+} from '@modules/request-workflows/types/request-workflow-step.interface';
+import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
+import { Json } from '@common/types/database.types';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   IQueryOptions,
   SupabaseFilter,
   Tables,
-} from 'src/common/repositories/base.repository';
-import { IUserViewModel } from 'src/users/types/user.interface';
+} from '@common/repositories/base.repository';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
+import { ISearchParams } from '@common/types/pagination.types';
 
 export interface ICreateParams {
   requestId: string;
@@ -40,6 +41,8 @@ interface IFindParams {
   slackTeamId: string;
   completed?: boolean;
 }
+
+type ISearchStepsParams = ISearchParams<IFindParams>;
 
 @Injectable()
 export class RequestWorkflowStepsService {
@@ -105,7 +108,7 @@ export class RequestWorkflowStepsService {
 
   public async updateStatus(
     findParams: IFindParams,
-    status: Exclude<ApproverStepStatus, 'pending'>,
+    status: RequestWorkflowStatus,
     decidedBy: IUserViewModel,
   ) {
     const stepsToUpdate = await this.requestWorkflowStepsRepository.findMany(
@@ -151,6 +154,16 @@ export class RequestWorkflowStepsService {
         ...options,
       },
     );
+  }
+
+  public search(params: ISearchStepsParams) {
+    return this.requestWorkflowStepsRepository.search({
+      filters: this.getFindQuery(params.filters),
+      page: params.page,
+      pageSize: params.pageSize,
+      orderBy: params.orderBy,
+      searchTerm: params.searchTerm,
+    });
   }
 
   public async findOneWithValidation(findParams: IFindParams) {

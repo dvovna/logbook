@@ -1,20 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   HomeTabModalName,
   HomeTabService,
-} from 'src/slack/tabs/home/services/home-tab.service';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { HomeTabActionId } from 'src/slack/tabs/home/views/home-tab.view';
+} from '@modules/slack/tabs/home/services/home-tab.service';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
-import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
-import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
+} from '@modules/slack/common/services/tab-navigation.service';
+import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
+import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 
 @Injectable()
 @SlackHandler({ callbackId: ViewCallbackId.HomeTabView, type: 'block_actions' })
@@ -32,9 +32,12 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
     this.actionMap = {
       [HomeTabActionId.OpenVacationModal]: this.handleCreateVacationRequest,
       [HomeTabActionId.ViewHistory]: this.handleViewHistory,
+      [HomeTabActionId.EditTimeEntries]: this.handleViewTimeEntries,
       [HomeTabActionId.ManagePendingRequestMenu]: withMenuAction(
         this.handleMenuAction,
+        this.logger,
       ),
+      [HomeTabActionId.LogTime]: this.handleLogTime,
     };
   }
 
@@ -49,11 +52,29 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
     );
   };
 
+  private handleLogTime = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    await this.homeTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      HomeTabModalName.CreateTimeEntry,
+      { user },
+    );
+  };
+
   private handleViewHistory = (
     _payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
     this.tabNavigationService.navigate(TabId.VacationsHistory, { user });
+  };
+
+  private handleViewTimeEntries = (
+    _payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    this.tabNavigationService.navigate(TabId.TimeEntries, { user });
   };
 
   private handleMenuAction = async (
@@ -78,7 +99,7 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
         );
       }
       default: {
-        this.logger.warn(`Unhandled Team Tab Menu actionType: ${actionType}`);
+        this.logger.warn(`Unhandled Home Tab Menu actionType: ${actionType}`);
       }
     }
   };

@@ -1,14 +1,14 @@
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
 import { View } from '@slack/types/dist/views';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import { FallbackTabView } from 'src/slack/common/views/fallback-tab.view';
-import { InactiveUserTabView } from 'src/slack/common/views/inactive-user-tab.view';
+} from '@modules/slack/common/services/tab-navigation.service';
+import { FallbackTabView } from '@modules/slack/common/views/fallback-tab.view';
+import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-tab.view';
 
 export type IOpenModalBaseParams<PageMetadata = undefined> = {
   user: IUserViewModel;

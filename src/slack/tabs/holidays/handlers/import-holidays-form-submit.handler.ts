@@ -1,24 +1,24 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { Injectable } from '@nestjs/common';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   HolidaysTabModalName,
   HolidaysTabService,
-} from 'src/slack/tabs/holidays/services/holidays-tab.service';
-import { IHolidaysTabMetadata } from 'src/slack/tabs/holidays/views/holidays-tab.view';
+} from '@modules/slack/tabs/holidays/services/holidays-tab.service';
+import { IHolidaysTabMetadata } from '@modules/slack/tabs/holidays/views/holidays-tab.view';
 import {
   ImportHolidaysModalView,
   IUploadCountryHolidaysModalViewMetadata,
-} from 'src/slack/tabs/holidays/views/import-holidays-modal.view';
+} from '@modules/slack/tabs/holidays/views/import-holidays-modal.view';
 import ImportHolidaysModalViewValuesParser, {
   IImportHolidaysFormData,
-} from 'src/slack/tabs/holidays/parsers/import-holidays-modal-view-values.parser';
-import HolidayImportService from 'src/holidays/services/holiday-import.service';
-import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/tabs/holidays/parsers/import-holidays-modal-view-values.parser';
+import HolidayImportService from '@modules/holidays/services/holiday-import.service';
+import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
+import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
@@ -31,10 +31,6 @@ export class ImportHolidaysFormSubmitHandler extends BaseModalFormSubmitHandler<
   IImportHolidaysFormData,
   number
 > {
-  private readonly logger: Logger = new Logger(
-    ImportHolidaysFormSubmitHandler.name,
-  );
-
   public constructor(
     private readonly importHolidaysModalView: ImportHolidaysModalView,
     private readonly holidayImportService: HolidayImportService,

@@ -1,17 +1,17 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { AppController } from './app.controller';
-import { VacationRequestsModule } from 'src/vacation-requests/vacation-requests.module';
+import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 import { SlackModule } from './slack/slack.module';
 import { ConfigModule } from '@nestjs/config';
-import { SupabaseModule } from 'src/supabase/supabase.module';
+import { DatabaseModule } from 'src/database/database.module';
 import { UsersModule } from './users/users.module';
-import { SlackTeamsModule } from 'src/slack-teams/slack-teams.module';
-import { ClientsModule } from './clients/clients.module';
+import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
+import { ApiClientsModule } from 'src/api-clients/api-clients.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { VacationPoliciesModule } from 'src/vacation-policies/vacation-policies.module';
+import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
 import { CacheModule } from '@nestjs/cache-manager';
-import { UserDataImportModule } from 'src/user-data-import/user-data-import.module';
+import { UserDataImportModule } from '@modules/user-data-import/user-data-import.module';
 import { TeamSetupModule } from './team-setup/team-setup.module';
 import { SlackCommunicationModule } from './slack-communication/slack-communication.module';
 import { TeamsModule } from './teams/teams.module';
@@ -19,14 +19,19 @@ import { envSchema } from 'src/env.schema';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RequestWorkflowsModule } from './request-workflows/request-workflows.module';
 import { LoggerModule } from 'nestjs-pino';
+import { ClientsModule } from '@modules/clients/clients.module';
+import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 
 @Module({
   imports: [
     LoggerModule.forRoot({
       pinoHttp: {
-        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        level:
+          process.env.LOG_LEVEL ||
+          (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
         transport:
-          process.env.NODE_ENV !== 'production'
+          process.env.NODE_ENV !== 'production' &&
+          process.env.NODE_ENV !== 'test'
             ? {
               target: 'pino-pretty',
               options: {
@@ -43,8 +48,10 @@ import { LoggerModule } from 'nestjs-pino';
       isGlobal: true,
       validate: (config) => {
         const parsed = envSchema.safeParse(config);
+        const logger = new Logger('ConfigValidation');
+
         if (!parsed.success) {
-          console.error(
+          logger.error(
             '❌ Invalid environment variables',
             parsed.error.flatten().fieldErrors,
           );
@@ -58,18 +65,20 @@ import { LoggerModule } from 'nestjs-pino';
       rootPath: join(__dirname, '..', 'public'),
     }),
     CacheModule.register(),
-    SupabaseModule,
+    DatabaseModule,
     VacationRequestsModule,
     UsersModule,
     SlackTeamsModule,
-    ClientsModule,
+    ApiClientsModule,
     SlackModule,
     SlackCommunicationModule,
     VacationPoliciesModule,
     UserDataImportModule,
     TeamSetupModule,
     TeamsModule,
+    ClientsModule,
     RequestWorkflowsModule,
+    TimeEntriesModule,
   ],
   controllers: [AppController],
 })

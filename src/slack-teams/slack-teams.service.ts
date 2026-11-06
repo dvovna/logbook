@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { SlackTeamsRepository } from 'src/slack-teams/slack-teams.repository';
-import { SupabaseFilter } from 'src/common/repositories/base.repository';
+import { SlackTeamsRepository } from '@modules/slack-teams/slack-teams.repository';
+import { SupabaseFilter } from '@common/repositories/base.repository';
 
 interface ICreateTeamParams {
   name: string;

@@ -1,18 +1,19 @@
-import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
+import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
-} from 'src/slack/common/views/components/confirmation-modal.view';
-import { Injectable, Logger } from '@nestjs/common';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { IUserViewModel } from 'src/users/types/user.interface';
+} from '@modules/slack/common/views/components/confirmation-modal.view';
+import { Injectable } from '@nestjs/common';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import {
   HomeTabModalName,
   HomeTabService,
-} from 'src/slack/tabs/home/services/home-tab.service';
+} from '@modules/slack/tabs/home/services/home-tab.service';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 
 @Injectable()
 @SlackHandler({
@@ -20,8 +21,6 @@ import {
   type: 'view_submission',
 })
 export class CancelVacationRequestActionHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
-  private readonly logger = new Logger(CancelVacationRequestActionHandler.name);
-
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly homeTabService: HomeTabService,

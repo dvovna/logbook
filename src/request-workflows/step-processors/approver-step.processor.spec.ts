@@ -2,15 +2,15 @@ import { ApproverStepProcessor } from 'src/request-workflows/step-processors/app
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { RequestWorkflowStepsService } from 'src/request-workflows/services/request-workflow-steps.service';
 import {
-  ApproverStepStatus,
   IRequestWorkflowStepViewModel,
+  WorkflowStepStatus,
   WorkflowStepType,
 } from 'src/request-workflows/types/request-workflow-step.interface';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 
 const buildStep = (
-  status: ApproverStepStatus,
+  status: WorkflowStepStatus,
   overrides: Partial<IRequestWorkflowStepViewModel> = {},
 ): IRequestWorkflowStepViewModel => ({
   id: 'step-1',
@@ -29,6 +29,7 @@ const buildStep = (
     decided_by_slack_id: 'U_REQUESTER',
     snapshot: {
       user_id: 'user-1',
+      slack_user_id: 'U_REQUESTER',
       user_name: 'Requester',
       user_email: 'requester@example.com',
       start_date: '2026-02-02',
@@ -58,14 +59,14 @@ describe('ApproverStepProcessor', () => {
   });
 
   it('replaces the buttons with a canceled note when the request is canceled', async () => {
-    await processor.complete(buildStep('canceled'), []);
+    await processor.processCompleted(buildStep(WorkflowStepStatus.Cancelled), []);
 
     const [channel, ts, message] = communicationService.updateMessage.mock
       .calls[0] as [string, string, { text: string; blocks: object[] }];
 
     expect(channel).toBe('D_APPROVER');
     expect(ts).toBe('1700000000.000100');
-    expect(message.text).toBe('🚫 Vacation request canceled');
+    expect(message.text).toBe('❌ Vacation request canceled');
     expect(JSON.stringify(message.blocks)).toContain(
       'Canceled by <@U_REQUESTER>',
     );
@@ -79,8 +80,8 @@ describe('ApproverStepProcessor', () => {
   });
 
   it('closes a step that never got a message without touching Slack', async () => {
-    await processor.complete(
-      buildStep('canceled', { slack_message_ts: null, slack_channel_id: null }),
+    await processor.processCompleted(
+      buildStep(WorkflowStepStatus.Cancelled, { slack_message_ts: null, slack_channel_id: null }),
       [],
     );
 

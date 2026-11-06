@@ -1,24 +1,20 @@
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 
 export const ADMIN_TABS = [
   {
     actionId: AdminNavigationActionId.ViewHome,
-    title: '🏠 Home',
+    title: '🏠 Overview',
   },
   {
-    actionId: AdminNavigationActionId.ManageVacationRequests,
-    title: '📅 Requests',
+    actionId: AdminNavigationActionId.ManagePeople,
+    title: '👥 People',
   },
   {
-    actionId: AdminNavigationActionId.ManageTeams,
-    title: '👥 Teams',
+    actionId: AdminNavigationActionId.ManageTimeAndBilling,
+    title: '⏱ Time & Billing',
   },
   {
-    actionId: AdminNavigationActionId.ManageVacationPolicies,
-    title: '📜 Policies & Holidays',
-  },
-  {
-    actionId: AdminNavigationActionId.ManageUsers,
-    title: '👤 Users',
+    actionId: AdminNavigationActionId.ManageVacations,
+    title: '📅 Vacations',
   },
 ];

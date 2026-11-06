@@ -1,28 +1,34 @@
 import { Injectable } from '@nestjs/common';
-import { HomeTabView } from 'src/slack/tabs/home/views/home-tab.view';
-import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
+import { HomeTabView } from '@modules/slack/tabs/home/views/home-tab.view';
+import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
+} from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
-import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
-import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
-import { VacationDetailsModalService } from 'src/slack/tabs/vacation-requests/services/vacation-details-modal.service';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
+import {
+  VacationRequestModalService,
+} from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
+import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
 
 export enum HomeTabModalName {
   ViewVacationRequest = 'ViewVacationRequest',
   CreateVacationRequest = 'CreateVacationRequest',
   CancelVacationRequest = 'CancelVacationRequest',
+  CreateTimeEntry = 'CreateTimeEntry',
 }
 
 interface IRequestModalParams extends IOpenModalBaseParams {
   requestId: string;
 }
+
+type ICreateTimeEntryModalParams = IOpenModalBaseParams;
 
 type HomeTabModalViewResolversMapType = {
   [HomeTabModalName.ViewVacationRequest]: (
@@ -30,10 +36,13 @@ type HomeTabModalViewResolversMapType = {
   ) => Promise<View>;
   [HomeTabModalName.CreateVacationRequest]: (
     params: IOpenModalBaseParams,
-  ) => View;
+  ) => Promise<View>;
   [HomeTabModalName.CancelVacationRequest]: (
     params: IRequestModalParams,
   ) => View;
+  [HomeTabModalName.CreateTimeEntry]: (
+    params: ICreateTimeEntryModalParams,
+  ) => Promise<View>;
 };
 
 @Injectable()
@@ -42,7 +51,8 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly homeTabViewService: HomeTabView,
     private readonly userVacationsUsageService: VacationsUsageService,
     private readonly vacationsService: VacationRequestsService,
-    private readonly vacationRequestModalView: VacationRequestFormModalView,
+    private readonly vacationRequestModalService: VacationRequestModalService,
+    private readonly timeEntryModalService: TimeEntryModalService,
     private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
@@ -53,6 +63,8 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
         this.getCreateVacationRequestModal(params),
       [HomeTabModalName.CancelVacationRequest]: (params) =>
         this.getCancelVacationRequestModal(params),
+      [HomeTabModalName.CreateTimeEntry]: (params) =>
+        this.getCreateTimeEntryModal(params),
     });
   }
 
@@ -62,7 +74,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       await this.vacationsService.findMany({
         userId: user.id,
         startDate: user.contract_start_date || undefined,
-        status: VacationRequestStatus.Pending,
+        statuses: [VacationRequestStatus.Pending],
       }),
     ]);
 
@@ -79,8 +91,9 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
   }
 
   private getCreateVacationRequestModal(params: IOpenModalBaseParams) {
-    return this.vacationRequestModalView.getView({
+    return this.vacationRequestModalService.getModal({
       errorMessage: params.errorMessage,
+      user: params.user,
       callbackId: ViewCallbackId.UserVacationRequest,
     });
   }
@@ -97,6 +110,17 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       },
       {
         id: requestId,
+      },
+    );
+  }
+
+  private getCreateTimeEntryModal(params: ICreateTimeEntryModalParams) {
+    const { errorMessage, user } = params;
+
+    return this.timeEntryModalService.getModal(
+      {
+        user,
+        errorMessage,
       },
     );
   }

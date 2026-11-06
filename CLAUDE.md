@@ -20,13 +20,20 @@ npx tsc --noEmit      # type-check only
 yarn test             # jest
 yarn test src/request-workflows/services/request-workflow.service.spec.ts   # one file
 yarn test -t 'finishes the workflow'                                        # by test name
-yarn db:init          # apply src/commands/init.sql to SUPABASE_DB_URL from .env
+yarn test:int         # integration tests against the local Supabase stack
+yarn db:init          # recreate the local Supabase database from supabase/migrations
 npx supabase@latest start                                                    # local Supabase in Docker
 yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # signed event to the local app
 ```
 
 - Tests are `*.spec.ts` files next to the code (rootDir `src`, config in `jest.config.ts`). They build services directly with `jest.fn()` mocks rather than through a Nest testing module. `jest.config.ts` pins `TZ=UTC`, because the date code mixes local `getDay()` with `toISOString()` and production runs in UTC.
-- `yarn db:init` runs `src/commands/db-init.ts` through ts-node and applies `init.sql` in a single transaction. The SQL is idempotent, so running it again on an existing DB is safe. `src/commands` is excluded from `nest build`.
+- Integration tests are `test/integration/*.int-spec.ts` (config in `jest.integration.config.ts`, details in README → "Integration tests"):
+  - They build the real `AppModule` through `configureApp` (`src/app.setup.ts`, shared with `main.ts`) and replace only `SlackApiClient` with `FakeSlackApiClient`, which records every Slack call.
+  - `SlackTestClient` sends signed events, slash commands and interactions. `submitView` builds `view.state.values` from the modal the app opened, so a form field that doesn't match its parser fails the test.
+  - Every test works in its own `TestWorkspace` (random `T…` ID, deleted with a cascade at the end).
+  - `global-setup.ts` reads the URLs and keys from `supabase status` and refuses non-local URLs. It also stops when the local database lacks a migration from `supabase/migrations`.
+  - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners), so assert with `eventually(...)`.
+- `yarn db:init` runs `supabase db reset` against the local stack, which drops the local database and applies `supabase/migrations`. `src/commands` holds dev scripts and is excluded from `nest build`.
 - The codebase is not lint-clean: about 140 prettier and other errors already exist. `yarn lint` uses `--fix`, so it rewrites many unrelated files. To lint only what you touched, run `npx eslint <files>`.
 - Node 26 everywhere:
   - pinned in `.nvmrc`;
@@ -45,23 +52,30 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 - Interfaces must be prefixed with `I` (`@typescript-eslint/naming-convention` reports an error otherwise).
 - Every class member needs an explicit `public`/`private`/`protected` (`explicit-member-accessibility`).
 - Use single quotes, trailing commas and 2-space indent.
-- Imports use absolute `src/...` paths (`baseUrl: ./`), not relative paths. Jest maps them with `moduleNameMapper`.
+- Imports use the tsconfig path aliases `@modules/<module>/...` and `@common/...`. Absolute `src/...` paths also resolve (`baseUrl: ./`), but relative `../` imports are a lint error. Jest maps all of them in `moduleNameMapper`.
 - `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint and Prettier both ignore it.
 
 ## Schema
 
-There are two schema files, and they are kept in sync column for column, including nullability:
-- `src/common/types/database.types.ts`: generated from the live Supabase DB.
-- `src/commands/init.sql`.
+The schema lives in `supabase/migrations`:
+- `20260101000000_baseline_schema.sql` is the baseline. It holds every public table, constraint, index, comment and RLS flag of the dev project, taken with `pg_dump --schema-only` and made idempotent. On a database that already has the schema it is a no-op. On an empty one it creates the tables that the later migrations rely on.
+- The later migrations add RPCs (`get_projects_list`, `assign_project_assignments`, `get_user_projects`, `get_time_entries_list`) and constraints.
+- `src/common/types/database.types.ts` is generated from the dev project.
 
-When you change the schema, update `init.sql` (idempotent DDL: `IF NOT EXISTS`, plus a `DO` block for FKs added after the fact), `database.types.ts`, and the repository's `mapToViewModel`.
+To change the schema:
+1. Add a new migration (`npx supabase@latest migration new <name>`).
+2. Regenerate `database.types.ts`.
+3. Update the repository's `mapToViewModel`.
 
-There are no Supabase migrations. The local stack loads `init.sql` as a seed (`[db.seed]` in `supabase/config.toml`) on first start and on `db reset`.
+`src/db-init/*.sql` are older hand-written copies of the schema. They no longer match the database, and `init-time-tracking.sql` does not even apply to an empty one, so don't use them as a reference.
 
-How `init.sql` handles foreign keys:
+Pushing to the dev project:
+- The dev project already has every object of the baseline. It ran the five migrations after it through `supabase db push` or the dashboard.
+- The baseline is dated before them, so the first `supabase db push` after this change needs `--include-all`. Pushing it changes nothing.
+
+How the tables handle foreign keys:
 - Every table has an FK to `slack_teams` with `ON DELETE CASCADE`. Uninstalling the app deletes the `slack_teams` row and relies on this cascade.
-- NOT NULL audit columns (`created_by`/`updated_by`) use the default `NO ACTION`. That way a single user can't be hard-deleted while their rows remain (users are deactivated instead), but the workspace cascade still goes through.
-- RLS is enabled on every table with no policies. The app uses the service-role key, which bypasses RLS.
+- RLS is enabled on the vacation tables and has no policies. The app uses the service-role key, which bypasses RLS. The time tracking tables don't have RLS yet.
 
 ## Architecture
 
@@ -152,6 +166,7 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - `ALL`: the level waits until there are no pending steps.
    - A reject at any level ends the workflow.
    - Comments re-render the messages of all pending steps.
+   - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in the Vacation Requests tab (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.
 6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status and notifies the requester and the team's `approval_notification_recipients`.
 
 Request create/update/delete events also invalidate `VacationPeriodUsageCacheService`.
@@ -165,7 +180,7 @@ Request create/update/delete events also invalidate `VacationPeriodUsageCacheSer
 - **Working days:** `VacationDaysCalculationService` excludes weekends and the enabled holidays of the user's vacation policy. Holidays can be imported per country from Nager.Date (`src/holidays/clients/nager-date.client.ts`).
 - **CSV imports:** an admin command posts a prompt, the admin uploads a file, Slack sends `file_shared`, and `FileUploadService` routes the file **by its name** to `src/user-data-import/`:
   - `user-vacations.csv` (`/upload-vacations`): sets the contract start date and replaces the user's vacations;
-  - `user-teams.csv` (`/user-team-mapping`): `email,team`, moves users to teams matched by name (case-insensitive).
+  - `user-team-mapping.csv` (`/user-team-mapping`): `email;team_name` (both CSVs use `;`), moves users to the team with that exact name.
 - **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens, vacation usage). That's fine because production runs a single instance. Running more instances would need a shared store, for example Redis via Keyv.
 - **Logging:** `nestjs-pino`, pretty-printed unless `NODE_ENV=production`.
 - **Deploy:** multi-stage `Dockerfile` (Node 20 alpine, `PORT=10000`). The `public/` folder is served statically; the OAuth flow redirects to `/success.html`.

@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { getDateOnly } from 'src/common/utils/date.utils';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { getDateOnly } from '@common/utils/date.utils';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import {
   IVacationDaysCacheValue,
   VacationPeriodUsageCacheService,
-} from 'src/vacation-requests/services/vacation-period-usage-cache.service';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
+} from '@modules/vacation-requests/services/vacation-period-usage-cache.service';
+import VacationType from '@common/enums/vacation-type.enum';
+import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
 
 @Injectable()
 export class VacationPeriodUsageService {

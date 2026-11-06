@@ -1,21 +1,21 @@
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
-} from 'src/slack/common/views/components/confirmation-modal.view';
-import HolidaysService from 'src/holidays/services/holidays.service';
+} from '@modules/slack/common/views/components/confirmation-modal.view';
+import HolidaysService from '@modules/holidays/services/holidays.service';
 import {
   HolidaysTabModalName,
   HolidaysTabService,
-} from 'src/slack/tabs/holidays/services/holidays-tab.service';
-import { IHolidaysTabMetadata } from 'src/slack/tabs/holidays/views/holidays-tab.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { Injectable, Logger } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { jsonParse } from 'src/common/utils/json-parse';
-import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
+} from '@modules/slack/tabs/holidays/services/holidays-tab.service';
+import { IHolidaysTabMetadata } from '@modules/slack/tabs/holidays/views/holidays-tab.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { Injectable } from '@nestjs/common';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { jsonParse } from '@common/utils/json-parse';
+import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import UserRole from 'src/common/enums/user-role.enum';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
+import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
@@ -24,8 +24,6 @@ import UserRole from 'src/common/enums/user-role.enum';
   allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export class DeleteHolidayHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
-  private readonly logger = new Logger(DeleteHolidayHandler.name);
-
   public constructor(
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly holidaysService: HolidaysService,

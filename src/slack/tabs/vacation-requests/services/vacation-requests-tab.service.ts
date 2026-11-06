@@ -2,33 +2,37 @@ import { Injectable } from '@nestjs/common';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
+} from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types';
 import {
   IVacationRequestsTabMetadata,
   VacationRequestsTabView,
-} from 'src/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
-import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
+} from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { ConfigService } from '@nestjs/config';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
-import TeamsService from 'src/teams/services/teams.service';
-import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import TeamsService from '@modules/teams/services/teams.service';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import {
   IViewVacationRequestModalViewParams,
   VacationDetailsModalService,
-} from 'src/slack/tabs/vacation-requests/services/vacation-details-modal.service';
-import UserRole from 'src/common/enums/user-role.enum';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import ITeamViewModel from 'src/teams/types/team.interface';
+} from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
+import UserRole from '@common/enums/user-role.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import {
+  VacationRequestModalService,
+} from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
+import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 
 export enum VacationRequestsTabModalName {
   ViewRequest = 'ViewRequest',
   CreateRequest = 'CreateRequest',
   UpdateRequest = 'UpdateRequest',
   DeleteRequest = 'DeleteRequest',
+  ApproveOnBehalf = 'ApproveOnBehalf',
 }
 
 export type IPublishVacationRequestsTabViewParams =
@@ -38,7 +42,7 @@ interface IVacationRequestModalViewParams extends IOpenModalBaseParams<string> {
   requestId?: string;
 }
 
-interface IDeleteVacationRequestModalViewParams
+interface IVacationRequestConfirmationModalViewParams
   extends IOpenModalBaseParams<string> {
   requestId: string;
 }
@@ -49,13 +53,16 @@ type VacationRequestsTabModalViewResolversMapType = {
   ) => Promise<View>;
   [VacationRequestsTabModalName.CreateRequest]: (
     params: IVacationRequestModalViewParams,
-  ) => View;
+  ) => Promise<View>;
   [VacationRequestsTabModalName.UpdateRequest]: (
     params: IVacationRequestModalViewParams,
   ) => Promise<View>;
   [VacationRequestsTabModalName.DeleteRequest]: (
-    params: IDeleteVacationRequestModalViewParams,
+    params: IVacationRequestConfirmationModalViewParams,
   ) => View;
+  [VacationRequestsTabModalName.ApproveOnBehalf]: (
+    params: IVacationRequestConfirmationModalViewParams,
+  ) => Promise<View>;
 };
 
 @Injectable()
@@ -68,19 +75,22 @@ export class VacationRequestsTabService extends BaseTabService<
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly vacationRequestsTabViewService: VacationRequestsTabView,
     private readonly confirmationModalView: ConfirmationModalView,
-    private readonly vacationRequestFormModalView: VacationRequestFormModalView,
+    private readonly vacationRequestModalService: VacationRequestModalService,
     private readonly vacationDetailsModalService: VacationDetailsModalService,
+    private readonly requestWorkflowService: RequestWorkflowService,
     private readonly config: ConfigService,
   ) {
     super(TabId.VacationRequests, {
       [VacationRequestsTabModalName.ViewRequest]: (params) =>
         this.getViewRequestModalView(params),
       [VacationRequestsTabModalName.CreateRequest]: (params) =>
-        this.getCreateRequestModalView(params),
+        this.getRequestModalView(params),
       [VacationRequestsTabModalName.UpdateRequest]: (params) =>
-        this.getEditRequestModalView(params),
+        this.getRequestModalView(params),
       [VacationRequestsTabModalName.DeleteRequest]: (params) =>
         this.getDeleteRequestModalView(params),
+      [VacationRequestsTabModalName.ApproveOnBehalf]: (params) =>
+        this.getApproveOnBehalfModalView(params),
     });
   }
 
@@ -130,7 +140,7 @@ export class VacationRequestsTabService extends BaseTabService<
           ? { teamId: metadata?.filters.teamId }
           : {}),
         ...(metadata?.filters?.user
-          ? { userId: metadata?.filters.user.value }
+          ? { userId: metadata?.filters.user.id }
           : {}),
         ...(userTeamIdsRange && !metadata?.filters?.teamId
           ? { teamIds: userTeamIdsRange }
@@ -138,7 +148,7 @@ export class VacationRequestsTabService extends BaseTabService<
         ...(metadata?.filters?.type ? { type: metadata?.filters.type } : {}),
         ...(metadata?.filters?.year ? { year: metadata?.filters.year } : {}),
         ...(metadata?.filters?.status
-          ? { status: metadata?.filters?.status }
+          ? { statuses: [metadata?.filters?.status] }
           : {}),
       },
     });
@@ -150,53 +160,36 @@ export class VacationRequestsTabService extends BaseTabService<
     return this.vacationDetailsModalService.getModal(params);
   }
 
-  private getCreateRequestModalView({
-    user,
-    errorMessage,
-    pageMetadata,
-  }: IVacationRequestModalViewParams): View {
-    return this.vacationRequestFormModalView.getView(
-      {
-        errorMessage,
-        userRole: user.role,
-        callbackId: ViewCallbackId.AdminVacationRequest,
-      },
-      { pageMetadata },
-    );
+  private async getRequestModalView(params: IVacationRequestModalViewParams) {
+    return this.vacationRequestModalService.getModal(params);
   }
 
-  private async getEditRequestModalView({
-    user,
+  private async getApproveOnBehalfModalView({
     errorMessage,
     pageMetadata,
     requestId,
-  }: IVacationRequestModalViewParams) {
-    const request = await this.vacationRequestsService.findOneWithValidation({
-      id: requestId,
-      slackTeamId: user.slack_team_id,
-    });
+    user,
+  }: IVacationRequestConfirmationModalViewParams): Promise<View> {
+    const waitingSteps = await this.requestWorkflowService.findCurrentLevelSteps(
+      requestId,
+      user.slack_team_id,
+    );
+    const approvers = waitingSteps
+      .map(({ slack_user_id }) => `<@${slack_user_id}>`)
+      .join(', ');
 
-    return this.vacationRequestFormModalView.getView(
+    return this.confirmationModalView.getView(
       {
+        callbackId: ViewCallbackId.ApproveVacationRequestOnBehalf,
+        title: 'Approve for Approvers',
+        message: approvers
+          ? `The request is waiting for ${approvers}. Approve it for them? It then moves on to the next approvers, or gets approved if there are none.`
+          : 'This request is not waiting for anyone to approve it. To change its status, use Edit Request.',
         errorMessage,
-        initialData: {
-          id: request.id,
-          type: request.type,
-          status: request.status,
-          comment: request.user_comment || '',
-          start_date: request.start_date,
-          end_date: request.end_date,
-          user: request.user && {
-            id: request.user.id,
-            name: request.user.name,
-          },
-        },
-        userRole: user.role,
-        callbackId: ViewCallbackId.AdminVacationRequest,
       },
       {
+        id: requestId,
         pageMetadata,
-        id: request.id,
       },
     );
   }
@@ -205,7 +198,7 @@ export class VacationRequestsTabService extends BaseTabService<
     errorMessage,
     pageMetadata,
     requestId,
-  }: IDeleteVacationRequestModalViewParams): View {
+  }: IVacationRequestConfirmationModalViewParams): View {
     return this.confirmationModalView.getView(
       {
         callbackId: ViewCallbackId.DeleteVacationRequest,

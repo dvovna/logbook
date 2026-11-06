@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import {
   BaseRepository,
   Tables,
-} from 'src/common/repositories/base.repository';
+} from '@common/repositories/base.repository';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepType,
-} from 'src/request-workflows/types/request-workflow-step.interface';
+} from '@modules/request-workflows/types/request-workflow-step.interface';
 
 @Injectable()
 export class RequestWorkflowStepsRepository extends BaseRepository<

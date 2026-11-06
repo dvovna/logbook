@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
+} from '@modules/slack/common/views/base-modal.view';
 import { AnyBlock } from '@slack/web-api';
 
 export interface IVacationPolicyModalViewMetadata {
@@ -26,7 +26,7 @@ export class VacationPolicyModalView extends BaseModalView<
   IGetViewParams,
   IVacationPolicyModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.VacationPolicyFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.VacationPolicyFormSubmit;
 
   protected getTitleText({ initialData }: IGetViewParams): string {
     return initialData ? 'Edit Policy' : 'Create Policy';

@@ -171,10 +171,6 @@ describe('VacationRequestsService', () => {
         VacationRequestEvent.Updated,
         expect.objectContaining({ request: canceled }),
       );
-      expect(eventEmitter.emit).toHaveBeenCalledWith(
-        VacationRequestEvent.Canceled,
-        expect.objectContaining({ request: canceled, user: requester }),
-      );
       expect(result).toBe(canceled);
     });
 

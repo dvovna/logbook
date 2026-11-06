@@ -1,5 +1,5 @@
-import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import VacationType from '@common/enums/vacation-type.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 
 export interface IVacationRequestViewModel {
   id: string;

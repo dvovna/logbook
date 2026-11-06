@@ -1,25 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   IVacationPoliciesTabMetaData,
   PolicyTabViewActionId,
-} from 'src/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
+} from '@modules/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import {
   VacationPoliciesTabModalName,
   VacationPoliciesTabService,
-} from 'src/slack/tabs/vacation-policies/services/vacation-policies-tab.service';
-import { ActionMapType } from 'src/slack/common/handlers/base-action.handler';
+} from '@modules/slack/tabs/vacation-policies/services/vacation-policies-tab.service';
+import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import { BaseAdminTabActionHandler } from 'src/slack/common/handlers/base-admin-tab-action.handler';
-import { withPagination } from 'src/slack/common/utils/tab-list.utils';
-import { withMenuAction } from 'src/slack/common/utils/slack-menu.utils';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/common/services/tab-navigation.service';
+import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
+import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
+import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
@@ -44,6 +44,7 @@ export default class VacationPoliciesTabActionsHandler extends BaseAdminTabActio
       [PolicyTabViewActionId.AddPolicy]: this.handleAddPolicy,
       [PolicyTabViewActionId.ManagePolicyMenu]: withMenuAction(
         this.handleManagePolicyMenuAction,
+        this.logger,
       ),
       [PolicyTabViewActionId.PaginationPrev]: paginationHandler,
       [PolicyTabViewActionId.PaginationNext]: paginationHandler,

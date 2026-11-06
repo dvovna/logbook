@@ -1,12 +1,12 @@
-import { UsersModule } from '../users/users.module';
 import { Module } from '@nestjs/common';
-import UserVacationsCsvParser from 'src/user-data-import/parsers/user-vacations-csv.parser';
-import UserTeamsCsvParser from 'src/user-data-import/parsers/user-teams-csv.parser';
-import { UserVacationsImportService } from 'src/user-data-import/user-vacations-import.service';
-import { UserTeamsImportService } from 'src/user-data-import/user-teams-import.service';
-import { VacationRequestsModule } from 'src/vacation-requests/vacation-requests.module';
-import { SlackCommunicationModule } from 'src/slack-communication/slack-communication.module';
-import { TeamsModule } from 'src/teams/teams.module';
+import { UsersModule } from '@modules/users/users.module';
+import { TeamsModule } from '@modules/teams/teams.module';
+import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
+import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
+import { UserVacationsImportService } from '@modules/user-data-import/services/user-vacations-import.service';
+import UserVacationsCsvParser from '@modules/user-data-import/parsers/user-vacations-csv.parser';
+import UserTeamMappingCsvParser from '@modules/user-data-import/parsers/user-team-mapping-csv.parser';
+import { UserTeamMappingImportService } from '@modules/user-data-import/services/user-team-mapping-import.service';
 
 @Module({
   imports: [
@@ -18,10 +18,9 @@ import { TeamsModule } from 'src/teams/teams.module';
   providers: [
     UserVacationsImportService,
     UserVacationsCsvParser,
-    UserTeamsImportService,
-    UserTeamsCsvParser,
+    UserTeamMappingCsvParser,
+    UserTeamMappingImportService,
   ],
-  controllers: [],
-  exports: [UserVacationsImportService, UserTeamsImportService],
+  exports: [UserVacationsImportService, UserTeamMappingImportService],
 })
 export class UserDataImportModule {}

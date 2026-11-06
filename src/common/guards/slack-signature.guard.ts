@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 
 const FIVE_MINUTES_IN_SECONDS = 5 * 60;
 

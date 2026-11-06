@@ -1,7 +1,7 @@
 import { View } from '@slack/types/dist/views';
 import { AnyBlock } from '@slack/web-api';
 import type { PlainTextElement } from '@slack/types/dist/block-kit/composition-objects';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 
 export interface IBaseModalViewParams<
   CallbackId extends ViewCallbackId = ViewCallbackId,
@@ -27,14 +27,13 @@ export interface IBaseViewService<
 export default abstract class BaseModalView<
   ViewParams extends IBaseModalViewParams,
   Metadata = Record<string, unknown>,
-> implements IBaseViewService<ViewParams, Metadata>
-{
-  protected callbackId?: ViewCallbackId;
+> implements IBaseViewService<ViewParams, Metadata> {
+  protected defaultCallbackId?: ViewCallbackId;
 
   public getView(viewParams?: ViewParams, metadata?: Metadata): View {
     return {
       type: 'modal',
-      callback_id: viewParams?.callbackId || this.callbackId,
+      callback_id: viewParams?.callbackId || this.defaultCallbackId,
       private_metadata: JSON.stringify(metadata || {}),
       title: {
         type: 'plain_text',

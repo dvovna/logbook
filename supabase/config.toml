@@ -69,9 +69,9 @@ schema_paths = []
 enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-# The app schema is kept in src/commands/init.sql (see CLAUDE.md), so it is loaded as a seed
-# instead of being duplicated in migrations.
-sql_paths = ["../src/commands/init.sql"]
+# The schema comes from supabase/migrations (the first one is the baseline built from
+# src/db-init), so there is nothing to seed by default.
+sql_paths = ["./seed.sql"]
 
 [db.network_restrictions]
 # Enable management of network restrictions.

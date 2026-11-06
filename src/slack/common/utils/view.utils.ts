@@ -1,19 +1,25 @@
-import { IOption } from 'src/slack/common/types/option.interface';
+import { IOption } from '@modules/slack/common/types/option.interface';
 import { PlainTextOption } from '@slack/web-api';
-import { ISlackBlockActionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ButtonAction } from '@slack/bolt';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
-export const toPlainTextOption = ({ id, name }: IOption): PlainTextOption => {
-  return {
+export const toPlainTextOption = <
+  OptionType extends IOption = IOption
+>({ id, name, description }: OptionType): PlainTextOption => ({
     text: {
       type: 'plain_text',
       text: name,
     },
+    ...(description ? {
+      description: {
+        type: 'plain_text',
+        text: description,
+      },
+    } : {}),
     value: id,
-  };
-};
+  });
 
 export function withButtonAction(
   handler: (value: string, user: IUserViewModel, trigger_id: string) => unknown,

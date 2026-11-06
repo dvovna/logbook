@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
-import { COUNTRY_OPTIONS } from 'src/slack/tabs/holidays/views/options/country.options';
+} from '@modules/slack/common/views/base-modal.view';
+import { COUNTRY_OPTIONS } from '@modules/slack/tabs/holidays/views/options/country.options';
 import { AnyBlock } from '@slack/web-api';
 
 type IGetViewParams = IBaseModalViewParams;
@@ -17,7 +17,7 @@ export class ImportHolidaysModalView extends BaseModalView<
   IGetViewParams,
   IUploadCountryHolidaysModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.ImportHolidays;
+  protected defaultCallbackId = ViewCallbackId.ImportHolidays;
 
   protected getTitleText(): string {
     return 'Upload Country Holidays';

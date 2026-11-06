@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import HolidaysService from 'src/holidays/services/holidays.service';
-import { CountryHolidaysProvider } from 'src/holidays/providers/country-holidays.provider';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import HolidaysService from '@modules/holidays/services/holidays.service';
+import { CountryHolidaysProvider } from '@modules/holidays/providers/country-holidays.provider';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 
 interface IImportParams {
   policyId: string;

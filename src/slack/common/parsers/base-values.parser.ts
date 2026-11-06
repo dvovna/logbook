@@ -1,8 +1,8 @@
 import SlackViewValuesParser, {
   IFieldsConfig,
-} from 'src/slack/services/slack-view-values.parser';
+} from '@modules/slack/services/slack-view-values.parser';
 import { ZodType } from 'zod';
-import { IViewStateValues } from 'src/slack/common/types/slack-view-state-values.interface';
+import { IViewStateValues } from '@modules/slack/common/types/slack-view-state-values.interface';
 
 export default abstract class BaseValuesParser<ViewData extends object> {
   protected valuesParser: SlackViewValuesParser<ViewData>;

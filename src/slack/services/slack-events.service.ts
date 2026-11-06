@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import UserRole from 'src/common/enums/user-role.enum';
-import SlackUserAccessService from 'src/slack/services/slack-user-access.service';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import FileUploadService from 'src/slack/services/file-upload.service';
-import SlackEventType from 'src/slack/enums/slack-event-type.enum';
+import UserRole from '@common/enums/user-role.enum';
+import SlackUserAccessService from '@modules/slack/services/slack-user-access.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import FileUploadService from '@modules/slack/services/file-upload.service';
+import SlackEventType from '@modules/slack/enums/slack-event-type.enum';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import { UsersService } from 'src/users/services/users.service';
-import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall.service';
-import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
+} from '@modules/slack/common/services/tab-navigation.service';
+import { UsersService } from '@modules/users/services/users.service';
+import { SlackAppUninstallService } from '@modules/slack/services/slack-app-uninstall.service';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 
 interface IFileSharedEvent {
   type: SlackEventType.FileShared;
@@ -107,7 +107,7 @@ export default class SlackEventsService {
     private readonly slackTeamService: SlackTeamsService,
   ) {}
 
-  public handleSlackEvent(
+  public async handleSlackEvent(
     event: SlackEvent,
     user: IUserViewModel | undefined,
     body: Record<string, unknown>,
@@ -198,7 +198,7 @@ export default class SlackEventsService {
       teamId: existingUser?.team_id || null,
       role: user.role,
       email: event.user.profile.email!,
-      name: event.user.real_name,
+      name: event.user.real_name || user.name,
       isActive: !event.user.deleted,
       slackTeamId: slackTeam?.id,
     });
@@ -224,6 +224,7 @@ export default class SlackEventsService {
         event.user.is_admin || event.user.is_owner
           ? UserRole.Admin
           : UserRole.Member,
+      contractStartDate: new Date(),
       email: event.user.profile.email!,
       name: event.user.real_name,
       isActive: !event.user.deleted,

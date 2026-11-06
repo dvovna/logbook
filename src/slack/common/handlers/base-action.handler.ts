@@ -1,6 +1,6 @@
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { ISlackBlockActionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import { ISlackInteractionHandler } from 'src/slack/common/handlers/slack-interaction.handler';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { ISlackInteractionHandler } from '@modules/slack/common/handlers/slack-interaction.handler';
 
 export type ActionMapType = Record<
   string,

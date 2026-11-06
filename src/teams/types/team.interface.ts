@@ -1,4 +1,4 @@
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 
 interface ITeamViewModel {
   id: string;

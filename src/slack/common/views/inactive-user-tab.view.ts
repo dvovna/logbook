@@ -1,11 +1,11 @@
 import {
   BaseTabView,
   IBaseTabViewParams,
-} from 'src/slack/common/views/base-tab.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+} from '@modules/slack/common/views/base-tab.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { Injectable } from '@nestjs/common';
-import { FallbackTabViewActionId } from 'src/slack/common/views/fallback-tab.view';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
+import { FallbackTabViewActionId } from '@modules/slack/common/views/fallback-tab.view';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 
 @Injectable()
 export class InactiveUserTabView extends BaseTabView<IBaseTabViewParams> {

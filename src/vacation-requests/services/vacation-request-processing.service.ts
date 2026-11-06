@@ -1,19 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
+import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import {
   VacationRequestCreatedEvent,
   VacationRequestUpdatedEvent,
-} from 'src/vacation-requests/events/vacation-request.events';
-import TeamsService from 'src/teams/services/teams.service';
-import { WorkflowStepType } from 'src/request-workflows/types/request-workflow-step.interface';
+} from '@modules/vacation-requests/events/vacation-request.events';
+import TeamsService from '@modules/teams/services/teams.service';
+import {
+  WorkflowStepType,
+} from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
   ICreateWorkflowLevelParams,
   ICreateWorkflowParams,
   RequestWorkflowService,
-} from 'src/request-workflows/services/request-workflow.service';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+} from '@modules/request-workflows/services/request-workflow.service';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 
 @Injectable()
 export class VacationRequestProcessingService {
@@ -46,6 +48,7 @@ export class VacationRequestProcessingService {
       slackTeamId: request.slack_team_id,
       snapshot: {
         user_id: request.user!.id,
+        slack_user_id: request.user!.slack_id,
         user_name: request.user!.name,
         user_email: request.user!.email,
         start_date: request.start_date,
@@ -75,12 +78,12 @@ export class VacationRequestProcessingService {
     await this.requestWorkflowService.create(workflow);
   }
 
-  @OnEvent(VacationRequestEvent.Canceled)
-  public async handleRequestCanceled({
+  @OnEvent(VacationRequestEvent.Updated)
+  public async handleRequestUpdated({
     request,
-    user,
+    user: updatedBy,
   }: VacationRequestUpdatedEvent) {
-    await this.requestWorkflowService.cancel(request.id, user);
+    await this.requestWorkflowService.cancel(request.id, updatedBy);
   }
 
   private buildApproverLevel(

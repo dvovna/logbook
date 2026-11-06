@@ -1,22 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   IImportResult,
   UserVacationsImportService,
-} from 'src/user-data-import/user-vacations-import.service';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import {
-  IUserTeamsImportResult,
-  UserTeamsImportService,
-} from 'src/user-data-import/user-teams-import.service';
-
-const MAX_REPORTED_PROBLEMS = 20;
+} from '@modules/user-data-import/services/user-vacations-import.service';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import { UserTeamMappingImportService } from '@modules/user-data-import/services/user-team-mapping-import.service';
 
 @Injectable()
 export default class FileUploadService {
   public constructor(
     private readonly userVacationsImportService: UserVacationsImportService,
-    private readonly userTeamsImportService: UserTeamsImportService,
+    private readonly userTeamMappingImportService: UserTeamMappingImportService,
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {}
 
@@ -45,21 +40,21 @@ export default class FileUploadService {
 
         await this.slackCommunicationService.postEphemeral(
           user.slack_id,
-          this.getUserVacationsImportSuccessfulMessage(result),
+          this.getImportSuccessfulMessage(result),
           user.slack_team_id,
         );
 
         break;
       }
-      case 'user-teams.csv': {
-        const result = await this.userTeamsImportService.handle(
+      case 'user-team-mapping.csv': {
+        const result = await this.userTeamMappingImportService.handle(
           fileContent,
           user,
         );
 
         await this.slackCommunicationService.postEphemeral(
           user.slack_id,
-          this.getUserTeamsImportMessage(result),
+          this.getImportSuccessfulMessage(result),
           user.slack_team_id,
         );
 
@@ -75,7 +70,7 @@ export default class FileUploadService {
     }
   }
 
-  public getUserVacationsImportSuccessfulMessage(result: IImportResult) {
+  private getImportSuccessfulMessage(result: IImportResult) {
     if (result.errors.length) {
       return {
         text: `Import was not successful: \n ${result.errors.join('\n')}`,
@@ -87,35 +82,6 @@ export default class FileUploadService {
     };
   }
 
-  public getUserTeamsImportMessage(result: IUserTeamsImportResult) {
-    const { updated, unchanged, skipped, errors } = result;
-    const processed = updated + unchanged + skipped;
-
-    if (processed === 0 && errors.length) {
-      return { text: `Import was not successful:\n${errors.join('\n')}` };
-    }
-
-    const lines = [
-      'User teams import finished.',
-      `Updated: ${updated}`,
-      `Unchanged: ${unchanged}`,
-      `Skipped: ${skipped}`,
-    ];
-
-    if (errors.length) {
-      const shown = errors.slice(0, MAX_REPORTED_PROBLEMS);
-      const hidden = errors.length - shown.length;
-
-      lines.push(
-        '',
-        'Problems:',
-        ...shown.map((error) => `• ${error}`),
-        ...(hidden > 0 ? [`…and ${hidden} more`] : []),
-      );
-    }
-
-    return { text: lines.join('\n') };
-  }
 
   public getUnknownFileUploadPromptMessage() {
     return {

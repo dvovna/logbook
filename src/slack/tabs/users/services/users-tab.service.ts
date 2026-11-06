@@ -1,24 +1,25 @@
 import { Injectable } from '@nestjs/common';
-import TeamsService from 'src/teams/services/teams.service';
-import { UsersService } from 'src/users/services/users.service';
+import TeamsService from '@modules/teams/services/teams.service';
+import { UsersService } from '@modules/users/services/users.service';
 import {
   IUsersTabMetaData,
   UsersTabView,
-} from 'src/slack/tabs/users/views/users-tab.view';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/tabs/users/views/users-tab.view';
+import UserRole from '@common/enums/user-role.enum';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
-} from 'src/slack/common/services/base-tab.service';
+} from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
-import { EditUserModalView } from 'src/slack/tabs/users/views/edit-user-modal.view';
-import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { TabId } from 'src/slack/common/services/tab-navigation.service';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import ITeamViewModel from 'src/teams/types/team.interface';
-import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
-import { UserVacationUsageModalView } from 'src/slack/tabs/users/views/user-vacation-usage-modal.view';
+import { EditUserModalView } from '@modules/slack/tabs/users/views/edit-user-modal.view';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { TabId } from '@modules/slack/common/services/tab-navigation.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
+import { UserVacationUsageModalView } from '@modules/slack/tabs/users/views/user-vacation-usage-modal.view';
+import { IOption } from '@modules/slack/common/types/option.interface';
 
 export interface IGetUsersTabViewParams extends IPublishBaseParams {
   metadata?: IUsersTabMetaData;
@@ -27,8 +28,7 @@ export interface IGetUsersTabViewParams extends IPublishBaseParams {
 export interface IUsersTabViewFilters {
   teamId?: string;
   role?: UserRole;
-  user?: { value: string; name: string };
-  status?: 'active_only' | 'inactive_only';
+  user?: IOption;
 }
 
 interface IUserModalViewParams extends IOpenModalBaseParams<string> {
@@ -191,10 +191,10 @@ export class UsersTabService extends BaseTabService<
           : {}),
         ...(metadata?.filters?.role ? { role: metadata?.filters.role } : {}),
         ...(metadata?.filters?.user
-          ? { id: metadata?.filters.user.value }
+          ? { id: metadata?.filters.user.id }
           : {}),
-        ...(metadata?.filters?.status === 'inactive_only'
-          ? { isActive: false }
+        ...(metadata?.includeInactive
+          ? { includeInactive: metadata?.includeInactive }
           : {}),
       },
       orderBy: ['name:asc'],

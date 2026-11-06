@@ -1,10 +1,10 @@
-import { IViewStateValues } from 'src/slack/common/types/slack-view-state-values.interface';
+import { IViewStateValues } from '@modules/slack/common/types/slack-view-state-values.interface';
 import {
   DatepickerAction,
   MultiStaticSelectAction,
   StaticSelectAction,
 } from '@slack/bolt/dist/types/actions/block-action';
-import ViewFieldType from 'src/slack/enums/view-field-type.enum';
+import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 
 interface IFieldPathParams {
   blockId: string;
@@ -116,6 +116,8 @@ export const getValueByType = (
       return getSelectedUsers(values, blockId, actionId);
     case ViewFieldType.Date:
       return getSelectedDate(values, blockId, actionId);
+    case ViewFieldType.RadioButtons:
+      return getSelectedOption(values, blockId, actionId);
     default:
       throw new Error(`Unsupported field type: ${fieldType}`);
   }

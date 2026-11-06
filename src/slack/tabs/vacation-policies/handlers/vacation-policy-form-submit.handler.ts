@@ -1,23 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import SlackViewResponseFactory from 'src/slack/factories/slack-response.factory';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import PolicyModalViewValuesParser, {
   IVacationPolicyFormData,
-} from 'src/slack/tabs/vacation-policies/parsers/policy-modal-view-values.parser';
-import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
+} from '@modules/slack/tabs/vacation-policies/parsers/policy-modal-view-values.parser';
+import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import {
   IVacationPolicyModalViewMetadata,
   VacationPolicyModalView,
-} from 'src/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
-import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
-import IVacationPolicyViewModel from 'src/vacation-policies/types/vacation-policy.interface';
+} from '@modules/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
+import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
+import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/common/services/tab-navigation.service';
+import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
@@ -116,7 +116,7 @@ export class VacationPolicyFormSubmitHandler extends BaseModalFormSubmitHandler<
 
     return SlackViewResponseFactory.update(
       this.vacationPolicyModalView.getView({
-        errorMessage: errorMessage,
+        errorMessage,
         initialData: initialData || undefined,
       }),
     );

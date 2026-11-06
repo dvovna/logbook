@@ -1,7 +1,6 @@
-export class SeparatorComponent {
+export class Divider {
   public static getBlocks() {
     return [
-      { type: 'section', text: { type: 'plain_text', text: ' ' } },
       { type: 'divider' },
     ];
   }

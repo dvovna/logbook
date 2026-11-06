@@ -3,8 +3,8 @@ import { DiscoveryService, Reflector } from '@nestjs/core';
 import {
   SLACK_HANDLER_METADATA,
   ISlackHandlerMeta,
-} from 'src/slack/decorators/slack-handler.decorator';
-import { ISlackInteractionHandler } from 'src/slack/common/handlers/slack-interaction.handler';
+} from '@modules/slack/decorators/slack-handler.decorator';
+import { ISlackInteractionHandler } from '@modules/slack/common/handlers/slack-interaction.handler';
 
 interface ISlackHandlerRegistryItem {
   handler: ISlackInteractionHandler;

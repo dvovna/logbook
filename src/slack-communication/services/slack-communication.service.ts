@@ -1,7 +1,7 @@
-import SlackApiClient from 'src/clients/third-party/slack-api.client';
-import AccessTokenService from 'src/slack-communication/services/slack-access-token.service';
+import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
+import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
 import { Injectable } from '@nestjs/common';
-import { SlackMessagePayloadInterface } from 'src/slack-communication/types/slack-message-payload.interface';
+import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
 import { WebAPICallResult } from '@slack/web-api';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
 import { View } from '@slack/types/dist/views';

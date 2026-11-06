@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { TeamSetupWorkflowService } from 'src/team-setup/team-setup-workflow.service';
-import { SlackTeamsModule } from 'src/slack-teams/slack-teams.module';
-import { UsersModule } from 'src/users/users.module';
-import { VacationPoliciesModule } from 'src/vacation-policies/vacation-policies.module';
-import { SlackCommunicationModule } from 'src/slack-communication/slack-communication.module';
-import { TeamUsersSyncService } from 'src/team-setup/team-users-sync.service';
-import { TeamsModule } from 'src/teams/teams.module';
+import { TeamSetupWorkflowService } from '@modules/team-setup/team-setup-workflow.service';
+import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
+import { UsersModule } from '@modules/users/users.module';
+import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
+import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
+import { TeamUsersSyncService } from '@modules/team-setup/team-users-sync.service';
+import { TeamsModule } from '@modules/teams/teams.module';
 
 @Module({
   imports: [

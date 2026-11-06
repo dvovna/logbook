@@ -73,7 +73,7 @@ describe('SlackEventsService', () => {
     it('logs a failed handler instead of leaving its rejection unhandled', async () => {
       usersService.upsert.mockRejectedValue(new Error('db is down'));
 
-      const response = service.handleSlackEvent(
+      const response = await service.handleSlackEvent(
         { type: SlackEventType.TeamJoin, user: slackUser },
         undefined,
         {},
@@ -105,7 +105,7 @@ describe('SlackEventsService', () => {
 
   describe('team_join', () => {
     const sendTeamJoin = async (user: ITeamJoinEvent['user']) => {
-      service.handleSlackEvent(
+      await service.handleSlackEvent(
         { type: SlackEventType.TeamJoin, user },
         undefined,
         {},
@@ -127,6 +127,7 @@ describe('SlackEventsService', () => {
         name: 'New User',
         isActive: true,
         slackTeamId: slackTeam.id,
+        contractStartDate: expect.any(Date),
       });
     });
 

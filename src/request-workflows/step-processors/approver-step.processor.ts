@@ -2,13 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepType,
-} from 'src/request-workflows/types/request-workflow-step.interface';
-import { IWorkflowStepProcessor } from 'src/request-workflows/types/workflow-step-handler.interface';
-import { WorkflowStepProcessor } from 'src/request-workflows/decorators/workflow-step-handler.decorator';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { RequestWorkflowStepsService } from 'src/request-workflows/services/request-workflow-steps.service';
-import { ApproverMessageView } from 'src/request-workflows/views/approver-message.view';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
+} from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IWorkflowStepProcessor } from '@modules/request-workflows/types/workflow-step-handler.interface';
+import { WorkflowStepProcessor } from '@modules/request-workflows/decorators/workflow-step-handler.decorator';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
+import { ApproverMessageView } from '@modules/request-workflows/views/approver-message.view';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 @Injectable()
 @WorkflowStepProcessor(WorkflowStepType.Approver)
@@ -24,7 +24,7 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
     return step.step_type === WorkflowStepType.Approver;
   }
 
-  public async process(
+  public async processPending(
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
   ): Promise<void> {
@@ -49,7 +49,7 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
     }
   }
 
-  public async complete(
+  public async processCompleted(
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
   ): Promise<void> {
@@ -69,9 +69,25 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
     );
   }
 
+  public async processCanceled(
+    step: IRequestWorkflowStepViewModel,
+  ): Promise<void> {
+    await this.updateMessage(step);
+
+    await this.requestWorkflowStepsService.update(
+      {
+        id: step.id,
+        slackTeamId: step.slack_team_id,
+      },
+      {
+        completedAt: new Date().toISOString(),
+      },
+    );
+  }
+
   public async updateMessage(
     step: IRequestWorkflowStepViewModel,
-    comments: IWorkflowStepCommentViewModel[],
+    comments?: IWorkflowStepCommentViewModel[],
   ): Promise<void> {
     if (!step.slack_message_ts || !step.slack_channel_id) {
       this.logger.error('Step message timestamp or channel are missing');

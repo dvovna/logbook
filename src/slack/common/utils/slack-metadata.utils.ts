@@ -1,4 +1,4 @@
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
+import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 
 export function parseMetadata<Metadata>(
   payload: ISlackInteractionPayload,

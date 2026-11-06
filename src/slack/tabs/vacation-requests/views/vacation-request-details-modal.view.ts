@@ -2,23 +2,27 @@ import { Injectable } from '@nestjs/common';
 import BaseModalView, {
   IActionButtons,
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
+} from '@modules/slack/common/views/base-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { AnyBlock } from '@slack/web-api';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import {
-  ApproverStepStatus,
+  IVacationRequestViewModel,
+} from '@modules/vacation-requests/types/vacation-request.interface';
+import {
   IRequestWorkflowStepViewModel,
-} from 'src/request-workflows/types/request-workflow-step.interface';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
-import capitalize from 'src/common/utils/capitalize';
+  WorkflowStepStatus,
+} from '@modules/request-workflows/types/request-workflow-step.interface';
+import {
+  IWorkflowStepCommentViewModel,
+} from '@modules/request-workflows/types/workflow-step-comment.interface';
+import capitalize from '@common/utils/capitalize';
 
-const STEP_STATUS_EMOJI: Record<ApproverStepStatus, string> = {
-  pending: '⏳',
-  approved: '✅',
-  rejected: '❌',
-  canceled: '🚫',
+const STEP_STATUS_EMOJI: Record<WorkflowStepStatus, string> = {
+  [WorkflowStepStatus.Pending]: '⏳',
+  [WorkflowStepStatus.Approved]: '✅',
+  [WorkflowStepStatus.Rejected]: '❌',
+  [WorkflowStepStatus.Cancelled]: '🚫',
 };
 
 interface IGetParams extends IBaseModalViewParams {
@@ -29,10 +33,10 @@ interface IGetParams extends IBaseModalViewParams {
 
 @Injectable()
 export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
-  protected callbackId = ViewCallbackId.ViewVacationRequestDetails;
+  protected defaultCallbackId = ViewCallbackId.ViewVacationRequestDetails;
 
   protected getTitleText() {
-    return 'Vacation request details';
+    return 'Vacation Request Details';
   }
 
   protected getActionButtons(): IActionButtons {
@@ -196,6 +200,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
   }
 
   private getSortedLevels(levels: string[]) {
-    return levels.map((level) => parseInt(level, 10)).sort((a, b) => a - b);
+    return levels.map((level) => parseInt(level, 10))
+      .sort((a, b) => a - b);
   }
 }

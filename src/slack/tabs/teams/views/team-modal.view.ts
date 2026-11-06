@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { MAX_DESCRIPTION_LENGTH } from 'src/slack/tabs/teams/parsers/team-modal-view-values.parser';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { MAX_DESCRIPTION_LENGTH } from '@modules/slack/tabs/teams/parsers/team-modal-view-values.parser';
 import BaseModalView, {
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
+} from '@modules/slack/common/views/base-modal.view';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
-import { SlackMultiStaticSelectView } from 'src/slack/common/views/components/slack-multi-static-select.view';
-import { IOption } from 'src/slack/common/types/option.interface';
-import { SlackInputCheckboxesView } from 'src/slack/common/views/components/slack-input-checkboxes.view';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import { SlackMultiStaticSelectView } from '@modules/slack/common/views/components/slack-multi-static-select.view';
+import { IOption } from '@modules/slack/common/types/option.interface';
+import { InputCheckboxesBlockBuilder } from '@modules/slack/common/views/builders/input-checkboxes-block.builder';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 
 interface IGetViewParams extends IBaseModalViewParams {
   initialData?: {
@@ -44,7 +44,7 @@ export class TeamModalView extends BaseModalView<
   IGetViewParams,
   ITeamModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.TeamFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.TeamFormSubmit;
 
   protected getTitleText(viewParams: IGetViewParams): string {
     return viewParams.initialData ? 'Edit Team' : 'Create Team';
@@ -103,7 +103,7 @@ export class TeamModalView extends BaseModalView<
         options: params.managers,
         initialValues: params.initialData?.managerApprovers,
       }),
-      ...SlackInputCheckboxesView.getView({
+      ...InputCheckboxesBlockBuilder.build({
         blockId: 'manager_approvers_rule_block',
         actionId: 'manager_approvers_rule',
         label: 'Managers Approval Rule',
@@ -127,7 +127,7 @@ export class TeamModalView extends BaseModalView<
         options: params.hrUsers,
         initialValues: params.initialData?.hrApprovers,
       }),
-      ...SlackInputCheckboxesView.getView({
+      ...InputCheckboxesBlockBuilder.build({
         blockId: 'hr_approvers_rule_block',
         actionId: 'hr_approvers_rule',
         label: 'HR Approval Rule',
@@ -173,11 +173,10 @@ export class TeamModalView extends BaseModalView<
 
     const options = [NO_POLICY_OPTION, ...policyOptions];
 
-    const selectedPolicy =
-      teamPolicyId !== undefined &&
-      options.find(
-        (policy) => policy.value === teamPolicyId || NO_POLICY_VALUE,
-      );
+    const selectedPolicyId = teamPolicyId || NO_POLICY_VALUE;
+    const selectedPolicy = options.find(
+      (policy) => policy.value === selectedPolicyId,
+    );
 
     return {
       type: 'input',

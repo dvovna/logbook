@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { UsersService } from 'src/users/services/users.service';
-import { UsersRepository } from 'src/users/repositories/users.repository';
-import { TeamsModule } from 'src/teams/teams.module';
-import { VacationPoliciesModule } from 'src/vacation-policies/vacation-policies.module';
-import { UserUpdateValidatorService } from 'src/users/services/user-update-validator.service';
+import { UsersService } from '@modules/users/services/users.service';
+import { UsersRepository } from '@modules/users/repositories/users.repository';
+import { TeamsModule } from '@modules/teams/teams.module';
+import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
+import { UserUpdateValidatorService } from '@modules/users/services/user-update-validator.service';
 
 @Module({
   imports: [TeamsModule, VacationPoliciesModule],

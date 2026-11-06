@@ -26,9 +26,25 @@ $ yarn run start:prod
 ## Tests
 
 ```bash
-$ yarn test
+$ yarn test        # unit tests
+$ yarn test:int    # integration tests, need the local Supabase stack (see below)
 $ npx tsc --noEmit
 ```
+
+### Integration tests
+
+`test/integration` runs the whole app (the real `AppModule` and the request pipeline from `main.ts`) against the local Supabase stack. Only the Slack Web API is replaced: `SlackApiClient` is swapped for a fake that records every call. The tests send signed Slack requests to the real routes (events, slash commands, interactions, the OAuth redirect) and check the database and the calls the app made to Slack.
+
+Start the stack first (see [Database](#1-database)). If the local database is missing a migration, the run stops and says how to apply it. The tests take their Supabase URLs and keys from `supabase status`, never from `.env`, and refuse to run against anything but localhost.
+
+Each test creates its own workspace (a `slack_teams` row with a random `T…` ID) and deletes it at the end; the foreign keys cascade, so nothing is left behind and the data you keep locally is not touched.
+
+```bash
+$ yarn test:int test/integration/vacation-approval.int-spec.ts   # one file
+$ LOG_LEVEL=debug yarn test:int                                  # with the app's logs
+```
+
+CI runs them in a separate job on a fresh stack.
 
 ## Local development
 
@@ -42,7 +58,7 @@ The app reads and writes through the Supabase API, so a plain Postgres is not en
 $ npx supabase@latest start
 ```
 
-On the first start (and on `npx supabase@latest db reset`) the schema from `src/commands/init.sql` is loaded as a seed. After changing `init.sql`, apply it with `yarn db:init` (it is idempotent) or reset the database.
+On the first start the migrations from `supabase/migrations` create the schema. The first of them is a baseline with all the tables. `yarn db:init` (`supabase db reset`) drops the local database and applies them again, for example after pulling new migrations.
 
 Copy `.env.example` to `.env` and take the Supabase values from `npx supabase@latest status -o env`:
 

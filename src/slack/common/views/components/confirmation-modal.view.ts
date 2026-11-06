@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
   IActionButtons,
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
+} from '@modules/slack/common/views/base-modal.view';
 import { AnyBlock } from '@slack/web-api';
 
 interface IGetViewParams extends IBaseModalViewParams {

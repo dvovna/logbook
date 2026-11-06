@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ConfigService } from '@nestjs/config';
-import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import { ValidationError } from 'src/common/errors/validation.error';
-import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
-import { getDateOnly } from 'src/common/utils/date.utils';
+import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import VacationType from '@common/enums/vacation-type.enum';
+import { ValidationError } from '@common/errors/validation.error';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
+import { getDateOnly } from '@common/utils/date.utils';
 
 export const ACTIVE_REQUEST_STATUSES = [
   VacationRequestStatus.Pending,

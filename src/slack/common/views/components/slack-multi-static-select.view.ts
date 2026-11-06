@@ -1,6 +1,6 @@
 import { InputBlock, SectionBlock } from '@slack/web-api';
-import { IOption } from 'src/slack/common/types/option.interface';
-import { toPlainTextOption } from 'src/slack/common/utils/view.utils';
+import { IOption } from '@modules/slack/common/types/option.interface';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
 interface ISelectViewParams {
   blockId: string;

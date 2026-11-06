@@ -1,32 +1,35 @@
 import {
-  ForbiddenException,
   Injectable,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
-import { ValidationError } from 'src/common/errors/validation.error';
-import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
-import getDaysBetweenDates from 'src/common/utils/get-days-between-dates';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import {
-  ISearchParams,
-  ISearchResult,
-} from 'src/common/types/pagination.types';
-import { SupabaseFilter } from 'src/common/repositories/base.repository';
-import { IUserViewModel } from 'src/users/types/user.interface';
+  VacationRequestsRepository,
+} from '@modules/vacation-requests/repositories/vacation-requests.repository';
+import getDaysBetweenDates from '@common/utils/get-days-between-dates';
 import {
-  ACTIVE_REQUEST_STATUSES,
+  IVacationRequestViewModel,
+} from '@modules/vacation-requests/types/vacation-request.interface';
+import VacationType from '@common/enums/vacation-type.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
+import { SupabaseFilter } from '@common/repositories/base.repository';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import {
   VacationRequestsValidationService,
-} from 'src/vacation-requests/services/vacation-requests-validation.service';
-import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
-import TeamsService from 'src/teams/services/teams.service';
-import { getDateOnly } from 'src/common/utils/date.utils';
-import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
+  ACTIVE_REQUEST_STATUSES,
+} from '@modules/vacation-requests/services/vacation-requests-validation.service';
+import {
+  VacationDaysCalculationService,
+} from '@modules/vacation-requests/services/vacation-days-calculation.service';
+import TeamsService from '@modules/teams/services/teams.service';
+import { getDateOnly } from '@common/utils/date.utils';
+import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
+import { ValidationError } from '@common/errors/validation.error';
 import {
   VacationRequestCreatedEvent,
   VacationRequestUpdatedEvent,
-} from 'src/vacation-requests/events/vacation-request.events';
+} from '@modules/vacation-requests/events/vacation-request.events';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 interface ICreateParams {
@@ -56,7 +59,7 @@ interface IFindParams {
   teamIds?: string[];
   year?: string;
   startDate?: string;
-  status?: VacationRequestStatus;
+  statuses?: VacationRequestStatus[];
   type?: VacationType;
   slackTeamId?: string;
 }
@@ -252,9 +255,15 @@ export class VacationRequestsService implements IVacationRequestsService {
           : {}),
         ...(type !== undefined ? { type } : {}),
         ...(userComment !== undefined ? { user_comment: userComment } : {}),
-        ...(status !== undefined ? { status: status } : {}),
+        ...(status !== undefined ? { status } : {}),
         ...(userId !== undefined ? { user_id: userId } : {}),
         ...(teamId !== undefined ? { team_id: teamId } : {}),
+        ...(calendarDays !== existingRequest.days
+          ? { days: calendarDays }
+          : {}),
+        ...(workingDays !== existingRequest.working_days
+          ? { working_days: workingDays }
+          : {}),
         updated_by: user.id,
         updated_at: new Date().toISOString(),
       },
@@ -286,18 +295,11 @@ export class VacationRequestsService implements IVacationRequestsService {
       );
     }
 
-    const canceledRequest = await this.update(
+    return this.update(
       { id: requestId, slackTeamId: user.slack_team_id },
       { status: VacationRequestStatus.Canceled },
       user,
     );
-
-    this.eventEmitter.emit(
-      VacationRequestEvent.Canceled,
-      new VacationRequestUpdatedEvent(canceledRequest, user),
-    );
-
-    return canceledRequest;
   }
 
   public findOne(
@@ -403,7 +405,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     return {
       ...(params.id ? { id: params.id } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
-      ...(params.status ? { status: params.status } : {}),
+      ...(params.statuses ? { status: { operator: 'in', value: params.statuses } } : {}),
       ...(params.type ? { type: params.type } : {}),
       ...(params.teamId ? { team_id: params.teamId } : {}),
       ...(params.teamIds?.length

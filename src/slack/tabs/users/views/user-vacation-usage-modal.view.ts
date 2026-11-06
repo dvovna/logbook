@@ -2,14 +2,14 @@ import { Injectable } from '@nestjs/common';
 import BaseModalView, {
   IActionButtons,
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+} from '@modules/slack/common/views/base-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { AnyBlock } from '@slack/web-api';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import { IVacationPeriodUsageData } from 'src/vacation-requests/services/vacation-usage.service';
-import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import VacationType from '@common/enums/vacation-type.enum';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
+import { getVacationTypeIcon } from '@common/utils/get-vacation-type-icon';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 
 interface IGetParams extends IBaseModalViewParams {
   user: IUserViewModel;
@@ -18,7 +18,7 @@ interface IGetParams extends IBaseModalViewParams {
 
 @Injectable()
 export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
-  protected callbackId = ViewCallbackId.ViewUserVacationUsage;
+  protected defaultCallbackId = ViewCallbackId.ViewUserVacationUsage;
 
   protected getTitleText() {
     return `Vacation Period Usage`;
@@ -88,6 +88,7 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
     const usedDays = usage.used ?? 0;
     const workingUsed = usage.working_days_used ?? 0;
     const available = usage.available ?? 0;
+    const workingAvailable = usage.working_days_available ?? 0;
     const limit = limits ? limits.vacationDays : '-';
     const carryover = limits?.carryoverDays ?? 0;
 
@@ -96,9 +97,12 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
       usedText += ` (*${workingUsed}* working)`;
     }
 
-    let availableText = `Available: ${
-      limits ? `*${available}* / Limit: *${limit}* days` : '-'
-    }`;
+    let availableText = `Available: ${limits ? `*${available}*` : '-'}`;
+    if (workingAvailable > 0 && workingAvailable !== available) {
+      availableText += ` (*${workingAvailable}* working)`;
+    }
+
+    availableText += ` / Limit: *${limit}* days`;
 
     if (carryover > 0) {
       availableText += ` (+*${carryover}* carryover)`;

@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { WorkflowStepType } from 'src/request-workflows/types/request-workflow-step.interface';
+import { WorkflowStepType } from '@modules/request-workflows/types/request-workflow-step.interface';
 
 export const WORKFLOW_STEP_PROCESSOR = 'WORKFLOW_STEP_PROCESSOR';
 

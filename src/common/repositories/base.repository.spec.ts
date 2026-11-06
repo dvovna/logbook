@@ -3,7 +3,7 @@ import {
   TableName,
   Tables,
 } from 'src/common/repositories/base.repository';
-import { SupabaseService } from 'src/supabase/supabase.service';
+import { SupabaseService } from 'src/database/supabase.service';
 
 type QueryCall = [method: string, ...args: unknown[]];
 
@@ -148,7 +148,7 @@ describe('BaseRepository', () => {
     it('limits and orders by created_at desc by default', async () => {
       await repository.findMany({});
 
-      expect(calls).toContainEqual(['limit', 100]);
+      expect(calls).toContainEqual(['limit', 10000]);
       expect(calls).toContainEqual([
         'order',
         'created_at',

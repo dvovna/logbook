@@ -1,5 +1,5 @@
-import { ADMIN_TABS } from 'src/slack/common/views/data/admin-tabs';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+import { ADMIN_TABS } from '@modules/slack/common/views/data/admin-tabs';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { AnyBlock } from '@slack/web-api';
 
 export class AdminTabNavigation {
@@ -7,7 +7,8 @@ export class AdminTabNavigation {
     activeTabActionId: AdminNavigationActionId | null,
     canViewTab: (tabActionId: AdminNavigationActionId) => boolean,
   ): AnyBlock[] {
-    const tabs = ADMIN_TABS.filter((tab) => canViewTab(tab.actionId));
+    const tabs = ADMIN_TABS.filter((tab) =>
+      canViewTab(tab.actionId));
 
     if (tabs.length <= 1) {
       return [];

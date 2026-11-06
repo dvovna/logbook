@@ -1,10 +1,10 @@
-import UserRole from 'src/common/enums/user-role.enum';
-import capitalize from 'src/common/utils/capitalize';
-import { PlainTextOption } from '@slack/web-api';
+import UserRole from '@common/enums/user-role.enum';
+import capitalize from '@common/utils/capitalize';
+import { IOption } from '@modules/slack/common/types/option.interface';
 
-export const ROLE_OPTIONS = Object.values(UserRole).map<PlainTextOption>(
+export const ROLE_OPTIONS = Object.values(UserRole).map<IOption>(
   (role) => ({
-    text: { type: 'plain_text', text: capitalize(role) },
-    value: role as UserRole,
+    name: capitalize(role),
+    id: role as UserRole,
   }),
 );

@@ -1,22 +1,29 @@
 import { Module } from '@nestjs/common';
-import { WorkflowStepProcessorService } from 'src/request-workflows/services/workflow-step-processor.service';
-import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
-import { RequestWorkflowStepsRepository } from 'src/request-workflows/repositories/request-workflow-steps.repository';
-import { RequestWorkflowStepsService } from 'src/request-workflows/services/request-workflow-steps.service';
-import { ApproverStepProcessor } from 'src/request-workflows/step-processors/approver-step.processor';
-import { SlackCommunicationModule } from 'src/slack-communication/slack-communication.module';
-import { WorkflowStepProcessorsRegistry } from 'src/request-workflows/workflow-step-processor.registry';
+import { WorkflowStepProcessorService } from '@modules/request-workflows/services/workflow-step-processor.service';
+import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
+import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
+import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
+import { ApproverStepProcessor } from '@modules/request-workflows/step-processors/approver-step.processor';
+import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
+import { WorkflowStepProcessorsRegistry } from '@modules/request-workflows/workflow-step-processor.registry';
 import { DiscoveryModule } from '@nestjs/core';
-import { TeamsModule } from 'src/teams/teams.module';
-import { ApproverStepMessageHandler } from 'src/request-workflows/handlers/approver-step-message.handler';
-import { RequestWorkflowStepCommentsService } from 'src/request-workflows/services/request-workflow-step-comments.service';
-import { RequestWorkflowStepCommentsRepository } from 'src/request-workflows/repositories/request-workflow-step-comments.repository';
-import { ApproverStepCommentModalView } from 'src/request-workflows/views/approver-step-comment-modal.view';
-import { ApproverStepCommentFormSubmitHandler } from 'src/request-workflows/handlers/approver-step-comment-form-submit.handler';
-import CommentModalViewValuesParser from 'src/request-workflows/parsers/comment-modal-view-values.parser';
+import { TeamsModule } from '@modules/teams/teams.module';
+import { ApproverStepMessageHandler } from '@modules/request-workflows/handlers/approver-step-message.handler';
+import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
+import { RequestWorkflowStepCommentsRepository } from '@modules/request-workflows/repositories/request-workflow-step-comments.repository';
+import { ApproverStepCommentModalView } from '@modules/request-workflows/views/approver-step-comment-modal.view';
+import { ApproverStepCommentFormSubmitHandler } from '@modules/request-workflows/handlers/approver-step-comment-form-submit.handler';
+import CommentModalViewValuesParser from '@modules/request-workflows/parsers/comment-modal-view-values.parser';
+import {
+  ApproveRequestStepFormSubmitHandler,
+} from '@modules/request-workflows/handlers/approve-request-step-form-submit.handler';
+import {
+  RejectRequestStepFormSubmitHandler,
+} from '@modules/request-workflows/handlers/reject-request-step-form-submit.handler';
+import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 
 @Module({
-  imports: [DiscoveryModule, SlackCommunicationModule, TeamsModule],
+  imports: [DiscoveryModule, SlackCommunicationModule, TeamsModule, SlackCommonModule],
   providers: [
     RequestWorkflowService,
     RequestWorkflowStepsRepository,
@@ -26,6 +33,8 @@ import CommentModalViewValuesParser from 'src/request-workflows/parsers/comment-
     CommentModalViewValuesParser,
     ApproverStepCommentModalView,
     ApproverStepCommentFormSubmitHandler,
+    ApproveRequestStepFormSubmitHandler,
+    RejectRequestStepFormSubmitHandler,
     RequestWorkflowStepCommentsService,
     RequestWorkflowStepCommentsRepository,
     WorkflowStepProcessorsRegistry,
@@ -35,6 +44,7 @@ import CommentModalViewValuesParser from 'src/request-workflows/parsers/comment-
     RequestWorkflowService,
     RequestWorkflowStepsService,
     RequestWorkflowStepCommentsService,
+    ApproverStepCommentModalView,
   ],
 })
 export class RequestWorkflowsModule {}

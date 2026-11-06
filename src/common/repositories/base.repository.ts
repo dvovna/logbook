@@ -1,11 +1,11 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database } from 'src/common/types/database.types';
-import { SupabaseService } from 'src/supabase/supabase.service';
+import { Database } from '@common/types/database.types';
+import { SupabaseService } from 'src/database/supabase.service';
 import { Injectable } from '@nestjs/common';
 import {
   ISearchResult,
   ISearchParams,
-} from 'src/common/types/pagination.types';
+} from '@common/types/pagination.types';
 
 export type Tables = Database['public']['Tables'];
 export type TableName = keyof Tables;
@@ -60,11 +60,13 @@ export abstract class BaseRepository<
 
   protected relations: Record<string, unknown> | null = null;
 
-  protected readonly defaultLimit = 100;
+  protected readonly defaultLimit = 10000;
 
-  protected readonly defaultPageLimit = 10;
+  protected readonly defaultPageLimit = 5;
 
   protected searchableColumns: string[] = [];
+
+  protected defaultOrderBy: string[] = ['created_at:desc'];
 
   public constructor(private supabaseService: SupabaseService) {
     this.client = this.supabaseService.getClient();
@@ -107,7 +109,7 @@ export abstract class BaseRepository<
     const {
       page = 1,
       pageSize = this.defaultPageLimit,
-      orderBy = ['created_at:desc'],
+      orderBy = this.defaultOrderBy,
       searchTerm,
       filters = {},
     } = params;
@@ -386,13 +388,11 @@ export abstract class BaseRepository<
       query.limit(options?.limit ?? this.defaultLimit);
     }
 
-    if (options?.orderBy) {
-      options.orderBy.forEach((order) => {
-        const [column, direction = 'asc'] = order.split(':');
-        query = query.order(column, { ascending: direction === 'asc' });
-      });
-    } else {
-      query = query.order('created_at', { ascending: false });
-    }
+    const orderByOptions = options?.orderBy ?? this.defaultOrderBy;
+
+    orderByOptions.forEach((order) => {
+      const [column, direction = 'asc'] = order.split(':');
+      query = query.order(column, { ascending: direction === 'asc' });
+    });
   }
 }

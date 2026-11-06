@@ -1,26 +1,30 @@
 import { Injectable } from '@nestjs/common';
-import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
-import ITeamViewModel from 'src/teams/types/team.interface';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { ISearchResult } from 'src/common/types/pagination.types';
-import capitalize from 'src/common/utils/capitalize';
-import { IUsersTabViewFilters } from 'src/slack/tabs/users/services/users-tab.service';
-import { ROLE_OPTIONS } from 'src/slack/tabs/users/views/options/use-role.options';
-import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
-import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
-import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
-import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
+import { AnyBlock, PlainTextOption } from '@slack/web-api';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { ISearchResult } from '@common/types/pagination.types';
+import capitalize from '@common/utils/capitalize';
+import { IUsersTabViewFilters } from '@modules/slack/tabs/users/services/users-tab.service';
+import { ROLE_OPTIONS } from '@modules/slack/tabs/users/views/options/use-role.options';
+import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
+import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
-import { UsersTabViewActionId } from 'src/slack/tabs/users/enums/users-tab-view-action-id.enum';
-import UserRole from 'src/common/enums/user-role.enum';
-import { SeparatorComponent } from 'src/slack/common/views/components/separator';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
+import UserRole from '@common/enums/user-role.enum';
+import { Divider } from '@modules/slack/common/views/components/separator';
+import { BackButton } from '@modules/slack/common/views/components/back-button';
+import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
+import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 
 export interface IUsersTabMetaData {
   page?: number;
   filters?: IUsersTabViewFilters;
+  includeInactive?: boolean;
 }
 
 interface IGetViewParams extends IBaseTabViewParams {
@@ -28,32 +32,19 @@ interface IGetViewParams extends IBaseTabViewParams {
   teams: ITeamViewModel[];
 }
 
-const SHOW_INACTIVE_OPTION = {
-  text: { type: 'plain_text', text: 'Inactive Only' },
-  value: 'inactive_only',
-};
-
-const SHOW_ACTIVE_OPTION = {
-  text: { type: 'plain_text', text: 'Active Users Only' },
-  value: 'active_only',
-};
-
-const ALL_ROLES_SELECT_OPTION = {
-  text: { type: 'plain_text', text: 'All Roles' },
-  value: ALL_OPTION_VALUE,
-};
-
-const ALL_TEAMS_SELECT_OPTION = {
-  text: { type: 'plain_text', text: 'All Teams' },
-  value: ALL_OPTION_VALUE,
-};
+const INACTIVE_PLAIN_TEXT_OPTIONS: PlainTextOption[] = [
+  toPlainTextOption({
+    name: 'Include inactive users',
+    id: YesNoValue.Yes,
+  }),
+];
 
 @Injectable()
 export class UsersTabView extends BaseAdminTabView<
   IGetViewParams,
   IUsersTabMetaData
 > {
-  protected activeTabActionId = AdminNavigationActionId.ManageUsers;
+  protected activeTabActionId = AdminNavigationActionId.ManagePeople;
   protected callbackId = ViewCallbackId.UsersTabView;
 
   public constructor(
@@ -63,16 +54,31 @@ export class UsersTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle(): string {
-    return '*👥 Users Management*\n\nList of employees with vacation balances and details.';
+    return '*👥 Users Management*';
+  }
+
+  protected getBackButtonBlocks(): AnyBlock[] {
+    return BackButton.getBlocks(AdminNavigationActionId.ManagePeople);
   }
 
   protected getContentBlocks(
     { users, teams, userRole },
-    { filters },
+    { filters, includeInactive },
   ): AnyBlock[] {
-    const blocks: AnyBlock[] = [];
+    const blocks: AnyBlock[] = [
+      { type: 'section', text: { type: 'plain_text', text: 'List of employees with vacation balances and details.' } },
+    ];
 
-    blocks.push(this.getFiltersBlock(teams, filters));
+    blocks.push(...this.getFiltersBlocks(teams, filters));
+    blocks.push({
+      type: 'actions',
+      elements: [{
+        type: 'checkboxes',
+        action_id: UsersTabViewActionId.IncludeInactive,
+        options: INACTIVE_PLAIN_TEXT_OPTIONS,
+        initial_options: includeInactive ? INACTIVE_PLAIN_TEXT_OPTIONS : undefined,
+      }],
+    });
 
     const blocksToAdd = this.getUsersListBlocks(users, teams, userRole);
 
@@ -118,16 +124,20 @@ export class UsersTabView extends BaseAdminTabView<
         options: [
           ...(user.is_active
             ? [
+                  {
+                    text: { type: 'plain_text', text: 'Edit User' },
+                    value: `${UsersTabViewActionId.EditUser}:${user.id}`,
+                  } as PlainTextOption,
+            ]
+            : []),
+          ...(user.is_active
+            ? [
               {
-                text: { type: 'plain_text', text: 'Edit User' },
-                value: `${UsersTabViewActionId.EditUser}:${user.id}`,
+                text: { type: 'plain_text', text: 'View Vacation Usage' },
+                value: `${UsersTabViewActionId.ViewVacationUsage}:${user.id}`,
               } as PlainTextOption,
             ]
             : []),
-          {
-            text: { type: 'plain_text', text: 'View Vacation Usage' },
-            value: `${UsersTabViewActionId.ViewVacationUsage}:${user.id}`,
-          },
           {
             text: {
               type: 'plain_text',
@@ -156,7 +166,7 @@ export class UsersTabView extends BaseAdminTabView<
           type: 'mrkdwn',
           text:
             `*${user.name}* (${user.email})\n` +
-            `Role: ${user.role}\n` +
+            `Role: ${capitalize(user.role)}\n` +
             `Team: ${team?.name || '-'}\n` +
             `Contract Start Date: ${user.contract_start_date || '-'}\n` +
             `Carryover Days: ${user.carryover_days || '-'}`,
@@ -165,78 +175,43 @@ export class UsersTabView extends BaseAdminTabView<
       accessory: this.getUserRowAccessory(user, userRole),
     });
 
-    blocks.push(...SeparatorComponent.getBlocks());
+    blocks.push(...Divider.getBlocks());
 
     return blocks;
   }
 
-  private getFiltersBlock(
+  private getFiltersBlocks(
     teams: ITeamViewModel[],
     filters?: IUsersTabViewFilters,
-  ): ActionsBlock {
-    const teamOptions = teams.map((team) => ({
-      text: { type: 'plain_text', text: team.name },
-      value: team.id,
-    }));
+  ) {
+    const userFilters: IFiltersConfig[] = [
+      {
+        type: 'external_select',
+        actionId: UsersTabViewActionId.FilterUsersByUser,
+        placeholder: 'Filter by User',
+        minQueryLength: 2,
+        initialOption: filters?.user,
+      },
+      {
+        type: 'static_select',
+        actionId: UsersTabViewActionId.FilterUsersByRole,
+        placeholder: 'Filter by Role',
+        options: ROLE_OPTIONS,
+        initialValue: filters?.role,
+      },
+      {
+        type: 'static_select',
+        actionId: UsersTabViewActionId.FilterUsersByTeam,
+        placeholder: 'Filter by Team',
+        options: teams,
+        initialValue: filters?.teamId,
+      },
+    ];
 
-    return {
-      type: 'actions',
-      elements: [
-        {
-          type: 'external_select',
-          action_id: UsersTabViewActionId.FilterUsersByUser,
-          placeholder: {
-            type: 'plain_text',
-            text: 'Filter by User',
-          },
-          min_query_length: 2,
-          initial_option: filters?.user && {
-            text: {
-              type: 'plain_text',
-              text: filters.user.name,
-            },
-            value: filters.user.value,
-          },
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Role' },
-          action_id: UsersTabViewActionId.FilterUsersByRole,
-          initial_option: {
-            text: {
-              type: 'plain_text',
-              text: filters?.role ? capitalize(filters.role) : 'All Roles',
-            },
-            value: filters?.role || ALL_OPTION_VALUE,
-          },
-          options: [ALL_ROLES_SELECT_OPTION, ...ROLE_OPTIONS],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Team' },
-          action_id: UsersTabViewActionId.FilterUsersByTeam,
-          initial_option: {
-            text: {
-              type: 'plain_text',
-              text:
-                teams.find((team) => team.id === filters?.teamId)?.name ||
-                'All Teams',
-            },
-            value: filters?.teamId || ALL_OPTION_VALUE,
-          },
-          options: [ALL_TEAMS_SELECT_OPTION, ...teamOptions],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Status' },
-          action_id: UsersTabViewActionId.FilterUsersByStatus,
-          initial_option:
-            filters?.status === 'inactive_only'
-              ? SHOW_INACTIVE_OPTION
-              : SHOW_ACTIVE_OPTION,
-          options: [SHOW_ACTIVE_OPTION, SHOW_INACTIVE_OPTION],
-        },
-      ],
-    } as ActionsBlock;
+    return FiltersBlockBuilder.build({
+      filtersConfigs: userFilters,
+      resetButtonActionId: UsersTabViewActionId.ResetFilters,
+      separator: false,
+    });
   }
 }

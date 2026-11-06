@@ -1,48 +1,34 @@
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { ApproverMessageActionId } from 'src/request-workflows/enums/approver-message-action-id.enum';
-import { IRequestWorkflowStepViewModel } from 'src/request-workflows/types/request-workflow-step.interface';
-import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
-import { getApproverCommentLines } from 'src/slack/common/utils/view.utils';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { ApproverMessageActionId } from '@modules/request-workflows/enums/approver-message-action-id.enum';
+import {
+  IRequestWorkflowStepViewModel,
+  WorkflowStepStatus,
+} from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
 
 interface IGetMessageParams {
   step: IRequestWorkflowStepViewModel;
-  comments: IWorkflowStepCommentViewModel[];
+  comments?: IWorkflowStepCommentViewModel[];
 }
 
 export class ApproverMessageView {
   public static getMessage(params: IGetMessageParams) {
     switch (params.step.step_data.status) {
-      case 'approved': {
+      case WorkflowStepStatus.Approved: {
         return this.getApprovedMessage(params);
       }
-      case 'rejected': {
+      case WorkflowStepStatus.Rejected: {
         return this.getRejectedMessage(params);
       }
-      case 'pending': {
+      case WorkflowStepStatus.Pending: {
         return this.getPendingMessage(params);
       }
-      case 'canceled': {
+      case WorkflowStepStatus.Cancelled: {
         return this.getCanceledMessage(params);
       }
     }
-  }
-
-  private static getCanceledMessage({ step, comments }: IGetMessageParams) {
-    return {
-      text: '🚫 Vacation request canceled',
-      blocks: [
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `🚫 Canceled by <@${step.step_data.decided_by_slack_id}>
-
-${this.getRequestDetails(step, comments)}`,
-          },
-        },
-      ],
-    };
   }
 
   private static getPendingMessage({ step, comments }: IGetMessageParams) {
@@ -120,9 +106,31 @@ ${this.getRequestDetails(step, comments)}`,
     };
   }
 
+  private static getCanceledMessage({ step, comments }: IGetMessageParams) {
+    // decided_by is whoever closed the step: the requester or an admin who
+    // changed the request.
+    const canceledBy =
+      step.step_data.decided_by_slack_id ?? step.step_data.snapshot.slack_user_id;
+
+    return {
+      text: '❌ Vacation request canceled',
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `❌ Canceled by <@${canceledBy}>
+
+${this.getRequestDetails(step, comments)}`,
+          },
+        },
+      ],
+    };
+  }
+
   private static getRequestDetails(
     step: IRequestWorkflowStepViewModel,
-    approverComments: IWorkflowStepCommentViewModel[],
+    approverComments: IWorkflowStepCommentViewModel[] = [],
   ) {
     const lines: string[] = [];
 
@@ -130,14 +138,17 @@ ${this.getRequestDetails(step, comments)}`,
     lines.push(`👤 Employee: ${step.step_data.snapshot.user_name}`);
     lines.push(...this.getBasicRequestLines(step));
     lines.push(...this.getUserCommentLines(step));
-    lines.push(...getApproverCommentLines(approverComments));
+
+    if (approverComments.length) {
+      lines.push(...getApproverCommentLines(approverComments));
+    }
 
     return lines.join('\n');
   }
 
   private static getRequestSummary(
     step: IRequestWorkflowStepViewModel,
-    approverComments: IWorkflowStepCommentViewModel[],
+    approverComments: IWorkflowStepCommentViewModel[] = [],
   ) {
     const lines: string[] = [];
 

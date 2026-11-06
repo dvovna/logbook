@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Request } from 'express';
-import { UsersService } from 'src/users/services/users.service';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { UsersService } from '@modules/users/services/users.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 
 interface ISlackRequest extends Request {
   user: IUserViewModel;

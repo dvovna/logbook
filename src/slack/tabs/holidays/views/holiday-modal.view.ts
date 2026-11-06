@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
   IBaseModalViewParams,
-} from 'src/slack/common/views/base-modal.view';
-import IHolidayViewModel from 'src/holidays/types/holiday.interface';
+} from '@modules/slack/common/views/base-modal.view';
+import IHolidayViewModel from '@modules/holidays/types/holiday.interface';
 import { AnyBlock } from '@slack/web-api';
 
 interface IGetViewParams extends IBaseModalViewParams {
@@ -21,7 +21,7 @@ export class HolidayModalView extends BaseModalView<
   IGetViewParams,
   IHolidayModalViewMetadata
 > {
-  protected callbackId = ViewCallbackId.HolidayFormSubmit;
+  protected defaultCallbackId = ViewCallbackId.HolidayFormSubmit;
 
   protected getTitleText({ holiday }: IGetViewParams): string {
     return holiday ? 'Edit Holiday' : 'Create Holiday';

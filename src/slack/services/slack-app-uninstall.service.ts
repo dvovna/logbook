@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 
 @Injectable()
 export class SlackAppUninstallService {

@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { SlackHandler } from 'src/slack/decorators/slack-handler.decorator';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   ActionMapType,
   BaseActionHandler,
-} from 'src/slack/common/handlers/base-action.handler';
-import { ApproverMessageActionId } from 'src/request-workflows/enums/approver-message-action-id.enum';
-import { withButtonAction } from 'src/slack/common/utils/view.utils';
-import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { ApproverStepCommentModalView } from 'src/request-workflows/views/approver-step-comment-modal.view';
-import UserRole from 'src/common/enums/user-role.enum';
+} from '@modules/slack/common/handlers/base-action.handler';
+import { ApproverMessageActionId } from '@modules/request-workflows/enums/approver-message-action-id.enum';
+import { withButtonAction } from '@modules/slack/common/utils/view.utils';
+import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import { ApproverStepCommentModalView } from '@modules/request-workflows/views/approver-step-comment-modal.view';
+import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({

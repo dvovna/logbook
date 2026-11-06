@@ -1,25 +1,25 @@
-import { PlainTextOption } from '@slack/web-api';
-import VacationType from 'src/common/enums/vacation-type.enum';
+import VacationType from '@common/enums/vacation-type.enum';
+import { IOption } from '@modules/slack/common/types/option.interface';
 
-export const VACATION_TYPE_OPTIONS: PlainTextOption[] = [
+export const VACATION_TYPE_OPTIONS: IOption[] = [
   {
-    text: { type: 'plain_text', text: 'Annual Leave' },
-    value: VacationType.AnnualLeave,
+    name: 'Annual Leave',
+    id: VacationType.AnnualLeave,
   },
   {
-    text: { type: 'plain_text', text: 'Bonus Day' },
-    value: VacationType.BonusDay,
+    name: 'Bonus Day',
+    id: VacationType.BonusDay,
   },
   {
-    text: { type: 'plain_text', text: 'Sick Leave' },
-    value: VacationType.SickLeave,
+    name: 'Sick Leave',
+    id: VacationType.SickLeave,
   },
   {
-    text: { type: 'plain_text', text: 'Unpaid Leave' },
-    value: VacationType.UnpaidLeave,
+    name: 'Unpaid Leave',
+    id: VacationType.UnpaidLeave,
   },
   {
-    text: { type: 'plain_text', text: 'Other' },
-    value: VacationType.Other,
+    name: 'Other',
+    id: VacationType.Other,
   },
 ];

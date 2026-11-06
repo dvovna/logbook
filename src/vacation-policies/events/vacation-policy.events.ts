@@ -1,4 +1,4 @@
-import IVacationPolicyViewModel from '../types/vacation-policy.interface';
+import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
 
 export class VacationPolicyCreatedEvent {
   public constructor(public readonly policy: IVacationPolicyViewModel) {}

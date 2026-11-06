@@ -1,5 +1,5 @@
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { IViewStateValues } from 'src/slack/common/types/slack-view-state-values.interface';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { IViewStateValues } from '@modules/slack/common/types/slack-view-state-values.interface';
 import { BlockElementAction } from '@slack/bolt/dist/types/actions/block-action';
 
 export interface ISlackUser {

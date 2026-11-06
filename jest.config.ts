@@ -11,8 +11,12 @@ const config: Config = {
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
+  // Mirrors the tsconfig paths: `src/...`, `@common/*` and `@modules/<module>[/*]`.
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/$1',
+    '^@common/(.*)$': '<rootDir>/common/$1',
+    '^@modules/([^/]+)$': '<rootDir>/$1/index',
+    '^@modules/([^/]+)/(.*)$': '<rootDir>/$1/$2',
   },
   testEnvironment: 'node',
   collectCoverageFrom: [

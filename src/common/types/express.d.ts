@@ -1,4 +1,4 @@
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 
 declare module 'express' {
   // eslint-disable-next-line @typescript-eslint/naming-convention

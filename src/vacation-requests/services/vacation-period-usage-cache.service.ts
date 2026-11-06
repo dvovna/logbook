@@ -3,11 +3,11 @@ import {
   VacationRequestCreatedEvent,
   VacationRequestUpdatedEvent,
   VacationRequestDeletedEvent,
-} from 'src/vacation-requests/events/vacation-request.events';
+} from '@modules/vacation-requests/events/vacation-request.events';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
+import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 
 export interface IVacationDaysCacheValue {
   annualLeaveUsed: number;

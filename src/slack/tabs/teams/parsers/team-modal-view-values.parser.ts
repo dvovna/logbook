@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import BaseValuesParser from 'src/slack/common/parsers/base-values.parser';
-import ViewFieldType from 'src/slack/enums/view-field-type.enum';
+import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
+import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
-import { ISelectedOption } from 'src/slack/common/utils/parsing-utils';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 
 export const MAX_DESCRIPTION_LENGTH = 200;
 export const MAX_TEAM_NAME_LENGTH = 50;

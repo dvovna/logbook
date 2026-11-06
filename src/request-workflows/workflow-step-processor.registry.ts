@@ -1,8 +1,8 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { DiscoveryService, Reflector } from '@nestjs/core';
-import { IWorkflowStepProcessor } from 'src/request-workflows/types/workflow-step-handler.interface';
-import { WorkflowStepType } from 'src/request-workflows/types/request-workflow-step.interface';
-import { WORKFLOW_STEP_PROCESSOR } from 'src/request-workflows/decorators/workflow-step-handler.decorator';
+import { IWorkflowStepProcessor } from '@modules/request-workflows/types/workflow-step-handler.interface';
+import { WorkflowStepType } from '@modules/request-workflows/types/request-workflow-step.interface';
+import { WORKFLOW_STEP_PROCESSOR } from '@modules/request-workflows/decorators/workflow-step-handler.decorator';
 
 @Injectable()
 export class WorkflowStepProcessorsRegistry implements OnModuleInit {

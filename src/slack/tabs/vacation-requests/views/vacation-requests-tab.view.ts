@@ -1,32 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import { ActionsBlock, AnyBlock, PlainTextOption } from '@slack/web-api';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import ITeamViewModel from 'src/teams/types/team.interface';
-import { ISearchResult } from 'src/common/types/pagination.types';
-import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import { AnyBlock, PlainTextOption } from '@slack/web-api';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import { ISearchResult } from '@common/types/pagination.types';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import {
-  ALL_STATUSES_OPTION,
   STATUS_OPTIONS,
-} from 'src/slack/tabs/vacation-requests/views/options/vacation-status.options';
-import { ALL_OPTION_VALUE } from 'src/slack/common/views/data/all-option-value';
-import capitalize from 'src/common/utils/capitalize';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
-import { VACATION_TYPE_OPTIONS } from 'src/slack/tabs/vacation-requests/views/options/vacation-type.options';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import { IBaseTabViewParams } from 'src/slack/common/views/base-tab.view';
-import { BaseAdminTabView } from 'src/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
+} from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
+import capitalize from '@common/utils/capitalize';
+import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
+import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
+import VacationType from '@common/enums/vacation-type.enum';
+import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
-import { PaginatedListView } from 'src/slack/common/views/components/paginated-list.view';
-import { SlackActionPermissionsService } from 'src/slack/common/services/slack-action-permissions.service';
-import UserRole from 'src/common/enums/user-role.enum';
-import { getVacationStatusEmoji } from 'src/slack/tabs/vacation-requests/utils/vacation-status-icon';
-import { SeparatorComponent } from 'src/slack/common/views/components/separator';
+import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
+import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
+import UserRole from '@common/enums/user-role.enum';
+import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
+import { Divider } from '@modules/slack/common/views/components/separator';
+import {
+  VacationRequestsTabViewActionId,
+} from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import { BackButton } from '@modules/slack/common/views/components/back-button';
+import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
+import { IOption } from '@modules/slack/common/types/option.interface';
 
 export interface IVacationRequestsTabFilters {
   user?: {
-    value: string;
+    id: string;
     name: string;
   };
   userName?: string;
@@ -47,44 +51,13 @@ interface IGetViewParams extends IBaseTabViewParams {
   years: number[];
 }
 
-export enum VacationRequestsTabViewActionId {
-  PaginationPrev = 'requests_pagination_prev',
-  PaginationNext = 'requests_pagination_next',
-  ManageRequestMenu = 'manage_request_menu',
-  UserField = 'user',
-  CreateRequest = 'create_request',
-  ViewDetails = 'view_details',
-  EditRequest = 'edit_request',
-  DeleteRequest = 'delete_request',
-  FilterRequestsByUser = 'filter_requests_by_user',
-  FilterRequestsByTeam = 'filter_requests_by_team',
-  FilterRequestsByYear = 'filter_requests_by_year',
-  FilterRequestsByType = 'filter_requests_by_type',
-  FilterRequestsByStatus = 'filter_requests_by_status',
-}
-
-const ALL_TEAMS_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'All Teams' },
-  value: ALL_OPTION_VALUE,
-};
-
-const ALL_TYPES_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'All Types' },
-  value: ALL_OPTION_VALUE,
-};
-
-const ALL_YEARS_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'All Years' },
-  value: ALL_OPTION_VALUE,
-};
-
 @Injectable()
 export class VacationRequestsTabView extends BaseAdminTabView<
   IGetViewParams,
   IVacationRequestsTabMetadata
 > {
   protected callbackId: ViewCallbackId = ViewCallbackId.VacationRequestsTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManageVacationRequests;
+  protected activeTabActionId = AdminNavigationActionId.ManageVacations;
 
   public constructor(
     protected slackActionPermissionsService: SlackActionPermissionsService,
@@ -94,6 +67,10 @@ export class VacationRequestsTabView extends BaseAdminTabView<
 
   protected getTabTitle(): string {
     return '*🌴 Vacation Requests Management*\n\nSubmit and manage employee vacation requests';
+  }
+
+  protected getBackButtonBlocks(): AnyBlock[] {
+    return BackButton.getBlocks(AdminNavigationActionId.ManageVacations);
   }
 
   protected getTitleAccessory({
@@ -118,7 +95,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
     const blocks: AnyBlock[] = [];
     const filters = metadata?.filters;
 
-    blocks.push(this.getFiltersBlock(teams, years, filters));
+    blocks.push(...this.getFiltersBlocks(teams, years, filters));
 
     blocks.push(...this.getRequestsListBlocks(requests, userRole));
 
@@ -163,7 +140,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
           options: this.getManageRequestMenuOptions(vacationRequest, userRole),
         },
       },
-      ...SeparatorComponent.getBlocks(),
+      ...Divider.getBlocks(),
     ];
   };
 
@@ -187,6 +164,20 @@ export class VacationRequestsTabView extends BaseAdminTabView<
       options.push({
         text: { type: 'plain_text', text: 'Edit Request' },
         value: `${VacationRequestsTabViewActionId.EditRequest}:${vacationRequest.id}`,
+      });
+    }
+
+    // So a request doesn't get stuck when an approver is away.
+    if (
+      vacationRequest.status === VacationRequestStatus.Pending &&
+      this.slackActionPermissionsService.can(
+        userRole,
+        VacationRequestsTabViewActionId.ApproveOnBehalf,
+      )
+    ) {
+      options.push({
+        text: { type: 'plain_text', text: 'Approve for Approvers' },
+        value: `${VacationRequestsTabViewActionId.ApproveOnBehalf}:${vacationRequest.id}`,
       });
     }
 
@@ -218,87 +209,60 @@ export class VacationRequestsTabView extends BaseAdminTabView<
     });
   }
 
-  private getFiltersBlock(
+  private getFiltersBlocks(
     teams: ITeamViewModel[],
     years: number[],
     filters?: IVacationRequestsTabFilters,
-  ): ActionsBlock {
-    const teamOptions = teams.map<PlainTextOption>((team) => ({
-      text: { type: 'plain_text', text: team.name },
-      value: team.id,
-    }));
+  ) {
+    const yearsOptions: IOption[] = years.map((year) =>
+      ({
+        id: year.toString(),
+        name: year.toString(),
+      }),
+    );
 
-    const yearsOptions = years.map<PlainTextOption>((year) => ({
-      text: { type: 'plain_text', text: year.toString() },
-      value: year.toString(),
-    }));
+    const vacationRequestsFilters: IFiltersConfig[] = [
+      {
+        type: 'external_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByUser,
+        placeholder: 'Filter by User',
+        minQueryLength: 2,
+        initialOption: filters?.user,
+      },
+      {
+        type: 'static_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByType,
+        placeholder: 'Filter by Type',
+        options: VACATION_TYPE_OPTIONS,
+        initialValue: filters?.type,
+      },
+      {
+        type: 'static_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByTeam,
+        placeholder: 'Filter by Team',
+        options: teams,
+        initialValue: filters?.teamId,
+      },
+      {
+        type: 'static_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByYear,
+        placeholder: 'Filter by Year',
+        options: yearsOptions,
+        initialValue: filters?.year,
+      },
+      {
+        type: 'static_select',
+        actionId: VacationRequestsTabViewActionId.FilterRequestsByStatus,
+        placeholder: 'Filter by Status',
+        options: STATUS_OPTIONS,
+        initialValue: filters?.status,
+      },
+    ];
 
-    return {
-      type: 'actions',
-      elements: [
-        {
-          type: 'external_select',
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByUser,
-          placeholder: {
-            type: 'plain_text',
-            text: 'All Users',
-          },
-          initial_option: filters?.user?.value
-            ? {
-              value: filters.user.value,
-              text: { type: 'plain_text', text: filters.user.name },
-            }
-            : undefined,
-          min_query_length: 2,
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Type' },
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByType,
-          initial_option:
-            VACATION_TYPE_OPTIONS.find(
-              (type) => type.value === filters?.type,
-            ) || ALL_TYPES_OPTION,
-          options: [ALL_TYPES_OPTION, ...VACATION_TYPE_OPTIONS],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Team' },
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByTeam,
-          initial_option: {
-            text: {
-              type: 'plain_text',
-              text:
-                teams.find((t) => t.id === filters?.teamId)?.name ||
-                'All Teams',
-            },
-            value: filters?.teamId || ALL_OPTION_VALUE,
-          },
-          options: [ALL_TEAMS_OPTION, ...teamOptions],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Year' },
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByYear,
-          initial_option: {
-            text: {
-              type: 'plain_text',
-              text: filters?.year || 'All Years',
-            },
-            value: filters?.year || ALL_OPTION_VALUE,
-          },
-          options: [ALL_YEARS_OPTION, ...yearsOptions],
-        },
-        {
-          type: 'static_select',
-          placeholder: { type: 'plain_text', text: 'Filter by Status' },
-          action_id: VacationRequestsTabViewActionId.FilterRequestsByStatus,
-          initial_option:
-            STATUS_OPTIONS.find((s) => s.value === filters?.status) ||
-            ALL_STATUSES_OPTION,
-          options: [ALL_STATUSES_OPTION, ...STATUS_OPTIONS],
-        },
-      ],
-    };
+    return FiltersBlockBuilder.build({
+      filtersConfigs: vacationRequestsFilters,
+      separator: false,
+      resetButtonActionId: VacationRequestsTabViewActionId.ResetFilters,
+    });
   }
 }

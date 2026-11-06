@@ -56,7 +56,7 @@ export class CancelVacationRequestCommandSubmitHandler extends BaseModalFormSubm
     const requests = await this.vacationRequestsService.findMany({
       userId: user.id,
       slackTeamId: user.slack_team_id,
-      status: VacationRequestStatus.Pending,
+      statuses: [VacationRequestStatus.Pending],
     });
 
     return SlackViewResponseFactory.update(

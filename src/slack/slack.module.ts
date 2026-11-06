@@ -1,45 +1,53 @@
 import { MiddlewareConsumer, Module } from '@nestjs/common';
-import SlackOauthController from 'src/slack/controllers/slack-oauth.controller';
-import SlackOauthService from 'src/slack/services/slack-oauth.service';
-import { ClientsModule } from 'src/clients/clients.module';
-import { SlackTeamsModule } from 'src/slack-teams/slack-teams.module';
-import { UsersModule } from 'src/users/users.module';
-import SlackCommandsController from 'src/slack/controllers/slack-commands.controller';
-import VacationCommandService from 'src/slack/services/vacation-command.service';
-import { VacationRequestsModule } from 'src/vacation-requests/vacation-requests.module';
-import AdminCommandsController from 'src/slack/controllers/slack-admin-commands.controller';
-import { VacationPoliciesModule } from 'src/vacation-policies/vacation-policies.module';
-import SlackInteractionsController from 'src/slack/controllers/slack-interactions.controller';
-import SlackInteractionsService from 'src/slack/services/slack-interactions.service';
-import SlackUserAccessService from 'src/slack/services/slack-user-access.service';
-import { TeamSetupModule } from 'src/team-setup/team-setup.module';
-import { SlackCommunicationModule } from 'src/slack-communication/slack-communication.module';
-import SlackEventsController from 'src/slack/controllers/slack-events.controller';
-import SlackEventsService from 'src/slack/services/slack-events.service';
-import { UserDataImportModule } from 'src/user-data-import/user-data-import.module';
-import FileUploadService from 'src/slack/services/file-upload.service';
-import { SlackPayloadParsePipe } from 'src/slack/pipes/slack-payload-parse.pipe';
-import { SlackPayloadParseMiddleware } from 'src/common/middlewares/slack-payload-parse.middleware';
-import { TeamsModule } from 'src/teams/teams.module';
-import { SlackHandlersRegistry } from 'src/slack/slack-handlers.registry';
+import SlackOauthController from '@modules/slack/controllers/slack-oauth.controller';
+import SlackOauthService from '@modules/slack/services/slack-oauth.service';
+import { ApiClientsModule } from 'src/api-clients/api-clients.module';
+import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
+import { UsersModule } from '@modules/users/users.module';
+import SlackCommandsController from '@modules/slack/controllers/slack-commands.controller';
+import VacationCommandService from '@modules/slack/services/vacation-command.service';
+import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
+import AdminCommandsController from '@modules/slack/controllers/slack-admin-commands.controller';
+import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
+import SlackInteractionsController from '@modules/slack/controllers/slack-interactions.controller';
+import SlackInteractionsService from '@modules/slack/services/slack-interactions.service';
+import SlackUserAccessService from '@modules/slack/services/slack-user-access.service';
+import { TeamSetupModule } from '@modules/team-setup/team-setup.module';
+import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
+import SlackEventsController from '@modules/slack/controllers/slack-events.controller';
+import SlackEventsService from '@modules/slack/services/slack-events.service';
+import { UserDataImportModule } from '@modules/user-data-import/user-data-import.module';
+import FileUploadService from '@modules/slack/services/file-upload.service';
+import { SlackPayloadParsePipe } from '@modules/slack/pipes/slack-payload-parse.pipe';
+import { SlackPayloadParseMiddleware } from '@common/middlewares/slack-payload-parse.middleware';
+import { TeamsModule } from '@modules/teams/teams.module';
+import { SlackHandlersRegistry } from '@modules/slack/slack-handlers.registry';
 import { DiscoveryModule } from '@nestjs/core';
-import { HolidaysModule } from 'src/holidays/holidays.module';
-import { SlackOptionsController } from 'src/slack/controllers/slack-options.controller';
-import { SlackUserOptionsService } from 'src/slack/services/slack-user-options.service';
-import { VacationRequestsTabModule } from 'src/slack/tabs/vacation-requests/vacation-requests-tab.module';
-import { HolidaysTabModule } from 'src/slack/tabs/holidays/holidays-tab.module';
-import { VacationPoliciesTabModule } from 'src/slack/tabs/vacation-policies/vacation-policies-tab.module';
-import { TeamsTabModule } from 'src/slack/tabs/teams/teams-tab.module';
-import { UsersTabModule } from 'src/slack/tabs/users/users-tab.module';
-import { HomeTabModule } from 'src/slack/tabs/home/home-tab.module';
-import { SlackCommonModule } from 'src/slack/common/slack-common.module';
-import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall.service';
+import { HolidaysModule } from '@modules/holidays/holidays.module';
+import { SlackOptionsController } from '@modules/slack/controllers/slack-options.controller';
+import { VacationRequestsTabModule } from '@modules/slack/tabs/vacation-requests/vacation-requests-tab.module';
+import { HolidaysTabModule } from '@modules/slack/tabs/holidays/holidays-tab.module';
+import { VacationPoliciesTabModule } from '@modules/slack/tabs/vacation-policies/vacation-policies-tab.module';
+import { TeamsTabModule } from '@modules/slack/tabs/teams/teams-tab.module';
+import { UsersTabModule } from '@modules/slack/tabs/users/users-tab.module';
+import { HomeTabModule } from '@modules/slack/tabs/home/home-tab.module';
+import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
+import { SlackAppUninstallService } from '@modules/slack/services/slack-app-uninstall.service';
+import { PeopleTabModule } from '@modules/slack/tabs/people/people-tab.module';
+import { VacationsTabModule } from '@modules/slack/tabs/vacations/vacations-tab.module';
+import { TimeAndBillingTabModule } from '@modules/slack/tabs/time-and-billing/time-and-billing-tab.module';
+import { ProjectsTabModule } from '@modules/slack/tabs/projects/projects-tab.module';
+import { ProjectsModule } from 'src/projects/projects.module';
+import { ProjectOptionsService } from '@modules/slack/services/option-services/project-options.service';
+import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
+import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-tracking.module';
+import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module';
 
 @Module({
   imports: [
     DiscoveryModule,
     UsersModule,
-    ClientsModule,
+    ApiClientsModule,
     SlackTeamsModule,
     VacationRequestsModule,
     TeamsModule,
@@ -48,13 +56,20 @@ import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall
     SlackCommunicationModule,
     UserDataImportModule,
     HolidaysModule,
+    ProjectsModule,
     VacationRequestsTabModule,
     HolidaysTabModule,
     VacationPoliciesTabModule,
+    ProjectsTabModule,
     TeamsTabModule,
     UsersTabModule,
     HomeTabModule,
     SlackCommonModule,
+    PeopleTabModule,
+    VacationsTabModule,
+    TimeAndBillingTabModule,
+    TimeTrackingModule,
+    ClientsTabModule,
   ],
   controllers: [
     SlackOauthController,
@@ -73,7 +88,8 @@ import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall
     SlackEventsService,
     FileUploadService,
     SlackPayloadParsePipe,
-    SlackUserOptionsService,
+    UserOptionsService,
+    ProjectOptionsService,
     SlackHandlersRegistry,
   ],
   exports: [],

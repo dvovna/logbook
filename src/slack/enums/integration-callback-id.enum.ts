@@ -5,6 +5,8 @@ export enum ViewCallbackId {
 
   // workflow steps
   WorkflowStepMessage = 'workflow_step_message',
+  ApproveRequestStepMessage = 'approve_request_step_message',
+  RejectRequestStepMessage = 'reject_request_step_message',
 
   // holidays
   HolidaysTabView = 'holidays_tab_view',
@@ -35,6 +37,7 @@ export enum ViewCallbackId {
   AdminVacationRequest = 'admin_vacation_request',
   UserVacationRequest = 'user_vacation_request',
   DeleteVacationRequest = 'delete_vacation_request',
+  ApproveVacationRequestOnBehalf = 'approve_vacation_request_on_behalf',
   ViewVacationRequestDetails = 'view_vacation_request_details',
 
   // approver-step-comments
@@ -42,4 +45,30 @@ export enum ViewCallbackId {
 
   // general
   FallbackTabView = 'fallback_tab_view',
+
+  // people
+  PeopleTabView = 'people_tab_view',
+
+  // vacations
+  VacationsTabView = 'vacations_tab_view',
+
+  // time-and-billing
+  TimeEntriesTabView = 'time_entries_tab_view',
+  DeleteTimeEntry = 'delete_time_entry',
+  TimeAndBillingTabView = 'time_and_billing_tab_view',
+
+  // projects
+  ProjectsTabView = 'projects_tab_view',
+  ChangeProjectStatus = 'change_project_status',
+  ProjectFormSubmit = 'project_form_submit',
+  ProjectAssignmentsFormSubmit = 'project_assignments_form_submit',
+
+  // time-entries
+  UserTimeEntry = 'user_time_entry',
+  AdminTimeEntry = 'admin_time_entry',
+
+  // clients
+  ClientsTabView = 'clients_tab_view',
+  ClientFormSubmit = 'client_form_submit',
+  ChangeClientStatus = 'change_client_status',
 }

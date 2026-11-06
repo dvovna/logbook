@@ -1,8 +1,8 @@
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
-import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { AnyBlock } from '@slack/web-api';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
-import UserRole from 'src/common/enums/user-role.enum';
+import UserRole from '@common/enums/user-role.enum';
 
 const TAB_TYPE = 'home';
 
@@ -38,9 +38,14 @@ export abstract class BaseTabView<
     metadata?: Metadata,
   ): Promise<AnyBlock[]> {
     return [
+      ...this.getBackButtonBlocks(params),
       ...this.getTitleBlocks(params),
       ...(await this.getContentBlocks(params, metadata)),
     ];
+  }
+
+  protected getBackButtonBlocks(_params: GetParams): AnyBlock[] {
+    return [];
   }
 
   protected getTitleBlocks(params: GetParams): AnyBlock[] {

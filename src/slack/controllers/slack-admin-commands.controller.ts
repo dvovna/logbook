@@ -7,15 +7,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { SlackSignatureGuard } from 'src/common/guards/slack-signature.guard';
-import { SlackUserGuard } from 'src/common/guards/slack-user.guard';
-import UserRole from 'src/common/enums/user-role.enum';
-import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import SlackPromptsService from 'src/slack-communication/services/slack-prompts.service';
-import { RequireRoles } from 'src/common/decorators/user-role.decorator';
-import { UserRoleGuard } from 'src/common/guards/user-role.guard';
-import { SlackForbiddenExceptionFilter } from 'src/slack/filters/slack-forbidden-exception.filter';
-import { SlackActiveUserGuard } from 'src/common/guards/slack-active-user.guard';
+import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
+import { SlackUserGuard } from '@common/guards/slack-user.guard';
+import UserRole from '@common/enums/user-role.enum';
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import SlackCommandPromptsService from '@modules/slack-communication/services/slack-command-prompts.service';
+import { RequireRoles } from '@common/decorators/user-role.decorator';
+import { UserRoleGuard } from '@common/guards/user-role.guard';
+import { SlackForbiddenExceptionFilter } from '@modules/slack/filters/slack-forbidden-exception.filter';
+import { SlackActiveUserGuard } from '@common/guards/slack-active-user.guard';
 
 @Controller('api/slack/admin')
 @UseFilters(SlackForbiddenExceptionFilter)
@@ -28,7 +28,7 @@ import { SlackActiveUserGuard } from 'src/common/guards/slack-active-user.guard'
 @RequireRoles([UserRole.Admin])
 export default class AdminCommandsController {
   public constructor(
-    private readonly slackPromptService: SlackPromptsService,
+    private readonly slackPromptService: SlackCommandPromptsService,
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {}
 
@@ -38,7 +38,7 @@ export default class AdminCommandsController {
 
     await this.slackCommunicationService.postEphemeral(
       req.user!.slack_id,
-      this.slackPromptService.getUploadFilePromptMessage(),
+      this.slackPromptService.getUploadVacationsPromptMessage(),
       req.user!.slack_team_id,
     );
 
@@ -46,13 +46,18 @@ export default class AdminCommandsController {
   }
 
   @Post('/user-team-mapping-upload')
-  public async uploadUserTeams(@Req() req: Request, @Res() res: Response) {
+  public async uploadUserTeamMapping(
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
     res.status(200).send();
 
     await this.slackCommunicationService.postEphemeral(
       req.user!.slack_id,
-      this.slackPromptService.getUploadUserTeamsPromptMessage(),
+      this.slackPromptService.getUserTeamMappingUploadPromptMessage(),
       req.user!.slack_team_id,
     );
+
+    return;
   }
 }

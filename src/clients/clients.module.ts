@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
-import SlackApiClient from 'src/clients/third-party/slack-api.client';
+import { ClientsRepository } from '@modules/clients/repositories/clients.repository';
+import ClientsService from '@modules/clients/services/clients.service';
 
 @Module({
-  providers: [SlackApiClient],
-  exports: [SlackApiClient],
+  providers: [ClientsRepository, ClientsService],
+  exports: [ClientsService],
 })
 export class ClientsModule {}

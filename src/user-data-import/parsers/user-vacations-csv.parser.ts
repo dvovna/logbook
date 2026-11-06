@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import validator from 'validator';
-import { AbstractCsvParser } from 'src/user-data-import/parsers/abstract-csv-parser';
-import VacationType from 'src/common/enums/vacation-type.enum';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import { AbstractCsvParser } from '@modules/user-data-import/parsers/abstract-csv-parser';
+import VacationType from '@common/enums/vacation-type.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 
 export interface IUserVacationRecord {
   email: string;
@@ -82,7 +82,7 @@ export default class UserVacationsCsvParser extends AbstractCsvParser<IUserVacat
         );
       }
 
-      if (!Object.values(VacationType).includes(type)) {
+      if (!Object.values(VacationRequestStatus).includes(status)) {
         throw new Error(
           `Vacation ${i + 1} for ${email} is invalid: field status should be one of ${Object.values(VacationRequestStatus).join(', ')}`,
         );

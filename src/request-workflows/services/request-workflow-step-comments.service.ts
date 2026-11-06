@@ -1,10 +1,10 @@
-import { RequestWorkflowStepCommentsRepository } from 'src/request-workflows/repositories/request-workflow-step-comments.repository';
+import { RequestWorkflowStepCommentsRepository } from '@modules/request-workflows/repositories/request-workflow-step-comments.repository';
 import { Injectable } from '@nestjs/common';
-import { SupabaseFilter } from 'src/common/repositories/base.repository';
+import { SupabaseFilter } from '@common/repositories/base.repository';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { RequestWorkflowStepCommentAddedEvent } from 'src/request-workflows/events/request-workflow-step-comment.events';
-import { WorkflowStepCommentEvent } from 'src/request-workflows/enums/workflow-step-comment-event.enum';
-import { ValidationError } from 'src/common/errors/validation.error';
+import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
+import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
+import { ValidationError } from '@common/errors/validation.error';
 
 interface ICreateParams {
   requestId: string;

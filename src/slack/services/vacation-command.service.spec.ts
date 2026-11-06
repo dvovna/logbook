@@ -4,7 +4,7 @@ import VacationCommandService, {
 } from 'src/slack/services/vacation-command.service';
 import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
-import { VacationRequestFormModalView } from 'src/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
+import { VacationRequestModalService } from 'src/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import { CancelVacationRequestSelectModalView } from 'src/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
@@ -45,7 +45,7 @@ describe('VacationCommandService', () => {
     service = new VacationCommandService(
       usageService as unknown as VacationsUsageService,
       slackCommunicationService as unknown as SlackCommunicationService,
-      {} as VacationRequestFormModalView,
+      {} as VacationRequestModalService,
       vacationRequestsService as unknown as VacationRequestsService,
       new CancelVacationRequestSelectModalView(),
     );
@@ -114,7 +114,7 @@ describe('VacationCommandService', () => {
       expect(vacationRequestsService.findMany).toHaveBeenCalledWith({
         userId: user.id,
         slackTeamId: user.slack_team_id,
-        status: VacationRequestStatus.Pending,
+        statuses: [VacationRequestStatus.Pending],
       });
       expect(slackCommunicationService.postEphemeral).toHaveBeenCalledWith(
         user.slack_id,

@@ -1,24 +1,26 @@
 import {
   IRequestSnapshotData,
   IRequestWorkflowStepViewModel,
+  WorkflowStepStatus,
   WorkflowStepType,
-} from 'src/request-workflows/types/request-workflow-step.interface';
+} from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
   ICreateParams,
   RequestWorkflowStepsService,
-} from 'src/request-workflows/services/request-workflow-steps.service';
+} from '@modules/request-workflows/services/request-workflow-steps.service';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
-import { WorkflowStepProcessorService } from 'src/request-workflows/services/workflow-step-processor.service';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { WorkflowStepProcessorService } from '@modules/request-workflows/services/workflow-step-processor.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import { VacationWorkflowEventEnum } from 'src/common/enums/vacation-workflow-event.enum';
-import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
-import { IVacationWorkflow } from 'src/common/types/vacation-workflow.types';
-import { VacationWorkflowFinished } from 'src/common/events/vacation-workflow.events';
-import { WorkflowStepCommentEvent } from 'src/request-workflows/enums/workflow-step-comment-event.enum';
-import { RequestWorkflowStepCommentsService } from 'src/request-workflows/services/request-workflow-step-comments.service';
-import { RequestWorkflowStepCommentAddedEvent } from 'src/request-workflows/events/request-workflow-step-comment.events';
+import { VacationWorkflowEventEnum } from '@common/enums/vacation-workflow-event.enum';
+import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
+import { IVacationWorkflow } from '@common/types/vacation-workflow.types';
+import { VacationWorkflowFinished } from '@common/events/vacation-workflow.events';
+import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
+import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
+import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
+import { ValidationError } from '@common/errors/validation.error';
 
 export interface ICreateWorkflowLevelParams {
   rule: ApprovalRule;
@@ -35,7 +37,7 @@ export interface ICreateWorkflowParams {
   levels: ICreateWorkflowLevelParams[];
 }
 
-const INITIAL_STEP_STATUS = 'pending';
+const INITIAL_STEP_STATUS = WorkflowStepStatus.Pending;
 
 @Injectable()
 export class RequestWorkflowService {
@@ -87,10 +89,40 @@ export class RequestWorkflowService {
     await this.workflowStepProcessorService.processSteps(firstLevelSteps, []);
   }
 
+  // Closes every open step of the request (on cancel, and on any later update
+  // of the request): approvers who got a message see it without buttons, steps
+  // of levels that were never reached are closed too, so they never start.
+  public async cancel(requestId: string, canceledBy: IUserViewModel) {
+    const canceledSteps = await this.requestWorkflowStepsService.updateStatus(
+      {
+        requestId,
+        slackTeamId: canceledBy.slack_team_id,
+        completed: false,
+      },
+      RequestWorkflowStatus.Canceled,
+      canceledBy,
+    );
+
+    if (canceledSteps.length === 0) {
+      return;
+    }
+
+    const comments = await this.requestWorkflowStepCommentsService.findMany({
+      requestId,
+      slackTeamId: canceledBy.slack_team_id,
+    });
+
+    await this.workflowStepProcessorService.completeSteps(
+      canceledSteps,
+      comments,
+    );
+  }
+
   public async approveStep(stepId: string, approvedBy: IUserViewModel) {
     const step = await this.requestWorkflowStepsService.findOneWithValidation({
       id: stepId,
       slackTeamId: approvedBy.slack_team_id,
+      completed: false,
     });
 
     if (this.isStepDecided(step)) {
@@ -104,7 +136,7 @@ export class RequestWorkflowService {
         id: stepId,
         slackTeamId: approvedBy.slack_team_id,
       },
-      'approved',
+      RequestWorkflowStatus.Approved,
       approvedBy,
     );
 
@@ -140,6 +172,63 @@ export class RequestWorkflowService {
     }
   }
 
+  // The open steps of the level the request is waiting on: the lowest level
+  // that still has open steps. Empty when nobody's approval is pending.
+  public async findCurrentLevelSteps(requestId: string, slackTeamId: string) {
+    const openSteps = await this.requestWorkflowStepsService.findMany({
+      requestId,
+      slackTeamId,
+      completed: false,
+    });
+
+    const currentLevel = Math.min(...openSteps.map((step) => step.step_level));
+
+    return openSteps.filter((step) => step.step_level === currentLevel);
+  }
+
+  // HR or an admin approves the current level for its approvers, e.g. when a
+  // manager is away, so the request moves on to the next level (or gets
+  // approved) instead of waiting. With the ALL rule every open step of the
+  // level is approved.
+  public async approveCurrentLevel(
+    requestId: string,
+    approvedBy: IUserViewModel,
+  ) {
+    const [currentStep] = await this.findCurrentLevelSteps(
+      requestId,
+      approvedBy.slack_team_id,
+    );
+
+    if (!currentStep) {
+      throw new ValidationError(
+        'This request is not waiting for anyone to approve it.',
+      );
+    }
+
+    const approvedSteps = await this.requestWorkflowStepsService.updateStatus(
+      {
+        requestId,
+        stepLevel: currentStep.step_level,
+        slackTeamId: approvedBy.slack_team_id,
+        completed: false,
+      },
+      RequestWorkflowStatus.Approved,
+      approvedBy,
+    );
+
+    const comments = await this.requestWorkflowStepCommentsService.findMany({
+      requestId,
+      slackTeamId: approvedBy.slack_team_id,
+    });
+
+    await this.workflowStepProcessorService.completeSteps(
+      approvedSteps,
+      comments,
+    );
+
+    await this.activateNextLevel(currentStep, approvedBy);
+  }
+
   public async rejectStep(stepId: string, rejectedBy: IUserViewModel) {
     const step = await this.requestWorkflowStepsService.findOneWithValidation({
       id: stepId,
@@ -156,7 +245,7 @@ export class RequestWorkflowService {
         stepLevel: step.step_level,
         slackTeamId: rejectedBy.slack_team_id,
       },
-      'rejected',
+      RequestWorkflowStatus.Rejected,
       rejectedBy,
     );
 
@@ -178,31 +267,6 @@ export class RequestWorkflowService {
       approvedBy: rejectedBy.id,
       reviewComments: approverComments,
     });
-  }
-
-  // Called when the requester cancels: approvers who haven't decided yet get
-  // their message updated without buttons, and later levels never start.
-  public async cancel(requestId: string, canceledBy: IUserViewModel) {
-    const openSteps = await this.requestWorkflowStepsService.updateStatus(
-      {
-        requestId,
-        slackTeamId: canceledBy.slack_team_id,
-        completed: false,
-      },
-      'canceled',
-      canceledBy,
-    );
-
-    if (openSteps.length === 0) {
-      return;
-    }
-
-    const comments = await this.requestWorkflowStepCommentsService.findMany({
-      requestId,
-      slackTeamId: canceledBy.slack_team_id,
-    });
-
-    await this.workflowStepProcessorService.completeSteps(openSteps, comments);
   }
 
   @OnEvent(WorkflowStepCommentEvent.Added)
@@ -246,7 +310,7 @@ export class RequestWorkflowService {
         stepLevel: level,
         slackTeamId: approvedBy.slack_team_id,
       },
-      'approved',
+      RequestWorkflowStatus.Approved,
       approvedBy,
     );
   }
@@ -254,7 +318,7 @@ export class RequestWorkflowService {
   // A button can still be clicked on a message that is already out of date,
   // e.g. after another approver decided (ANY rule) or the request was canceled.
   private isStepDecided(step: IRequestWorkflowStepViewModel) {
-    if (step.step_data.status === 'pending') {
+    if (step.step_data.status === WorkflowStepStatus.Pending) {
       return false;
     }
 

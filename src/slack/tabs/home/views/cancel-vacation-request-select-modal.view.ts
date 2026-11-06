@@ -19,7 +19,7 @@ export interface ICancelVacationRequestSelectModalViewParams
 // Opened by `/vacations cancel`: the user picks one of their pending requests.
 @Injectable()
 export class CancelVacationRequestSelectModalView extends BaseModalView<ICancelVacationRequestSelectModalViewParams> {
-  protected callbackId = ViewCallbackId.CancelVacationRequestCommandSubmit;
+  protected defaultCallbackId = ViewCallbackId.CancelVacationRequestCommandSubmit;
 
   protected getTitleText(): string {
     return 'Cancel Vacation';

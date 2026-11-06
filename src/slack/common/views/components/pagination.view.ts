@@ -1,5 +1,6 @@
 import { ActionsBlock, AnyBlock } from '@slack/web-api';
 import { ActionsBlockElement } from '@slack/types/dist/block-kit/blocks';
+import { Divider } from '@modules/slack/common/views/components/separator';
 
 interface IPaginationParams {
   page: number;
@@ -9,7 +10,7 @@ interface IPaginationParams {
   prevPageActionId: string;
 }
 
-const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 5;
 
 export default class PaginationView {
   public static getBlocks({
@@ -66,6 +67,8 @@ export default class PaginationView {
         elements,
       } as ActionsBlock);
     }
+
+    blocks.push(...Divider.getBlocks());
 
     return blocks as ActionsBlock[];
   }

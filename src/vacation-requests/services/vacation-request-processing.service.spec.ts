@@ -100,10 +100,10 @@ describe('VacationRequestProcessingService', () => {
     },
   );
 
-  it('cancels the approval workflow when the request is canceled', async () => {
+  it('closes the approval workflow when the request is updated', async () => {
     const requester = { id: 'user-1' } as IUserViewModel;
 
-    await service.handleRequestCanceled(
+    await service.handleRequestUpdated(
       new VacationRequestUpdatedEvent(
         buildRequest(VacationRequestStatus.Canceled),
         requester,

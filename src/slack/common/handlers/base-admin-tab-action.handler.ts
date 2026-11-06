@@ -1,14 +1,12 @@
-import { IUserViewModel } from 'src/users/types/user.interface';
-import { ISlackInteractionPayload } from 'src/slack/common/types/slack-interaction-payload.interface';
-import {
-  BaseActionHandler,
-} from 'src/slack/common/handlers/base-action.handler';
+import { IUserViewModel } from '@modules/users/types/user.interface';
+import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { BaseActionHandler } from '@modules/slack/common/handlers/base-action.handler';
 import {
   TabId,
   TabNavigationService,
-} from 'src/slack/common/services/tab-navigation.service';
-import { AdminNavigationActionId } from 'src/slack/common/enums/admin-navigation-action-id';
-import { CommonViewActionId } from 'src/slack/enums/common-view-action-id.enum';
+} from '@modules/slack/common/services/tab-navigation.service';
+import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 
 export abstract class BaseAdminTabActionHandler extends BaseActionHandler {
   public constructor(
@@ -37,11 +35,29 @@ export abstract class BaseAdminTabActionHandler extends BaseActionHandler {
     [AdminNavigationActionId.ManageUsers]: this.createOpenTabHandler(
       TabId.Users,
     ),
+    [AdminNavigationActionId.ManagePeople]: this.createOpenTabHandler(
+      TabId.People,
+    ),
+    [AdminNavigationActionId.ManageTimeAndBilling]: this.createOpenTabHandler(
+      TabId.TimeAndBilling,
+    ),
+    [AdminNavigationActionId.ManageVacations]: this.createOpenTabHandler(
+      TabId.Vacations,
+    ),
     [AdminNavigationActionId.ManageVacationRequests]: this.createOpenTabHandler(
       TabId.VacationRequests,
     ),
     [AdminNavigationActionId.ManageVacationPolicies]: this.createOpenTabHandler(
       TabId.VacationPolicies,
+    ),
+    [AdminNavigationActionId.ManageProjects]: this.createOpenTabHandler(
+      TabId.Projects,
+    ),
+    [AdminNavigationActionId.ManageClients]: this.createOpenTabHandler(
+      TabId.Clients,
+    ),
+    [AdminNavigationActionId.ManageTimeLogs]: this.createOpenTabHandler(
+      TabId.TimeEntries,
     ),
   };
 }

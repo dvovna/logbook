@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { IUserViewModel } from 'src/users/types/user.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 
 interface ISlackRequest extends Request {
   user: IUserViewModel;
