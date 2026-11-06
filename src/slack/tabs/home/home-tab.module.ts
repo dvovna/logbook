@@ -7,6 +7,9 @@ import { SlackCommonModule } from 'src/slack/common/slack-common.module';
 import { VacationRequestsModule } from 'src/vacation-requests/vacation-requests.module';
 import { VacationRequestsTabModule } from 'src/slack/tabs/vacation-requests/vacation-requests-tab.module';
 import { CancelVacationRequestActionHandler } from 'src/slack/tabs/home/handlers/cancel-vacation-request-action.handler';
+import { CancelVacationRequestCommandSubmitHandler } from 'src/slack/tabs/home/handlers/cancel-vacation-request-command-submit.handler';
+import CancelVacationRequestModalViewValuesParser from 'src/slack/tabs/home/parsers/cancel-vacation-request-modal-view-values.parser';
+import { CancelVacationRequestSelectModalView } from 'src/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 
 @Module({
   imports: [
@@ -20,7 +23,10 @@ import { CancelVacationRequestActionHandler } from 'src/slack/tabs/home/handlers
     HomeTabActionHandler,
     HomeTabService,
     CancelVacationRequestActionHandler,
+    CancelVacationRequestCommandSubmitHandler,
+    CancelVacationRequestModalViewValuesParser,
+    CancelVacationRequestSelectModalView,
   ],
-  exports: [HomeTabService],
+  exports: [HomeTabService, CancelVacationRequestSelectModalView],
 })
 export class HomeTabModule {}

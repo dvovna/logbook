@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ValidationError } from 'src/common/errors/validation.error';
 import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
 import getDaysBetweenDates from 'src/common/utils/get-days-between-dates';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
@@ -230,6 +235,31 @@ export class VacationRequestsService implements IVacationRequestsService {
     );
 
     return updatedRequest;
+  }
+
+  public async cancel(requestId: string, user: IUserViewModel) {
+    const request = await this.findOneWithValidation({
+      id: requestId,
+      slackTeamId: user.slack_team_id,
+    });
+
+    if (request.user_id !== user.id) {
+      throw new ForbiddenException(
+        'You can cancel only your own vacation requests',
+      );
+    }
+
+    if (request.status !== VacationRequestStatus.Pending) {
+      throw new ValidationError(
+        'Only vacation requests waiting for approval can be canceled',
+      );
+    }
+
+    return this.update(
+      { id: requestId, slackTeamId: user.slack_team_id },
+      { status: VacationRequestStatus.Canceled },
+      user,
+    );
   }
 
   public findOne(
