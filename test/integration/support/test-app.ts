@@ -37,6 +37,10 @@ export const createTestApp = async (): Promise<ITestApp> => {
   const app = moduleRef.createNestApplication({ bufferLogs: true });
   configureApp(app);
   await app.init();
+  // Otherwise supertest starts the server for every request on a random port
+  // of all addresses and sends to 127.0.0.1: when another local process
+  // listens on 127.0.0.1 with that port, it gets the request.
+  await app.listen(0, '127.0.0.1');
 
   // Second line of defence after global-setup: what the app actually uses.
   assertLocalUrl(

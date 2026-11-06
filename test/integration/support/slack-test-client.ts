@@ -147,8 +147,11 @@ export class SlackTestClient {
       .update(`v0:${timestamp}:${body}`)
       .digest('hex');
 
+    // Node's global agent keeps connections alive; one the server closes
+    // while the next request picks it up fails with ECONNRESET.
     return request(this.server)
       .post(path)
+      .set('Connection', 'close')
       .set('Content-Type', contentType)
       .set('X-Slack-Request-Timestamp', timestamp)
       .set('X-Slack-Signature', `v0=${signature}`)
