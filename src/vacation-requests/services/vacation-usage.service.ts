@@ -25,7 +25,7 @@ export interface IVacationPeriodUsageData {
 interface IVacationsUsageService {
   getCurrentVacationPeriodUsage(
     user: IUserViewModel,
-  ): Promise<IVacationPeriodUsageData | null>;
+  ): Promise<IVacationPeriodUsageData>;
 }
 
 @Injectable()
@@ -36,11 +36,11 @@ export class VacationsUsageService implements IVacationsUsageService {
     private readonly vacationPoliciesService: VacationPoliciesService,
   ) {}
 
-  public async getCurrentVacationPeriodUsage(user: IUserViewModel) {
-    if (!user.contract_start_date) {
-      return null;
-    }
-
+  // `limits` is null when the user's team has no vacation policy: usage is
+  // tracked, but nothing is enforced.
+  public async getCurrentVacationPeriodUsage(
+    user: IUserViewModel,
+  ): Promise<IVacationPeriodUsageData> {
     const { periodStart, periodEnd } = getCurrentVacationPeriod(
       user.contract_start_date,
     );

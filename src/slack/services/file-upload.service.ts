@@ -82,6 +82,7 @@ export default class FileUploadService {
     };
   }
 
+
   public getUnknownFileUploadPromptMessage() {
     return {
       text: `❗️ Unknown file type.`,

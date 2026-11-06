@@ -88,6 +88,9 @@ export class RequestWorkflowService {
     await this.workflowStepProcessorService.processSteps(firstLevelSteps, []);
   }
 
+  // Closes every open step of the request (on cancel, and on any later update
+  // of the request): approvers who got a message see it without buttons, steps
+  // of levels that were never reached are closed too, so they never start.
   public async cancel(requestId: string, canceledBy: IUserViewModel) {
     const canceledSteps = await this.requestWorkflowStepsService.updateStatus(
       {
@@ -99,15 +102,19 @@ export class RequestWorkflowService {
       canceledBy,
     );
 
-    const processedSteps = canceledSteps.filter(
-      (step) => step.processed_at !== null,
-    );
-
-    if (processedSteps.length === 0) {
+    if (canceledSteps.length === 0) {
       return;
     }
 
-    await this.workflowStepProcessorService.updateStepMessages(processedSteps);
+    const comments = await this.requestWorkflowStepCommentsService.findMany({
+      requestId,
+      slackTeamId: canceledBy.slack_team_id,
+    });
+
+    await this.workflowStepProcessorService.completeSteps(
+      canceledSteps,
+      comments,
+    );
   }
 
   public async approveStep(stepId: string, approvedBy: IUserViewModel) {
@@ -116,6 +123,10 @@ export class RequestWorkflowService {
       slackTeamId: approvedBy.slack_team_id,
       completed: false,
     });
+
+    if (this.isStepDecided(step)) {
+      return;
+    }
 
     const stepsToComplete: IRequestWorkflowStepViewModel[] = [];
 
@@ -165,6 +176,10 @@ export class RequestWorkflowService {
       id: stepId,
       slackTeamId: rejectedBy.slack_team_id,
     });
+
+    if (this.isStepDecided(step)) {
+      return;
+    }
 
     const steps = await this.requestWorkflowStepsService.updateStatus(
       {
@@ -240,6 +255,20 @@ export class RequestWorkflowService {
       RequestWorkflowStatus.Approved,
       approvedBy,
     );
+  }
+
+  // A button can still be clicked on a message that is already out of date,
+  // e.g. after another approver decided (ANY rule) or the request was canceled.
+  private isStepDecided(step: IRequestWorkflowStepViewModel) {
+    if (step.step_data.status === WorkflowStepStatus.Pending) {
+      return false;
+    }
+
+    this.logger.warn(
+      `Step ${step.id} is already ${step.step_data.status}, ignoring the action`,
+    );
+
+    return true;
   }
 
   private finishWorkflow(workflowData: IVacationWorkflow) {

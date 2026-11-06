@@ -7,6 +7,12 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
+import { getDateOnly } from '@common/utils/date.utils';
+
+export const ACTIVE_REQUEST_STATUSES = [
+  VacationRequestStatus.Pending,
+  VacationRequestStatus.Approved,
+];
 
 @Injectable()
 export class VacationRequestsValidationService {
@@ -43,6 +49,38 @@ export class VacationRequestsValidationService {
     if (pendingRequests.length >= maxPendingRequestsLimit) {
       throw new ValidationError(
         `Max opened vacation requests limit reached (${maxPendingRequestsLimit})`,
+      );
+    }
+  }
+
+  // A user can't have two pending or approved requests covering the same day.
+  public async validateNoOverlap({
+    userId,
+    slackTeamId,
+    startDate,
+    endDate,
+    excludeRequestId,
+  }: {
+    userId: string;
+    slackTeamId: string;
+    startDate: Date;
+    endDate: Date;
+    excludeRequestId?: string;
+  }) {
+    const [overlapping] = await this.vacationRequestsRepository.findMany({
+      user_id: userId,
+      slack_team_id: slackTeamId,
+      status: { operator: 'in', value: ACTIVE_REQUEST_STATUSES },
+      start_date: { operator: 'lte', value: getDateOnly(endDate) },
+      end_date: { operator: 'gte', value: getDateOnly(startDate) },
+      ...(excludeRequestId
+        ? { id: { operator: 'neq', value: excludeRequestId } }
+        : {}),
+    });
+
+    if (overlapping) {
+      throw new ValidationError(
+        `These dates overlap with another vacation request (${overlapping.start_date} – ${overlapping.end_date})`,
       );
     }
   }

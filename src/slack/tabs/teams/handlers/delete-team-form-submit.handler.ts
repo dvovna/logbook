@@ -19,6 +19,8 @@ import {
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
 import UserRole from '@common/enums/user-role.enum';
+import { UsersService } from '@modules/users/services/users.service';
+import EntityHasDependenciesError from '@common/errors/entity-has-dependencies.error';
 
 @Injectable()
 @SlackHandler({
@@ -34,6 +36,7 @@ export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   public constructor(
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly teamsService: TeamsService,
+    private readonly usersService: UsersService,
     private readonly teamsTabService: TeamsTabService,
     private readonly tabNavigationService: TabNavigationService,
   ) {
@@ -69,6 +72,21 @@ export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     meta: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ): Promise<ITeamViewModel> {
+    // Checked here rather than in TeamsService: UsersModule already imports
+    // TeamsModule, so TeamsService can't depend on UsersService.
+    const membersCount = await this.usersService.count({
+      slackTeamId: user.slack_team_id,
+      teamId: meta.id,
+      isActive: true,
+    });
+
+    if (membersCount > 0) {
+      throw new EntityHasDependenciesError(
+        'team',
+        `${membersCount} active member${membersCount === 1 ? '' : 's'}`,
+      );
+    }
+
     const team = await this.teamsService.delete(meta.id, user);
 
     this.tabNavigationService.navigate(TabId.Teams, { user });

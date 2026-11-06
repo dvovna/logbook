@@ -1,0 +1,54 @@
+# Slack app for local development. Create it at https://api.slack.com/apps
+# ("Create New App" -> "From a manifest") after replacing every NGROK_DOMAIN
+# with your ngrok domain, e.g.:
+#   sed 's/NGROK_DOMAIN/my-name.ngrok-free.app/g' slack-app-manifest.dev.yml
+# Keep it separate from the production app: an app has one set of request URLs.
+display_information:
+  name: Vacations Bot (dev)
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: vacations-dev
+    always_online: true
+  slash_commands:
+    - command: /vacations
+      url: https://NGROK_DOMAIN/api/slack/vacations
+      description: Request and manage vacations
+      should_escape: false
+    - command: /upload-vacations
+      url: https://NGROK_DOMAIN/api/slack/admin/user-vacations-upload
+      description: Upload a CSV with vacation history (admins)
+      should_escape: false
+    - command: /user-team-mapping
+      url: https://NGROK_DOMAIN/api/slack/admin/user-team-mapping-upload
+      description: Upload a CSV that assigns users to teams (admins)
+      should_escape: false
+oauth_config:
+  redirect_urls:
+    - https://NGROK_DOMAIN/api/slack/oauth/redirect
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - files:read
+      - users:read
+      - users:read.email
+settings:
+  event_subscriptions:
+    request_url: https://NGROK_DOMAIN/api/slack/events
+    bot_events:
+      - app_home_opened
+      - app_uninstalled
+      - file_shared
+      - team_join
+      - user_change
+  interactivity:
+    is_enabled: true
+    request_url: https://NGROK_DOMAIN/api/slack/interactions
+    message_menu_options_url: https://NGROK_DOMAIN/api/slack/options
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

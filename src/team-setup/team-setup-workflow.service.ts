@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import SlackUsersService from '@modules/slack-communication/services/slack-users.service';
-import { TeamUsersSyncService } from '@modules/team-setup/team-users-sync.service';
+import {
+  TeamUsersSyncService,
+} from '@modules/team-setup/team-users-sync.service';
 
 interface ITeamSetupWorkflowParams {
   slackTeamId: string;
@@ -14,6 +16,8 @@ interface ITeamSetupWorkflowParams {
 
 @Injectable()
 export class TeamSetupWorkflowService {
+  private readonly logger = new Logger(TeamSetupWorkflowService.name);
+
   public constructor(
     private readonly slackTeamsService: SlackTeamsService,
     private readonly usersService: UsersService,
@@ -56,10 +60,17 @@ export class TeamSetupWorkflowService {
 
       // no need to sync users instantly
       setTimeout(() => {
-        this.teamUsersSyncService.syncUsers({
-          slackTeamId: slackTeam.id,
-          userSlackIdsToIgnore: [adminUser.slack_id],
-        });
+        this.teamUsersSyncService
+          .syncUsers({
+            slackTeamId: slackTeam.id,
+            userSlackIdsToIgnore: [adminUser.slack_id],
+          })
+          .catch((error: Error) => {
+            this.logger.error(
+              `Failed to sync users of slack team ${slackTeam.id}: ${error.message}`,
+              error.stack,
+            );
+          });
       }, 5000);
     } catch (error) {
       await this.slackTeamsService.delete({ id: slackTeam.id });

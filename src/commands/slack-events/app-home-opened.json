@@ -1,0 +1,10 @@
+{
+  "type": "event_callback",
+  "team_id": "T_LOCAL",
+  "event": {
+    "type": "app_home_opened",
+    "user": "U_LOCAL_MEMBER",
+    "channel": "D_LOCAL",
+    "tab": "home"
+  }
+}
