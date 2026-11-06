@@ -28,6 +28,11 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 - Tests are `*.spec.ts` files next to the code (rootDir `src`, config in `jest.config.ts`). They build services directly with `jest.fn()` mocks rather than through a Nest testing module. `jest.config.ts` pins `TZ=UTC`, because the date code mixes local `getDay()` with `toISOString()` and production runs in UTC.
 - `yarn db:init` runs `src/commands/db-init.ts` through ts-node and applies `init.sql` in a single transaction. The SQL is idempotent, so running it again on an existing DB is safe. `src/commands` is excluded from `nest build`.
 - The codebase is not lint-clean: about 140 prettier and other errors already exist. `yarn lint` uses `--fix`, so it rewrites many unrelated files. To lint only what you touched, run `npx eslint <files>`.
+- Node 26 everywhere:
+  - pinned in `.nvmrc`;
+  - used by the Dockerfile and by CI (`.github/workflows/ci.yml`: tsc, jest, build, non-blocking lint of changed files).
+
+  Node images and installs from 26 on have no yarn and no corepack, so the Dockerfile and CI install `yarn@1.22.22` themselves.
 - The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if any are missing. Copy `.env.example` to `.env` first.
 - Local setup is in README → "Local development":
   - Local Supabase from `supabase/config.toml`. Only Postgres, the API, auth and Studio are enabled. Auth is unused by the app but the CLI prints the API keys only with it on.

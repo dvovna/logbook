@@ -21,8 +21,16 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 20 # same as the Dockerfile
-          cache: yarn
+          node-version-file: .nvmrc # same major as the Dockerfile
+
+      # Node 26 ships without corepack, so yarn 1 is installed explicitly.
+      - run: npm install -g yarn@1.22.22
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/yarn
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
 
       - run: yarn install --frozen-lockfile
 
