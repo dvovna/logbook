@@ -15,7 +15,10 @@ import {
 } from 'src/common/types/pagination.types';
 import { SupabaseFilter } from 'src/common/repositories/base.repository';
 import { IUserViewModel } from 'src/users/types/user.interface';
-import { VacationRequestsValidationService } from 'src/vacation-requests/services/vacation-requests-validation.service';
+import {
+  ACTIVE_REQUEST_STATUSES,
+  VacationRequestsValidationService,
+} from 'src/vacation-requests/services/vacation-requests-validation.service';
 import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
 import TeamsService from 'src/teams/services/teams.service';
 import { getDateOnly } from 'src/common/utils/date.utils';
@@ -96,6 +99,15 @@ export class VacationRequestsService implements IVacationRequestsService {
       userId,
       user.slack_team_id,
     );
+
+    if (ACTIVE_REQUEST_STATUSES.includes(createParams.status)) {
+      await this.vacationRequestsValidator.validateNoOverlap({
+        userId,
+        slackTeamId: user.slack_team_id,
+        startDate,
+        endDate,
+      });
+    }
 
     const userTeam = teamId
       ? await this.teamsService.findOne({
@@ -195,6 +207,25 @@ export class VacationRequestsService implements IVacationRequestsService {
         getDateOnly(updateParams.startDate) !== existingRequest.start_date) ||
       (updateParams.endDate &&
         getDateOnly(updateParams.endDate) !== existingRequest.end_date);
+
+    const finalStatus = status ?? existingRequest.status;
+    const isStatusChanged =
+      status !== undefined && status !== existingRequest.status;
+    const isUserChanged =
+      userId !== undefined && userId !== existingRequest.user_id;
+
+    if (
+      ACTIVE_REQUEST_STATUSES.includes(finalStatus) &&
+      (hasDatesChanged || isStatusChanged || isUserChanged)
+    ) {
+      await this.vacationRequestsValidator.validateNoOverlap({
+        userId: userId ?? existingRequest.user_id,
+        slackTeamId: user.slack_team_id,
+        startDate,
+        endDate,
+        excludeRequestId: existingRequest.id,
+      });
+    }
 
     if (hasDatesChanged) {
       await this.vacationRequestsValidator.validateDaysRequested(

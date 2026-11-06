@@ -55,7 +55,11 @@ const buildRequest = (
 });
 
 describe('VacationRequestsService', () => {
-  let repository: Record<'findOne' | 'update', jest.Mock>;
+  let repository: Record<'findOne' | 'update' | 'create', jest.Mock>;
+  let validator: Record<
+    'validateRequestLimits' | 'validateNoOverlap' | 'validateDaysRequested',
+    jest.Mock
+  >;
   let eventEmitter: { emit: jest.Mock };
   let service: VacationRequestsService;
 
@@ -63,20 +67,89 @@ describe('VacationRequestsService', () => {
     repository = {
       findOne: jest.fn(),
       update: jest.fn(),
+      create: jest.fn().mockResolvedValue(buildRequest()),
+    };
+    validator = {
+      validateRequestLimits: jest.fn(),
+      validateNoOverlap: jest.fn(),
+      validateDaysRequested: jest.fn(),
     };
     eventEmitter = { emit: jest.fn() };
 
     service = new VacationRequestsService(
       repository as unknown as VacationRequestsRepository,
-      {
-        validateDaysRequested: jest.fn(),
-      } as unknown as VacationRequestsValidationService,
+      validator as unknown as VacationRequestsValidationService,
       {
         calculate: jest.fn().mockResolvedValue(5),
       } as unknown as VacationDaysCalculationService,
       {} as TeamsService,
       eventEmitter as unknown as EventEmitter2,
     );
+  });
+
+  describe('overlap check', () => {
+    const createParams = {
+      userId: requester.id,
+      teamId: null,
+      startDate: new Date('2026-02-02'),
+      endDate: new Date('2026-02-06'),
+      type: VacationType.AnnualLeave,
+    };
+
+    it('checks a new pending request against existing ones', async () => {
+      await service.create(
+        { ...createParams, status: VacationRequestStatus.Pending },
+        requester,
+      );
+
+      expect(validator.validateNoOverlap).toHaveBeenCalledWith({
+        userId: requester.id,
+        slackTeamId: SLACK_TEAM_ID,
+        startDate: createParams.startDate,
+        endDate: createParams.endDate,
+      });
+    });
+
+    it('skips the check for a request created as rejected', async () => {
+      await service.create(
+        { ...createParams, status: VacationRequestStatus.Rejected },
+        requester,
+      );
+
+      expect(validator.validateNoOverlap).not.toHaveBeenCalled();
+    });
+
+    it('checks new dates on edit, ignoring the edited request itself', async () => {
+      repository.findOne.mockResolvedValue(buildRequest());
+      repository.update.mockResolvedValue(buildRequest());
+
+      await service.update(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { endDate: new Date('2026-02-09') },
+        requester,
+      );
+
+      expect(validator.validateNoOverlap).toHaveBeenCalledWith({
+        userId: requester.id,
+        slackTeamId: SLACK_TEAM_ID,
+        startDate: new Date('2026-02-02'),
+        endDate: new Date('2026-02-09'),
+        excludeRequestId: 'request-1',
+      });
+    });
+
+    it('does not check when only the comment changes', async () => {
+      repository.findOne.mockResolvedValue(buildRequest());
+      repository.update.mockResolvedValue(buildRequest());
+
+      await service.update(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { userComment: 'Updated' },
+        requester,
+      );
+
+      expect(validator.validateNoOverlap).not.toHaveBeenCalled();
+    });
   });
 
   describe('cancel', () => {
