@@ -176,7 +176,8 @@ export const findAction = (
 };
 
 // The `actions[0]` Slack sends when the user clicks/chooses `element`. For
-// checkboxes `value` is the option that ends up checked; none when omitted.
+// checkboxes `value` is the option that ends up checked, none when omitted;
+// for a datepicker the date, none when omitted.
 export const actionPayload = (
   { blockId, element }: IFoundAction,
   value?: string,
@@ -200,6 +201,10 @@ export const actionPayload = (
         selected_options:
           value === undefined ? [] : [findOption(element, value)],
       };
+    case 'external_select':
+      return { ...base, selected_option: externalOption(element, value!) };
+    case 'datepicker':
+      return { ...base, selected_date: value ?? null };
     default:
       throw new Error(`actionPayload does not support ${element.type}`);
   }

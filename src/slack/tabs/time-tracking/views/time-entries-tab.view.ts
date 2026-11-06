@@ -59,8 +59,13 @@ export class TimeEntriesTabView extends BaseAdminTabView<
     };
   }
 
-  protected getBackButtonBlocks(): AnyBlock[] {
-    return BackButton.getBlocks(AdminNavigationActionId.ManageTimeAndBilling);
+  // Back to where the tab was opened from: Home or Time & Billing.
+  protected getBackButtonBlocks({
+    backButtonActionId,
+  }: IGetTimeEntriesViewParams): AnyBlock[] {
+    return BackButton.getBlocks(
+      backButtonActionId ?? AdminNavigationActionId.ManageTimeAndBilling,
+    );
   }
 
   protected getContentBlocks(

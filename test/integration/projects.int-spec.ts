@@ -394,6 +394,61 @@ describe('Projects', () => {
       expect(textOf(secondPage).match(/\*P\d\*/g)).toEqual(['*P6*']);
       expect(textOf(secondPage)).toContain('Total Count: 6');
     });
+
+    it('finds a project by name', async () => {
+      const website = await workspace.addProject({ name: 'Website' });
+      await workspace.addProject({ name: 'Mobile app' });
+      const projectsTab = await openProjectsTab();
+
+      const suggestions = await t.slack
+        .suggest(
+          workspace,
+          admin,
+          projectsTab,
+          ProjectsTabViewActionId.FindProjectByName,
+          'web',
+        )
+        .expect(acknowledged);
+      expect(suggestions.body.options).toEqual([
+        { text: { type: 'plain_text', text: 'Website' }, value: website.id },
+      ]);
+
+      const found = await actOnTab(
+        t,
+        workspace,
+        admin,
+        projectsTab,
+        ProjectsTabViewActionId.FindProjectByName,
+        website.id,
+      );
+      expect(textOf(found)).toContain('*Website*');
+      expect(textOf(found)).not.toContain('*Mobile app*');
+    });
+
+    it('offers a manager only assigning and archiving', async () => {
+      const manager = await workspace.addUser({ role: UserRole.Manager });
+      const project = await workspace.addProject({ name: 'Website' });
+
+      const projectsTab = await openAppHomeTab(
+        t,
+        workspace,
+        manager,
+        PROJECTS_TAB,
+      );
+
+      expect(textOf(projectsTab)).not.toContain(
+        ProjectsTabViewActionId.AddProject,
+      );
+      expect(
+        findAction(
+          projectsTab.blocks,
+          ProjectsTabViewActionId.ManageProjectMenu,
+        ).element.options.map(({ value }: { value: string }) => value),
+      ).toEqual([
+        `${ProjectsTabViewActionId.ManageProjectAssignments}:${project.id}`,
+        `${ProjectsTabViewActionId.ArchiveProject}:${project.id}`,
+      ]);
+    });
   });
 
   describe('archiving a project', () => {

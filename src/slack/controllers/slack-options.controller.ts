@@ -50,7 +50,7 @@ export class SlackOptionsController {
       }
       case ProjectsTabViewActionId.FindProjectByName: {
         return this.projectOptionsService.searchProjects({
-          query: payload.query,
+          query: payload.value,
           user: request.user!,
           includeArchived: true,
         });

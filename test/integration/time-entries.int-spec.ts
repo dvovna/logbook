@@ -3,6 +3,7 @@ import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
@@ -124,6 +125,36 @@ describe('Time entries', () => {
       expect(
         findAction(modal.blocks, 'status').element.initial_option.value,
       ).toBe(TimeEntryStatus.Draft);
+    });
+
+    it.each([UserRole.Admin, UserRole.HR])(
+      'lets %s log time for anyone on any active project',
+      async (role) => {
+        const viewer = await workspace.addUser({ role });
+        const internal = await workspace.addProject({ name: 'Internal' });
+        await workspace.addProject({
+          name: 'Legacy',
+          archived_at: new Date().toISOString(),
+        });
+
+        const modal = await openLogTimeModal(viewer);
+
+        expect(modal.callback_id).toBe(ViewCallbackId.AdminTimeEntry);
+        expect(optionValues(modal, 'projectId')).toEqual([
+          website.id,
+          internal.id,
+        ]);
+      },
+    );
+
+    it('tells a member without projects to ask for one', async () => {
+      const ops = await workspace.addTeam({ name: 'Ops' });
+      const newcomer = await workspace.addUser({ team_id: ops.id });
+
+      const modal = await openLogTimeModal(newcomer);
+
+      expect(textOf(modal)).toContain('You have no projects to log time on');
+      expect(modal).not.toHaveProperty('submit');
     });
 
     it("logs an admin's time for today on their only project", async () => {
@@ -363,6 +394,25 @@ describe('Time entries', () => {
       expect(myEntries).not.toContain('Deleted work');
       expect(myEntries).not.toContain('Not mine');
       expect(myEntries).toContain('Total Count: 1');
+    });
+
+    it('goes back to Home from Edit Entries', async () => {
+      const myEntries = await openAppHomeTab(
+        t,
+        workspace,
+        member,
+        MY_ENTRIES_TAB,
+      );
+
+      const home = await actOnTab(
+        t,
+        workspace,
+        member,
+        myEntries,
+        CommonViewActionId.BackToHomeTab,
+      );
+
+      expect(home.callback_id).toBe(ViewCallbackId.HomeTabView);
     });
 
     // Six days of work, today's first.

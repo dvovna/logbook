@@ -41,7 +41,18 @@ export class ClientsTabView extends BaseAdminTabView<
     return '🏢 *Clients Management*\n\nManage your organization\'s clients and their details.';
   }
 
-  protected getTitleAccessory(): SectionBlockAccessory {
+  protected getTitleAccessory({
+    userRole,
+  }: IGetViewParams): SectionBlockAccessory | null {
+    if (
+      !this.slackActionPermissionsService.can(
+        userRole,
+        ClientsTabViewActionId.AddClient,
+      )
+    ) {
+      return null;
+    }
+
     return {
       type: 'button',
       text: { type: 'plain_text', text: '➕ Add Client' },
@@ -54,7 +65,7 @@ export class ClientsTabView extends BaseAdminTabView<
   }
 
   protected getContentBlocks(
-    { clientsData }: IGetViewParams,
+    { clientsData, userRole }: IGetViewParams,
     { includeArchived }: IClientsTabMetaData,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
@@ -69,7 +80,14 @@ export class ClientsTabView extends BaseAdminTabView<
 
     const listBlocks = PaginatedListView.getBlocks<IClientViewModel>({
       itemsData: clientsData,
-      getItemBlocks: this.getClientListItemBlocks,
+      getItemBlocks: (client) =>
+        this.getClientListItemBlocks(
+          client,
+          this.slackActionPermissionsService.can(
+            userRole,
+            ClientsTabViewActionId.ManageClientMenu,
+          ),
+        ),
       prevPageActionId: ClientsTabViewActionId.PaginationPrev,
       nextPageActionId: ClientsTabViewActionId.PaginationNext,
     });
@@ -79,11 +97,31 @@ export class ClientsTabView extends BaseAdminTabView<
     return blocks;
   }
 
-  private getClientListItemBlocks = (client: IClientViewModel): AnyBlock[] => {
+  private getClientListItemBlocks = (
+    client: IClientViewModel,
+    canManage: boolean,
+  ): AnyBlock[] => {
     const blocks: AnyBlock[] = [];
 
     const updatedAt = new Date(client.updated_at).toLocaleDateString();
     const createdAt = new Date(client.created_at).toLocaleDateString();
+    const menu = {
+      type: 'overflow',
+      action_id: ClientsTabViewActionId.ManageClientMenu,
+      options: [
+        ...(!client.archived_at ? [{
+          text: { type: 'plain_text', text: 'Edit Client' },
+          value: `${ClientsTabViewActionId.EditClient}:${client.id}`,
+        }] as const : []),
+        {
+          text: {
+            type: 'plain_text',
+            text: `${client.archived_at ? 'Restore' : 'Archive'} Client`,
+          },
+          value: `${ClientsTabViewActionId.ArchiveClient}:${client.id}`,
+        },
+      ],
+    } as const;
 
     blocks.push({
       type: 'section',
@@ -97,23 +135,7 @@ export class ClientsTabView extends BaseAdminTabView<
             `Updated: ${updatedAt}`,
         },
       ],
-      accessory: {
-        type: 'overflow',
-        action_id: ClientsTabViewActionId.ManageClientMenu,
-        options: [
-          ...(!client.archived_at ? [{
-            text: { type: 'plain_text', text: 'Edit Client' },
-            value: `${ClientsTabViewActionId.EditClient}:${client.id}`,
-          }] as const : []),
-          {
-            text: {
-              type: 'plain_text',
-              text: `${client.archived_at ? 'Restore' : 'Archive'} Client`,
-            },
-            value: `${ClientsTabViewActionId.ArchiveClient}:${client.id}`,
-          },
-        ],
-      },
+      ...(canManage ? { accessory: menu } : {}),
     });
 
     blocks.push(...Divider.getBlocks());

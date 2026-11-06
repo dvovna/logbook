@@ -105,9 +105,22 @@ describe('Clients', () => {
       expect(await workspace.rows('clients')).toHaveLength(1);
     });
 
-    it('lets a manager browse clients but not create one', async () => {
+    it('shows a manager the clients without ways to change them', async () => {
       const manager = await workspace.addUser({ role: UserRole.Manager });
-      const modal = await openCreateModal(manager);
+      await workspace.addClient({ name: 'Acme' });
+
+      const clientsTab = textOf(
+        await openAppHomeTab(t, workspace, manager, CLIENTS_TAB),
+      );
+
+      expect(clientsTab).toContain('*Acme*');
+      expect(clientsTab).not.toContain(ClientsTabViewActionId.AddClient);
+      expect(clientsTab).not.toContain(ClientsTabViewActionId.ManageClientMenu);
+    });
+
+    it("refuses a manager's client form", async () => {
+      const manager = await workspace.addUser({ role: UserRole.Manager });
+      const modal = await openCreateModal(admin);
 
       const response = await t.slack
         .submitView(workspace, manager, modal, { name: 'Acme' })

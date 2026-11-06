@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
-import UserRole from '@common/enums/user-role.enum';
+import { TIME_ENTRIES_ADMIN_ROLES } from 'src/time-entries/constants/time-entries-admin-roles';
 import { ValidationError } from '@common/errors/validation.error';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -15,12 +15,12 @@ import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/en
 import { BaseTimeEntryFormSubmitHandler } from '@modules/slack/tabs/time-tracking/handlers/base-time-entry-form-submit.handler';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 
-// An admin logs time for the user and in the status chosen in the form.
+// Admin and HR log time for the user and in the status chosen in the form.
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.AdminTimeEntry,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin],
+  allowedRoles: TIME_ENTRIES_ADMIN_ROLES,
 })
 export class AdminTimeEntryFormSubmitHandler extends BaseTimeEntryFormSubmitHandler<IAdminTimeEntryFormViewData> {
   public constructor(

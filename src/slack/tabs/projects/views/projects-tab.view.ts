@@ -19,6 +19,7 @@ import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views
 import { PROJECT_STATUS_OPTIONS } from '@modules/slack/tabs/projects/data/project-status-options';
 import { BILLABLE_PLAIN_TEXT_OPTIONS } from '@modules/slack/tabs/projects/data/billable-options';
 import { IncludeArchivedButtonView } from '@modules/slack/common/views/components/include-archvied-button.view';
+import UserRole from '@common/enums/user-role.enum';
 
 interface IGetProjectsViewParams extends IBaseTabViewParams {
   projectsListData: IProjectsListData;
@@ -48,7 +49,18 @@ export class ProjectsTabView extends BaseAdminTabView<
     return '🗂 *Projects, Teams & Assignments*\n\nControl which teams and users can track time on specific projects.';
   }
 
-  protected getTitleAccessory(): SectionBlockAccessory {
+  protected getTitleAccessory({
+    userRole,
+  }: IGetProjectsViewParams): SectionBlockAccessory | null {
+    if (
+      !this.slackActionPermissionsService.can(
+        userRole,
+        ProjectsTabViewActionId.AddProject,
+      )
+    ) {
+      return null;
+    }
+
     return {
       type: 'button',
       text: { type: 'plain_text', text: '➕ Add Project' },
@@ -61,7 +73,7 @@ export class ProjectsTabView extends BaseAdminTabView<
   }
 
   protected getContentBlocks(
-    { projectsListData }: IGetProjectsViewParams,
+    { projectsListData, userRole }: IGetProjectsViewParams,
     { filters, includeArchived, page }: IProjectsTabMetaData,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
@@ -82,7 +94,7 @@ export class ProjectsTabView extends BaseAdminTabView<
         pageSize: PROJECTS_TAB_PAGE_SIZE,
       },
       getItemBlocks: (item: IProjectListItem) =>
-        this.getProjectListItemBlocks(item),
+        this.getProjectListItemBlocks(item, userRole),
       prevPageActionId: ProjectsTabViewActionId.PaginationPrev,
       nextPageActionId: ProjectsTabViewActionId.PaginationNext,
       emptyText: '_No projects found_',
@@ -95,6 +107,7 @@ export class ProjectsTabView extends BaseAdminTabView<
 
   private getProjectListItemBlocks(
     project: IProjectListItem,
+    userRole: UserRole,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
@@ -102,6 +115,7 @@ export class ProjectsTabView extends BaseAdminTabView<
     const createdAt = new Date(project.created_at).toLocaleDateString();
     const archivedAt = project.archived_at
       && new Date(project.archived_at).toLocaleDateString();
+    const menuOptions = this.getProjectMenuOptions(project, userRole);
 
     blocks.push({
       type: 'section',
@@ -123,32 +137,42 @@ export class ProjectsTabView extends BaseAdminTabView<
             `\n${archivedAt ? `*Archived:* ${archivedAt}\n` : ''}`,
         },
       ],
-      accessory: {
-        type: 'overflow',
-        action_id: ProjectsTabViewActionId.ManageProjectMenu,
-        options: [
-          ...(!project.archived_at ? [{
-            text: { type: 'plain_text', text: 'Edit Project' },
-            value: `${ProjectsTabViewActionId.EditProject}:${project.id}`,
+      ...(menuOptions.length
+        ? {
+          accessory: {
+            type: 'overflow',
+            action_id: ProjectsTabViewActionId.ManageProjectMenu,
+            options: menuOptions,
           },
-          {
-            text: { type: 'plain_text', text: 'Manage Assignments' },
-            value: `${ProjectsTabViewActionId.ManageProjectAssignments}:${project.id}`,
-          }] as const : []),
-          {
-            text: {
-              type: 'plain_text',
-              text: `${project.archived_at ? 'Restore' : 'Archive'} Project`,
-            },
-            value: `${ProjectsTabViewActionId.ArchiveProject}:${project.id}`,
-          },
-        ],
-      },
+        }
+        : {}),
     });
 
     blocks.push(...Divider.getBlocks());
 
     return blocks;
+  }
+
+  // The menu items the user's role allows; an archived project can only be
+  // restored.
+  private getProjectMenuOptions(project: IProjectListItem, userRole: UserRole) {
+    const items = project.archived_at
+      ? [{ id: ProjectsTabViewActionId.ArchiveProject, name: 'Restore Project' }]
+      : [
+        { id: ProjectsTabViewActionId.EditProject, name: 'Edit Project' },
+        {
+          id: ProjectsTabViewActionId.ManageProjectAssignments,
+          name: 'Manage Assignments',
+        },
+        { id: ProjectsTabViewActionId.ArchiveProject, name: 'Archive Project' },
+      ];
+
+    return items
+      .filter(({ id }) => this.slackActionPermissionsService.can(userRole, id))
+      .map(({ id, name }) => ({
+        text: { type: 'plain_text' as const, text: name },
+        value: `${id}:${project.id}`,
+      }));
   }
 
   private getFiltersBlocks(filters?: IProjectTabFilters) {

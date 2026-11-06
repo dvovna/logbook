@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import BaseModalView, {
+  IActionButtons,
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import UserRole from '@common/enums/user-role.enum';
 import {
   TimeEntriesTabViewActionId,
 } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
@@ -17,8 +17,7 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { IUserProject } from 'src/projects/queries/get-user-projects.query';
-
-const ADMIN_VIEW_USER_ROLES = [UserRole.Admin];
+import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
 interface IGetViewParams
   extends IBaseModalViewParams<
@@ -45,14 +44,32 @@ export class TimeEntryFormModalView extends BaseModalView<
     return initialData ? 'Edit Time Log' : 'Log Time';
   }
 
+  // Without a project there is nothing to log time on.
+  protected getActionButtons(params: IGetViewParams): IActionButtons {
+    return this.hasNoProjects(params)
+      ? { close: { type: 'plain_text', text: 'Close' } }
+      : super.getActionButtons(params);
+  }
+
   public getViewBlocks({
     initialData,
     userProjects,
     errorMessage,
     user,
   }: IGetViewParams): AnyBlock[] {
-    const isAdminView =
-      user.role && ADMIN_VIEW_USER_ROLES.includes(user.role);
+    if (this.hasNoProjects({ initialData, userProjects })) {
+      return [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: 'You have no projects to log time on yet. Ask an admin to add you or your team to a project.',
+          },
+        },
+      ];
+    }
+
+    const isAdminView = isTimeEntriesAdmin(user.role);
     const userProjectOptions = this.getUserProjectOptions(userProjects);
     const defaultProjectOption = userProjectOptions.length === 1
       ? userProjectOptions[0]
@@ -146,6 +163,13 @@ export class TimeEntryFormModalView extends BaseModalView<
         initialValue: data?.status || TimeEntryStatus.Draft,
       }),
     ];
+  }
+
+  private hasNoProjects({
+    initialData,
+    userProjects,
+  }: Pick<IGetViewParams, 'initialData' | 'userProjects'>) {
+    return !initialData && userProjects.length === 0;
   }
 
   private getUserProjectOptions(userProjects: IUserProject[]): IOption[] {

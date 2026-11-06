@@ -4,7 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import UserRole from '@common/enums/user-role.enum';
+import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
@@ -227,10 +227,7 @@ export class TimeEntriesValidationService {
   }
 
   private isAdmin(user: IUserViewModel): boolean {
-    return (
-      user.role === UserRole.Admin ||
-      user.role === UserRole.HR
-    );
+    return isTimeEntriesAdmin(user.role);
   }
 }
 
