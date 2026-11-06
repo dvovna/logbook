@@ -1,6 +1,6 @@
 # Logbook
 
-[![CI](https://github.com/dvovna/slack-vacations-bot/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/dvovna/slack-vacations-bot/actions/workflows/ci.yml)
+[![CI](https://github.com/dvovna/logbook/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/dvovna/logbook/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 Logbook keeps your team's time in Slack: the hours people log and the days they take off. It's a Slack app for vacation requests and approvals, leave policies, holidays and time tracking. People request time off from the bot's App Home or with `/vacations`. The request goes to their managers and HR for approval. Admins and HR manage people, teams, policies and holidays without leaving Slack.
