@@ -237,7 +237,7 @@ export default class SlackEventsService {
 
     const { file_id: fileId } = event;
 
-    this.fileUploadService.handleFileUpload(fileId, user);
+    await this.fileUploadService.handleFileUpload(fileId, user);
   }
 
   public handleHomeTapOpened(
