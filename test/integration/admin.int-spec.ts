@@ -3,7 +3,7 @@ import { Tables } from '@common/types/database.types';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
-import { slackId, TestWorkspace } from './support/test-workspace';
+import { TestWorkspace } from './support/test-workspace';
 import { eventually, settle } from './support/eventually';
 import { textOf } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
@@ -73,10 +73,6 @@ describe('Admin', () => {
   });
 
   describe('user-team-mapping.csv', () => {
-    // users.email is unique across all workspaces.
-    const uniqueEmail = (name: string) =>
-      `${name}-${slackId('U').toLowerCase()}@example.test`;
-
     const shareFile = (user: Tables<'users'>, name: string, content: string) =>
       t.slack
         .event(workspace, {
@@ -89,8 +85,8 @@ describe('Admin', () => {
 
     it('moves users to the teams named in the file', async () => {
       const design = await workspace.addTeam({ name: 'Design' });
-      const ada = await workspace.addUser({ email: uniqueEmail('ada') });
-      const bob = await workspace.addUser({ email: uniqueEmail('bob') });
+      const ada = await workspace.addUser({ email: 'ada@example.test' });
+      const bob = await workspace.addUser({ email: 'bob@example.test' });
 
       await shareFile(
         admin,
@@ -110,7 +106,7 @@ describe('Admin', () => {
     });
 
     it('reports rows it cannot import', async () => {
-      const ada = await workspace.addUser({ email: uniqueEmail('ada') });
+      const ada = await workspace.addUser({ email: 'ada@example.test' });
 
       await shareFile(
         admin,

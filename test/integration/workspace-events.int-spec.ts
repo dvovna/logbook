@@ -84,6 +84,31 @@ describe('Slack events', () => {
     expect(user.contract_start_date).not.toBeNull();
   });
 
+  it('adds a member who is already in another workspace', async () => {
+    const otherWorkspace = await t.createWorkspace();
+    await otherWorkspace.addUser({ email: 'grace@example.test' });
+    const id = slackId('U');
+
+    await t.slack
+      .event(workspace, {
+        type: 'team_join',
+        user: slackMember(workspace, {
+          id,
+          name: 'Grace Hopper',
+          email: 'grace@example.test',
+        }),
+      })
+      .expect(acknowledged);
+
+    await eventually(async () => {
+      const users = await workspace.rows('users');
+
+      expect(users.find(({ slack_id }) => slack_id === id)).toMatchObject({
+        email: 'grace@example.test',
+      });
+    });
+  });
+
   it("updates a member's profile and deactivates a deleted account", async () => {
     const member = await workspace.addUser({
       role: UserRole.Manager,

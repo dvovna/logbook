@@ -33,7 +33,6 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - Every test works in its own `TestWorkspace` (random `T…` ID, deleted with a cascade at the end).
   - `global-setup.ts` reads the URLs and keys from `supabase status` and refuses non-local URLs. It also stops when the local database lacks a migration from `supabase/migrations`.
   - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners), so assert with `eventually(...)`.
-  - `users.email` is unique across all workspaces, so test emails must be unique too.
 - `yarn db:init` runs `supabase db reset` against the local stack, which drops the local database and applies `supabase/migrations`. `src/commands` holds dev scripts and is excluded from `nest build`.
 - The codebase is not lint-clean: about 140 prettier and other errors already exist. `yarn lint` uses `--fix`, so it rewrites many unrelated files. To lint only what you touched, run `npx eslint <files>`.
 - Node 26 everywhere:
