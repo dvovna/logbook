@@ -31,6 +31,7 @@ describe('VacationCommandService', () => {
     jest.Mock
   >;
   let vacationRequestsService: { findMany: jest.Mock };
+  let usageService: { getCurrentVacationPeriodUsage: jest.Mock };
   let service: VacationCommandService;
 
   beforeEach(() => {
@@ -39,14 +40,67 @@ describe('VacationCommandService', () => {
       openView: jest.fn(),
     };
     vacationRequestsService = { findMany: jest.fn().mockResolvedValue([]) };
+    usageService = { getCurrentVacationPeriodUsage: jest.fn() };
 
     service = new VacationCommandService(
-      {} as VacationsUsageService,
+      usageService as unknown as VacationsUsageService,
       slackCommunicationService as unknown as SlackCommunicationService,
       {} as VacationRequestFormModalView,
       vacationRequestsService as unknown as VacationRequestsService,
       new CancelVacationRequestSelectModalView(),
     );
+  });
+
+  describe('usage', () => {
+    const usageData = (limits: object | null) => ({
+      periodStart: new Date('2026-01-01'),
+      periodEnd: new Date('2026-12-31'),
+      limits,
+      usage: {
+        annual_leave: {
+          used: 5,
+          available: 19,
+          working_days_used: 5,
+          working_days_available: 15,
+        },
+        bonus_day: { used: 0, available: 3 },
+        sick_leave: { used: 2 },
+        unpaid_leave: { used: 0 },
+        other: { used: 0 },
+      },
+    });
+
+    const getText = () =>
+      (
+        slackCommunicationService.postEphemeral.mock.calls[0] as [
+          string,
+          { text: string },
+        ]
+      )[1].text;
+
+    it('shows used days and "not limited" when the team has no policy', async () => {
+      usageService.getCurrentVacationPeriodUsage.mockResolvedValue(
+        usageData(null),
+      );
+
+      await service.handleCommand(VacationCommand.Usage, user);
+
+      expect(getText()).toContain('usage for 2026-01-01 – 2026-12-31');
+      expect(getText()).toContain('Used: 5 days');
+      expect(getText()).toContain('Remaining: not limited');
+      expect(getText()).not.toContain('Remaining: 19 days');
+    });
+
+    it('shows remaining days when the team has a policy', async () => {
+      usageService.getCurrentVacationPeriodUsage.mockResolvedValue(
+        usageData({ vacationDays: 24 }),
+      );
+
+      await service.handleCommand(VacationCommand.Usage, user);
+
+      expect(getText()).toContain('Remaining: 19 days');
+      expect(getText()).toContain('Working days remaining: 15 days');
+    });
   });
 
   describe('cancel', () => {

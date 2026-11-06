@@ -153,6 +153,10 @@ Request create/update/delete events also invalidate `VacationPeriodUsageCacheSer
 
 ### Other pieces
 
+- **Vacation year and limits** (`VacationsUsageService`):
+  - The year runs from the contract start anniversary, or over the calendar year when the user has no contract start date (`vacation-period.utils.ts`).
+  - Limits come only from the vacation policy of the user's team. With no policy, `limits` is null: usage is tracked and shown, but no balance is checked. This is the "no setup" mode.
+  - The usage cache holds one entry per user and is dropped on any event for that user's requests.
 - **Working days:** `VacationDaysCalculationService` excludes weekends and the enabled holidays of the user's vacation policy. Holidays can be imported per country from Nager.Date (`src/holidays/clients/nager-date.client.ts`).
 - **CSV imports:** an admin command posts a prompt, the admin uploads a file, Slack sends `file_shared`, and `FileUploadService` routes the file **by its name** to `src/user-data-import/`:
   - `user-vacations.csv` (`/upload-vacations`): sets the contract start date and replaces the user's vacations;

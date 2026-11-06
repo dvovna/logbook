@@ -10,6 +10,7 @@ import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
 import { getVacationTypeIcon } from 'src/common/utils/get-vacation-type-icon';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import { getDateOnly } from 'src/common/utils/date.utils';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import { CancelVacationRequestSelectModalView } from 'src/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 
@@ -98,30 +99,25 @@ export default class VacationCommandService {
     }
   }
 
-  private getUserVacationsInfoMessage(
-    usageData: IVacationPeriodUsageData | null,
-  ) {
-    if (!usageData) {
-      return {
-        text: 'No vacation usage data available.',
-      };
-    }
-
-    const { usage } = usageData;
+  private getUserVacationsInfoMessage(usageData: IVacationPeriodUsageData) {
+    const { usage, limits, periodStart, periodEnd } = usageData;
+    // Without a team vacation policy nothing is limited, so there is nothing to show as remaining.
+    const remaining = (days: number) =>
+      limits ? `${days} days` : 'not limited';
 
     return {
       text: `
-📊 Your vacation usage:
+📊 Your vacation usage for ${getDateOnly(periodStart)} – ${getDateOnly(periodEnd)}:
 
 ${getVacationTypeIcon(VacationType.AnnualLeave)} Annual Leave:
    • Used: ${usage.annual_leave.used} days
-   • Remaining: ${usage.annual_leave.available} days
+   • Remaining: ${remaining(usage.annual_leave.available)}
    • Working days used: ${usage.annual_leave.working_days_used}
-   • Working days remaining: ${usage.annual_leave.working_days_available}
+   • Working days remaining: ${remaining(usage.annual_leave.working_days_available)}
 
 ${getVacationTypeIcon(VacationType.BonusDay)} Bonus Days:
    • Used: ${usage.bonus_day.used} days
-   • Remaining: ${usage.bonus_day.available} days
+   • Remaining: ${remaining(usage.bonus_day.available)}
 
 ${getVacationTypeIcon(VacationType.SickLeave)} Sick Leave:
    • Used: ${usage.sick_leave.used} days
