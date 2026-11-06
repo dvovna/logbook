@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
-import { VacationRequestCreatedEvent } from 'src/vacation-requests/events/vacation-request.events';
+import {
+  VacationRequestCreatedEvent,
+  VacationRequestUpdatedEvent,
+} from 'src/vacation-requests/events/vacation-request.events';
 import TeamsService from 'src/teams/services/teams.service';
 import { WorkflowStepType } from 'src/request-workflows/types/request-workflow-step.interface';
 import {
@@ -70,6 +73,14 @@ export class VacationRequestProcessingService {
     workflow.levels = levels;
 
     await this.requestWorkflowService.create(workflow);
+  }
+
+  @OnEvent(VacationRequestEvent.Canceled)
+  public async handleRequestCanceled({
+    request,
+    user,
+  }: VacationRequestUpdatedEvent) {
+    await this.requestWorkflowService.cancel(request.id, user);
   }
 
   private buildApproverLevel(

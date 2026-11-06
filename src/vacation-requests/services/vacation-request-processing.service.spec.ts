@@ -1,7 +1,10 @@
 import { VacationRequestProcessingService } from 'src/vacation-requests/services/vacation-request-processing.service';
 import TeamsService from 'src/teams/services/teams.service';
 import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
-import { VacationRequestCreatedEvent } from 'src/vacation-requests/events/vacation-request.events';
+import {
+  VacationRequestCreatedEvent,
+  VacationRequestUpdatedEvent,
+} from 'src/vacation-requests/events/vacation-request.events';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
@@ -38,7 +41,7 @@ const buildRequest = (
 
 describe('VacationRequestProcessingService', () => {
   let teamsService: { findOne: jest.Mock };
-  let workflowService: { create: jest.Mock };
+  let workflowService: Record<'create' | 'cancel', jest.Mock>;
   let service: VacationRequestProcessingService;
 
   beforeEach(() => {
@@ -51,7 +54,7 @@ describe('VacationRequestProcessingService', () => {
         hr_approvers_rule: ApprovalRule.All,
       }),
     };
-    workflowService = { create: jest.fn() };
+    workflowService = { create: jest.fn(), cancel: jest.fn() };
 
     service = new VacationRequestProcessingService(
       teamsService as unknown as TeamsService,
@@ -96,4 +99,17 @@ describe('VacationRequestProcessingService', () => {
       expect(workflowService.create).not.toHaveBeenCalled();
     },
   );
+
+  it('cancels the approval workflow when the request is canceled', async () => {
+    const requester = { id: 'user-1' } as IUserViewModel;
+
+    await service.handleRequestCanceled(
+      new VacationRequestUpdatedEvent(
+        buildRequest(VacationRequestStatus.Canceled),
+        requester,
+      ),
+    );
+
+    expect(workflowService.cancel).toHaveBeenCalledWith('request-1', requester);
+  });
 });

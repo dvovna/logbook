@@ -286,11 +286,18 @@ export class VacationRequestsService implements IVacationRequestsService {
       );
     }
 
-    return this.update(
+    const canceledRequest = await this.update(
       { id: requestId, slackTeamId: user.slack_team_id },
       { status: VacationRequestStatus.Canceled },
       user,
     );
+
+    this.eventEmitter.emit(
+      VacationRequestEvent.Canceled,
+      new VacationRequestUpdatedEvent(canceledRequest, user),
+    );
+
+    return canceledRequest;
   }
 
   public findOne(

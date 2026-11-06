@@ -312,4 +312,72 @@ describe('RequestWorkflowService', () => {
       });
     });
   });
+
+  describe('a step that is already decided', () => {
+    const decidedStep = (status: 'approved' | 'rejected' | 'canceled') => {
+      const step = buildStep();
+
+      return { ...step, step_data: { ...step.step_data, status } };
+    };
+
+    it.each(['approved', 'rejected', 'canceled'] as const)(
+      'ignores Approve when the step is %s',
+      async (status) => {
+        stepsService.findOneWithValidation.mockResolvedValue(
+          decidedStep(status),
+        );
+
+        await service.approveStep('step-1', approver);
+
+        expect(stepsService.updateStatus).not.toHaveBeenCalled();
+        expect(processorService.processSteps).not.toHaveBeenCalled();
+        expect(eventEmitter.emit).not.toHaveBeenCalled();
+      },
+    );
+
+    it('ignores Reject when the step is canceled', async () => {
+      stepsService.findOneWithValidation.mockResolvedValue(
+        decidedStep('canceled'),
+      );
+
+      await service.rejectStep('step-1', approver);
+
+      expect(stepsService.updateStatus).not.toHaveBeenCalled();
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cancel', () => {
+    const requester = { ...approver, id: 'requester-1', slack_id: 'U_REQ' };
+
+    it('marks every open step as canceled and closes their messages', async () => {
+      const openSteps = [
+        buildStep({ id: 'step-1' }),
+        buildStep({ id: 'step-2', step_level: 2 }),
+      ];
+      stepsService.updateStatus.mockResolvedValue(openSteps);
+
+      await service.cancel(REQUEST_ID, requester);
+
+      expect(stepsService.updateStatus).toHaveBeenCalledWith(
+        { requestId: REQUEST_ID, slackTeamId: SLACK_TEAM_ID, completed: false },
+        'canceled',
+        requester,
+      );
+      expect(processorService.completeSteps).toHaveBeenCalledWith(
+        openSteps,
+        comments,
+      );
+      expect(processorService.processSteps).not.toHaveBeenCalled();
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the request has no open steps', async () => {
+      stepsService.updateStatus.mockResolvedValue([]);
+
+      await service.cancel(REQUEST_ID, requester);
+
+      expect(processorService.completeSteps).not.toHaveBeenCalled();
+    });
+  });
 });
