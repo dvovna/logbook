@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -12,6 +12,7 @@ import { RequestWorkflowService } from '@modules/request-workflows/services/requ
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { ApproverStepCommentModalView } from '@modules/request-workflows/views/approver-step-comment-modal.view';
 import UserRole from '@common/enums/user-role.enum';
+import { runInBackground } from '@common/utils/run-in-background';
 
 @Injectable()
 @SlackHandler({
@@ -21,6 +22,8 @@ import UserRole from '@common/enums/user-role.enum';
 })
 export class ApproverStepMessageHandler extends BaseActionHandler {
   protected actionMap: ActionMapType;
+
+  private readonly logger = new Logger(ApproverStepMessageHandler.name);
 
   public constructor(
     private readonly requestWorkflowService: RequestWorkflowService,
@@ -38,12 +41,18 @@ export class ApproverStepMessageHandler extends BaseActionHandler {
     };
   }
 
-  private handleApprove = async (stepId: string, user: IUserViewModel) => {
-    await this.requestWorkflowService.approveStep(stepId, user);
+  // Deciding a step updates every approver's message and notifies the next
+  // level, which can take longer than Slack waits for the click's answer.
+  private handleApprove = (stepId: string, user: IUserViewModel) => {
+    runInBackground(this.logger, `approve step ${stepId}`, () =>
+      this.requestWorkflowService.approveStep(stepId, user),
+    );
   };
 
-  private handleReject = async (stepId: string, user: IUserViewModel) => {
-    await this.requestWorkflowService.rejectStep(stepId, user);
+  private handleReject = (stepId: string, user: IUserViewModel) => {
+    runInBackground(this.logger, `reject step ${stepId}`, () =>
+      this.requestWorkflowService.rejectStep(stepId, user),
+    );
   };
 
   private handleAddComment = async (

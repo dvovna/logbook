@@ -5,6 +5,7 @@ import { ApproverMessageActionId } from '@modules/request-workflows/enums/approv
 import { Tables } from '@common/types/database.types';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import { VacationsTabViewActionId } from '@modules/slack/tabs/vacations/enums/vacations-tab-view-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { eventually, settle } from './support/eventually';
@@ -182,6 +183,58 @@ describe('Vacation request approval', () => {
 
     await settle();
     expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+  });
+
+  describe('deciding from the Vacations tab instead of the message', () => {
+    // Vacations → "Requests awaiting your approval" → the request's menu.
+    const decide = async (
+      action:
+        | VacationsTabViewActionId.ApprovePendingRequest
+        | VacationsTabViewActionId.RejectPendingRequest,
+    ) => {
+      const [step] = await workspace.rows('request_workflow_steps');
+      const vacationsTab = await openAppHomeTab(t, workspace, manager, [
+        AdminNavigationActionId.ManageVacations,
+      ]);
+      const confirmation = await openModalFrom(
+        t,
+        workspace,
+        manager,
+        vacationsTab,
+        VacationsTabViewActionId.ManagePendingRequestMenu,
+        `${action}:${step.id}`,
+      );
+
+      await t.slack.submitView(workspace, manager, confirmation).expect(200);
+    };
+
+    beforeEach(async () => {
+      await addMember(
+        await workspace.addTeam({ manager_approvers: [manager.slack_id] }),
+      );
+    });
+
+    it('approves', async () => {
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, manager);
+
+      await decide(VacationsTabViewActionId.ApprovePendingRequest);
+
+      await eventually(async () =>
+        expect(await statusOf(request)).toBe(VacationRequestStatus.Approved),
+      );
+    });
+
+    it('rejects', async () => {
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, manager);
+
+      await decide(VacationsTabViewActionId.RejectPendingRequest);
+
+      await eventually(async () =>
+        expect(await statusOf(request)).toBe(VacationRequestStatus.Rejected),
+      );
+    });
   });
 
   describe('when an approver is away, HR approves for them', () => {

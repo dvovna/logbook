@@ -12,6 +12,7 @@ import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import { REQUEST_CONFIRMATION_VIEW_CONFIG } from '@modules/request-workflows/configs/request-confirmation-view-config';
+import { runInBackground } from '@common/utils/run-in-background';
 
 @Injectable()
 @SlackHandler({
@@ -29,30 +30,27 @@ export class RejectRequestStepFormSubmitHandler
     super();
   }
 
+  // Slack shows the modal as failed after 3 seconds, so the decision (and
+  // re-rendering the tab with it) runs after the answer.
   protected async onSubmit(
     _data: object,
     meta: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ) {
     const { id: stepId } = meta;
+    const pageMetadata = meta.pageMetadata ? JSON.parse(meta.pageMetadata) : {};
 
-    await this.requestWorkflowService.rejectStep(stepId, user);
+    runInBackground(this.logger, `reject step ${stepId}`, async () => {
+      await this.requestWorkflowService.rejectStep(stepId, user);
+
+      this.tabNavigationService.navigate(TabId.Vacations, {
+        user,
+        metadata: pageMetadata,
+      });
+    });
   }
 
-  protected successResponse(
-    _result,
-    user: IUserViewModel,
-    metadata: IConfirmationModalViewMetadata,
-  ): ViewResponseAction {
-    const pageMetadata = metadata.pageMetadata
-      ? JSON.parse(metadata.pageMetadata)
-      : {};
-
-    this.tabNavigationService.navigate(TabId.Vacations, {
-      user,
-      metadata: pageMetadata,
-    });
-
+  protected successResponse(): ViewResponseAction {
     return SlackViewResponseFactory.update(
       this.confirmationModalView.getSuccessView(
         `❌ Vacation request rejected.`,

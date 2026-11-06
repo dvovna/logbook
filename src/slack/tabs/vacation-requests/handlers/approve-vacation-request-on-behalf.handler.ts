@@ -16,6 +16,7 @@ import SlackViewResponseFactory from '@modules/slack/factories/slack-response.fa
 import UserRole from '@common/enums/user-role.enum';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 import { ValidationError } from '@common/errors/validation.error';
+import { runInBackground } from '@common/utils/run-in-background';
 
 // HR or an admin approves the level a request is waiting on, for approvers
 // who are away, so the request moves on along the approval flow.
@@ -62,23 +63,21 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
       );
     }
 
-    this.requestWorkflowService
-      .approveCurrentLevel(metadata.id, user)
-      .then(() =>
-        this.vacationRequestsTabService.publish({
+    runInBackground(
+      this.logger,
+      `approve request ${metadata.id} for its approvers`,
+      async () => {
+        await this.requestWorkflowService.approveCurrentLevel(metadata.id, user);
+
+        await this.vacationRequestsTabService.publish({
           user,
           metadata:
             jsonParse<IVacationRequestsTabMetadata>(
               metadata.pageMetadata || '{}',
             ) ?? undefined,
-        }),
-      )
-      .catch((error: Error) => {
-        this.logger.error(
-          `Failed to approve request ${metadata.id} for its approvers: ${error.message}`,
-          error.stack,
-        );
-      });
+        });
+      },
+    );
   }
 
   protected async errorResponse(
