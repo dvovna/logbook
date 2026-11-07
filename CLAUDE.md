@@ -177,7 +177,7 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - level 1: `manager_approvers`;
    - level 2: `hr_approvers`.
 
-   Each level has an `ApprovalRule` of `ANY` or `ALL`. If the team has no approvers, no workflow is created.
+   Each level has an `ApprovalRule` of `ANY` or `ALL`. If nobody on the team can approve it (no team, no approvers, or the requester is the only one), it goes as one `ANY` level to everyone with the HR role, else to every admin, never to the requester. The requester gets a DM saying so (`VacationApproversNoticeService`). With nobody else in the workspace, no workflow is created and the DM says the request stays pending.
 3. `RequestWorkflowService` stores one row per approver in `vacation_request_workflow_steps` and activates level 1 through `WorkflowStepProcessorService`.
 4. Step processors are registered with `@WorkflowStepProcessor(type)` and found by `WorkflowStepProcessorsRegistry` (the same discovery pattern as Slack handlers). The only type is `approver`: `ApproverStepProcessor` sends each approver a DM with Approve / Reject / Comment buttons.
 5. Button clicks go to `ApproverStepMessageHandler` (`block_id` `workflow_step_message`):

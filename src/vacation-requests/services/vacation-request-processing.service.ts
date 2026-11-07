@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import {
   VacationRequestCreatedEvent,
   VacationRequestUpdatedEvent,
+  VacationRequestWithoutTeamApproversEvent,
 } from '@modules/vacation-requests/events/vacation-request.events';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import { UsersService } from '@modules/users/services/users.service';
+import UserRole from '@common/enums/user-role.enum';
 import TeamsService from '@modules/teams/services/teams.service';
 import { WorkflowStepType } from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
@@ -20,6 +24,8 @@ export class VacationRequestProcessingService {
   public constructor(
     private readonly teamsService: TeamsService,
     private readonly requestWorkflowService: RequestWorkflowService,
+    private readonly usersService: UsersService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   @OnEvent(VacationRequestEvent.Created)
@@ -36,10 +42,6 @@ export class VacationRequestProcessingService {
           slackTeamId: request.slack_team_id,
         })
       : null;
-
-    if (!team) {
-      return;
-    }
 
     const workflow: ICreateWorkflowParams = {
       requestId: request.id,
@@ -66,24 +68,67 @@ export class VacationRequestProcessingService {
       approvers?.filter((slackId) => slackId !== request.user!.slack_id) ??
       null;
 
-    const levels: ICreateWorkflowLevelParams[] = [
-      this.buildApproverLevel(
-        notRequester(team.manager_approvers),
-        team.manager_approvers_rule,
-      ),
-      this.buildApproverLevel(
-        notRequester(team.hr_approvers),
-        team.hr_approvers_rule,
-      ),
-    ].filter((level): level is ICreateWorkflowLevelParams => level !== null);
+    const levels: ICreateWorkflowLevelParams[] = team
+      ? [
+          this.buildApproverLevel(
+            notRequester(team.manager_approvers),
+            team.manager_approvers_rule,
+          ),
+          this.buildApproverLevel(
+            notRequester(team.hr_approvers),
+            team.hr_approvers_rule,
+          ),
+        ].filter((level): level is ICreateWorkflowLevelParams => level !== null)
+      : [];
 
-    if (levels.length === 0) {
+    if (levels.length) {
+      await this.requestWorkflowService.create({ ...workflow, levels });
+
       return;
     }
 
-    workflow.levels = levels;
+    // Nobody on the team can approve it, so it would wait forever: it goes to
+    // HR instead, or to the admins when there is no HR, and the requester is
+    // told so.
+    const fallback = await this.findFallbackApprovers(request);
 
-    await this.requestWorkflowService.create(workflow);
+    if (fallback) {
+      await this.requestWorkflowService.create({
+        ...workflow,
+        levels: [
+          this.buildApproverLevel(fallback.approvers, ApprovalRule.Any)!,
+        ],
+      });
+    }
+
+    this.eventEmitter.emit(
+      VacationRequestEvent.WithoutTeamApprovers,
+      new VacationRequestWithoutTeamApproversEvent(
+        request,
+        Boolean(team),
+        fallback?.role ?? null,
+      ),
+    );
+  }
+
+  // Everyone with the HR role, else every admin; never the requester.
+  private async findFallbackApprovers(request: IVacationRequestViewModel) {
+    for (const role of [UserRole.HR, UserRole.Admin] as const) {
+      const approvers = (
+        await this.usersService.findMany({
+          slackTeamId: request.slack_team_id,
+          role,
+        })
+      )
+        .map(({ slack_id }) => slack_id)
+        .filter((slackId) => slackId !== request.user!.slack_id);
+
+      if (approvers.length) {
+        return { role, approvers };
+      }
+    }
+
+    return null;
   }
 
   @OnEvent(VacationRequestEvent.Updated)

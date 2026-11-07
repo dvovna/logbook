@@ -10,6 +10,10 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import { UsersService } from 'src/users/services/users.service';
+import UserRole from 'src/common/enums/user-role.enum';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -42,6 +46,8 @@ const buildRequest = (
 describe('VacationRequestProcessingService', () => {
   let teamsService: { findOne: jest.Mock };
   let workflowService: Record<'create' | 'cancel', jest.Mock>;
+  let usersByRole: Partial<Record<UserRole, string[]>>;
+  let eventEmitter: { emit: jest.Mock };
   let service: VacationRequestProcessingService;
 
   beforeEach(() => {
@@ -55,10 +61,19 @@ describe('VacationRequestProcessingService', () => {
       }),
     };
     workflowService = { create: jest.fn(), cancel: jest.fn() };
+    usersByRole = {};
+    const usersService = {
+      findMany: jest.fn(async ({ role }: { role: UserRole }) =>
+        (usersByRole[role] ?? []).map((slack_id) => ({ slack_id })),
+      ),
+    };
+    eventEmitter = { emit: jest.fn() };
 
     service = new VacationRequestProcessingService(
       teamsService as unknown as TeamsService,
       workflowService as unknown as RequestWorkflowService,
+      usersService as unknown as UsersService,
+      eventEmitter as unknown as EventEmitter2,
     );
   });
 
@@ -99,6 +114,75 @@ describe('VacationRequestProcessingService', () => {
       expect(workflowService.create).not.toHaveBeenCalled();
     },
   );
+
+  describe('when nobody on the team can approve it', () => {
+    const levelsOf = () => workflowService.create.mock.calls[0][0].levels;
+    const sentTo = () => {
+      const [event, payload] = eventEmitter.emit.mock.calls[0];
+      expect(event).toBe(VacationRequestEvent.WithoutTeamApprovers);
+      return payload.sentTo;
+    };
+    const anyOf = (...slackIds: string[]) => [
+      {
+        rule: ApprovalRule.Any,
+        steps: slackIds.map((slackUserId) => ({
+          slackUserId,
+          stepType: 'approver',
+        })),
+      },
+    ];
+
+    beforeEach(() => {
+      // The requester is the team's only approver.
+      teamsService.findOne.mockResolvedValue({
+        id: 'team-1',
+        manager_approvers: ['U_REQUESTER'],
+        manager_approvers_rule: ApprovalRule.All,
+        hr_approvers: [],
+        hr_approvers_rule: ApprovalRule.All,
+      });
+    });
+
+    it('sends it to anyone of HR, leaving out the requester', async () => {
+      usersByRole = {
+        [UserRole.HR]: ['U_HR_1', 'U_REQUESTER', 'U_HR_2'],
+        [UserRole.Admin]: ['U_ADMIN'],
+      };
+
+      await onCreated(VacationRequestStatus.Pending);
+
+      expect(levelsOf()).toEqual(anyOf('U_HR_1', 'U_HR_2'));
+      expect(sentTo()).toBe(UserRole.HR);
+    });
+
+    it('sends it to the admins when there is no HR', async () => {
+      usersByRole = { [UserRole.Admin]: ['U_ADMIN'] };
+
+      await onCreated(VacationRequestStatus.Pending);
+
+      expect(levelsOf()).toEqual(anyOf('U_ADMIN'));
+      expect(sentTo()).toBe(UserRole.Admin);
+    });
+
+    it('does the same for a requester in no team', async () => {
+      teamsService.findOne.mockResolvedValue(null);
+      usersByRole = { [UserRole.HR]: ['U_HR_1'] };
+
+      await onCreated(VacationRequestStatus.Pending);
+
+      expect(levelsOf()).toEqual(anyOf('U_HR_1'));
+      expect(eventEmitter.emit.mock.calls[0][1].inTeam).toBe(false);
+    });
+
+    it('starts no workflow when nobody else can approve it', async () => {
+      usersByRole = { [UserRole.Admin]: ['U_REQUESTER'] };
+
+      await onCreated(VacationRequestStatus.Pending);
+
+      expect(workflowService.create).not.toHaveBeenCalled();
+      expect(sentTo()).toBeNull();
+    });
+  });
 
   it('closes the approval workflow when the request is updated', async () => {
     const requester = { id: 'user-1' } as IUserViewModel;

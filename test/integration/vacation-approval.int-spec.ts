@@ -310,7 +310,14 @@ describe('Vacation request approval', () => {
 
     it('says so when nobody has to approve the request', async () => {
       await addMember(await workspace.addTeam());
-      const request = await requestVacation(t, workspace, member, workWeek(2));
+      // Pending without a workflow, as requests created before they went to
+      // HR or the admins when the team had no approvers.
+      const { start, end } = workWeek(2);
+      const request = await workspace.addVacationRequest(member, {
+        start_date: start,
+        end_date: end,
+        status: VacationRequestStatus.Pending,
+      });
 
       const confirmation = await openConfirmation(request);
       expect(textOf(confirmation)).toContain('not waiting for anyone');
@@ -344,14 +351,97 @@ describe('Vacation request approval', () => {
     });
   });
 
-  it('approves nothing when the team has no approvers', async () => {
-    const team = await workspace.addTeam();
-    await addMember(team);
+  // Without an approver left on the team the request would wait forever.
+  describe('when nobody on the team can approve it', () => {
+    const noticeTo = async (user: Tables<'users'>) => {
+      await t.idle();
+      const [notice] = t.slackApi.postedMessages(
+        workspace.token,
+        user.slack_id,
+      );
 
-    const request = await requestVacation(t, workspace, member, workWeek(2));
+      return notice?.text;
+    };
 
-    await t.idle();
-    expect(await workspace.rows('request_workflow_steps')).toEqual([]);
-    expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+    it('sends it to HR, who can approve it', async () => {
+      const { start, end } = workWeek(2);
+      const hr = await workspace.addUser({
+        role: UserRole.HR,
+        name: 'Hana HR',
+      });
+      await addMember(await workspace.addTeam());
+
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+
+      expect(await noticeTo(member)).toBe(
+        `📨 Your vacation request (${start} → ${end}) went to HR for approval: your team has no other approvers.`,
+      );
+      await click(
+        hr,
+        await approvalMessageTo(t, workspace, hr),
+        ApproverMessageActionId.Approve,
+      );
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+    });
+
+    it('sends it to the admins when there is no HR', async () => {
+      const { start, end } = workWeek(2);
+      const admin = await workspace.addUser({
+        role: UserRole.Admin,
+        name: 'Ada Admin',
+      });
+      // In no team at all.
+      member = await workspace.addUser({ name: 'Max Member' });
+
+      await requestVacation(t, workspace, member, workWeek(2));
+
+      expect(await noticeTo(member)).toBe(
+        `📨 Your vacation request (${start} → ${end}) went to the workspace admins for approval: you are not in a team.`,
+      );
+      expect(textOf(await approvalMessageTo(t, workspace, admin))).toContain(
+        'Max Member',
+      );
+    });
+
+    it("sends a team lead's own request to HR, not back to them", async () => {
+      const hr = await workspace.addUser({
+        role: UserRole.HR,
+        name: 'Hana HR',
+      });
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+      });
+      await t.db
+        .from('users')
+        .update({ team_id: team.id })
+        .eq('id', manager.id);
+
+      await requestVacation(
+        t,
+        workspace,
+        { ...manager, team_id: team.id },
+        workWeek(2),
+      );
+
+      expect(await approvalMessageTo(t, workspace, hr)).toBeDefined();
+      expect(
+        t.slackApi.postedMessages(workspace.token, manager.slack_id),
+      ).toHaveLength(1);
+      expect(await noticeTo(manager)).toContain('went to HR');
+    });
+
+    it('says so when nobody else can approve it', async () => {
+      const { start, end } = workWeek(2);
+      await addMember(await workspace.addTeam());
+
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+
+      expect(await noticeTo(member)).toBe(
+        `⚠️ Nobody can approve your vacation request (${start} → ${end}) yet: your team has no other approvers, and nobody else has the HR or Admin role. It stays pending until an admin adds approvers to your team.`,
+      );
+      expect(await workspace.rows('request_workflow_steps')).toEqual([]);
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+    });
   });
 });
