@@ -22,6 +22,7 @@ yarn test src/request-workflows/services/request-workflow.service.spec.ts   # on
 yarn test -t 'finishes the workflow'                                        # by test name
 yarn test:int         # integration tests against the local Supabase stack
 yarn db:init          # recreate the local Supabase database from supabase/migrations
+yarn db:types         # regenerate src/common/types/database.types.ts from the local database
 npx supabase@latest start                                                    # local Supabase in Docker
 yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # signed event to the local app
 ```
@@ -57,18 +58,18 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 - Every class member needs an explicit `public`/`private`/`protected` (`explicit-member-accessibility`).
 - Single quotes, trailing commas and 2-space indent come from Prettier; `yarn lint` or `yarn format` applies them.
 - Imports use the tsconfig path aliases `@modules/<module>/...` and `@common/...`. Absolute `src/...` paths also resolve (`baseUrl: ./`), but relative `../` imports are a lint error. Jest maps all of them in `moduleNameMapper`.
-- `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint and Prettier both ignore it.
+- `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint ignores it; `yarn db:types` formats it with Prettier.
 
 ## Schema
 
 The schema lives in `supabase/migrations`:
 - `20260101000000_baseline_schema.sql` is the baseline. It holds every public table, constraint, index, comment and RLS flag of the dev project, taken with `pg_dump --schema-only` and made idempotent. On a database that already has the schema it is a no-op. On an empty one it creates the tables that the later migrations rely on.
 - The later migrations add RPCs (`get_projects_list`, `assign_project_assignments`, `get_user_projects`, `get_time_entries_list`) and constraints.
-- `src/common/types/database.types.ts` is generated from the dev project.
+- `src/common/types/database.types.ts` is generated from the local database by `yarn db:types`, with the Supabase CLI pinned in `devDependencies` (another CLI version writes the file differently). CI applies `supabase/migrations` to a fresh stack, regenerates the file and fails when it differs from the committed one. Bump the pinned CLI when it can no longer read `supabase/config.toml`, and commit the regenerated file with it.
 
 To change the schema:
 1. Add a new migration (`npx supabase@latest migration new <name>`).
-2. Regenerate `database.types.ts`.
+2. Apply it locally (`yarn db:init`) and run `yarn db:types`. A database with migrations from other branches gives other types.
 3. Update the repository's `mapToViewModel`.
 
 Pushing to the dev project:

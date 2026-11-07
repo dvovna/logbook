@@ -7269,7 +7269,7 @@ strtok3@^10.3.4:
   dependencies:
     "@tokenizer/token" "^0.3.0"
 
-supabase@>=3.0.0:
+supabase@3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/supabase/-/supabase-3.0.0.tgz#64559b209079a1c340bf56b003f704a04978ec30"
   integrity sha512-FB+V+RzXYTmCzbchaN3CUdxLPpcKzJd4RSOc/dAE6cAtI7TZE8J5OLJYXjJae9C/fbi2xxzZJLL/Y2N1zbzf9A==

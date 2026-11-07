@@ -73,5 +73,14 @@ jobs:
       - name: Start Supabase
         run: npx --yes supabase@latest start -x studio,postgres-meta
 
+      # The committed types must be what the migrations produce.
+      - name: Database types match the migrations
+        run: |
+          yarn db:types
+          if ! git diff --exit-code -- src/common/types/database.types.ts; then
+            echo "::error file=src/common/types/database.types.ts::Differs from what supabase/migrations produce. Run yarn db:init, then yarn db:types, and commit the file."
+            exit 1
+          fi
+
       - name: Integration tests
         run: yarn test:int --ci

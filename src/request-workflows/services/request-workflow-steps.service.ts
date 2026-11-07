@@ -68,7 +68,7 @@ export class RequestWorkflowStepsService {
           slack_user_id: slackUserId,
           step_level: stepLevel,
           step_type: stepType,
-          step_data: stepData as Json | undefined,
+          step_data: stepData as NonNullable<Json> | undefined,
           created_at: timestamp,
           updated_at: timestamp,
         }),
@@ -100,7 +100,7 @@ export class RequestWorkflowStepsService {
           : {}),
         updated_at: new Date().toISOString(),
         ...(updateData.stepData
-          ? { step_data: updateData.stepData as unknown as Json | undefined }
+          ? { step_data: updateData.stepData as unknown as NonNullable<Json> }
           : {}),
       },
     );
