@@ -14,8 +14,8 @@ yarn start:dev        # watch mode
 yarn start:debug      # watch + inspector
 yarn build            # nest build -> dist/
 yarn start:prod       # node dist/main
-yarn lint             # eslint with --fix on all of src (see note below)
-yarn format           # prettier
+yarn lint             # eslint with --fix, formatting included (see note below)
+yarn format           # prettier on src and test
 npx tsc --noEmit      # type-check only
 yarn test             # jest
 yarn test src/request-workflows/services/request-workflow.service.spec.ts   # one file
@@ -38,10 +38,10 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - `global-setup.ts` reads the URLs and keys from `supabase status` and refuses non-local URLs. It also stops when the local database lacks a migration from `supabase/migrations`.
   - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners, tab updates). `await t.idle()` waits until that work is done, then assert. It works because the app runs such work through `runInBackground` (`src/common/utils/run-in-background.ts`), and the harness routes `EventEmitter2.emit` through `emitAsync`. Work after `res.send()` that skips `runInBackground` is invisible to it.
 - `yarn db:init` runs `supabase db reset` against the local stack, which drops the local database and applies `supabase/migrations`. `src/commands` holds dev scripts and is excluded from `nest build`.
-- The codebase is not lint-clean: about 140 prettier and other errors already exist. `yarn lint` uses `--fix`, so it rewrites many unrelated files. To lint only what you touched, run `npx eslint <files>`.
+- Prettier (`.prettierrc`) owns formatting, and ESLint reports what Prettier would change (`prettier/prettier`, through `eslint-plugin-prettier` at the end of `eslint.config.mjs`). Don't add ESLint formatting rules such as `indent` or `quotes`: they fight Prettier. The codebase is lint-clean and CI fails on any lint error. The commit that formatted everything is in `.git-blame-ignore-revs` (GitHub skips it in blame; locally run `git config blame.ignoreRevsFile .git-blame-ignore-revs`).
 - Node 26 everywhere:
   - pinned in `.nvmrc`;
-  - used by the Dockerfile and by CI (`.github/workflows/ci.yml`: tsc, jest, build, non-blocking lint of changed files).
+  - used by the Dockerfile and by CI (`.github/workflows/ci.yml`: tsc, jest, build, lint).
 
   Node images and installs from 26 on have no yarn and no corepack, so the Dockerfile and CI install `yarn@1.22.22` themselves.
 - The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if a required one is missing. Only the Supabase URL and service role key and the four Slack values are required; the `MAX_*`/year limits have defaults. Copy `.env.example` to `.env` first.
@@ -55,7 +55,7 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 
 - Interfaces must be prefixed with `I` (`@typescript-eslint/naming-convention` reports an error otherwise).
 - Every class member needs an explicit `public`/`private`/`protected` (`explicit-member-accessibility`).
-- Use single quotes, trailing commas and 2-space indent.
+- Single quotes, trailing commas and 2-space indent come from Prettier; `yarn lint` or `yarn format` applies them.
 - Imports use the tsconfig path aliases `@modules/<module>/...` and `@common/...`. Absolute `src/...` paths also resolve (`baseUrl: ./`), but relative `../` imports are a lint error. Jest maps all of them in `moduleNameMapper`.
 - `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint and Prettier both ignore it.
 

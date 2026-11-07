@@ -19,9 +19,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-        with:
-          # The lint step diffs against the base branch.
-          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:
@@ -47,18 +44,9 @@ jobs:
       - name: Build
         run: yarn build
 
-      # The codebase still has ~140 lint errors from before, some of them in
-      # files a PR touches, so this step reports problems without failing the job.
-      - name: Lint changed files
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        run: |
-          files=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- '*.ts' ':!src/common/types/database.types.ts')
-          if [ -z "$files" ]; then
-            echo "No TypeScript files changed"
-            exit 0
-          fi
-          npx eslint $files
+      # ESLint also reports code Prettier would format differently.
+      - name: Lint
+        run: npx eslint src test
 
   integration:
     runs-on: ubuntu-latest
