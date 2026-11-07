@@ -69,14 +69,14 @@ describe('Vacation screens', () => {
     expect(details).toContain(`⏳ *Pending* by <@${boris.slack_id}>`);
   });
 
-  it('lists the pending and approved requests in the history', async () => {
+  it('lists every request in the history with its status', async () => {
     const approved = await workspace.addVacationRequest(member, {
       start_date: '2026-03-02',
       end_date: '2026-03-06',
       days: 5,
       working_days: 5,
     });
-    await workspace.addVacationRequest(member, {
+    const rejected = await workspace.addVacationRequest(member, {
       start_date: '2026-04-06',
       end_date: '2026-04-06',
       status: VacationRequestStatus.Rejected,
@@ -88,10 +88,27 @@ describe('Vacation screens', () => {
 
     expect(listItems(history)).toEqual([
       expect.objectContaining({
+        id: rejected.id,
+        title: 'Annual Leave',
+        fields: { Status: '❌ Rejected', Days: '1 (1 working)' },
+      }),
+      expect.objectContaining({
         id: approved.id,
+        title: 'Annual Leave',
+        fields: { Status: '✅ Approved', Days: '5 (5 working)' },
         menu: [VacationHistoryTabViewActionId.ViewDetails],
       }),
     ]);
+
+    const onlyRejected = await actOnTab(
+      t,
+      workspace,
+      member,
+      history,
+      VacationHistoryTabViewActionId.FilterRequestsByStatus,
+      VacationRequestStatus.Rejected,
+    );
+    expect(listItems(onlyRejected).map(({ id }) => id)).toEqual([rejected.id]);
 
     const details = await openModalFrom(
       t,

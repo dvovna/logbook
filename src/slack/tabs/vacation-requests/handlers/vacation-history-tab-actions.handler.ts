@@ -63,6 +63,10 @@ export default class VacationHistoryTabActionsHandler extends BaseActionHandler 
         'type',
         this.updateTab,
       ),
+      [VacationHistoryTabViewActionId.FilterRequestsByStatus]: withSelectFilter(
+        'status',
+        this.updateTab,
+      ),
       [VacationHistoryTabViewActionId.ResetFilters]: withResetFilters(
         this.updateTab,
       ),

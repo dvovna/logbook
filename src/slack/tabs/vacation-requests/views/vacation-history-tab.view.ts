@@ -1,3 +1,7 @@
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import capitalize from '@common/utils/capitalize';
+import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
+import { STATUS_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
@@ -23,6 +27,7 @@ import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-req
 export interface IVacationHistoryTabFilters {
   year?: string;
   type?: VacationType;
+  status?: VacationRequestStatus;
 }
 
 export interface IVacationHistoryTabMetadata {
@@ -85,16 +90,20 @@ export class VacationHistoryTabView extends BaseTabView<
     return [
       {
         type: 'section',
+        // The user's own requests: what and when, and how it was decided.
         fields: [
           {
             type: 'mrkdwn',
-            text: `*${vacationRequest.user?.name || 'Unknown'}* (${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]})`,
+            text: `*${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]}*`,
           },
-          { type: 'mrkdwn', text: `Days: ${vacationRequest.days}` },
+          {
+            type: 'mrkdwn',
+            text: `Status: ${getVacationStatusEmoji(vacationRequest.status)} ${capitalize(vacationRequest.status)}`,
+          },
           { type: 'mrkdwn', text: `📅 ${dates}` },
           {
             type: 'mrkdwn',
-            text: `Working Days: ${vacationRequest.working_days}`,
+            text: `Days: ${vacationRequest.days} (${vacationRequest.working_days} working)`,
           },
         ],
         accessory: {
@@ -147,6 +156,13 @@ export class VacationHistoryTabView extends BaseTabView<
         placeholder: 'Year',
         options: yearsOptions,
         initialValue: filters?.year,
+      },
+      {
+        type: 'static_select',
+        actionId: VacationHistoryTabViewActionId.FilterRequestsByStatus,
+        placeholder: 'Status',
+        options: STATUS_OPTIONS,
+        initialValue: filters?.status,
       },
     ];
 

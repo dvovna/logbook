@@ -10,7 +10,6 @@ import {
   IVacationHistoryTabMetadata,
   VacationHistoryTabView,
 } from '@modules/slack/tabs/vacation-requests/views/vacation-history-tab.view';
-import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import {
   IViewVacationRequestModalViewParams,
   VacationDetailsModalService,
@@ -79,7 +78,7 @@ export class VacationHistoryTabService extends BaseTabService<
     user,
     metadata = {},
   }: IPublishVacationsHistoryTabViewParams) {
-    const { type, year } = metadata?.filters ?? {};
+    const { type, year, status } = metadata?.filters ?? {};
 
     return this.vacationRequestsService.search({
       page: metadata.page,
@@ -88,10 +87,9 @@ export class VacationHistoryTabService extends BaseTabService<
       filters: {
         slackTeamId: user.slack_team_id,
         userId: user.id,
-        statuses: [
-          VacationRequestStatus.Approved,
-          VacationRequestStatus.Pending,
-        ],
+        // Every request, rejected and canceled ones too, so a user can see
+        // what became of each.
+        ...(status && { statuses: [status] }),
         ...(year && { year }),
         ...(type && { type }),
       },
