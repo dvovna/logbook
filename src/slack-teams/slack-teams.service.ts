@@ -28,6 +28,10 @@ export class SlackTeamsService {
     });
   }
 
+  public findAccessToken(id: string) {
+    return this.slackTeamsRepository.findAccessToken(id);
+  }
+
   public async findOne(findParams: IFindParams) {
     return await this.slackTeamsRepository.findOne(
       this.getFilterQuery(findParams),

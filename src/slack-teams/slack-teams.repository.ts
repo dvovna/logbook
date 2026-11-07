@@ -13,14 +13,28 @@ export class SlackTeamsRepository extends BaseRepository<
 > {
   protected tableName: TableName = 'slack_teams';
 
+  // The bot token stays out of the view model, so it doesn't travel with every
+  // workspace object (logs, errors, views). findAccessToken reads it.
   protected mapToViewModel = (row: Tables['slack_teams']['Row']) => {
     return {
       id: row.id,
       name: row.name,
       slack_id: row.slack_id,
-      slack_token: row.slack_token,
-      access_token: row.slack_token,
       created_at: row.created_at,
     };
   };
+
+  public async findAccessToken(id: string): Promise<string | null> {
+    const { data, error } = await this.client
+      .from(this.tableName)
+      .select('slack_token')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to read the bot token: ${error.message}`);
+    }
+
+    return (data as { slack_token: string } | null)?.slack_token ?? null;
+  }
 }

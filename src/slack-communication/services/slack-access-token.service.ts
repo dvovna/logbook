@@ -20,15 +20,15 @@ export default class AccessTokenService {
       return cached;
     }
 
-    const team = await this.slackTeamsService.findOne({ id: teamId });
+    const token = await this.slackTeamsService.findAccessToken(teamId);
 
-    if (!team) {
+    if (!token) {
       throw new NotFoundException('Team not found');
     }
 
-    await this.cacheManager.set(cacheKey, team.access_token, CACHE_TTL);
+    await this.cacheManager.set(cacheKey, token, CACHE_TTL);
 
-    return team.access_token;
+    return token;
   }
 
   private getCacheKey(teamId: string) {

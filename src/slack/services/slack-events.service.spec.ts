@@ -18,7 +18,6 @@ const slackTeam: ISlackTeamViewModel = {
   id: 'b7a1c2d4-0000-4000-8000-000000000001',
   name: 'Acme',
   slack_id: 'T_ACME',
-  access_token: 'xoxb-test',
   created_at: '2026-01-01T00:00:00Z',
 };
 
