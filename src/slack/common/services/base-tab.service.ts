@@ -10,6 +10,7 @@ import {
 import { FallbackTabView } from '@modules/slack/common/views/fallback-tab.view';
 import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-tab.view';
 import { trackInBackground } from '@common/utils/run-in-background';
+import { canOpenTab } from '@modules/slack/common/views/data/tab-access';
 
 export type IOpenModalBaseParams<PageMetadata = undefined> = {
   user: IUserViewModel;
@@ -72,6 +73,17 @@ export default abstract class BaseTabService<
   };
 
   private async publishTab(params: PublishParams) {
+    // Every way into a tab ends here (navigation buttons, Retry on the error
+    // view, re-rendering after a modal), so the role is checked here.
+    if (!canOpenTab(this.tabId, params.user.role)) {
+      this.logger.warn(
+        `${params.user.slack_id} (${params.user.role}) may not open ${this.tabId}`,
+      );
+      this.tabNavigationService.navigate(TabId.Home, { user: params.user });
+
+      return;
+    }
+
     try {
       await this.slackCommunicationService.publishView(
         await this.getSafeTabView(params),

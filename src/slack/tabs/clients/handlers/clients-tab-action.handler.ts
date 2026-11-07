@@ -1,3 +1,4 @@
+import UserRole from '@common/enums/user-role.enum';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   ISlackBlockActionPayload,
@@ -22,6 +23,7 @@ import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 @SlackHandler({
   callbackId: ViewCallbackId.ClientsTabView,
   type: 'block_actions',
+  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
 })
 export default class ClientsTabActionHandler extends BaseAdminTabActionHandler {
   private readonly logger = new Logger(ClientsTabActionHandler.name);

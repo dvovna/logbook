@@ -1,3 +1,4 @@
+import UserRole from '@common/enums/user-role.enum';
 import { Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -21,6 +22,7 @@ import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-
 @SlackHandler({
   callbackId: ViewCallbackId.TeamsTabView,
   type: 'block_actions',
+  allowedRoles: [UserRole.Admin, UserRole.HR],
 })
 export default class TeamsTabActionHandler extends BaseAdminTabActionHandler {
   private readonly logger = new Logger(TeamsTabActionHandler.name);
