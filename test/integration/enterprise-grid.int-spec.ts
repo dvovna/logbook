@@ -58,9 +58,15 @@ describe('The same Slack user in two workspaces', () => {
   it('refuses a person the workspace does not know', async () => {
     await first.addUser({ slack_id: personId, role: UserRole.Admin });
 
-    await t.slack
+    const response = await t.slack
       .command('/api/slack/vacations', second, { slack_id: personId }, 'usage')
-      .expect(401);
+      .expect(200);
+
+    // Only an explanation, nothing from the first workspace.
+    expect(response.body).toEqual({
+      response_type: 'ephemeral',
+      text: "Logbook doesn't know you yet. Ask HR or an admin to add you.",
+    });
   });
 
   it('adds the person to the second workspace when they join it', async () => {

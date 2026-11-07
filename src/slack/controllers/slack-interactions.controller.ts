@@ -1,4 +1,13 @@
-import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { SlackUserAccessFilter } from '@modules/slack/filters/slack-user-access.filter';
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+  UseFilters,
+} from '@nestjs/common';
 import { Request, Response } from 'express';
 import SlackInteractionsService from '@modules/slack/services/slack-interactions.service';
 import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
@@ -6,6 +15,7 @@ import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-inte
 import { SlackUserGuard } from '@common/guards/slack-user.guard';
 
 @Controller('api/slack/interactions')
+@UseFilters(SlackUserAccessFilter)
 @UseGuards(SlackSignatureGuard, SlackUserGuard)
 export default class SlackInteractionsController {
   public constructor(

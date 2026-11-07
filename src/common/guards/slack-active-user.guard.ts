@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { IUserViewModel } from '@modules/users/types/user.interface';
+import { SlackUserAccessException } from '@common/errors/slack-user-access.exception';
 
 interface ISlackRequest extends Request {
   user: IUserViewModel;
@@ -25,7 +26,11 @@ export class SlackActiveUserGuard implements CanActivate {
 
     if (!req.user.is_active) {
       this.logger.log(`SlackActiveUserGuard: User ${req.user.id} is inactive`);
-      throw new ForbiddenException('User is inactive.');
+      throw new SlackUserAccessException(
+        'inactive',
+        req.user.slack_id,
+        req.user.slack_team_id,
+      );
     }
 
     return true;

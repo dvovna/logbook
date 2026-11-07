@@ -1,3 +1,4 @@
+import { SlackUserAccessFilter } from '@modules/slack/filters/slack-user-access.filter';
 import {
   Controller,
   Logger,
@@ -20,7 +21,7 @@ import { SlackForbiddenExceptionFilter } from '@modules/slack/filters/slack-forb
 import { SlackActiveUserGuard } from '@common/guards/slack-active-user.guard';
 
 @Controller('api/slack/admin')
-@UseFilters(SlackForbiddenExceptionFilter)
+@UseFilters(SlackForbiddenExceptionFilter, SlackUserAccessFilter)
 @UseGuards(
   SlackSignatureGuard,
   SlackUserGuard,

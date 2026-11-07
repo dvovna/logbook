@@ -99,7 +99,7 @@ Every repository query must be scoped by `slackTeamId` / `slack_team_id`; `BaseR
 
 1. `main.ts` mounts `slackBodyParserMiddleware` on `/api/slack`. It keeps `req.rawBody` for signature checks, then parses the body as JSON or urlencoded.
 2. `SlackPayloadParseMiddleware` (wired in `SlackModule.configure`) unwraps the form field `payload` for `/interactions` and `/options`.
-3. Guards run in this order: `SlackSignatureGuard` → `SlackUserGuard` (loads the DB user by Slack user ID into `req.user` and returns 401 if the user is unknown) → `SlackActiveUserGuard` → `UserRoleGuard` + `@RequireRoles` (a route behind `UserRoleGuard` without `@RequireRoles` is closed to everyone).
+3. Guards run in this order: `SlackSignatureGuard` → `SlackUserGuard` (loads the DB user by Slack user ID into `req.user`) → `SlackActiveUserGuard` → `UserRoleGuard` + `@RequireRoles` (a route behind `UserRoleGuard` without `@RequireRoles` is closed to everyone). An unknown or deactivated user ends in `SlackUserAccessException`, which `SlackUserAccessFilter` answers with 200 and a short explanation the route allows (ephemeral reply, modal update, no options, or a DM for a click): Slack shows any other status as a generic failure.
 
 Controllers are in `src/slack/controllers/`:
 - OAuth: `/install` sets a random `state` in a cookie and redirects to Slack. `/oauth/redirect` checks the state against the cookie (OAuth CSRF), then calls `TeamSetupWorkflowService`, which creates the `slack_team` and an admin user and starts a background sync of workspace users.

@@ -3,8 +3,8 @@ import {
   ExecutionContext,
   Injectable,
   Logger,
-  UnauthorizedException,
 } from '@nestjs/common';
+import { SlackUserAccessException } from '@common/errors/slack-user-access.exception';
 import { Request } from 'express';
 import { UsersService } from '@modules/users/services/users.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -42,14 +42,17 @@ export class SlackUserGuard implements CanActivate {
       return true;
     }
 
-    const user = await this.findWorkspaceUser(slackUserId, body);
+    const workspace = await this.findWorkspace(body);
+    const user = workspace
+      ? await this.usersService.findBySlackId(slackUserId, workspace.id)
+      : null;
 
     if (!user) {
       this.logger.log('SlackUserGuard: User not found for slack_id', {
         slackUserId,
       });
 
-      throw new UnauthorizedException('User not found.');
+      throw new SlackUserAccessException('unknown', slackUserId, workspace?.id);
     }
 
     req.user = user;
@@ -59,19 +62,11 @@ export class SlackUserGuard implements CanActivate {
 
   // The same Slack user ID can exist in several workspaces, so the user is
   // looked up in the workspace the request comes from.
-  private async findWorkspaceUser(
-    slackUserId: string,
-    body: ISlackRequestWorkspace,
-  ): Promise<IUserViewModel | null> {
+  private async findWorkspace(body: ISlackRequestWorkspace) {
     const workspaceSlackId = getRequestWorkspaceSlackId(body);
-    const workspace = workspaceSlackId
+
+    return workspaceSlackId
       ? await this.slackTeamsService.findOne({ slackId: workspaceSlackId })
       : null;
-
-    if (!workspace) {
-      return null;
-    }
-
-    return this.usersService.findBySlackId(slackUserId, workspace.id);
   }
 }

@@ -1,4 +1,12 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { SlackUserAccessFilter } from '@modules/slack/filters/slack-user-access.filter';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Req,
+  UseFilters,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { BlockSuggestion } from '@slack/bolt/dist/types/options';
 import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
@@ -14,6 +22,7 @@ import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/en
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
 @Controller('api/slack/options')
+@UseFilters(SlackUserAccessFilter)
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)
 export class SlackOptionsController {
   public constructor(

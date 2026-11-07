@@ -1,3 +1,4 @@
+import { SlackUserAccessFilter } from '@modules/slack/filters/slack-user-access.filter';
 import {
   Body,
   Controller,
@@ -6,6 +7,7 @@ import {
   Req,
   Res,
   UseGuards,
+  UseFilters,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { runInBackground } from '@common/utils/run-in-background';
@@ -19,6 +21,7 @@ import SlackCommunicationService from '@modules/slack-communication/services/sla
 import { SlackActiveUserGuard } from '@common/guards/slack-active-user.guard';
 
 @Controller('api/slack')
+@UseFilters(SlackUserAccessFilter)
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)
 export default class SlackCommandsController {
   private readonly logger = new Logger(SlackCommandsController.name);
