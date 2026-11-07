@@ -139,6 +139,7 @@ The UI is a single App Home view that gets re-published to show different screen
 - `tabNavigationService.navigate(TabId.X, { user, metadata })` re-renders a tab from anywhere.
 - Tab state such as pagination and filters round-trips through the view's `private_metadata`. Modals carry it along as `pageMetadata` so they can re-render the tab after a submit.
 - If rendering fails, the user sees `FallbackTabView`; inactive users see `InactiveUserTabView`.
+- Who may open which tab is in `TAB_ALLOWED_ROLES` (`src/slack/common/views/data/tab-access.ts`). `BaseTabService.publish` checks it and sends anyone else to Home. Hiding a button is not access control: Slack takes action ids, button values and menu choices from the client. So every handler checks the role (`allowedRoles`) and every service checks the owner. A new tab needs an entry in the map.
 - Views are injectable classes that return Block Kit JSON.
 
 ### Domain layer
@@ -153,6 +154,8 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
 
   Filters are `SupabaseFilter`. A filter value can be a plain value (`eq`) or `{ operator, value }`.
 - **Services** take camelCase params and convert them to snake_case filters, usually in a private `getFindQuery`. Services also enforce per-workspace limits from env (`MAX_TEAMS_PER_SLACK_TEAM`, `MAX_POLICIES_PER_SLACK_TEAM`, `MAX_*_REQUESTS_PER_USER`) and throw the domain errors from `src/common/errors/`.
+- Only an admin grants or removes the Admin role or deactivates an admin (`assertCanChangeUser`). Nobody approves their own vacation request: requesters are left out of their own approval levels, and `RequestWorkflowService.assertNotOwnRequest` guards the approve paths. A Slack `user_change` can deactivate a user but never reactivates one.
+- `slack_teams.slack_token` stays out of `ISlackTeamViewModel`; only `AccessTokenService` reads it, through `SlackTeamsService.findAccessToken`.
 - Roles (`UserRole`):
   - `admin`: full access;
   - `hr`: manages people and requests;
