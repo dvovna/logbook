@@ -117,7 +117,7 @@ The person who installs the app becomes its admin. The other members are importe
 
 ### Updating
 
-Pull the new version, run `yarn install`, apply the new migrations with `yarn supabase db push --remote "<the same connection string>"`, and redeploy. Without `--remote` the CLI pushes to the local database. Apply the migrations before the new version starts: it may need them.
+Pull the new version, run `yarn install`, apply the new migrations with `yarn supabase db push --remote "<the same connection string>"`, and redeploy. Without `--remote` the CLI pushes to the local database. Apply the migrations before the new version starts: it checks the database at startup and refuses to start, naming the missing migrations, until they are applied.
 
 ### Checking the database is closed
 

@@ -22,6 +22,8 @@ RUN yarn install --frozen-lockfile --production && yarn cache clean
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
+# The app checks at startup that the database has every migration it ships.
+COPY --from=builder /app/supabase/migrations ./supabase/migrations
 
 # Run as the image's unprivileged user rather than root.
 USER node

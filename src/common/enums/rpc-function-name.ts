@@ -4,4 +4,5 @@ export enum RpcFunctionName {
   GetUserProjects = 'get_user_projects',
   GetTimeEntriesList = 'get_time_entries_list',
   DecideWorkflowSteps = 'decide_workflow_steps',
+  AppliedMigrations = 'applied_migrations',
 }

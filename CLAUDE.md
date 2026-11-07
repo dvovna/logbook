@@ -70,7 +70,7 @@ The schema lives in `supabase/migrations`:
 - `src/common/types/database.types.ts` is generated from the local database by `yarn db:types`, with the Supabase CLI pinned in `devDependencies` (another CLI version writes the file differently). CI applies `supabase/migrations` to a fresh stack, regenerates the file and fails when it differs from the committed one. Run the CLI as `yarn supabase …` (or `npx supabase …`), never `supabase@latest`: scripts, CI and the integration tests all use the pinned one. Dependabot bumps it in a PR of its own; commit the regenerated file with it.
 
 To change the schema:
-1. Add a new migration (`yarn supabase migration new <name>`).
+1. Add a new migration (`yarn supabase migration new <name>`). The app refuses to start on a database that lacks a migration it ships (`MigrationsCheckService`, through the RPC `applied_migrations`), and the Docker image copies `supabase/migrations` for that.
 2. Apply it locally (`yarn db:init`) and run `yarn db:types`. A database with migrations from other branches gives other types.
 3. Update the repository's `mapToViewModel`.
 

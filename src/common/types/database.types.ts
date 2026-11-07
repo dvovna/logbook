@@ -1034,6 +1034,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      applied_migrations: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
       assign_project_assignments: {
         Args: {
           p_project_id: string;
