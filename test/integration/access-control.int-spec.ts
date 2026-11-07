@@ -272,7 +272,6 @@ describe('Access control', () => {
   });
 
   it('encrypts a bot token stored in plain text once it is read', async () => {
-    // TestWorkspace stores its token in plain text, as the app did before.
     const stored = async () =>
       (
         await t.db
@@ -281,7 +280,13 @@ describe('Access control', () => {
           .eq('id', workspace.id)
           .single()
       ).data!.slack_token;
-    expect(await stored()).toBe(workspace.token);
+    // TestWorkspace stores its token in plain text, as the app did before, but
+    // a test app starting in another worker encrypts every plain-text token in
+    // the database. So it is set back to plain text right before the read.
+    await t.db
+      .from('slack_teams')
+      .update({ slack_token: workspace.token })
+      .eq('id', workspace.id);
 
     expect(
       await t.app.get(SlackTeamsService).findAccessToken(workspace.id),
