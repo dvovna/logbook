@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
-import { runInBackground } from '@common/utils/run-in-background';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -54,16 +53,7 @@ export class RejectTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
   ) {
     const entry = await this.timeEntryApprovalsService.reject(user, meta.id);
 
-    runInBackground(
-      this.logger,
-      `notify about rejected time entry ${entry.id}`,
-      () =>
-        this.timeEntryNotificationsService.notifyRejected(
-          entry,
-          user,
-          data.reason,
-        ),
-    );
+    this.timeEntryNotificationsService.notifyRejected(entry, user, data.reason);
 
     return entry;
   }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
+import { UsersModule } from '@modules/users/users.module';
 import TimeApprovalsTabActionHandler from '@modules/slack/tabs/time-approvals/handlers/time-approvals-tab-action.handler';
 import { RejectTimeEntryFormSubmitHandler } from '@modules/slack/tabs/time-approvals/handlers/reject-time-entry-form-submit.handler';
 import { ApproveAllTimeEntriesFormSubmitHandler } from '@modules/slack/tabs/time-approvals/handlers/approve-all-time-entries-form-submit.handler';
@@ -11,7 +12,7 @@ import { TimeApprovalsTabView } from '@modules/slack/tabs/time-approvals/views/t
 import { RejectTimeEntryModalView } from '@modules/slack/tabs/time-approvals/views/reject-time-entry-modal.view';
 
 @Module({
-  imports: [TimeEntriesModule, SlackCommonModule],
+  imports: [TimeEntriesModule, SlackCommonModule, UsersModule],
   providers: [
     TimeApprovalsTabActionHandler,
     RejectTimeEntryFormSubmitHandler,

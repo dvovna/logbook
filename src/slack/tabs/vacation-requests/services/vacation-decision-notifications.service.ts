@@ -1,5 +1,6 @@
 import { formatDateRange } from '@common/utils/date.utils';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { JobsService } from '@common/jobs/jobs.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import * as pluralize from 'pluralize';
@@ -15,11 +16,31 @@ import { VacationRequestDecidedEvent } from '@modules/vacation-requests/events/v
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
+import { UsersService } from '@modules/users/services/users.service';
+
+export enum DecisionNotificationJob {
+  Requester = 'vacation-decision-notify-requester',
+  Recipients = 'vacation-decision-notify-recipients',
+  Recipient = 'vacation-decision-notify-recipient',
+}
+
+interface IRequestJob {
+  requestId: string;
+  slackTeamId: string;
+  decidedById: string;
+}
+
+interface IRecipientJob extends IRequestJob {
+  recipientSlackId: string;
+}
 
 // Tells the requester how their request was decided and, when it was approved,
-// the team's approval_notification_recipients.
+// the team's approval_notification_recipients. One job per message, so a
+// retry sends only the messages that failed.
 @Injectable()
-export class VacationDecisionNotificationsService {
+export class VacationDecisionNotificationsService implements OnModuleInit {
   private readonly logger = new Logger(
     VacationDecisionNotificationsService.name,
   );
@@ -27,19 +48,101 @@ export class VacationDecisionNotificationsService {
   public constructor(
     private readonly teamsService: TeamsService,
     private readonly communicationService: SlackCommunicationService,
+    private readonly vacationRequestsService: VacationRequestsService,
+    private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
+    private readonly usersService: UsersService,
+    private readonly jobs: JobsService,
   ) {}
 
+  public onModuleInit() {
+    this.jobs.define<IRequestJob>(DecisionNotificationJob.Requester, (job) =>
+      this.notifyRequester(job),
+    );
+    this.jobs.define<IRequestJob>(DecisionNotificationJob.Recipients, (job) =>
+      this.notifyRecipients(job),
+    );
+    this.jobs.define<IRecipientJob>(DecisionNotificationJob.Recipient, (job) =>
+      this.notifyRecipient(job),
+    );
+  }
+
   @OnEvent(VacationRequestEvent.Decided)
-  public async handleDecided({
-    request,
-    decidedBy,
-    comments,
-  }: VacationRequestDecidedEvent) {
+  public handleDecided({ request, decidedBy }: VacationRequestDecidedEvent) {
+    const job: IRequestJob = {
+      requestId: request.id,
+      slackTeamId: request.slack_team_id,
+      decidedById: decidedBy.id,
+    };
+
+    this.jobs.run<IRequestJob>(DecisionNotificationJob.Requester, job);
+
     if (request.status === VacationRequestStatus.Approved) {
-      await this.notifyOnApproval(request, decidedBy, comments);
+      this.jobs.run<IRequestJob>(DecisionNotificationJob.Recipients, job);
+    }
+  }
+
+  private async notifyRequester(job: IRequestJob) {
+    const decided = await this.loadDecided(job);
+
+    if (!decided) {
+      return;
     }
 
-    await this.notifyUser(request, decidedBy, comments);
+    const decidedBy = await this.usersService.findOneWithValidation({
+      id: job.decidedById,
+      slackTeamId: job.slackTeamId,
+      includeInactive: true,
+    });
+
+    await this.notifyUser(decided.request, decidedBy, decided.comments);
+  }
+
+  private async notifyRecipients(job: IRequestJob) {
+    const decided = await this.loadDecided(job);
+
+    if (decided) {
+      for (const recipientSlackId of await this.recipientsOf(decided.request)) {
+        this.jobs.run<IRecipientJob>(DecisionNotificationJob.Recipient, {
+          ...job,
+          recipientSlackId,
+        });
+      }
+    }
+  }
+
+  private async notifyRecipient({ recipientSlackId, ...job }: IRecipientJob) {
+    const decided = await this.loadDecided(job);
+
+    if (decided) {
+      await this.communicationService.postMessage(
+        recipientSlackId,
+        this.getNotificationMessage(decided.request, decided.comments),
+        job.slackTeamId,
+      );
+    }
+  }
+
+  // The request as it is when the job runs: a retry after the request was
+  // canceled tells nobody anything.
+  private async loadDecided({ requestId, slackTeamId }: IRequestJob) {
+    const request = await this.vacationRequestsService.findOne({
+      id: requestId,
+      slackTeamId,
+    });
+
+    if (
+      request?.status !== VacationRequestStatus.Approved &&
+      request?.status !== VacationRequestStatus.Rejected
+    ) {
+      return null;
+    }
+
+    const comments = await this.requestWorkflowStepCommentsService.findMany({
+      requestId,
+      slackTeamId,
+    });
+
+    return { request, comments };
   }
 
   // What was decided and by whom, in plain words: the same message for every
@@ -104,17 +207,13 @@ export class VacationDecisionNotificationsService {
     return `*${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]}* · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)}, ${request.working_days} working)`;
   }
 
-  private async notifyOnApproval(
-    request: IVacationRequestViewModel,
-    approvedBy: IUserViewModel,
-    comments: IWorkflowStepCommentViewModel[],
-  ) {
+  private async recipientsOf(request: IVacationRequestViewModel) {
     if (!request.team_id) {
       this.logger.warn(
         `Request ${request.id} has no team_id. Skipping approval notification.`,
       );
 
-      return;
+      return [];
     }
 
     const team = await this.teamsService.findOneWithValidation({
@@ -122,15 +221,7 @@ export class VacationDecisionNotificationsService {
       slackTeamId: request.slack_team_id,
     });
 
-    if (team.approval_notification_recipients?.length) {
-      for (const recipientSlackId of team.approval_notification_recipients) {
-        await this.communicationService.postMessage(
-          recipientSlackId,
-          this.getNotificationMessage(request, comments),
-          approvedBy.slack_team_id,
-        );
-      }
-    }
+    return team.approval_notification_recipients ?? [];
   }
 
   private getNotificationMessage(

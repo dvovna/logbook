@@ -56,12 +56,27 @@ export class RequestWorkflowService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  // Safe to repeat: when an earlier run made the steps, only the first
+  // level's approvers who got no message yet are asked.
   public async create({
     requestId,
     levels,
     slackTeamId,
     snapshot,
   }: ICreateWorkflowParams) {
+    const existingSteps = await this.requestWorkflowStepsService.findMany({
+      requestId,
+      slackTeamId,
+    });
+
+    if (existingSteps.length) {
+      this.workflowStepProcessorService.processSteps(
+        existingSteps.filter((step) => step.step_level === 1),
+      );
+
+      return;
+    }
+
     const steps = levels.flatMap<ICreateParams>(({ rule, steps }, levelIndex) =>
       steps.map<ICreateParams>(({ stepType, slackUserId }) => ({
         requestId,

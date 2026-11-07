@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { JobsService } from '@common/jobs/jobs.service';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import {
@@ -18,21 +19,56 @@ import {
 } from '@modules/request-workflows/services/request-workflow.service';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+
+export const START_WORKFLOW_JOB = 'vacation-request-start-workflow';
+
+interface IStartWorkflowJob {
+  requestId: string;
+  slackTeamId: string;
+}
 
 @Injectable()
-export class VacationRequestProcessingService {
+export class VacationRequestProcessingService implements OnModuleInit {
   public constructor(
     private readonly teamsService: TeamsService,
     private readonly requestWorkflowService: RequestWorkflowService,
     private readonly usersService: UsersService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly vacationRequestsService: VacationRequestsService,
+    private readonly jobs: JobsService,
   ) {}
 
+  public onModuleInit() {
+    this.jobs.define<IStartWorkflowJob>(START_WORKFLOW_JOB, (job) =>
+      this.startWorkflow(job),
+    );
+  }
+
+  // A job, so that a failure to make the workflow is retried instead of
+  // leaving the request pending with nobody asked.
   @OnEvent(VacationRequestEvent.Created)
-  public async handleRequestCreated({ request }: VacationRequestCreatedEvent) {
+  public handleRequestCreated({ request }: VacationRequestCreatedEvent) {
     // Admins can create requests that are already approved or rejected;
     // only pending ones need approvers.
     if (request.status !== VacationRequestStatus.Pending) {
+      return;
+    }
+
+    this.jobs.run<IStartWorkflowJob>(START_WORKFLOW_JOB, {
+      requestId: request.id,
+      slackTeamId: request.slack_team_id,
+    });
+  }
+
+  private async startWorkflow({ requestId, slackTeamId }: IStartWorkflowJob) {
+    const request = await this.vacationRequestsService.findOne({
+      id: requestId,
+      slackTeamId,
+    });
+
+    // Canceled or changed before a retry: nothing to ask anymore.
+    if (request?.status !== VacationRequestStatus.Pending) {
       return;
     }
 

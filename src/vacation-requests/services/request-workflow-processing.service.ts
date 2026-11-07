@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { JobsService } from '@common/jobs/jobs.service';
 import { VacationWorkflowEventEnum } from '@common/enums/vacation-workflow-event.enum';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { UsersService } from '@modules/users/services/users.service';
@@ -8,67 +9,87 @@ import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enu
 import { VacationWorkflowFinished } from '@common/events/vacation-workflow.events';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { VacationRequestDecidedEvent } from '@modules/vacation-requests/events/vacation-request.events';
+import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 
-// A finished workflow decides its request: approved or rejected.
+export const FINISH_REQUEST_JOB = 'vacation-request-finish';
+
+interface IFinishRequestJob {
+  requestId: string;
+  slackTeamId: string;
+  status: RequestWorkflowStatus;
+  decidedById: string;
+}
+
+// A finished workflow decides its request: approved or rejected. A job, so
+// that a database failure is retried instead of leaving the request pending
+// after everyone decided.
 @Injectable()
-export class RequestWorkflowProcessingService {
+export class RequestWorkflowProcessingService implements OnModuleInit {
   private readonly logger = new Logger(RequestWorkflowProcessingService.name);
 
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly usersService: UsersService,
+    private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly jobs: JobsService,
   ) {}
 
+  public onModuleInit() {
+    this.jobs.define<IFinishRequestJob>(FINISH_REQUEST_JOB, (job) =>
+      this.finishRequest(job),
+    );
+  }
+
   @OnEvent(VacationWorkflowEventEnum.Finished)
-  public async handleWorkflowFinished({ workflow }: VacationWorkflowFinished) {
-    const [request, approvedBy] = await Promise.all([
-      this.vacationRequestsService.findOne({
-        id: workflow.requestId,
-        slackTeamId: workflow.slackTeamId,
-      }),
-      this.usersService.findOneWithValidation({
-        id: workflow.approvedBy,
-        slackTeamId: workflow.slackTeamId,
-        includeInactive: true,
-      }),
-    ]);
+  public handleWorkflowFinished({ workflow }: VacationWorkflowFinished) {
+    this.jobs.run<IFinishRequestJob>(FINISH_REQUEST_JOB, {
+      requestId: workflow.requestId,
+      slackTeamId: workflow.slackTeamId,
+      status: workflow.status,
+      decidedById: workflow.approvedBy,
+    });
+  }
 
-    if (!request) {
-      return;
-    }
+  private async finishRequest({
+    requestId,
+    slackTeamId,
+    status,
+    decidedById,
+  }: IFinishRequestJob) {
+    const decidedBy = await this.usersService.findOneWithValidation({
+      id: decidedById,
+      slackTeamId,
+      includeInactive: true,
+    });
 
-    const statusToSet =
-      workflow.status === RequestWorkflowStatus.Approved
-        ? VacationRequestStatus.Approved
-        : VacationRequestStatus.Rejected;
-
-    // Two approvers deciding at once both finish the workflow; only the
-    // first one changes the request and tells people.
+    // Two approvers deciding at once both finish the workflow, and a retry
+    // may follow a run that got this far; only the first one changes the
+    // request and tells people.
     const updatedRequest = await this.vacationRequestsService.finishPending(
-      {
-        id: request.id,
-        slackTeamId: request.slack_team_id,
-      },
-      statusToSet,
-      approvedBy,
+      { id: requestId, slackTeamId },
+      status === RequestWorkflowStatus.Approved
+        ? VacationRequestStatus.Approved
+        : VacationRequestStatus.Rejected,
+      decidedBy,
     );
 
     if (!updatedRequest) {
       this.logger.warn(
-        `Request ${request.id} is no longer pending (${request.status}), not finishing it again`,
+        `Request ${requestId} is no longer pending, not finishing it again`,
       );
       return;
     }
 
+    const comments = await this.requestWorkflowStepCommentsService.findMany({
+      requestId,
+      slackTeamId,
+    });
+
     // Telling people is the Slack side's (VacationDecisionNotificationsService).
     this.eventEmitter.emit(
       VacationRequestEvent.Decided,
-      new VacationRequestDecidedEvent(
-        updatedRequest,
-        approvedBy,
-        workflow.reviewComments,
-      ),
+      new VacationRequestDecidedEvent(updatedRequest, decidedBy, comments),
     );
   }
 }

@@ -10,6 +10,8 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { ApprovalRule } from 'src/teams/enums/approval-rule.enum';
+import { JobsService } from 'src/common/jobs/jobs.service';
+import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import { UsersService } from 'src/users/services/users.service';
 import UserRole from 'src/common/enums/user-role.enum';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -43,11 +45,29 @@ const buildRequest = (
   created_by: null,
 });
 
+// Runs a job as soon as it is asked for; `done()` waits for the ones started.
+const inlineJobs = () => {
+  const handlers = new Map<string, (payload: object) => Promise<void>>();
+  const running: Promise<void>[] = [];
+
+  return {
+    jobs: {
+      define: (name: string, handler: (payload: object) => Promise<void>) =>
+        handlers.set(name, handler),
+      run: (name: string, payload: object) =>
+        running.push(handlers.get(name)!(payload)),
+    } as unknown as JobsService,
+    done: () => Promise.all(running),
+  };
+};
+
 describe('VacationRequestProcessingService', () => {
   let teamsService: { findOne: jest.Mock };
   let workflowService: Record<'create' | 'cancel', jest.Mock>;
   let usersByRole: Partial<Record<UserRole, string[]>>;
   let eventEmitter: { emit: jest.Mock };
+  let requestsService: { findOne: jest.Mock };
+  let jobs: ReturnType<typeof inlineJobs>;
   let service: VacationRequestProcessingService;
 
   beforeEach(() => {
@@ -68,22 +88,30 @@ describe('VacationRequestProcessingService', () => {
       ),
     };
     eventEmitter = { emit: jest.fn() };
+    requestsService = { findOne: jest.fn() };
+    jobs = inlineJobs();
 
     service = new VacationRequestProcessingService(
       teamsService as unknown as TeamsService,
       workflowService as unknown as RequestWorkflowService,
       usersService as unknown as UsersService,
       eventEmitter as unknown as EventEmitter2,
+      requestsService as unknown as VacationRequestsService,
+      jobs.jobs,
     );
+    service.onModuleInit();
   });
 
-  const onCreated = (status: VacationRequestStatus) =>
+  const onCreated = async (status: VacationRequestStatus) => {
+    requestsService.findOne.mockResolvedValue(buildRequest(status));
     service.handleRequestCreated(
       new VacationRequestCreatedEvent(
         buildRequest(status),
         {} as IUserViewModel,
       ),
     );
+    await jobs.done();
+  };
 
   it('starts the approval workflow for a pending request', async () => {
     await onCreated(VacationRequestStatus.Pending);
@@ -114,6 +142,27 @@ describe('VacationRequestProcessingService', () => {
       expect(workflowService.create).not.toHaveBeenCalled();
     },
   );
+
+  // The job runs again after a failure, maybe after the request changed.
+  it('asks nobody when the request is no longer pending when the job runs', async () => {
+    requestsService.findOne.mockResolvedValue(
+      buildRequest(VacationRequestStatus.Canceled),
+    );
+
+    service.handleRequestCreated(
+      new VacationRequestCreatedEvent(
+        buildRequest(VacationRequestStatus.Pending),
+        {} as IUserViewModel,
+      ),
+    );
+    await jobs.done();
+
+    expect(requestsService.findOne).toHaveBeenCalledWith({
+      id: 'request-1',
+      slackTeamId: SLACK_TEAM_ID,
+    });
+    expect(workflowService.create).not.toHaveBeenCalled();
+  });
 
   describe('when nobody on the team can approve it', () => {
     const levelsOf = () => workflowService.create.mock.calls[0][0].levels;
