@@ -145,7 +145,7 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `Bonus Days: *${available} available* / ${limit} total ${detailsText}`,
+        text: `Bonus Days: *${available} available* / ${limit} total${detailsText}`,
       },
     } as AnyBlock;
   }

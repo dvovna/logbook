@@ -89,6 +89,31 @@ export class TestWorkspace implements ISlackWorkspace {
     );
   }
 
+  // An approved annual leave of `user`, unless `fields` says otherwise.
+  public async addVacationRequest(
+    user: Tables<'users'>,
+    fields: Partial<TablesInsert<'vacation_requests'>> &
+      Pick<TablesInsert<'vacation_requests'>, 'start_date' | 'end_date'>,
+  ): Promise<Tables<'vacation_requests'>> {
+    return unwrap(
+      await this.db
+        .from('vacation_requests')
+        .insert({
+          slack_team_id: this.id,
+          user_id: user.id,
+          team_id: user.team_id,
+          created_by: user.id,
+          type: 'annual_leave',
+          status: 'approved',
+          days: 1,
+          working_days: 1,
+          ...fields,
+        })
+        .select()
+        .single(),
+    );
+  }
+
   public async addTeam(
     fields: Partial<TablesInsert<'teams'>> = {},
   ): Promise<Tables<'teams'>> {
