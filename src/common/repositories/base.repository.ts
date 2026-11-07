@@ -45,7 +45,7 @@ export const quoteFilterValue = (value: string) =>
 // PostgREST returns at most `max_rows` rows a request (1000 in
 // supabase/config.toml and on hosted projects) and says nothing when it cuts a
 // result short, so findMany reads in pages no larger than that.
-const PAGE_SIZE = 1000;
+export const PAGE_SIZE = 1000;
 
 export interface IQueryOptions {
   limit?: number;
@@ -95,8 +95,8 @@ export abstract class BaseRepository<
     this.buildMatchQuery(query, filter);
 
     // No row is null; a failed query or several rows is an error, not "not
-    // found".
-    const { data, error } = await query.maybeSingle();
+    // found". Two rows are enough to tell "several" apart.
+    const { data, error } = await query.limit(2).maybeSingle();
 
     if (error) {
       throw new Error(`[${this.tableName}] findOne error: ${error.message}`);
@@ -427,7 +427,10 @@ export abstract class BaseRepository<
       }
 
       if (Array.isArray(filter)) {
+        // An empty list matches no row, as `in ()` does: skipping it would
+        // match every row (a manager of no teams would see everyone).
         if (filter.length === 0) {
+          query = query.in(column, []);
           continue;
         }
 
