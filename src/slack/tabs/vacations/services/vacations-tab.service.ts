@@ -90,11 +90,10 @@ export class VacationsTabService extends BaseTabService<VacationsTabModalViewRes
           startDate: new Date().toUTCString(),
         },
         pageSize: MAX_ITEMS_PER_TAB,
-        orderBy: ['created_at:desc'],
+        orderBy: ['start_date:asc'],
       });
 
     return this.vacationsViewService.getView({
-      user: params.user,
       userId: params.user.slack_id,
       userRole: params.user.role,
       pendingRequestsCount,

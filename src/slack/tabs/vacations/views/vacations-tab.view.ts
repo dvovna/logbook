@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock } from '@slack/web-api';
@@ -10,7 +11,6 @@ import { Divider } from '@modules/slack/common/views/components/separator';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { VacationsTabViewActionId } from '@modules/slack/tabs/vacations/enums/vacations-tab-view-action-id.enum';
 import { IRequestWorkflowStepViewModel } from '@modules/request-workflows/types/request-workflow-step.interface';
-import { IUserViewModel } from '@modules/users/types/user.interface';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import * as pluralize from 'pluralize';
 
@@ -18,7 +18,6 @@ interface IGetViewParams extends IBaseTabViewParams {
   pendingRequestsCount: number;
   pendingRequests: IRequestWorkflowStepViewModel[];
   upcomingVacations: IVacationRequestViewModel[];
-  user: IUserViewModel;
 }
 
 @Injectable()
@@ -40,7 +39,6 @@ export class VacationsTabView extends BaseAdminTabView<IGetViewParams, never> {
     pendingRequests,
     upcomingVacations,
     pendingRequestsCount,
-    user,
   }: IGetViewParams): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
@@ -58,7 +56,7 @@ export class VacationsTabView extends BaseAdminTabView<IGetViewParams, never> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*⏳ Requests awaiting your approval${pendingRequests.length > pendingRequestsCount ? `(5 of ${pendingRequestsCount})` : ''}*`,
+        text: `*⏳ Requests awaiting your approval${pendingRequestsCount > pendingRequests.length ? ` (${pendingRequests.length} of ${pendingRequestsCount})` : ''}*`,
       },
     });
 
@@ -72,7 +70,7 @@ export class VacationsTabView extends BaseAdminTabView<IGetViewParams, never> {
       });
     } else {
       pendingRequests.forEach((request) => {
-        blocks.push(this.getPendingRequestBlock(request, user));
+        blocks.push(this.getPendingRequestBlock(request));
       });
     }
 
@@ -107,7 +105,7 @@ export class VacationsTabView extends BaseAdminTabView<IGetViewParams, never> {
           text: upcomingVacations
             .map(
               (request) =>
-                `• *${escapeMrkdwn(request.user?.name || request.user?.email)}* — ${request.start_date} – ${request.end_date}`,
+                `• *${escapeMrkdwn(request.user?.name || request.user?.email)}* — ${formatDateRange(request.start_date, request.end_date)}`,
             )
             .join('\n'),
         },
@@ -141,17 +139,18 @@ export class VacationsTabView extends BaseAdminTabView<IGetViewParams, never> {
 
   private getPendingRequestBlock(
     pendingRequest: IRequestWorkflowStepViewModel,
-    user: IUserViewModel,
   ): AnyBlock {
+    // The snapshot of the request: its requester, not the approver viewing it.
     const requestSnapshot = pendingRequest.step_data.snapshot;
-    const userName = user.name || user.email;
+    const requesterName =
+      requestSnapshot.user_name || requestSnapshot.user_email;
 
     return {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `User: *${escapeMrkdwn(userName)}*\nType: ${VACATION_TYPE_DISPLAY_NAME_MAP[requestSnapshot.type]}
-${requestSnapshot.start_date} – ${requestSnapshot.end_date} (${pluralize('day', requestSnapshot.days, true)})`,
+        text: `*${escapeMrkdwn(requesterName)}* · ${VACATION_TYPE_DISPLAY_NAME_MAP[requestSnapshot.type]}
+${formatDateRange(requestSnapshot.start_date, requestSnapshot.end_date)} (${pluralize('day', requestSnapshot.days, true)})`,
       },
       accessory: {
         type: 'overflow',

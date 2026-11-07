@@ -9,7 +9,9 @@ import { VacationsTabViewActionId } from '@modules/slack/tabs/vacations/enums/va
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { workWeek } from './support/dates';
+import { formatDateRange } from '@common/utils/date.utils';
 import { textOf } from './support/block-kit';
+import { sectionTexts } from './support/tab-readers';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 
@@ -218,6 +220,19 @@ describe('Vacation request approval', () => {
     beforeEach(async () => {
       await addMember(
         await workspace.addTeam({ manager_approvers: [manager.slack_id] }),
+      );
+    });
+
+    it('lists the request under its requester, not the approver', async () => {
+      const { start, end } = workWeek(2);
+      await requestVacation(t, workspace, member, { start, end });
+
+      const vacationsTab = await openAppHomeTab(t, workspace, manager, [
+        AdminNavigationActionId.ManageVacations,
+      ]);
+
+      expect(sectionTexts(vacationsTab)).toContain(
+        `*Max Member* · Annual Leave\n${formatDateRange(start, end)} (5 days)`,
       );
     });
 
