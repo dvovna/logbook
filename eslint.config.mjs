@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import js from '@eslint/js';
 import { FlatCompat } from '@eslint/eslintrc';
+import prettierRecommended from 'eslint-plugin-prettier/recommended';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,29 +57,13 @@ export default [{
     parser: tsParser,
   },
 
+  // Formatting (quotes, commas, indent, line breaks) is Prettier's: see
+  // .prettierrc and the prettier config at the end.
   rules: {
-    'object-curly-spacing': ['warn', 'always'],
-
-    indent: ['error', 2, {
-      SwitchCase: 1,
-      ignoredNodes: [
-        'PropertyDefinition[decorators]',
-        'MethodDefinition[decorators]',
-      ],
-    }],
-
-    quotes: ['error', 'single', {
-      avoidEscape: true,
-      allowTemplateLiterals: true,
-    }],
-
-    semi: ['warn', 'always'],
-    'comma-dangle': ['error', 'always-multiline'],
     eqeqeq: 'warn',
     'no-cond-assign': ['warn', 'always'],
     'no-unused-vars': 'off',
     'no-console': 'warn',
-    'brace-style': ['warn', '1tbs'],
     strict: ['error', 'safe'],
 
     '@typescript-eslint/naming-convention': ['error', {
@@ -129,4 +114,8 @@ export default [{
   rules: {
     'no-restricted-imports': 'off',
   },
-}];
+},
+// Reports code Prettier would format differently, and turns off the ESLint
+// rules that disagree with it. Keep it last.
+prettierRecommended,
+];
