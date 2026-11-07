@@ -1,5 +1,4 @@
 import { BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
-import delay from '@common/utils/delay';
 import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
 
 // `docker stop` waits 10 seconds before it kills the process.
@@ -13,10 +12,15 @@ export class BackgroundWorkShutdownService implements BeforeApplicationShutdown 
   private readonly logger = new Logger(BackgroundWorkShutdownService.name);
 
   public async beforeApplicationShutdown(signal?: string) {
+    let timer: NodeJS.Timeout | undefined;
+    const gracePeriod = new Promise<false>((resolve) => {
+      timer = setTimeout(() => resolve(false), SHUTDOWN_GRACE_MS);
+    });
+    // Once the work is done the timer must not keep the process alive.
     const finished = await Promise.race([
       whenBackgroundWorkIsDone().then(() => true),
-      delay(SHUTDOWN_GRACE_MS).then(() => false),
-    ]);
+      gracePeriod,
+    ]).finally(() => clearTimeout(timer));
 
     if (!finished) {
       this.logger.warn(
