@@ -3,7 +3,7 @@
 # Without ':(optional)', blame fails in checkouts whose branch lacks this file.
 
 # Format the codebase with Prettier
-ca1d82e9b7c66f92bfd54bf4dd9e93c0d8673717
+547aeb7c6c2aa32f65fc11fdb418f5bd203af739
 
 # Reformat with Prettier 3.9
-70f46d4e04edf1ce9e8344a15417a02f2c3ba1ad
+12bba455e51bc0849929cb13c47b94954160dee7
