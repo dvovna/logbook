@@ -209,6 +209,85 @@ describe('user-vacations.csv', () => {
     expect(await other.rows('vacation_requests')).toEqual([]);
   });
 
+  describe('shared files', () => {
+    // Shares a file as `user` and returns the app's reply to them, if any.
+    const share = async (
+      user: Tables<'users'>,
+      name: string,
+      content: string,
+      size?: number,
+    ) => {
+      await t.slack
+        .event(workspace, {
+          type: 'file_shared',
+          file_id: t.slackApi.addFile(name, content, { size }),
+          user_id: user.slack_id,
+          channel_id: 'D_TEST',
+        })
+        .expect(acknowledged);
+      await t.idle();
+
+      const [reply] = t.slackApi.ephemeralMessages(
+        workspace.token,
+        user.slack_id,
+      );
+
+      return reply?.text;
+    };
+
+    const downloads = () =>
+      t.slackApi.callsWith(workspace.token, 'files.download');
+
+    // Built per test: `ada` is created in beforeEach.
+    const csv = () => [
+      HEADER,
+      row(ada.email, '2025-09-01', [
+        '2026-03-02',
+        '2026-03-06',
+        'annual_leave',
+        'approved',
+      ]),
+    ];
+
+    it('ignores a file shared by a member', async () => {
+      const reply = await share(ada, 'user-vacations.csv', csv().join('\n'));
+
+      expect(reply).toContain('Only user with role Admin');
+      expect(downloads()).toEqual([]);
+      expect(await vacationsOf(ada)).toEqual([]);
+    });
+
+    it('ignores a file shared by a deactivated admin', async () => {
+      await t.db.from('users').update({ is_active: false }).eq('id', admin.id);
+
+      const reply = await share(admin, 'user-vacations.csv', csv().join('\n'));
+
+      expect(reply).toBeUndefined();
+      expect(downloads()).toEqual([]);
+      expect(await vacationsOf(ada)).toEqual([]);
+    });
+
+    it('does not download a file it does not import', async () => {
+      const reply = await share(admin, 'notes.txt', 'hello');
+
+      expect(reply).toContain('Unknown file type');
+      expect(downloads()).toEqual([]);
+    });
+
+    it('refuses a file over 1 MB without downloading it', async () => {
+      const reply = await share(
+        admin,
+        'user-vacations.csv',
+        csv().join('\n'),
+        2 * 1024 * 1024,
+      );
+
+      expect(reply).toContain('larger than 1 MB');
+      expect(downloads()).toEqual([]);
+      expect(await vacationsOf(ada)).toEqual([]);
+    });
+  });
+
   // BUG: the import deletes the user's vacations before it inserts the new
   // ones, outside a transaction (vacation-requests.service.ts,
   // replaceUserVacations). A row the database refuses (here one that ends

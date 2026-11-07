@@ -156,6 +156,63 @@ describe('Slack events', () => {
     });
   });
 
+  it('keeps the role and status of a member Slack announces again', async () => {
+    const known = await workspace.addUser({
+      role: UserRole.HR,
+      is_active: false,
+      contract_start_date: '2024-03-01',
+    });
+
+    await t.slack
+      .event(workspace, {
+        type: 'team_join',
+        user: {
+          ...slackMember(workspace, {
+            id: known.slack_id,
+            name: 'New Name',
+            email: known.email,
+          }),
+          is_admin: true,
+        },
+      })
+      .expect(acknowledged);
+
+    await t.idle();
+    expect(await workspace.row('users', known.id)).toMatchObject({
+      name: 'New Name',
+      role: UserRole.HR,
+      is_active: false,
+      contract_start_date: '2024-03-01',
+    });
+  });
+
+  it('adds a joining member to the workspace the event comes from', async () => {
+    const otherWorkspace = await t.createWorkspace();
+    const id = slackId('U');
+
+    // On Enterprise Grid the user's own team_id can name another workspace
+    // of the organization.
+    await t.slack
+      .event(workspace, {
+        type: 'team_join',
+        user: {
+          ...slackMember(workspace, {
+            id,
+            name: 'Ada Lovelace',
+            email: 'ada@example.test',
+          }),
+          team_id: otherWorkspace.slackId,
+        },
+      })
+      .expect(acknowledged);
+
+    await t.idle();
+    expect(
+      (await workspace.rows('users')).map(({ slack_id }) => slack_id),
+    ).toContain(id);
+    expect(await otherWorkspace.rows('users')).toEqual([]);
+  });
+
   it('publishes the App Home for a known user', async () => {
     const member = await workspace.addUser();
 

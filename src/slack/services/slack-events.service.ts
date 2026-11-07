@@ -12,6 +12,7 @@ import {
 import { UsersService } from '@modules/users/services/users.service';
 import { SlackAppUninstallService } from '@modules/slack/services/slack-app-uninstall.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
+import { getRequestWorkspaceSlackId } from '@common/utils/slack-request.utils';
 
 interface IFileSharedEvent {
   type: SlackEventType.FileShared;
@@ -116,7 +117,7 @@ export default class SlackEventsService {
     switch (event.type) {
       case SlackEventType.FileShared:
         runInBackground(this.logger, `handle ${event.type} event`, () =>
-          this.handleFileShared(event, user!),
+          this.handleFileShared(event, user),
         );
 
         break;
@@ -126,7 +127,7 @@ export default class SlackEventsService {
         break;
       case SlackEventType.TeamJoin:
         runInBackground(this.logger, `handle ${event.type} event`, () =>
-          this.handleUserJoin(event),
+          this.handleUserJoin(event, user, body),
         );
 
         break;
@@ -171,10 +172,7 @@ export default class SlackEventsService {
     // event comes from.
     this.logger.log('Handling user change', {
       slackId: event.user.id,
-      teamId: user.team_id,
-      email: event.user.profile.email,
-      name: event.user.real_name,
-      isActive: !event.user.deleted,
+      deleted: event.user.deleted,
       slackTeamId: user.slack_team_id,
     });
 
@@ -192,16 +190,41 @@ export default class SlackEventsService {
     });
   }
 
-  private async handleUserJoin(event: ITeamJoinEvent) {
+  // `user` is the joining user if the workspace already knows them: Slack can
+  // announce someone again, e.g. a guest made a full member. Their role,
+  // status and team stay as Logbook has them; only the profile is updated.
+  private async handleUserJoin(
+    event: ITeamJoinEvent,
+    user: IUserViewModel | undefined,
+    body: Record<string, unknown>,
+  ) {
+    if (user) {
+      this.logger.log('Handling a join of a known user', {
+        slackId: event.user.id,
+        slackTeamId: user.slack_team_id,
+      });
+
+      await this.usersService.upsert({
+        slackId: user.slack_id,
+        teamId: user.team_id || null,
+        role: user.role,
+        email: event.user.profile.email || user.email,
+        name: event.user.real_name || user.name,
+        isActive: user.is_active,
+        slackTeamId: user.slack_team_id,
+      });
+
+      return;
+    }
+
+    // The workspace the event comes from: on Enterprise Grid the user's own
+    // team_id can name another workspace of the organization.
     const slackTeam = await this.slackTeamService.findOneWithValidation({
-      slackId: event.user.team_id,
+      slackId: getRequestWorkspaceSlackId(body),
     });
 
     this.logger.log('Handling new user join', {
       slackId: event.user.id,
-      email: event.user.profile.email,
-      name: event.user.real_name,
-      isActive: !event.user.deleted,
       slackTeamId: slackTeam.slack_id,
     });
 
@@ -220,7 +243,16 @@ export default class SlackEventsService {
     });
   }
 
-  public async handleFileShared(event: IFileSharedEvent, user: IUserViewModel) {
+  public async handleFileShared(
+    event: IFileSharedEvent,
+    user: IUserViewModel | undefined,
+  ) {
+    // Files shared by people the app doesn't know, or has deactivated, are
+    // not its business.
+    if (!user?.is_active) {
+      return;
+    }
+
     await this.slackUserAccessService.checkUserRoleAccess(user, UserRole.Admin);
 
     const { file_id: fileId } = event;

@@ -64,7 +64,10 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   public readonly calls: ISlackApiCall[] = [];
 
   private readonly users = new Map<string, IFakeSlackUser>();
-  private readonly files = new Map<string, { name: string; content: string }>();
+  private readonly files = new Map<
+    string,
+    { name: string; content: string; size: number }
+  >();
   private readonly oauthGrants = new Map<string, IFakeOauthGrant>();
   private messageCount = 0;
 
@@ -74,9 +77,14 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     this.users.set(user.id, user);
   }
 
-  public addFile(name: string, content: string) {
+  // `size` is what files.info reports, e.g. to fake a large file.
+  public addFile(
+    name: string,
+    content: string,
+    { size = Buffer.byteLength(content) }: { size?: number } = {},
+  ) {
     const id = `F${randomUUID().slice(0, 8).toUpperCase()}`;
-    this.files.set(id, { name, content });
+    this.files.set(id, { name, content, size });
 
     return id;
   }
@@ -211,15 +219,25 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       throw new Error('file_not_found');
     }
 
-    // The app downloads `url_private_download` with fetch(); a data: URL lets
-    // it do that without a server.
-    const content = Buffer.from(file.content).toString('base64');
-
     return {
       id: fileId,
       name: file.name,
-      url_private_download: `data:text/csv;base64,${content}`,
+      size: file.size,
+      url_private_download: `https://files.slack.com/files-pri/T_TEST-${fileId}/download/${file.name}`,
     };
+  }
+
+  public async downloadFile(url: string, accessToken: string) {
+    this.record('files.download', { url }, accessToken);
+
+    const fileId = /-(F[0-9A-F]+)\//.exec(url)?.[1];
+    const file = fileId && this.files.get(fileId);
+
+    if (!file) {
+      throw new Error(`No file at ${url}`);
+    }
+
+    return file.content;
   }
 
   public async makeCall<ResponseData>(

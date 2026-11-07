@@ -17,6 +17,19 @@ interface ISendEphemeralMessageParams extends ISendMessageParams {
   userId: string;
 }
 
+// Where Slack serves files from (GovSlack has its own domain).
+const SLACK_FILE_HOSTS = ['files.slack.com', 'files.slack-gov.com'];
+
+const isSlackFileUrl = (url: string) => {
+  try {
+    const { protocol, hostname } = new URL(url);
+
+    return protocol === 'https:' && SLACK_FILE_HOSTS.includes(hostname);
+  } catch {
+    return false;
+  }
+};
+
 @Injectable()
 export default class SlackApiClient {
   public async postEphemeral({
@@ -121,6 +134,35 @@ export default class SlackApiClient {
     }
 
     return result.file;
+  }
+
+  // Downloads a file Slack hosts (files.info's url_private_download). The URL
+  // comes from Slack, but the bot token goes with the request, so it is sent
+  // only to Slack's file hosts, and the file is read only up to `maxBytes`.
+  public async downloadFile(
+    url: string,
+    accessToken: string,
+    maxBytes: number,
+  ): Promise<string> {
+    if (!isSlackFileUrl(url)) {
+      throw new Error(`Refusing to download a file from ${url}`);
+    }
+
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download the file: ${response.status}`);
+    }
+
+    const content = await response.text();
+
+    if (Buffer.byteLength(content) > maxBytes) {
+      throw new Error(`The file is larger than ${maxBytes} bytes`);
+    }
+
+    return content;
   }
 
   public async makeCall<ResponseData>(

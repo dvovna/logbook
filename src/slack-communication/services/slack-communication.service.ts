@@ -94,13 +94,13 @@ export default class SlackCommunicationService {
     return this.slackApiClient.getFileInfo(fileId, accessToken);
   }
 
-  public async fetchFileContent(fileUrl: string, teamId: string) {
+  public async fetchFileContent(
+    fileUrl: string,
+    teamId: string,
+    maxBytes: number,
+  ) {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 
-    const response = await fetch(fileUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    return response.text();
+    return this.slackApiClient.downloadFile(fileUrl, accessToken, maxBytes);
   }
 }

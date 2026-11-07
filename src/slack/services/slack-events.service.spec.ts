@@ -107,12 +107,12 @@ describe('SlackEventsService', () => {
       await service.handleSlackEvent(
         { type: SlackEventType.TeamJoin, user },
         undefined,
-        {},
+        { team_id: slackTeam.slack_id },
       );
       await flushPromises();
     };
 
-    it('creates a member in the internal slack team', async () => {
+    it('creates a member in the workspace the event comes from', async () => {
       await sendTeamJoin(slackUser);
 
       expect(slackTeamsService.findOneWithValidation).toHaveBeenCalledWith({

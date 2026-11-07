@@ -119,6 +119,55 @@ describe('SlackApiClient', () => {
     expect(slack.files.info).toHaveBeenCalledWith({ file: 'F1' });
   });
 
+  describe('downloadFile', () => {
+    const fileUrl =
+      'https://files.slack.com/files-pri/T1-F1/download/user-vacations.csv';
+    let fetchMock: jest.SpyInstance;
+
+    beforeEach(() => {
+      fetchMock = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(new Response('email;team_name'));
+    });
+
+    afterEach(() => fetchMock.mockRestore());
+
+    it('downloads a Slack file with the token', async () => {
+      expect(await client.downloadFile(fileUrl, 'xoxb-1', 100)).toBe(
+        'email;team_name',
+      );
+      expect(fetchMock).toHaveBeenCalledWith(fileUrl, {
+        headers: { Authorization: 'Bearer xoxb-1' },
+      });
+    });
+
+    it('sends the token nowhere but to Slack', async () => {
+      for (const url of [
+        'https://evil.example/files-pri/T1-F1/download/a.csv',
+        'http://files.slack.com/files-pri/T1-F1/download/a.csv',
+        'https://files.slack.com.evil.example/a.csv',
+        'not a url',
+      ]) {
+        await expect(client.downloadFile(url, 'xoxb-1', 100)).rejects.toThrow(
+          'Refusing to download',
+        );
+      }
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('refuses a failed download or one over the limit', async () => {
+      fetchMock.mockResolvedValueOnce(new Response('', { status: 404 }));
+      await expect(client.downloadFile(fileUrl, 'xoxb-1', 100)).rejects.toThrow(
+        '404',
+      );
+
+      fetchMock.mockResolvedValueOnce(new Response('x'.repeat(101)));
+      await expect(client.downloadFile(fileUrl, 'xoxb-1', 100)).rejects.toThrow(
+        'larger than',
+      );
+    });
+  });
+
   it('passes any other method through', async () => {
     const result = await client.makeCall(
       'users.list',
