@@ -1,4 +1,5 @@
 import { Logger, Module } from '@nestjs/common';
+import { BackgroundWorkShutdownService } from '@common/services/background-work-shutdown.service';
 import { AppController } from './app.controller';
 import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 import { SlackModule } from './slack/slack.module';
@@ -81,5 +82,6 @@ import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
     TimeEntriesModule,
   ],
   controllers: [AppController],
+  providers: [BackgroundWorkShutdownService],
 })
 export class AppModule {}

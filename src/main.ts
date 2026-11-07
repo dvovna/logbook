@@ -9,6 +9,9 @@ async function bootstrap() {
   });
 
   configureApp(app);
+  // SIGTERM on a deploy closes the app through its shutdown hooks, which
+  // finish the background work first (BackgroundWorkShutdownService).
+  app.enableShutdownHooks();
 
   const port = process.env[EnvironmentVariable.Port] || 3000;
 
