@@ -355,6 +355,39 @@ export class VacationRequestsService implements IVacationRequestsService {
     return request;
   }
 
+  // Sets the outcome of the approval workflow if the request still waits for
+  // it, in one statement. Null when it was decided (e.g. by another approver
+  // at the same time) or canceled in the meantime.
+  public async finishPending(
+    { id, slackTeamId }: IFindParams,
+    status: VacationRequestStatus.Approved | VacationRequestStatus.Rejected,
+    decidedBy: IUserViewModel,
+  ) {
+    const [finished] = await this.vacationRequestsRepository.updateMany(
+      {
+        id,
+        slack_team_id: slackTeamId,
+        status: VacationRequestStatus.Pending,
+      },
+      {
+        status,
+        updated_by: decidedBy.id,
+        updated_at: new Date().toISOString(),
+      },
+    );
+
+    if (!finished) {
+      return null;
+    }
+
+    this.eventEmitter.emit(
+      VacationRequestEvent.Updated,
+      new VacationRequestUpdatedEvent(finished, decidedBy),
+    );
+
+    return finished;
+  }
+
   public async replaceUserVacations(
     user: IUserViewModel,
     vacations: ICreateParams[],

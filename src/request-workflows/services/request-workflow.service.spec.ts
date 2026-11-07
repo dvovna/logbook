@@ -88,7 +88,8 @@ describe('RequestWorkflowService', () => {
     | 'findOneWithValidation'
     | 'updateStatus'
     | 'findMany'
-    | 'count',
+    | 'count'
+    | 'claimUnprocessed',
     jest.Mock
   >;
   let processorService: Record<
@@ -106,6 +107,7 @@ describe('RequestWorkflowService', () => {
       updateStatus: jest.fn().mockResolvedValue([]),
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
+      claimUnprocessed: jest.fn().mockResolvedValue([]),
     };
     processorService = {
       processSteps: jest.fn(),
@@ -219,6 +221,7 @@ describe('RequestWorkflowService', () => {
         .mockResolvedValueOnce([approvedStep])
         .mockResolvedValueOnce([otherLevelStep]);
       stepsService.findMany.mockResolvedValue([nextLevelStep]);
+      stepsService.claimUnprocessed.mockResolvedValue([nextLevelStep]);
 
       await service.approveStep(step.id, approver);
 
@@ -239,16 +242,32 @@ describe('RequestWorkflowService', () => {
         comments,
       );
       expect(stepsService.count).not.toHaveBeenCalled();
-      expect(stepsService.findMany).toHaveBeenCalledWith({
+      const nextLevel = {
         requestId: REQUEST_ID,
         stepLevel: 2,
         slackTeamId: SLACK_TEAM_ID,
         completed: false,
-      });
+      };
+      expect(stepsService.findMany).toHaveBeenCalledWith(nextLevel);
+      expect(stepsService.claimUnprocessed).toHaveBeenCalledWith(nextLevel);
       expect(processorService.processSteps).toHaveBeenCalledWith(
         [nextLevelStep],
         comments,
       );
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('does not ask the next level again when another approver already did', async () => {
+      const step = buildStep({ rule: ApprovalRule.Any });
+      stepsService.findOneWithValidation.mockResolvedValue(step);
+      stepsService.findMany.mockResolvedValue([
+        buildStep({ id: 'step-2', step_level: 2 }),
+      ]);
+      stepsService.claimUnprocessed.mockResolvedValue([]);
+
+      await service.approveStep(step.id, approver);
+
+      expect(processorService.processSteps).toHaveBeenCalledWith([], comments);
       expect(eventEmitter.emit).not.toHaveBeenCalled();
     });
 
@@ -307,6 +326,7 @@ describe('RequestWorkflowService', () => {
       stepsService.findMany
         .mockResolvedValueOnce([...level1, ...level2])
         .mockResolvedValueOnce(level2);
+      stepsService.claimUnprocessed.mockResolvedValue(level2);
       stepsService.updateStatus.mockResolvedValue(level1);
 
       await service.approveCurrentLevel(REQUEST_ID, hr);

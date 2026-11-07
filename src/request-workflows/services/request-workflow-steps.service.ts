@@ -106,6 +106,15 @@ export class RequestWorkflowStepsService {
     );
   }
 
+  // Marks the steps that nobody has processed yet as processed and returns
+  // them, in one statement: of two callers at once, only the first gets them.
+  public claimUnprocessed(findParams: IFindParams) {
+    return this.requestWorkflowStepsRepository.updateMany(
+      this.getFindQuery({ ...findParams, processed: false }),
+      { processed_at: new Date().toISOString() },
+    );
+  }
+
   public async updateStatus(
     findParams: IFindParams,
     status: RequestWorkflowStatus,

@@ -86,24 +86,23 @@ export class RequestWorkflowProcessingService {
         ? VacationRequestStatus.Approved
         : VacationRequestStatus.Rejected;
 
-    if (
-      statusToSet === request.status ||
-      request.status === VacationRequestStatus.Canceled
-    ) {
-      this.logger.warn('Request status is already set. Skipping update.');
-      return;
-    }
-
-    const updatedRequest = await this.vacationRequestsService.update(
+    // Two approvers deciding at once both finish the workflow; only the
+    // first one changes the request and tells people.
+    const updatedRequest = await this.vacationRequestsService.finishPending(
       {
         id: request.id,
         slackTeamId: request.slack_team_id,
       },
-      {
-        status: statusToSet,
-      },
+      statusToSet,
       approvedBy,
     );
+
+    if (!updatedRequest) {
+      this.logger.warn(
+        `Request ${request.id} is no longer pending (${request.status}), not finishing it again`,
+      );
+      return;
+    }
 
     if (updatedRequest.status === VacationRequestStatus.Approved) {
       await this.notifyOnApproval(
