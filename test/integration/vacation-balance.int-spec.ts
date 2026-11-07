@@ -87,6 +87,20 @@ describe('Vacation balance under a policy', () => {
       ]);
     });
 
+    it('says there is no limit when the team has no policy', async () => {
+      member = await workspace.addUser({ role: UserRole.Member });
+      await workspace.addVacationRequest(member, {
+        start_date: '2026-03-02',
+        end_date: '2026-03-06',
+        days: 5,
+        working_days: 5,
+      });
+
+      expect(await usageOnHome()).toEqual([
+        'Annual leave: *5* used · no limit (your team has no vacation policy)',
+      ]);
+    });
+
     it('counts the vacation year from the contract start', async () => {
       await setUp({ vacation_days: 20 }, { contract_start_date: '2025-09-01' });
       // In the year that started on 2025-09-01.

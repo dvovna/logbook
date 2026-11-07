@@ -18,6 +18,7 @@ interface IGetParams extends IBaseModalViewParams {
   usage: IVacationPeriodUsageData | null;
 }
 
+const NO_LIMIT_TEXT = 'No limit: the team has no vacation policy';
 @Injectable()
 export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
   protected defaultCallbackId = ViewCallbackId.ViewUserVacationUsage;
@@ -91,7 +92,7 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
     const workingUsed = usage.working_days_used ?? 0;
     const available = usage.available ?? 0;
     const workingAvailable = usage.working_days_available ?? 0;
-    const limit = limits ? limits.vacationDays : '-';
+    const limit = limits?.vacationDays;
     const carryover = limits?.carryoverDays ?? 0;
 
     let usedText = `Used: *${usedDays}* days`;
@@ -99,15 +100,21 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
       usedText += ` (*${workingUsed}* working)`;
     }
 
-    let availableText = `Available: ${limits ? `*${available}*` : '-'}`;
-    if (workingAvailable > 0 && workingAvailable !== available) {
-      availableText += ` (*${workingAvailable}* working)`;
-    }
+    // Without a team vacation policy nothing is limited.
+    let availableText = NO_LIMIT_TEXT;
 
-    availableText += ` / Limit: *${limit}* days`;
+    if (limits) {
+      availableText = `Available: *${available}*`;
 
-    if (carryover > 0) {
-      availableText += ` (+*${carryover}* carryover)`;
+      if (workingAvailable > 0 && workingAvailable !== available) {
+        availableText += ` (*${workingAvailable}* working)`;
+      }
+
+      availableText += ` / Limit: *${limit}* days`;
+
+      if (carryover > 0) {
+        availableText += ` (+*${carryover}* carryover)`;
+      }
     }
 
     return {
@@ -131,8 +138,10 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*🎁 Bonus Days*\n\nUsed: *${used}* days\nAvailable: ${
-          limits ? `*${available}* / Limit: *${limit}* days` : '-'
+        text: `*🎁 Bonus Days*\n\nUsed: *${used}* days\n${
+          limits
+            ? `Available: *${available}* / Limit: *${limit}* days`
+            : NO_LIMIT_TEXT
         }`,
       },
     } as AnyBlock;

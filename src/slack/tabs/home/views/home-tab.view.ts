@@ -98,13 +98,16 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
 
   private buildAnnualLeaveBlock(
     usage: IVacationPeriodUsageData['usage']['annual_leave'],
-    limits?: IVacationPeriodUsageData['limits'],
+    limits: IVacationPeriodUsageData['limits'],
   ) {
     const usedDays = usage.used ?? 0;
     const workingUsed = usage.working_days_used ?? 0;
-    const available = usage.available ?? 0;
-    const limit = limits?.vacationDays ?? '-';
-    const carryover = limits?.carryoverDays ?? 0;
+
+    // Without a team vacation policy nothing is limited: there is no balance
+    // to show, only what was taken.
+    if (!limits) {
+      return this.unlimitedLeaveBlock('Annual leave', usedDays);
+    }
 
     const details: string[] = [];
 
@@ -116,8 +119,8 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
       details.push(`*${workingUsed}* working`);
     }
 
-    if (carryover > 0) {
-      details.push(`+*${carryover}* carryover`);
+    if (limits.carryoverDays > 0) {
+      details.push(`+*${limits.carryoverDays}* carryover`);
     }
 
     const detailsText = details.length ? ` (${details.join(', ')})` : '';
@@ -126,32 +129,38 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `Annual leave: *${available} available* / ${limit} total${detailsText}`,
+        text: `Annual leave: *${usage.available ?? 0} available* / ${limits.vacationDays} total${detailsText}`,
       },
     } as AnyBlock;
   }
 
+  private unlimitedLeaveBlock(title: string, used: number): AnyBlock {
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `${title}: ${used > 0 ? `*${used}* used · ` : ''}no limit (your team has no vacation policy)`,
+      },
+    };
+  }
+
   private buildBonusDaysBlock(
     usage: IVacationPeriodUsageData['usage']['bonus_day'],
-    limits?: IVacationPeriodUsageData['limits'],
+    limits: IVacationPeriodUsageData['limits'],
   ) {
     const used = usage.used ?? 0;
-    const available = usage.available ?? 0;
-    const limit = limits?.bonusDays ?? 0;
 
-    const details: string[] = [];
-
-    if (used > 0) {
-      details.push(`*${used}* used`);
+    if (!limits) {
+      return this.unlimitedLeaveBlock('Bonus Days', used);
     }
 
-    const detailsText = details.length ? ` (${details.join(', ')})` : '';
+    const detailsText = used > 0 ? ` (*${used}* used)` : '';
 
     return {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `Bonus Days: *${available} available* / ${limit} total${detailsText}`,
+        text: `Bonus Days: *${usage.available ?? 0} available* / ${limits.bonusDays} total${detailsText}`,
       },
     } as AnyBlock;
   }
