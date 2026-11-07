@@ -1,3 +1,4 @@
+import { assertCanChangeUser } from '@modules/users/utils/admin-role.utils';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   IUserViewModel,
@@ -54,6 +55,10 @@ export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandle
     if (!userToChange) {
       throw new NotFoundException('User not found');
     }
+
+    assertCanChangeUser(user, userToChange, {
+      isActive: !userToChange.is_active,
+    });
 
     const updatedUser = await this.usersService.update(
       {

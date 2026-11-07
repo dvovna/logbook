@@ -1,3 +1,4 @@
+import { assertCanChangeUser } from '@modules/users/utils/admin-role.utils';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
@@ -51,6 +52,14 @@ export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
     meta: IEditUserModalViewMetadata,
     user: IUserViewModel,
   ): Promise<IUserViewModel | null> {
+    const userToEdit = await this.usersService.findOneWithValidation({
+      id: meta.userIdToEdit,
+      slackTeamId: user.slack_team_id,
+      includeInactive: true,
+    });
+
+    assertCanChangeUser(user, userToEdit, { role: data.role.value });
+
     return await this.usersService.update(
       { id: meta.userIdToEdit, slackTeamId: user.slack_team_id },
       {
