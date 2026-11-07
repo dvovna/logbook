@@ -44,6 +44,8 @@ type HomeTabModalViewResolversMapType = {
   ) => Promise<View>;
 };
 
+import { PendingApprovalsService } from '@modules/slack/common/services/pending-approvals.service';
+
 @Injectable()
 export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapType> {
   public constructor(
@@ -55,6 +57,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
+    private readonly approvalsCounter: PendingApprovalsService,
   ) {
     super(TabId.Home, {
       [HomeTabModalName.ViewVacationRequest]: (params) =>
@@ -69,17 +72,22 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
   }
 
   public async getTabView({ user }: IPublishBaseParams) {
-    const [vacationUsageInfo, requestedVacations, timeSummary] =
-      await Promise.all([
-        this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
-        this.vacationsService.findMany({
-          userId: user.id,
-          slackTeamId: user.slack_team_id,
-          startDate: user.contract_start_date || undefined,
-          statuses: [VacationRequestStatus.Pending],
-        }),
-        this.timeEntriesSummaryService.getUserSummary(user),
-      ]);
+    const [
+      vacationUsageInfo,
+      requestedVacations,
+      timeSummary,
+      pendingApprovals,
+    ] = await Promise.all([
+      this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
+      this.vacationsService.findMany({
+        userId: user.id,
+        slackTeamId: user.slack_team_id,
+        startDate: user.contract_start_date || undefined,
+        statuses: [VacationRequestStatus.Pending],
+      }),
+      this.timeEntriesSummaryService.getUserSummary(user),
+      this.approvalsCounter.count(user),
+    ]);
 
     return this.homeTabViewService.getView({
       userId: user.slack_id,
@@ -87,6 +95,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       vacationUsageInfo,
       requestedVacations,
       timeSummary,
+      pendingApprovals,
     });
   }
 

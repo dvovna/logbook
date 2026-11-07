@@ -1,3 +1,5 @@
+import { TabId } from '@modules/slack/common/enums/tab-id.enum';
+import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import SlackCommandPromptsService, {
   CsvImport,
@@ -24,7 +26,7 @@ import {
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
-import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import UserRole from '@common/enums/user-role.enum';
 import { getCheckboxActionValues } from '@modules/slack/common/utils/payload.utils';
@@ -35,9 +37,9 @@ import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 @SlackHandler({
   callbackId: ViewCallbackId.UsersTabView,
   type: 'block_actions',
-  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
+  allowedRoles: rolesOfTab(TabId.Users),
 })
-export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
+export default class UsersTabActionHandler extends BaseTabActionHandler {
   private readonly logger = new Logger(UsersTabActionHandler.name);
 
   protected actionMap: ActionMapType;

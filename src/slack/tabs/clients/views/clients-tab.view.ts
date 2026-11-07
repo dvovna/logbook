@@ -2,15 +2,15 @@ import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { ISearchResult } from '@common/types/pagination.types';
-import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import {
+  BaseTabView,
+  IBaseTabViewParams,
+} from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { Divider } from '@modules/slack/common/views/components/separator';
-import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { ClientsTabViewActionId } from '@modules/slack/tabs/clients/enums/clients-tab-view-actions-id.enum';
 import IClientViewModel from '@modules/clients/types/client.interface';
 import { IncludeArchivedButtonView } from '@modules/slack/common/views/components/include-archvied-button.view';
@@ -25,17 +25,16 @@ export interface IClientsTabMetaData {
 }
 
 @Injectable()
-export class ClientsTabView extends BaseAdminTabView<
+export class ClientsTabView extends BaseTabView<
   IGetViewParams,
   IClientsTabMetaData
 > {
   protected callbackId = ViewCallbackId.ClientsTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManageTimeAndBilling;
 
   public constructor(
     protected readonly slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super(slackActionPermissionsService);
+    super();
   }
 
   protected getTabTitle() {
@@ -59,10 +58,6 @@ export class ClientsTabView extends BaseAdminTabView<
       text: { type: 'plain_text', text: '➕ Add Client' },
       action_id: ClientsTabViewActionId.AddClient,
     };
-  }
-
-  protected getBackButtonBlocks(): AnyBlock[] {
-    return BackButton.getBlocks(AdminNavigationActionId.ManageTimeAndBilling);
   }
 
   protected getContentBlocks(

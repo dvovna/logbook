@@ -10,15 +10,15 @@ import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import ITeamViewModel from '@modules/teams/types/team.interface';
-import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { ISearchResult } from '@common/types/pagination.types';
-import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import {
+  BaseTabView,
+  IBaseTabViewParams,
+} from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { Divider } from '@modules/slack/common/views/components/separator';
-import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 
 interface IGetViewParams extends IBaseTabViewParams {
@@ -32,17 +32,16 @@ export interface ITeamsTabMetaData {
 }
 
 @Injectable()
-export class TeamsTabView extends BaseAdminTabView<
+export class TeamsTabView extends BaseTabView<
   IGetViewParams,
   ITeamsTabMetaData
 > {
   protected callbackId = ViewCallbackId.TeamsTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManagePeople;
 
   public constructor(
     protected readonly slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super(slackActionPermissionsService);
+    super();
   }
 
   protected getTabTitle() {
@@ -55,10 +54,6 @@ export class TeamsTabView extends BaseAdminTabView<
       text: { type: 'plain_text', text: '➕ Add Team' },
       action_id: TeamsTabViewActionId.AddTeam,
     };
-  }
-
-  protected getBackButtonBlocks(): AnyBlock[] {
-    return BackButton.getBlocks(AdminNavigationActionId.ManagePeople);
   }
 
   protected getContentBlocks({ teamsData, membersByTeam }): AnyBlock[] {

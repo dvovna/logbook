@@ -15,7 +15,6 @@ import { View } from '@slack/types/dist/views';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
-import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 
@@ -89,9 +88,6 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
       {
         userId: user.slack_id,
         userRole: user.role,
-        backButtonActionId: metadata.ownEntriesOnly
-          ? CommonViewActionId.BackToHomeTab
-          : undefined,
         canFilterByUser: seesAllEntries,
         viewerId: user.id,
         openEntriesCount,

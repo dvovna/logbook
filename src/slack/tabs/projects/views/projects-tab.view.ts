@@ -12,14 +12,14 @@ import { Injectable } from '@nestjs/common';
 import { truncate } from 'lodash';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
-import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import {
+  BaseTabView,
+  IBaseTabViewParams,
+} from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { Divider } from '@modules/slack/common/views/components/separator';
-import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { IProjectsListData } from 'src/projects/types/projects-list.types';
 import { IProjectListItem } from 'src/projects/types/project-list-item.types';
@@ -54,17 +54,16 @@ export interface IProjectsTabMetaData {
 }
 
 @Injectable()
-export class ProjectsTabView extends BaseAdminTabView<
+export class ProjectsTabView extends BaseTabView<
   IGetProjectsViewParams,
   IProjectsTabMetaData
 > {
   protected callbackId = ViewCallbackId.ProjectsTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManageTimeAndBilling;
 
   public constructor(
     protected readonly slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super(slackActionPermissionsService);
+    super();
   }
 
   protected getTabTitle() {
@@ -88,10 +87,6 @@ export class ProjectsTabView extends BaseAdminTabView<
       text: { type: 'plain_text', text: '➕ Add Project' },
       action_id: ProjectsTabViewActionId.AddProject,
     };
-  }
-
-  protected getBackButtonBlocks(): AnyBlock[] {
-    return BackButton.getBlocks(AdminNavigationActionId.ManageTimeAndBilling);
   }
 
   protected getContentBlocks(

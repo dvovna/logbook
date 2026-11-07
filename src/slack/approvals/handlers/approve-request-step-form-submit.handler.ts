@@ -45,7 +45,7 @@ export class ApproveRequestStepFormSubmitHandler extends BaseModalFormSubmitHand
     runInBackground(this.logger, `approve step ${stepId}`, async () => {
       await this.workflowDecisionsService.approveStep(stepId, user);
 
-      this.tabNavigationService.navigate(TabId.Vacations, {
+      this.tabNavigationService.navigate(TabId.Approvals, {
         user,
         metadata: pageMetadata,
         notice:

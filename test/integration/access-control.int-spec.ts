@@ -2,15 +2,14 @@ import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
-import { ADMIN_TABS } from '@modules/slack/common/views/data/admin-tabs';
+import { actOnTab, openAppHomeTab, openModalFrom } from './support/app-home';
 import { actionIdsOf, modalError } from './support/tab-readers';
 import { workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
@@ -51,7 +50,7 @@ describe('Access control', () => {
     // Home shows that button, and returns the tabs the app published.
     const navigateFromHome = async (
       user: Tables<'users'>,
-      actionId: AdminNavigationActionId,
+      actionId: NavigationActionId,
     ) => {
       const home: View = await openAppHomeTab(t, workspace, user);
       const since = t.slackApi.mark();
@@ -83,82 +82,109 @@ describe('Access control', () => {
     };
 
     it.each([
-      AdminNavigationActionId.ManageUsers,
-      AdminNavigationActionId.ManageTeams,
-      AdminNavigationActionId.ManageVacationRequests,
-      AdminNavigationActionId.ManageClients,
-      AdminNavigationActionId.ManageProjects,
+      NavigationActionId.People,
+      NavigationActionId.Teams,
+      NavigationActionId.AllRequests,
+      NavigationActionId.Clients,
+      NavigationActionId.Projects,
+      NavigationActionId.Approvals,
+      NavigationActionId.Reports,
+      NavigationActionId.TimeLogs,
+      NavigationActionId.Settings,
     ])('sends a member who asks for %s back to their Home', async (action) => {
       expect(await navigateFromHome(member, action)).toEqual([
         ViewCallbackId.HomeTabView,
       ]);
     });
 
-    it('keeps managers out of Teams, which is for Admin and HR', async () => {
-      expect(
-        await navigateFromHome(manager, AdminNavigationActionId.ManageTeams),
-      ).toEqual([ViewCallbackId.HomeTabView]);
-    });
+    it.each([
+      NavigationActionId.Teams,
+      NavigationActionId.Policies,
+      NavigationActionId.TimeLogs,
+    ])(
+      'keeps managers out of %s, which is for Admin and HR',
+      async (action) => {
+        expect(await navigateFromHome(manager, action)).toEqual([
+          ViewCallbackId.HomeTabView,
+        ]);
+      },
+    );
 
-    // The other way round: a button the role sees must not lead back to Home.
-    it.each(['manager', 'hr', 'admin'] as const)(
-      'offers a %s only the sections it can open',
-      async (role) => {
-        const user = { manager, hr, admin }[role];
-        const topNavigation = new Set<string>(
-          ADMIN_TABS.map(({ actionId }) => actionId),
-        );
-        const sections = new Set<string>(
-          Object.values(AdminNavigationActionId),
-        );
+    // The other way round: from Home, follow every navigation button a role
+    // sees, on every screen it reaches. None may lead back to Home (a screen
+    // the role may not open), and each role reaches what it should.
+    it.each([
+      [
+        'member',
+        [
+          NavigationActionId.Home,
+          NavigationActionId.MyTime,
+          NavigationActionId.TimeOff,
+        ],
+      ],
+      [
+        'manager',
+        [
+          NavigationActionId.Home,
+          NavigationActionId.MyTime,
+          NavigationActionId.TimeOff,
+          NavigationActionId.Approvals,
+          NavigationActionId.People,
+          NavigationActionId.Reports,
+          NavigationActionId.Settings,
+          NavigationActionId.Projects,
+          NavigationActionId.Clients,
+          NavigationActionId.AllRequests,
+        ],
+      ],
+      ['hr', Object.values(NavigationActionId)],
+      ['admin', Object.values(NavigationActionId)],
+    ] as const)(
+      'leads a %s from every button only to screens it may open',
+      async (role, reachable) => {
+        const user = { member, manager, hr, admin }[role];
+        const navigation = new Set<string>(Object.values(NavigationActionId));
+        const followed = new Set<string>();
         const bounced: string[] = [];
+        const screens: View[] = [await openAppHomeTab(t, workspace, user)];
 
-        for (const hub of [
-          AdminNavigationActionId.ManagePeople,
-          AdminNavigationActionId.ManageTimeAndBilling,
-          AdminNavigationActionId.ManageVacations,
-        ]) {
-          const hubTab = await openAppHomeTab(t, workspace, user, [hub]);
-          const offered = actionIdsOf(hubTab).filter(
-            (id) => sections.has(id) && !topNavigation.has(id),
-          );
+        for (let view = screens.shift(); view; view = screens.shift()) {
+          for (const actionId of actionIdsOf(view)) {
+            if (!navigation.has(actionId) || followed.has(actionId)) {
+              continue;
+            }
 
-          for (const actionId of offered) {
-            const since = t.slackApi.mark();
-            await t.slack
-              .actOnView(workspace, user, hubTab, actionId)
-              .expect(200);
-            await t.idle();
+            followed.add(actionId);
+            const opened = await actOnTab(t, workspace, user, view, actionId);
 
-            const published = t.slackApi
-              .callsWith(workspace.token, 'views.publish', { since })
-              .map(({ params }) => params.view.callback_id);
-
-            if (published.includes(ViewCallbackId.HomeTabView)) {
+            if (
+              opened.callback_id === ViewCallbackId.HomeTabView &&
+              actionId !== NavigationActionId.Home
+            ) {
               bounced.push(actionId);
+            } else {
+              screens.push(opened);
             }
           }
         }
 
         expect(bounced).toEqual([]);
+        expect([...followed].sort()).toEqual([...reachable].sort());
       },
     );
 
     it('still opens the tabs a role may see', async () => {
       expect(
-        await navigateFromHome(manager, AdminNavigationActionId.ManageUsers),
+        await navigateFromHome(manager, NavigationActionId.People),
       ).toEqual([ViewCallbackId.UsersTabView]);
-      expect(
-        await navigateFromHome(hr, AdminNavigationActionId.ManageTeams),
-      ).toEqual([ViewCallbackId.TeamsTabView]);
+      expect(await navigateFromHome(hr, NavigationActionId.Teams)).toEqual([
+        ViewCallbackId.TeamsTabView,
+      ]);
     });
   });
 
   describe('the Admin role', () => {
-    const USERS_TAB = [
-      AdminNavigationActionId.ManagePeople,
-      AdminNavigationActionId.ManageUsers,
-    ];
+    const USERS_TAB = [NavigationActionId.People];
 
     const fromUsersMenu = async (
       actor: Tables<'users'>,
@@ -280,8 +306,8 @@ describe('Access control', () => {
         workspace,
         hr,
         await openAppHomeTab(t, workspace, hr, [
-          AdminNavigationActionId.ManageVacations,
-          AdminNavigationActionId.ManageVacationRequests,
+          NavigationActionId.TimeOff,
+          NavigationActionId.AllRequests,
         ]),
         VacationRequestsTabViewActionId.ManageRequestMenu,
         `${VacationRequestsTabViewActionId.ApproveOnBehalf}:${request.id}`,

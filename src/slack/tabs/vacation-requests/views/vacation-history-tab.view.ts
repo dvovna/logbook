@@ -17,7 +17,8 @@ import {
   IBaseTabViewParams,
 } from '@modules/slack/common/views/base-tab.view';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
-import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
+import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { Divider } from '@modules/slack/common/views/components/separator';
 import {
   FiltersBlockBuilder,
@@ -39,6 +40,9 @@ export interface IVacationHistoryTabMetadata {
 interface IGetViewParams extends IBaseTabViewParams {
   requests: ISearchResult<IVacationRequestViewModel>;
   years: number[];
+  // Approved time off ahead in the teams the viewer manages; null for a
+  // member.
+  upcoming: IVacationRequestViewModel[] | null;
 }
 
 @Injectable()
@@ -49,35 +53,55 @@ export class VacationHistoryTabView extends BaseTabView<
   protected callbackId: ViewCallbackId = ViewCallbackId.VacationHistoryTabView;
 
   protected getTabTitle(): string {
-    return '*🌴 Vacation History*';
+    return '*🌴 Time off*';
+  }
+
+  protected getTitleAccessory(): SectionBlockAccessory {
+    return {
+      type: 'button',
+      text: { type: 'plain_text', text: '➕ Request time off' },
+      style: 'primary',
+      action_id: VacationHistoryTabViewActionId.RequestTimeOff,
+    };
   }
 
   protected getContentBlocks(
-    { requests, years }: IGetViewParams,
+    { requests, years, upcoming }: IGetViewParams,
     metadata?: IVacationHistoryTabMetadata,
   ): AnyBlock[] {
-    const blocks: AnyBlock[] = [];
-    const filters = metadata?.filters;
-
-    blocks.push(this.getBackButtonBlock());
-    blocks.push(...this.getFilterBlocks(years, filters));
-
-    blocks.push(...this.getRequestsListBlocks(requests));
-
-    return blocks;
+    return [
+      ...(upcoming ? this.getUpcomingBlocks(upcoming) : []),
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: '*Your requests*' },
+      },
+      ...this.getFilterBlocks(years, metadata?.filters),
+      ...this.getRequestsListBlocks(requests),
+    ];
   }
 
-  private getBackButtonBlock() {
-    return {
-      type: 'actions',
-      elements: [
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '⬅️ Back' },
-          action_id: CommonViewActionId.BackToHomeTab,
+  // Who of the viewer's teams is off next, for managers, HR and admins.
+  private getUpcomingBlocks(upcoming: IVacationRequestViewModel[]): AnyBlock[] {
+    const lines = upcoming.map(
+      (request) =>
+        `• *${escapeMrkdwn(request.user?.name || request.user?.email)}* · ${formatDateRange(request.start_date, request.end_date)}`,
+    );
+
+    return [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*🟢 Who's off next*\n${lines.length ? lines.join('\n') : '_Nobody has approved time off ahead._'}`,
         },
-      ],
-    };
+        accessory: {
+          type: 'button',
+          text: { type: 'plain_text', text: '📋 All requests' },
+          action_id: NavigationActionId.AllRequests,
+        },
+      },
+      ...Divider.getBlocks(),
+    ];
   }
 
   private getRequestItemBlocks = (

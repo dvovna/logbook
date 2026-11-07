@@ -12,9 +12,10 @@ import capitalize from '@common/utils/capitalize';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
 import VacationType from '@common/enums/vacation-type.enum';
-import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
-import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import {
+  BaseTabView,
+  IBaseTabViewParams,
+} from '@modules/slack/common/views/base-tab.view';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
@@ -22,7 +23,6 @@ import UserRole from '@common/enums/user-role.enum';
 import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
 import { Divider } from '@modules/slack/common/views/components/separator';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
-import { BackButton } from '@modules/slack/common/views/components/back-button';
 import {
   FiltersBlockBuilder,
   IFiltersConfig,
@@ -53,25 +53,20 @@ interface IGetViewParams extends IBaseTabViewParams {
 }
 
 @Injectable()
-export class VacationRequestsTabView extends BaseAdminTabView<
+export class VacationRequestsTabView extends BaseTabView<
   IGetViewParams,
   IVacationRequestsTabMetadata
 > {
   protected callbackId: ViewCallbackId = ViewCallbackId.VacationRequestsTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManageVacations;
 
   public constructor(
     protected slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super(slackActionPermissionsService);
+    super();
   }
 
   protected getTabTitle(): string {
     return '*🌴 Vacation Requests Management*\n\nSubmit and manage employee vacation requests';
-  }
-
-  protected getBackButtonBlocks(): AnyBlock[] {
-    return BackButton.getBlocks(AdminNavigationActionId.ManageVacations);
   }
 
   protected getTitleAccessory({

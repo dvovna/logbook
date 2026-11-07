@@ -1,3 +1,4 @@
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { formatDateRange } from '@common/utils/date.utils';
 import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
@@ -6,7 +7,6 @@ import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
-import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -83,7 +83,7 @@ describe('Vacation screens', () => {
     });
 
     const history = await openAppHomeTab(t, workspace, member, [
-      HomeTabActionId.ViewHistory,
+      NavigationActionId.TimeOff,
     ]);
 
     expect(listItems(history)).toEqual([
@@ -125,7 +125,7 @@ describe('Vacation screens', () => {
       workspace,
       member,
       history,
-      CommonViewActionId.BackToHomeTab,
+      NavigationActionId.Home,
     );
     expect(home.callback_id).toBe(ViewCallbackId.HomeTabView);
   });

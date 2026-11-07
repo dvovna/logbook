@@ -1,7 +1,7 @@
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { HolidaysTabViewActionId } from '@modules/slack/tabs/holidays/views/holidays-tab.view';
 import { PolicyTabViewActionId } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -15,10 +15,7 @@ import {
 import { listItems, sectionTexts, noticeOf } from './support/tab-readers';
 
 // Home → Vacations → Vacation Policies.
-const POLICIES_TAB = [
-  AdminNavigationActionId.ManageVacations,
-  AdminNavigationActionId.ManageVacationPolicies,
-];
+const POLICIES_TAB = [NavigationActionId.Settings, NavigationActionId.Policies];
 
 // Today is 2026-06-17 (TEST_NOW), so the tab starts on 2026. Country
 // holidays are cached per country and year for the app's life, so every

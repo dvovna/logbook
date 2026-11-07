@@ -1,3 +1,4 @@
+import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -16,18 +17,17 @@ import {
   TabId,
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
-import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
-import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.VacationPoliciesTabView,
   type: 'block_actions',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: rolesOfTab(TabId.VacationPolicies),
 })
-export default class VacationPoliciesTabActionsHandler extends BaseAdminTabActionHandler {
+export default class VacationPoliciesTabActionsHandler extends BaseTabActionHandler {
   private readonly logger = new Logger(VacationPoliciesTabActionsHandler.name);
 
   protected actionMap: ActionMapType;

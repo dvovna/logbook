@@ -8,9 +8,16 @@ import { SlackActionPermissionsService } from '@modules/slack/common/services/sl
 import { FallbackTabView } from '@modules/slack/common/views/fallback-tab.view';
 import { FallbackTabActionHandler } from '@modules/slack/common/handlers/fallback-tab-action.handler';
 import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-tab.view';
+import { PendingApprovalsService } from '@modules/slack/common/services/pending-approvals.service';
+import { RequestWorkflowsModule } from '@modules/request-workflows/request-workflows.module';
+import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 
 @Module({
-  imports: [SlackCommunicationModule],
+  imports: [
+    SlackCommunicationModule,
+    RequestWorkflowsModule,
+    TimeEntriesModule,
+  ],
   providers: [
     ConfirmationModalView,
     RejectWithReasonModalView,
@@ -20,6 +27,7 @@ import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-t
     FallbackTabView,
     FallbackTabActionHandler,
     InactiveUserTabView,
+    PendingApprovalsService,
   ],
   exports: [
     ConfirmationModalView,
@@ -30,6 +38,7 @@ import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-t
     SlackActionPermissionsService,
     FallbackTabView,
     InactiveUserTabView,
+    PendingApprovalsService,
   ],
 })
 export class SlackCommonModule {}

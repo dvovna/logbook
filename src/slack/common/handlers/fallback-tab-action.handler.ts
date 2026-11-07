@@ -1,8 +1,6 @@
 import { ALL_ROLES } from '@common/constants/role-groups';
-import {
-  ActionMapType,
-  BaseActionHandler,
-} from '@modules/slack/common/handlers/base-action.handler';
+import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
+import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { withButtonAction } from '@modules/slack/common/utils/view.utils';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { FallbackTabViewActionId } from '@modules/slack/common/views/fallback-tab.view';
@@ -20,13 +18,12 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
   type: 'block_actions',
   allowedRoles: ALL_ROLES,
 })
-export class FallbackTabActionHandler extends BaseActionHandler {
+// The error view has the navigation too, so it handles it like a tab.
+export class FallbackTabActionHandler extends BaseTabActionHandler {
   protected actionMap: ActionMapType;
 
-  public constructor(
-    private readonly tabNavigationService: TabNavigationService,
-  ) {
-    super();
+  public constructor(tabNavigationService: TabNavigationService) {
+    super(tabNavigationService);
 
     this.actionMap = {
       [FallbackTabViewActionId.Retry]: withButtonAction(

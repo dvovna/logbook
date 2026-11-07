@@ -10,7 +10,14 @@ import {
 import { FallbackTabView } from '@modules/slack/common/views/fallback-tab.view';
 import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-tab.view';
 import { trackInBackground } from '@common/utils/run-in-background';
-import { canOpenTab } from '@modules/slack/common/views/data/tab-access';
+import {
+  canOpenScreen,
+  ScreenId,
+  screenOfTab,
+} from '@modules/slack/common/navigation/screens';
+import { ScreenHeader } from '@modules/slack/common/views/components/screen-header.view';
+import { PendingApprovalsService } from '@modules/slack/common/services/pending-approvals.service';
+import { AnyBlock } from '@slack/web-api';
 
 // Kept apart, so that TabNavigationService can use them without importing
 // this file (which imports it).
@@ -47,6 +54,9 @@ export default abstract class BaseTabService<
   @Inject(InactiveUserTabView)
   private readonly inactiveTabView: InactiveUserTabView;
 
+  @Inject(PendingApprovalsService)
+  private readonly pendingApprovalsService: PendingApprovalsService;
+
   protected constructor(
     private tabId: TabId,
     protected readonly modalViewResolversMap?: ModalViewResolversMap,
@@ -71,11 +81,13 @@ export default abstract class BaseTabService<
   };
 
   private async publishTab(params: PublishParams) {
-    // Every way into a tab ends here (navigation buttons, Retry on the error
-    // view, re-rendering after a modal), so the role is checked here.
-    if (!canOpenTab(this.tabId, params.user.role)) {
+    const screenId = this.screenOf(params);
+
+    // Every way into a screen ends here (navigation buttons, Retry on the
+    // error view, re-rendering after a modal), so the role is checked here.
+    if (!canOpenScreen(screenId, params.user.role)) {
       this.logger.warn(
-        `${params.user.slack_id} (${params.user.role}) may not open ${this.tabId}`,
+        `${params.user.slack_id} (${params.user.role}) may not open ${screenId}`,
       );
       this.tabNavigationService.navigate(TabId.Home, { user: params.user });
 
@@ -84,13 +96,21 @@ export default abstract class BaseTabService<
 
     try {
       const tabView = await this.getSafeTabView(params);
-
-      if (params.notice) {
-        this.addNotice(tabView, params.notice);
-      }
+      const header = params.user.is_active
+        ? [
+            ...(await this.getHeaderBlocks(screenId, params)),
+            ...this.getNoticeBlocks(params.notice),
+          ]
+        : [];
 
       await this.slackCommunicationService.publishView(
-        tabView,
+        {
+          ...tabView,
+          view: {
+            ...tabView.view,
+            blocks: [...header, ...tabView.view.blocks],
+          },
+        },
         params.user.slack_team_id,
       );
     } catch (error) {
@@ -103,17 +123,41 @@ export default abstract class BaseTabService<
     }
   }
 
-  // Under the navigation row, above everything else on the tab.
-  private addNotice(tabView: ViewsPublishArguments, notice: string) {
-    const blocks = tabView.view.blocks;
-    const at = blocks[0]?.type === 'actions' ? 1 : 0;
+  // Which screen of SCREENS the tab shows for `params`.
+  protected screenOf(params: PublishParams): ScreenId {
+    return screenOfTab(this.tabId, params.metadata ?? {});
+  }
 
-    blocks.splice(at, 0, {
-      type: 'context',
-      block_id: TAB_NOTICE_BLOCK_ID,
-      // Plain text: a notice often names what people typed (a client, a team).
-      elements: [{ type: 'plain_text', text: notice, emoji: true }],
+  private async getHeaderBlocks(screenId: ScreenId, { user }: PublishParams) {
+    // Only a number on a button: without it the screen still shows.
+    const approvalsCount = await this.pendingApprovalsService
+      .count(user)
+      .then(({ timeOff, timeEntries }) => timeOff + timeEntries)
+      .catch((error: Error) => {
+        this.logger.warn(`Could not count pending approvals: ${error.message}`);
+
+        return undefined;
+      });
+
+    return ScreenHeader.getBlocks({
+      screenId,
+      role: user.role,
+      approvalsCount,
     });
+  }
+
+  // What just happened, under the navigation, above everything else.
+  private getNoticeBlocks(notice?: string): AnyBlock[] {
+    return notice
+      ? [
+          {
+            type: 'context',
+            block_id: TAB_NOTICE_BLOCK_ID,
+            // Plain text: a notice often names what people typed.
+            elements: [{ type: 'plain_text', text: notice, emoji: true }],
+          },
+        ]
+      : [];
   }
 
   public async openModal<ModalName extends keyof ModalViewResolversMap>(

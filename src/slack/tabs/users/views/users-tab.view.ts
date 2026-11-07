@@ -9,17 +9,17 @@ import {
   ROLE_DISPLAY_NAME,
   ROLE_OPTIONS,
 } from '@modules/slack/tabs/users/views/options/use-role.options';
-import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
-import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import {
+  BaseTabView,
+  IBaseTabViewParams,
+} from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import UserRole from '@common/enums/user-role.enum';
 import { Divider } from '@modules/slack/common/views/components/separator';
-import { BackButton } from '@modules/slack/common/views/components/back-button';
 import {
   FiltersBlockBuilder,
   IFiltersConfig,
@@ -52,25 +52,20 @@ const INACTIVE_PLAIN_TEXT_OPTIONS: PlainTextOption[] = [
 ];
 
 @Injectable()
-export class UsersTabView extends BaseAdminTabView<
+export class UsersTabView extends BaseTabView<
   IGetViewParams,
   IUsersTabMetaData
 > {
-  protected activeTabActionId = AdminNavigationActionId.ManagePeople;
   protected callbackId = ViewCallbackId.UsersTabView;
 
   public constructor(
     protected slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super(slackActionPermissionsService);
+    super();
   }
 
   protected getTabTitle(): string {
     return '*👥 Users Management*';
-  }
-
-  protected getBackButtonBlocks(): AnyBlock[] {
-    return BackButton.getBlocks(AdminNavigationActionId.ManagePeople);
   }
 
   protected getContentBlocks(

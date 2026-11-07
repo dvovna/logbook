@@ -1,7 +1,7 @@
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -22,10 +22,7 @@ import {
 } from './support/tab-readers';
 
 // Home → People → Users.
-const USERS_TAB = [
-  AdminNavigationActionId.ManagePeople,
-  AdminNavigationActionId.ManageUsers,
-];
+const USERS_TAB = [NavigationActionId.People];
 
 const titleOf = (user: Tables<'users'>) => `*${user.name}* (${user.email})`;
 

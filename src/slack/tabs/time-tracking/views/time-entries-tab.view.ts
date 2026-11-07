@@ -4,14 +4,14 @@ import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
-import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import {
+  BaseTabView,
+  IBaseTabViewParams,
+} from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { Divider } from '@modules/slack/common/views/components/separator';
-import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { truncate } from 'lodash';
 import {
   FiltersBlockBuilder,
@@ -48,21 +48,23 @@ export interface ITimeEntriesTabMetaData {
 }
 
 @Injectable()
-export class TimeEntriesTabView extends BaseAdminTabView<
+export class TimeEntriesTabView extends BaseTabView<
   IGetTimeEntriesViewParams,
   ITimeEntriesTabMetaData
 > {
   protected callbackId = ViewCallbackId.TimeEntriesTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManageTimeAndBilling;
 
   public constructor(
     protected readonly slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super(slackActionPermissionsService);
+    super();
   }
 
-  protected getTabTitle() {
-    return '⏱ *Time Entries*\n\nReview and manage logged working time.';
+  // My time, or Time logs: everyone's entries, for Admin and HR.
+  protected getTabTitle({ canFilterByUser }: IGetTimeEntriesViewParams) {
+    return canFilterByUser
+      ? "*⏱ Time logs*\nEveryone's logged time."
+      : '*🕒 My time*';
   }
 
   protected getTitleAccessory(): SectionBlockAccessory {
@@ -71,15 +73,6 @@ export class TimeEntriesTabView extends BaseAdminTabView<
       text: { type: 'plain_text', text: '➕ Add Time Entry' },
       action_id: TimeEntriesTabViewActionId.AddTimeEntry,
     };
-  }
-
-  // Back to where the tab was opened from: Home or Time & Billing.
-  protected getBackButtonBlocks({
-    backButtonActionId,
-  }: IGetTimeEntriesViewParams): AnyBlock[] {
-    return BackButton.getBlocks(
-      backButtonActionId ?? AdminNavigationActionId.ManageTimeAndBilling,
-    );
   }
 
   protected getContentBlocks(

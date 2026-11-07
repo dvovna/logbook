@@ -1,8 +1,8 @@
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
-import { TimeApprovalsTabActionId } from '@modules/slack/tabs/time-approvals/enums/time-approvals-tab-action-id.enum';
+import { ApprovalsTabActionId } from '@modules/slack/tabs/approvals/enums/approvals-tab-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import {
@@ -21,11 +21,8 @@ import {
   publishedHome,
 } from './support/app-home';
 
-// Home → Time & Billing → Approvals.
-const APPROVALS_TAB = [
-  AdminNavigationActionId.ManageTimeAndBilling,
-  AdminNavigationActionId.ManageTimeApprovals,
-];
+// The Approvals inbox.
+const APPROVALS_TAB = [NavigationActionId.Approvals];
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -89,31 +86,29 @@ describe('Time approvals', () => {
       await submitted(opsMember, { description: 'Ops work' });
       await submitted(manager, { description: 'Own work' });
 
-      const timeAndBilling = await openAppHomeTab(t, workspace, manager, [
-        AdminNavigationActionId.ManageTimeAndBilling,
-      ]);
-      expect(sectionTexts(timeAndBilling)).toContain(
-        '*✅ Approvals (1)*\n\nSubmitted time entries waiting for your decision',
+      const home = await openAppHomeTab(t, workspace, manager);
+      expect(buttonText(home, NavigationActionId.Approvals)).toBe(
+        '✅ Approvals (1)',
       );
 
       const approvals = await actOnTab(
         t,
         workspace,
         manager,
-        timeAndBilling,
-        AdminNavigationActionId.ManageTimeApprovals,
+        home,
+        NavigationActionId.Approvals,
       );
       expect(listItems(approvals)).toEqual([
         expect.objectContaining({
           title: 'Mia Member',
           fields: expect.objectContaining({ Description: 'Kickoff' }),
           buttons: [
-            TimeApprovalsTabActionId.ApproveEntry,
-            TimeApprovalsTabActionId.RejectEntry,
+            ApprovalsTabActionId.ApproveEntry,
+            ApprovalsTabActionId.RejectEntry,
           ],
         }),
       ]);
-      expect(buttonText(approvals, TimeApprovalsTabActionId.ApproveAll)).toBe(
+      expect(buttonText(approvals, ApprovalsTabActionId.ApproveAll)).toBe(
         'Approve all (1)',
       );
     });
@@ -149,7 +144,7 @@ describe('Time approvals', () => {
         workspace,
         manager,
         approvals,
-        TimeApprovalsTabActionId.ApproveEntry,
+        ApprovalsTabActionId.ApproveEntry,
         entry.id,
       );
 
@@ -158,7 +153,7 @@ describe('Time approvals', () => {
         updated_by: manager.id,
       });
       expect(sectionTexts(updated)).toContain(
-        '_Nothing is waiting for your approval._',
+        '_No time entries wait for you._',
       );
     });
 
@@ -169,7 +164,7 @@ describe('Time approvals', () => {
         workspace,
         manager,
         await openAppHomeTab(t, workspace, manager, APPROVALS_TAB),
-        TimeApprovalsTabActionId.RejectEntry,
+        ApprovalsTabActionId.RejectEntry,
         entry.id,
       );
 
@@ -197,7 +192,7 @@ describe('Time approvals', () => {
       );
       expect(
         sectionTexts(await publishedHome(t, workspace, manager, since)),
-      ).toContain('_Nothing is waiting for your approval._');
+      ).toContain('_No time entries wait for you._');
 
       // The owner sees why in their list, until they send it again.
       const myEntries = await openAppHomeTab(t, workspace, member, [
@@ -235,7 +230,7 @@ describe('Time approvals', () => {
         workspace,
         manager,
         await openAppHomeTab(t, workspace, manager, APPROVALS_TAB),
-        TimeApprovalsTabActionId.ApproveAll,
+        ApprovalsTabActionId.ApproveAll,
       );
       expect(sectionTexts(confirmation)).toEqual([
         '6 time entries waiting for you will be approved.',
@@ -263,7 +258,7 @@ describe('Time approvals', () => {
         workspace,
         manager,
         await openAppHomeTab(t, workspace, manager, APPROVALS_TAB),
-        TimeApprovalsTabActionId.RejectEntry,
+        ApprovalsTabActionId.RejectEntry,
         entry.id,
       );
       await t.db
@@ -288,7 +283,7 @@ describe('Time approvals', () => {
         workspace,
         manager,
         await openAppHomeTab(t, workspace, manager, APPROVALS_TAB),
-        TimeApprovalsTabActionId.ApproveAll,
+        ApprovalsTabActionId.ApproveAll,
       );
 
       const response = await t.slack

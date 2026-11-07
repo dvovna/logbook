@@ -1,16 +1,16 @@
+// The App Home tabs: each is a BaseTabService that shows one screen or more
+// (SCREENS), e.g. TimeEntries shows My time and Time logs.
 export enum TabId {
   Home = 'home_tab',
-  Holidays = 'holidays_tab',
-  People = 'people_tab',
-  Projects = 'projects_tab',
-  TimeAndBilling = 'time_and_billing',
+  TimeOff = 'time_off_tab',
+  Approvals = 'approvals_tab',
+  Reports = 'reports_tab',
   TimeEntries = 'time_entries_tab',
-  TimeApprovals = 'time_approvals_tab',
-  Vacations = 'vacations_tab',
   Users = 'users_tab',
-  VacationPolicies = 'vacation_policies_tab',
   Teams = 'teams_tab',
+  VacationPolicies = 'vacation_policies_tab',
+  Holidays = 'holidays_tab',
+  Projects = 'projects_tab',
   Clients = 'clients_tab',
   VacationRequests = 'vacation_requests_tab',
-  VacationsHistory = 'vacations_history_tab',
 }

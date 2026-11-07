@@ -1,29 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { ClientsTabViewActionId } from '@modules/slack/tabs/clients/enums/clients-tab-view-actions-id.enum';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 
+// Which role sees an action inside a screen, when not everyone who may open
+// the screen (SCREENS) may use it. Hiding is not access control: the
+// handlers and services check the role again.
 @Injectable()
 export class SlackActionPermissionsService {
   private readonly permissions: Record<string, UserRole[]> = {
-    [AdminNavigationActionId.ViewHome]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
-    ],
-    [AdminNavigationActionId.ViewAdminPanel]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
-    ],
-    [AdminNavigationActionId.ManageUsers]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
-    ],
     [UsersTabViewActionId.ManageUserMenu]: [
       UserRole.Admin,
       UserRole.HR,
@@ -38,15 +25,9 @@ export class SlackActionPermissionsService {
     ],
     [UsersTabViewActionId.EditUser]: [UserRole.Admin, UserRole.HR],
     [UsersTabViewActionId.ChangeStatus]: [UserRole.Admin, UserRole.HR],
-    [AdminNavigationActionId.ManageTeams]: [UserRole.Admin, UserRole.HR],
     [VacationRequestsTabViewActionId.CreateRequest]: [
       UserRole.Admin,
       UserRole.HR,
-    ],
-    [AdminNavigationActionId.ManageVacationRequests]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
     ],
     [VacationRequestsTabViewActionId.DeleteRequest]: [UserRole.Admin],
     [VacationRequestsTabViewActionId.ApproveOnBehalf]: [
@@ -56,30 +37,6 @@ export class SlackActionPermissionsService {
     [VacationRequestsTabViewActionId.EditRequest]: [
       UserRole.Admin,
       UserRole.HR,
-    ],
-    [AdminNavigationActionId.ManageVacationPolicies]: [
-      UserRole.Admin,
-      UserRole.HR,
-    ],
-    [AdminNavigationActionId.ManagePeople]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
-    ],
-    [AdminNavigationActionId.ManageTimeAndBilling]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
-    ],
-    [AdminNavigationActionId.ManageProjects]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
-    ],
-    [AdminNavigationActionId.ManageVacations]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
     ],
     // Managers see clients and projects; only Admin and HR change them, but a
     // manager may assign people to a project and archive it.
@@ -96,15 +53,6 @@ export class SlackActionPermissionsService {
       UserRole.Admin,
       UserRole.HR,
       UserRole.Manager,
-    ],
-    [AdminNavigationActionId.ManageTimeApprovals]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Manager,
-    ],
-    [AdminNavigationActionId.ManageBillingReports]: [
-      UserRole.Admin,
-      UserRole.HR,
     ],
   } as const;
 

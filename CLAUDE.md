@@ -120,7 +120,7 @@ Controllers are in `src/slack/controllers/`:
   - `block_actions` in a message: the **`block_id` of the first action**, so actionable blocks in messages use the matching `ViewCallbackId` as their `block_id`.
 - Slack takes `action_id`, button values, menu choices and form values from the client: a member can send ones the UI never offered. `callback_id` and `private_metadata` come from the stored view. So every handler and service checks the role and that an ID from the client is the workspace's and the user may use it; hiding a button is not access control (`test/integration/access-control.int-spec.ts`, `object-access.int-spec.ts`).
 - `SlackInteractionsService` enforces `allowedRoles` and blocks inactive users before it calls the handler.
-- `BaseActionHandler` (for `block_actions`) dispatches on `action_id` through `actionMap`. `BaseAdminTabActionHandler` adds the shared admin navigation actions. Helpers such as `withPagination`, `withMenuAction` and `withButtonAction` unpack action values.
+- `BaseActionHandler` (for `block_actions`) dispatches on `action_id` through `actionMap`. `BaseTabActionHandler`, which every tab's handler extends, opens the screen any navigation button names (`NavigationActionId`). Helpers such as `withPagination`, `withMenuAction` and `withButtonAction` unpack action values.
 - `BaseModalFormSubmitHandler<Metadata, FormData, Result>` (for `view_submission`):
   - Parses `private_metadata` as JSON.
   - Validates `view.state.values` with a `BaseValuesParser` (a zod schema plus field config), returning field-level errors.
@@ -138,14 +138,15 @@ To add an interaction:
 
 ### App Home "tabs"
 
-The UI is a single App Home view that gets re-published to show different screens (`TabId`: Home, Users, Teams, Holidays, VacationPolicies, VacationRequests, VacationsHistory).
+The UI is a single App Home view that gets re-published to show different screens. Navigation is by task: `[Home] [My time] [Time off] [Approvals (N)] [People] [Reports] [Settings]`. Members see the first three; Approvals is one inbox of time off and time entries waiting for the viewer; Settings has its own row (Teams, Policies, Projects, Clients).
 
-- Each screen lives in `src/slack/tabs/<name>/`, with `handlers/`, `parsers/`, `services/` and `views/` and its own Nest module.
+- Every screen is in the registry `SCREENS` (`src/slack/common/navigation/screens.ts`): title, roles, the tab that shows it, the button that opens it, and its parent (Back) or Settings row. `ScreenHeader` builds the navigation row, the Settings row and Back from it, and `BaseTabService` puts the header (with the Approvals count, `PendingApprovalsService`) above every screen. A tab's action handler allows `rolesOfTab(TabId.X)`. A new screen needs an entry there; `access-control.int-spec.ts` follows every button for every role.
+- Each tab lives in `src/slack/tabs/<name>/`, with `handlers/`, `parsers/`, `services/` and `views/` and its own Nest module. A tab can show more than one screen: `TimeEntries` is My time (`ownEntriesOnly`) and Time logs; `screenOfTab` picks by metadata.
 - A tab service extends `BaseTabService`. In `onModuleInit` it subscribes to `TabNavigationService` (EventEmitter2 events named by `TabId`).
 - `tabNavigationService.navigate(TabId.X, { user, metadata })` re-renders a tab from anywhere.
 - Tab state such as pagination and filters round-trips through the view's `private_metadata`. Modals carry it along as `pageMetadata` so they can re-render the tab after a submit.
 - If rendering fails, the user sees `FallbackTabView`; inactive users see `InactiveUserTabView`.
-- Who may open which tab is in `TAB_ALLOWED_ROLES` (`src/slack/common/views/data/tab-access.ts`). `BaseTabService.publish` checks it and sends anyone else to Home. Hiding a button is not access control: Slack takes action ids, button values and menu choices from the client. So every handler checks the role (`allowedRoles`) and every service checks the owner. A new tab needs an entry in the map.
+- `BaseTabService.publish` checks the screen's roles and sends anyone else to Home. Hiding a button is not access control: Slack takes action ids, button values and menu choices from the client. So every handler checks the role (`allowedRoles`) and every service checks the owner. Actions inside a screen that only some of its roles may use are in `SlackActionPermissionsService`.
 - Views are injectable classes that return Block Kit JSON.
 
 ### Domain layer
@@ -188,7 +189,7 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - `ALL`: the level waits until there are no pending steps.
    - A reject at any level ends the workflow.
    - Comments re-render the messages of all pending steps.
-   - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in the Vacation Requests tab (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.
+   - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in All requests (Approvals → All pending requests) (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.
 6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status (a job) and publishes `vacation_request.decided`. On the Slack side, `VacationDecisionNotificationsService` (Vacation Requests tab module) notifies the requester and each of the team's `approval_notification_recipients`, one job per message.
 
 Two approvers can click at the same moment, so the transitions are single conditional updates rather than "read, check, write". A decision (approve, reject, cancel, "Approve for Approvers") is the RPC `decide_workflow_steps`: in one `UPDATE` it writes the status into `step_data` and sets `completed_at`, only on steps that are still open, and returns the steps it decided (none when someone else was first, and then the caller stops). `VacationRequestsService.finishPending` changes only a request that is still pending (whoever changes it sends the notifications), and the next level's steps are claimed through `processed_at` (`claimUnprocessed`) before anyone is asked.
@@ -196,7 +197,7 @@ Two approvers can click at the same moment, so the transitions are single condit
 
 ### Time & Billing
 
-Domain modules `clients`, `projects`, `time-entries`; Slack tabs `clients`, `projects`, `time-tracking` (Log Time modal, entries list), `time-approvals`, `time-and-billing` (hub, billing report).
+Domain modules `clients`, `projects`, `time-entries`; Slack tabs `clients`, `projects`, `time-tracking` (Log Time modal, My time and Time logs), `approvals` (the Approvals inbox, with time off), `reports` (the week, billing report).
 - Projects belong to an optional client and are assigned to teams and users (`assign_project_assignments`). People log time on their team's and their own projects (`get_user_projects`). `TIME_ENTRIES_ADMIN_ROLES` (Admin, HR) log for anyone on any active project and see and edit everyone's entries; everyone else sees only their own, and Home → Edit Entries shows only your own for every role.
 - An entry takes its client and billability from its project. Minutes come in 15-minute steps, at most 24 hours per user, project and day (also a check constraint).
 - Status: the owner logs drafts and submits them; a submitted entry is approved or rejected in the Approvals tab by the managers of its team (`manager_approvers`, as for vacations), HR or an admin, never by its owner. A rejection sends the owner a DM. The owner changes only drafts and rejected entries (a fixed one is a draft again).

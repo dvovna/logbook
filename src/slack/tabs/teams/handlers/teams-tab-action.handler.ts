@@ -1,4 +1,5 @@
-import UserRole from '@common/enums/user-role.enum';
+import { TabId } from '@modules/slack/common/enums/tab-id.enum';
+import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -11,7 +12,7 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.view';
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
-import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
@@ -20,9 +21,9 @@ import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-
 @SlackHandler({
   callbackId: ViewCallbackId.TeamsTabView,
   type: 'block_actions',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: rolesOfTab(TabId.Teams),
 })
-export default class TeamsTabActionHandler extends BaseAdminTabActionHandler {
+export default class TeamsTabActionHandler extends BaseTabActionHandler {
   private readonly logger = new Logger(TeamsTabActionHandler.name);
 
   protected actionMap: ActionMapType;

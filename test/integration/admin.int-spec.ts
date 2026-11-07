@@ -1,7 +1,7 @@
 import { noticeOf } from './support/tab-readers';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -33,8 +33,8 @@ describe('Admin', () => {
     // Home → People → Teams → the team's menu → Delete: the confirmation modal.
     const openDeleteConfirmation = async (team: Tables<'teams'>) => {
       const teamsTab = await openAppHomeTab(t, workspace, admin, [
-        AdminNavigationActionId.ManagePeople,
-        AdminNavigationActionId.ManageTeams,
+        NavigationActionId.Settings,
+        NavigationActionId.Teams,
       ]);
 
       return openModalFrom(

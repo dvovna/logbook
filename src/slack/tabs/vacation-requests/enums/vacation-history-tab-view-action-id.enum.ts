@@ -1,4 +1,5 @@
 export enum VacationHistoryTabViewActionId {
+  RequestTimeOff = 'request_time_off',
   ManageRequestMenu = 'manage_request_menu',
   ViewDetails = 'vacation_view_details',
   PaginationPrev = 'requests_pagination_prev',

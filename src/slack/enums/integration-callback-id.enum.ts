@@ -47,16 +47,10 @@ export enum ViewCallbackId {
   // general
   FallbackTabView = 'fallback_tab_view',
 
-  // people
-  PeopleTabView = 'people_tab_view',
-
-  // vacations
-  VacationsTabView = 'vacations_tab_view',
-
-  // time-and-billing
+  // time tracking and reports
   TimeEntriesTabView = 'time_entries_tab_view',
   DeleteTimeEntry = 'delete_time_entry',
-  TimeAndBillingTabView = 'time_and_billing_tab_view',
+  ReportsTabView = 'reports_tab_view',
 
   // projects
   ProjectsTabView = 'projects_tab_view',
@@ -68,8 +62,8 @@ export enum ViewCallbackId {
   UserTimeEntry = 'user_time_entry',
   AdminTimeEntry = 'admin_time_entry',
 
-  // time-approvals
-  TimeApprovalsTabView = 'time_approvals_tab_view',
+  // approvals
+  ApprovalsTabView = 'approvals_tab_view',
   RejectTimeEntry = 'reject_time_entry',
   ApproveAllTimeEntries = 'approve_all_time_entries',
 

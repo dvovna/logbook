@@ -1,6 +1,6 @@
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { PolicyTabViewActionId } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
@@ -20,16 +20,10 @@ import {
 } from './support/tab-readers';
 
 // Home → Vacations → Vacation Policies.
-const POLICIES_TAB = [
-  AdminNavigationActionId.ManageVacations,
-  AdminNavigationActionId.ManageVacationPolicies,
-];
+const POLICIES_TAB = [NavigationActionId.Settings, NavigationActionId.Policies];
 
 // Home → People → Teams.
-const TEAMS_TAB = [
-  AdminNavigationActionId.ManagePeople,
-  AdminNavigationActionId.ManageTeams,
-];
+const TEAMS_TAB = [NavigationActionId.Settings, NavigationActionId.Teams];
 
 describe('Vacation policies and teams', () => {
   let t: ITestApp;

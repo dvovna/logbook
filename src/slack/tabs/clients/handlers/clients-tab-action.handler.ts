@@ -1,4 +1,5 @@
-import UserRole from '@common/enums/user-role.enum';
+import { TabId } from '@modules/slack/common/enums/tab-id.enum';
+import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   ISlackBlockActionPayload,
@@ -9,7 +10,7 @@ import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator'
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
-import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import {
@@ -26,9 +27,9 @@ import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 @SlackHandler({
   callbackId: ViewCallbackId.ClientsTabView,
   type: 'block_actions',
-  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
+  allowedRoles: rolesOfTab(TabId.Clients),
 })
-export default class ClientsTabActionHandler extends BaseAdminTabActionHandler {
+export default class ClientsTabActionHandler extends BaseTabActionHandler {
   private readonly logger = new Logger(ClientsTabActionHandler.name);
 
   protected actionMap: ActionMapType;

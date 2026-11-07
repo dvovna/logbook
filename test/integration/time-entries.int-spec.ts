@@ -1,9 +1,8 @@
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
@@ -30,11 +29,8 @@ import {
   publishedHome,
 } from './support/app-home';
 
-// Home → Time & Billing → Time logs.
-const TIME_LOGS_TAB = [
-  AdminNavigationActionId.ManageTimeAndBilling,
-  AdminNavigationActionId.ManageTimeLogs,
-];
+// Reports → Time logs, Admin's and HR's.
+const TIME_LOGS_TAB = [NavigationActionId.Reports, NavigationActionId.TimeLogs];
 
 // Home → Edit Entries.
 const MY_ENTRIES_TAB = [HomeTabActionId.EditTimeEntries];
@@ -467,9 +463,7 @@ describe('Time entries', () => {
       await workspace.addTimeEntry(admin, website, { description: 'Not mine' });
 
       const home = await openAppHomeTab(t, workspace, member);
-      expect(actionIdsOf(home)).not.toContain(
-        AdminNavigationActionId.ManageTimeAndBilling,
-      );
+      expect(actionIdsOf(home)).not.toContain(NavigationActionId.TimeLogs);
 
       const myEntries = await actOnTab(
         t,
@@ -506,7 +500,7 @@ describe('Time entries', () => {
         workspace,
         member,
         myEntries,
-        CommonViewActionId.BackToHomeTab,
+        NavigationActionId.Home,
       );
 
       expect(home.callback_id).toBe(ViewCallbackId.HomeTabView);
@@ -680,19 +674,17 @@ describe('Time entries', () => {
       },
     );
 
-    it('shows a manager only their own entries under Time logs', async () => {
+    // Time logs, everyone's entries, are Admin's and HR's.
+    it('shows a manager only their own entries, in My time', async () => {
       const manager = await workspace.addUser({ role: UserRole.Manager });
       await workspace.addTimeEntry(member, website, { description: 'Kickoff' });
       await workspace.addTimeEntry(manager, website, { description: 'Audit' });
 
-      const timeLogs = await openAppHomeTab(
-        t,
-        workspace,
-        manager,
-        TIME_LOGS_TAB,
-      );
+      const myTime = await openAppHomeTab(t, workspace, manager, [
+        NavigationActionId.MyTime,
+      ]);
 
-      expect(descriptionsOf(timeLogs)).toEqual(['Audit']);
+      expect(descriptionsOf(myTime)).toEqual(['Audit']);
     });
 
     it('shows an admin only their own entries under Edit Entries, on every page', async () => {
@@ -766,7 +758,7 @@ describe('Time entries', () => {
       expect(home).toContain('This week: *0h* total');
     });
 
-    it("sums up the workspace's week under Time & Billing", async () => {
+    it("sums up the workspace's week in Reports", async () => {
       const internal = await workspace.addProject({
         name: 'Internal',
         billable: false,
@@ -789,14 +781,12 @@ describe('Time entries', () => {
         work_date: addDays(today(), -7),
       });
 
-      const timeAndBilling = sectionTexts(
-        await openAppHomeTab(t, workspace, admin, [
-          AdminNavigationActionId.ManageTimeAndBilling,
-        ]),
+      const reports = sectionTexts(
+        await openAppHomeTab(t, workspace, admin, [NavigationActionId.Reports]),
       );
 
-      expect(timeAndBilling).toContain(
-        '• *3h* logged total\n• *2h* billable\n• *2* active projects',
+      expect(reports).toContain(
+        '*This week*\n*3h* logged · *2h* billable · *2* active projects',
       );
     });
 
@@ -813,14 +803,12 @@ describe('Time entries', () => {
         })),
       );
 
-      const timeAndBilling = sectionTexts(
-        await openAppHomeTab(t, workspace, admin, [
-          AdminNavigationActionId.ManageTimeAndBilling,
-        ]),
+      const reports = sectionTexts(
+        await openAppHomeTab(t, workspace, admin, [NavigationActionId.Reports]),
       );
 
-      expect(timeAndBilling).toContain(
-        '• *250h 15m* logged total\n• *250h 15m* billable\n• *1* active projects',
+      expect(reports).toContain(
+        '*This week*\n*250h 15m* logged · *250h 15m* billable · *1* active projects',
       );
     });
   });

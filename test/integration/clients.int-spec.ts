@@ -1,7 +1,7 @@
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 import { ClientsTabViewActionId } from '@modules/slack/tabs/clients/enums/clients-tab-view-actions-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -22,10 +22,7 @@ import {
 } from './support/app-home';
 
 // Home → Time & Billing → Clients.
-const CLIENTS_TAB = [
-  AdminNavigationActionId.ManageTimeAndBilling,
-  AdminNavigationActionId.ManageClients,
-];
+const CLIENTS_TAB = [NavigationActionId.Settings, NavigationActionId.Clients];
 
 describe('Clients', () => {
   let t: ITestApp;

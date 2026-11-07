@@ -36,7 +36,7 @@ const weekOf = (date: Date) => {
 const sumMinutes = (entries: { minutes: number }[]) =>
   entries.reduce((sum, { minutes }) => sum + minutes, 0);
 
-// The numbers the Home and Time & Billing tabs show, over all entries but
+// The numbers Home and Reports show, over all entries but
 // deleted ones, whatever their status.
 @Injectable()
 export class TimeEntriesSummaryService {

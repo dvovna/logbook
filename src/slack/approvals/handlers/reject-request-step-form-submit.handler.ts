@@ -68,7 +68,7 @@ export class RejectRequestStepFormSubmitHandler extends BaseModalFormSubmitHandl
 
       // Opened from the Vacations tab, which then shows the request gone.
       if (pageMetadata !== undefined) {
-        this.tabNavigationService.navigate(TabId.Vacations, {
+        this.tabNavigationService.navigate(TabId.Approvals, {
           user,
           metadata: JSON.parse(pageMetadata || '{}'),
           notice: '❌ Rejected. The requester gets a message about it.',

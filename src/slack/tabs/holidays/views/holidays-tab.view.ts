@@ -1,12 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import IHolidayViewModel from '@modules/holidays/types/holiday.interface';
 import { ISearchResult } from '@common/types/pagination.types';
-import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
 import { COUNTRY_OPTIONS } from '@modules/slack/tabs/holidays/views/options/country.options';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
-import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import {
+  BaseTabView,
+  IBaseTabViewParams,
+} from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 
 interface IGetHolidaysViewParams extends IBaseTabViewParams {
@@ -33,24 +36,22 @@ export enum HolidaysTabViewActionId {
   DeleteHoliday = 'delete_holiday',
   ToggleHolidayStatus = 'toggle_holiday_status',
   UploadHolidaysFromCountry = 'upload_holidays_from_country',
-  BackToPolicies = 'back_to_policies',
   CountryHolidaysPaginationPrev = 'country_holidays_pagination_prev',
   CountryHolidaysPaginationNext = 'country_holidays_pagination_next',
   ManageHolidayMenu = 'manage_holiday_menu',
 }
 
 @Injectable()
-export class HolidaysTabView extends BaseAdminTabView<
+export class HolidaysTabView extends BaseTabView<
   IGetHolidaysViewParams,
   IHolidaysTabMetadata
 > {
   protected callbackId = ViewCallbackId.HolidaysTabView;
-  protected activeTabActionId = null;
 
   public constructor(
     protected slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super(slackActionPermissionsService);
+    super();
   }
 
   protected getContentBlocks({
@@ -61,8 +62,6 @@ export class HolidaysTabView extends BaseAdminTabView<
     years,
   }: IGetHolidaysViewParams): AnyBlock[] {
     const blocks: AnyBlock[] = [];
-
-    blocks.push(this.getBackButtonBlock());
 
     blocks.push(...this.getFilterBlocks(selectedYear, years));
 
@@ -81,19 +80,6 @@ export class HolidaysTabView extends BaseAdminTabView<
     });
 
     return blocks;
-  }
-
-  private getBackButtonBlock() {
-    return {
-      type: 'actions',
-      elements: [
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '⬅️ Back To Policies' },
-          action_id: HolidaysTabViewActionId.BackToPolicies,
-        },
-      ],
-    };
   }
 
   private getSectionDividerBlocks() {
@@ -153,7 +139,7 @@ export class HolidaysTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle({ policyName }: IGetHolidaysViewParams) {
-    return `*Holidays for Vacation Policy '${policyName}'*\n\nCompany-wide public holidays and non-working days.`;
+    return `*🎉 Holidays · ${escapeMrkdwn(policyName)}*\nPublic holidays and company days off: the enabled ones are not working days for the teams on this policy.`;
   }
 
   private getFilterBlocks(selectedYear: number, years: number[]) {

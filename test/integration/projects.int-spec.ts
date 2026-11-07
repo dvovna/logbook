@@ -1,7 +1,7 @@
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
@@ -28,11 +28,8 @@ import {
   publishedHome,
 } from './support/app-home';
 
-// Home → Time & Billing → Projects.
-const PROJECTS_TAB = [
-  AdminNavigationActionId.ManageTimeAndBilling,
-  AdminNavigationActionId.ManageProjects,
-];
+// Settings → Projects.
+const PROJECTS_TAB = [NavigationActionId.Settings, NavigationActionId.Projects];
 
 const { ProjectTeams, ProjectUsers } = ProjectAssignmentModalViewActionId;
 

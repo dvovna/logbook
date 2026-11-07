@@ -34,13 +34,11 @@ import { UsersTabModule } from '@modules/slack/tabs/users/users-tab.module';
 import { HomeTabModule } from '@modules/slack/tabs/home/home-tab.module';
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import { SlackAppUninstallService } from '@modules/slack/services/slack-app-uninstall.service';
-import { PeopleTabModule } from '@modules/slack/tabs/people/people-tab.module';
-import { VacationsTabModule } from '@modules/slack/tabs/vacations/vacations-tab.module';
-import { TimeAndBillingTabModule } from '@modules/slack/tabs/time-and-billing/time-and-billing-tab.module';
+import { ReportsTabModule } from '@modules/slack/tabs/reports/reports-tab.module';
 import { ProjectsTabModule } from '@modules/slack/tabs/projects/projects-tab.module';
 import { ProjectsModule } from 'src/projects/projects.module';
 import { ProjectOptionsService } from '@modules/slack/services/option-services/project-options.service';
-import { TimeApprovalsTabModule } from '@modules/slack/tabs/time-approvals/time-approvals-tab.module';
+import { ApprovalsTabModule } from '@modules/slack/tabs/approvals/approvals-tab.module';
 import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
 import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-tracking.module';
 import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module';
@@ -68,12 +66,10 @@ import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module
     HomeTabModule,
     ApprovalsModule,
     SlackCommonModule,
-    PeopleTabModule,
-    VacationsTabModule,
-    TimeAndBillingTabModule,
+    ReportsTabModule,
     TimeTrackingModule,
     ClientsTabModule,
-    TimeApprovalsTabModule,
+    ApprovalsTabModule,
   ],
   controllers: [
     SlackOauthController,

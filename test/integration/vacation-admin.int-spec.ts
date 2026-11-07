@@ -3,7 +3,7 @@ import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationType from '@common/enums/vacation-type.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -42,8 +42,8 @@ describe('Requests HR files for someone else', () => {
 
   const openRequestsTab = () =>
     openAppHomeTab(t, workspace, hr, [
-      AdminNavigationActionId.ManageVacations,
-      AdminNavigationActionId.ManageVacationRequests,
+      NavigationActionId.TimeOff,
+      NavigationActionId.AllRequests,
     ]);
 
   // Vacations → Vacation Requests → Create, filled in for `user`.

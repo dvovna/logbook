@@ -4,7 +4,7 @@ import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { Tables } from '@common/types/database.types';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
@@ -24,23 +24,14 @@ import { modalError, sectionTexts } from './support/tab-readers';
 import { workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 
-const USERS_TAB = [
-  AdminNavigationActionId.ManagePeople,
-  AdminNavigationActionId.ManageUsers,
-];
-const VACATIONS_HUB = [AdminNavigationActionId.ManageVacations];
+const USERS_TAB = [NavigationActionId.People];
+const TIME_OFF = [NavigationActionId.TimeOff];
 const REQUESTS_TAB = [
-  AdminNavigationActionId.ManageVacations,
-  AdminNavigationActionId.ManageVacationRequests,
+  NavigationActionId.TimeOff,
+  NavigationActionId.AllRequests,
 ];
-const PROJECTS_TAB = [
-  AdminNavigationActionId.ManageTimeAndBilling,
-  AdminNavigationActionId.ManageProjects,
-];
-const TEAMS_TAB = [
-  AdminNavigationActionId.ManagePeople,
-  AdminNavigationActionId.ManageTeams,
-];
+const PROJECTS_TAB = [NavigationActionId.Settings, NavigationActionId.Projects];
+const TEAMS_TAB = [NavigationActionId.Settings, NavigationActionId.Teams];
 
 const option = (value: string) => ({
   text: { type: 'plain_text', text: value },
@@ -225,21 +216,21 @@ describe('Access to objects by ID', () => {
       }
     });
 
-    it("shows only their teams' upcoming vacations in the Vacations hub", async () => {
+    it("shows only their teams' upcoming time off in Time off", async () => {
       const admin = await workspace.addUser({ role: UserRole.Admin });
       const upcoming = '29 Jun – 3 Jul 2026';
+      const whoIsOff = async (user: Tables<'users'>) =>
+        sectionTexts(await openAppHomeTab(t, workspace, user, TIME_OFF)).find(
+          (text) => text.startsWith("*🟢 Who's off next*"),
+        );
 
-      expect(
-        sectionTexts(
-          await openAppHomeTab(t, workspace, manager, VACATIONS_HUB),
-        ),
-      ).toContain(`• *Anna Ownteam* — ${upcoming}`);
+      expect(await whoIsOff(manager)).toBe(
+        `*🟢 Who's off next*\n• *Anna Ownteam* · ${upcoming}`,
+      );
       // Admin and HR see everyone's, the soonest first, then the latest
       // request.
-      expect(
-        sectionTexts(await openAppHomeTab(t, workspace, admin, VACATIONS_HUB)),
-      ).toContain(
-        `• *Boris Otherteam* — ${upcoming}\n• *Anna Ownteam* — ${upcoming}`,
+      expect(await whoIsOff(admin)).toBe(
+        `*🟢 Who's off next*\n• *Boris Otherteam* · ${upcoming}\n• *Anna Ownteam* · ${upcoming}`,
       );
     });
 

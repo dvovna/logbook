@@ -60,7 +60,7 @@ export class DeleteTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
       user,
       metadata: meta.pageMetadata
         ? (JSON.parse(meta.pageMetadata) as ITimeEntriesTabMetaData)
-        : {},
+        : { ownEntriesOnly: true },
       notice: '✅ Time entry deleted.',
     });
 

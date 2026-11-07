@@ -1,7 +1,8 @@
+import { ReportsTabActionId } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
@@ -12,7 +13,7 @@ import { TestWorkspace } from './support/test-workspace';
 import { findAction } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
-import { listItems, sectionTexts } from './support/tab-readers';
+import { listItems, sectionTexts, buttonText } from './support/tab-readers';
 
 const sorted = (values: (string | undefined)[]) => [...values].sort();
 
@@ -100,13 +101,10 @@ describe('Workspace isolation', () => {
 
   describe('lists', () => {
     it('shows only its own users and teams', async () => {
-      const users = await open([
-        AdminNavigationActionId.ManagePeople,
-        AdminNavigationActionId.ManageUsers,
-      ]);
+      const users = await open([NavigationActionId.People]);
       const teams = await open([
-        AdminNavigationActionId.ManagePeople,
-        AdminNavigationActionId.ManageTeams,
+        NavigationActionId.Settings,
+        NavigationActionId.Teams,
       ]);
 
       expect(idsOf(users)).toEqual(sorted([a.admin.id, a.ada.id]));
@@ -116,16 +114,16 @@ describe('Workspace isolation', () => {
 
     it('shows only its own clients, projects and time entries', async () => {
       const clients = await open([
-        AdminNavigationActionId.ManageTimeAndBilling,
-        AdminNavigationActionId.ManageClients,
+        NavigationActionId.Settings,
+        NavigationActionId.Clients,
       ]);
       const projects = await open([
-        AdminNavigationActionId.ManageTimeAndBilling,
-        AdminNavigationActionId.ManageProjects,
+        NavigationActionId.Settings,
+        NavigationActionId.Projects,
       ]);
       const timeLogs = await open([
-        AdminNavigationActionId.ManageTimeAndBilling,
-        AdminNavigationActionId.ManageTimeLogs,
+        NavigationActionId.Reports,
+        NavigationActionId.TimeLogs,
       ]);
 
       expect(idsOf(clients)).toEqual([a.acme.id]);
@@ -138,13 +136,10 @@ describe('Workspace isolation', () => {
     });
 
     it('shows only its own entries and requests waiting for approval', async () => {
-      const approvals = await open([
-        AdminNavigationActionId.ManageTimeAndBilling,
-        AdminNavigationActionId.ManageTimeApprovals,
-      ]);
+      const approvals = await open([NavigationActionId.Approvals]);
       const vacationRequests = await open([
-        AdminNavigationActionId.ManageVacations,
-        AdminNavigationActionId.ManageVacationRequests,
+        NavigationActionId.TimeOff,
+        NavigationActionId.AllRequests,
       ]);
 
       expect(idsOf(approvals)).toEqual([a.entries[0].id]);
@@ -153,19 +148,17 @@ describe('Workspace isolation', () => {
   });
 
   describe('sums', () => {
-    it('counts only its own time on Home and in Time & Billing', async () => {
+    it('counts only its own time on Home and in Reports', async () => {
       const home = sectionTexts(await open([], a.ada));
-      const timeAndBilling = sectionTexts(
-        await open([AdminNavigationActionId.ManageTimeAndBilling]),
-      );
+      const reports = await open([NavigationActionId.Reports]);
 
       expect(home).toContain('Today: *1h* (Acme 1h)');
       expect(home).toContain('This week: *2h* total');
-      expect(timeAndBilling).toContain(
-        '• *2h* logged total\n• *2h* billable\n• *1* active projects',
+      expect(sectionTexts(reports)).toContain(
+        '*This week*\n*2h* logged · *2h* billable · *1* active projects',
       );
-      expect(timeAndBilling).toContain(
-        '*✅ Approvals (1)*\n\nSubmitted time entries waiting for your decision',
+      expect(buttonText(reports, NavigationActionId.Approvals)).toBe(
+        '✅ Approvals (1)',
       );
     });
 
@@ -185,12 +178,12 @@ describe('Workspace isolation', () => {
       await a.workspace.addTeam({ manager_approvers: [otherLead.slack_id] });
 
       const weekOf = async (manager: Tables<'users'>) =>
-        sectionTexts(
-          await open([AdminNavigationActionId.ManageTimeAndBilling], manager),
-        ).find((text) => text.includes('logged total'));
+        sectionTexts(await open([NavigationActionId.Reports], manager)).find(
+          (text) => text.startsWith('*This week*'),
+        );
 
-      expect(await weekOf(designLead)).toContain('• *2h* logged total');
-      expect(await weekOf(otherLead)).toContain('• *0h* logged total');
+      expect(await weekOf(designLead)).toContain('*2h* logged');
+      expect(await weekOf(otherLead)).toContain('*0h* logged');
     });
 
     it('bills only its own approved time', async () => {
@@ -198,8 +191,8 @@ describe('Workspace isolation', () => {
         t,
         a.workspace,
         a.admin,
-        await open([AdminNavigationActionId.ManageTimeAndBilling]),
-        AdminNavigationActionId.ManageBillingReports,
+        await open([NavigationActionId.Reports]),
+        ReportsTabActionId.BillingReport,
       );
       expect(
         findAction(form.blocks, 'clientId').element.options.map(
@@ -224,12 +217,12 @@ describe('Workspace isolation', () => {
   describe('searches', () => {
     it('suggests only its own users and projects', async () => {
       const projects = await open([
-        AdminNavigationActionId.ManageTimeAndBilling,
-        AdminNavigationActionId.ManageProjects,
+        NavigationActionId.Settings,
+        NavigationActionId.Projects,
       ]);
       const timeLogs = await open([
-        AdminNavigationActionId.ManageTimeAndBilling,
-        AdminNavigationActionId.ManageTimeLogs,
+        NavigationActionId.Reports,
+        NavigationActionId.TimeLogs,
       ]);
       const assignments = await openModalFrom(
         t,
@@ -272,8 +265,8 @@ describe('Workspace isolation', () => {
 
     it('searches for the text as typed, not as filter syntax', async () => {
       const timeLogs = await open([
-        AdminNavigationActionId.ManageTimeAndBilling,
-        AdminNavigationActionId.ManageTimeLogs,
+        NavigationActionId.Reports,
+        NavigationActionId.TimeLogs,
       ]);
       const search = (query: string) =>
         suggestions(timeLogs, TimeEntriesTabViewActionId.FilterByUser, query);

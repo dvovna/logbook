@@ -9,15 +9,15 @@ import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
-import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
-import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
+import {
+  BaseTabView,
+  IBaseTabViewParams,
+} from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { Divider } from '@modules/slack/common/views/components/separator';
 import { ISearchResult } from '@common/types/pagination.types';
-import { BackButton } from '@modules/slack/common/views/components/back-button';
 
 interface IGetViewParams extends IBaseTabViewParams {
   policies: ISearchResult<IVacationPolicyViewModel>;
@@ -40,25 +40,20 @@ export enum PolicyTabViewActionId {
 }
 
 @Injectable()
-export class VacationPolicyTabView extends BaseAdminTabView<
+export class VacationPolicyTabView extends BaseTabView<
   IGetViewParams,
   IVacationPoliciesTabMetaData
 > {
   protected callbackId = ViewCallbackId.VacationPoliciesTabView;
-  protected activeTabActionId = AdminNavigationActionId.ManageVacations;
 
   public constructor(
     protected slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super(slackActionPermissionsService);
+    super();
   }
 
   protected getTabTitle() {
     return '*🏢 Vacation Policy Management*\n\nRules for vacation accrual, periods, and entitlements.';
-  }
-
-  protected getBackButtonBlocks(): AnyBlock[] {
-    return BackButton.getBlocks(AdminNavigationActionId.ManageVacations);
   }
 
   protected getTitleAccessory(): SectionBlockAccessory | null {

@@ -6,25 +6,28 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
-import { IBaseTabViewParams } from '@modules/slack/common/views/base-tab.view';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
-import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
+import {
+  BaseTabView,
+  IBaseTabViewParams,
+} from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import VacationType from '@common/enums/vacation-type.enum';
 import * as pluralize from 'pluralize';
 import { Divider } from '@modules/slack/common/views/components/separator';
 import { getDisplayTime } from '@common/utils/time.utils';
 import { IUserTimeSummary } from 'src/time-entries/services/time-entries-summary.service';
+import { IPendingApprovals } from '@modules/slack/common/services/pending-approvals.service';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;
   requestedVacations?: IVacationRequestViewModel[];
   timeSummary: IUserTimeSummary;
+  pendingApprovals: IPendingApprovals;
 }
 
 export enum HomeTabActionId {
   OpenVacationModal = 'open_vacation_modal',
-  ViewHistory = 'view_history',
   CancelRequest = 'cancel_vacation_request',
   ViewDetails = 'view_vacation_request_details',
   ManagePendingRequestMenu = 'manage_pending_request_menu',
@@ -34,22 +37,23 @@ export enum HomeTabActionId {
 }
 
 @Injectable()
-export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
+export class HomeTabView extends BaseTabView<IGetViewParams, never> {
   protected callbackId = ViewCallbackId.HomeTabView;
-  protected activeTabActionId = AdminNavigationActionId.ViewHome;
 
   public constructor(
     protected readonly slackActionPermissionsService: SlackActionPermissionsService,
   ) {
-    super(slackActionPermissionsService);
+    super();
   }
 
   public getContentBlocks({
     vacationUsageInfo,
     requestedVacations,
     timeSummary,
+    pendingApprovals,
   }: IGetViewParams) {
     return [
+      ...this.getAttentionBlocks(pendingApprovals),
       ...this.getUserViewBlocks(
         vacationUsageInfo,
         timeSummary,
@@ -59,7 +63,39 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   }
 
   protected getTabTitle() {
-    return `*🏠 Overview*\n`;
+    return `*🏠 Home*\n`;
+  }
+
+  // What waits for the viewer's decision, for those who approve.
+  private getAttentionBlocks({
+    timeOff,
+    timeEntries,
+  }: IPendingApprovals): AnyBlock[] {
+    if (!timeOff && !timeEntries) {
+      return [];
+    }
+
+    const waiting = [
+      timeOff && pluralize('time off request', timeOff, true),
+      timeEntries && pluralize('time entry', timeEntries, true),
+    ].filter(Boolean);
+
+    return [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*⏳ Needs your attention*\n${waiting.join(' and ')} ${timeOff + timeEntries === 1 ? 'waits' : 'wait'} for your decision.`,
+        },
+        accessory: {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Open Approvals' },
+          style: 'primary',
+          action_id: NavigationActionId.Approvals,
+        },
+      },
+      ...Divider.getBlocks(),
+    ];
   }
 
   private getUserViewBlocks(
@@ -87,11 +123,6 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
             text: { type: 'plain_text', text: '➕ Request Vacation' },
             style: 'primary',
             action_id: HomeTabActionId.OpenVacationModal,
-          },
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '📜 Vacation History' },
-            action_id: HomeTabActionId.ViewHistory,
           },
         ],
       },

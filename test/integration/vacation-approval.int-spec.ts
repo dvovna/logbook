@@ -3,9 +3,9 @@ import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
-import { VacationsTabViewActionId } from '@modules/slack/tabs/vacations/enums/vacations-tab-view-action-id.enum';
+import { ApprovalsTabActionId } from '@modules/slack/tabs/approvals/enums/approvals-tab-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { workWeek } from './support/dates';
@@ -169,7 +169,7 @@ describe('Vacation request approval', () => {
 
     // The requester finds the reason in the history and in Details.
     const history = await openAppHomeTab(t, workspace, member, [
-      HomeTabActionId.ViewHistory,
+      NavigationActionId.TimeOff,
     ]);
     expect(listItems(history)[0].fields.Reason).toBe(
       'Release week &lt;!channel&gt;',
@@ -373,24 +373,24 @@ describe('Vacation request approval', () => {
     });
   });
 
-  describe('deciding from the Vacations tab instead of the message', () => {
-    // Vacations → "Requests awaiting your approval" → the request's menu.
+  describe('deciding in Approvals instead of the message', () => {
+    // Approvals → Time off → the request's Approve or Reject.
     const decide = async (
       action:
-        | VacationsTabViewActionId.ApprovePendingRequest
-        | VacationsTabViewActionId.RejectPendingRequest,
+        | ApprovalsTabActionId.ApproveTimeOff
+        | ApprovalsTabActionId.RejectTimeOff,
     ) => {
       const [step] = await workspace.rows('request_workflow_steps');
-      const vacationsTab = await openAppHomeTab(t, workspace, manager, [
-        AdminNavigationActionId.ManageVacations,
+      const approvals = await openAppHomeTab(t, workspace, manager, [
+        NavigationActionId.Approvals,
       ]);
       const confirmation = await openModalFrom(
         t,
         workspace,
         manager,
-        vacationsTab,
-        VacationsTabViewActionId.ManagePendingRequestMenu,
-        `${action}:${step.id}`,
+        approvals,
+        action,
+        step.id,
       );
 
       await t.slack.submitView(workspace, manager, confirmation).expect(200);
@@ -406,12 +406,25 @@ describe('Vacation request approval', () => {
       const { start, end } = workWeek(2);
       await requestVacation(t, workspace, member, { start, end });
 
-      const vacationsTab = await openAppHomeTab(t, workspace, manager, [
-        AdminNavigationActionId.ManageVacations,
+      const approvals = await openAppHomeTab(t, workspace, manager, [
+        NavigationActionId.Approvals,
       ]);
 
-      expect(sectionTexts(vacationsTab)).toContain(
-        `*Max Member* · Annual Leave\n${formatDateRange(start, end)} (5 days)`,
+      expect(listItems(approvals)).toEqual([
+        expect.objectContaining({
+          title: 'Max Member',
+          buttons: [
+            ApprovalsTabActionId.ApproveTimeOff,
+            ApprovalsTabActionId.RejectTimeOff,
+          ],
+          menu: [
+            ApprovalsTabActionId.CommentTimeOff,
+            ApprovalsTabActionId.TimeOffDetails,
+          ],
+        }),
+      ]);
+      expect(textOf(approvals)).toContain(
+        `Annual Leave · ${formatDateRange(start, end)} (5 days)`,
       );
     });
 
@@ -419,7 +432,7 @@ describe('Vacation request approval', () => {
       const request = await requestVacation(t, workspace, member, workWeek(2));
       await approvalMessageTo(t, workspace, manager);
 
-      await decide(VacationsTabViewActionId.ApprovePendingRequest);
+      await decide(ApprovalsTabActionId.ApproveTimeOff);
 
       await t.idle();
       expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
@@ -429,7 +442,7 @@ describe('Vacation request approval', () => {
       const request = await requestVacation(t, workspace, member, workWeek(2));
       await approvalMessageTo(t, workspace, manager);
 
-      await decide(VacationsTabViewActionId.RejectPendingRequest);
+      await decide(ApprovalsTabActionId.RejectTimeOff);
 
       await t.idle();
       expect(
@@ -457,8 +470,8 @@ describe('Vacation request approval', () => {
     // Home → Vacations → Vacation Requests → the request's menu.
     const openConfirmation = async (request: Tables<'vacation_requests'>) => {
       const requestsTab = await openAppHomeTab(t, workspace, hr, [
-        AdminNavigationActionId.ManageVacations,
-        AdminNavigationActionId.ManageVacationRequests,
+        NavigationActionId.TimeOff,
+        NavigationActionId.AllRequests,
       ]);
 
       return openModalFrom(

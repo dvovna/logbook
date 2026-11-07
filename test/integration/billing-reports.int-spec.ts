@@ -1,7 +1,8 @@
+import { ReportsTabActionId } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
-import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -10,7 +11,7 @@ import { actionIdsOf, sectionTexts } from './support/tab-readers';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
 
 // Home → Time & Billing.
-const TIME_AND_BILLING_TAB = [AdminNavigationActionId.ManageTimeAndBilling];
+const REPORTS_TAB = [NavigationActionId.Reports];
 
 describe('Billing reports', () => {
   let t: ITestApp;
@@ -45,8 +46,8 @@ describe('Billing reports', () => {
       t,
       workspace,
       user,
-      await openAppHomeTab(t, workspace, user, TIME_AND_BILLING_TAB),
-      AdminNavigationActionId.ManageBillingReports,
+      await openAppHomeTab(t, workspace, user, REPORTS_TAB),
+      ReportsTabActionId.BillingReport,
     );
 
   const approved = (
@@ -185,14 +186,9 @@ describe('Billing reports', () => {
 
   it('is for Admin and HR only', async () => {
     const manager = await workspace.addUser({ role: UserRole.Manager });
-    const timeAndBilling = await openAppHomeTab(
-      t,
-      workspace,
-      manager,
-      TIME_AND_BILLING_TAB,
-    );
-    expect(actionIdsOf(timeAndBilling)).not.toContain(
-      AdminNavigationActionId.ManageBillingReports,
+    const reports = await openAppHomeTab(t, workspace, manager, REPORTS_TAB);
+    expect(actionIdsOf(reports)).not.toContain(
+      ReportsTabActionId.BillingReport,
     );
 
     const response = await t.slack

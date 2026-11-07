@@ -1,4 +1,5 @@
-import { ALL_ROLES } from '@common/constants/role-groups';
+import { TabId } from '@modules/slack/common/enums/tab-id.enum';
+import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
@@ -9,7 +10,7 @@ import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator'
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
-import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import {
   withAsyncSelectFilter,
   withDateFilter,
@@ -26,9 +27,9 @@ import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums
 @SlackHandler({
   callbackId: ViewCallbackId.TimeEntriesTabView,
   type: 'block_actions',
-  allowedRoles: ALL_ROLES,
+  allowedRoles: rolesOfTab(TabId.TimeEntries),
 })
-export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandler {
+export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
   private readonly logger = new Logger(TimeEntriesTabActionHandler.name);
 
   protected actionMap: ActionMapType;

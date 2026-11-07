@@ -1,3 +1,4 @@
+import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -21,16 +22,15 @@ import {
   withSelectFilter,
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
-import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
-import UserRole from '@common/enums/user-role.enum';
+import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.HolidaysTabView,
   type: 'block_actions',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: rolesOfTab(TabId.Holidays),
 })
-export default class HolidaysTabActionHandler extends BaseAdminTabActionHandler {
+export default class HolidaysTabActionHandler extends BaseTabActionHandler {
   private readonly logger = new Logger(HolidaysTabActionHandler.name);
 
   protected actionMap: ActionMapType;
@@ -55,12 +55,6 @@ export default class HolidaysTabActionHandler extends BaseAdminTabActionHandler 
         'selectedYear',
         this.updateTab,
       ),
-      [HolidaysTabViewActionId.BackToPolicies]: (
-        _payload: ISlackInteractionPayload,
-        user: IUserViewModel,
-      ) => {
-        this.tabNavigationService.navigate(TabId.VacationPolicies, { user });
-      },
       [HolidaysTabViewActionId.CountryHolidaysPaginationPrev]:
         paginationHandler,
       [HolidaysTabViewActionId.CountryHolidaysPaginationNext]:

@@ -1,5 +1,5 @@
+import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
-import { ALL_ROLES } from '@common/constants/role-groups';
 import { Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -15,16 +15,16 @@ import {
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
-import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
+import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.HomeTabView,
   type: 'block_actions',
-  allowedRoles: ALL_ROLES,
+  allowedRoles: rolesOfTab(TabId.Home),
 })
-export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
+export default class HomeTabActionHandler extends BaseTabActionHandler {
   protected actionMap: ActionMapType;
 
   private readonly logger = new Logger(HomeTabActionHandler.name);
@@ -38,7 +38,6 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
 
     this.actionMap = {
       [HomeTabActionId.OpenVacationModal]: this.handleCreateVacationRequest,
-      [HomeTabActionId.ViewHistory]: this.handleViewHistory,
       [HomeTabActionId.EditTimeEntries]: this.handleViewTimeEntries,
       [HomeTabActionId.ManagePendingRequestMenu]: withMenuAction(
         this.handleMenuAction,
@@ -83,13 +82,6 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
     );
 
     this.tabNavigationService.navigate(TabId.Home, { user });
-  };
-
-  private handleViewHistory = (
-    _payload: ISlackInteractionPayload,
-    user: IUserViewModel,
-  ) => {
-    this.tabNavigationService.navigate(TabId.VacationsHistory, { user });
   };
 
   private handleViewTimeEntries = (
