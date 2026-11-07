@@ -6,9 +6,13 @@ import { NavigationActionId } from '@modules/slack/common/enums/navigation-actio
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { findAction } from './support/block-kit';
-import { actionIdsOf, sectionTexts } from './support/tab-readers';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import { findAction, textOf } from './support/block-kit';
+import { actionIdsOf, sectionTexts, tableRows } from './support/tab-readers';
+import {
+  openAppHomeTab,
+  openModalFrom,
+  publishedHome,
+} from './support/app-home';
 
 // Home → Time & Billing.
 const REPORTS_TAB = [NavigationActionId.Reports];
@@ -48,6 +52,23 @@ describe('Billing reports', () => {
       user,
       await openAppHomeTab(t, workspace, user, REPORTS_TAB),
       ReportsTabActionId.BillingReport,
+    );
+
+  // Sends the form; it closes and Reports shows the report.
+  const submitReport = async (form: View, values: Record<string, string>) => {
+    const since = t.slackApi.mark();
+    const response = await t.slack
+      .submitView(workspace, admin, form, values)
+      .expect(200);
+
+    expect(response.body).toEqual({ response_action: 'clear' });
+
+    return publishedHome(t, workspace, admin, since);
+  };
+
+  const reportTexts = (view: View) =>
+    sectionTexts(view).filter((text) =>
+      /^\*(Billing report|By person)/.test(text),
     );
 
   const approved = (
@@ -96,19 +117,20 @@ describe('Billing reports', () => {
       ),
     ).toEqual([acme.id, globex.id]);
 
-    const response = await t.slack
-      .submitView(workspace, admin, form, {
-        clientId: acme.id,
-        fromDate: '2026-10-01',
-        toDate: '2026-10-31',
-      })
-      .expect(200);
+    const reports = await submitReport(form, {
+      clientId: acme.id,
+      fromDate: '2026-10-01',
+      toDate: '2026-10-31',
+    });
 
-    expect(response.body.response_action).toBe('push');
-    expect(sectionTexts(response.body.view as View)).toEqual([
-      '*Acme* · 1–31 Oct 2026\nApproved: *3h 45m*, billable *3h 15m*\n_Not approved yet: 1h_',
-      '*By project*\n• Website — 3h 15m (billable 3h 15m)\n• Support — 30m (billable 0h)',
+    expect(reportTexts(reports)).toEqual([
+      '*Billing report: Acme* · 1–31 Oct 2026\nApproved: *3h 45m*, billable *3h 15m*\n_Not approved yet: 1h_',
       '*By person*\n• Mia Member — 2h 45m\n• Ann Admin — 1h',
+    ]);
+    expect(tableRows(reports)).toEqual([
+      ['Project', 'Hours', 'Billable'],
+      ['Website', '3h 15m', '3h 15m'],
+      ['Support', '30m', '0h'],
     ]);
   });
 
@@ -126,18 +148,19 @@ describe('Billing reports', () => {
     );
     const form = await openReportForm();
 
-    const response = await t.slack
-      .submitView(workspace, admin, form, {
-        clientId: acme.id,
-        fromDate: '2026-10-01',
-        toDate: '2026-10-31',
-      })
-      .expect(200);
+    const reports = await submitReport(form, {
+      clientId: acme.id,
+      fromDate: '2026-10-01',
+      toDate: '2026-10-31',
+    });
 
-    expect(sectionTexts(response.body.view)).toEqual([
-      '*Acme* · 1–31 Oct 2026\nApproved: *250h 15m*, billable *250h 15m*',
-      '*By project*\n• Website — 250h 15m (billable 250h 15m)',
+    expect(reportTexts(reports)).toEqual([
+      '*Billing report: Acme* · 1–31 Oct 2026\nApproved: *250h 15m*, billable *250h 15m*',
       '*By person*\n• Mia Member — 250h 15m',
+    ]);
+    expect(tableRows(reports)).toEqual([
+      ['Project', 'Hours', 'Billable'],
+      ['Website', '250h 15m', '250h 15m'],
     ]);
   });
 
@@ -145,18 +168,19 @@ describe('Billing reports', () => {
     await approved(member, website, { status: TimeEntryStatus.Draft });
     const form = await openReportForm();
 
-    const response = await t.slack
-      .submitView(workspace, admin, form, {
-        clientId: acme.id,
-        fromDate: '2026-10-01',
-        toDate: '2026-10-31',
-      })
-      .expect(200);
+    const reports = await submitReport(form, {
+      clientId: acme.id,
+      fromDate: '2026-10-01',
+      toDate: '2026-10-31',
+    });
 
-    expect(sectionTexts(response.body.view)).toEqual([
-      '*Acme* · 1–31 Oct 2026\nApproved: *0h*, billable *0h*\n_Not approved yet: 1h_',
-      '_No approved time for this client in this period._',
+    expect(reportTexts(reports)).toEqual([
+      '*Billing report: Acme* · 1–31 Oct 2026\nApproved: *0h*, billable *0h*\n_Not approved yet: 1h_',
     ]);
+    expect(textOf(reports)).toContain(
+      '_No approved time for this client in this period._',
+    );
+    expect(tableRows(reports)).toEqual([]);
   });
 
   it('defaults to this month and checks the period', async () => {

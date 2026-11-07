@@ -121,6 +121,19 @@ export const noticeOf = (view: View): string | undefined =>
   blocksOf(view).find((block) => block.block_id === TAB_NOTICE_BLOCK_ID)
     ?.elements[0].text;
 
+// The day lines of a list grouped by day: "*Wed, 17 Jun 2026* · 2h 30m".
+export const dayLines = (view: View): string[] =>
+  blocksOf(view)
+    .filter((block) => block.type === 'context')
+    .map((block) => block.elements[0]?.text ?? '')
+    .filter((text: string) => /^\*\w{3}, /.test(text));
+
+// The cells of the view's table, row by row, header first.
+export const tableRows = (view: View): string[][] =>
+  (blocksOf(view).find((block) => block.type === 'table')?.rows ?? []).map(
+    (row: SlackJson[]) => row.map((cell) => cell.text),
+  );
+
 // The error a modal shows after a failed submit (getGeneralErrorBlock).
 export const modalError = (view: View): string | undefined =>
   sectionTexts(view)

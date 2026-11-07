@@ -12,7 +12,11 @@ import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { findAction } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import {
+  openAppHomeTab,
+  openModalFrom,
+  publishedHome,
+} from './support/app-home';
 import { listItems, sectionTexts, buttonText } from './support/tab-readers';
 
 const sorted = (values: (string | undefined)[]) => [...values].sort();
@@ -200,7 +204,8 @@ describe('Workspace isolation', () => {
         ),
       ).toEqual([a.acme.id]);
 
-      const response = await t.slack
+      const since = t.slackApi.mark();
+      await t.slack
         .submitView(a.workspace, a.admin, form, {
           clientId: a.acme.id,
           fromDate: '2026-06-01',
@@ -208,9 +213,12 @@ describe('Workspace isolation', () => {
         })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)[0]).toContain(
-        'Approved: *1h*, billable *1h*',
-      );
+      const reports = await publishedHome(t, a.workspace, a.admin, since);
+      expect(
+        sectionTexts(reports).find((text) =>
+          text.startsWith('*Billing report'),
+        ),
+      ).toContain('Approved: *1h*, billable *1h*');
     });
   });
 

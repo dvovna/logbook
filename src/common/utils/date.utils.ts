@@ -37,6 +37,15 @@ export const formatDate = (input: string | Date) => {
   return `${day} ${month} ${year}`;
 };
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// 'Mon, 6 Jul 2026': a day in a list grouped by day.
+export const formatDay = (input: string | Date) => {
+  const date = typeof input === 'string' ? new Date(input) : input;
+
+  return `${WEEKDAYS[date.getUTCDay()]}, ${formatDate(date)}`;
+};
+
 // '6–10 Jul 2026', '28 Jun – 3 Jul 2026', '28 Dec 2026 – 2 Jan 2027', or
 // one date when both are the same day.
 export const formatDateRange = (start: string | Date, end: string | Date) => {

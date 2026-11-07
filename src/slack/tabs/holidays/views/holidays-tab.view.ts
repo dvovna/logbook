@@ -1,3 +1,5 @@
+import { formatDate } from '@common/utils/date.utils';
+import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
@@ -206,57 +208,42 @@ export class HolidaysTabView extends BaseTabView<
     holiday: IHolidayViewModel,
     isCustom: boolean,
   ): AnyBlock[] {
-    return [
-      {
-        type: 'section',
-        fields: [
-          { type: 'mrkdwn', text: `*${holiday.name}*` },
-          { type: 'mrkdwn', text: `Date: ${holiday.date}` },
+    return ListItem.getBlocks({
+      title: holiday.name,
+      details: [
+        `Date: ${formatDate(holiday.date)} · Status: ${holiday.is_disabled ? '🔴 Off' : '🟢 On'}`,
+      ],
+      accessory: {
+        type: 'overflow',
+        action_id: HolidaysTabViewActionId.ManageHolidayMenu,
+        options: [
+          ...((isCustom
+            ? [
+                {
+                  text: { type: 'plain_text', text: 'Edit Holiday' },
+                  value: `${HolidaysTabViewActionId.EditHoliday}:${holiday.id}`,
+                },
+              ]
+            : []) as PlainTextOption[]),
           {
-            type: 'mrkdwn',
-            text: `Status: ${holiday.is_disabled ? '🔴' : '🟢'}`,
-          },
-        ],
-        accessory: {
-          type: 'overflow',
-          action_id: HolidaysTabViewActionId.ManageHolidayMenu,
-          options: [
-            ...((isCustom
-              ? [
-                  {
-                    text: { type: 'plain_text', text: 'Edit Holiday' },
-                    value: `${HolidaysTabViewActionId.EditHoliday}:${holiday.id}`,
-                  },
-                ]
-              : []) as PlainTextOption[]),
-            {
-              text: {
-                type: 'plain_text',
-                text: holiday.is_disabled
-                  ? 'Activate Holiday'
-                  : 'Deactivate Holiday',
-              },
-              value: `${HolidaysTabViewActionId.ToggleHolidayStatus}:${holiday.id}`,
+            text: {
+              type: 'plain_text',
+              text: holiday.is_disabled
+                ? 'Activate Holiday'
+                : 'Deactivate Holiday',
             },
-            ...((isCustom
-              ? [
-                  {
-                    text: { type: 'plain_text', text: 'Delete Holiday' },
-                    value: `${HolidaysTabViewActionId.DeleteHoliday}:${holiday.id}`,
-                  },
-                ]
-              : []) as PlainTextOption[]),
-          ],
-        },
+            value: `${HolidaysTabViewActionId.ToggleHolidayStatus}:${holiday.id}`,
+          },
+          ...((isCustom
+            ? [
+                {
+                  text: { type: 'plain_text', text: 'Delete Holiday' },
+                  value: `${HolidaysTabViewActionId.DeleteHoliday}:${holiday.id}`,
+                },
+              ]
+            : []) as PlainTextOption[]),
+        ],
       },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: ' ',
-        },
-      },
-      { type: 'divider' },
-    ];
+    });
   }
 }

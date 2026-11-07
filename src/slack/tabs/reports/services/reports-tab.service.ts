@@ -6,12 +6,17 @@ import BaseTabService, {
   IPublishBaseParams,
 } from '@modules/slack/common/services/base-tab.service';
 import ClientsService from '@modules/clients/services/clients.service';
-import { ReportsTabView } from '@modules/slack/tabs/reports/views/reports-tab.view';
+import {
+  IReportsTabMetadata,
+  ReportsTabView,
+} from '@modules/slack/tabs/reports/views/reports-tab.view';
+import { BillingReportService } from 'src/time-entries/services/billing-report.service';
+import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { BillingReportModalView } from '@modules/slack/tabs/reports/views/billing-report-modal.view';
 import { ReportsModalName } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
 import { TimeEntriesSummaryService } from 'src/time-entries/services/time-entries-summary.service';
 
-export type IGetReportsTabViewParams = IPublishBaseParams;
+export type IGetReportsTabViewParams = IPublishBaseParams<IReportsTabMetadata>;
 
 type ReportsModalViewResolversMap = {
   [ReportsModalName.BillingReport]: (
@@ -25,6 +30,7 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
     private readonly reportsTabView: ReportsTabView,
     private readonly billingReportModalView: BillingReportModalView,
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
+    private readonly billingReportService: BillingReportService,
     private readonly clientsService: ClientsService,
   ) {
     super(TabId.Reports, {
@@ -33,16 +39,31 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
     });
   }
 
-  protected async getTabView(params: IGetReportsTabViewParams) {
-    const weekSummary = await this.timeEntriesSummaryService.getWeekSummary(
-      params.user,
-    );
+  protected async getTabView({
+    user,
+    metadata = {},
+  }: IGetReportsTabViewParams) {
+    const { report } = metadata;
+    const [weekSummary, billingReport] = await Promise.all([
+      this.timeEntriesSummaryService.getWeekSummary(user),
+      // The report is Admin's and HR's.
+      report && isTimeEntriesAdmin(user.role)
+        ? this.billingReportService.getClientReport({
+            slackTeamId: user.slack_team_id,
+            ...report,
+          })
+        : null,
+    ]);
 
-    return this.reportsTabView.getView({
-      userId: params.user.slack_id,
-      userRole: params.user.role,
-      weekSummary,
-    });
+    return this.reportsTabView.getView(
+      {
+        userId: user.slack_id,
+        userRole: user.role,
+        weekSummary,
+        billingReport,
+      },
+      metadata,
+    );
   }
 
   // For the current month up to today by default.

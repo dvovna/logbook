@@ -1,5 +1,6 @@
+import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
-import { formatDate } from '@common/utils/date.utils';
+import { formatDay } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock } from '@slack/web-api';
@@ -11,7 +12,6 @@ import {
   IBaseTabViewParams,
 } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
-import { Divider } from '@modules/slack/common/views/components/separator';
 import { truncate } from 'lodash';
 import {
   FiltersBlockBuilder,
@@ -38,6 +38,8 @@ interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
   viewerId: string;
   // The viewer's drafts and rejected entries, on their own list.
   openEntriesCount: number;
+  // The minutes of each day on the page, over all its entries.
+  dayTotals: Record<string, number>;
 }
 
 export interface ITimeEntriesTabMetaData {
@@ -82,6 +84,7 @@ export class TimeEntriesTabView extends BaseTabView<
       viewerId,
       userRole,
       openEntriesCount,
+      dayTotals,
     }: IGetTimeEntriesViewParams,
     { filters, page }: ITimeEntriesTabMetaData,
   ): AnyBlock[] {
@@ -106,14 +109,33 @@ export class TimeEntriesTabView extends BaseTabView<
 
     blocks.push(...this.getFiltersBlocks(canFilterByUser, filters));
 
+    // Grouped by day: a day's line comes before its first entry.
+    let day: string | undefined;
+
     const listBlocks = PaginatedListView.getBlocks<ITimeEntryListItem>({
       itemsData: {
         ...timeEntriesListData,
         page: page || 1,
         pageSize: TIME_ENTRIES_TAB_PAGE_SIZE,
       },
-      getItemBlocks: (item) =>
-        this.getTimeEntryListItemBlocks(item, viewerId, userRole),
+      getItemBlocks: (item) => {
+        const dayBlocks =
+          item.work_date === day
+            ? []
+            : this.getDayBlocks(item.work_date, dayTotals[item.work_date]);
+
+        day = item.work_date;
+
+        return [
+          ...dayBlocks,
+          ...this.getTimeEntryListItemBlocks(
+            item,
+            viewerId,
+            userRole,
+            canFilterByUser,
+          ),
+        ];
+      },
       prevPageActionId: TimeEntriesTabViewActionId.PaginationPrev,
       nextPageActionId: TimeEntriesTabViewActionId.PaginationNext,
       emptyText: '_No time entries found_',
@@ -124,52 +146,58 @@ export class TimeEntriesTabView extends BaseTabView<
     return blocks;
   }
 
+  private getDayBlocks(workDate: string, minutes = 0): AnyBlock[] {
+    return [
+      {
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: `*${formatDay(workDate)}* · ${getDisplayTime(minutes)}`,
+          },
+        ],
+      },
+    ];
+  }
+
+  // On the viewer's own list the project leads; on everyone's, the person.
   private getTimeEntryListItemBlocks(
     entry: ITimeEntryListItem,
     viewerId: string,
     userRole: UserRole,
+    showsEveryone: boolean,
   ): AnyBlock[] {
-    const workDate = formatDate(entry.work_date);
-    const createdAt = formatDate(entry.created_at);
     const menuOptions = this.getMenuOptions(entry, viewerId, userRole);
+    const project = [
+      entry.project_name && `Project: ${escapeMrkdwn(entry.project_name)}`,
+      entry.client_name && `Client: ${escapeMrkdwn(entry.client_name)}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
-    return [
-      {
-        type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text:
-              `*${escapeMrkdwn(entry.user_name)}*\n` +
-              `Project: ${entry.project_name || '-'}\n` +
-              `Client: ${entry.client_name || '-'}\n`,
-          },
-          {
-            type: 'mrkdwn',
-            text:
-              `Date: ${workDate}\n` +
-              `Time: ${getDisplayTime(entry.minutes)}\n` +
-              `Status: ${TIME_ENTRY_STATUS_DISPLAY_NAME[entry.status]}\n` +
-              `Created: ${createdAt}\n` +
-              `Description: ${escapeMrkdwn(truncate(entry.description || '-', { length: 80 }))}` +
-              (entry.status === TimeEntryStatus.Rejected &&
-              entry.rejection_reason
-                ? `\nReason: ${escapeMrkdwn(truncate(entry.rejection_reason.replace(/\s+/g, ' '), { length: 120 }))}`
-                : ''),
-          },
-        ],
-        ...(menuOptions.length
-          ? {
-              accessory: {
-                type: 'overflow',
-                action_id: TimeEntriesTabViewActionId.ManageTimeEntryMenu,
-                options: menuOptions,
-              },
-            }
-          : {}),
-      },
-      ...Divider.getBlocks(),
-    ];
+    return ListItem.getBlocks({
+      title: showsEveryone
+        ? entry.user_name
+        : entry.project_name || 'No project',
+      details: [
+        showsEveryone
+          ? project
+          : entry.client_name && `Client: ${escapeMrkdwn(entry.client_name)}`,
+        `Time: ${getDisplayTime(entry.minutes)} · Status: ${TIME_ENTRY_STATUS_DISPLAY_NAME[entry.status]}`,
+        entry.description &&
+          `Description: ${escapeMrkdwn(truncate(entry.description, { length: 80 }))}`,
+        entry.status === TimeEntryStatus.Rejected &&
+          entry.rejection_reason &&
+          `Reason: ${escapeMrkdwn(truncate(entry.rejection_reason.replace(/\s+/g, ' '), { length: 120 }))}`,
+      ],
+      accessory: menuOptions.length
+        ? {
+            type: 'overflow',
+            action_id: TimeEntriesTabViewActionId.ManageTimeEntryMenu,
+            options: menuOptions,
+          }
+        : undefined,
+    });
   }
 
   // The owner changes and submits only drafts and rejected entries; Admin and

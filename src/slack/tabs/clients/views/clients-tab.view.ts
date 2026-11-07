@@ -1,4 +1,5 @@
-import { formatDate } from '@common/utils/date.utils';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -10,7 +11,6 @@ import {
   IBaseTabViewParams,
 } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
-import { Divider } from '@modules/slack/common/views/components/separator';
 import { ClientsTabViewActionId } from '@modules/slack/tabs/clients/enums/clients-tab-view-actions-id.enum';
 import IClientViewModel from '@modules/clients/types/client.interface';
 import { IncludeArchivedButtonView } from '@modules/slack/common/views/components/include-archvied-button.view';
@@ -99,20 +99,18 @@ export class ClientsTabView extends BaseTabView<
   ): AnyBlock[] => {
     const blocks: AnyBlock[] = [];
 
-    const updatedAt = formatDate(client.updated_at);
-    const createdAt = formatDate(client.created_at);
-    const menu = {
+    const menu: SectionBlockAccessory = {
       type: 'overflow',
       action_id: ClientsTabViewActionId.ManageClientMenu,
       options: [
-        ...(!client.archived_at
-          ? ([
+        ...(client.archived_at
+          ? []
+          : [
               {
-                text: { type: 'plain_text', text: 'Edit Client' },
+                text: { type: 'plain_text' as const, text: 'Edit Client' },
                 value: `${ClientsTabViewActionId.EditClient}:${client.id}`,
               },
-            ] as const)
-          : []),
+            ]),
         {
           text: {
             type: 'plain_text',
@@ -121,24 +119,19 @@ export class ClientsTabView extends BaseTabView<
           value: `${ClientsTabViewActionId.ArchiveClient}:${client.id}`,
         },
       ],
-    } as const;
+    };
 
-    blocks.push({
-      type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text:
-            `*${client.name}*\n` +
-            `Description: ${client.description || '-'}\n` +
-            `Created: ${createdAt}\n` +
-            `Updated: ${updatedAt}`,
-        },
-      ],
-      ...(canManage ? { accessory: menu } : {}),
-    });
-
-    blocks.push(...Divider.getBlocks());
+    blocks.push(
+      ...ListItem.getBlocks({
+        title: client.name,
+        details: [
+          client.description &&
+            `Description: ${escapeMrkdwn(client.description)}`,
+          client.archived_at && 'Status: Archived',
+        ],
+        accessory: canManage ? menu : undefined,
+      }),
+    );
 
     return blocks;
   };

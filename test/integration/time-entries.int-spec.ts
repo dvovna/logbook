@@ -18,6 +18,7 @@ import {
   totalCount,
   listCount,
   noticeOf,
+  dayLines,
 } from './support/tab-readers';
 import { acknowledged } from './support/slack-test-client';
 import { addDays } from './support/dates';
@@ -450,6 +451,39 @@ describe('Time entries', () => {
   });
 
   describe('the time entries list', () => {
+    it("groups entries by day, with the day's total over all its entries", async () => {
+      // 11 entries on Wednesday: the 11th is on the second page.
+      await workspace.addTimeEntries(
+        member,
+        website,
+        Array.from({ length: 11 }, () => ({
+          work_date: '2026-06-17',
+          minutes: 15,
+        })),
+      );
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-16',
+        minutes: 60,
+      });
+
+      const firstPage = await openAppHomeTab(t, workspace, member, [
+        NavigationActionId.MyTime,
+      ]);
+      expect(dayLines(firstPage)).toEqual(['*Wed, 17 Jun 2026* · 2h 45m']);
+
+      const secondPage = await actOnTab(
+        t,
+        workspace,
+        member,
+        firstPage,
+        TimeEntriesTabViewActionId.PaginationNext,
+      );
+      expect(dayLines(secondPage)).toEqual([
+        '*Wed, 17 Jun 2026* · 2h 45m',
+        '*Tue, 16 Jun 2026* · 1h',
+      ]);
+    });
+
     it('shows a member only their own entries, without admin navigation', async () => {
       await workspace.addTimeEntry(member, website, {
         minutes: 90,
@@ -472,11 +506,11 @@ describe('Time entries', () => {
         home,
         HomeTabActionId.EditTimeEntries,
       );
+      // Their own list: the project leads, without their name.
       expect(listItems(myEntries)).toEqual([
         expect.objectContaining({
-          title: 'Mia Member',
+          title: 'Website',
           fields: expect.objectContaining({
-            Project: 'Website',
             Client: 'Acme',
             Time: '1h 30m',
             Status: 'Draft',

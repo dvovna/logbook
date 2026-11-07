@@ -1,3 +1,5 @@
+import { formatDate } from '@common/utils/date.utils';
+import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { IOption } from '@common/types/option.interface';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
@@ -19,7 +21,6 @@ import { SlackActionPermissionsService } from '@modules/slack/common/services/sl
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import UserRole from '@common/enums/user-role.enum';
-import { Divider } from '@modules/slack/common/views/components/separator';
 import {
   FiltersBlockBuilder,
   IFiltersConfig,
@@ -199,23 +200,25 @@ export class UsersTabView extends BaseTabView<
 
     const team = user.team_id ? teamsById[user.team_id] : null;
 
-    blocks.push({
-      type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text:
-            `*${escapeMrkdwn(user.name)}* (${escapeMrkdwn(user.email)})\n` +
-            `Role: ${ROLE_DISPLAY_NAME[user.role]}\n` +
-            `Team: ${team?.name || '-'}\n` +
-            `Contract Start Date: ${user.contract_start_date || '-'}\n` +
-            `Carryover Days: ${user.carryover_days || '-'}`,
-        },
-      ],
-      accessory: this.getUserRowAccessory(user, userRole),
-    });
-
-    blocks.push(...Divider.getBlocks());
+    blocks.push(
+      ...ListItem.getBlocks({
+        title: user.name,
+        details: [
+          [
+            escapeMrkdwn(user.email),
+            `Role: ${ROLE_DISPLAY_NAME[user.role]}`,
+            team && `Team: ${escapeMrkdwn(team.name)}`,
+            !user.is_active && 'Status: Inactive',
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          user.contract_start_date &&
+            `Contract start: ${formatDate(user.contract_start_date)}`,
+          !!user.carryover_days && `Carryover: ${user.carryover_days} days`,
+        ],
+        accessory: this.getUserRowAccessory(user, userRole),
+      }),
+    );
 
     return blocks;
   }

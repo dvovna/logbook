@@ -7,7 +7,6 @@ import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-
 import BillingReportModalViewValuesParser, {
   IBillingReportFormViewData,
 } from '@modules/slack/tabs/reports/parsers/billing-report-modal-view-values.parser';
-import { BillingReportModalView } from '@modules/slack/tabs/reports/views/billing-report-modal.view';
 import { ReportsTabService } from '@modules/slack/tabs/reports/services/reports-tab.service';
 import { ReportsModalName } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
 import {
@@ -15,6 +14,11 @@ import {
   IBillingReport,
 } from 'src/time-entries/services/billing-report.service';
 import { TIME_ENTRIES_ADMIN_ROLES } from 'src/time-entries/constants/time-entries-admin-roles';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
+import { IReportsTabMetadata } from '@modules/slack/tabs/reports/views/reports-tab.view';
 
 @Injectable()
 @SlackHandler({
@@ -29,30 +33,46 @@ export class BillingReportFormSubmitHandler extends BaseModalFormSubmitHandler<
 > {
   public constructor(
     private readonly billingReportService: BillingReportService,
-    private readonly billingReportModalView: BillingReportModalView,
+    private readonly tabNavigationService: TabNavigationService,
     private readonly reportsTabService: ReportsTabService,
     formParser: BillingReportModalViewValuesParser,
   ) {
     super(formParser);
   }
 
-  protected onSubmit(
+  // Checked here, so the form can say what is wrong; Reports then shows it
+  // as a table, which a modal cannot have.
+  protected async onSubmit(
     data: IBillingReportFormViewData,
     _meta: object,
     user: IUserViewModel,
-  ) {
-    return this.billingReportService.getClientReport({
+  ): Promise<IBillingReport> {
+    const report = await this.billingReportService.getClientReport({
       slackTeamId: user.slack_team_id,
       clientId: data.clientId.value,
       fromDate: data.fromDate,
       toDate: data.toDate,
     });
+
+    this.tabNavigationService.navigate<{
+      user: IUserViewModel;
+      metadata: IReportsTabMetadata;
+    }>(TabId.Reports, {
+      user,
+      metadata: {
+        report: {
+          clientId: data.clientId.value,
+          fromDate: data.fromDate,
+          toDate: data.toDate,
+        },
+      },
+    });
+
+    return report;
   }
 
-  protected successResponse(report: IBillingReport) {
-    return SlackViewResponseFactory.push(
-      this.billingReportModalView.getReportView(report),
-    );
+  protected successResponse() {
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

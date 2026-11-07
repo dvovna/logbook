@@ -266,6 +266,60 @@ const BLOCK_FIELDS: Record<string, string[]> = {
     'optional',
   ],
   image: ['type', 'block_id', 'image_url', 'alt_text', 'title', 'slack_file'],
+  // Messages and App Home only, not modals (viewProblems).
+  table: ['type', 'block_id', 'rows', 'column_settings'],
+};
+
+const tableProblems = (block: SlackJson, at: string): Problems => {
+  const problems: Problems = [];
+  const rows: SlackJson[][] = block.rows ?? [];
+  let characters = 0;
+
+  if (!rows.length || rows.length > 100) {
+    problems.push(`${at}.rows: must have 1 to 100 rows`);
+  }
+
+  rows.forEach((row, i) => {
+    if (!Array.isArray(row) || !row.length || row.length > 20) {
+      problems.push(`${at}.rows[${i}]: must have 1 to 20 cells`);
+
+      return;
+    }
+
+    row.forEach((cell, j) => {
+      const cellAt = `${at}.rows[${i}][${j}]`;
+
+      if (cell.type === 'raw_text') {
+        problems.push(...unknownKeys(cell, ['type', 'text'], cellAt));
+        characters += String(cell.text ?? '').length;
+      } else if (cell.type === 'rich_text') {
+        problems.push(...unknownKeys(cell, ['type', 'elements'], cellAt));
+        characters += JSON.stringify(cell.elements ?? []).length;
+      } else {
+        problems.push(`${cellAt}: unknown cell type ${cell.type}`);
+      }
+    });
+  });
+
+  if (characters > 10000) {
+    problems.push(`${at}: more than 10000 characters in its cells`);
+  }
+
+  ((block.column_settings ?? []) as (SlackJson | null)[]).forEach(
+    (setting, i) => {
+      if (setting) {
+        problems.push(
+          ...unknownKeys(
+            setting,
+            ['align', 'is_wrapped'],
+            `${at}.column_settings[${i}]`,
+          ),
+        );
+      }
+    },
+  );
+
+  return problems;
 };
 
 const blockProblems = (block: SlackJson, at: string): Problems => {
@@ -320,6 +374,9 @@ const blockProblems = (block: SlackJson, at: string): Problems => {
       if (!block.elements?.length || block.elements.length > 10) {
         problems.push(`${at}.elements: must have 1 to 10 elements`);
       }
+      break;
+    case 'table':
+      problems.push(...tableProblems(block, at));
       break;
     case 'input':
       problems.push(
@@ -377,6 +434,13 @@ const blocksProblems = (
 const asSent = (value: unknown): SlackJson =>
   JSON.parse(JSON.stringify(value ?? {}));
 
+// Slack documents its limits per table; the app keeps to one table per view
+// or message.
+const tablesProblems = (blocks: SlackJson[] = []): Problems =>
+  blocks.filter((block) => block.type === 'table').length > 1
+    ? ['blocks: more than one table']
+    : [];
+
 export const viewProblems = (sentView: unknown): Problems => {
   const view = asSent(sentView);
 
@@ -388,6 +452,7 @@ export const viewProblems = (sentView: unknown): Problems => {
         'view',
       ),
       ...blocksProblems(view.blocks, 100),
+      ...tablesProblems(view.blocks),
       ...metadataProblems(view),
     ];
   }
@@ -423,6 +488,10 @@ export const viewProblems = (sentView: unknown): Problems => {
 
   if (!view.title) {
     problems.push('view.title: required');
+  }
+
+  if ((view.blocks ?? []).some((block) => block.type === 'table')) {
+    problems.push('view.blocks: a modal cannot have a table block');
   }
 
   if (

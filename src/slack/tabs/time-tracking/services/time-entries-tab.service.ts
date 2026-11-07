@@ -63,16 +63,17 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
   }: IGetTimeEntriesTabViewParams) {
     const seesAllEntries =
       isTimeEntriesAdmin(user.role) && !metadata.ownEntriesOnly;
+    const filters = {
+      projectId: metadata.filters?.project?.id,
+      userId: seesAllEntries ? metadata.filters?.user?.id : user.id,
+      fromDate: metadata?.filters?.fromDate,
+      toDate: metadata?.filters?.toDate,
+    };
     const [timeEntriesListData, openEntriesCount] = await Promise.all([
       this.timeEntriesTabDataService.getTimeEntriesTabData({
         slackTeamId: user.slack_team_id,
         page: metadata.page,
-        filters: {
-          projectId: metadata.filters?.project?.id,
-          userId: seesAllEntries ? metadata.filters?.user?.id : user.id,
-          fromDate: metadata?.filters?.fromDate,
-          toDate: metadata?.filters?.toDate,
-        },
+        filters,
       }),
       // What the viewer can still submit, offered on their own list only.
       seesAllEntries
@@ -84,10 +85,19 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
           }),
     ]);
 
+    const dayTotals = await this.timeEntriesTabDataService.getDayTotals({
+      slackTeamId: user.slack_team_id,
+      days: [
+        ...new Set(timeEntriesListData.items.map((item) => item.work_date)),
+      ],
+      filters,
+    });
+
     return this.timeEntriesTabView.getView(
       {
         userId: user.slack_id,
         userRole: user.role,
+        dayTotals,
         canFilterByUser: seesAllEntries,
         viewerId: user.id,
         openEntriesCount,

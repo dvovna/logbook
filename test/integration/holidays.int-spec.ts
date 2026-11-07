@@ -121,7 +121,7 @@ describe('Holidays', () => {
       expect(
         named(await publishedHome(t, workspace, admin, since), 'Founders Day'),
       ).toMatchObject({
-        fields: { Date: '2026-07-10', Status: '🟢' },
+        fields: { Date: '10 Jul 2026', Status: '🟢 On' },
         menuLabels: ['Edit Holiday', 'Deactivate Holiday', 'Delete Holiday'],
       });
     });

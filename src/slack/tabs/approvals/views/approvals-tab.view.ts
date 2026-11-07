@@ -194,46 +194,28 @@ export class ApprovalsTabView extends BaseTabView<
   }
 
   private getEntryBlocks(entry: ITimeEntryListItem): AnyBlock[] {
-    const workDate = formatDate(entry.work_date);
-
-    return [
-      {
-        type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text:
-              `*${escapeMrkdwn(entry.user_name)}*\n` +
-              `Project: ${entry.project_name || '-'}\n` +
-              `Client: ${entry.client_name || '-'}\n`,
-          },
-          {
-            type: 'mrkdwn',
-            text:
-              `Date: ${workDate}\n` +
-              `Time: ${getDisplayTime(entry.minutes)}\n` +
-              `Description: ${escapeMrkdwn(truncate(entry.description || '-', { length: 80 }))}`,
-          },
-        ],
-      },
-      {
-        type: 'actions',
-        elements: [
-          button(
-            'Approve',
-            ApprovalsTabActionId.ApproveEntry,
-            entry.id,
-            'primary',
-          ),
-          button(
-            'Reject',
-            ApprovalsTabActionId.RejectEntry,
-            entry.id,
-            'danger',
-          ),
-        ],
-      },
-      ...Divider.getBlocks(),
-    ];
+    return ListItem.getBlocks({
+      title: entry.user_name,
+      details: [
+        [
+          entry.project_name && `Project: ${escapeMrkdwn(entry.project_name)}`,
+          entry.client_name && `Client: ${escapeMrkdwn(entry.client_name)}`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        `Date: ${formatDate(entry.work_date)} · Time: ${getDisplayTime(entry.minutes)}`,
+        entry.description &&
+          `Description: ${escapeMrkdwn(truncate(entry.description, { length: 80 }))}`,
+      ],
+      buttons: [
+        button(
+          'Approve',
+          ApprovalsTabActionId.ApproveEntry,
+          entry.id,
+          'primary',
+        ),
+        button('Reject', ApprovalsTabActionId.RejectEntry, entry.id, 'danger'),
+      ],
+    });
   }
 }

@@ -148,6 +148,7 @@ The UI is a single App Home view that gets re-published to show different screen
 - If rendering fails, the user sees `FallbackTabView`; inactive users see `InactiveUserTabView`.
 - `BaseTabService.publish` checks the screen's roles and sends anyone else to Home. Hiding a button is not access control: Slack takes action ids, button values and menu choices from the client. So every handler checks the role (`allowedRoles`) and every service checks the owner. Actions inside a screen that only some of its roles may use are in `SlackActionPermissionsService`.
 - Views are injectable classes that return Block Kit JSON.
+- A list item is `ListItem` (`src/slack/common/views/components/list-item.view.ts`): a bold title, short detail lines with empty ones left out, a menu, buttons. Time entries are grouped by day, each day with its total. Read-only data goes into a `table` block, which App Home and messages have and modals don't: the billing report shows on Reports, and the test fake refuses a table in a modal or a second one in a view.
 
 ### Domain layer
 

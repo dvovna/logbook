@@ -1,3 +1,4 @@
+import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import capitalize from '@common/utils/capitalize';
@@ -112,46 +113,26 @@ export class VacationHistoryTabView extends BaseTabView<
       vacationRequest.end_date,
     );
 
-    return [
-      {
-        type: 'section',
-        // The user's own requests: what and when, and how it was decided.
-        fields: [
+    // The user's own requests: what and when, and how it was decided.
+    return ListItem.getBlocks({
+      title: VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type],
+      details: [
+        `${dates} · Days: ${vacationRequest.days} (${vacationRequest.working_days} working)`,
+        `Status: ${getVacationStatusEmoji(vacationRequest.status)} ${capitalize(vacationRequest.status)}`,
+        vacationRequest.rejection_reason &&
+          `Reason: ${escapeMrkdwn(vacationRequest.rejection_reason.replace(/\s+/g, ' '))}`,
+      ],
+      accessory: {
+        type: 'overflow',
+        action_id: VacationHistoryTabViewActionId.ManageRequestMenu,
+        options: [
           {
-            type: 'mrkdwn',
-            text: `*${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]}*`,
+            text: { type: 'plain_text', text: 'View Details' },
+            value: `${VacationHistoryTabViewActionId.ViewDetails}:${vacationRequest.id}`,
           },
-          {
-            type: 'mrkdwn',
-            text: `Status: ${getVacationStatusEmoji(vacationRequest.status)} ${capitalize(vacationRequest.status)}`,
-          },
-          { type: 'mrkdwn', text: `📅 ${dates}` },
-          {
-            type: 'mrkdwn',
-            text: `Days: ${vacationRequest.days} (${vacationRequest.working_days} working)`,
-          },
-          ...(vacationRequest.rejection_reason
-            ? [
-                {
-                  type: 'mrkdwn' as const,
-                  text: `Reason: ${escapeMrkdwn(vacationRequest.rejection_reason.replace(/\s+/g, ' '))}`,
-                },
-              ]
-            : []),
         ],
-        accessory: {
-          type: 'overflow',
-          action_id: VacationHistoryTabViewActionId.ManageRequestMenu,
-          options: [
-            {
-              text: { type: 'plain_text', text: 'View Details' },
-              value: `${VacationHistoryTabViewActionId.ViewDetails}:${vacationRequest.id}`,
-            },
-          ],
-        },
       },
-      ...Divider.getBlocks(),
-    ];
+    });
   };
 
   private getRequestsListBlocks(

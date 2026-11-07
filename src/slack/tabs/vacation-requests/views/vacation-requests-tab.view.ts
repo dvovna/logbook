@@ -1,3 +1,4 @@
+import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
@@ -21,7 +22,6 @@ import { PaginatedListView } from '@modules/slack/common/views/components/pagina
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import UserRole from '@common/enums/user-role.enum';
 import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
-import { Divider } from '@modules/slack/common/views/components/separator';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import {
   FiltersBlockBuilder,
@@ -109,37 +109,25 @@ export class VacationRequestsTabView extends BaseTabView<
       vacationRequest.end_date,
     );
 
-    return [
-      {
-        type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text: `*${escapeMrkdwn(vacationRequest.user?.name || 'Unknown')}* (${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]})`,
-          },
-          { type: 'mrkdwn', text: `📅 ${dates}` },
-          {
-            type: 'mrkdwn',
-            text: `Team: ${vacationRequest.team?.name || '-'}`,
-          },
-          { type: 'mrkdwn', text: `Days: ${vacationRequest.days}` },
-          {
-            type: 'mrkdwn',
-            text: `Status: ${statusEmoji} ${capitalize(vacationRequest.status)}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `Working Days: ${vacationRequest.working_days}`,
-          },
-        ],
-        accessory: {
-          type: 'overflow',
-          action_id: VacationRequestsTabViewActionId.ManageRequestMenu,
-          options: this.getManageRequestMenuOptions(vacationRequest, userRole),
-        },
+    return ListItem.getBlocks({
+      title: vacationRequest.user?.name || 'Unknown',
+      details: [
+        `${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]} · ${dates}`,
+        [
+          `Days: ${vacationRequest.days} (${vacationRequest.working_days} working)`,
+          `Status: ${statusEmoji} ${capitalize(vacationRequest.status)}`,
+          vacationRequest.team &&
+            `Team: ${escapeMrkdwn(vacationRequest.team.name)}`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      ],
+      accessory: {
+        type: 'overflow',
+        action_id: VacationRequestsTabViewActionId.ManageRequestMenu,
+        options: this.getManageRequestMenuOptions(vacationRequest, userRole),
       },
-      ...Divider.getBlocks(),
-    ];
+    });
   };
 
   private getManageRequestMenuOptions(

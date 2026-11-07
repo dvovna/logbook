@@ -24,7 +24,7 @@ import {
 // Home → People → Users.
 const USERS_TAB = [NavigationActionId.People];
 
-const titleOf = (user: Tables<'users'>) => `*${user.name}* (${user.email})`;
+const titleOf = (user: Tables<'users'>) => user.name;
 
 describe('Users tab', () => {
   let t: ITestApp;
