@@ -88,7 +88,7 @@ Each Slack workspace that installs the app gets a `slack_teams` row. There are t
 - `slack_teams.slack_id`: Slack's own `T…` workspace ID.
 - `slack_team_id`: the internal UUID, used as the foreign key on every other table.
 
-Almost every service and repository query must be scoped by `slackTeamId` / `slack_team_id`. The bot token is stored on `slack_teams.slack_token`. Every outgoing Slack call goes through `SlackCommunicationService`, which looks up the token per workspace via `AccessTokenService`; the token is cached for 1 day.
+Almost every service and repository query must be scoped by `slackTeamId` / `slack_team_id`. The bot token is stored on `slack_teams.slack_token`. Every outgoing Slack call goes through `SlackCommunicationService`, which looks up the token per workspace via `AccessTokenService`; the token is cached for 1 day. `SlackApiClient` keeps one `WebClient` per token. `views.open` gets one try with a 2.5 s timeout and fails at once on a rate limit, because its `trigger_id` lives 3 seconds; other calls get 3 quick retries and a 10 s timeout.
 
 ### HTTP pipeline for Slack (Slack Bolt's receiver is not used; Bolt is only imported for types)
 
@@ -123,7 +123,7 @@ Controllers are in `src/slack/controllers/`:
   - Maps known domain errors (`ValidationError`, `MaxItemsCountReachedError`, `EntityHasDependenciesError`, `PrimaryEntityDeleteError`, `ForbiddenException`) to a message shown in the modal. Any other error shows a generic message.
   - Build responses with `SlackViewResponseFactory`.
   - A parser reads each field by its config key as the `action_id`, so the view element must use that key as its `action_id`. The integration tests' `submitView` fills forms from the real view and catches a mismatch.
-- Slack shows an interaction as failed when the answer takes over 3 seconds. Work that updates several messages or notifies people (deciding workflow steps, "Approve for Approvers") runs after the answer through `runInBackground` (`src/common/utils/run-in-background.ts`), which logs its errors. Checks that can fail run before it, so the modal can still show them.
+- Slack shows an interaction as failed when the answer takes over 3 seconds. Work that updates several messages or notifies people (deciding workflow steps, "Approve for Approvers") runs after the answer through `runInBackground` (`src/common/utils/run-in-background.ts`), which logs its errors. Checks that can fail run before it, so the modal can still show them. On SIGTERM the app waits up to 8 s for this work before it closes (`BackgroundWorkShutdownService`; `docker stop` kills after 10).
 
 To add an interaction:
 1. Add a `ViewCallbackId` value (`src/slack/enums/integration-callback-id.enum.ts`).
