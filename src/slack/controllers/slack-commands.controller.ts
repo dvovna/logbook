@@ -19,10 +19,10 @@ import { ISlackCommandBodyData } from '@common/types/slack.types';
 import VacationCommandService, {
   VacationCommand,
 } from '@modules/slack/services/vacation-command.service';
-import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
-import { SlackUserGuard } from '@common/guards/slack-user.guard';
+import { SlackSignatureGuard } from '@modules/slack/guards/slack-signature.guard';
+import { SlackUserGuard } from '@modules/slack/guards/slack-user.guard';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
-import { SlackActiveUserGuard } from '@common/guards/slack-active-user.guard';
+import { SlackActiveUserGuard } from '@modules/slack/guards/slack-active-user.guard';
 
 @Controller('api/slack')
 @UseFilters(SlackUserAccessFilter)

@@ -12,19 +12,16 @@ import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-t
 import { trackInBackground } from '@common/utils/run-in-background';
 import { canOpenTab } from '@modules/slack/common/views/data/tab-access';
 
-export type IOpenModalBaseParams<PageMetadata = undefined> = {
-  user: IUserViewModel;
-  errorMessage?: string;
-} & (PageMetadata extends undefined
-  ? object
-  : {
-      pageMetadata: PageMetadata;
-    });
-
-export interface IPublishBaseParams<TabMetadata = unknown> {
-  user: IUserViewModel;
-  metadata?: TabMetadata;
-}
+// Kept apart, so that TabNavigationService can use them without importing
+// this file (which imports it).
+export type {
+  IOpenModalBaseParams,
+  IPublishBaseParams,
+} from '@modules/slack/common/types/tab-params.types';
+import {
+  IOpenModalBaseParams,
+  IPublishBaseParams,
+} from '@modules/slack/common/types/tab-params.types';
 
 export type ModalViewResolversMapType = {
   [key: string]: (params: IOpenModalBaseParams) => Promise<View> | View;

@@ -1,3 +1,6 @@
+import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
+import { ProjectStatus } from 'src/projects/enums/project-status.enum';
+import { IOption } from '@common/types/option.interface';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
@@ -17,10 +20,6 @@ import { IProjectsListData } from 'src/projects/types/projects-list.types';
 import { IProjectListItem } from 'src/projects/types/project-list-item.types';
 import capitalize from '@common/utils/capitalize';
 import {
-  IProjectTabFilters,
-  PROJECTS_TAB_PAGE_SIZE,
-} from '@modules/slack/tabs/projects/services/projects-tab.service';
-import {
   FiltersBlockBuilder,
   IFiltersConfig,
 } from '@modules/slack/common/views/builders/filters-block.builder';
@@ -37,6 +36,14 @@ const listNames = (names: string[], shown = 5) => {
     ? `${listed} and ${names.length - shown} more`
     : listed;
 };
+
+export interface IProjectTabFilters {
+  project?: IOption;
+  status?: ProjectStatus;
+  billable?: YesNoValue;
+}
+
+export const PROJECTS_TAB_PAGE_SIZE = 10;
 
 interface IGetProjectsViewParams extends IBaseTabViewParams {
   projectsListData: IProjectsListData;

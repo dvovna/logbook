@@ -124,6 +124,26 @@ export default [{
         ],
         from: './src/slack',
         message: 'Domain and shared code must not depend on the Slack UI (src/slack): move what both need into the domain module or src/common.',
+      }, {
+        // Shared code depends on no feature module: what needs one lives with
+        // it (e.g. the Slack request guards in src/slack/guards).
+        target: './src/common',
+        from: [
+          './src/clients',
+          './src/holidays',
+          './src/projects',
+          './src/request-workflows',
+          './src/slack-communication',
+          './src/slack-teams',
+          './src/team-setup',
+          './src/teams',
+          './src/time-entries',
+          './src/user-data-import',
+          './src/users',
+          './src/vacation-policies',
+          './src/vacation-requests',
+        ],
+        message: 'src/common must not depend on feature modules: move the code to the module that needs it.',
       }],
     }],
     'import/no-relative-packages': 'error',

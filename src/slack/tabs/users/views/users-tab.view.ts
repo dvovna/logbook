@@ -1,10 +1,10 @@
+import { IOption } from '@common/types/option.interface';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchResult } from '@common/types/pagination.types';
-import { IUsersTabViewFilters } from '@modules/slack/tabs/users/services/users-tab.service';
 import {
   ROLE_DISPLAY_NAME,
   ROLE_OPTIONS,
@@ -26,6 +26,12 @@ import {
 } from '@modules/slack/common/views/builders/filters-block.builder';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
+
+export interface IUsersTabViewFilters {
+  teamId?: string;
+  role?: UserRole;
+  user?: IOption;
+}
 
 export interface IUsersTabMetaData {
   page?: number;

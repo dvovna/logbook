@@ -15,7 +15,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { VacationWorkflowEventEnum } from 'src/common/enums/vacation-workflow-event.enum';
 import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
-import { VacationWorkflowFinished } from 'src/common/events/vacation-workflow.events';
+import { VacationWorkflowFinished } from 'src/request-workflows/events/vacation-workflow.events';
 import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
 import { ValidationError } from 'src/common/errors/validation.error';
 

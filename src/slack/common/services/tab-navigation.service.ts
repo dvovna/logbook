@@ -1,23 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IPublishBaseParams } from '@modules/slack/common/services/base-tab.service';
+import { IPublishBaseParams } from '@modules/slack/common/types/tab-params.types';
+import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 
-export enum TabId {
-  Home = 'home_tab',
-  Holidays = 'holidays_tab',
-  People = 'people_tab',
-  Projects = 'projects_tab',
-  TimeAndBilling = 'time_and_billing',
-  TimeEntries = 'time_entries_tab',
-  TimeApprovals = 'time_approvals_tab',
-  Vacations = 'vacations_tab',
-  Users = 'users_tab',
-  VacationPolicies = 'vacation_policies_tab',
-  Teams = 'teams_tab',
-  Clients = 'clients_tab',
-  VacationRequests = 'vacation_requests_tab',
-  VacationsHistory = 'vacations_history_tab',
-}
+export { TabId };
 
 type Listener<PublishParams> = (
   params: PublishParams,

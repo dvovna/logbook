@@ -26,11 +26,7 @@ export interface IGetUsersTabViewParams extends IPublishBaseParams {
   metadata?: IUsersTabMetaData;
 }
 
-export interface IUsersTabViewFilters {
-  teamId?: string;
-  role?: UserRole;
-  user?: IOption;
-}
+export type { IUsersTabViewFilters } from '@modules/slack/tabs/users/views/users-tab.view';
 
 interface IUserModalViewParams extends IOpenModalBaseParams<string> {
   userId: string;

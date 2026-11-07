@@ -10,15 +10,15 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { runInBackground } from '@common/utils/run-in-background';
-import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
-import { SlackUserGuard } from '@common/guards/slack-user.guard';
+import { SlackSignatureGuard } from '@modules/slack/guards/slack-signature.guard';
+import { SlackUserGuard } from '@modules/slack/guards/slack-user.guard';
 import UserRole from '@common/enums/user-role.enum';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import SlackCommandPromptsService from '@modules/slack-communication/services/slack-command-prompts.service';
 import { RequireRoles } from '@common/decorators/user-role.decorator';
 import { UserRoleGuard } from '@common/guards/user-role.guard';
 import { SlackForbiddenExceptionFilter } from '@modules/slack/filters/slack-forbidden-exception.filter';
-import { SlackActiveUserGuard } from '@common/guards/slack-active-user.guard';
+import { SlackActiveUserGuard } from '@modules/slack/guards/slack-active-user.guard';
 
 @Controller('api/slack/admin')
 @UseFilters(SlackForbiddenExceptionFilter, SlackUserAccessFilter)

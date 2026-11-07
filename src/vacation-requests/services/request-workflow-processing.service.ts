@@ -6,7 +6,7 @@ import { VacationRequestsService } from '@modules/vacation-requests/services/vac
 import { UsersService } from '@modules/users/services/users.service';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
-import { VacationWorkflowFinished } from '@common/events/vacation-workflow.events';
+import { VacationWorkflowFinished } from '@modules/request-workflows/events/vacation-workflow.events';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { VacationRequestDecidedEvent } from '@modules/vacation-requests/events/vacation-request.events';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';

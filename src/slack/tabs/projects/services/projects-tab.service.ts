@@ -1,3 +1,4 @@
+import { PROJECTS_TAB_PAGE_SIZE } from '@modules/slack/tabs/projects/views/projects-tab.view';
 import { Injectable } from '@nestjs/common';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import BaseTabService, {
@@ -37,14 +38,6 @@ export enum ProjectsTabModalName {
 interface IGetProjectsTabViewParams extends IPublishBaseParams {
   metadata?: IProjectsTabMetaData;
 }
-
-export interface IProjectTabFilters {
-  project?: IOption;
-  status?: ProjectStatus;
-  billable?: YesNoValue;
-}
-
-export const PROJECTS_TAB_PAGE_SIZE = 10;
 
 type ProjectsTabModalViewResolversMapType = {
   [ProjectsTabModalName.CreateProject]: (

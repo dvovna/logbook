@@ -9,9 +9,9 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { BlockSuggestion } from '@slack/bolt/dist/types/options';
-import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
-import { SlackUserGuard } from '@common/guards/slack-user.guard';
-import { SlackActiveUserGuard } from '@common/guards/slack-active-user.guard';
+import { SlackSignatureGuard } from '@modules/slack/guards/slack-signature.guard';
+import { SlackUserGuard } from '@modules/slack/guards/slack-user.guard';
+import { SlackActiveUserGuard } from '@modules/slack/guards/slack-active-user.guard';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';

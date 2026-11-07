@@ -10,9 +10,9 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import SlackInteractionsService from '@modules/slack/services/slack-interactions.service';
-import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
+import { SlackSignatureGuard } from '@modules/slack/guards/slack-signature.guard';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
-import { SlackUserGuard } from '@common/guards/slack-user.guard';
+import { SlackUserGuard } from '@modules/slack/guards/slack-user.guard';
 
 @Controller('api/slack/interactions')
 @UseFilters(SlackUserAccessFilter)
