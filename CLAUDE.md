@@ -180,6 +180,8 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in the Vacation Requests tab (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.
 6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status and notifies the requester and the team's `approval_notification_recipients`.
 
+Two approvers can click at the same moment, so the transitions are single conditional updates rather than "read, check, write": `VacationRequestsService.finishPending` changes only a request that is still pending (whoever changes it sends the notifications), and the next level's steps are claimed through `processed_at` (`claimUnprocessed`) before anyone is asked.
+
 Request create/update/delete events also invalidate `VacationPeriodUsageCacheService`.
 
 ### Time & Billing
