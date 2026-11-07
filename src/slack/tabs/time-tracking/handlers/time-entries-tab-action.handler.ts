@@ -107,12 +107,9 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
         user,
       );
     } catch (error) {
-      if (
-        !(
-          error instanceof ValidationError ||
-          error instanceof ForbiddenException
-        )
-      ) {
+      if (!(
+        error instanceof ValidationError || error instanceof ForbiddenException
+      )) {
         throw error;
       }
 

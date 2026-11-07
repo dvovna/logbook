@@ -16,8 +16,7 @@ export const getSelectActionValue = (
   payload: ISlackBlockActionPayload,
 ): IOption | undefined => {
   const action = payload.actions[0] as
-    | StaticSelectAction
-    | ExternalSelectAction;
+    StaticSelectAction | ExternalSelectAction;
 
   if (!action.selected_option) {
     return;

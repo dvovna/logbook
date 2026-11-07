@@ -7,8 +7,7 @@ import { VacationRequestsService } from '@modules/vacation-requests/services/vac
 
 export interface IVacationRequestModalViewParams extends IOpenModalBaseParams {
   callbackId?:
-    | ViewCallbackId.AdminVacationRequest
-    | ViewCallbackId.UserVacationRequest;
+    ViewCallbackId.AdminVacationRequest | ViewCallbackId.UserVacationRequest;
   requestId?: string;
   pageMetadata?: string;
 }

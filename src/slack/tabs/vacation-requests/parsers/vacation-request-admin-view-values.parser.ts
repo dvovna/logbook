@@ -60,8 +60,7 @@ export const adminVacationRequestSchema = z
     },
   );
 
-export interface IVacationRequestAdminFormViewData
-  extends IVacationRequestUserFormViewData {
+export interface IVacationRequestAdminFormViewData extends IVacationRequestUserFormViewData {
   [VacationRequestsTabViewActionId.UserField]: ISelectedOption;
   status: ISelectedOption<VacationRequestStatus>;
 }

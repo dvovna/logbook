@@ -69,12 +69,9 @@ export default class TimeApprovalsTabActionHandler extends BaseAdminTabActionHan
         this.entryIdOf(payload),
       );
     } catch (error) {
-      if (
-        !(
-          error instanceof ValidationError ||
-          error instanceof ForbiddenException
-        )
-      ) {
+      if (!(
+        error instanceof ValidationError || error instanceof ForbiddenException
+      )) {
         throw error;
       }
 

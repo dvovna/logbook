@@ -11,8 +11,7 @@ import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-
 export const CANCEL_REQUEST_BLOCK_ID = 'request_block';
 export const CANCEL_REQUEST_ACTION_ID = 'request';
 
-export interface ICancelVacationRequestSelectModalViewParams
-  extends IBaseModalViewParams {
+export interface ICancelVacationRequestSelectModalViewParams extends IBaseModalViewParams {
   requests: IVacationRequestViewModel[];
 }
 

@@ -64,9 +64,7 @@ interface IVacationPoliciesService {
 }
 
 @Injectable()
-export default class VacationPoliciesService
-  implements IVacationPoliciesService
-{
+export default class VacationPoliciesService implements IVacationPoliciesService {
   public constructor(
     private readonly vacationPoliciesRepository: VacationPoliciesRepository,
     private readonly holidaysService: HolidaysService,

@@ -14,10 +14,9 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
-interface IGetViewParams
-  extends IBaseModalViewParams<
-    ViewCallbackId.AdminVacationRequest | ViewCallbackId.UserVacationRequest
-  > {
+interface IGetViewParams extends IBaseModalViewParams<
+  ViewCallbackId.AdminVacationRequest | ViewCallbackId.UserVacationRequest
+> {
   initialData?: {
     id: string;
     start_date: string;

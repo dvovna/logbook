@@ -7,12 +7,7 @@ import { ISearchResult, ISearchParams } from '@common/types/pagination.types';
 export type Tables = Database['public']['Tables'];
 export type TableName = keyof Tables;
 type SupabaseSimpleValue =
-  | string
-  | number
-  | boolean
-  | null
-  | string[]
-  | number[];
+  string | number | boolean | null | string[] | number[];
 
 type SupabaseFilterOperator =
   | 'eq'

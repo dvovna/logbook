@@ -9,9 +9,7 @@ export const SHUTDOWN_GRACE_MS = 8_000;
 // approvals, posting notifications or importing a file after it answered
 // Slack. It finishes that work first, for a while, then lets the app close.
 @Injectable()
-export class BackgroundWorkShutdownService
-  implements BeforeApplicationShutdown
-{
+export class BackgroundWorkShutdownService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(BackgroundWorkShutdownService.name);
 
   public async beforeApplicationShutdown(signal?: string) {

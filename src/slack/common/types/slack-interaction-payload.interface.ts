@@ -39,5 +39,4 @@ export interface ISlackViewSubmissionPayload {
 }
 
 export type ISlackInteractionPayload =
-  | ISlackBlockActionPayload
-  | ISlackViewSubmissionPayload;
+  ISlackBlockActionPayload | ISlackViewSubmissionPayload;

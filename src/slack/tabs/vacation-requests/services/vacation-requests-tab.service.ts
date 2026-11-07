@@ -40,8 +40,7 @@ interface IVacationRequestModalViewParams extends IOpenModalBaseParams<string> {
   requestId?: string;
 }
 
-interface IVacationRequestConfirmationModalViewParams
-  extends IOpenModalBaseParams<string> {
+interface IVacationRequestConfirmationModalViewParams extends IOpenModalBaseParams<string> {
   requestId: string;
 }
 

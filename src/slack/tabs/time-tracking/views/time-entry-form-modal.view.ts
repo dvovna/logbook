@@ -17,10 +17,9 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { IUserProject } from 'src/projects/queries/get-user-projects.query';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
-interface IGetViewParams
-  extends IBaseModalViewParams<
-    ViewCallbackId.UserTimeEntry | ViewCallbackId.AdminTimeEntry
-  > {
+interface IGetViewParams extends IBaseModalViewParams<
+  ViewCallbackId.UserTimeEntry | ViewCallbackId.AdminTimeEntry
+> {
   userProjects: IUserProject[];
   initialData?: ITimeEntryViewModel;
   user: IUserViewModel;
