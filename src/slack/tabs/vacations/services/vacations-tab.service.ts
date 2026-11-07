@@ -90,7 +90,7 @@ export class VacationsTabService extends BaseTabService<VacationsTabModalViewRes
           startDate: new Date().toUTCString(),
         },
         pageSize: MAX_ITEMS_PER_TAB,
-        orderBy: ['start_date:asc'],
+        orderBy: ['start_date:asc', 'created_at:desc'],
       });
 
     return this.vacationsViewService.getView({

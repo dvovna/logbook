@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
@@ -31,7 +32,7 @@ export class VacationApproversNoticeService {
     inTeam: boolean,
     sentTo: VacationRequestWithoutTeamApproversEvent['sentTo'],
   ) {
-    const dates = `${request.start_date} → ${request.end_date}`;
+    const dates = formatDateRange(request.start_date, request.end_date);
     const reason = inTeam
       ? 'your team has no other approvers'
       : 'you are not in a team';

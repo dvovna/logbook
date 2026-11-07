@@ -394,7 +394,7 @@ describe('Vacation request approval', () => {
       const request = await requestVacation(t, workspace, member, workWeek(2));
 
       expect(await noticeTo(member)).toBe(
-        `📨 Your vacation request (${start} → ${end}) went to HR for approval: your team has no other approvers.`,
+        `📨 Your vacation request (${formatDateRange(start, end)}) went to HR for approval: your team has no other approvers.`,
       );
       await click(
         hr,
@@ -417,7 +417,7 @@ describe('Vacation request approval', () => {
       await requestVacation(t, workspace, member, workWeek(2));
 
       expect(await noticeTo(member)).toBe(
-        `📨 Your vacation request (${start} → ${end}) went to the workspace admins for approval: you are not in a team.`,
+        `📨 Your vacation request (${formatDateRange(start, end)}) went to the workspace admins for approval: you are not in a team.`,
       );
       expect(textOf(await approvalMessageTo(t, workspace, admin))).toContain(
         'Max Member',
@@ -458,7 +458,7 @@ describe('Vacation request approval', () => {
       const request = await requestVacation(t, workspace, member, workWeek(2));
 
       expect(await noticeTo(member)).toBe(
-        `⚠️ Nobody can approve your vacation request (${start} → ${end}) yet: your team has no other approvers, and nobody else has the HR or Admin role. It stays pending until an admin adds approvers to your team.`,
+        `⚠️ Nobody can approve your vacation request (${formatDateRange(start, end)}) yet: your team has no other approvers, and nobody else has the HR or Admin role. It stays pending until an admin adds approvers to your team.`,
       );
       expect(await workspace.rows('request_workflow_steps')).toEqual([]);
       expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);

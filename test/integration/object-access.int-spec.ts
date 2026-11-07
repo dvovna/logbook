@@ -227,14 +227,15 @@ describe('Access to objects by ID', () => {
 
     it("shows only their teams' upcoming vacations in the Vacations hub", async () => {
       const admin = await workspace.addUser({ role: UserRole.Admin });
-      const upcoming = '2026-06-29 – 2026-07-03';
+      const upcoming = '29 Jun – 3 Jul 2026';
 
       expect(
         sectionTexts(
           await openAppHomeTab(t, workspace, manager, VACATIONS_HUB),
         ),
       ).toContain(`• *Anna Ownteam* — ${upcoming}`);
-      // Admin and HR see everyone's, the latest request first.
+      // Admin and HR see everyone's, the soonest first, then the latest
+      // request.
       expect(
         sectionTexts(await openAppHomeTab(t, workspace, admin, VACATIONS_HUB)),
       ).toContain(
