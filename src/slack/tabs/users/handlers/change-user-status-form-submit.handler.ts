@@ -95,15 +95,12 @@ export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandle
         ...pageMetadata,
         page: 1,
       },
+      notice: `✅ ${updatedUser.name} is ${
+        updatedUser.is_active ? 'active again' : 'deactivated'
+      }.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        `✅ User '${updatedUser.name}' has been successfully ${
-          updatedUser.is_active ? 'activated' : 'deactivated'
-        }.`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

@@ -21,6 +21,7 @@ export type {
 import {
   IOpenModalBaseParams,
   IPublishBaseParams,
+  TAB_NOTICE_BLOCK_ID,
 } from '@modules/slack/common/types/tab-params.types';
 
 export type ModalViewResolversMapType = {
@@ -82,8 +83,14 @@ export default abstract class BaseTabService<
     }
 
     try {
+      const tabView = await this.getSafeTabView(params);
+
+      if (params.notice) {
+        this.addNotice(tabView, params.notice);
+      }
+
       await this.slackCommunicationService.publishView(
-        await this.getSafeTabView(params),
+        tabView,
         params.user.slack_team_id,
       );
     } catch (error) {
@@ -94,6 +101,19 @@ export default abstract class BaseTabService<
         stack,
       );
     }
+  }
+
+  // Under the navigation row, above everything else on the tab.
+  private addNotice(tabView: ViewsPublishArguments, notice: string) {
+    const blocks = tabView.view.blocks;
+    const at = blocks[0]?.type === 'actions' ? 1 : 0;
+
+    blocks.splice(at, 0, {
+      type: 'context',
+      block_id: TAB_NOTICE_BLOCK_ID,
+      // Plain text: a notice often names what people typed (a client, a team).
+      elements: [{ type: 'plain_text', text: notice, emoji: true }],
+    });
   }
 
   public async openModal<ModalName extends keyof ModalViewResolversMap>(

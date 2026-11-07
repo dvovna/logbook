@@ -71,17 +71,14 @@ export class RejectRequestStepFormSubmitHandler extends BaseModalFormSubmitHandl
         this.tabNavigationService.navigate(TabId.Vacations, {
           user,
           metadata: JSON.parse(pageMetadata || '{}'),
+          notice: '❌ Rejected. The requester gets a message about it.',
         });
       }
     });
   }
 
   protected successResponse(): ViewResponseAction {
-    return SlackViewResponseFactory.update(
-      this.rejectWithReasonModalView.getSuccessView(
-        '❌ Vacation request rejected. The requester gets a message about it.',
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

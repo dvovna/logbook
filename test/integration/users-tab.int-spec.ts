@@ -18,6 +18,7 @@ import {
   modalError,
   sectionTexts,
   titlesOf,
+  noticeOf,
 } from './support/tab-readers';
 
 // Home → People → Users.
@@ -198,6 +199,7 @@ describe('Users tab', () => {
     it("changes a user's role, team and contract start", async () => {
       const form = await fromMenu(UsersTabViewActionId.EditUser, ada);
 
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, form, {
           role: UserRole.HR,
@@ -206,9 +208,10 @@ describe('Users tab', () => {
         })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        "✅ User 'Ada Lovelace' was updated successfully!",
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Ada Lovelace updated.',
+      );
       expect(await workspace.row('users', ada.id)).toMatchObject({
         role: UserRole.HR,
         team_id: ops.id,

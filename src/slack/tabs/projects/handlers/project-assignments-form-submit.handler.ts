@@ -55,13 +55,10 @@ export class ProjectAssignmentsFormSubmitHandler extends BaseModalFormSubmitHand
     this.tabNavigationService.navigate(TabId.Projects, {
       user,
       metadata: pageMetadata,
+      notice: '✅ Assignments saved.',
     });
 
-    return SlackViewResponseFactory.update(
-      this.projectAssignmentsModalView.getSuccessView(
-        `✅ Project assignments was updated successfully!`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected onSubmit(

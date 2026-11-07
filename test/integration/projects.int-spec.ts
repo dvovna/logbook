@@ -18,6 +18,7 @@ import {
   titlesOf,
   totalCount,
   listCount,
+  noticeOf,
 } from './support/tab-readers';
 import { acknowledged } from './support/slack-test-client';
 import {
@@ -109,9 +110,10 @@ describe('Projects', () => {
         })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        "✅ Project 'Website' was created successfully!",
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Project Website created.',
+      );
       expect(await workspace.rows('projects')).toEqual([
         expect.objectContaining({
           name: 'Website',
@@ -180,6 +182,7 @@ describe('Projects', () => {
         ProjectsTabViewActionId.EditProject,
         project,
       );
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, modal, {
           name: 'Web shop',
@@ -188,9 +191,10 @@ describe('Projects', () => {
         })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        "✅ Project 'Web shop' was updated successfully!",
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Project Web shop updated.',
+      );
       expect(await workspace.row('projects', project.id)).toMatchObject({
         name: 'Web shop',
         client_id: globex.id,
@@ -245,9 +249,10 @@ describe('Projects', () => {
         })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        '✅ Project assignments was updated successfully!',
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Assignments saved.',
+      );
       expect(await workspace.rows('project_teams')).toEqual([
         expect.objectContaining({ project_id: project.id, team_id: design.id }),
       ]);
@@ -481,9 +486,10 @@ describe('Projects', () => {
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        "✅ Project 'Website' has been successfully archived.",
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Website archived.',
+      );
       expect(await workspace.row('projects', project.id)).toMatchObject({
         archived_at: expect.any(String),
         archived_by: admin.id,
@@ -513,13 +519,15 @@ describe('Projects', () => {
         project,
         withArchived,
       );
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        "✅ Project 'Website' has been successfully restored.",
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Website restored.',
+      );
       expect(await workspace.row('projects', project.id)).toMatchObject({
         archived_at: null,
         archived_by: null,

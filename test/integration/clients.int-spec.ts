@@ -12,6 +12,7 @@ import {
   modalError,
   sectionTexts,
   titlesOf,
+  noticeOf,
 } from './support/tab-readers';
 import {
   actOnTab,
@@ -66,9 +67,10 @@ describe('Clients', () => {
         })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        "✅ Client 'Acme' was created successfully!",
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Client Acme created.',
+      );
       expect(await workspace.rows('clients')).toEqual([
         expect.objectContaining({
           name: 'Acme',
@@ -171,9 +173,10 @@ describe('Clients', () => {
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        "✅ Client 'Acme' has been successfully archived.",
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Acme archived.',
+      );
       expect(await workspace.row('clients', client.id)).toMatchObject({
         archived_at: expect.any(String),
         archived_by: admin.id,
@@ -218,13 +221,15 @@ describe('Clients', () => {
         'The client *Acme* will be restored.',
       ]);
 
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        "✅ Client 'Acme' has been successfully restored.",
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Acme restored.',
+      );
       expect(await workspace.row('clients', client.id)).toMatchObject({
         archived_at: null,
         archived_by: null,

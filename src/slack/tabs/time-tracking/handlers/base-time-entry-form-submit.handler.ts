@@ -1,3 +1,4 @@
+import { getDisplayTime } from '@common/utils/time.utils';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -78,22 +79,24 @@ export abstract class BaseTimeEntryFormSubmitHandler<
     user: IUserViewModel,
     metadata: ITimeEntryModalViewMetadata,
   ) {
+    // E.g. "✅ Saved as a draft: 1h 30m on Website. Submit it …".
+    const what = `${getDisplayTime(entry.minutes)}${entry.project?.name ? ` on ${entry.project.name}` : ''}`;
+    const notice =
+      entry.status === TimeEntryStatus.Draft
+        ? `✅ Saved as a draft: ${what}. Submit it from Home when your time is complete.`
+        : `✅ ${metadata.id ? 'Updated' : 'Saved'}: ${what}.`;
+
     if (metadata.pageMetadata) {
       this.tabNavigationService.navigate(TabId.TimeEntries, {
         user,
         metadata: JSON.parse(metadata.pageMetadata) as ITimeEntriesTabMetaData,
+        notice,
       });
     } else {
-      this.tabNavigationService.navigate(TabId.Home, { user });
+      this.tabNavigationService.navigate(TabId.Home, { user, notice });
     }
 
-    return SlackViewResponseFactory.update(
-      this.timeEntryFormModalView.getSuccessView(
-        entry.status === TimeEntryStatus.Draft
-          ? '✅ Saved as a draft. Submit it from Home when your time is complete.'
-          : `✅ Time entry ${metadata.id ? 'updated' : 'saved'}.`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

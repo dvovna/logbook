@@ -85,15 +85,10 @@ export class ToggleHolidayStatusFormSubmitHandler extends BaseModalFormSubmitHan
     this.holidaysTabService.publish({
       user,
       metadata: pageMetadata,
+      notice: `✅ Holiday ${entity.name} ${entity.isDisabled ? 'turned off' : 'turned on'}.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        `✅ Holiday '${entity.name}' has been successfully ${
-          !entity.isDisabled ? 'activated' : 'deactivated'
-        }.`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

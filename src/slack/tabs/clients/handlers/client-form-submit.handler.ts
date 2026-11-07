@@ -57,13 +57,10 @@ export class ClientFormSubmitHandler extends BaseModalFormSubmitHandler<
     this.tabNavigationService.navigate(TabId.Clients, {
       user,
       metadata: pageMetadata,
+      notice: `✅ Client ${team.name} ${metadata.id ? 'updated' : 'created'}.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.clientModalView.getSuccessView(
-        `✅ Client '${team.name}' was ${metadata.id ? 'updated' : 'created'} successfully!`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected onSubmit(

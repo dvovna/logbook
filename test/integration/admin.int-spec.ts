@@ -1,3 +1,4 @@
+import { noticeOf } from './support/tab-readers';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
@@ -6,7 +7,11 @@ import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { textOf } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import {
+  openAppHomeTab,
+  openModalFrom,
+  publishedHome,
+} from './support/app-home';
 
 describe('Admin', () => {
   let t: ITestApp;
@@ -60,12 +65,14 @@ describe('Admin', () => {
       await workspace.addUser({ team_id: team.id, is_active: false });
 
       const confirmation = await openDeleteConfirmation(team);
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        "Team 'Design' has been successfully deleted",
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Team Design deleted.',
       );
       expect(await workspace.rows('teams')).toEqual([]);
     });

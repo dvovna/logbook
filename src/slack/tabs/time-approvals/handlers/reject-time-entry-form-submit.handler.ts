@@ -72,13 +72,10 @@ export class RejectTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
       metadata: meta.pageMetadata
         ? (JSON.parse(meta.pageMetadata) as ITimeApprovalsTabMetaData)
         : {},
+      notice: `❌ Rejected. ${entry.user?.name ?? 'Its owner'} gets a message about it.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.rejectWithReasonModalView.getSuccessView(
-        `The time entry has been rejected. ${entry.user?.name ?? 'Its owner'} will get a message about it.`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

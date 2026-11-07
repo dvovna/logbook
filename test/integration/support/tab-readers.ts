@@ -1,5 +1,6 @@
 import { View } from '@slack/types/dist/views';
 import { SlackJson } from './block-kit';
+import { TAB_NOTICE_BLOCK_ID } from '@modules/slack/common/types/tab-params.types';
 
 // Reads App Home tabs the way a user reads them, so that tests compare
 // values instead of searching the view's JSON (where "Review" also matches
@@ -113,6 +114,12 @@ export const listCount = (view: View): string => {
 // The number of items of a list, on all its pages.
 export const totalCount = (view: View): number =>
   Number(listCount(view).match(/(\d+)(?: in total)?$/)![1]);
+
+// What the tab says just happened, after a form closed (IPublishBaseParams
+// notice), e.g. "✅ Client Acme created.".
+export const noticeOf = (view: View): string | undefined =>
+  blocksOf(view).find((block) => block.block_id === TAB_NOTICE_BLOCK_ID)
+    ?.elements[0].text;
 
 // The error a modal shows after a failed submit (getGeneralErrorBlock).
 export const modalError = (view: View): string | undefined =>

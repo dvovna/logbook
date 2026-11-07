@@ -59,13 +59,10 @@ export class DeleteHolidayHandler extends BaseModalFormSubmitHandler<IConfirmati
     this.holidaysTabService.publish({
       user,
       metadata: pageMetadata,
+      notice: '✅ Holiday deleted.',
     });
 
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        '✅ Holiday deleted successfully.',
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

@@ -40,14 +40,8 @@ export class ChangeProjectStatusFormSubmitHandler extends BaseModalFormSubmitHan
     super();
   }
 
-  protected successResponse(project: IProjectViewModel): ViewResponseAction {
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        `✅ Project '${project.name}' has been successfully ${
-          project.archived_at ? 'archived' : 'restored'
-        }.`,
-      ),
-    );
+  protected successResponse(): ViewResponseAction {
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(
@@ -100,7 +94,10 @@ export class ChangeProjectStatusFormSubmitHandler extends BaseModalFormSubmitHan
       user,
     );
 
-    this.tabNavigationService.navigate(TabId.Projects, { user });
+    this.tabNavigationService.navigate(TabId.Projects, {
+      user,
+      notice: `✅ ${project.name} ${project.archived_at ? 'archived' : 'restored'}.`,
+    });
 
     return project;
   }

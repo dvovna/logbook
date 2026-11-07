@@ -43,12 +43,8 @@ export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     super();
   }
 
-  protected successResponse(team: ITeamViewModel): ViewResponseAction {
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        `✅ Team '${team.name}' has been successfully deleted.`,
-      ),
-    );
+  protected successResponse(): ViewResponseAction {
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(
@@ -89,7 +85,10 @@ export class DeleteTeamFormSubmitHandler extends BaseModalFormSubmitHandler<
 
     const team = await this.teamsService.delete(meta.id, user);
 
-    this.tabNavigationService.navigate(TabId.Teams, { user });
+    this.tabNavigationService.navigate(TabId.Teams, {
+      user,
+      notice: `✅ Team ${team.name} deleted.`,
+    });
 
     return team;
   }

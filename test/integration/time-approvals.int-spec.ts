@@ -10,6 +10,7 @@ import {
   listItems,
   modalError,
   sectionTexts,
+  noticeOf,
 } from './support/tab-readers';
 import { addDays } from './support/dates';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
@@ -177,9 +178,10 @@ describe('Time approvals', () => {
         .submitView(workspace, manager, reject, { reason: 'Wrong project' })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        'The time entry has been rejected. Mia Member will get a message about it.',
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, manager, since))).toBe(
+        '❌ Rejected. Mia Member gets a message about it.',
+      );
       expect(await statusOf(entry)).toBe(TimeEntryStatus.Rejected);
       await t.idle();
       const [posted] = t.slackApi.postedMessages(
@@ -239,13 +241,15 @@ describe('Time approvals', () => {
         '6 time entries waiting for you will be approved.',
       ]);
 
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, manager, confirmation)
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, manager, since))).toBe(
         '✅ 6 time entries approved.',
-      ]);
+      );
       for (const entry of entries) {
         expect(await statusOf(entry)).toBe(TimeEntryStatus.Approved);
       }

@@ -60,13 +60,10 @@ export class DeletePolicyHandler extends BaseModalFormSubmitHandler<
     this.policiesTabService.publish({
       user,
       metadata: pageMetadata!,
+      notice: `✅ Policy ${policy.name} deleted.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        `✅ Vacation Policy '${policy.name}' has been successfully deleted.`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

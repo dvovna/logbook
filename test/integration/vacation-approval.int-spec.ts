@@ -11,10 +11,14 @@ import { TestWorkspace } from './support/test-workspace';
 import { workWeek } from './support/dates';
 import { formatDateRange } from '@common/utils/date.utils';
 import { textOf } from './support/block-kit';
-import { listItems, sectionTexts } from './support/tab-readers';
+import { listItems, sectionTexts, noticeOf } from './support/tab-readers';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import {
+  openAppHomeTab,
+  openModalFrom,
+  publishedHome,
+} from './support/app-home';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
 
@@ -147,9 +151,8 @@ describe('Vacation request approval', () => {
         reason: 'Release week <!channel>',
       })
       .expect(200);
-    expect(sectionTexts(response.body.view)).toEqual([
-      '❌ Vacation request rejected. The requester gets a message about it.',
-    ]);
+    // The form closes; the message it came from shows the rejection.
+    expect(response.body).toEqual({ response_action: 'clear' });
 
     await t.idle();
     expect(await workspace.row('vacation_requests', request.id)).toMatchObject({
@@ -477,12 +480,14 @@ describe('Vacation request approval', () => {
         `waiting for <@${manager.slack_id}>`,
       );
 
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, hr, confirmation)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        'Approved for the approvers',
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, hr, since))).toBe(
+        '✅ Approved for the approvers. The request moves on.',
       );
     };
 

@@ -48,16 +48,14 @@ export class ApproveRequestStepFormSubmitHandler extends BaseModalFormSubmitHand
       this.tabNavigationService.navigate(TabId.Vacations, {
         user,
         metadata: pageMetadata,
+        notice:
+          '✅ Approved. The request moves on to the next approvers, if there are any.',
       });
     });
   }
 
   protected successResponse(): ViewResponseAction {
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        '✅ Approved. The request moves on to the next approvers, if there are any.',
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

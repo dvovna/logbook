@@ -40,19 +40,16 @@ export class VacationPolicyFormSubmitHandler extends BaseModalFormSubmitHandler<
   }
 
   protected successResponse(
-    _request: IVacationPolicyViewModel,
+    policy: IVacationPolicyViewModel,
     user: IUserViewModel,
     metadata: IVacationPolicyModalViewMetadata,
   ) {
     this.tabNavigationService.navigate(TabId.VacationPolicies, {
       user,
+      notice: `✅ Policy ${policy.name} ${metadata.id ? 'updated' : 'created'}.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.vacationPolicyModalView.getSuccessView(
-        `✅ Vacation Policy was ${metadata.id ? 'updated' : 'created'} successfully!`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected onSubmit(

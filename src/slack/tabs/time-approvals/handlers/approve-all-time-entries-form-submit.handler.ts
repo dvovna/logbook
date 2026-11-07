@@ -55,13 +55,10 @@ export class ApproveAllTimeEntriesFormSubmitHandler extends BaseModalFormSubmitH
     this.tabNavigationService.navigate(TabId.TimeApprovals, {
       user,
       metadata: {},
+      notice: `✅ ${pluralize('time entry', entries.length, true)} approved.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        `✅ ${pluralize('time entry', entries.length, true)} approved.`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

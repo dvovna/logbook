@@ -1,3 +1,4 @@
+import { noticeOf } from './support/tab-readers';
 import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -8,7 +9,11 @@ import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { workWeek } from './support/dates';
 import { textOf } from './support/block-kit';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import {
+  openAppHomeTab,
+  openModalFrom,
+  publishedHome,
+} from './support/app-home';
 import {
   approvalMessageTo,
   requestVacation,
@@ -53,6 +58,7 @@ describe('Requests HR files for someone else', () => {
     );
     const { start, end } = workWeek(2);
 
+    const since = t.slackApi.mark();
     const response = await t.slack
       .submitView(workspace, hr, form, {
         [VacationRequestsTabViewActionId.UserField]: user.id,
@@ -63,7 +69,10 @@ describe('Requests HR files for someone else', () => {
       })
       .expect(200);
 
-    return JSON.stringify(response.body);
+    // The form closes and the tab says what happened, or the form shows why not.
+    return response.body.response_action === 'clear'
+      ? noticeOf(await publishedHome(t, workspace, hr, since))
+      : JSON.stringify(response.body);
   };
 
   it("files the request in the user's team, so it goes to that team's approvers", async () => {
@@ -72,7 +81,7 @@ describe('Requests HR files for someone else', () => {
     });
     const member = await workspace.addUser({ team_id: team.id });
 
-    expect(await fileRequestFor(member)).toContain('created successfully');
+    expect(await fileRequestFor(member)).toBe('✅ Vacation request created.');
 
     const [request] = await workspace.rows('vacation_requests');
     expect(request).toMatchObject({
@@ -113,6 +122,7 @@ describe('Requests HR files for someone else', () => {
       VacationRequestsTabViewActionId.ManageRequestMenu,
       `${VacationRequestsTabViewActionId.EditRequest}:${request.id}`,
     );
+    const since = t.slackApi.mark();
     const response = await t.slack
       .submitView(workspace, hr, form, {
         [VacationRequestsTabViewActionId.UserField]: member.id,
@@ -123,7 +133,10 @@ describe('Requests HR files for someone else', () => {
       })
       .expect(200);
 
-    expect(JSON.stringify(response.body)).toContain('updated successfully');
+    expect(response.body).toEqual({ response_action: 'clear' });
+    expect(noticeOf(await publishedHome(t, workspace, hr, since))).toBe(
+      '✅ Vacation request updated.',
+    );
     expect((await workspace.row('vacation_requests', request.id)).status).toBe(
       VacationRequestStatus.Approved,
     );

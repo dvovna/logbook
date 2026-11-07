@@ -61,13 +61,10 @@ export class DeleteTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
       metadata: meta.pageMetadata
         ? (JSON.parse(meta.pageMetadata) as ITimeEntriesTabMetaData)
         : {},
+      notice: '✅ Time entry deleted.',
     });
 
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        '✅ The time entry has been deleted.',
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

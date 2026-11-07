@@ -58,13 +58,10 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
     this.tabNavigationService.navigate(TabId.Projects, {
       user,
       metadata: pageMetadata,
+      notice: `✅ Project ${project.name} ${metadata.id ? 'updated' : 'created'}.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.projectModalView.getSuccessView(
-        `✅ Project '${project.name}' was ${metadata.id ? 'updated' : 'created'} successfully!`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected onSubmit(

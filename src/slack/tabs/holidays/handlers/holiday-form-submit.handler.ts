@@ -106,15 +106,10 @@ export class HolidayFormSubmitHandler extends BaseModalFormSubmitHandler<
     this.holidaysTabService.publish({
       user,
       metadata: pageMetadata,
+      notice: `✅ Holiday ${holiday.name} ${metadata.id ? 'updated' : 'created'}.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.holidayModalView.getSuccessView(
-        `✅ Holiday '${holiday.name}' was ${
-          metadata.id ? 'updated' : 'created'
-        } successfully!`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

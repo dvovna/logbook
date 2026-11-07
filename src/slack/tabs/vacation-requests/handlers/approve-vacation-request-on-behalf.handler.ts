@@ -1,3 +1,4 @@
+import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
 import { Injectable } from '@nestjs/common';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -37,12 +38,8 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
     super();
   }
 
-  protected successResponse() {
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        '✅ Approved for the approvers. The request moves on.',
-      ),
-    );
+  protected successResponse(): ViewResponseAction {
+    return SlackViewResponseFactory.success();
   }
 
   // Slack shows the modal as failed when the answer takes over 3 seconds,
@@ -80,6 +77,7 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
 
         await this.vacationRequestsTabService.publish({
           user,
+          notice: '✅ Approved for the approvers. The request moves on.',
           metadata:
             jsonParse<IVacationRequestsTabMetadata>(
               metadata.pageMetadata || '{}',

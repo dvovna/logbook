@@ -65,17 +65,14 @@ export class ImportHolidaysFormSubmitHandler extends BaseModalFormSubmitHandler<
         ...parsedPageMetadata,
         page: 1,
       },
+      notice: `✅ ${holidaysCreated} holidays imported.`,
     });
 
     return holidaysCreated;
   }
 
-  protected successResponse(holidaysCreated: number): ViewResponseAction {
-    return SlackViewResponseFactory.update(
-      this.importHolidaysModalView.getSuccessView(
-        `✅ ${holidaysCreated} holidays were imported successfully!`,
-      ),
-    );
+  protected successResponse(): ViewResponseAction {
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

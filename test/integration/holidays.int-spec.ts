@@ -12,7 +12,7 @@ import {
   openModalFrom,
   publishedHome,
 } from './support/app-home';
-import { listItems, sectionTexts } from './support/tab-readers';
+import { listItems, sectionTexts, noticeOf } from './support/tab-readers';
 
 // Home → Vacations → Vacation Policies.
 const POLICIES_TAB = [
@@ -199,9 +199,10 @@ describe('Holidays', () => {
       const since = t.slackApi.mark();
       const response = await importCountry('DE');
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        '✅ 2 holidays were imported successfully!',
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ 2 holidays imported.',
+      );
       expect(await holidays()).toEqual([
         expect.objectContaining({
           name: 'German Unity Day',

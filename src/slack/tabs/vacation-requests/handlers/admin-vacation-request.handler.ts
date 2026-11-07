@@ -59,13 +59,10 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
       user,
       page: 1,
       metadata: pageMetadata,
+      notice: `✅ Vacation request ${metadata.id ? 'updated' : 'created'}.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.vacationRequestModalView.getSuccessView(
-        `✅ Vacation Request was ${metadata.id ? 'updated' : 'created'} successfully!`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected onSubmit(

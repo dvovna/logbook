@@ -18,6 +18,7 @@ import {
   sectionTexts,
   totalCount,
   listCount,
+  noticeOf,
 } from './support/tab-readers';
 import { acknowledged } from './support/slack-test-client';
 import { addDays } from './support/dates';
@@ -212,9 +213,10 @@ describe('Time entries', () => {
         })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        '✅ Saved as a draft. Submit it from Home when your time is complete.',
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Saved as a draft: 1h 30m on Website. Submit it from Home when your time is complete.',
+      );
       expect(await entries()).toEqual([
         expect.objectContaining({
           user_id: admin.id,
@@ -233,6 +235,7 @@ describe('Time entries', () => {
     it("logs a member's time as a draft", async () => {
       const modal = await openLogTimeModal(member);
 
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, member, modal, {
           hours: '1.5',
@@ -240,10 +243,10 @@ describe('Time entries', () => {
         })
         .expect(200);
 
-      expect(response.body).toMatchObject({ response_action: 'update' });
-      expect(sectionTexts(response.body.view)).toEqual([
-        '✅ Saved as a draft. Submit it from Home when your time is complete.',
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, member, since))).toBe(
+        '✅ Saved as a draft: 1h 30m on Website. Submit it from Home when your time is complete.',
+      );
       expect(await entries()).toEqual([
         expect.objectContaining({
           user_id: member.id,
@@ -363,13 +366,15 @@ describe('Time entries', () => {
       });
       expect(await entries()).toEqual([]);
 
+      const since = t.slackApi.mark();
       const accepted = await t.slack
         .submitView(workspace, admin, modal, { hours: '0.25' })
         .expect(200);
 
-      expect(sectionTexts(accepted.body.view)).toEqual([
-        '✅ Saved as a draft. Submit it from Home when your time is complete.',
-      ]);
+      expect(accepted.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Saved as a draft: 15m on Website. Submit it from Home when your time is complete.',
+      );
       expect(await entries()).toEqual([
         expect.objectContaining({ minutes: 15 }),
       ]);
@@ -411,13 +416,15 @@ describe('Time entries', () => {
       });
 
       // Slack keeps the same form open, with the error under Hours.
+      const since = t.slackApi.mark();
       const accepted = await t.slack
         .submitView(workspace, admin, modal, { hours: '1' })
         .expect(200);
 
-      expect(sectionTexts(accepted.body.view)).toEqual([
-        '✅ Saved as a draft. Submit it from Home when your time is complete.',
-      ]);
+      expect(accepted.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Saved as a draft: 1h on Website. Submit it from Home when your time is complete.',
+      );
       expect(await entries()).toHaveLength(2);
     });
 
@@ -1019,9 +1026,10 @@ describe('Time entries', () => {
         .submitView(workspace, admin, modal, { hours: '2' })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        '✅ Saved as a draft. Submit it from Home when your time is complete.',
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Saved as a draft: 2h on Website. Submit it from Home when your time is complete.',
+      );
       expect(await entries()).toEqual([
         expect.objectContaining({ id: entry.id, minutes: 120 }),
       ]);
@@ -1093,9 +1101,10 @@ describe('Time entries', () => {
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        '✅ The time entry has been deleted.',
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Time entry deleted.',
+      );
       expect(await workspace.row('time_entries', entry.id)).toMatchObject({
         deleted_at: expect.any(String),
         deleted_by: admin.id,

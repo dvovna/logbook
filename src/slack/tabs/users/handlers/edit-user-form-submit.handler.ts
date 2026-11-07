@@ -84,22 +84,19 @@ export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
       ? (JSON.parse(metadata.pageMetadata) as IUsersTabMetaData)
       : {};
 
-    this.tabNavigationService.navigate(TabId.Users, {
-      user,
-      page: 1,
-      metadata: pageMetadata,
-    });
-
     if (!updatedUser) {
       this.logger.error('Failed to update user');
       throw new Error('Failed to update user');
     }
 
-    return SlackViewResponseFactory.update(
-      this.userModalViewService.getSuccessView(
-        `✅ User '${updatedUser.name}' was updated successfully!`,
-      ),
-    );
+    this.tabNavigationService.navigate(TabId.Users, {
+      user,
+      page: 1,
+      metadata: pageMetadata,
+      notice: `✅ ${updatedUser.name} updated.`,
+    });
+
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

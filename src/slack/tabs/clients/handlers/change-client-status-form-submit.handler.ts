@@ -40,14 +40,8 @@ export class ChangeClientStatusFormSubmitHandler extends BaseModalFormSubmitHand
     super();
   }
 
-  protected successResponse(client: IClientViewModel): ViewResponseAction {
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        `✅ Client '${client.name}' has been successfully ${
-          client.archived_at ? 'archived' : 'restored'
-        }.`,
-      ),
-    );
+  protected successResponse(): ViewResponseAction {
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(
@@ -100,7 +94,10 @@ export class ChangeClientStatusFormSubmitHandler extends BaseModalFormSubmitHand
       user,
     );
 
-    this.tabNavigationService.navigate(TabId.Clients, { user });
+    this.tabNavigationService.navigate(TabId.Clients, {
+      user,
+      notice: `✅ ${updatedClient.name} ${updatedClient.archived_at ? 'archived' : 'restored'}.`,
+    });
 
     return updatedClient;
   }

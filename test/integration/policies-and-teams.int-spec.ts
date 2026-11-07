@@ -7,8 +7,17 @@ import { PolicyTabViewActionId } from '@modules/slack/tabs/vacation-policies/vie
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { findAction } from './support/block-kit';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
-import { listItems, modalError, sectionTexts } from './support/tab-readers';
+import {
+  openAppHomeTab,
+  openModalFrom,
+  publishedHome,
+} from './support/app-home';
+import {
+  listItems,
+  modalError,
+  sectionTexts,
+  noticeOf,
+} from './support/tab-readers';
 
 // Home → Vacations → Vacation Policies.
 const POLICIES_TAB = [
@@ -58,6 +67,7 @@ describe('Vacation policies and teams', () => {
         PolicyTabViewActionId.AddPolicy,
       );
 
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, form, {
           name: 'Berlin',
@@ -68,7 +78,10 @@ describe('Vacation policies and teams', () => {
         })
         .expect(200);
 
-      expect(response.body.response_action).toBe('update');
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Policy Berlin created.',
+      );
       expect(await workspace.rows('vacation_policies')).toEqual([
         expect.objectContaining({
           name: 'Berlin',
@@ -220,6 +233,7 @@ describe('Vacation policies and teams', () => {
         [admin.slack_id, hr.slack_id].sort(),
       );
 
+      const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, form, {
           name: 'Design',
@@ -232,9 +246,10 @@ describe('Vacation policies and teams', () => {
         })
         .expect(200);
 
-      expect(sectionTexts(response.body.view)).toEqual([
-        "✅ Team 'Design' was created successfully!",
-      ]);
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Team Design created.',
+      );
       expect(await workspace.rows('teams')).toEqual([
         expect.objectContaining({
           name: 'Design',

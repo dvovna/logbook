@@ -42,13 +42,10 @@ export class CancelVacationRequestActionHandler extends BaseModalFormSubmitHandl
   protected successResponse(_result, user: IUserViewModel): ViewResponseAction {
     this.homeTabService.publish({
       user,
+      notice: '✅ Vacation request canceled.',
     });
 
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        `✅ Vacation Request has been canceled.`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

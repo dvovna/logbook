@@ -46,13 +46,10 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<ICo
         ...pageMetadata,
         page: 1,
       },
+      notice: '✅ Vacation request deleted.',
     });
 
-    return SlackViewResponseFactory.update(
-      this.confirmationModalView.getSuccessView(
-        '✅ Vacation request deleted successfully.',
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async onSubmit(

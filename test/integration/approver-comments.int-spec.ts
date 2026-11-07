@@ -76,9 +76,8 @@ describe('Approver comments', () => {
     );
     await t.idle();
 
-    expect(sectionTexts(response.body.view)).toEqual([
-      '✅ Comment was created successfully!',
-    ]);
+    // The form closes; the comment shows in the approvers' messages.
+    expect(response.body).toEqual({ response_action: 'clear' });
     expect(await workspace.rows('request_workflow_step_comments')).toEqual([
       expect.objectContaining({
         request_id: request.id,

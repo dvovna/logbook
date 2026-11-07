@@ -1,3 +1,4 @@
+import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import { Injectable } from '@nestjs/common';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -61,12 +62,8 @@ export class ApproverStepCommentFormSubmitHandler extends BaseModalFormSubmitHan
     });
   }
 
-  protected successResponse() {
-    return SlackViewResponseFactory.update(
-      this.approverStepCommentModalView.getSuccessView(
-        '✅ Comment was created successfully!',
-      ),
-    );
+  protected successResponse(): ViewResponseAction {
+    return SlackViewResponseFactory.success();
   }
 
   protected errorResponse(

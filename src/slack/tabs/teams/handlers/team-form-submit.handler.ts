@@ -62,13 +62,10 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     this.tabNavigationService.navigate(TabId.Teams, {
       user,
       metadata: pageMetadata,
+      notice: `✅ Team ${team.name} ${metadata.id ? 'updated' : 'created'}.`,
     });
 
-    return SlackViewResponseFactory.update(
-      this.teamModalView.getSuccessView(
-        `✅ Team '${team.name}' was ${metadata.id ? 'updated' : 'created'} successfully!`,
-      ),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async onSubmit(
