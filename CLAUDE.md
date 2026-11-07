@@ -45,7 +45,7 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 - Local setup is in README → "Development"; self-hosting is in README → "Self-hosting":
   - Local Supabase from `supabase/config.toml`. Only Postgres, the API, auth and Studio are enabled. Auth is unused by the app but the CLI prints the API keys only with it on.
   - A dev Slack app from `slack-app-manifest.yml` (`APP_DOMAIN` replaced with the ngrok domain), reached through ngrok.
-  - Install the dev app through the OAuth URL, not the "Install to Workspace" button: only the OAuth redirect creates the `slack_teams` row.
+  - Install the dev app by opening `/api/slack/install`, not with the "Install to Workspace" button: only the OAuth redirect creates the `slack_teams` row, and it accepts only a `state` that `/install` set in a cookie.
 - `yarn slack:event <payload.json> [--team <T-id>] [--url <url>]` (`src/commands/send-slack-event.ts`) signs a payload with `SLACK_SIGN_IN_SECRET` and posts it to `/api/slack/events`. Use it to exercise event handlers without Slack. Samples in `src/commands/slack-events/` use `T_LOCAL` as the workspace ID, which `--team` replaces.
 
 ## Conventions enforced by lint/config
@@ -75,7 +75,7 @@ Pushing to the dev project:
 
 How the tables handle foreign keys:
 - Every table has an FK to `slack_teams` with `ON DELETE CASCADE`. Uninstalling the app deletes the `slack_teams` row and relies on this cascade.
-- RLS is enabled on the vacation tables and has no policies. The app uses the service-role key, which bypasses RLS. The time tracking tables don't have RLS yet.
+- Every table has RLS enabled with no policies, and the `anon`/`authenticated` API roles have no table, sequence or function privileges, including by default for new objects (`20261107100000_lock_down_public_api.sql`). The app uses the service-role key, which bypasses RLS. A new table or RPC needs nothing extra; never grant it to `anon`.
 
 ## Architecture
 
@@ -94,7 +94,8 @@ Almost every service and repository query must be scoped by `slackTeamId` / `sla
 3. Guards run in this order: `SlackSignatureGuard` → `SlackUserGuard` (loads the DB user by Slack user ID into `req.user` and returns 401 if the user is unknown) → `SlackActiveUserGuard` → `UserRoleGuard` + `@RequireRoles`.
 
 Controllers are in `src/slack/controllers/`:
-- OAuth redirect: calls `TeamSetupWorkflowService`, which creates the `slack_team` and an admin user, then starts a background sync of workspace users.
+- OAuth: `/install` sets a random `state` in a cookie and redirects to Slack. `/oauth/redirect` checks the state against the cookie (OAuth CSRF), then calls `TeamSetupWorkflowService`, which creates the `slack_team` and an admin user and starts a background sync of workspace users.
+- Users are looked up by workspace and Slack user ID together (`UsersService.findBySlackId(slackId, slackTeamId)`; unique `(slack_team_id, slack_id)`). On Enterprise Grid the same `U…` exists in several workspaces. The guards take the workspace from the request (`getRequestWorkspaceSlackId`).
 - `/vacations` slash command.
 - Admin commands.
 - Events: home tab opened, `file_shared` (starts the CSV import), `team_join`/`user_change` (user upsert), `app_uninstalled`.

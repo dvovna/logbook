@@ -3,6 +3,15 @@ import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
 import { ConfigService } from '@nestjs/config';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 
+// The bot scopes the app asks for; keep them in line with slack-app-manifest.yml.
+export const SLACK_BOT_SCOPES = [
+  'commands',
+  'chat:write',
+  'files:read',
+  'users:read',
+  'users:read.email',
+];
+
 type IOauthCompleteResponseData = {
   access_token: string;
   team: {
@@ -23,6 +32,21 @@ export default class SlackOauthService {
     private readonly slackApiClient: SlackApiClient,
     private readonly config: ConfigService,
   ) {}
+
+  public getAuthorizeUrl(state: string) {
+    const url = new URL('https://slack.com/oauth/v2/authorize');
+
+    url.search = new URLSearchParams({
+      client_id: this.config.get<string>(EnvironmentVariable.SlackClientId)!,
+      scope: SLACK_BOT_SCOPES.join(','),
+      redirect_uri: this.config.get<string>(
+        EnvironmentVariable.SlackRedirectUri,
+      )!,
+      state,
+    }).toString();
+
+    return url.toString();
+  }
 
   public async exchangeCode(code: string): Promise<IOauthCompleteResponseData> {
     const clientId = this.config.get<string>(

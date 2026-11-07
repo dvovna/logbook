@@ -66,7 +66,7 @@ Take the session pooler connection string from the project's "Connect" dialog. T
    sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml
    ```
 2. Create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest").
-3. To install it into other workspaces too, turn on public distribution in "Manage Distribution".
+3. To install it into other workspaces too, turn on public distribution in "Manage Distribution". Share `https://<your-domain>/api/slack/install` as the install link; see below.
 
 ### 3. Configuration
 
@@ -101,11 +101,9 @@ Put the app behind HTTPS (a reverse proxy, or a platform such as Render or Fly.i
 
 ### 5. Install
 
-Install the app through the OAuth URL. Don't use "Install to Workspace" in the app settings: it skips the OAuth redirect, so the workspace is never created in the database.
+Open `https://<your-domain>/api/slack/install` in the browser and approve the app. The link starts the OAuth flow with a one-time `state` bound to your browser, so only an installation started there can finish.
 
-```
-https://slack.com/oauth/v2/authorize?client_id=<client-id>&scope=commands,chat:write,files:read,users:read,users:read.email&redirect_uri=<SLACK_REDIRECT_URI>
-```
+Don't use "Install to Workspace" in the app settings, and don't use the sharable URL Slack generates. Both skip the `state`, so the bot refuses them and the workspace is never created. When you distribute the app, give out the `/api/slack/install` link.
 
 The person who installs the app becomes its admin. The other members are imported a few seconds later. Then, in the App Home:
 - set up teams and their approvers under People;
@@ -149,7 +147,7 @@ Studio is at http://127.0.0.1:54323. `npx supabase@latest stop` stops the stack 
 2. Create a separate app from `slack-app-manifest.yml`, with `APP_DOMAIN` replaced by your ngrok domain. An app has one set of request URLs, so keep it apart from the production app.
 3. Fill in the Slack values in `.env`.
 4. Run `yarn start:dev`.
-5. Install the app through the OAuth URL, as described above.
+5. Install the app by opening `https://<your-ngrok-domain>/api/slack/install`, as described above.
 
 To go through an approval you need at least two people in the workspace: one requests a vacation, the other approves it.
 
@@ -197,7 +195,6 @@ CI runs the unit and integration tests on every pull request.
 
 - Slack only; there is no Microsoft Teams support.
 - No calendar sync (Google, Outlook) yet.
-- The OAuth redirect does not check a `state` parameter.
 - Caches are in memory, so run a single instance.
 - Time & Billing is in beta.
 
