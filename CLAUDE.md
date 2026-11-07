@@ -73,7 +73,7 @@ To change the schema:
 3. Update the repository's `mapToViewModel`.
 
 Pushing to the dev project:
-- The dev project has every migration applied, the baseline included (it was a no-op there). New migrations go out with `supabase db push`.
+- The dev project has every migration applied, the baseline included (it was a no-op there). New migrations go out with `supabase db push --remote` (the project is linked; without `--remote` CLI 3 pushes to the local database). Try `--dry-run` first. A migration older than the newest one on dev needs `--include-all`.
 - The direct DB host is IPv6-only. From an IPv4 network, use the session pooler (`aws-1-us-east-1.pooler.supabase.com:5432`, user `postgres.<project-ref>`).
 - Any other database that has the schema but not the migration history needs `--include-all` on its first push.
 

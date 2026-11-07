@@ -112,7 +112,7 @@ The person who installs the app becomes its admin. The other members are importe
 
 ### Updating
 
-Pull the new version, run `supabase db push` with the same connection string, and redeploy.
+Pull the new version, run `supabase db push --remote` with the same connection string, and redeploy. Without `--remote` the CLI pushes to the local database.
 
 ### Checking the database is closed
 
