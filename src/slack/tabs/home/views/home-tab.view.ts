@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -222,23 +223,11 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   }
 
   private buildVacationBlock(vacation: IVacationRequestViewModel): AnyBlock {
-    const start = new Date(vacation.start_date);
-    const end = new Date(vacation.end_date);
-    const isSameDay =
-      start.getDate() === end.getDate() && start.getMonth() === end.getMonth();
-    const isSameMonth = start.getMonth() === end.getMonth();
-    const startStr = isSameMonth
-      ? start.getDate()
-      : `${start.getDate()} ${start.toLocaleString('en-US', { month: 'short' })}`;
-    const endStr = isSameDay
-      ? `${end.toLocaleString('en-US', { month: 'short' })}`
-      : `- ${end.getDate()} ${end.toLocaleString('en-US', { month: 'short' })}`;
-
     return {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${VACATION_TYPE_DISPLAY_NAME_MAP[vacation.type]}*\n${startStr} ${endStr} (${pluralize('day', vacation.days, true)})`,
+        text: `*${VACATION_TYPE_DISPLAY_NAME_MAP[vacation.type]}*\n${formatDateRange(vacation.start_date, vacation.end_date)} (${pluralize('day', vacation.days, true)})`,
       },
       accessory: {
         type: 'overflow',

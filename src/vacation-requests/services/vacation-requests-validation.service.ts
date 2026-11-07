@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
@@ -80,7 +81,7 @@ export class VacationRequestsValidationService {
 
     if (overlapping) {
       throw new ValidationError(
-        `These dates overlap with another vacation request (${overlapping.start_date} – ${overlapping.end_date})`,
+        `These dates overlap with another vacation request (${formatDateRange(overlapping.start_date, overlapping.end_date)})`,
       );
     }
   }

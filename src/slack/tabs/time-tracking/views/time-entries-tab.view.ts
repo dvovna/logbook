@@ -1,3 +1,4 @@
+import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock } from '@slack/web-api';
@@ -134,8 +135,8 @@ export class TimeEntriesTabView extends BaseAdminTabView<
     viewerId: string,
     userRole: UserRole,
   ): AnyBlock[] {
-    const workDate = new Date(entry.work_date).toLocaleDateString();
-    const createdAt = new Date(entry.created_at).toLocaleDateString();
+    const workDate = formatDate(entry.work_date);
+    const createdAt = formatDate(entry.created_at);
     const menuOptions = this.getMenuOptions(entry, viewerId, userRole);
 
     return [

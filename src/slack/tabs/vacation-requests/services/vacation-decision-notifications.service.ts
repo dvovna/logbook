@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
@@ -155,7 +156,7 @@ ${randomText}`,
     comments: IWorkflowStepCommentViewModel[],
   ) {
     return `
-📅 ${request.start_date} → ${request.end_date} (${request.days} calendar days, ${request.working_days} working days)
+📅 ${formatDateRange(request.start_date, request.end_date)} (${request.days} calendar days, ${request.working_days} working days)
 🏖️ Type: ${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]}
 
 ${getApproverCommentLines(comments).join('\n')}
@@ -198,7 +199,7 @@ ${getApproverCommentLines(comments).join('\n')}
     return {
       text: `✅ Vacation request approved for ${escapeMrkdwn(request.user!.name)}:
 
-📅 ${request.start_date} → ${request.end_date} (${request.days} calendar days, ${request.working_days} working days)
+📅 ${formatDateRange(request.start_date, request.end_date)} (${request.days} calendar days, ${request.working_days} working days)
 🏖️ Type: ${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]}
 
 ${getApproverCommentLines(comments).join('\n')}`,

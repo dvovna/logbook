@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import BaseModalView, {
@@ -54,7 +55,7 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
           },
           {
             type: 'mrkdwn',
-            text: `*Period:* ${usage.periodStart.toDateString()} → ${usage.periodEnd.toDateString()}`,
+            text: `*Period:* ${formatDateRange(usage.periodStart, usage.periodEnd)}`,
           },
         ],
       },

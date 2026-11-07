@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
@@ -108,8 +109,10 @@ export class VacationRequestsTabView extends BaseAdminTabView<
   ): AnyBlock[] => {
     const statusEmoji = getVacationStatusEmoji(vacationRequest.status);
 
-    const start = new Date(vacationRequest.start_date).toLocaleDateString();
-    const end = new Date(vacationRequest.end_date).toLocaleDateString();
+    const dates = formatDateRange(
+      vacationRequest.start_date,
+      vacationRequest.end_date,
+    );
 
     return [
       {
@@ -119,7 +122,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
             type: 'mrkdwn',
             text: `*${escapeMrkdwn(vacationRequest.user?.name || 'Unknown')}* (${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]})`,
           },
-          { type: 'mrkdwn', text: `📅 ${start} → ${end}` },
+          { type: 'mrkdwn', text: `📅 ${dates}` },
           {
             type: 'mrkdwn',
             text: `Team: ${vacationRequest.team?.name || '-'}`,

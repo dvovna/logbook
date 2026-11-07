@@ -105,7 +105,7 @@ describe('Billing reports', () => {
 
     expect(response.body.response_action).toBe('push');
     expect(sectionTexts(response.body.view as View)).toEqual([
-      '*Acme* · Oct 1, 2026 – Oct 31, 2026\nApproved: *3h 45m*, billable *3h 15m*\n_Not approved yet: 1h_',
+      '*Acme* · 1–31 Oct 2026\nApproved: *3h 45m*, billable *3h 15m*\n_Not approved yet: 1h_',
       '*By project*\n• Website — 3h 15m (billable 3h 15m)\n• Support — 30m (billable 0h)',
       '*By person*\n• Mia Member — 2h 45m\n• Ann Admin — 1h',
     ]);
@@ -134,7 +134,7 @@ describe('Billing reports', () => {
       .expect(200);
 
     expect(sectionTexts(response.body.view)).toEqual([
-      '*Acme* · Oct 1, 2026 – Oct 31, 2026\nApproved: *250h 15m*, billable *250h 15m*',
+      '*Acme* · 1–31 Oct 2026\nApproved: *250h 15m*, billable *250h 15m*',
       '*By project*\n• Website — 250h 15m (billable 250h 15m)',
       '*By person*\n• Mia Member — 250h 15m',
     ]);
@@ -153,7 +153,7 @@ describe('Billing reports', () => {
       .expect(200);
 
     expect(sectionTexts(response.body.view)).toEqual([
-      '*Acme* · Oct 1, 2026 – Oct 31, 2026\nApproved: *0h*, billable *0h*\n_Not approved yet: 1h_',
+      '*Acme* · 1–31 Oct 2026\nApproved: *0h*, billable *0h*\n_Not approved yet: 1h_',
       '_No approved time for this client in this period._',
     ]);
   });

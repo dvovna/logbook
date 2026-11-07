@@ -1,3 +1,4 @@
+import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
@@ -22,12 +23,7 @@ export class TimeEntryNotificationsService {
       return;
     }
 
-    const workDate = new Date(entry.work_date).toLocaleDateString('en-US', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      timeZone: 'UTC',
-    });
+    const workDate = formatDate(entry.work_date);
     const project = escapeMrkdwn(entry.project?.name ?? 'a project');
     const client = entry.client ? ` (${escapeMrkdwn(entry.client.name)})` : '';
     const lines = [

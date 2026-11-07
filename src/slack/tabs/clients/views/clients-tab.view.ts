@@ -1,3 +1,4 @@
+import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -103,8 +104,8 @@ export class ClientsTabView extends BaseAdminTabView<
   ): AnyBlock[] => {
     const blocks: AnyBlock[] = [];
 
-    const updatedAt = new Date(client.updated_at).toLocaleDateString();
-    const createdAt = new Date(client.created_at).toLocaleDateString();
+    const updatedAt = formatDate(client.updated_at);
+    const createdAt = formatDate(client.created_at);
     const menu = {
       type: 'overflow',
       action_id: ClientsTabViewActionId.ManageClientMenu,

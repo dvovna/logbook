@@ -76,7 +76,7 @@ describe('VacationRequestsValidationService', () => {
         }),
       ).rejects.toThrow(
         new ValidationError(
-          'These dates overlap with another vacation request (2026-02-05 – 2026-02-10)',
+          'These dates overlap with another vacation request (5–10 Feb 2026)',
         ),
       );
     });

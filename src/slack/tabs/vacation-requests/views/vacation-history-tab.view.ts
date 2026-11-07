@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -76,8 +77,10 @@ export class VacationHistoryTabView extends BaseTabView<
   private getRequestItemBlocks = (
     vacationRequest: IVacationRequestViewModel,
   ): AnyBlock[] => {
-    const start = new Date(vacationRequest.start_date).toLocaleDateString();
-    const end = new Date(vacationRequest.end_date).toLocaleDateString();
+    const dates = formatDateRange(
+      vacationRequest.start_date,
+      vacationRequest.end_date,
+    );
 
     return [
       {
@@ -88,7 +91,7 @@ export class VacationHistoryTabView extends BaseTabView<
             text: `*${vacationRequest.user?.name || 'Unknown'}* (${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]})`,
           },
           { type: 'mrkdwn', text: `Days: ${vacationRequest.days}` },
-          { type: 'mrkdwn', text: `📅 ${start} → ${end}` },
+          { type: 'mrkdwn', text: `📅 ${dates}` },
           {
             type: 'mrkdwn',
             text: `Working Days: ${vacationRequest.working_days}`,

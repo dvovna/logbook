@@ -1,3 +1,4 @@
+import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -81,8 +82,8 @@ export class VacationPolicyTabView extends BaseAdminTabView<
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    const updatedAt = new Date(policy.updated_at).toLocaleDateString();
-    const createdAt = new Date(policy.created_at).toLocaleDateString();
+    const updatedAt = formatDate(policy.updated_at);
+    const createdAt = formatDate(policy.created_at);
 
     blocks.push({
       type: 'section',

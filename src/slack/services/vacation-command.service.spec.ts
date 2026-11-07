@@ -87,9 +87,7 @@ describe('VacationCommandService', () => {
 
       // Same local-date format as the home tab, so the period doesn't shift
       // by a day outside UTC.
-      expect(getText()).toContain(
-        'usage for Thu Jan 01 2026 – Thu Dec 31 2026',
-      );
+      expect(getText()).toContain('usage for 1 Jan – 31 Dec 2026');
       expect(getText()).toContain('Used: 5 days');
       expect(getText()).toContain('Remaining: not limited');
       expect(getText()).not.toContain('Remaining: 19 days');
@@ -148,7 +146,7 @@ describe('VacationCommandService', () => {
         ViewCallbackId.CancelVacationRequestCommandSubmit,
       );
       expect(options).toContain('"value":"request-1"');
-      expect(options).toContain('2026-02-02 – 2026-02-06');
+      expect(options).toContain('2–6 Feb 2026');
     });
   });
 

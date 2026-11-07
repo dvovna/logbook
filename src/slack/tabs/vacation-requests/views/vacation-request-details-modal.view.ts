@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import BaseModalView, {
@@ -53,7 +54,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
         fields: [
           {
             type: 'mrkdwn',
-            text: `*Requester:* ${request.user!.name} (<@${request.user!.slack_id}>)`,
+            text: `*Requester:* ${escapeMrkdwn(request.user!.name)} (<@${request.user!.slack_id}>)`,
           },
         ],
       },
@@ -62,7 +63,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
         fields: [
           {
             type: 'mrkdwn',
-            text: `📅 *Dates:*\n${request.start_date} → ${request.end_date}`,
+            text: `📅 *Dates:*\n${formatDateRange(request.start_date, request.end_date)}`,
           },
           {
             type: 'mrkdwn',

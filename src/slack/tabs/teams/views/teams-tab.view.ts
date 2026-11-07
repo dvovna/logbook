@@ -1,3 +1,4 @@
+import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -74,8 +75,8 @@ export class TeamsTabView extends BaseAdminTabView<
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    const updatedAt = new Date(team.updated_at).toLocaleDateString();
-    const createdAt = new Date(team.created_at).toLocaleDateString();
+    const updatedAt = formatDate(team.updated_at);
+    const createdAt = formatDate(team.created_at);
     const teamUsersCount = usersCountByTeam[team.id] || 0;
 
     blocks.push({

@@ -187,7 +187,7 @@ describe('Time approvals', () => {
       );
       expect(posted?.text).toBe(
         [
-          `:x: ${manager.name} rejected your time entry: *Website* (Acme), Nov 2, 2026, 1h.`,
+          `:x: ${manager.name} rejected your time entry: *Website* (Acme), 2 Nov 2026, 1h.`,
           '>Wrong project',
           'Fix it under Home → ✏️ Edit Entries and submit it again.',
         ].join('\n'),

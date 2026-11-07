@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import {
   IVacationPeriodUsageData,
@@ -107,7 +108,7 @@ export default class VacationCommandService {
 
     return {
       text: `
-📊 Your vacation usage for ${periodStart.toDateString()} – ${periodEnd.toDateString()}:
+📊 Your vacation usage for ${formatDateRange(periodStart, periodEnd)}:
 
 ${getVacationTypeIcon(VacationType.AnnualLeave)} Annual Leave:
    • Used: ${usage.annual_leave.used} days

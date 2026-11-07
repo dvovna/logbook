@@ -1,3 +1,4 @@
+import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { truncate } from 'lodash';
 import { AnyBlock } from '@slack/web-api';
@@ -117,10 +118,9 @@ export class ProjectsTabView extends BaseAdminTabView<
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    const updatedAt = new Date(project.updated_at).toLocaleDateString();
-    const createdAt = new Date(project.created_at).toLocaleDateString();
-    const archivedAt =
-      project.archived_at && new Date(project.archived_at).toLocaleDateString();
+    const updatedAt = formatDate(project.updated_at);
+    const createdAt = formatDate(project.created_at);
+    const archivedAt = project.archived_at && formatDate(project.archived_at);
     const menuOptions = this.getProjectMenuOptions(project, userRole);
 
     blocks.push({

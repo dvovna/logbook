@@ -10,6 +10,7 @@ import BaseModalView, {
 import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
 import { Divider } from '@modules/slack/common/views/components/separator';
 import { getDisplayTime } from '@common/utils/time.utils';
+import { formatDateRange } from '@common/utils/date.utils';
 import IClientViewModel from '@modules/clients/types/client.interface';
 import { IBillingReport } from 'src/time-entries/services/billing-report.service';
 
@@ -20,14 +21,6 @@ interface IGetViewParams extends IBaseModalViewParams {
 }
 
 const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '0h');
-
-const formatDate = (date: string) =>
-  new Date(date).toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
 
 // The billing report form: a client and a period.
 @Injectable()
@@ -111,7 +104,7 @@ export class BillingReportModalView extends BaseModalView<IGetViewParams> {
         text: {
           type: 'mrkdwn',
           text:
-            `*${report.clientName}* · ${formatDate(report.fromDate)} – ${formatDate(report.toDate)}\n` +
+            `*${escapeMrkdwn(report.clientName)}* · ${formatDateRange(report.fromDate, report.toDate)}\n` +
             `Approved: *${hours(report.approvedMinutes)}*, billable *${hours(report.billableMinutes)}*` +
             (report.unapprovedMinutes
               ? `\n_Not approved yet: ${hours(report.unapprovedMinutes)}_`

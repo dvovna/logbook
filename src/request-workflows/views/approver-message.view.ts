@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -175,7 +176,7 @@ ${this.getRequestDetails(step, comments)}`,
 
   private static getBasicRequestLines(step: IRequestWorkflowStepViewModel) {
     return [
-      `📅 Dates: ${step.step_data.snapshot.start_date} → ${step.step_data.snapshot.end_date} (${step.step_data.snapshot.days} calendar days, ${step.step_data.snapshot.working_days} working days)`,
+      `📅 Dates: ${formatDateRange(step.step_data.snapshot.start_date, step.step_data.snapshot.end_date)} (${step.step_data.snapshot.days} calendar days, ${step.step_data.snapshot.working_days} working days)`,
       `🏖️ Type: ${VACATION_TYPE_DISPLAY_NAME_MAP[step.step_data.snapshot.type]}`,
     ];
   }

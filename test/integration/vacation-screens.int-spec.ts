@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { Tables } from '@common/types/database.types';
@@ -59,7 +60,7 @@ describe('Vacation screens', () => {
       ),
     );
 
-    expect(details).toContain(`${week.start} → ${week.end}`);
+    expect(details).toContain(formatDateRange(week.start, week.end));
     expect(details).toContain('Annual Leave');
     expect(details).toContain('5 (5 working)');
     expect(details).toContain('Pending');
@@ -100,7 +101,7 @@ describe('Vacation screens', () => {
       VacationHistoryTabViewActionId.ManageRequestMenu,
       `${VacationHistoryTabViewActionId.ViewDetails}:${approved.id}`,
     );
-    expect(textOf(details)).toContain('2026-03-02 → 2026-03-06');
+    expect(textOf(details)).toContain('2–6 Mar 2026');
 
     const home = await actOnTab(
       t,

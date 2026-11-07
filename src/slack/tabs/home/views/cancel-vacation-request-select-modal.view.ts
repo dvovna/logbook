@@ -1,3 +1,4 @@
+import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import BaseModalView, {
@@ -62,6 +63,6 @@ export class CancelVacationRequestSelectModalView extends BaseModalView<ICancelV
   private getRequestLabel(request: IVacationRequestViewModel) {
     const type = VACATION_TYPE_DISPLAY_NAME_MAP[request.type] ?? 'Unknown';
 
-    return `${request.start_date} – ${request.end_date} · ${type} · ${request.days} days`;
+    return `${formatDateRange(request.start_date, request.end_date)} · ${type} · ${request.days} days`;
   }
 }
