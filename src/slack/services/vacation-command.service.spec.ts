@@ -150,12 +150,33 @@ describe('VacationCommandService', () => {
     });
   });
 
-  it('points unknown subcommands to /vacations', async () => {
+  const help = [
+    '*/vacations* handles your time off:',
+    '• `/vacations request`: request time off',
+    '• `/vacations usage`: see how many days you have left',
+    '• `/vacations cancel`: cancel a request that is still waiting for approval',
+    'Everything else is on the *Home* tab of Logbook.',
+  ].join('\n');
+
+  it.each([undefined, '', 'help'])(
+    'answers /vacations %p with what it can do',
+    async (subcommand) => {
+      await service.handleCommand(subcommand, user);
+
+      expect(slackCommunicationService.postEphemeral).toHaveBeenCalledWith(
+        user.slack_id,
+        { text: help },
+        user.slack_team_id,
+      );
+    },
+  );
+
+  it('answers an unknown subcommand with what /vacations can do', async () => {
     await service.handleCommand('oops', user);
 
     expect(slackCommunicationService.postEphemeral).toHaveBeenCalledWith(
       user.slack_id,
-      { text: 'Unknown command. Use `/vacations (usage|request|cancel)`.' },
+      { text: `Unknown command.\n${help}` },
       user.slack_team_id,
     );
   });

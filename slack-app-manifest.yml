@@ -19,6 +19,7 @@ features:
     - command: /vacations
       url: https://APP_DOMAIN/api/slack/vacations
       description: Request and manage vacations
+      usage_hint: "request | usage | cancel"
       should_escape: false
     - command: /upload-vacations
       url: https://APP_DOMAIN/api/slack/admin/user-vacations-upload

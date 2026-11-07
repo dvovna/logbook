@@ -20,6 +20,14 @@ export enum VacationCommand {
   Cancel = 'cancel',
 }
 
+const HELP_TEXT = [
+  '*/vacations* handles your time off:',
+  '• `/vacations request`: request time off',
+  '• `/vacations usage`: see how many days you have left',
+  '• `/vacations cancel`: cancel a request that is still waiting for approval',
+  'Everything else is on the *Home* tab of Logbook.',
+].join('\n');
+
 @Injectable()
 export default class VacationCommandService {
   public constructor(
@@ -89,14 +97,18 @@ export default class VacationCommandService {
 
         break;
       }
-      default:
+      default: {
+        // `/vacations` on its own, `/vacations help` or a typo.
+        const isHelp = !subcommand || subcommand === 'help';
+
         await this.slackCommunicationService.postEphemeral(
           user.slack_id,
           {
-            text: `Unknown command. Use \`/vacations (${Object.values(VacationCommand).join('|')})\`.`,
+            text: isHelp ? HELP_TEXT : `Unknown command.\n${HELP_TEXT}`,
           },
           user.slack_team_id,
         );
+      }
     }
   }
 
