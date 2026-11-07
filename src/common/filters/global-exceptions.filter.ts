@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { pathOf } from '@common/logging/pino-http.options';
 
 @Catch()
 export class GlobalExceptionsFilter implements ExceptionFilter {
@@ -25,17 +26,21 @@ export class GlobalExceptionsFilter implements ExceptionFilter {
       exception instanceof HttpException
         ? exception.getResponse()
         : (exception as Error).message;
+    const path = pathOf(request.url);
 
     this.logger.error(
-      `Error: ${JSON.stringify(message)} | Path: ${request.url}`,
+      `Error: ${JSON.stringify(message)} | Path: ${path}`,
       (exception as Error).stack,
     );
 
+    // The caller gets what an HTTP error says about itself; anything else may
+    // name tables, queries or data, so it stays in the log.
     response.status(status).json({
       statusCode: status,
       timestamp: new Date().toISOString(),
-      path: request.url,
-      error: message,
+      path,
+      error:
+        exception instanceof HttpException ? message : 'Internal server error',
     });
   }
 }

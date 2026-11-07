@@ -100,10 +100,7 @@ export class UserVacationsImportService {
 
         result.updated++;
       } catch (error) {
-        this.logger.error(
-          `Failed to import vacations for ${record.email}`,
-          error,
-        );
+        this.logger.error('Failed to import a vacations row', error);
 
         result.errors.push(
           `Failed to import ${record.email}: ${error.message}`,

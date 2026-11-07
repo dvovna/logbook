@@ -101,7 +101,7 @@ export class UserTeamMappingImportService {
           result.created++;
         }
       } catch (error) {
-        this.logger.error(`Failed to import team for ${record.email}`, error);
+        this.logger.error('Failed to import a team mapping row', error);
 
         result.errors.push(
           `Failed to import ${record.email}: ${error.message}`,

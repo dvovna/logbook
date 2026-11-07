@@ -19,31 +19,13 @@ import { envSchema } from 'src/env.schema';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RequestWorkflowsModule } from './request-workflows/request-workflows.module';
 import { LoggerModule } from 'nestjs-pino';
+import { pinoHttpOptions } from '@common/logging/pino-http.options';
 import { ClientsModule } from '@modules/clients/clients.module';
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 
 @Module({
   imports: [
-    LoggerModule.forRoot({
-      pinoHttp: {
-        level:
-          process.env.LOG_LEVEL ||
-          (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
-        transport:
-          process.env.NODE_ENV !== 'production' &&
-          process.env.NODE_ENV !== 'test'
-            ? {
-              target: 'pino-pretty',
-              options: {
-                colorize: true,
-                singleLine: true,
-                translateTime: 'HH:MM:ss.l',
-                ignore: 'pid,hostname',
-              },
-            }
-            : undefined,
-      },
-    }),
+    LoggerModule.forRoot({ pinoHttp: pinoHttpOptions() }),
     ConfigModule.forRoot({
       isGlobal: true,
       validate: (config) => {
