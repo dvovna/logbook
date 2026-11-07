@@ -119,7 +119,9 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
     sortedLevels.forEach((level) => {
       const steps = groupedStepsByLevel[level];
 
-      const lines: string[] = [`*Step ${level}*`];
+      // Named by who decides; workflows from before names had only numbers.
+      const name = steps[0]?.step_data.level_name ?? `Step ${level}`;
+      const lines: string[] = [`*${name}*`];
 
       steps.forEach((step) => {
         const stepComments = commentsByStep[step.id] || [];

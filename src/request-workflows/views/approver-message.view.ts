@@ -10,9 +10,17 @@ import {
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
 
+export interface IApprovalProgress {
+  level: number;
+  levels: number;
+  // Slack IDs of who approved the levels before this one.
+  approvedBy: string[];
+}
+
 interface IGetMessageParams {
   step: IRequestWorkflowStepViewModel;
   comments?: IWorkflowStepCommentViewModel[];
+  progress?: IApprovalProgress;
 }
 
 export class ApproverMessageView {
@@ -33,7 +41,13 @@ export class ApproverMessageView {
     }
   }
 
-  private static getPendingMessage({ step, comments }: IGetMessageParams) {
+  private static getPendingMessage({
+    step,
+    comments,
+    progress,
+  }: IGetMessageParams) {
+    const context = this.getContextLine(step, progress);
+
     return {
       text: `:wave: You have a new vacation request to approve.`,
       blocks: [
@@ -44,6 +58,14 @@ export class ApproverMessageView {
             text: this.getRequestSummary(step, comments),
           },
         },
+        ...(context
+          ? [
+              {
+                type: 'context',
+                elements: [{ type: 'mrkdwn', text: context }],
+              },
+            ]
+          : []),
         {
           type: 'actions',
           block_id: ViewCallbackId.WorkflowStepMessage,
@@ -185,5 +207,45 @@ ${this.getRequestDetails(step, comments)}`,
     return step.step_data.snapshot.comment
       ? [`💬 User comment: ${escapeMrkdwn(step.step_data.snapshot.comment)}\n`]
       : [];
+  }
+
+  // What helps to decide: e.g. "Balance after: 10 of 20 days · Also off: Lea
+  // (1–5 Jul 2026) · Level 2 of 2 · approved by @Mia". Empty parts are left out.
+  private static getContextLine(
+    step: IRequestWorkflowStepViewModel,
+    progress?: IApprovalProgress,
+  ) {
+    const context = step.step_data.snapshot.context;
+    const parts: string[] = [];
+
+    if (context?.balance_after) {
+      const { available, total, unit } = context.balance_after;
+      parts.push(
+        `Balance after: ${available} of ${total} ${unit === 'bonus' ? 'bonus days' : 'days'}`,
+      );
+    }
+
+    if (context?.also_off.length) {
+      parts.push(
+        `Also off: ${context.also_off
+          .map(
+            ({ name, start_date, end_date }) =>
+              `${escapeMrkdwn(name)} (${formatDateRange(start_date, end_date)})`,
+          )
+          .join(', ')}`,
+      );
+    }
+
+    if (progress && progress.levels > 1) {
+      parts.push(`Level ${progress.level} of ${progress.levels}`);
+    }
+
+    if (progress?.approvedBy.length) {
+      parts.push(
+        `approved by ${progress.approvedBy.map((id) => `<@${id}>`).join(', ')}`,
+      );
+    }
+
+    return parts.join(' · ');
   }
 }

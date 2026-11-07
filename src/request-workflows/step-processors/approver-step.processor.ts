@@ -1,3 +1,5 @@
+import { WorkflowStepStatus } from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IApprovalProgress } from '@modules/request-workflows/views/approver-message.view';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   IRequestWorkflowStepViewModel,
@@ -30,7 +32,11 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
   ): Promise<void> {
     const { channel, ts } = await this.communicationService.postMessage(
       step.slack_user_id,
-      ApproverMessageView.getMessage({ step, comments }),
+      ApproverMessageView.getMessage({
+        step,
+        comments,
+        progress: await this.findProgress(step),
+      }),
       step.slack_team_id,
     );
 
@@ -61,8 +67,45 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
     await this.communicationService.updateMessage(
       step.slack_channel_id,
       step.slack_message_ts,
-      ApproverMessageView.getMessage({ step, comments }),
+      ApproverMessageView.getMessage({
+        step,
+        comments,
+        progress: await this.findProgress(step),
+      }),
       step.slack_team_id,
     );
+  }
+
+  // Where the request stands: the step's level of how many, and who approved
+  // the levels before it.
+  private async findProgress(
+    step: IRequestWorkflowStepViewModel,
+  ): Promise<IApprovalProgress | undefined> {
+    // Only a message still waiting for a decision shows it.
+    if (step.step_data.status !== WorkflowStepStatus.Pending) {
+      return undefined;
+    }
+
+    const steps = await this.requestWorkflowStepsService.findMany({
+      requestId: step.request_id,
+      slackTeamId: step.slack_team_id,
+    });
+    const approvedBy = steps
+      .filter(
+        ({ step_level, step_data }) =>
+          step_level < step.step_level &&
+          step_data.status === WorkflowStepStatus.Approved,
+      )
+      .map(
+        ({ step_data, slack_user_id }) =>
+          step_data.decided_by_slack_id ?? slack_user_id,
+      )
+      .filter((slackId): slackId is string => !!slackId);
+
+    return {
+      level: step.step_level,
+      levels: Math.max(step.step_level, ...steps.map((s) => s.step_level)),
+      approvedBy: [...new Set(approvedBy)],
+    };
   }
 }

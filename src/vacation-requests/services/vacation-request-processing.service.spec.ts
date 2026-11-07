@@ -1,3 +1,4 @@
+import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import { VacationRequestProcessingService } from 'src/vacation-requests/services/vacation-request-processing.service';
 import TeamsService from 'src/teams/services/teams.service';
 import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
@@ -66,7 +67,9 @@ describe('VacationRequestProcessingService', () => {
   let workflowService: Record<'create' | 'cancel', jest.Mock>;
   let usersByRole: Partial<Record<UserRole, string[]>>;
   let eventEmitter: { emit: jest.Mock };
-  let requestsService: { findOne: jest.Mock };
+  let requestsService: { findOne: jest.Mock; findMany: jest.Mock };
+  let usersService: { findMany: jest.Mock; findOne: jest.Mock };
+  let usageService: { getCurrentVacationPeriodUsage: jest.Mock };
   let jobs: ReturnType<typeof inlineJobs>;
   let service: VacationRequestProcessingService;
 
@@ -82,13 +85,18 @@ describe('VacationRequestProcessingService', () => {
     };
     workflowService = { create: jest.fn(), cancel: jest.fn() };
     usersByRole = {};
-    const usersService = {
+    usersService = {
       findMany: jest.fn(async ({ role }: { role: UserRole }) =>
         (usersByRole[role] ?? []).map((slack_id) => ({ slack_id })),
       ),
+      findOne: jest.fn().mockResolvedValue(null),
     };
+    usageService = { getCurrentVacationPeriodUsage: jest.fn() };
     eventEmitter = { emit: jest.fn() };
-    requestsService = { findOne: jest.fn() };
+    requestsService = {
+      findOne: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    };
     jobs = inlineJobs();
 
     service = new VacationRequestProcessingService(
@@ -98,6 +106,7 @@ describe('VacationRequestProcessingService', () => {
       eventEmitter as unknown as EventEmitter2,
       requestsService as unknown as VacationRequestsService,
       jobs.jobs,
+      usageService as unknown as VacationsUsageService,
     );
     service.onModuleInit();
   });
@@ -122,11 +131,45 @@ describe('VacationRequestProcessingService', () => {
         levels: [
           {
             rule: ApprovalRule.Any,
+            name: 'Manager approval',
             steps: [{ slackUserId: 'U_MANAGER', stepType: 'approver' }],
           },
         ],
       }),
     );
+  });
+
+  it("tells the approvers the requester's balance after it and who else is off", async () => {
+    usersService.findOne.mockResolvedValue({ id: 'user-1' });
+    usageService.getCurrentVacationPeriodUsage.mockResolvedValue({
+      limits: { daysTotal: 20, bonusDays: 2 },
+      usage: { [VacationType.AnnualLeave]: { available: 10 } },
+    });
+    requestsService.findMany.mockResolvedValue([
+      // The request itself counts as overlapping; it is left out.
+      { user_id: 'user-1', start_date: '2026-02-02', end_date: '2026-02-06' },
+      {
+        user_id: 'user-2',
+        user: { name: 'Lea' },
+        start_date: '2026-02-01',
+        end_date: '2026-02-03',
+      },
+    ]);
+
+    await onCreated(VacationRequestStatus.Pending);
+
+    expect(requestsService.findMany).toHaveBeenCalledWith({
+      slackTeamId: SLACK_TEAM_ID,
+      teamId: 'team-1',
+      statuses: [VacationRequestStatus.Approved, VacationRequestStatus.Pending],
+      overlapping: { startDate: '2026-02-02', endDate: '2026-02-06' },
+    });
+    expect(workflowService.create.mock.calls[0][0].snapshot.context).toEqual({
+      balance_after: { available: 10, total: 20, unit: 'vacation' },
+      also_off: [
+        { name: 'Lea', start_date: '2026-02-01', end_date: '2026-02-03' },
+      ],
+    });
   });
 
   it.each([
@@ -171,9 +214,11 @@ describe('VacationRequestProcessingService', () => {
       expect(event).toBe(VacationRequestEvent.WithoutTeamApprovers);
       return payload.sentTo;
     };
-    const anyOf = (...slackIds: string[]) => [
+    // One level, named by who decides it.
+    const anyOf = (name: string, ...slackIds: string[]) => [
       {
         rule: ApprovalRule.Any,
+        name,
         steps: slackIds.map((slackUserId) => ({
           slackUserId,
           stepType: 'approver',
@@ -200,7 +245,7 @@ describe('VacationRequestProcessingService', () => {
 
       await onCreated(VacationRequestStatus.Pending);
 
-      expect(levelsOf()).toEqual(anyOf('U_HR_1', 'U_HR_2'));
+      expect(levelsOf()).toEqual(anyOf('HR approval', 'U_HR_1', 'U_HR_2'));
       expect(sentTo()).toBe(UserRole.HR);
     });
 
@@ -209,7 +254,7 @@ describe('VacationRequestProcessingService', () => {
 
       await onCreated(VacationRequestStatus.Pending);
 
-      expect(levelsOf()).toEqual(anyOf('U_ADMIN'));
+      expect(levelsOf()).toEqual(anyOf('Admin approval', 'U_ADMIN'));
       expect(sentTo()).toBe(UserRole.Admin);
     });
 
@@ -219,7 +264,7 @@ describe('VacationRequestProcessingService', () => {
 
       await onCreated(VacationRequestStatus.Pending);
 
-      expect(levelsOf()).toEqual(anyOf('U_HR_1'));
+      expect(levelsOf()).toEqual(anyOf('HR approval', 'U_HR_1'));
       expect(eventEmitter.emit.mock.calls[0][1].inTeam).toBe(false);
     });
 

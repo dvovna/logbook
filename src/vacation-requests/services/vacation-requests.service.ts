@@ -54,6 +54,8 @@ interface IFindParams {
   teamIds?: string[];
   year?: string;
   startDate?: string;
+  // Requests that share at least one day with this period.
+  overlapping?: { startDate: string; endDate: string };
   statuses?: VacationRequestStatus[];
   type?: VacationType;
   slackTeamId: string;
@@ -469,6 +471,18 @@ export class VacationRequestsService implements IVacationRequestsService {
       slack_team_id: params.slackTeamId,
       ...(params.startDate
         ? { start_date: { value: params.startDate, operator: 'gte' } }
+        : {}),
+      ...(params.overlapping
+        ? {
+            start_date: {
+              operator: 'lte',
+              value: params.overlapping.endDate,
+            },
+            end_date: {
+              operator: 'gte',
+              value: params.overlapping.startDate,
+            },
+          }
         : {}),
     };
   }

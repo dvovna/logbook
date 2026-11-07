@@ -30,6 +30,8 @@ import { ValidationError } from '@common/errors/validation.error';
 
 export interface ICreateWorkflowLevelParams {
   rule: ApprovalRule;
+  // Who decides at this level, e.g. "Manager approval", for the timeline.
+  name?: string;
   steps: {
     slackUserId: string;
     stepType: WorkflowStepType;
@@ -77,19 +79,21 @@ export class RequestWorkflowService {
       return;
     }
 
-    const steps = levels.flatMap<ICreateParams>(({ rule, steps }, levelIndex) =>
-      steps.map<ICreateParams>(({ stepType, slackUserId }) => ({
-        requestId,
-        slackUserId,
-        stepLevel: levelIndex + 1,
-        stepType,
-        slackTeamId,
-        stepData: {
-          snapshot,
-          rule,
-          status: INITIAL_STEP_STATUS,
-        },
-      })),
+    const steps = levels.flatMap<ICreateParams>(
+      ({ rule, name, steps }, levelIndex) =>
+        steps.map<ICreateParams>(({ stepType, slackUserId }) => ({
+          requestId,
+          slackUserId,
+          stepLevel: levelIndex + 1,
+          stepType,
+          slackTeamId,
+          stepData: {
+            snapshot,
+            rule,
+            status: INITIAL_STEP_STATUS,
+            ...(name ? { level_name: name } : {}),
+          },
+        })),
     );
 
     if (steps.length === 0) {

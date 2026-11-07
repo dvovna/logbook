@@ -1,3 +1,7 @@
+import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
+import VacationType from '@common/enums/vacation-type.enum';
+import { IRequestContext } from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
@@ -37,6 +41,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     private readonly eventEmitter: EventEmitter2,
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly jobs: JobsService,
+    private readonly vacationsUsageService: VacationsUsageService,
   ) {}
 
   public onModuleInit() {
@@ -93,6 +98,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
         comment: request.user_comment || '',
         days: request.days,
         working_days: request.working_days,
+        context: await this.buildContext(request),
       },
       levels: [],
     };
@@ -109,10 +115,12 @@ export class VacationRequestProcessingService implements OnModuleInit {
           this.buildApproverLevel(
             notRequester(team.manager_approvers),
             team.manager_approvers_rule,
+            'Manager approval',
           ),
           this.buildApproverLevel(
             notRequester(team.hr_approvers),
             team.hr_approvers_rule,
+            'HR approval',
           ),
         ].filter((level): level is ICreateWorkflowLevelParams => level !== null)
       : [];
@@ -132,7 +140,11 @@ export class VacationRequestProcessingService implements OnModuleInit {
       await this.requestWorkflowService.create({
         ...workflow,
         levels: [
-          this.buildApproverLevel(fallback.approvers, ApprovalRule.Any)!,
+          this.buildApproverLevel(
+            fallback.approvers,
+            ApprovalRule.Any,
+            fallback.role === UserRole.HR ? 'HR approval' : 'Admin approval',
+          )!,
         ],
       });
     }
@@ -178,6 +190,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
   private buildApproverLevel(
     approvers: string[] | null,
     rule: ApprovalRule,
+    name: string,
   ): ICreateWorkflowLevelParams | null {
     if (!approvers || approvers.length === 0) {
       return null;
@@ -185,10 +198,80 @@ export class VacationRequestProcessingService implements OnModuleInit {
 
     return {
       rule,
+      name,
       steps: approvers.map((slackUserId) => ({
         slackUserId,
         stepType: WorkflowStepType.Approver,
       })),
     };
+  }
+
+  // What the approvers see beside the request: the requester's balance once it
+  // counts, and who else in the team is off on those days.
+  private async buildContext(
+    request: IVacationRequestViewModel,
+  ): Promise<IRequestContext> {
+    const owner = await this.usersService.findOne({
+      id: request.user_id,
+      slackTeamId: request.slack_team_id,
+      includeInactive: true,
+    });
+    const teammatesOff = request.team_id
+      ? await this.vacationRequestsService.findMany({
+          slackTeamId: request.slack_team_id,
+          teamId: request.team_id,
+          statuses: [
+            VacationRequestStatus.Approved,
+            VacationRequestStatus.Pending,
+          ],
+          overlapping: {
+            startDate: request.start_date,
+            endDate: request.end_date,
+          },
+        })
+      : [];
+
+    return {
+      balance_after: owner ? await this.findBalanceAfter(owner, request) : null,
+      also_off: teammatesOff
+        .filter(({ user_id }) => user_id !== request.user_id)
+        .slice(0, 5)
+        .map(({ user, start_date, end_date }) => ({
+          name: user?.name ?? 'Someone',
+          start_date,
+          end_date,
+        })),
+    };
+  }
+
+  // A pending request already counts as used, so what is available now is
+  // what is left after it.
+  private async findBalanceAfter(
+    owner: IUserViewModel,
+    request: IVacationRequestViewModel,
+  ): Promise<IRequestContext['balance_after']> {
+    const { limits, usage } =
+      await this.vacationsUsageService.getCurrentVacationPeriodUsage(owner);
+
+    if (!limits) {
+      return null;
+    }
+
+    switch (request.type) {
+      case VacationType.AnnualLeave:
+        return {
+          available: usage[VacationType.AnnualLeave].available,
+          total: limits.daysTotal,
+          unit: 'vacation',
+        };
+      case VacationType.BonusDay:
+        return {
+          available: usage[VacationType.BonusDay].available,
+          total: limits.bonusDays,
+          unit: 'bonus',
+        };
+      default:
+        return null;
+    }
   }
 }

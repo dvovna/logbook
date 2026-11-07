@@ -229,6 +229,45 @@ describe('Vacation request approval', () => {
     expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
   });
 
+  it('tells approvers the balance after, who else is off and where the request stands', async () => {
+    const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+    const policy = await workspace.addVacationPolicy({
+      vacation_days: 20,
+      working_days: 20,
+    });
+    const team = await workspace.addTeam({
+      vacation_policy_id: policy.id,
+      manager_approvers: [manager.slack_id],
+      hr_approvers: [hr.slack_id],
+    });
+    await addMember(team);
+    const { start, end } = workWeek(2);
+    const teammate = await workspace.addUser({
+      name: 'Lea Teammate',
+      team_id: team.id,
+    });
+    await workspace.addVacationRequest(teammate, {
+      start_date: start,
+      end_date: end,
+    });
+
+    await requestVacation(t, workspace, member, { start, end });
+    const contextOf = (message: { blocks?: unknown }) =>
+      (message.blocks as { type: string; elements?: { text: string }[] }[])
+        .filter((block) => block.type === 'context')
+        .map((block) => block.elements![0].text);
+    const situation = `Balance after: 15 of 20 days · Also off: Lea Teammate (${formatDateRange(start, end)})`;
+
+    const managerApproval = await approvalMessageTo(t, workspace, manager);
+    expect(contextOf(managerApproval)).toEqual([`${situation} · Level 1 of 2`]);
+
+    await click(manager, managerApproval, ApproverMessageActionId.Approve);
+    const hrApproval = await approvalMessageTo(t, workspace, hr);
+    expect(contextOf(hrApproval)).toEqual([
+      `${situation} · Level 2 of 2 · approved by <@${manager.slack_id}>`,
+    ]);
+  });
+
   it('does not let a member approve', async () => {
     const team = await workspace.addTeam({
       manager_approvers: [manager.slack_id],

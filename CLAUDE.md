@@ -183,6 +183,7 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
 3. `RequestWorkflowService` stores one row per approver in `vacation_request_workflow_steps` and activates level 1 through `WorkflowStepProcessorService`.
 4. Step processors are registered with `@WorkflowStepProcessor(type)` and found by `WorkflowStepProcessorsRegistry` (the same discovery pattern as Slack handlers). The only type is `approver`: `ApproverStepProcessor` sends each approver a DM with Approve / Reject / Comment buttons. `WorkflowStepProcessorService` asks and updates in jobs, one per step; a decided or canceled step is marked `completed_at` first, so a Slack failure never stops the workflow.
 5. Button clicks go to `ApproverStepMessageHandler` (`block_id` `workflow_step_message`):
+   - The DM carries a context line: the requester's balance after the request and teammates off on those days (put into the workflow snapshot when it starts), the level and who approved earlier levels. Levels have names ("Manager approval", "HR approval", "Admin approval") in `step_data.level_name`, which the Details timeline shows.
    - `ANY`: one approval completes the level.
    - `ALL`: the level waits until there are no pending steps.
    - A reject at any level ends the workflow.
