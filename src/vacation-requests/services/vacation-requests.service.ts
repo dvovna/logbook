@@ -360,7 +360,9 @@ export class VacationRequestsService implements IVacationRequestsService {
     vacations: ICreateParams[],
     replacedBy: IUserViewModel,
   ) {
-    await this.vacationRequestsRepository.deleteMany({
+    // The new vacations are saved before the old ones are deleted: when the
+    // database refuses one of them, the user keeps what they had.
+    const previous = await this.vacationRequestsRepository.findMany({
       user_id: user.id,
       slack_team_id: replacedBy.slack_team_id,
     });
@@ -400,7 +402,17 @@ export class VacationRequestsService implements IVacationRequestsService {
       }),
     );
 
-    return await this.vacationRequestsRepository.createMany(vacationRecords);
+    const created =
+      await this.vacationRequestsRepository.createMany(vacationRecords);
+
+    if (previous.length) {
+      await this.vacationRequestsRepository.deleteMany({
+        id: { operator: 'in', value: previous.map(({ id }) => id) },
+        slack_team_id: replacedBy.slack_team_id,
+      });
+    }
+
+    return created;
   }
 
   private getFindQuery(params: IFindParams): SupabaseFilter {

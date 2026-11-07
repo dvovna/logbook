@@ -78,16 +78,6 @@ export class UserVacationsImportService {
           continue;
         }
 
-        await this.usersService.update(
-          {
-            id: existingUser.id,
-            slackTeamId: existingUser.slack_team_id,
-          },
-          {
-            contractStartDate: record.contractStartDate,
-          },
-        );
-
         await this.vacationsService.replaceUserVacations(
           existingUser,
           record.vacations.map((vacation) => ({
@@ -96,6 +86,17 @@ export class UserVacationsImportService {
             teamId: existingUser.team_id,
           })),
           user,
+        );
+
+        // Only once the vacations are in: a failed import changes nothing.
+        await this.usersService.update(
+          {
+            id: existingUser.id,
+            slackTeamId: existingUser.slack_team_id,
+          },
+          {
+            contractStartDate: record.contractStartDate,
+          },
         );
 
         result.updated++;

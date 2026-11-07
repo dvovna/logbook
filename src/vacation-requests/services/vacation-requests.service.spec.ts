@@ -56,7 +56,10 @@ const buildRequest = (
 });
 
 describe('VacationRequestsService', () => {
-  let repository: Record<'findOne' | 'update' | 'create', jest.Mock>;
+  let repository: Record<
+    'findOne' | 'update' | 'create' | 'findMany' | 'createMany' | 'deleteMany',
+    jest.Mock
+  >;
   let validator: Record<
     'validateRequestLimits' | 'validateNoOverlap' | 'validateDaysRequested',
     jest.Mock
@@ -70,6 +73,9 @@ describe('VacationRequestsService', () => {
       findOne: jest.fn(),
       update: jest.fn(),
       create: jest.fn().mockResolvedValue(buildRequest()),
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn(),
     };
     validator = {
       validateRequestLimits: jest.fn(),
@@ -272,6 +278,43 @@ describe('VacationRequestsService', () => {
         ValidationError,
       );
       expect(repository.update).not.toHaveBeenCalled();
+    });
+  });
+  describe("replacing a user's vacations (CSV import)", () => {
+    const vacations = [
+      {
+        userId: requester.id,
+        teamId: null,
+        startDate: new Date('2026-03-02'),
+        endDate: new Date('2026-03-06'),
+        type: VacationType.AnnualLeave,
+        status: VacationRequestStatus.Approved,
+      },
+    ];
+
+    beforeEach(() => {
+      repository.findMany.mockResolvedValue([buildRequest({ id: 'old-1' })]);
+    });
+
+    it('deletes the old vacations only after the new ones are saved', async () => {
+      await service.replaceUserVacations(requester, vacations, requester);
+
+      expect(repository.deleteMany).toHaveBeenCalledWith({
+        id: { operator: 'in', value: ['old-1'] },
+        slack_team_id: SLACK_TEAM_ID,
+      });
+      expect(repository.createMany.mock.invocationCallOrder[0]).toBeLessThan(
+        repository.deleteMany.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('keeps the old vacations when the new ones cannot be saved', async () => {
+      repository.createMany.mockRejectedValue(new Error('check violation'));
+
+      await expect(
+        service.replaceUserVacations(requester, vacations, requester),
+      ).rejects.toThrow('check violation');
+      expect(repository.deleteMany).not.toHaveBeenCalled();
     });
   });
 });
