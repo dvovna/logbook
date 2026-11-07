@@ -5,7 +5,8 @@ import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navig
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { findAction, textOf } from './support/block-kit';
+import { findAction } from './support/block-kit';
+import { actionIdsOf, sectionTexts } from './support/tab-readers';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
 
 // Home → Time & Billing.
@@ -103,16 +104,11 @@ describe('Billing reports', () => {
       .expect(200);
 
     expect(response.body.response_action).toBe('push');
-    const report = textOf(response.body.view as View);
-    expect(report).toContain('*Acme* · Oct 1, 2026 – Oct 31, 2026');
-    expect(report).toContain('Approved: *3h 45m*, billable *3h 15m*');
-    expect(report).toContain('Not approved yet: 1h');
-    expect(report).toContain(
-      '*By project*\\n• Website — 3h 15m (billable 3h 15m)\\n• Support — 30m (billable 0h)',
-    );
-    expect(report).toContain(
-      '*By person*\\n• Mia Member — 2h 45m\\n• Ann Admin — 1h',
-    );
+    expect(sectionTexts(response.body.view as View)).toEqual([
+      '*Acme* · Oct 1, 2026 – Oct 31, 2026\nApproved: *3h 45m*, billable *3h 15m*\n_Not approved yet: 1h_',
+      '*By project*\n• Website — 3h 15m (billable 3h 15m)\n• Support — 30m (billable 0h)',
+      '*By person*\n• Mia Member — 2h 45m\n• Ann Admin — 1h',
+    ]);
   });
 
   it('says when nothing was approved', async () => {
@@ -127,9 +123,10 @@ describe('Billing reports', () => {
       })
       .expect(200);
 
-    const report = textOf(response.body.view);
-    expect(report).toContain('No approved time for this client in this period');
-    expect(report).toContain('Not approved yet: 1h');
+    expect(sectionTexts(response.body.view)).toEqual([
+      '*Acme* · Oct 1, 2026 – Oct 31, 2026\nApproved: *0h*, billable *0h*\n_Not approved yet: 1h_',
+      '_No approved time for this client in this period._',
+    ]);
   });
 
   it('defaults to this month and checks the period', async () => {
@@ -165,7 +162,7 @@ describe('Billing reports', () => {
       manager,
       TIME_AND_BILLING_TAB,
     );
-    expect(textOf(timeAndBilling)).not.toContain(
+    expect(actionIdsOf(timeAndBilling)).not.toContain(
       AdminNavigationActionId.ManageBillingReports,
     );
 
@@ -175,6 +172,6 @@ describe('Billing reports', () => {
       })
       .expect(200);
 
-    expect(textOf(response.body.view)).toContain('not allowed');
+    expect(response.body.view.title.text).toBe('Forbidden');
   });
 });

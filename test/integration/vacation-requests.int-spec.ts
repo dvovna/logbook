@@ -5,7 +5,7 @@ import { CANCEL_REQUEST_ACTION_ID } from '@modules/slack/tabs/home/views/cancel-
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { addDays, workWeek } from './support/dates';
-import { textOf } from './support/block-kit';
+import { findAction, textOf } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
 import {
   approvalMessageTo,
@@ -93,8 +93,11 @@ describe('/vacations', () => {
       await t.idle();
       const modal = t.slackApi.openedModal(workspace.token, { since });
 
-      expect(textOf(modal)).toContain(pending.id);
-      expect(textOf(modal)).not.toContain(approved.id);
+      expect(
+        findAction(modal.blocks, CANCEL_REQUEST_ACTION_ID).element.options.map(
+          ({ value }: { value: string }) => value,
+        ),
+      ).toEqual([pending.id]);
     });
 
     it('says so when there is nothing to cancel', async () => {

@@ -9,7 +9,15 @@ import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/en
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { findAction, textOf } from './support/block-kit';
+import { findAction } from './support/block-kit';
+import {
+  actionIdsOf,
+  buttonText,
+  listItems,
+  modalError,
+  sectionTexts,
+  totalCount,
+} from './support/tab-readers';
 import { acknowledged } from './support/slack-test-client';
 import { addDays } from './support/dates';
 import { travelTo } from './support/clock';
@@ -82,6 +90,12 @@ describe('Time entries', () => {
       (option: { value: string }) => option.value,
     );
 
+  const descriptionsOf = (view: View) =>
+    listItems(view).map(({ fields }) => fields.Description);
+
+  const statusesOf = (view: View) =>
+    listItems(view).map(({ fields }) => fields.Status);
+
   const entries = async () =>
     (await workspace.rows('time_entries')).filter(
       ({ deleted_at }) => !deleted_at,
@@ -108,8 +122,12 @@ describe('Time entries', () => {
         website.id,
         research.id,
       ]);
-      expect(textOf(modal)).not.toContain('Select user');
-      expect(textOf(modal)).not.toContain('"status"');
+      expect(actionIdsOf(modal)).toEqual([
+        'projectId',
+        'workDate',
+        'hours',
+        'description',
+      ]);
     });
 
     it('shows an admin who and in which status the time is logged for', async () => {
@@ -154,7 +172,9 @@ describe('Time entries', () => {
 
       const modal = await openLogTimeModal(newcomer);
 
-      expect(textOf(modal)).toContain('You have no projects to log time on');
+      expect(sectionTexts(modal)).toEqual([
+        'You have no projects to log time on yet. Ask an admin to add you or your team to a project.',
+      ]);
       expect(modal).not.toHaveProperty('submit');
     });
 
@@ -170,9 +190,9 @@ describe('Time entries', () => {
         })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        'Time Log was created successfully!',
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        '✅ Time Log was created successfully!',
+      ]);
       expect(await entries()).toEqual([
         expect.objectContaining({
           user_id: admin.id,
@@ -199,9 +219,9 @@ describe('Time entries', () => {
         .expect(200);
 
       expect(response.body).toMatchObject({ response_action: 'update' });
-      expect(textOf(response.body.view)).toContain(
-        'Time Log was created successfully!',
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        '✅ Time Log was created successfully!',
+      ]);
       expect(await entries()).toEqual([
         expect.objectContaining({
           user_id: member.id,
@@ -276,7 +296,7 @@ describe('Time entries', () => {
         .submitView(workspace, admin, modal, { hours: '0.3' })
         .expect(200);
 
-      expect(textOf(rejected.body.view)).toContain(
+      expect(modalError(rejected.body.view)).toBe(
         'Logged minutes must be in 15 - minute increments',
       );
       expect(await entries()).toEqual([]);
@@ -286,9 +306,9 @@ describe('Time entries', () => {
         .submitView(workspace, admin, rejected.body.view, { hours: '0.25' })
         .expect(200);
 
-      expect(textOf(accepted.body.view)).toContain(
-        'Time Log was created successfully!',
-      );
+      expect(sectionTexts(accepted.body.view)).toEqual([
+        '✅ Time Log was created successfully!',
+      ]);
       expect(await entries()).toEqual([
         expect.objectContaining({ minutes: 15 }),
       ]);
@@ -321,7 +341,7 @@ describe('Time entries', () => {
         .submitView(workspace, admin, modal, { hours: '1.25' })
         .expect(200);
 
-      expect(textOf(rejected.body.view)).toContain(
+      expect(modalError(rejected.body.view)).toBe(
         'Total logged time for this project and date cannot exceed 24 hours',
       );
 
@@ -329,9 +349,9 @@ describe('Time entries', () => {
         .submitView(workspace, admin, rejected.body.view, { hours: '1' })
         .expect(200);
 
-      expect(textOf(accepted.body.view)).toContain(
-        'Time Log was created successfully!',
-      );
+      expect(sectionTexts(accepted.body.view)).toEqual([
+        '✅ Time Log was created successfully!',
+      ]);
       expect(await entries()).toHaveLength(2);
     });
 
@@ -374,28 +394,30 @@ describe('Time entries', () => {
       await workspace.addTimeEntry(admin, website, { description: 'Not mine' });
 
       const home = await openAppHomeTab(t, workspace, member);
-      expect(textOf(home)).not.toContain(
+      expect(actionIdsOf(home)).not.toContain(
         AdminNavigationActionId.ManageTimeAndBilling,
       );
 
-      const myEntries = textOf(
-        await actOnTab(
-          t,
-          workspace,
-          member,
-          home,
-          HomeTabActionId.EditTimeEntries,
-        ),
+      const myEntries = await actOnTab(
+        t,
+        workspace,
+        member,
+        home,
+        HomeTabActionId.EditTimeEntries,
       );
-      expect(myEntries).toContain('*Mia Member*');
-      expect(myEntries).toContain('Project: Website');
-      expect(myEntries).toContain('Client: Acme');
-      expect(myEntries).toContain('Time: 1h 30m');
-      expect(myEntries).toContain('Status: Draft');
-      expect(myEntries).toContain('Description: Kickoff');
-      expect(myEntries).not.toContain('Deleted work');
-      expect(myEntries).not.toContain('Not mine');
-      expect(myEntries).toContain('Total Count: 1');
+      expect(listItems(myEntries)).toEqual([
+        expect.objectContaining({
+          title: 'Mia Member',
+          fields: expect.objectContaining({
+            Project: 'Website',
+            Client: 'Acme',
+            Time: '1h 30m',
+            Status: 'Draft',
+            Description: 'Kickoff',
+          }),
+        }),
+      ]);
+      expect(totalCount(myEntries)).toBe(1);
     });
 
     it('goes back to Home from Edit Entries', async () => {
@@ -428,8 +450,6 @@ describe('Time entries', () => {
         work_date: addDays(today(), -3),
         description: 'Audit',
       });
-      const descriptions = (view: View) =>
-        textOf(view).match(/Kickoff|Planning|Audit/g);
       const act = (view: View, actionId: string, value?: string) =>
         actOnTab(t, workspace, admin, view, actionId, value);
 
@@ -452,20 +472,20 @@ describe('Time entries', () => {
         TimeEntriesTabViewActionId.FilterByUser,
         member.id,
       );
-      expect(descriptions(mias)).toEqual(['Kickoff', 'Planning']);
+      expect(descriptionsOf(mias)).toEqual(['Kickoff', 'Planning']);
 
       const miasOnWebsite = await act(
         mias,
         TimeEntriesTabViewActionId.FilterByProject,
         website.id,
       );
-      expect(descriptions(miasOnWebsite)).toEqual(['Kickoff']);
+      expect(descriptionsOf(miasOnWebsite)).toEqual(['Kickoff']);
 
       const everything = await act(
         miasOnWebsite,
         TimeEntriesTabViewActionId.ResetFilters,
       );
-      expect(descriptions(everything)).toEqual([
+      expect(descriptionsOf(everything)).toEqual([
         'Kickoff',
         'Planning',
         'Audit',
@@ -476,7 +496,7 @@ describe('Time entries', () => {
         TimeEntriesTabViewActionId.FilterByFromDate,
         addDays(today(), -1),
       );
-      expect(descriptions(sinceYesterday)).toEqual(['Kickoff', 'Planning']);
+      expect(descriptionsOf(sinceYesterday)).toEqual(['Kickoff', 'Planning']);
       expect(
         findAction(
           sinceYesterday.blocks,
@@ -489,7 +509,7 @@ describe('Time entries', () => {
         TimeEntriesTabViewActionId.FilterByToDate,
         addDays(today(), -1),
       );
-      expect(descriptions(yesterday)).toEqual(['Planning']);
+      expect(descriptionsOf(yesterday)).toEqual(['Planning']);
     });
 
     it('lets a member filter by their own projects only', async () => {
@@ -501,7 +521,7 @@ describe('Time entries', () => {
         MY_ENTRIES_TAB,
       );
 
-      expect(textOf(myEntries)).not.toContain(
+      expect(actionIdsOf(myEntries)).not.toContain(
         TimeEntriesTabViewActionId.FilterByUser,
       );
 
@@ -539,15 +559,15 @@ describe('Time entries', () => {
         TIME_LOGS_TAB,
       );
 
-      expect(textOf(firstPage).match(/Day \d/g)).toEqual([
+      expect(descriptionsOf(firstPage)).toEqual([
         'Day 0',
         'Day 1',
         'Day 2',
         'Day 3',
         'Day 4',
       ]);
-      expect(textOf(firstPage)).toContain('Total Count: 6');
-      expect(textOf(firstPage)).toContain('Page 1 of 2');
+      expect(totalCount(firstPage)).toBe(6);
+      expect(sectionTexts(firstPage)).toContain('*Page 1 of 2*');
     });
 
     it('pages to older work', async () => {
@@ -566,7 +586,7 @@ describe('Time entries', () => {
         firstPage,
         TimeEntriesTabViewActionId.PaginationNext,
       );
-      expect(textOf(secondPage).match(/Day \d/g)).toEqual(['Day 5']);
+      expect(descriptionsOf(secondPage)).toEqual(['Day 5']);
     });
 
     it.each([UserRole.Admin, UserRole.HR])(
@@ -580,13 +600,14 @@ describe('Time entries', () => {
           description: 'Audit',
         });
 
-        const timeLogs = textOf(
-          await openAppHomeTab(t, workspace, viewer, TIME_LOGS_TAB),
+        const timeLogs = await openAppHomeTab(
+          t,
+          workspace,
+          viewer,
+          TIME_LOGS_TAB,
         );
 
-        expect(timeLogs).toContain('Audit');
-        expect(timeLogs).toContain('Kickoff');
-        expect(timeLogs).toContain('Total Count: 2');
+        expect(descriptionsOf(timeLogs).sort()).toEqual(['Audit', 'Kickoff']);
       },
     );
 
@@ -595,12 +616,14 @@ describe('Time entries', () => {
       await workspace.addTimeEntry(member, website, { description: 'Kickoff' });
       await workspace.addTimeEntry(manager, website, { description: 'Audit' });
 
-      const timeLogs = textOf(
-        await openAppHomeTab(t, workspace, manager, TIME_LOGS_TAB),
+      const timeLogs = await openAppHomeTab(
+        t,
+        workspace,
+        manager,
+        TIME_LOGS_TAB,
       );
 
-      expect(timeLogs).toContain('Audit');
-      expect(timeLogs).not.toContain('Kickoff');
+      expect(descriptionsOf(timeLogs)).toEqual(['Audit']);
     });
 
     it('shows an admin only their own entries under Edit Entries, on every page', async () => {
@@ -613,8 +636,8 @@ describe('Time entries', () => {
         admin,
         MY_ENTRIES_TAB,
       );
-      expect(textOf(firstPage)).not.toContain('Kickoff');
-      expect(textOf(firstPage)).toContain('Total Count: 6');
+      expect(descriptionsOf(firstPage)).not.toContain('Kickoff');
+      expect(totalCount(firstPage)).toBe(6);
 
       const secondPage = await actOnTab(
         t,
@@ -623,7 +646,7 @@ describe('Time entries', () => {
         firstPage,
         TimeEntriesTabViewActionId.PaginationNext,
       );
-      expect(textOf(secondPage).match(/Day \d|Kickoff/g)).toEqual(['Day 5']);
+      expect(descriptionsOf(secondPage)).toEqual(['Day 5']);
     });
   });
 
@@ -646,7 +669,7 @@ describe('Time entries', () => {
       });
       await workspace.addTimeEntry(admin, website);
 
-      const home = textOf(await openAppHomeTab(t, workspace, member));
+      const home = sectionTexts(await openAppHomeTab(t, workspace, member));
 
       expect(home).toContain('Today: *2h* (Acme 1h 30m, No client 30m)');
       expect(home).toContain('This week: *3h* total');
@@ -661,14 +684,14 @@ describe('Time entries', () => {
         work_date: '2026-06-15',
       });
 
-      const home = textOf(await openAppHomeTab(t, workspace, member));
+      const home = sectionTexts(await openAppHomeTab(t, workspace, member));
 
-      expect(home).toContain('Today: *1h*');
+      expect(home).toContain('Today: *1h* (Acme 1h)');
       expect(home).toContain('This week: *1h* total');
     });
 
     it('says when nothing is logged yet', async () => {
-      const home = textOf(await openAppHomeTab(t, workspace, member));
+      const home = sectionTexts(await openAppHomeTab(t, workspace, member));
 
       expect(home).toContain('Today: nothing logged yet');
       expect(home).toContain('This week: *0h* total');
@@ -697,15 +720,15 @@ describe('Time entries', () => {
         work_date: addDays(today(), -7),
       });
 
-      const timeAndBilling = textOf(
+      const timeAndBilling = sectionTexts(
         await openAppHomeTab(t, workspace, admin, [
           AdminNavigationActionId.ManageTimeAndBilling,
         ]),
       );
 
-      expect(timeAndBilling).toContain('*3h* logged total');
-      expect(timeAndBilling).toContain('*2h* billable');
-      expect(timeAndBilling).toContain('*2* active projects');
+      expect(timeAndBilling).toContain(
+        '• *3h* logged total\n• *2h* billable\n• *2* active projects',
+      );
     });
   });
 
@@ -727,7 +750,9 @@ describe('Time entries', () => {
         member,
         MY_ENTRIES_TAB,
       );
-      expect(textOf(myEntries)).toContain('Submit drafts (2)');
+      expect(
+        buttonText(myEntries, TimeEntriesTabViewActionId.SubmitDrafts),
+      ).toBe('📤 Submit drafts (2)');
 
       const updated = await actOnTab(
         t,
@@ -740,10 +765,14 @@ describe('Time entries', () => {
       expect(await statusOf(draft)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(rejected)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(approved)).toBe(TimeEntryStatus.Approved);
-      expect(textOf(updated)).not.toContain(
+      expect(actionIdsOf(updated)).not.toContain(
         TimeEntriesTabViewActionId.SubmitDrafts,
       );
-      expect(textOf(updated)).toContain('Status: Submitted');
+      expect(statusesOf(updated).sort()).toEqual([
+        'Approved',
+        'Submitted',
+        'Submitted',
+      ]);
     });
 
     it('submits one entry from its menu', async () => {
@@ -767,7 +796,9 @@ describe('Time entries', () => {
 
       expect(await statusOf(first)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(second)).toBe(TimeEntryStatus.Draft);
-      expect(textOf(updated)).toContain('Submit drafts (1)');
+      expect(buttonText(updated, TimeEntriesTabViewActionId.SubmitDrafts)).toBe(
+        '📤 Submit drafts (1)',
+      );
     });
 
     it('takes away the menu of a submitted entry from its owner', async () => {
@@ -782,10 +813,12 @@ describe('Time entries', () => {
         MY_ENTRIES_TAB,
       );
 
-      expect(textOf(myEntries)).toContain('Status: Submitted');
-      expect(textOf(myEntries)).not.toContain(
-        TimeEntriesTabViewActionId.ManageTimeEntryMenu,
-      );
+      expect(listItems(myEntries)).toEqual([
+        expect.objectContaining({
+          fields: expect.objectContaining({ Status: 'Submitted' }),
+          menu: [],
+        }),
+      ]);
     });
 
     it('refuses an edit that arrives after the entry was submitted', async () => {
@@ -807,7 +840,7 @@ describe('Time entries', () => {
         .submitView(workspace, member, modal, { hours: '2' })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
+      expect(modalError(response.body.view)).toBe(
         'Submitted time entries cannot be edited',
       );
       expect((await workspace.row('time_entries', entry.id)).minutes).toBe(60);
@@ -900,15 +933,16 @@ describe('Time entries', () => {
         .submitView(workspace, admin, modal, { hours: '2' })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        'Time Log was updated successfully!',
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        '✅ Time Log was updated successfully!',
+      ]);
       expect(await entries()).toEqual([
         expect.objectContaining({ id: entry.id, minutes: 120 }),
       ]);
-      expect(textOf(await publishedHome(t, workspace, admin, since))).toContain(
-        'Time: 2h',
-      );
+      expect(
+        listItems(await publishedHome(t, workspace, admin, since))[0].fields
+          .Time,
+      ).toBe('2h');
     });
 
     it('lets a member edit their own entry from Edit Entries', async () => {
@@ -949,7 +983,7 @@ describe('Time entries', () => {
         .submitView(workspace, admin, modal, { hours: '1.25' })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
+      expect(modalError(response.body.view)).toBe(
         'Total logged time for this project and date cannot exceed 24 hours',
       );
       expect((await workspace.row('time_entries', entry.id)).minutes).toBe(60);
@@ -969,16 +1003,16 @@ describe('Time entries', () => {
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        'The time entry has been deleted.',
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        '✅ The time entry has been deleted.',
+      ]);
       expect(await workspace.row('time_entries', entry.id)).toMatchObject({
         deleted_at: expect.any(String),
         deleted_by: admin.id,
       });
       expect(
-        textOf(await publishedHome(t, workspace, admin, since)),
-      ).not.toContain('Typo');
+        listItems(await publishedHome(t, workspace, admin, since)),
+      ).toEqual([]);
     });
   });
 });

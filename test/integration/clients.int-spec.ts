@@ -6,7 +6,13 @@ import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 import { ClientsTabViewActionId } from '@modules/slack/tabs/clients/enums/clients-tab-view-actions-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { textOf } from './support/block-kit';
+import {
+  actionIdsOf,
+  listItems,
+  modalError,
+  sectionTexts,
+  titlesOf,
+} from './support/tab-readers';
 import {
   actOnTab,
   openAppHomeTab,
@@ -60,9 +66,9 @@ describe('Clients', () => {
         })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        "Client 'Acme' was created successfully!",
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        "✅ Client 'Acme' was created successfully!",
+      ]);
       expect(await workspace.rows('clients')).toEqual([
         expect.objectContaining({
           name: 'Acme',
@@ -72,8 +78,8 @@ describe('Clients', () => {
           archived_by: null,
         }),
       ]);
-      expect(textOf(await publishedHome(t, workspace, admin, since))).toContain(
-        '*Acme*',
+      expect(titlesOf(await publishedHome(t, workspace, admin, since))).toEqual(
+        ['Acme'],
       );
     });
 
@@ -99,7 +105,7 @@ describe('Clients', () => {
         .submitView(workspace, admin, modal, { name: 'Acme' })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
+      expect(modalError(response.body.view)).toBe(
         'Client with same name already exists.',
       );
       expect(await workspace.rows('clients')).toHaveLength(1);
@@ -109,13 +115,19 @@ describe('Clients', () => {
       const manager = await workspace.addUser({ role: UserRole.Manager });
       await workspace.addClient({ name: 'Acme' });
 
-      const clientsTab = textOf(
-        await openAppHomeTab(t, workspace, manager, CLIENTS_TAB),
+      const clientsTab = await openAppHomeTab(
+        t,
+        workspace,
+        manager,
+        CLIENTS_TAB,
       );
 
-      expect(clientsTab).toContain('*Acme*');
-      expect(clientsTab).not.toContain(ClientsTabViewActionId.AddClient);
-      expect(clientsTab).not.toContain(ClientsTabViewActionId.ManageClientMenu);
+      expect(listItems(clientsTab)).toEqual([
+        expect.objectContaining({ title: 'Acme', menu: [] }),
+      ]);
+      expect(actionIdsOf(clientsTab)).not.toContain(
+        ClientsTabViewActionId.AddClient,
+      );
     });
 
     it("refuses a manager's client form", async () => {
@@ -126,7 +138,7 @@ describe('Clients', () => {
         .submitView(workspace, manager, modal, { name: 'Acme' })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain('not allowed');
+      expect(response.body.view.title.text).toBe('Forbidden');
       expect(await workspace.rows('clients')).toEqual([]);
     });
   });
@@ -149,25 +161,25 @@ describe('Clients', () => {
       const clientsTab = await openAppHomeTab(t, workspace, admin, CLIENTS_TAB);
 
       const confirmation = await openConfirmation(clientsTab, client);
-      expect(textOf(confirmation)).toContain(
-        'The client *Acme* will be archived',
-      );
+      expect(sectionTexts(confirmation)).toEqual([
+        'The client *Acme* will be archived.',
+      ]);
 
       const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        "Client 'Acme' has been successfully archived.",
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        "✅ Client 'Acme' has been successfully archived.",
+      ]);
       expect(await workspace.row('clients', client.id)).toMatchObject({
         archived_at: expect.any(String),
         archived_by: admin.id,
       });
 
       const updatedTab = await publishedHome(t, workspace, admin, since);
-      expect(textOf(updatedTab)).not.toContain('*Acme*');
+      expect(titlesOf(updatedTab)).toEqual([]);
 
       const withArchived = await actOnTab(
         t,
@@ -177,9 +189,12 @@ describe('Clients', () => {
         ClientsTabViewActionId.IncludeArchivedClients,
         YesNoValue.Yes,
       );
-      expect(textOf(withArchived)).toContain('*Acme*');
-      expect(textOf(withArchived)).toContain('Restore Client');
-      expect(textOf(withArchived)).not.toContain('Edit Client');
+      expect(listItems(withArchived)).toEqual([
+        expect.objectContaining({
+          title: 'Acme',
+          menuLabels: ['Restore Client'],
+        }),
+      ]);
     });
 
     it('restores an archived client', async () => {
@@ -198,17 +213,17 @@ describe('Clients', () => {
       );
 
       const confirmation = await openConfirmation(clientsTab, client);
-      expect(textOf(confirmation)).toContain(
-        'The client *Acme* will be restored',
-      );
+      expect(sectionTexts(confirmation)).toEqual([
+        'The client *Acme* will be restored.',
+      ]);
 
       const response = await t.slack
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        "Client 'Acme' has been successfully restored.",
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        "✅ Client 'Acme' has been successfully restored.",
+      ]);
       expect(await workspace.row('clients', client.id)).toMatchObject({
         archived_at: null,
         archived_by: null,

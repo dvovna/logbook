@@ -9,7 +9,15 @@ import { NO_CLIENT_VALUE } from '@modules/slack/tabs/projects/views/project-moda
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { findAction, textOf } from './support/block-kit';
+import { findAction } from './support/block-kit';
+import {
+  actionIdsOf,
+  listItems,
+  modalError,
+  sectionTexts,
+  titlesOf,
+  totalCount,
+} from './support/tab-readers';
 import { acknowledged } from './support/slack-test-client';
 import {
   actOnTab,
@@ -100,9 +108,9 @@ describe('Projects', () => {
         })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        "Project 'Website' was created successfully!",
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        "✅ Project 'Website' was created successfully!",
+      ]);
       expect(await workspace.rows('projects')).toEqual([
         expect.objectContaining({
           name: 'Website',
@@ -116,13 +124,13 @@ describe('Projects', () => {
         }),
       ]);
 
-      const projectsTab = textOf(
+      const [website] = listItems(
         await publishedHome(t, workspace, admin, since),
       );
-      expect(projectsTab).toContain('*Website*');
-      expect(projectsTab).toContain('Client: Acme');
-      expect(projectsTab).toContain('Status: On-hold');
-      expect(projectsTab).toContain('Billable: No');
+      expect(website).toMatchObject({
+        title: 'Website',
+        fields: { Client: 'Acme', Status: 'On-hold', Billable: 'No' },
+      });
     });
 
     it('creates an active billable project without a client by default', async () => {
@@ -150,7 +158,7 @@ describe('Projects', () => {
         .submitView(workspace, admin, modal, { name: 'Website' })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
+      expect(modalError(response.body.view)).toBe(
         'Project with same name already exists.',
       );
       expect(await workspace.rows('projects')).toHaveLength(1);
@@ -178,9 +186,9 @@ describe('Projects', () => {
         })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        "Project 'Web shop' was updated successfully!",
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        "✅ Project 'Web shop' was updated successfully!",
+      ]);
       expect(await workspace.row('projects', project.id)).toMatchObject({
         name: 'Web shop',
         client_id: globex.id,
@@ -235,18 +243,19 @@ describe('Projects', () => {
         })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        'Project assignments was updated successfully!',
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        '✅ Project assignments was updated successfully!',
+      ]);
       expect(await workspace.rows('project_teams')).toEqual([
         expect.objectContaining({ project_id: project.id, team_id: design.id }),
       ]);
       expect(await workspace.rows('project_users')).toEqual([
         expect.objectContaining({ project_id: project.id, user_id: ada.id }),
       ]);
-      expect(textOf(await publishedHome(t, workspace, admin, since))).toContain(
-        'Teams: 1 · Users: 1',
+      const [listed] = listItems(
+        await publishedHome(t, workspace, admin, since),
       );
+      expect(listed.fields).toMatchObject({ Teams: '1', Users: '1' });
     });
 
     it('shows the current assignments and replaces them on submit', async () => {
@@ -321,10 +330,16 @@ describe('Projects', () => {
       });
 
       const projectsTab = await openProjectsTab();
-      expect(textOf(projectsTab)).toContain('*Alpha*\\nClient: Acme');
-      expect(textOf(projectsTab)).toContain('*Beta*\\nClient: -');
-      expect(textOf(projectsTab)).not.toContain('*Gamma*');
-      expect(textOf(projectsTab)).toContain('Total Count: 2');
+      expect(
+        listItems(projectsTab).map(({ title, fields }) => [
+          title,
+          fields.Client,
+        ]),
+      ).toEqual([
+        ['Alpha', 'Acme'],
+        ['Beta', '-'],
+      ]);
+      expect(totalCount(projectsTab)).toBe(2);
 
       const onHold = await actOnTab(
         t,
@@ -334,8 +349,7 @@ describe('Projects', () => {
         ProjectsTabViewActionId.FilterByStatus,
         ProjectStatus.OnHold,
       );
-      expect(textOf(onHold)).toContain('*Beta*');
-      expect(textOf(onHold)).not.toContain('*Alpha*');
+      expect(titlesOf(onHold)).toEqual(['Beta']);
 
       const unfiltered = await actOnTab(
         t,
@@ -352,8 +366,7 @@ describe('Projects', () => {
         ProjectsTabViewActionId.FilterByBillable,
         YesNoValue.Yes,
       );
-      expect(textOf(billable)).toContain('*Alpha*');
-      expect(textOf(billable)).not.toContain('*Beta*');
+      expect(titlesOf(billable)).toEqual(['Alpha']);
 
       const withArchived = await actOnTab(
         t,
@@ -363,9 +376,9 @@ describe('Projects', () => {
         ProjectsTabViewActionId.IncludeArchivedProjects,
         YesNoValue.Yes,
       );
-      expect(textOf(withArchived)).toContain('*Gamma*');
-      expect(textOf(withArchived)).toContain('*Archived:*');
-      expect(textOf(withArchived)).toContain('Total Count: 3');
+      expect(titlesOf(withArchived)).toEqual(['Alpha', 'Beta', 'Gamma']);
+      expect(listItems(withArchived)[2].fields.Archived).toBeDefined();
+      expect(totalCount(withArchived)).toBe(3);
     });
 
     it('pages through projects by name', async () => {
@@ -374,14 +387,8 @@ describe('Projects', () => {
       }
 
       const firstPage = await openProjectsTab();
-      expect(textOf(firstPage)).toContain('Page 1 of 2');
-      expect(textOf(firstPage).match(/\*P\d\*/g)).toEqual([
-        '*P1*',
-        '*P2*',
-        '*P3*',
-        '*P4*',
-        '*P5*',
-      ]);
+      expect(sectionTexts(firstPage)).toContain('*Page 1 of 2*');
+      expect(titlesOf(firstPage)).toEqual(['P1', 'P2', 'P3', 'P4', 'P5']);
 
       const secondPage = await actOnTab(
         t,
@@ -390,9 +397,9 @@ describe('Projects', () => {
         firstPage,
         ProjectsTabViewActionId.PaginationNext,
       );
-      expect(textOf(secondPage)).toContain('Page 2 of 2');
-      expect(textOf(secondPage).match(/\*P\d\*/g)).toEqual(['*P6*']);
-      expect(textOf(secondPage)).toContain('Total Count: 6');
+      expect(sectionTexts(secondPage)).toContain('*Page 2 of 2*');
+      expect(titlesOf(secondPage)).toEqual(['P6']);
+      expect(totalCount(secondPage)).toBe(6);
     });
 
     it('finds a project by name', async () => {
@@ -421,8 +428,7 @@ describe('Projects', () => {
         ProjectsTabViewActionId.FindProjectByName,
         website.id,
       );
-      expect(textOf(found)).toContain('*Website*');
-      expect(textOf(found)).not.toContain('*Mobile app*');
+      expect(titlesOf(found)).toEqual(['Website']);
     });
 
     it('offers a manager only assigning and archiving', async () => {
@@ -436,7 +442,7 @@ describe('Projects', () => {
         PROJECTS_TAB,
       );
 
-      expect(textOf(projectsTab)).not.toContain(
+      expect(actionIdsOf(projectsTab)).not.toContain(
         ProjectsTabViewActionId.AddProject,
       );
       expect(
@@ -464,16 +470,16 @@ describe('Projects', () => {
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        "Project 'Website' has been successfully archived.",
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        "✅ Project 'Website' has been successfully archived.",
+      ]);
       expect(await workspace.row('projects', project.id)).toMatchObject({
         archived_at: expect.any(String),
         archived_by: admin.id,
       });
-      expect(
-        textOf(await publishedHome(t, workspace, admin, since)),
-      ).not.toContain('*Website*');
+      expect(titlesOf(await publishedHome(t, workspace, admin, since))).toEqual(
+        [],
+      );
     });
 
     it('restores an archived project', async () => {
@@ -500,9 +506,9 @@ describe('Projects', () => {
         .submitView(workspace, admin, confirmation)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        "Project 'Website' has been successfully restored.",
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        "✅ Project 'Website' has been successfully restored.",
+      ]);
       expect(await workspace.row('projects', project.id)).toMatchObject({
         archived_at: null,
         archived_by: null,

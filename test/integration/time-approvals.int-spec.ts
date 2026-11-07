@@ -5,7 +5,12 @@ import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-en
 import { TimeApprovalsTabActionId } from '@modules/slack/tabs/time-approvals/enums/time-approvals-tab-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { textOf } from './support/block-kit';
+import {
+  buttonText,
+  listItems,
+  modalError,
+  sectionTexts,
+} from './support/tab-readers';
 import { addDays } from './support/dates';
 import {
   actOnTab,
@@ -85,22 +90,30 @@ describe('Time approvals', () => {
       const timeAndBilling = await openAppHomeTab(t, workspace, manager, [
         AdminNavigationActionId.ManageTimeAndBilling,
       ]);
-      expect(textOf(timeAndBilling)).toContain('Approvals (1)');
-
-      const approvals = textOf(
-        await actOnTab(
-          t,
-          workspace,
-          manager,
-          timeAndBilling,
-          AdminNavigationActionId.ManageTimeApprovals,
-        ),
+      expect(sectionTexts(timeAndBilling)).toContain(
+        '*✅ Approvals (1)*\n\nSubmitted time entries waiting for your decision',
       );
-      expect(approvals).toContain('Kickoff');
-      expect(approvals).not.toContain('Draft');
-      expect(approvals).not.toContain('Ops work');
-      expect(approvals).not.toContain('Own work');
-      expect(approvals).toContain('Approve all (1)');
+
+      const approvals = await actOnTab(
+        t,
+        workspace,
+        manager,
+        timeAndBilling,
+        AdminNavigationActionId.ManageTimeApprovals,
+      );
+      expect(listItems(approvals)).toEqual([
+        expect.objectContaining({
+          title: 'Mia Member',
+          fields: expect.objectContaining({ Description: 'Kickoff' }),
+          buttons: [
+            TimeApprovalsTabActionId.ApproveEntry,
+            TimeApprovalsTabActionId.RejectEntry,
+          ],
+        }),
+      ]);
+      expect(buttonText(approvals, TimeApprovalsTabActionId.ApproveAll)).toBe(
+        'Approve all (1)',
+      );
     });
 
     it("shows HR everyone's submitted entries but their own", async () => {
@@ -109,13 +122,13 @@ describe('Time approvals', () => {
       await submitted(opsMember, { description: 'Ops work' });
       await submitted(hr, { description: 'Own work' });
 
-      const approvals = textOf(
-        await openAppHomeTab(t, workspace, hr, APPROVALS_TAB),
-      );
+      const approvals = await openAppHomeTab(t, workspace, hr, APPROVALS_TAB);
 
-      expect(approvals).toContain('Kickoff');
-      expect(approvals).toContain('Ops work');
-      expect(approvals).not.toContain('Own work');
+      expect(
+        listItems(approvals)
+          .map(({ fields }) => fields.Description)
+          .sort(),
+      ).toEqual(['Kickoff', 'Ops work']);
     });
   });
 
@@ -142,7 +155,9 @@ describe('Time approvals', () => {
         status: TimeEntryStatus.Approved,
         updated_by: manager.id,
       });
-      expect(textOf(updated)).toContain('Nothing is waiting for your approval');
+      expect(sectionTexts(updated)).toContain(
+        '_Nothing is waiting for your approval._',
+      );
     });
 
     it('rejects an entry and tells its owner why', async () => {
@@ -161,23 +176,25 @@ describe('Time approvals', () => {
         .submitView(workspace, manager, reject, { reason: 'Wrong project' })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
-        'The time entry has been rejected. Mia Member will get a message',
-      );
+      expect(sectionTexts(response.body.view)).toEqual([
+        'The time entry has been rejected. Mia Member will get a message about it.',
+      ]);
       expect(await statusOf(entry)).toBe(TimeEntryStatus.Rejected);
       await t.idle();
       const [posted] = t.slackApi.postedMessages(
         workspace.token,
         member.slack_id,
       );
-      expect(posted).toBeDefined();
-      const message = textOf(posted);
-      expect(message).toContain('rejected your time entry: *Website* (Acme)');
-      expect(message).toContain('Nov 2, 2026, 1h');
-      expect(message).toContain('>Wrong project');
+      expect(posted?.text).toBe(
+        [
+          `:x: ${manager.name} rejected your time entry: *Website* (Acme), Nov 2, 2026, 1h.`,
+          '>Wrong project',
+          'Fix it under Home → ✏️ Edit Entries and submit it again.',
+        ].join('\n'),
+      );
       expect(
-        textOf(await publishedHome(t, workspace, manager, since)),
-      ).toContain('Nothing is waiting for your approval');
+        sectionTexts(await publishedHome(t, workspace, manager, since)),
+      ).toContain('_Nothing is waiting for your approval._');
     });
 
     it('approves everything waiting at once, beyond the first page', async () => {
@@ -196,15 +213,17 @@ describe('Time approvals', () => {
         await openAppHomeTab(t, workspace, manager, APPROVALS_TAB),
         TimeApprovalsTabActionId.ApproveAll,
       );
-      expect(textOf(confirmation)).toContain(
-        '6 time entries waiting for you will be approved',
-      );
+      expect(sectionTexts(confirmation)).toEqual([
+        '6 time entries waiting for you will be approved.',
+      ]);
 
       const response = await t.slack
         .submitView(workspace, manager, confirmation)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain('6 time entries approved');
+      expect(sectionTexts(response.body.view)).toEqual([
+        '✅ 6 time entries approved.',
+      ]);
       for (const entry of entries) {
         expect(await statusOf(entry)).toBe(TimeEntryStatus.Approved);
       }
@@ -230,7 +249,7 @@ describe('Time approvals', () => {
         .submitView(workspace, manager, reject)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain(
+      expect(modalError(response.body.view)).toBe(
         'This time entry is no longer waiting for your approval.',
       );
       expect(await statusOf(entry)).toBe(TimeEntryStatus.Approved);
@@ -250,7 +269,7 @@ describe('Time approvals', () => {
         .submitView(workspace, member, confirmation)
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain('not allowed');
+      expect(response.body.view.title.text).toBe('Forbidden');
       expect(await statusOf(entry)).toBe(TimeEntryStatus.Submitted);
     });
   });

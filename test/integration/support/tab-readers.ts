@@ -1,0 +1,126 @@
+import { View } from '@slack/types/dist/views';
+import { SlackJson } from './block-kit';
+
+// Reads App Home tabs the way a user reads them, so that tests compare
+// values instead of searching the view's JSON (where "Review" also matches
+// the tab's title).
+
+export interface IListItem {
+  // The bold first line: a client's, project's or person's name.
+  title: string;
+  // The "Key: value" lines, e.g. { Client: 'Acme', Status: 'Draft' }.
+  fields: Record<string, string>;
+  // What the item's menu offers: the action of each option, e.g.
+  // ['edit_time_entry', 'delete_time_entry'].
+  menu: string[];
+  // Their labels, e.g. ['Edit', 'Delete'].
+  menuLabels: string[];
+  // The action_ids of the buttons right under the item (Approve, Reject).
+  buttons: string[];
+  // The id the menu or the buttons act on.
+  id?: string;
+}
+
+const blocksOf = (view: View | { blocks?: unknown[] }) =>
+  (view.blocks ?? []) as SlackJson[];
+
+const parseFields = (texts: string[]) => {
+  const [first = '', ...rest] = texts.join('\n').split('\n');
+  const fields: Record<string, string> = {};
+
+  for (const line of rest) {
+    for (const part of line.split(' · ')) {
+      const match = part.replace(/\*/g, '').match(/^([^:]+):\s*(.*)$/);
+
+      if (match) {
+        fields[match[1].trim()] = match[2].trim();
+      }
+    }
+  }
+
+  return { title: first.replace(/^\*(.*)\*$/, '$1'), fields };
+};
+
+// The items of the list in a tab: every section made of fields (clients,
+// projects, time entries, entries waiting for approval).
+export const listItems = (view: View): IListItem[] => {
+  const blocks = blocksOf(view);
+
+  return blocks.flatMap((block, i) => {
+    if (block.type !== 'section' || !block.fields?.length) {
+      return [];
+    }
+
+    const { title, fields } = parseFields(
+      block.fields.map((field: SlackJson) => field.text),
+    );
+    const menuOptions: SlackJson[] = block.accessory?.options ?? [];
+    const menuValues: string[] = menuOptions.map((option) => option.value);
+    const next = blocks[i + 1];
+    const buttons: SlackJson[] =
+      next?.type === 'actions' ? (next.elements ?? []) : [];
+
+    return [
+      {
+        title,
+        fields,
+        menu: menuValues.map((value) => value.split(':')[0]),
+        menuLabels: menuOptions.map((option) => option.text.text),
+        buttons: buttons.map((button) => button.action_id),
+        id: menuValues[0]?.split(':')[1] ?? buttons[0]?.value,
+      },
+    ];
+  });
+};
+
+export const titlesOf = (view: View) =>
+  listItems(view).map(({ title }) => title);
+
+// The texts of the sections that are not list items, e.g. "Today: *2h*".
+export const sectionTexts = (view: View): string[] =>
+  blocksOf(view)
+    .filter((block) => block.type === 'section' && block.text)
+    .map((block) => block.text.text);
+
+// The action_ids of every interactive element: buttons, menus, selects.
+export const actionIdsOf = (view: View): string[] =>
+  blocksOf(view).flatMap((block) =>
+    [
+      ...(block.elements ?? []),
+      ...(block.accessory ? [block.accessory] : []),
+      ...(block.element ? [block.element] : []),
+    ]
+      .map((element: SlackJson) => element.action_id)
+      .filter(Boolean),
+  );
+
+// The "Total Count: N" under a list.
+export const totalCount = (view: View): number => {
+  const text = sectionTexts(view).find((line) =>
+    line.startsWith('Total Count:'),
+  );
+
+  if (!text) {
+    throw new Error('The view has no Total Count');
+  }
+
+  return Number(text.replace('Total Count:', ''));
+};
+
+// The error a modal shows after a failed submit (getGeneralErrorBlock).
+export const modalError = (view: View): string | undefined =>
+  sectionTexts(view)
+    .find((text) => text.startsWith(':warning: '))
+    ?.replace(':warning: ', '');
+
+// The label of the button `actionId`, when the view has one.
+export const buttonText = (view: View, actionId: string): string | undefined =>
+  blocksOf(view)
+    .flatMap((block) => [
+      ...(block.elements ?? []),
+      ...(block.accessory ? [block.accessory] : []),
+    ])
+    .find(
+      (element: SlackJson) =>
+        element.type === 'button' && element.action_id === actionId,
+    )?.text.text;
