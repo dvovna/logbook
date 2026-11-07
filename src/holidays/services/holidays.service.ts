@@ -32,6 +32,7 @@ interface IFindParams {
   slackTeamId: string;
   year?: number;
   id?: string;
+  ids?: string[];
   startDate?: Date;
   endDate?: Date;
   vacationPolicyId?: string;
@@ -195,6 +196,7 @@ export default class HolidaysService implements IHolidaysService {
         }
         : {}),
       ...(params.id && { id: params.id }),
+      ...(params.ids && { id: { operator: 'in', value: params.ids } }),
       ...(params.year && { year: params.year }),
       ...(params.isCompanyCustom !== undefined
         ? { is_company_custom: params.isCompanyCustom }

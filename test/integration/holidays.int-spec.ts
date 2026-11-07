@@ -234,10 +234,7 @@ describe('Holidays', () => {
       ]);
     });
 
-    // BUG: the import deletes every holiday of the policy and year, custom
-    // ones too: HolidayImportService.import passes no isCompanyCustom to
-    // deleteMany (holiday-import.service.ts).
-    it.failing('keeps the custom holidays', async () => {
+    it('keeps the custom holidays', async () => {
       await addHoliday({ name: 'Founders Day' });
       t.nager.addHolidays('FR', 2026, [['2026-07-14', 'Bastille Day']]);
 
@@ -249,10 +246,7 @@ describe('Holidays', () => {
       ]);
     });
 
-    // BUG: the import deletes the holidays before it asks Nager.Date
-    // (holiday-import.service.ts), so when Nager.Date is down the policy is
-    // left without the holidays it had.
-    it.failing('keeps the holidays when Nager.Date is down', async () => {
+    it('keeps the holidays when Nager.Date is down', async () => {
       await addHoliday({
         name: 'Old Holiday',
         date: '2026-05-01',
