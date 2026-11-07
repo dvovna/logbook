@@ -69,6 +69,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     { name: string; content: string; size: number }
   >();
   private readonly oauthGrants = new Map<string, IFakeOauthGrant>();
+  private readonly failures = new Map<string, number>();
   private messageCount = 0;
 
   // --- test setup -----------------------------------------------------------
@@ -96,6 +97,12 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   // --- assertions -----------------------------------------------------------
 
   // The current position in the call log, for `since`.
+  // The next `times` calls of `method` fail as when Slack is down; Slack never
+  // got them, so they are not recorded.
+  public failNext(method: 'chat.postMessage' | 'chat.update', times = 1) {
+    this.failures.set(method, times);
+  }
+
   public mark() {
     return this.calls.length;
   }
@@ -171,6 +178,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   public async postMessage({ accessToken, ...params }) {
+    this.failIfAsked('chat.postMessage');
     this.refuseInvalid('chat.postMessage', messageProblems(params));
     // Like Slack: a message to a user ID goes to the DM channel with them.
     const channel = params.channel.startsWith('U')
@@ -184,6 +192,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   public async updateMessage({ accessToken, ...params }) {
+    this.failIfAsked('chat.update');
     this.refuseInvalid('chat.update', messageProblems(params));
     this.record('chat.update', params, accessToken);
 
@@ -260,6 +269,16 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   // --- fake Slack -----------------------------------------------------------
+
+  private failIfAsked(method: string) {
+    const left = this.failures.get(method) ?? 0;
+
+    if (left > 0) {
+      this.failures.set(method, left - 1);
+
+      throw new Error(`An API error occurred: service_unavailable (${method})`);
+    }
+  }
 
   // Like Slack: a view or message it would not accept fails the call (the
   // test fails too, see slack-violations.ts).

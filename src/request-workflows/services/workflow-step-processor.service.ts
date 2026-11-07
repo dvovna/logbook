@@ -50,7 +50,7 @@ export class WorkflowStepProcessorService implements OnModuleInit {
     }
 
     await this.requestWorkflowStepsService.markCompleted(
-      steps.map(({ id }) => id),
+      [...new Set(steps.map(({ id }) => id))],
       steps[0].slack_team_id,
     );
 
@@ -61,11 +61,14 @@ export class WorkflowStepProcessorService implements OnModuleInit {
     this.runForEach(WorkflowStepJob.RefreshMessage, steps);
   }
 
+  // Once per step: an approval lists the approved step with its level too.
   private runForEach(
     job: WorkflowStepJob,
     steps: IRequestWorkflowStepViewModel[],
   ) {
-    for (const { id, slack_team_id } of steps) {
+    const unique = new Map(steps.map((step) => [step.id, step]));
+
+    for (const { id, slack_team_id } of unique.values()) {
       this.jobs.run<IStepJob>(job, { stepId: id, slackTeamId: slack_team_id });
     }
   }

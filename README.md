@@ -81,6 +81,7 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
 | `SLACK_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the bot tokens in the database. Keep it with your other secrets: without it the app can't read the tokens, and every workspace has to install the app again. |
 | `PORT` | Port to listen on. The Docker image defaults to 10000. |
+| `DATABASE_URL` | Optional. A direct Postgres connection for the job queue, which retries Slack messages and workflow steps that failed. On Supabase use the session pooler string from "Connect" (port 5432, not 6543). Without it the app runs those once and logs failures. |
 
 The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` lists them.
 

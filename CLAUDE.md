@@ -35,9 +35,10 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - Read App Home tabs and modals with `support/tab-readers.ts` (`listItems`, `titlesOf`, `sectionTexts`, `modalError`, `actionIdsOf`, `buttonText`, `totalCount`) and compare whole values; a substring search in the view's JSON also matches titles and labels.
   - A known, unfixed bug stays as an `it.failing` test with a `BUG:` comment pointing at the code; when the bug is fixed the test fails, and it becomes a plain `it`.
   - Every test works in its own `TestWorkspace` (random `T…` ID, deleted with a cascade at the end).
+  - Each test app keeps its jobs in its own pg-boss schema (`pgboss_test_…`, dropped on close) with no poller. `t.slackApi.failNext('chat.postMessage' | 'chat.update')` makes Slack fail the next call; `await t.retryJobs()` runs the jobs waiting for a retry now (`test/integration/job-retries.int-spec.ts`).
   - Every test starts at `TEST_NOW` (Wednesday 2026-06-17, `support/clock.ts`): only `Date` is faked, for the tests and the app in the same process, and the clock keeps running. `travelTo('YYYY-MM-DD')` moves it within a test.
   - `global-setup.ts` reads the URLs and keys from `supabase status` and refuses non-local URLs. It also stops when the local database lacks a migration from `supabase/migrations`.
-  - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners, tab updates). `await t.idle()` waits until that work is done, then assert. It works because the app runs such work through `runInBackground` (`src/common/utils/run-in-background.ts`), and `EventTrackingService` counts what event listeners do as background work too. Work after `res.send()` that skips both is invisible to it.
+  - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners, tab updates). `await t.idle()` waits until that work is done, then assert. It works because the app runs such work through `runInBackground` (`src/common/utils/run-in-background.ts`) or `JobsService.run`, and `EventTrackingService` counts what event listeners do as background work too. Work after `res.send()` that skips all three is invisible to it.
 - `yarn db:init` runs `supabase db reset` against the local stack, which drops the local database and applies `supabase/migrations`. `src/commands` holds dev scripts and is excluded from `nest build`.
 - Prettier (`.prettierrc`) owns formatting, and ESLint reports what Prettier would change (`prettier/prettier`, through `eslint-plugin-prettier` at the end of `eslint.config.mjs`). Don't add ESLint formatting rules such as `indent` or `quotes`: they fight Prettier. The codebase is lint-clean and CI fails on any lint error. The commit that formatted everything is in `.git-blame-ignore-revs` (GitHub skips it in blame; locally run `git config blame.ignoreRevsFile ':(optional).git-blame-ignore-revs'`; without `:(optional)` blame fails in a checkout or worktree whose branch predates the file).
 - Node 26 everywhere:
@@ -45,7 +46,7 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - used by the Dockerfile and by CI (`.github/workflows/ci.yml`: tsc, jest, build, lint).
 
   Node images and installs from 26 on have no yarn and no corepack, so the Dockerfile and CI install `yarn@1.22.22` themselves.
-- The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if a required one is missing. Only the Supabase URL and service role key, the four Slack values and `SLACK_TOKEN_ENCRYPTION_KEY` (32 bytes, base64) are required; the `MAX_*`/year limits have defaults. Copy `.env.example` to `.env` first.
+- The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if a required one is missing. Only the Supabase URL and service role key, the four Slack values and `SLACK_TOKEN_ENCRYPTION_KEY` (32 bytes, base64) are required; the `MAX_*`/year limits have defaults. `DATABASE_URL` (a direct Postgres connection, on Supabase the session pooler on port 5432) is optional and turns on job retries. Copy `.env.example` to `.env` first.
 - Local setup is in README → "Development"; self-hosting is in README → "Self-hosting":
   - Local Supabase from `supabase/config.toml`. Only Postgres, the API, auth and Studio are enabled. Auth is unused by the app but the CLI prints the API keys only with it on.
   - A dev Slack app from `slack-app-manifest.yml` (`APP_DOMAIN` replaced with the ngrok domain), reached through ngrok.
@@ -127,7 +128,7 @@ Controllers are in `src/slack/controllers/`:
   - Maps known domain errors (`ValidationError`, `MaxItemsCountReachedError`, `EntityHasDependenciesError`, `PrimaryEntityDeleteError`, `ForbiddenException`) to a message shown in the modal. Any other error shows a generic message.
   - Build responses with `SlackViewResponseFactory`.
   - A parser reads each field by its config key as the `action_id`, so the view element must use that key as its `action_id`. The integration tests' `submitView` fills forms from the real view and catches a mismatch.
-- Slack shows an interaction as failed when the answer takes over 3 seconds. Work that updates several messages or notifies people (deciding workflow steps, "Approve for Approvers") runs after the answer through `runInBackground` (`src/common/utils/run-in-background.ts`), which logs its errors. Checks that can fail run before it, so the modal can still show them. `EventTrackingService` routes `EventEmitter2.emit` through `emitAsync`, so `@OnEvent` and tab navigation listeners count as such work as well. On SIGTERM the app waits up to 8 s for all of it before it closes (`BackgroundWorkShutdownService`; `docker stop` kills after 10). A failing listener is logged and not retried.
+- Slack shows an interaction as failed when the answer takes over 3 seconds. Work that updates several messages or notifies people (deciding workflow steps, "Approve for Approvers") runs after the answer through `runInBackground` (`src/common/utils/run-in-background.ts`), which logs its errors. Checks that can fail run before it, so the modal can still show them. `EventTrackingService` routes `EventEmitter2.emit` through `emitAsync`, so `@OnEvent` and tab navigation listeners count as such work as well. On SIGTERM the app waits up to 8 s for all of it before it closes (`BackgroundWorkShutdownService`; `docker stop` kills after 10). A failing listener is logged and not retried; work that must not be lost is a job (see Background jobs).
 
 To add an interaction:
 1. Add a `ViewCallbackId` value (`src/slack/enums/integration-callback-id.enum.ts`).
@@ -179,14 +180,14 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
 
    Each level has an `ApprovalRule` of `ANY` or `ALL`. If nobody on the team can approve it (no team, no approvers, or the requester is the only one), it goes as one `ANY` level to everyone with the HR role, else to every admin, never to the requester. The requester gets a DM saying so (`VacationApproversNoticeService`). With nobody else in the workspace, no workflow is created and the DM says the request stays pending.
 3. `RequestWorkflowService` stores one row per approver in `vacation_request_workflow_steps` and activates level 1 through `WorkflowStepProcessorService`.
-4. Step processors are registered with `@WorkflowStepProcessor(type)` and found by `WorkflowStepProcessorsRegistry` (the same discovery pattern as Slack handlers). The only type is `approver`: `ApproverStepProcessor` sends each approver a DM with Approve / Reject / Comment buttons.
+4. Step processors are registered with `@WorkflowStepProcessor(type)` and found by `WorkflowStepProcessorsRegistry` (the same discovery pattern as Slack handlers). The only type is `approver`: `ApproverStepProcessor` sends each approver a DM with Approve / Reject / Comment buttons. `WorkflowStepProcessorService` asks and updates in jobs, one per step; a decided or canceled step is marked `completed_at` first, so a Slack failure never stops the workflow.
 5. Button clicks go to `ApproverStepMessageHandler` (`block_id` `workflow_step_message`):
    - `ANY`: one approval completes the level.
    - `ALL`: the level waits until there are no pending steps.
    - A reject at any level ends the workflow.
    - Comments re-render the messages of all pending steps.
    - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in the Vacation Requests tab (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.
-6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status and publishes `vacation_request.decided`. On the Slack side, `VacationDecisionNotificationsService` (Vacation Requests tab module) notifies the requester and the team's `approval_notification_recipients`.
+6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status (a job) and publishes `vacation_request.decided`. On the Slack side, `VacationDecisionNotificationsService` (Vacation Requests tab module) notifies the requester and each of the team's `approval_notification_recipients`, one job per message.
 
 Two approvers can click at the same moment, so the transitions are single conditional updates rather than "read, check, write": `VacationRequestsService.finishPending` changes only a request that is still pending (whoever changes it sends the notifications), and the next level's steps are claimed through `processed_at` (`claimUnprocessed`) before anyone is asked.
 
@@ -198,6 +199,15 @@ Domain modules `clients`, `projects`, `time-entries`; Slack tabs `clients`, `pro
 - An entry takes its client and billability from its project. Minutes come in 15-minute steps, at most 24 hours per user, project and day (also a check constraint).
 - Status: the owner logs drafts and submits them; a submitted entry is approved or rejected in the Approvals tab by the managers of its team (`manager_approvers`, as for vacations), HR or an admin, never by its owner. A rejection sends the owner a DM. The owner changes only drafts and rejected entries (a fixed one is a draft again).
 - Lists come from `get_time_entries_list`. Billing reports count approved entries of a client's projects for a period.
+
+### Background jobs
+
+`JobsService` (`src/common/jobs/`, pg-boss 10 on `DATABASE_URL`) runs the work that must happen even when Slack or the database fails for a while: starting a vacation workflow, asking approvers, updating their messages, finishing the request, telling people of the decision, and the DM about a rejected time entry.
+- A service defines its jobs in `onModuleInit` (`jobs.define(name, handler)`) and starts one with `jobs.run(name, payload)`, which returns at once.
+- `run` saves the job, then runs it right away in the same process (tracked as background work). The saved copy is deleted when the run succeeds; otherwise a poller (every 30 s) retries it from 5 minutes on, up to 8 times with growing delays (about 8 hours in all). A job a stopped process never finished is retried too.
+- Payloads hold IDs, and handlers load the current data: a retry may come after the request was canceled or the entry fixed, and then does nothing. A handler must be safe to run twice, because a run can fail after it did part of the work (e.g. `WorkflowStepJob.Ask` skips a step that already has a message).
+- Without `DATABASE_URL` a job runs once, as before, and the app says so at startup. pg-boss keeps its tables in the `pgboss` schema, which it creates and migrates itself; it is not exposed through the REST API.
+- pg-boss 12 is ESM-only, so the project stays on 10.x (CommonJS).
 
 ### Other pieces
 
