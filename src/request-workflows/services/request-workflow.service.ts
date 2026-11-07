@@ -129,6 +129,8 @@ export class RequestWorkflowService {
       return;
     }
 
+    this.assertNotOwnRequest(step, approvedBy);
+
     const stepsToComplete: IRequestWorkflowStepViewModel[] = [];
 
     const updatedStep = await this.requestWorkflowStepsService.updateStatus(
@@ -204,6 +206,8 @@ export class RequestWorkflowService {
         'This request is not waiting for anyone to approve it.',
       );
     }
+
+    this.assertNotOwnRequest(currentStep, approvedBy);
 
     const approvedSteps = await this.requestWorkflowStepsService.updateStatus(
       {
@@ -313,6 +317,17 @@ export class RequestWorkflowService {
       RequestWorkflowStatus.Approved,
       approvedBy,
     );
+  }
+
+  // Requesters are left out of their own approval levels, but a workflow made
+  // before that, or HR approving for the approvers, could still reach them.
+  public assertNotOwnRequest(
+    step: IRequestWorkflowStepViewModel,
+    user: IUserViewModel,
+  ) {
+    if (step.step_data.snapshot.user_id === user.id) {
+      throw new ValidationError("You can't approve your own vacation request.");
+    }
   }
 
   // A button can still be clicked on a message that is already out of date,

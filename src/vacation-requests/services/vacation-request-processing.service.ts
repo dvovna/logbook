@@ -61,12 +61,22 @@ export class VacationRequestProcessingService {
       levels: [],
     };
 
+    // Nobody approves their own request: a team lead who is one of the
+    // team's approvers is left out of their own request's levels, and a
+    // level with no one left is skipped.
+    const notRequester = (approvers: string[] | null) =>
+      approvers?.filter((slackId) => slackId !== request.user!.slack_id) ??
+      null;
+
     const levels: ICreateWorkflowLevelParams[] = [
       this.buildApproverLevel(
-        team.manager_approvers,
+        notRequester(team.manager_approvers),
         team.manager_approvers_rule,
       ),
-      this.buildApproverLevel(team.hr_approvers, team.hr_approvers_rule),
+      this.buildApproverLevel(
+        notRequester(team.hr_approvers),
+        team.hr_approvers_rule,
+      ),
     ].filter((level): level is ICreateWorkflowLevelParams => level !== null);
 
     if (levels.length === 0) {

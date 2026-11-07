@@ -63,6 +63,9 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
       );
     }
 
+    // Checked before answering, so the modal can show it.
+    this.requestWorkflowService.assertNotOwnRequest(waitingSteps[0], user);
+
     runInBackground(
       this.logger,
       `approve request ${metadata.id} for its approvers`,
