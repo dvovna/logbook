@@ -41,6 +41,9 @@ export interface IQueryOptions {
   orderBy?: string[];
 }
 
+// `this.tableName` is a union of all tables, so supabase-js can't check an
+// insert or update against one table's columns and the data is cast to
+// `never` there. Each subclass's Entity type is what keeps the data right.
 @Injectable()
 export abstract class BaseRepository<
   Entity extends Tables[TableName],
@@ -181,7 +184,7 @@ export abstract class BaseRepository<
 
     const { data: inserted, error } = await this.client
       .from(this.tableName)
-      .insert(data)
+      .insert(data as never)
       .select();
 
     if (error) {
@@ -195,7 +198,7 @@ export abstract class BaseRepository<
     filter: SupabaseFilter,
     data: Entity['Update'],
   ): Promise<ViewModel> {
-    const query = this.client.from(this.tableName).update(data);
+    const query = this.client.from(this.tableName).update(data as never);
 
     this.buildMatchQuery(query, filter);
 
@@ -214,7 +217,7 @@ export abstract class BaseRepository<
     filter: SupabaseFilter,
     data: Entity['Update'],
   ): Promise<ViewModel[]> {
-    const query = this.client.from(this.tableName).update(data);
+    const query = this.client.from(this.tableName).update(data as never);
 
     this.buildMatchQuery(query, filter);
 

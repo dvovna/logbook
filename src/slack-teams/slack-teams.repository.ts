@@ -26,7 +26,7 @@ export class SlackTeamsRepository extends BaseRepository<
 
   public async findAccessToken(id: string): Promise<string | null> {
     const { data, error } = await this.client
-      .from(this.tableName)
+      .from('slack_teams')
       .select('slack_token')
       .eq('id', id)
       .maybeSingle();
@@ -35,6 +35,6 @@ export class SlackTeamsRepository extends BaseRepository<
       throw new Error(`Failed to read the bot token: ${error.message}`);
     }
 
-    return (data as { slack_token: string } | null)?.slack_token ?? null;
+    return data?.slack_token ?? null;
   }
 }
