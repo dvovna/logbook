@@ -13,12 +13,17 @@ FROM node:26-alpine AS runner
 WORKDIR /app
 RUN npm install -g yarn@1.22.22
 
+# Production mode: info-level JSON logs instead of the pretty dev output.
+ENV NODE_ENV=production
+ENV PORT=10000
+
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production
+RUN yarn install --frozen-lockfile --production && yarn cache clean
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 
-ENV PORT=10000
+# Run as the image's unprivileged user rather than root.
+USER node
 
 CMD ["node", "dist/main.js"]
