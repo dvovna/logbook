@@ -104,7 +104,7 @@ Every repository query must be scoped by `slackTeamId` / `slack_team_id`; `BaseR
 Controllers are in `src/slack/controllers/`:
 - OAuth: `/install` sets a random `state` in a cookie and redirects to Slack. `/oauth/redirect` checks the state against the cookie (OAuth CSRF), then calls `TeamSetupWorkflowService`, which creates the `slack_team` and an admin user and starts a background sync of workspace users.
 - Users are looked up by workspace and Slack user ID together (`UsersService.findBySlackId(slackId, slackTeamId)`; unique `(slack_team_id, slack_id)`). On Enterprise Grid the same `U…` exists in several workspaces. The guards take the workspace from the request (`getRequestWorkspaceSlackId`).
-- `/vacations` slash command.
+- `/vacations` and `/log` slash commands (`/log` opens the Log Time form, as on Home).
 - Admin commands.
 - Events: home tab opened, `file_shared` (starts the CSV import), `team_join`/`user_change` (user upsert), `app_uninstalled`.
 - Interactions.

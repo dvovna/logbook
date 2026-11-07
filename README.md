@@ -32,7 +32,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 
 **Time & Billing (beta)**
 - Clients, projects with team and user assignments, and billable flags.
-- Time entries in 15-minute steps, logged from the App Home as drafts and then submitted for approval.
+- Time entries in 15-minute steps, logged from the App Home or with `/log` as drafts, and then submitted for approval.
 - The team's managers, HR or an admin approve or reject submitted time; a rejection tells the owner why.
 - A billing report per client and period, from approved time.
 - Admins and HR see everyone's time logs.

@@ -86,6 +86,18 @@ describe('Time entries', () => {
       HomeTabActionId.LogTime,
     );
 
+  // The form a slash command opens: the one for `trigger_id` after it.
+  const openWithLogCommand = async (user: Tables<'users'>) => {
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .command('/api/slack/log', workspace, user)
+      .expect(acknowledged);
+    await t.idle();
+
+    return t.slackApi.openedModal(workspace.token, { since });
+  };
+
   const optionValues = (modal: View, actionId: string) =>
     findAction(modal.blocks, actionId).element.options.map(
       (option: { value: string }) => option.value,
@@ -101,6 +113,15 @@ describe('Time entries', () => {
     (await workspace.rows('time_entries')).filter(
       ({ deleted_at }) => !deleted_at,
     );
+
+  it('opens the same Log Time form with /log as the button on Home', async () => {
+    for (const user of [member, admin]) {
+      const fromCommand = await openWithLogCommand(user);
+      const fromHome = await openLogTimeModal(user);
+
+      expect(fromCommand).toEqual(fromHome);
+    }
+  });
 
   describe('logging time from the Home tab', () => {
     it("offers a member their team's and their own projects, without archived ones", async () => {

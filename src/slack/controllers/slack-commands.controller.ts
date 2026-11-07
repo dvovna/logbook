@@ -1,3 +1,7 @@
+import {
+  HomeTabService,
+  HomeTabModalName,
+} from '@modules/slack/tabs/home/services/home-tab.service';
 import { SlackUserAccessFilter } from '@modules/slack/filters/slack-user-access.filter';
 import {
   Body,
@@ -29,7 +33,22 @@ export default class SlackCommandsController {
   public constructor(
     private readonly vacationCommandService: VacationCommandService,
     private readonly slackCommunicationService: SlackCommunicationService,
+    private readonly homeTabService: HomeTabService,
   ) {}
+
+  // `/log` opens the Log Time form, as the button on Home does.
+  @Post('log')
+  public handleLogCommand(@Req() req: Request, @Res() res: Response) {
+    res.status(200).send();
+
+    runInBackground(this.logger, 'open Log Time for /log', () =>
+      this.homeTabService.openModal(
+        req.body.trigger_id,
+        HomeTabModalName.CreateTimeEntry,
+        { user: req.user! },
+      ),
+    );
+  }
 
   @Post('vacations')
   public async handleVacationCommand(
