@@ -7,6 +7,8 @@ import {
 } from '@common/types/pagination.types';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
+import ClientsService from '@modules/clients/services/clients.service';
+import { ValidationError } from '@common/errors/validation.error';
 import { SupabaseFilter } from '@common/repositories/base.repository';
 import { ProjectsRepository } from 'src/projects/repositories/projects.repository';
 import IProjectViewModel from 'src/projects/types/project.types';
@@ -67,6 +69,7 @@ export default class ProjectsService implements IProjectsService {
   public constructor(
     private readonly projectsRepository: ProjectsRepository,
     private readonly config: ConfigService,
+    private readonly clientsService: ClientsService,
   ) {}
 
   public async findMany(params: IFindParams) {
@@ -111,6 +114,11 @@ export default class ProjectsService implements IProjectsService {
       throw new MaxItemsCountReachedError(maxProjectsCount, 'projects');
     }
 
+    await this.assertClientInWorkspace(
+      createParams.clientId,
+      createParams.slackTeamId,
+    );
+
     const createdAt = new Date().toISOString();
 
     return await this.projectsRepository.create({
@@ -134,6 +142,11 @@ export default class ProjectsService implements IProjectsService {
     updateParams: IUpdateParams,
     user: IUserViewModel,
   ) {
+    await this.assertClientInWorkspace(
+      updateParams.clientId,
+      findParams.slackTeamId,
+    );
+
     return this.projectsRepository.update(this.getFindQuery(findParams), {
       ...(updateParams.name ? { name: updateParams.name } : {}),
       ...(updateParams.description
@@ -182,6 +195,29 @@ export default class ProjectsService implements IProjectsService {
 
   public count(params: IFindParams) {
     return this.projectsRepository.count(this.getFindQuery(params));
+  }
+
+  // The client ID comes from the form, so it has to be one of the workspace's
+  // clients (an archived one too: a project may keep it).
+  private async assertClientInWorkspace(
+    clientId: string | null | undefined,
+    slackTeamId: string | undefined,
+  ) {
+    if (!clientId) {
+      return;
+    }
+
+    const client = slackTeamId
+      ? await this.clientsService.findOne({
+        id: clientId,
+        slackTeamId,
+        includeArchived: true,
+      })
+      : null;
+
+    if (!client) {
+      throw new ValidationError('This client is not in this workspace.');
+    }
   }
 
   private getFindQuery(params: IFindParams): SupabaseFilter {

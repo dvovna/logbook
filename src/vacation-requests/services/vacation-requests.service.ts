@@ -62,7 +62,7 @@ interface IFindParams {
   startDate?: string;
   statuses?: VacationRequestStatus[];
   type?: VacationType;
-  slackTeamId?: string;
+  slackTeamId: string;
 }
 
 type ISearchRequestsParams = ISearchParams<IFindParams>;
@@ -410,7 +410,8 @@ export class VacationRequestsService implements IVacationRequestsService {
       ...(params.statuses ? { status: { operator: 'in', value: params.statuses } } : {}),
       ...(params.type ? { type: params.type } : {}),
       ...(params.teamId ? { team_id: params.teamId } : {}),
-      ...(params.teamIds?.length
+      // An empty list matches nothing (a manager without teams).
+      ...(params.teamIds
         ? { team_id: { operator: 'in', value: params.teamIds } }
         : {}),
       ...(params.year
@@ -419,7 +420,7 @@ export class VacationRequestsService implements IVacationRequestsService {
           end_date: { operator: 'gte', value: `${params.year}-01-01` },
         }
         : {}),
-      ...(params.slackTeamId ? { slack_team_id: params.slackTeamId } : {}),
+      slack_team_id: params.slackTeamId,
       ...(params.startDate
         ? { start_date: { value: params.startDate, operator: 'gte' } }
         : {}),

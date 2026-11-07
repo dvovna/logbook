@@ -38,9 +38,7 @@ export class TimeAndBillingTabService extends BaseTabService<TimeAndBillingModal
   protected async getTabView(params: IGetTimeAndBillingTabViewParams) {
     const [pendingApprovals, weekSummary] = await Promise.all([
       this.timeEntryApprovalsService.countPending(params.user),
-      this.timeEntriesSummaryService.getWorkspaceSummary(
-        params.user.slack_team_id,
-      ),
+      this.timeEntriesSummaryService.getWeekSummary(params.user),
     ]);
 
     return this.timeAndBillingViewService.getView({

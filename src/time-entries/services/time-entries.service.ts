@@ -11,6 +11,8 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
 import { SupabaseFilter } from '@common/repositories/base.repository';
 import ProjectsService from 'src/projects/services/projects.service';
+import { GetUserProjectsQuery } from 'src/projects/queries/get-user-projects.query';
+import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { ValidationError } from '@common/errors/validation.error';
 import {
   isOpenTimeEntry,
@@ -47,7 +49,9 @@ interface IFindParams {
   dateFrom?: string;
   dateTo?: string;
   statuses?: TimeEntryStatus[];
-  slackTeamId?: string;
+  // The entries of these teams; an empty list matches none.
+  teamIds?: string[];
+  slackTeamId: string;
 }
 
 type ISearchTimeEntriesParams = ISearchParams<IFindParams>;
@@ -58,16 +62,14 @@ export class TimeEntriesService {
     private readonly timeEntriesRepository: TimeEntriesRepository,
     private readonly timeEntriesValidationService: TimeEntriesValidationService,
     private readonly projectsService: ProjectsService,
+    private readonly getUserProjectsQuery: GetUserProjectsQuery,
   ) {}
 
   public async create(
     createParams: ICreateParams,
     user: IUserViewModel,
   ): Promise<ITimeEntryViewModel> {
-    const project = await this.getProject(
-      createParams.projectId,
-      user.slack_team_id,
-    );
+    const project = await this.getProject(createParams.projectId, user);
 
     await this.timeEntriesValidationService.validateCreate(
       createParams,
@@ -106,9 +108,13 @@ export class TimeEntriesService {
       slackTeamId,
     });
 
+    // An entry keeps its project even after its owner left the project; a new
+    // project has to be one they may log time on.
     const project =
       updateParams.projectId !== undefined
-        ? await this.getProject(updateParams.projectId, user.slack_team_id)
+        ? await this.getProject(updateParams.projectId, user, {
+          isNewProject: updateParams.projectId !== existingEntry.project_id,
+        })
         : undefined;
 
     await this.timeEntriesValidationService.validateUpdate(
@@ -252,14 +258,29 @@ export class TimeEntriesService {
   }
 
   // An entry takes its client and billability from its project, which has to
-  // be an active project of the workspace.
-  private async getProject(projectId: string, slackTeamId: string) {
+  // be an active project of the workspace. Admin and HR log time on any of
+  // them, everyone else only on their team's and their own projects (the
+  // project ID comes from the form).
+  private async getProject(
+    projectId: string,
+    actor: IUserViewModel,
+    { isNewProject = true }: { isNewProject?: boolean } = {},
+  ) {
     const project = await this.projectsService.findOne({
       id: projectId,
-      slackTeamId,
+      slackTeamId: actor.slack_team_id,
     });
+    const mayLogOn =
+      !isNewProject ||
+      isTimeEntriesAdmin(actor.role) ||
+      (
+        await this.getUserProjectsQuery.execute({
+          userId: actor.id,
+          slackTeamId: actor.slack_team_id,
+        })
+      ).some(({ id }) => id === projectId);
 
-    if (!project) {
+    if (!project || !mayLogOn) {
       throw new ValidationError('This project is not available.');
     }
 
@@ -280,6 +301,9 @@ export class TimeEntriesService {
       ...(params.statuses?.length
         ? { status: { operator: 'in', value: params.statuses } }
         : {}),
+      ...(params.teamIds
+        ? { team_id: { operator: 'in', value: params.teamIds } }
+        : {}),
       ...(params.dateFrom || params.dateTo
         ? {
           work_date: [
@@ -292,9 +316,7 @@ export class TimeEntriesService {
           ],
         }
         : {}),
-      ...(params.slackTeamId
-        ? { slack_team_id: params.slackTeamId }
-        : {}),
+      slack_team_id: params.slackTeamId,
     };
   }
 }

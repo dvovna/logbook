@@ -8,7 +8,13 @@ import {
   ICreateParams,
   RequestWorkflowStepsService,
 } from '@modules/request-workflows/services/request-workflow-steps.service';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { isPeopleAdmin } from '@modules/users/utils/people-admin-roles';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { WorkflowStepProcessorService } from '@modules/request-workflows/services/workflow-step-processor.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -125,6 +131,8 @@ export class RequestWorkflowService {
       completed: false,
     });
 
+    this.assertCanActOnStep(step, approvedBy);
+
     if (this.isStepDecided(step)) {
       return;
     }
@@ -239,6 +247,8 @@ export class RequestWorkflowService {
       slackTeamId: rejectedBy.slack_team_id,
     });
 
+    this.assertCanActOnStep(step, rejectedBy);
+
     if (this.isStepDecided(step)) {
       return;
     }
@@ -317,6 +327,18 @@ export class RequestWorkflowService {
       RequestWorkflowStatus.Approved,
       approvedBy,
     );
+  }
+
+  // A step belongs to its approver. HR and admins may decide for an approver
+  // who is away (see CLAUDE.md); anyone else only their own step, whatever
+  // step ID the client sends.
+  public assertCanActOnStep(
+    step: IRequestWorkflowStepViewModel,
+    user: IUserViewModel,
+  ) {
+    if (step.slack_user_id !== user.slack_id && !isPeopleAdmin(user.role)) {
+      throw new ForbiddenException('This approval is assigned to someone else.');
+    }
   }
 
   // Requesters are left out of their own approval levels, but a workflow made

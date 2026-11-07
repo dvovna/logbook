@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { IOpenModalBaseParams } from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -41,6 +41,15 @@ export class TimeEntryModalService {
         })
         : undefined,
     ]);
+
+    // The ID comes from the client: only Admin and HR open others' entries.
+    if (
+      timeEntry &&
+      timeEntry.user_id !== user.id &&
+      !isTimeEntriesAdmin(user.role)
+    ) {
+      throw new ForbiddenException('You cannot edit this time entry.');
+    }
 
     return this.timeEntryFormModalView.getView(
       {

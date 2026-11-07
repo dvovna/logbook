@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { isPeopleAdmin } from '@modules/users/utils/people-admin-roles';
 import TeamsService from '@modules/teams/services/teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import {
@@ -71,7 +72,7 @@ export class UsersTabService extends BaseTabService<
 
   protected async getTabView(params: IGetUsersTabViewParams) {
     const userTeams = await this.getUserTeams(params.user);
-    const users = await this.getUsers(params, userTeams);
+    const users = await this.getUsers(params);
 
     return this.usersViewService.getView(
       {
@@ -94,6 +95,7 @@ export class UsersTabService extends BaseTabService<
       id: userId,
       slackTeamId: user.slack_team_id,
     });
+    await this.teamsService.assertManagesTeam(user, userToView.team_id);
     const usage =
       await this.vacationsUsageService.getCurrentVacationPeriodUsage(
         userToView,
@@ -117,6 +119,8 @@ export class UsersTabService extends BaseTabService<
     pageMetadata,
     ...modalParams
   }: IUserModalViewParams) {
+    this.assertPeopleAdmin(user);
+
     let userToEdit = user;
 
     if (userId !== user.id) {
@@ -149,6 +153,8 @@ export class UsersTabService extends BaseTabService<
     errorMessage,
     pageMetadata,
   }: IUserModalViewParams) {
+    this.assertPeopleAdmin(user);
+
     const userToEdit = await this.usersService.findOne({
       id: userId,
       slackTeamId: user.slack_team_id,
@@ -173,22 +179,18 @@ export class UsersTabService extends BaseTabService<
     );
   }
 
-  private getUsers(
-    { user, metadata = {} }: IGetUsersTabViewParams,
-    userTeams: ITeamViewModel[],
-  ) {
-    const userTeamIdsRange =
-      user.role === UserRole.Manager ? userTeams.map((team) => team.id) : null;
+  // A manager sees the people of their teams only, whatever team the filter
+  // names: the filter comes from the client.
+  private async getUsers({ user, metadata = {} }: IGetUsersTabViewParams) {
+    const teamIds = await this.teamsService.scopeTeamFilter(
+      user,
+      metadata?.filters?.teamId,
+    );
 
     return this.usersService.search({
       filters: {
         slackTeamId: user.slack_team_id,
-        ...(metadata?.filters?.teamId
-          ? { teamId: metadata?.filters.teamId }
-          : {}),
-        ...(userTeamIdsRange && !metadata?.filters?.teamId
-          ? { teamIds: userTeamIdsRange }
-          : {}),
+        ...(teamIds ? { teamIds } : {}),
         ...(metadata?.filters?.role ? { role: metadata?.filters.role } : {}),
         ...(metadata?.filters?.user
           ? { id: metadata?.filters.user.id }
@@ -200,6 +202,13 @@ export class UsersTabService extends BaseTabService<
       orderBy: ['name:asc'],
       page: metadata.page,
     });
+  }
+
+  // Only Admin and HR change people, so only they get the forms.
+  private assertPeopleAdmin(user: IUserViewModel) {
+    if (!isPeopleAdmin(user.role)) {
+      throw new ForbiddenException('Only Admin and HR change users.');
+    }
   }
 
   private getUserTeams(user: IUserViewModel) {

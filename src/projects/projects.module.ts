@@ -7,8 +7,12 @@ import { ProjectTeamsRepository } from 'src/projects/repositories/project-teams.
 import { ProjectUsersRepository } from 'src/projects/repositories/project-users.repository';
 import { AssignProjectAssignmentsQuery } from 'src/projects/queries/assign-project-assignments.query';
 import { GetUserProjectsQuery } from 'src/projects/queries/get-user-projects.query';
+import { ClientsModule } from '@modules/clients/clients.module';
+import { TeamsModule } from '@modules/teams/teams.module';
+import { UsersModule } from '@modules/users/users.module';
 
 @Module({
+  imports: [ClientsModule, TeamsModule, UsersModule],
   providers: [
     ProjectsRepository,
     ProjectTeamsRepository,

@@ -1,6 +1,12 @@
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TeamsRepository } from '@modules/teams/repositories/teams.repository';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import UserRole from '@common/enums/user-role.enum';
+import { isPeopleAdmin } from '@modules/users/utils/people-admin-roles';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import {
   ISearchParams,
@@ -79,6 +85,53 @@ export default class TeamsService implements ITeamsService {
 
   public async findOne(params: IFindParams) {
     return this.teamsRepository.findOne(this.getFindQuery(params));
+  }
+
+  // The teams whose people and vacations `user` manages: null means all of
+  // them (Admin, HR); a manager has the teams that list them as a manager
+  // approver; anyone else none.
+  public async findManagedTeamIds(
+    user: IUserViewModel,
+  ): Promise<string[] | null> {
+    if (isPeopleAdmin(user.role)) {
+      return null;
+    }
+
+    if (user.role !== UserRole.Manager) {
+      return [];
+    }
+
+    const teams = await this.findMany({
+      slackTeamId: user.slack_team_id,
+      managerApprovers: [user.slack_id],
+    });
+
+    return teams.map(({ id }) => id);
+  }
+
+  // Narrows a team filter to the teams `user` manages: the team IDs a list
+  // may show, or undefined for no limit.
+  public async scopeTeamFilter(
+    user: IUserViewModel,
+    teamId?: string,
+  ): Promise<string[] | undefined> {
+    const managedTeamIds = await this.findManagedTeamIds(user);
+
+    if (managedTeamIds === null) {
+      return teamId ? [teamId] : undefined;
+    }
+
+    return teamId
+      ? managedTeamIds.filter((id) => id === teamId)
+      : managedTeamIds;
+  }
+
+  public async assertManagesTeam(user: IUserViewModel, teamId: string | null) {
+    const managedTeamIds = await this.findManagedTeamIds(user);
+
+    if (managedTeamIds !== null && !managedTeamIds.includes(teamId ?? '')) {
+      throw new ForbiddenException('You can only see the people of your teams.');
+    }
   }
 
   public async findOneWithValidation(params: IFindParams) {

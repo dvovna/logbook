@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -31,6 +32,7 @@ export class ApproverStepCommentFormSubmitHandler extends BaseModalFormSubmitHan
     private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly requestWorkflowStepsService: RequestWorkflowStepsService,
     private readonly approverStepCommentModalView: ApproverStepCommentModalView,
+    private readonly requestWorkflowService: RequestWorkflowService,
     commentModalViewValuesParser: CommentModalViewValuesParser,
   ) {
     super(commentModalViewValuesParser);
@@ -45,6 +47,8 @@ export class ApproverStepCommentFormSubmitHandler extends BaseModalFormSubmitHan
       id: metadata.stepId,
       slackTeamId: user.slack_team_id,
     });
+
+    this.requestWorkflowService.assertCanActOnStep(step, user);
 
     return await this.requestWorkflowStepCommentsService.create({
       stepId: step.id,

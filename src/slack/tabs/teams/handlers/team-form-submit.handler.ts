@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import { ValidationError } from '@common/errors/validation.error';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -42,6 +44,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     private readonly teamsService: TeamsService,
     private readonly teamsTabService: TeamsTabService,
     private readonly tabNavigationService: TabNavigationService,
+    private readonly vacationPoliciesService: VacationPoliciesService,
     teamModalViewValuesParser: TeamModalViewValuesParser,
   ) {
     super(teamModalViewValuesParser);
@@ -68,14 +71,38 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     );
   }
 
-  protected onSubmit(
+  protected async onSubmit(
     data: ITeamFormViewData,
     metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
   ) {
+    await this.assertPolicyInWorkspace(data, user);
+
     return metadata.id
       ? this.update(metadata.id, data, user)
       : this.create(data, user);
+  }
+
+  // The policy ID comes from the form, so it has to be one of the
+  // workspace's policies.
+  private async assertPolicyInWorkspace(
+    data: ITeamFormViewData,
+    user: IUserViewModel,
+  ) {
+    const policyId = data.policy?.value;
+
+    if (!policyId || policyId === NO_POLICY_VALUE) {
+      return;
+    }
+
+    const policy = await this.vacationPoliciesService.findOne({
+      id: policyId,
+      slackTeamId: user.slack_team_id,
+    });
+
+    if (!policy) {
+      throw new ValidationError('This vacation policy is not in this workspace.');
+    }
   }
 
   private create(

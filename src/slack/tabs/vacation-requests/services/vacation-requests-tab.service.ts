@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { PEOPLE_ADMIN_ROLES } from '@modules/users/utils/people-admin-roles';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
@@ -96,7 +97,7 @@ export class VacationRequestsTabService extends BaseTabService<
 
   protected async getTabView(params: IPublishVacationRequestsTabViewParams) {
     const userTeams = await this.getUserTeams(params.user);
-    const requests = await this.getVacationRequests(params, userTeams);
+    const requests = await this.getVacationRequests(params);
 
     const minYear = this.config.getOrThrow<number>(EnvironmentVariable.MinYear);
     const maxYear = this.config.getOrThrow<number>(EnvironmentVariable.MaxYear);
@@ -125,26 +126,25 @@ export class VacationRequestsTabService extends BaseTabService<
     });
   }
 
-  private async getVacationRequests(
-    { user, metadata = {} }: IPublishVacationRequestsTabViewParams,
-    userTeams: ITeamViewModel[],
-  ) {
-    const userTeamIdsRange =
-      user.role === UserRole.Manager ? userTeams.map((team) => team.id) : null;
+  // A manager sees the requests of their teams only, whatever team the filter
+  // names: the filter comes from the client.
+  private async getVacationRequests({
+    user,
+    metadata = {},
+  }: IPublishVacationRequestsTabViewParams) {
+    const teamIds = await this.teamsService.scopeTeamFilter(
+      user,
+      metadata?.filters?.teamId,
+    );
 
     return this.vacationRequestsService.search({
       page: metadata.page,
       filters: {
         slackTeamId: user.slack_team_id,
-        ...(metadata?.filters?.teamId
-          ? { teamId: metadata?.filters.teamId }
-          : {}),
         ...(metadata?.filters?.user
           ? { userId: metadata?.filters.user.id }
           : {}),
-        ...(userTeamIdsRange && !metadata?.filters?.teamId
-          ? { teamIds: userTeamIdsRange }
-          : {}),
+        ...(teamIds ? { teamIds } : {}),
         ...(metadata?.filters?.type ? { type: metadata?.filters.type } : {}),
         ...(metadata?.filters?.year ? { year: metadata?.filters.year } : {}),
         ...(metadata?.filters?.status
@@ -161,6 +161,8 @@ export class VacationRequestsTabService extends BaseTabService<
   }
 
   private async getRequestModalView(params: IVacationRequestModalViewParams) {
+    this.assertAllowed(params.user, PEOPLE_ADMIN_ROLES);
+
     return this.vacationRequestModalService.getModal(params);
   }
 
@@ -170,6 +172,8 @@ export class VacationRequestsTabService extends BaseTabService<
     requestId,
     user,
   }: IVacationRequestConfirmationModalViewParams): Promise<View> {
+    this.assertAllowed(user, PEOPLE_ADMIN_ROLES);
+
     const waitingSteps = await this.requestWorkflowService.findCurrentLevelSteps(
       requestId,
       user.slack_team_id,
@@ -198,7 +202,10 @@ export class VacationRequestsTabService extends BaseTabService<
     errorMessage,
     pageMetadata,
     requestId,
+    user,
   }: IVacationRequestConfirmationModalViewParams): View {
+    this.assertAllowed(user, [UserRole.Admin]);
+
     return this.confirmationModalView.getView(
       {
         callbackId: ViewCallbackId.DeleteVacationRequest,
@@ -211,5 +218,15 @@ export class VacationRequestsTabService extends BaseTabService<
         pageMetadata,
       },
     );
+  }
+
+  // The forms behind the menu are for Admin and HR (deleting for Admin only);
+  // their submit handlers check the same roles.
+  private assertAllowed(user: IUserViewModel, roles: UserRole[]) {
+    if (!roles.includes(user.role)) {
+      throw new ForbiddenException(
+        `${user.role} may not change vacation requests.`,
+      );
+    }
   }
 }

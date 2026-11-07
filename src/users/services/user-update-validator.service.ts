@@ -10,6 +10,7 @@ interface IUpdateUserParams {
   role?: UserRole;
   isActive?: boolean;
   carryoverDays?: number;
+  teamId?: string | null;
 }
 
 @Injectable()
@@ -25,7 +26,28 @@ export class UserUpdateValidatorService {
     params: IUpdateUserParams,
   ): Promise<void> {
     await this.validateRoleChange(userBeforeUpdate, params);
+    await this.validateTeam(userBeforeUpdate, params);
     await this.validateCarryoverDays(userBeforeUpdate, params);
+  }
+
+  // The team ID comes from a form or a CSV, so it has to be one of the
+  // user's workspace's teams.
+  private async validateTeam(
+    userBeforeUpdate: IUserViewModel,
+    params: IUpdateUserParams,
+  ) {
+    if (!params.teamId) {
+      return;
+    }
+
+    const team = await this.teamsService.findOne({
+      id: params.teamId,
+      slackTeamId: userBeforeUpdate.slack_team_id,
+    });
+
+    if (!team) {
+      throw new ValidationError('This team is not in this workspace.');
+    }
   }
 
   private async validateRoleChange(
