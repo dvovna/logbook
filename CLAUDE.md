@@ -92,6 +92,8 @@ Almost every service and repository query must be scoped by `slackTeamId` / `sla
 
 ### HTTP pipeline for Slack (Slack Bolt's receiver is not used; Bolt is only imported for types)
 
+`@slack/bolt` is a devDependency and is not in the production image. Import only types from it (`import type` or type-only names); a value import crashes the app in production.
+
 1. `main.ts` mounts `slackBodyParserMiddleware` on `/api/slack`. It keeps `req.rawBody` for signature checks, then parses the body as JSON or urlencoded.
 2. `SlackPayloadParseMiddleware` (wired in `SlackModule.configure`) unwraps the form field `payload` for `/interactions` and `/options`.
 3. Guards run in this order: `SlackSignatureGuard` → `SlackUserGuard` (loads the DB user by Slack user ID into `req.user` and returns 401 if the user is unknown) → `SlackActiveUserGuard` → `UserRoleGuard` + `@RequireRoles`.
@@ -197,4 +199,4 @@ Domain modules `clients`, `projects`, `time-entries`; Slack tabs `clients`, `pro
   - `user-team-mapping.csv` (`/user-team-mapping`): `email;team_name` (both CSVs use `;`), moves users to the team with that exact name.
 - **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens, vacation usage). That's fine because production runs a single instance. Running more instances would need a shared store, for example Redis via Keyv.
 - **Logging:** `nestjs-pino`, pretty-printed unless `NODE_ENV=production`.
-- **Deploy:** multi-stage `Dockerfile` (Node 26 alpine, `PORT=10000`; `docker-compose.yml` sets `PORT` from `.env`, default 3000). The `public/` folder is served statically; the OAuth flow redirects to `/success.html`.
+- **Deploy:** multi-stage `Dockerfile` (Node 26 alpine, `NODE_ENV=production`, runs as the `node` user, `PORT=10000`; only `dependencies` are installed, so build and lint tools belong in `devDependencies`; `docker-compose.yml` sets `PORT` from `.env`, default 3000). The `public/` folder is served statically; the OAuth flow redirects to `/success.html`.
