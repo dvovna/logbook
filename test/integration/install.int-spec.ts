@@ -1,4 +1,5 @@
 import * as request from 'supertest';
+import { ConfigService } from '@nestjs/config';
 import UserRole from '@common/enums/user-role.enum';
 import { TEST_SLACK_CLIENT_ID } from './support/test-env';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -51,6 +52,18 @@ describe('Installing the app (OAuth redirect)', () => {
     const { state, stateCookie } = await startInstall();
 
     return redirectBack(`code=${code}&state=${state}`, stateCookie);
+  };
+
+  // ALLOWED_SLACK_TEAM_IDS, as if it were set in the environment.
+  const allowOnly = (ids: string) => {
+    const config = t.app.get(ConfigService);
+    const get = config.get.bind(config);
+
+    return jest
+      .spyOn(config, 'get')
+      .mockImplementation((key: string) =>
+        key === 'ALLOWED_SLACK_TEAM_IDS' ? ids : get(key),
+      );
   };
 
   it('creates the workspace with the installer as admin, then imports the members', async () => {
@@ -303,6 +316,58 @@ describe('Installing the app (OAuth redirect)', () => {
         stateCookie,
       ).expect(400);
       expect(slackCallsSince(since)).toEqual([]);
+    });
+  });
+
+  describe('with a list of allowed workspaces', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    const grant = (code: string) => {
+      const teamId = slackId('T');
+      const installer = slackId('U');
+      installedTeams.push(teamId);
+      t.slackApi.addOauthGrant(code, {
+        teamId,
+        teamName: 'Listed',
+        botToken: `xoxb-${teamId}`,
+        installerId: installer,
+      });
+      t.slackApi.addUser({
+        id: installer,
+        teamId,
+        name: 'Ivy Installer',
+        email: `ivy-${teamId}@listed.test`,
+      });
+
+      return teamId;
+    };
+
+    it('installs a workspace on the list', async () => {
+      const teamId = grant('code-listed');
+      allowOnly(`T0OTHER, ${teamId}`);
+
+      const response = await install('code-listed');
+
+      expect(response.status).toBe(302);
+      expect(response.headers.location).toBe('/success.html');
+    });
+
+    it('refuses a workspace that is not on it and undoes the install', async () => {
+      const teamId = grant('code-unlisted');
+      allowOnly('T0OTHER,T0MORE');
+
+      const response = await install('code-unlisted');
+
+      expect(response.status).toBe(403);
+      expect(response.text).toContain('does not accept installs');
+      const { data: rows } = await t.db
+        .from('slack_teams')
+        .select('id')
+        .eq('slack_id', teamId);
+      expect(rows).toEqual([]);
+      expect(
+        t.slackApi.callsWith(`xoxb-${teamId}`, 'auth.revoke'),
+      ).toHaveLength(1);
     });
   });
 });

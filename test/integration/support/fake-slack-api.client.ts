@@ -263,6 +263,8 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
         return this.usersInfo(params.user as string) as ResponseData;
       case 'users.list':
         return this.usersList(accessToken) as ResponseData;
+      case 'auth.revoke':
+        return { ok: true, revoked: true } as ResponseData;
       default:
         throw new Error(`FakeSlackApiClient does not implement ${method}`);
     }

@@ -70,7 +70,7 @@ Take the session pooler connection string from the project's "Connect" dialog. T
    sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml
    ```
 2. Create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest").
-3. To install it into other workspaces too, turn on public distribution in "Manage Distribution". Share `https://<your-domain>/api/slack/install` as the install link; see below. Without public distribution only your own workspace can install it, which is what a single company wants: with it, any Slack workspace that has the link can install the app on your server.
+3. To install it into other workspaces too, turn on public distribution in "Manage Distribution". Share `https://<your-domain>/api/slack/install` as the install link; see below. Without public distribution only your own workspace can install it, which is what a single company wants: with it, any Slack workspace that has the link can install the app on your server, unless you list the allowed ones in `ALLOWED_SLACK_TEAM_IDS`.
 
 ### 3. Configuration
 
@@ -85,6 +85,7 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
 | `SLACK_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the bot tokens in the database. Keep it with your other secrets: without it the app can't read the tokens, and every workspace has to install the app again. |
 | `PORT` | Port to listen on. The Docker image defaults to 10000. |
+| `ALLOWED_SLACK_TEAM_IDS` | Optional. Comma-separated Slack workspace IDs (`T…`) that may install the app on your server. Any other workspace gets a refusal, and its token is revoked. Unset, every workspace with the install link may install. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Optional. Sends unexpected errors to your Sentry project: the error and its stack, no request data or people's details. Empty sends nothing anywhere. |
 | `DATABASE_URL` | Optional. A direct Postgres connection for the job queue, which retries Slack messages and workflow steps that failed. On Supabase use the session pooler string from "Connect" (port 5432, not 6543). The queue creates its own `pgboss` schema there on the first start. Without it the app runs those once and logs failures. |
 

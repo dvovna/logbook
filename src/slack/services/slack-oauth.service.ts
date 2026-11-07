@@ -76,4 +76,26 @@ export default class SlackOauthService {
 
     return result;
   }
+
+  // ALLOWED_SLACK_TEAM_IDS limits the workspaces that may install the app on
+  // this server; without it every workspace may.
+  public isAllowedWorkspace(slackTeamId: string) {
+    const allowed = this.config.get<string>(
+      EnvironmentVariable.AllowedSlackTeamIds,
+    );
+
+    if (!allowed) {
+      return true;
+    }
+
+    return allowed
+      .split(',')
+      .map((id) => id.trim())
+      .includes(slackTeamId);
+  }
+
+  // Undoes an install the server refuses, so no token is left behind.
+  public async revokeToken(accessToken: string) {
+    await this.slackApiClient.makeCall('auth.revoke', {}, accessToken);
+  }
 }

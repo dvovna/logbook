@@ -76,6 +76,25 @@ export default class SlackOauthController {
     try {
       const data = await this.slackOauthService.exchangeCode(code);
 
+      if (!this.slackOauthService.isAllowedWorkspace(data.team.id)) {
+        this.logger.warn(
+          `Refused an install from workspace ${data.team.id}: not in ALLOWED_SLACK_TEAM_IDS`,
+        );
+        await this.slackOauthService
+          .revokeToken(data.access_token)
+          .catch((revokeError: Error) =>
+            this.logger.error(
+              `Failed to revoke the refused install's token: ${revokeError.message}`,
+            ),
+          );
+
+        return res
+          .status(403)
+          .send(
+            'This Logbook server does not accept installs from your Slack workspace. Ask the person who runs it.',
+          );
+      }
+
       await this.teamSetupWorkflowService.execute({
         slackTeamId: data.team.id,
         slackTeamName: data.team.name,

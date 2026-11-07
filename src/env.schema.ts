@@ -14,6 +14,19 @@ export const envSchema = z.object({
     z.url().optional(),
   ),
 
+  // Optional: only these Slack workspaces (T… IDs, comma-separated) may
+  // install the app. Unset, any workspace that has the install link may.
+  ALLOWED_SLACK_TEAM_IDS: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .string()
+      .regex(
+        /^\s*[A-Z0-9]+(\s*,\s*[A-Z0-9]+)*\s*$/,
+        'a comma-separated list of Slack workspace IDs, e.g. T0123ABCD,T0456EFGH',
+      )
+      .optional(),
+  ),
+
   // Optional error tracking: unexpected errors go to this Sentry project.
   SENTRY_DSN: z.preprocess(
     (value) => (value === '' ? undefined : value),
