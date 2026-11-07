@@ -131,6 +131,31 @@ describe('Slack events', () => {
     });
   });
 
+  it('keeps a user deactivated in Logbook inactive after a profile change', async () => {
+    const admin = await workspace.addUser({
+      role: UserRole.Admin,
+      is_active: false,
+    });
+
+    await t.slack
+      .event(workspace, {
+        type: 'user_change',
+        user: slackMember(workspace, {
+          id: admin.slack_id,
+          name: 'New Name',
+          email: admin.email,
+        }),
+      })
+      .expect(acknowledged);
+
+    await t.idle();
+    expect(await workspace.row('users', admin.id)).toMatchObject({
+      name: 'New Name',
+      is_active: false,
+      role: UserRole.Admin,
+    });
+  });
+
   it('publishes the App Home for a known user', async () => {
     const member = await workspace.addUser();
 

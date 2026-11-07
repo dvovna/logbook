@@ -184,7 +184,10 @@ export default class SlackEventsService {
       role: user.role,
       email: event.user.profile.email!,
       name: event.user.real_name || user.name,
-      isActive: !event.user.deleted,
+      // A deleted Slack account deactivates the user, but nothing in Slack
+      // reactivates one: someone deactivated in Logbook would otherwise come
+      // back (with their old role) after changing their status or avatar.
+      isActive: event.user.deleted ? false : user.is_active,
       slackTeamId: user.slack_team_id,
     });
   }
