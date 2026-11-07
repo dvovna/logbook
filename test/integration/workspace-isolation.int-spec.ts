@@ -111,7 +111,7 @@ describe('Workspace isolation', () => {
 
       expect(idsOf(users)).toEqual(sorted([a.admin.id, a.ada.id]));
       expect(idsOf(teams)).toEqual([a.design.id]);
-      expect(listItems(teams)[0].fields['Users Count']).toBe('1');
+      expect(listItems(teams)[0].fields.Members).toBe('1 (Ada Lovelace)');
     });
 
     it('shows only its own clients, projects and time entries', async () => {
@@ -131,8 +131,8 @@ describe('Workspace isolation', () => {
       expect(idsOf(clients)).toEqual([a.acme.id]);
       expect(idsOf(projects)).toEqual([a.website.id]);
       expect(listItems(projects)[0].fields).toMatchObject({
-        Teams: '1',
-        Users: '1',
+        Teams: a.design.name,
+        People: 'Ada Lovelace',
       });
       expect(idsOf(timeLogs)).toEqual(sorted(a.entries.map(({ id }) => id)));
     });

@@ -68,22 +68,28 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
   }
 
   public async getTabView({ user, metadata = {} }: IGetTeamsTabViewParams) {
-    const [teamsData, usersCountByTeam] = await Promise.all([
-      this.teamsService.search({
-        filters: { slackTeamId: user.slack_team_id },
-        orderBy: ['name:asc'],
-        page: metadata.page,
-        pageSize: TEAMS_TAB_PAGE_SIZE,
-      }),
-      this.usersService.getUsersCountByTeam(user.slack_team_id),
-    ]);
+    const teamsData = await this.teamsService.search({
+      filters: { slackTeamId: user.slack_team_id },
+      orderBy: ['name:asc'],
+      page: metadata.page,
+      pageSize: TEAMS_TAB_PAGE_SIZE,
+    });
+    // The active members of the listed teams, by name.
+    const members = await this.usersService.findMany({
+      slackTeamId: user.slack_team_id,
+      teamIds: teamsData.items.map(({ id }) => id),
+    });
+    const membersByTeam: Record<string, string[]> = {};
+    for (const member of members.sort((a, b) => a.name.localeCompare(b.name))) {
+      (membersByTeam[member.team_id!] ??= []).push(member.name);
+    }
 
     return await this.teamsTabView.getView(
       {
         userId: user.slack_id,
         userRole: user.role,
         teamsData,
-        usersCountByTeam,
+        membersByTeam,
       },
       metadata,
     );

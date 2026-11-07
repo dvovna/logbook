@@ -1,3 +1,4 @@
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
@@ -13,8 +14,19 @@ import { Divider } from '@modules/slack/common/views/components/separator';
 import { ISearchResult } from '@common/types/pagination.types';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
 
+// "Ada, Bob, Carl and 2 more", for the cards of a list.
+const listNames = (names: string[], shown = 5) => {
+  const listed = names.slice(0, shown).map(escapeMrkdwn).join(', ');
+
+  return names.length > shown
+    ? `${listed} and ${names.length - shown} more`
+    : listed;
+};
+
 interface IGetViewParams extends IBaseTabViewParams {
   policies: ISearchResult<IVacationPolicyViewModel>;
+  // The names of the teams that follow each policy.
+  teamsByPolicy: Record<string, string[]>;
 }
 
 export interface IVacationPoliciesTabMetaData {
@@ -61,13 +73,13 @@ export class VacationPolicyTabView extends BaseAdminTabView<
     };
   }
 
-  protected getContentBlocks({ policies }): AnyBlock[] {
+  protected getContentBlocks({ policies, teamsByPolicy }): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
     const listBlocks = PaginatedListView.getBlocks<IVacationPolicyViewModel>({
       itemsData: policies,
       getItemBlocks: (item: IVacationPolicyViewModel) =>
-        this.getPolicyListItemBlocks(item),
+        this.getPolicyListItemBlocks(item, teamsByPolicy[item.id] ?? []),
       prevPageActionId: PolicyTabViewActionId.PaginationPrev,
       nextPageActionId: PolicyTabViewActionId.PaginationNext,
     });
@@ -79,6 +91,7 @@ export class VacationPolicyTabView extends BaseAdminTabView<
 
   private getPolicyListItemBlocks(
     policy: IVacationPolicyViewModel,
+    teams: string[],
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
@@ -91,10 +104,12 @@ export class VacationPolicyTabView extends BaseAdminTabView<
         {
           type: 'mrkdwn',
           text:
-            `*${policy.name}*\n` +
-            `Vacation Days: ${policy?.vacation_days || '-'}\n` +
-            `Working Days: ${policy?.working_days || '-'}\n` +
-            `Bonus Days: ${policy?.bonus_days || '-'}\n` +
+            `*${escapeMrkdwn(policy.name)}*\n` +
+            // Annual leave is checked against both limits.
+            `Annual leave a year: ${policy.vacation_days || 0} calendar days, at most ${policy.working_days || 0} of them working days\n` +
+            `Bonus days a year: ${policy.bonus_days || 0}\n` +
+            `Carryover: ${policy.carryover_days ? `up to ${policy.carryover_days} days from the previous year` : 'none'}\n` +
+            `Used by: ${teams.length ? listNames(teams) : 'no team yet'}\n` +
             `Created: ${createdAt}\n` +
             `Updated: ${updatedAt}`,
         },

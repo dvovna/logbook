@@ -257,7 +257,11 @@ describe('Projects', () => {
       const [listed] = listItems(
         await publishedHome(t, workspace, admin, since),
       );
-      expect(listed.fields).toMatchObject({ Teams: '1', Users: '1' });
+      // By name, not counted.
+      expect(listed.fields).toMatchObject({
+        Teams: design.name,
+        People: ada.name,
+      });
     });
 
     it('shows the current assignments and replaces them on submit', async () => {

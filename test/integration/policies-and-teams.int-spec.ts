@@ -8,7 +8,7 @@ import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { findAction } from './support/block-kit';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
-import { modalError, sectionTexts } from './support/tab-readers';
+import { listItems, modalError, sectionTexts } from './support/tab-readers';
 
 // Home → Vacations → Vacation Policies.
 const POLICIES_TAB = [
@@ -149,6 +149,48 @@ describe('Vacation policies and teams', () => {
       expect(
         (await workspace.rows('vacation_policies')).map(({ name }) => name),
       ).toEqual(['Used']);
+    });
+  });
+
+  // What the lists say about a team and its policy, by name.
+  it('shows who approves and who is in a team, and what a policy allows', async () => {
+    const manager = await workspace.addUser({ role: UserRole.Manager });
+    const hr = await workspace.addUser({ role: UserRole.HR });
+    const policy = await workspace.addVacationPolicy({
+      name: 'Standard',
+      vacation_days: 26,
+      working_days: 20,
+      bonus_days: 2,
+      carryover_days: 5,
+    });
+    const team = await workspace.addTeam({
+      name: 'Design',
+      vacation_policy_id: policy.id,
+      manager_approvers: [manager.slack_id],
+      hr_approvers: [hr.slack_id],
+      hr_approvers_rule: ApprovalRule.All,
+    });
+    for (const name of ['Bob Builder', 'Ada Lovelace']) {
+      await workspace.addUser({ name, team_id: team.id });
+    }
+
+    const [teamItem] = listItems(
+      await openAppHomeTab(t, workspace, admin, TEAMS_TAB),
+    );
+    expect(teamItem.fields).toMatchObject({
+      Approvers: `managers <@${manager.slack_id}> (any one), then HR <@${hr.slack_id}> (all)`,
+      Members: '2 (Ada Lovelace, Bob Builder)',
+    });
+
+    const [policyItem] = listItems(
+      await openAppHomeTab(t, workspace, admin, POLICIES_TAB),
+    );
+    expect(policyItem.fields).toMatchObject({
+      'Annual leave a year':
+        '26 calendar days, at most 20 of them working days',
+      'Bonus days a year': '2',
+      Carryover: 'up to 5 days from the previous year',
+      'Used by': 'Design',
     });
   });
 

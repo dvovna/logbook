@@ -1,3 +1,4 @@
+import { TeamsModule } from '@modules/teams/teams.module';
 import { Module } from '@nestjs/common';
 import { VacationPoliciesTabService } from '@modules/slack/tabs/vacation-policies/services/vacation-policies-tab.service';
 import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
@@ -10,7 +11,7 @@ import { VacationPolicyTabView } from '@modules/slack/tabs/vacation-policies/vie
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 
 @Module({
-  imports: [VacationPoliciesModule, SlackCommonModule],
+  imports: [VacationPoliciesModule, SlackCommonModule, TeamsModule],
   providers: [
     VacationPoliciesTabService,
     PolicyModalViewValuesParser,

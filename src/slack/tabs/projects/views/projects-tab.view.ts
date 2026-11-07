@@ -1,3 +1,4 @@
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { truncate } from 'lodash';
@@ -28,8 +29,19 @@ import { BILLABLE_PLAIN_TEXT_OPTIONS } from '@modules/slack/tabs/projects/data/b
 import { IncludeArchivedButtonView } from '@modules/slack/common/views/components/include-archvied-button.view';
 import UserRole from '@common/enums/user-role.enum';
 
+// "Ada, Bob, Carl and 2 more", for the cards of a list.
+const listNames = (names: string[], shown = 5) => {
+  const listed = names.slice(0, shown).map(escapeMrkdwn).join(', ');
+
+  return names.length > shown
+    ? `${listed} and ${names.length - shown} more`
+    : listed;
+};
+
 interface IGetProjectsViewParams extends IBaseTabViewParams {
   projectsListData: IProjectsListData;
+  // Names of the people assigned to each listed project.
+  peopleByProject: Record<string, string[]>;
 }
 
 export interface IProjectsTabMetaData {
@@ -80,7 +92,7 @@ export class ProjectsTabView extends BaseAdminTabView<
   }
 
   protected getContentBlocks(
-    { projectsListData, userRole }: IGetProjectsViewParams,
+    { projectsListData, userRole, peopleByProject }: IGetProjectsViewParams,
     { filters, includeArchived, page }: IProjectsTabMetaData,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
@@ -101,7 +113,11 @@ export class ProjectsTabView extends BaseAdminTabView<
         pageSize: PROJECTS_TAB_PAGE_SIZE,
       },
       getItemBlocks: (item: IProjectListItem) =>
-        this.getProjectListItemBlocks(item, userRole),
+        this.getProjectListItemBlocks(
+          item,
+          userRole,
+          peopleByProject[item.id] ?? [],
+        ),
       prevPageActionId: ProjectsTabViewActionId.PaginationPrev,
       nextPageActionId: ProjectsTabViewActionId.PaginationNext,
       emptyText: '_No projects found_',
@@ -115,6 +131,7 @@ export class ProjectsTabView extends BaseAdminTabView<
   private getProjectListItemBlocks(
     project: IProjectListItem,
     userRole: UserRole,
+    people: string[],
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
@@ -137,7 +154,8 @@ export class ProjectsTabView extends BaseAdminTabView<
         {
           type: 'mrkdwn',
           text:
-            `Teams: ${project.teams?.length || '0'} · Users: ${project.users_count}\n` +
+            `Teams: ${project.teams?.length ? listNames(project.teams) : 'none'}\n` +
+            `People: ${people.length ? listNames(people) : 'none'}\n` +
             `Created: ${createdAt}\n` +
             `Updated: ${updatedAt}\n` +
             `Description: ${truncate(project.description || '-')}` +

@@ -101,11 +101,18 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
       includeArchived: metadata?.includeArchived,
     });
 
+    const peopleByProject =
+      await this.projectAssignmentsService.findPeopleByProject(
+        projectsListData.items.map(({ id }) => id),
+        user.slack_team_id,
+      );
+
     return await this.projectsTabView.getView(
       {
         userId: user.slack_id,
         userRole: user.role,
         projectsListData,
+        peopleByProject,
       },
       metadata,
     );

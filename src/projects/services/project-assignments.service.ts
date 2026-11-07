@@ -66,6 +66,34 @@ export class ProjectAssignmentsService implements IProjectAssignmentsService {
     return this.assignProjectAssignmentsQuery.execute(params);
   }
 
+  // The active people assigned to each of these projects, by name.
+  public async findPeopleByProject(projectIds: string[], slackTeamId: string) {
+    const assignments = await this.projectUsersRepository.findMany({
+      project_id: { operator: 'in', value: projectIds },
+      slack_team_id: slackTeamId,
+    });
+    const people = await this.usersService.findMany({
+      ids: [...new Set(assignments.map(({ user_id }) => user_id))],
+      slackTeamId,
+    });
+    const nameOf = new Map(people.map(({ id, name }) => [id, name]));
+    const byProject: Record<string, string[]> = {};
+
+    for (const { project_id, user_id } of assignments) {
+      const name = nameOf.get(user_id);
+
+      if (name) {
+        (byProject[project_id] ??= []).push(name);
+      }
+    }
+
+    for (const names of Object.values(byProject)) {
+      names.sort((a, b) => a.localeCompare(b));
+    }
+
+    return byProject;
+  }
+
   public async getAssignments({ projectId, slackTeamId }: IAssignmentParams) {
     const assignmentsQuery = {
       project_id: projectId,

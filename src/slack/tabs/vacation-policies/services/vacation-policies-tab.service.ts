@@ -1,3 +1,4 @@
+import TeamsService from '@modules/teams/services/teams.service';
 import { Injectable } from '@nestjs/common';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import { VacationPolicyModalView } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
@@ -49,6 +50,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly vacationPoliciesTabView: VacationPolicyTabView,
     private readonly confirmationModalView: ConfirmationModalView,
+    private readonly teamsService: TeamsService,
   ) {
     super(TabId.VacationPolicies, {
       [VacationPoliciesTabModalName.CreatePolicy]: (params) =>
@@ -73,10 +75,22 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       orderBy: ['name:asc'],
     });
 
+    // Which teams follow each policy.
+    const teams = await this.teamsService.findMany({
+      slackTeamId: user.slack_team_id,
+    });
+    const teamsByPolicy: Record<string, string[]> = {};
+    for (const { name, vacation_policy_id } of teams) {
+      if (vacation_policy_id) {
+        (teamsByPolicy[vacation_policy_id] ??= []).push(name);
+      }
+    }
+
     return this.vacationPoliciesTabView.getView({
       userId: user.slack_id,
       userRole: user.role,
       policies,
+      teamsByPolicy,
     });
   }
 

@@ -76,7 +76,7 @@ export class UsersTabView extends BaseAdminTabView<
         type: 'section',
         text: {
           type: 'plain_text',
-          text: 'List of employees with vacation balances and details.',
+          text: "Everyone in the workspace, with their role and team. ⋯ → View Vacation Usage shows someone's balance.",
         },
       },
     ];

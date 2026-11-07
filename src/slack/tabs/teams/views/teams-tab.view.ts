@@ -1,3 +1,5 @@
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
@@ -14,9 +16,19 @@ import { Divider } from '@modules/slack/common/views/components/separator';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 
+// "Ada, Bob, Carl and 2 more", for the cards of a list.
+const listNames = (names: string[], shown = 5) => {
+  const listed = names.slice(0, shown).map(escapeMrkdwn).join(', ');
+
+  return names.length > shown
+    ? `${listed} and ${names.length - shown} more`
+    : listed;
+};
+
 interface IGetViewParams extends IBaseTabViewParams {
   teamsData: ISearchResult<ITeamViewModel>;
-  usersCountByTeam: Record<string, number>;
+  // Active members' names by team ID.
+  membersByTeam: Record<string, string[]>;
 }
 
 export interface ITeamsTabMetaData {
@@ -53,13 +65,13 @@ export class TeamsTabView extends BaseAdminTabView<
     return BackButton.getBlocks(AdminNavigationActionId.ManagePeople);
   }
 
-  protected getContentBlocks({ teamsData, usersCountByTeam }): AnyBlock[] {
+  protected getContentBlocks({ teamsData, membersByTeam }): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
     const listBlocks = PaginatedListView.getBlocks<ITeamViewModel>({
       itemsData: teamsData,
       getItemBlocks: (item: ITeamViewModel) =>
-        this.getTeamListItemBlocks(item, usersCountByTeam),
+        this.getTeamListItemBlocks(item, membersByTeam[item.id] ?? []),
       prevPageActionId: TeamsTabViewActionId.PaginationPrev,
       nextPageActionId: TeamsTabViewActionId.PaginationNext,
     });
@@ -71,13 +83,12 @@ export class TeamsTabView extends BaseAdminTabView<
 
   private getTeamListItemBlocks(
     team: ITeamViewModel,
-    usersCountByTeam: Record<string, number>,
+    members: string[],
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
     const updatedAt = formatDate(team.updated_at);
     const createdAt = formatDate(team.created_at);
-    const teamUsersCount = usersCountByTeam[team.id] || 0;
 
     blocks.push({
       type: 'section',
@@ -85,10 +96,11 @@ export class TeamsTabView extends BaseAdminTabView<
         {
           type: 'mrkdwn',
           text:
-            `*${team.name}*\n` +
+            `*${escapeMrkdwn(team.name)}*\n` +
             `Vacation Policy: ${team.vacation_policy?.name || '-'}\n` +
             `Description: ${team.description || '-'}\n` +
-            `Users Count: ${teamUsersCount}\n` +
+            `Approvers: ${this.describeApprovers(team)}\n` +
+            `Members: ${members.length ? `${members.length} (${listNames(members)})` : 'none yet'}\n` +
             `Created: ${createdAt}\n` +
             `Updated: ${updatedAt}`,
         },
@@ -115,5 +127,26 @@ export class TeamsTabView extends BaseAdminTabView<
     blocks.push(...Divider.getBlocks());
 
     return blocks;
+  }
+
+  // "Managers <@U1> (any one), then HR <@U2> (all)". Without any, a request
+  // goes to HR or the admins (VacationRequestProcessingService).
+  private describeApprovers(team: ITeamViewModel) {
+    const level = (
+      label: string,
+      approvers: string[] | null,
+      rule: ApprovalRule,
+    ) =>
+      approvers?.length
+        ? `${label} ${approvers.map((id) => `<@${id}>`).join(', ')} (${rule === ApprovalRule.All ? 'all' : 'any one'})`
+        : null;
+    const levels = [
+      level('managers', team.manager_approvers, team.manager_approvers_rule),
+      level('HR', team.hr_approvers, team.hr_approvers_rule),
+    ].filter((text): text is string => !!text);
+
+    return levels.length
+      ? levels.join(', then ')
+      : 'none, so requests go to HR or the admins';
   }
 }
