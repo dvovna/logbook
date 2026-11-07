@@ -20,12 +20,6 @@ import HolidaysService from '@modules/holidays/services/holidays.service';
 import TeamsService from '@modules/teams/services/teams.service';
 import EntityHasDependenciesError from '@common/errors/entity-has-dependencies.error';
 
-export const DEFAULT_VACATION_DAYS = 24;
-export const DEFAULT_WORK_DAYS = 20;
-export const DEFAULT_CARRYOVER_DAYS = 0;
-export const DEFAULT_BONUS_DAYS = 3;
-const DEFAULT_VACATION_POLICY_NAME = 'Default Vacation Policy';
-
 type IUpdateParams = {
   vacationDays?: number;
   workingDays?: number;
@@ -70,10 +64,6 @@ interface IVacationPoliciesService {
     params: ISearchPoliciesParams,
   ): Promise<ISearchResult<IVacationPolicyViewModel>>;
   delete(findParams: IFindParams): Promise<IVacationPolicyViewModel>;
-  createDefaultPolicy(
-    slackTeamId: string,
-    userId?: string,
-  ): Promise<IVacationPolicyViewModel>;
 }
 
 @Injectable()
@@ -221,21 +211,6 @@ implements IVacationPoliciesService {
     );
 
     return policy;
-  }
-
-  public createDefaultPolicy(slackTeamId: string, userId?: string) {
-    return this.vacationPoliciesRepository.create({
-      name: DEFAULT_VACATION_POLICY_NAME,
-      slack_team_id: slackTeamId,
-      vacation_days: DEFAULT_VACATION_DAYS,
-      bonus_days: DEFAULT_BONUS_DAYS,
-      working_days: DEFAULT_WORK_DAYS,
-      carryover_days: DEFAULT_CARRYOVER_DAYS,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: userId,
-      updated_by: userId,
-    });
   }
 
   private getFindQuery(params: IFindParams) {
