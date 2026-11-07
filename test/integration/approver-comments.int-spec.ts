@@ -116,21 +116,15 @@ describe('Approver comments', () => {
     expect(latest(toAnna)).toContain('Fine by me');
   });
 
-  // BUG: the form does not trim the comment (comment-modal-view-values.parser.ts),
-  // so a blank one passes and the database's check refuses it: the approver
-  // gets "Something went wrong" instead of "Comment is required".
-  it.failing(
-    'asks for a comment instead of failing on a blank one',
-    async () => {
-      await requestVacation(t, workspace, member, workWeek(2));
-      const toAnna = await approvalMessageTo(t, workspace, anna);
+  it('asks for a comment instead of failing on a blank one', async () => {
+    await requestVacation(t, workspace, member, workWeek(2));
+    const toAnna = await approvalMessageTo(t, workspace, anna);
 
-      const response = await comment(anna, toAnna, '   ');
+    const response = await comment(anna, toAnna, '   ');
 
-      expect(response.body).toEqual({
-        response_action: 'errors',
-        errors: { comment_block: 'Comment is required' },
-      });
-    },
-  );
+    expect(response.body).toEqual({
+      response_action: 'errors',
+      errors: { comment_block: 'Comment is required' },
+    });
+  });
 });
