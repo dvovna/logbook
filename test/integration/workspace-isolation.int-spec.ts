@@ -169,6 +169,30 @@ describe('Workspace isolation', () => {
       );
     });
 
+    it("counts for a manager only their teams' time", async () => {
+      const designLead = await a.workspace.addUser({
+        role: UserRole.Manager,
+        name: 'Dana Design',
+      });
+      const otherLead = await a.workspace.addUser({
+        role: UserRole.Manager,
+        name: 'Olga Other',
+      });
+      await t.db
+        .from('teams')
+        .update({ manager_approvers: [designLead.slack_id] })
+        .eq('id', a.design.id);
+      await a.workspace.addTeam({ manager_approvers: [otherLead.slack_id] });
+
+      const weekOf = async (manager: Tables<'users'>) =>
+        sectionTexts(
+          await open([AdminNavigationActionId.ManageTimeAndBilling], manager),
+        ).find((text) => text.includes('logged total'));
+
+      expect(await weekOf(designLead)).toContain('• *2h* logged total');
+      expect(await weekOf(otherLead)).toContain('• *0h* logged total');
+    });
+
     it('bills only its own approved time', async () => {
       const form = await openModalFrom(
         t,
@@ -244,6 +268,23 @@ describe('Workspace isolation', () => {
           'ada',
         ),
       ).toEqual([a.ada.id]);
+    });
+
+    it('searches for the text as typed, not as filter syntax', async () => {
+      const timeLogs = await open([
+        AdminNavigationActionId.ManageTimeAndBilling,
+        AdminNavigationActionId.ManageTimeLogs,
+      ]);
+      const search = (query: string) =>
+        suggestions(timeLogs, TimeEntriesTabViewActionId.FilterByUser, query);
+
+      // Typed into the search, these would add "or id is not null" or "or
+      // role is admin" to an unescaped PostgREST filter.
+      expect(await search('zz,id.not.is.null,name.ilike.zz')).toEqual([]);
+      expect(await search('zz,role.eq.admin,name.ilike.zz')).toEqual([]);
+      expect(await search('ada)')).toEqual([]);
+      expect(await search('"ada"')).toEqual([]);
+      expect(await search('ada')).toEqual([a.ada.id]);
     });
 
     it('offers only its own projects when logging time', async () => {

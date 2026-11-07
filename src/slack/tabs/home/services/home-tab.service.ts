@@ -76,6 +76,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
         this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
         this.vacationsService.findMany({
           userId: user.id,
+          slackTeamId: user.slack_team_id,
           startDate: user.contract_start_date || undefined,
           statuses: [VacationRequestStatus.Pending],
         }),

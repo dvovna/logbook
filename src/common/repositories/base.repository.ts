@@ -43,6 +43,13 @@ export type SupabaseFilter = Record<
   SupabaseSimpleValue | undefined | IFilterParams | IFilterParams[]
 >;
 
+// PostgREST reads `,`, `.`, `:` and parentheses in a filter value as filter
+// syntax unless the value is in double quotes, where `\` escapes `"` and `\`.
+// Text the user typed goes into .or() only quoted, so it cannot add
+// conditions of its own.
+export const quoteFilterValue = (value: string) =>
+  `"${value.replace(/[\\"]/g, (char) => `\\${char}`)}"`;
+
 export interface IQueryOptions {
   limit?: number;
   offset?: number;
@@ -68,11 +75,19 @@ export abstract class BaseRepository<
 
   protected defaultOrderBy: string[] = ['created_at:desc'];
 
+  // The column that ties a row to its workspace. Every query and insert on a
+  // workspace's table must name the workspace: a filter value that is
+  // undefined is left out of the query, so a missing ID would otherwise read
+  // or change other workspaces' rows. null only for slack_teams itself.
+  protected readonly workspaceColumn: string | null = 'slack_team_id';
+
   public constructor(private supabaseService: SupabaseService) {
     this.client = this.supabaseService.getClient();
   }
 
   public async findOne(filter: SupabaseFilter) {
+    this.assertScoped(filter, 'findOne');
+
     const query = this.client.from(this.tableName).select(this.buildSelect());
 
     this.buildMatchQuery(query, filter);
@@ -88,6 +103,8 @@ export abstract class BaseRepository<
     filter: SupabaseFilter,
     options?: IQueryOptions,
   ): Promise<ViewModel[]> {
+    this.assertScoped(filter, 'findMany');
+
     const query = this.client.from(this.tableName).select(this.buildSelect());
 
     this.buildFindQuery(query, filter, options);
@@ -114,6 +131,8 @@ export abstract class BaseRepository<
       filters = {},
     } = params;
 
+    this.assertScoped(filters, 'search');
+
     let query = this.client
       .from(this.tableName)
       .select(this.buildSelect(), { count: 'exact' });
@@ -125,7 +144,7 @@ export abstract class BaseRepository<
     });
 
     if (searchTerm && this.searchableColumns.length > 0) {
-      const ilikeFilter = `%${searchTerm}%`;
+      const ilikeFilter = quoteFilterValue(`%${searchTerm}%`);
 
       const orConditions = this.searchableColumns
         .map((col) => `${col}.ilike.${ilikeFilter}`)
@@ -151,6 +170,8 @@ export abstract class BaseRepository<
   }
 
   public async count(filter: SupabaseFilter): Promise<number> {
+    this.assertScoped(filter, 'count');
+
     const query = this.client
       .from(this.tableName)
       .select('*', { count: 'exact', head: true });
@@ -167,6 +188,8 @@ export abstract class BaseRepository<
   }
 
   public async create(data: Entity['Insert']): Promise<ViewModel> {
+    this.assertRowsScoped([data], 'create');
+
     const { data: inserted, error } = await this.client
       .from(this.tableName)
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -187,6 +210,8 @@ export abstract class BaseRepository<
       return [];
     }
 
+    this.assertRowsScoped(data, 'createMany');
+
     const { data: inserted, error } = await this.client
       .from(this.tableName)
       .insert(data)
@@ -203,6 +228,8 @@ export abstract class BaseRepository<
     filter: SupabaseFilter,
     data: Entity['Update'],
   ): Promise<ViewModel> {
+    this.assertScoped(filter, 'update');
+
     const query = this.client.from(this.tableName).update(data);
 
     this.buildMatchQuery(query, filter);
@@ -222,6 +249,8 @@ export abstract class BaseRepository<
     filter: SupabaseFilter,
     data: Entity['Update'],
   ): Promise<ViewModel[]> {
+    this.assertScoped(filter, 'updateMany');
+
     const query = this.client.from(this.tableName).update(data);
 
     this.buildMatchQuery(query, filter);
@@ -243,6 +272,8 @@ export abstract class BaseRepository<
   ): Promise<ViewModel | ViewModel[]> {
     const isArray = Array.isArray(data);
 
+    this.assertRowsScoped(isArray ? data : [data], 'upsert');
+
     const { data: upserted, error } = await this.client
       .from(this.tableName)
       // @ts-expect-error: supabase types can be too strict here
@@ -263,6 +294,8 @@ export abstract class BaseRepository<
   }
 
   public async deleteMany(filter: SupabaseFilter): Promise<number> {
+    this.assertScoped(filter, 'deleteMany');
+
     const query = this.client.from(this.tableName).delete();
 
     this.buildMatchQuery(query, filter);
@@ -274,6 +307,33 @@ export abstract class BaseRepository<
     }
 
     return (data as unknown as { id: string }[]).length;
+  }
+
+  private assertScoped(filter: SupabaseFilter, operation: string) {
+    const hasCondition = Object.values(filter).some(
+      (value) => value !== undefined,
+    );
+
+    if (!hasCondition) {
+      throw new Error(`[${this.tableName}] ${operation} without a filter`);
+    }
+
+    if (this.workspaceColumn && !filter[this.workspaceColumn]) {
+      throw new Error(
+        `[${this.tableName}] ${operation} without ${this.workspaceColumn}`,
+      );
+    }
+  }
+
+  private assertRowsScoped(rows: object[], operation: string) {
+    const column = this.workspaceColumn;
+
+    if (
+      column &&
+      rows.some((row) => !(row as Record<string, unknown>)[column])
+    ) {
+      throw new Error(`[${this.tableName}] ${operation} without ${column}`);
+    }
   }
 
   private buildSelect() {
