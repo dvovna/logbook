@@ -101,7 +101,12 @@ describe('Vacation request approval', () => {
       workspace.token,
       member.slack_id,
     );
-    expect(textOf(requesterNotice)).toContain('has been approved');
+    expect(textOf(requesterNotice)).toContain(
+      'Your time off request was approved',
+    );
+    expect(textOf(requesterNotice)).toContain(
+      `Approved by <@${manager.slack_id}>`,
+    );
 
     const [recipientNotice] = t.slackApi.postedMessages(
       workspace.token,
@@ -130,7 +135,7 @@ describe('Vacation request approval', () => {
       workspace.token,
       member.slack_id,
     );
-    expect(textOf(notice)).toContain('has been rejected');
+    expect(textOf(notice)).toContain('Your time off request was rejected');
   });
 
   it('waits for every approver when the rule is ALL', async () => {
@@ -362,7 +367,7 @@ describe('Vacation request approval', () => {
         workspace.token,
         member.slack_id,
       );
-      expect(textOf(notice)).toContain('has been approved');
+      expect(textOf(notice)).toContain('Your time off request was approved');
     });
   });
 

@@ -167,7 +167,9 @@ describe('Vacation screens', () => {
     }
     const notices = t.slackApi
       .postedMessages(workspace.token, member.slack_id)
-      .filter((message) => textOf(message).includes('has been approved'));
+      .filter((message) =>
+        textOf(message).includes('Your time off request was approved'),
+      );
     expect(notices).toHaveLength(pairs.length);
   });
   it('asks HR once when the last two managers approve at the same time', async () => {

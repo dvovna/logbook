@@ -107,7 +107,7 @@ export class VacationRequestFormModalView extends BaseModalView<
           multiline: true,
           placeholder: {
             type: 'plain_text',
-            text: '"I don\'t have motivation and energy to do all this anymore..."',
+            text: 'e.g. Family trip, back on Monday',
           },
           max_length: MAX_COMMENT_LENGTH,
           initial_value: initialData?.comment || undefined,

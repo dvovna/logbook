@@ -103,9 +103,10 @@ describe('Users tab', () => {
       ).not.toContain(titleOf(ada));
 
       const adasHome = await openAppHomeTab(t, workspace, ada);
-      expect(sectionTexts(adasHome).join()).toContain(
-        'Please reach out to your admin to get access',
-      );
+      expect(sectionTexts(adasHome)).toEqual([
+        '*Your Logbook access is turned off*',
+        'Ask an admin of this workspace to turn it back on, then try again.',
+      ]);
     });
 
     it('activates a user again from the list with inactive users', async () => {

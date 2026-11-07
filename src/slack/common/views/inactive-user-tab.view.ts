@@ -12,27 +12,17 @@ export class InactiveUserTabView extends BaseTabView<IBaseTabViewParams> {
   protected callbackId = ViewCallbackId.FallbackTabView;
 
   protected getTabTitle(): string {
-    return `👋 Hey there!\n\nLooks like your account is not active yet 🚧`;
+    return '*Your Logbook access is turned off*';
   }
 
   public getContentBlocks() {
     return [
       {
-        type: 'divider',
-      },
-      {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `🔑 Please reach out to your admin to get access.  
-Meanwhile, grab a ☕ and relax 😎`,
+          text: 'Ask an admin of this workspace to turn it back on, then try again.',
         },
-      },
-      {
-        type: 'image',
-        image_url:
-          'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExa2t1NG16dDZvM3Z6ZGpiNmN6OXZ6eDFzZmxnNWw5cDg3NzQyNGdyMiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/w8aLJLt9fA3M0/giphy.gif',
-        alt_text: 'funny waiting gif',
       },
       {
         type: 'actions',
