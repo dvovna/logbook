@@ -1,7 +1,6 @@
 import UserRole from '@common/enums/user-role.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId, TestWorkspace } from './support/test-workspace';
-import { eventually } from './support/eventually';
 import { textOf } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
 
@@ -35,14 +34,13 @@ describe('The same Slack user in two workspaces', () => {
       })
       .expect(acknowledged);
 
-    return eventually(() => {
-      const [reply] = t.slackApi.ephemeralMessages(workspace.token, personId, {
-        since,
-      });
-      expect(reply).toBeDefined();
-
-      return textOf(reply);
+    await t.idle();
+    const [reply] = t.slackApi.ephemeralMessages(workspace.token, personId, {
+      since,
     });
+    expect(reply).toBeDefined();
+
+    return textOf(reply);
   };
 
   it("acts with the person's role in the workspace the request comes from", async () => {
@@ -85,10 +83,9 @@ describe('The same Slack user in two workspaces', () => {
       })
       .expect(acknowledged);
 
-    await eventually(async () => {
-      const users = await second.rows('users');
-      expect(users.map(({ slack_id }) => slack_id)).toEqual([personId]);
-    });
+    await t.idle();
+    const users = await second.rows('users');
+    expect(users.map(({ slack_id }) => slack_id)).toEqual([personId]);
     expect(await first.rows('users')).toHaveLength(1);
   });
 });

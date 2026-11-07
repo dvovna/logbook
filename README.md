@@ -175,7 +175,10 @@ npx tsc --noEmit
 `test/integration` runs the whole app against the local Supabase stack, with the real `AppModule` and the request pipeline from `main.ts`. Only the Slack Web API is replaced: `SlackApiClient` is swapped for a fake that records every call. The tests:
 - send signed Slack requests to the real routes: events, slash commands, interactions, external select options and the OAuth redirect;
 - fill modals from the view the app actually opened;
-- check the database and the calls the app made to Slack.
+- check the database and the calls the app made to Slack;
+- fail on anything Slack would refuse: a view or message it would not accept, errors for fields a modal does not have, or an answer later than Slack's 3 seconds.
+
+Each test starts on a fixed date (Wednesday 2026-06-17), waits for the work the app does after answering Slack with `await t.idle()` instead of polling, and reads tabs through `support/tab-readers.ts` (list items, sections, buttons) rather than searching their JSON.
 
 Rules for the integration tests:
 - Start the local stack first. If the local database is missing a migration, the run stops and says how to apply it.
