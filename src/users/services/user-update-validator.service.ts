@@ -10,6 +10,8 @@ interface IUpdateUserParams {
   role?: UserRole;
   isActive?: boolean;
   carryoverDays?: number;
+  // The team the user moves to; null takes them out of any team.
+  teamId?: string | null;
 }
 
 @Injectable()
@@ -56,17 +58,21 @@ export class UserUpdateValidatorService {
     userBeforeUpdate: IUserViewModel,
     params: IUpdateUserParams,
   ) {
+    // The policy of the team the user is in after the change.
+    const teamId =
+      params.teamId !== undefined ? params.teamId : userBeforeUpdate.team_id;
+
     if (
       !params.carryoverDays ||
       params.carryoverDays === userBeforeUpdate.carryover_days ||
-      !userBeforeUpdate.team_id
+      !teamId
     ) {
       return;
     }
 
     const team = await this.teamsService.findOne({
       slackTeamId: userBeforeUpdate.slack_team_id,
-      id: userBeforeUpdate.team_id,
+      id: teamId,
     });
 
     if (!team?.vacation_policy_id) return;

@@ -173,28 +173,21 @@ describe('Users tab', () => {
       expect((await workspace.row('users', ada.id)).carryover_days).toBe(0);
     });
 
-    // BUG: the carryover is checked against the policy of the team the user
-    // is in before the edit (user-update-validator.service.ts,
-    // validateCarryoverDays), not the team they move to: moving Ada from
-    // Design (at most 0 days) to Ops (no policy) with 4 days is refused.
-    it.failing(
-      'checks carryover against the team the user moves to',
-      async () => {
-        const form = await fromMenu(UsersTabViewActionId.EditUser, ada);
+    it('checks carryover against the team the user moves to', async () => {
+      const form = await fromMenu(UsersTabViewActionId.EditUser, ada);
 
-        await t.slack
-          .submitView(workspace, admin, form, {
-            team_id: ops.id,
-            carryover_days: '4',
-          })
-          .expect(200);
-
-        expect(await workspace.row('users', ada.id)).toMatchObject({
+      await t.slack
+        .submitView(workspace, admin, form, {
           team_id: ops.id,
-          carryover_days: 4,
-        });
-      },
-    );
+          carryover_days: '4',
+        })
+        .expect(200);
+
+      expect(await workspace.row('users', ada.id)).toMatchObject({
+        team_id: ops.id,
+        carryover_days: 4,
+      });
+    });
   });
 
   it("shows a user's vacation usage under their policy", async () => {
