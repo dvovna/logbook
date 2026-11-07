@@ -1,8 +1,17 @@
 import UserRole from '@common/enums/user-role.enum';
-import capitalize from '@common/utils/capitalize';
 import { IOption } from '@common/types/option.interface';
 
-export const ROLE_OPTIONS = Object.values(UserRole).map<IOption>((role) => ({
-  name: capitalize(role),
-  id: role as UserRole,
-}));
+export const ROLE_DISPLAY_NAME: Record<UserRole, string> = {
+  [UserRole.Admin]: 'Admin',
+  [UserRole.HR]: 'HR',
+  [UserRole.Manager]: 'Manager',
+  [UserRole.Member]: 'Member',
+};
+
+// From the most rights to the fewest.
+export const ROLE_OPTIONS: IOption[] = [
+  UserRole.Admin,
+  UserRole.HR,
+  UserRole.Manager,
+  UserRole.Member,
+].map((role) => ({ name: ROLE_DISPLAY_NAME[role], id: role }));

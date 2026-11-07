@@ -4,9 +4,11 @@ import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchResult } from '@common/types/pagination.types';
-import capitalize from '@common/utils/capitalize';
 import { IUsersTabViewFilters } from '@modules/slack/tabs/users/services/users-tab.service';
-import { ROLE_OPTIONS } from '@modules/slack/tabs/users/views/options/use-role.options';
+import {
+  ROLE_DISPLAY_NAME,
+  ROLE_OPTIONS,
+} from '@modules/slack/tabs/users/views/options/use-role.options';
 import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -184,7 +186,7 @@ export class UsersTabView extends BaseAdminTabView<
           type: 'mrkdwn',
           text:
             `*${escapeMrkdwn(user.name)}* (${escapeMrkdwn(user.email)})\n` +
-            `Role: ${capitalize(user.role)}\n` +
+            `Role: ${ROLE_DISPLAY_NAME[user.role]}\n` +
             `Team: ${team?.name || '-'}\n` +
             `Contract Start Date: ${user.contract_start_date || '-'}\n` +
             `Carryover Days: ${user.carryover_days || '-'}`,

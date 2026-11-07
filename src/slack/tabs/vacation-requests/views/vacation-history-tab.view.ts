@@ -72,7 +72,7 @@ export class VacationHistoryTabView extends BaseTabView<
       elements: [
         {
           type: 'button',
-          text: { type: 'plain_text', text: '⬅️ Back To Home' },
+          text: { type: 'plain_text', text: '⬅️ Back' },
           action_id: CommonViewActionId.BackToHomeTab,
         },
       ],

@@ -193,7 +193,7 @@ export class HolidaysTabView extends BaseAdminTabView<
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `* ${countryOption?.text.text || '🌍 Country'} Holidays*`,
+        text: `*${countryOption?.text.text || '🌍 Country'} Holidays*`,
       },
       accessory: {
         type: 'button',
