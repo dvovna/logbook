@@ -108,8 +108,10 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     return this.confirmationModalView.getView(
       {
         callbackId: ViewCallbackId.CancelVacationRequestFormSubmit,
-        title: `Cancel Vacation`,
-        message: `Are you sure you want to cancel this vacation request?`,
+        title: 'Cancel Request',
+        message:
+          'Cancel this vacation request? Your approvers will no longer be asked.',
+        cancelText: 'Keep Request',
         errorMessage,
       },
       {

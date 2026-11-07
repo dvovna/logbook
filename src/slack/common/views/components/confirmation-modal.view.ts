@@ -10,6 +10,10 @@ interface IGetViewParams extends IBaseModalViewParams {
   title: string;
   message: string;
   callbackId: ViewCallbackId;
+  // The buttons say what they do: by default the title ("Delete Team") and
+  // "Cancel". At most 24 characters, like the title.
+  confirmText?: string;
+  cancelText?: string;
 }
 
 export interface IConfirmationModalViewMetadata {
@@ -26,10 +30,13 @@ export default class ConfirmationModalView extends BaseModalView<
     return viewParams.title;
   }
 
-  protected getActionButtons(): IActionButtons {
+  protected getActionButtons(viewParams?: IGetViewParams): IActionButtons {
     return {
-      submit: { type: 'plain_text', text: 'Confirm' },
-      close: { type: 'plain_text', text: 'Cancel' },
+      submit: {
+        type: 'plain_text',
+        text: viewParams?.confirmText ?? viewParams?.title ?? 'Confirm',
+      },
+      close: { type: 'plain_text', text: viewParams?.cancelText ?? 'Cancel' },
     };
   }
 

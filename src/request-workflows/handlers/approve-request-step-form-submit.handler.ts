@@ -55,7 +55,7 @@ export class ApproveRequestStepFormSubmitHandler extends BaseModalFormSubmitHand
   protected successResponse(): ViewResponseAction {
     return SlackViewResponseFactory.update(
       this.confirmationModalView.getSuccessView(
-        `✅ Request step has been approved.`,
+        '✅ Approved. The request moves on to the next approvers, if there are any.',
       ),
     );
   }

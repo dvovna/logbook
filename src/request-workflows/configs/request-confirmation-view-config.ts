@@ -3,12 +3,14 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 export const REQUEST_CONFIRMATION_VIEW_CONFIG = {
   approve: {
     callbackId: ViewCallbackId.ApproveRequestStepMessage,
-    title: 'Approve & Continue',
-    message: 'Are you sure you want to approve this vacation request step?',
+    title: 'Approve Request',
+    message:
+      'Approve this vacation request? It moves on to the next approvers, if there are any.',
   },
   reject: {
     callbackId: ViewCallbackId.RejectRequestStepMessage,
-    title: 'Reject Vacation Request',
-    message: 'Are you sure you want to reject this vacation request?',
+    title: 'Reject Request',
+    message:
+      'Reject this vacation request? The requester gets a message about it.',
   },
 } as const;

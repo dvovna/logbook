@@ -169,11 +169,11 @@ ${formatDateRange(requestSnapshot.start_date, requestSnapshot.end_date)} (${plur
         action_id: VacationsTabViewActionId.ManagePendingRequestMenu,
         options: [
           {
-            text: { type: 'plain_text', text: 'Approve & continue' },
+            text: { type: 'plain_text', text: 'Approve' },
             value: `${VacationsTabViewActionId.ApprovePendingRequest}:${pendingRequest.id}`,
           },
           {
-            text: { type: 'plain_text', text: 'Add comment' },
+            text: { type: 'plain_text', text: 'Comment' },
             value: `${VacationsTabViewActionId.CommentPendingRequest}:${pendingRequest.id}`,
           },
           {
@@ -183,7 +183,7 @@ ${formatDateRange(requestSnapshot.start_date, requestSnapshot.end_date)} (${plur
           {
             text: {
               type: 'plain_text',
-              text: 'Reject request',
+              text: 'Reject',
             },
             value: `${VacationsTabViewActionId.RejectPendingRequest}:${pendingRequest.id}`,
           },
