@@ -14,6 +14,8 @@ export class ProjectTeamsRepository extends BaseRepository<
   protected tableName: TableName = 'project_teams';
   protected defaultOrderBy = ['project_id:asc'];
 
+  protected readonly uniqueOrder = ['project_id:asc', 'team_id:asc'];
+
   protected mapToViewModel = (row: Tables['project_teams']['Row']) => {
     return {
       slack_team_id: row.slack_team_id,

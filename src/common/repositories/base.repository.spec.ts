@@ -23,7 +23,143 @@ class WorkspacesRepository extends BaseRepository<
   protected readonly workspaceColumn = null;
 }
 
+interface IAnswer {
+  data: unknown;
+  error: { message: string } | null;
+}
+
+// A PostgREST query builder that records the calls of each query and answers
+// the queries in turn, whether awaited or through maybeSingle().
+const fakeSupabase = (answers: IAnswer[]) => {
+  const queries: { method: string; args: unknown[] }[][] = [];
+  const next = () =>
+    Promise.resolve(answers.shift() ?? { data: [], error: null });
+  const client = {
+    from: () => {
+      const calls: { method: string; args: unknown[] }[] = [];
+      const builder: Record<string, unknown> = {
+        maybeSingle: next,
+        then: (
+          resolve: (answer: IAnswer) => unknown,
+          reject: (error: unknown) => unknown,
+        ) => next().then(resolve, reject),
+      };
+
+      for (const method of ['select', 'eq', 'in', 'range', 'limit', 'order']) {
+        builder[method] = (...args: unknown[]) => {
+          calls.push({ method, args });
+
+          return builder;
+        };
+      }
+
+      queries.push(calls);
+
+      return builder;
+    },
+  };
+
+  return {
+    service: { getClient: () => client } as unknown as SupabaseService,
+    callsOf: (query: number, method: string) =>
+      queries[query]
+        .filter((call) => call.method === method)
+        .map(({ args }) => args),
+  };
+};
+
+class ClientRowsRepository extends BaseRepository<
+  Tables['clients'],
+  Tables['clients']['Row']
+> {
+  protected tableName: TableName = 'clients';
+  protected mapToViewModel = (row: Tables['clients']['Row']) => row;
+}
+
+const rows = (count: number, from = 0) =>
+  Array.from({ length: count }, (_, index) => ({ id: `c${from + index}` }));
+
 describe('BaseRepository', () => {
+  const workspace = { slack_team_id: 'w1' };
+
+  describe('findOne', () => {
+    it('returns null when no row matches', async () => {
+      const { service } = fakeSupabase([{ data: null, error: null }]);
+
+      expect(await new ClientRowsRepository(service).findOne(workspace)).toBe(
+        null,
+      );
+    });
+
+    // A failed query used to read as "not found": during an outage a known
+    // user got 401 and nothing was logged.
+    it('throws when the query fails', async () => {
+      const { service } = fakeSupabase([
+        { data: null, error: { message: 'connection refused' } },
+      ]);
+
+      await expect(
+        new ClientRowsRepository(service).findOne(workspace),
+      ).rejects.toThrow('[clients] findOne error: connection refused');
+    });
+  });
+
+  describe('findMany', () => {
+    // PostgREST cuts every answer to 1000 rows without an error.
+    it('reads all rows in pages of 1000', async () => {
+      const { service, callsOf } = fakeSupabase([
+        { data: rows(1000), error: null },
+        { data: rows(1, 1000), error: null },
+      ]);
+
+      const found = await new ClientRowsRepository(service).findMany(workspace);
+
+      expect(found).toHaveLength(1001);
+      expect(callsOf(0, 'range')).toEqual([[0, 999]]);
+      expect(callsOf(1, 'range')).toEqual([[1000, 1999]]);
+    });
+
+    it('reads only as many rows as the limit asks for', async () => {
+      const { service, callsOf } = fakeSupabase([
+        { data: rows(1000), error: null },
+        { data: rows(500, 1000), error: null },
+      ]);
+
+      const found = await new ClientRowsRepository(service).findMany(
+        workspace,
+        { limit: 1500, offset: 10 },
+      );
+
+      expect(found).toHaveLength(1500);
+      expect(callsOf(0, 'range')).toEqual([[10, 1009]]);
+      expect(callsOf(1, 'range')).toEqual([[1010, 1509]]);
+    });
+
+    it('ends the order with the id, so pages fit together', async () => {
+      const { service, callsOf } = fakeSupabase([{ data: [], error: null }]);
+
+      await new ClientRowsRepository(service).findMany(workspace, {
+        orderBy: ['name:asc'],
+      });
+
+      expect(callsOf(0, 'order')).toEqual([
+        ['name', { ascending: true }],
+        ['id', { ascending: true }],
+      ]);
+    });
+
+    it('throws when a page fails', async () => {
+      const { service } = fakeSupabase([
+        { data: rows(1000), error: null },
+        { data: null, error: { message: 'timeout' } },
+      ]);
+
+      await expect(
+        new ClientRowsRepository(service).findMany(workspace),
+      ).rejects.toThrow('[clients] findMany error: timeout');
+    });
+  });
+
   describe("a workspace's table", () => {
     const clients = new ClientsRepository(supabase);
 

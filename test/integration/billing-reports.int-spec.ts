@@ -111,6 +111,35 @@ describe('Billing reports', () => {
     ]);
   });
 
+  // The database answers a query with 1000 rows at most and says nothing
+  // about the rest.
+  it('counts more entries than one answer of the database holds', async () => {
+    await workspace.addTimeEntries(
+      member,
+      website,
+      Array.from({ length: 1001 }, (_, index) => ({
+        status: TimeEntryStatus.Approved,
+        work_date: `2026-10-${String((index % 31) + 1).padStart(2, '0')}`,
+        minutes: 15,
+      })),
+    );
+    const form = await openReportForm();
+
+    const response = await t.slack
+      .submitView(workspace, admin, form, {
+        clientId: acme.id,
+        fromDate: '2026-10-01',
+        toDate: '2026-10-31',
+      })
+      .expect(200);
+
+    expect(sectionTexts(response.body.view)).toEqual([
+      '*Acme* · Oct 1, 2026 – Oct 31, 2026\nApproved: *250h 15m*, billable *250h 15m*',
+      '*By project*\n• Website — 250h 15m (billable 250h 15m)',
+      '*By person*\n• Mia Member — 250h 15m',
+    ]);
+  });
+
   it('says when nothing was approved', async () => {
     await approved(member, website, { status: TimeEntryStatus.Draft });
     const form = await openReportForm();

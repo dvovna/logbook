@@ -220,6 +220,34 @@ export class TestWorkspace implements ISlackWorkspace {
     );
   }
 
+  // Many entries in one insert, each an hour of today's work unless its
+  // fields say otherwise.
+  public async addTimeEntries(
+    user: Tables<'users'>,
+    project: Tables<'projects'>,
+    entries: Partial<TablesInsert<'time_entries'>>[],
+  ): Promise<void> {
+    unwrap(
+      await this.db
+        .from('time_entries')
+        .insert(
+          entries.map((fields) => ({
+            slack_team_id: this.id,
+            user_id: user.id,
+            team_id: user.team_id,
+            project_id: project.id,
+            client_id: project.client_id,
+            work_date: new Date().toISOString().slice(0, 10),
+            minutes: 60,
+            created_by: user.id,
+            updated_by: user.id,
+            ...fields,
+          })),
+        )
+        .select('id'),
+    );
+  }
+
   public async rows<T extends Exclude<TableName, 'slack_teams'>>(
     table: T,
   ): Promise<Tables<T>[]> {

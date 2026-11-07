@@ -42,6 +42,11 @@ export type SupabaseFilter = Record<
 export const quoteFilterValue = (value: string) =>
   `"${value.replace(/[\\"]/g, (char) => `\\${char}`)}"`;
 
+// PostgREST returns at most `max_rows` rows a request (1000 in
+// supabase/config.toml and on hosted projects) and says nothing when it cuts a
+// result short, so findMany reads in pages no larger than that.
+const PAGE_SIZE = 1000;
+
 export interface IQueryOptions {
   limit?: number;
   offset?: number;
@@ -62,13 +67,15 @@ export abstract class BaseRepository<
 
   protected relations: Record<string, unknown> | null = null;
 
-  protected readonly defaultLimit = 10000;
-
   protected readonly defaultPageLimit = 5;
 
   protected searchableColumns: string[] = [];
 
   protected defaultOrderBy: string[] = ['created_at:desc'];
+
+  // Columns that tell any two rows apart. They end every order, so that pages
+  // of one result neither skip nor repeat rows that sort the same.
+  protected readonly uniqueOrder: string[] = ['id:asc'];
 
   // The column that ties a row to its workspace. Every query and insert on a
   // workspace's table must name the workspace: a filter value that is
@@ -87,11 +94,15 @@ export abstract class BaseRepository<
 
     this.buildMatchQuery(query, filter);
 
-    const result = await query.single();
+    // No row is null; a failed query or several rows is an error, not "not
+    // found".
+    const { data, error } = await query.maybeSingle();
 
-    const item = result.data as unknown as Entity['Row'] | null;
+    if (error) {
+      throw new Error(`[${this.tableName}] findOne error: ${error.message}`);
+    }
 
-    return item ? this.mapToViewModel(item) : null;
+    return data ? this.mapToViewModel(data as unknown as Entity['Row']) : null;
   }
 
   public async findMany(
@@ -100,19 +111,36 @@ export abstract class BaseRepository<
   ): Promise<ViewModel[]> {
     this.assertScoped(filter, 'findMany');
 
-    const query = this.client.from(this.tableName).select(this.buildSelect());
+    const start = options?.offset ?? 0;
+    const wanted = options?.limit ?? Infinity;
+    const rows: Entity['Row'][] = [];
 
-    this.buildFindQuery(query, filter, options);
+    while (rows.length < wanted) {
+      const limit = Math.min(PAGE_SIZE, wanted - rows.length);
+      const query = this.client.from(this.tableName).select(this.buildSelect());
 
-    const { data, error } = await query;
+      this.buildFindQuery(query, filter, {
+        ...options,
+        offset: start + rows.length,
+        limit,
+      });
 
-    if (error) {
-      throw new Error(`[${this.tableName}] findAll error: ${error.message}`);
+      const { data, error } = await query;
+
+      if (error) {
+        throw new Error(`[${this.tableName}] findMany error: ${error.message}`);
+      }
+
+      const page = (data ?? []) as unknown as Entity['Row'][];
+
+      rows.push(...page);
+
+      if (page.length < limit) {
+        break;
+      }
     }
 
-    const items = data as unknown as Entity['Row'][] | null;
-
-    return items ? items.map(this.mapToViewModel) : [];
+    return rows.map(this.mapToViewModel);
   }
 
   public async search(
@@ -439,13 +467,18 @@ export abstract class BaseRepository<
 
     if (options?.limit !== undefined && options?.offset !== undefined) {
       query.range(options.offset, options.offset + options.limit - 1);
-    } else {
-      query.limit(options?.limit ?? this.defaultLimit);
+    } else if (options?.limit !== undefined) {
+      query.limit(options.limit);
     }
 
     const orderByOptions = options?.orderBy ?? this.defaultOrderBy;
+    const columnOf = (order: string) => order.split(':')[0];
+    const ordered = new Set(orderByOptions.map(columnOf));
 
-    orderByOptions.forEach((order) => {
+    [
+      ...orderByOptions,
+      ...this.uniqueOrder.filter((order) => !ordered.has(columnOf(order))),
+    ].forEach((order) => {
       const [column, direction = 'asc'] = order.split(':');
       query = query.order(column, { ascending: direction === 'asc' });
     });

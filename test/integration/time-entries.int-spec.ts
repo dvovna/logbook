@@ -730,6 +730,30 @@ describe('Time entries', () => {
         '• *3h* logged total\n• *2h* billable\n• *2* active projects',
       );
     });
+
+    // The database answers a query with 1000 rows at most and says nothing
+    // about the rest.
+    it('sums a week of more entries than one answer of the database holds', async () => {
+      const week = ['15', '16', '17', '18', '19', '20', '21'];
+      await workspace.addTimeEntries(
+        member,
+        website,
+        Array.from({ length: 1001 }, (_, index) => ({
+          work_date: `2026-06-${week[index % week.length]}`,
+          minutes: 15,
+        })),
+      );
+
+      const timeAndBilling = sectionTexts(
+        await openAppHomeTab(t, workspace, admin, [
+          AdminNavigationActionId.ManageTimeAndBilling,
+        ]),
+      );
+
+      expect(timeAndBilling).toContain(
+        '• *250h 15m* logged total\n• *250h 15m* billable\n• *1* active projects',
+      );
+    });
   });
 
   describe('submitting for approval', () => {
