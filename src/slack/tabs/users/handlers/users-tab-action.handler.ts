@@ -1,3 +1,7 @@
+import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import SlackCommandPromptsService, {
+  CsvImport,
+} from '@modules/slack-communication/services/slack-command-prompts.service';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   ISlackBlockActionPayload,
@@ -41,6 +45,8 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
   public constructor(
     tabNavigationService: TabNavigationService,
     private readonly usersTabService: UsersTabService,
+    private readonly slackCommunicationService: SlackCommunicationService,
+    private readonly promptsService: SlackCommandPromptsService,
   ) {
     super(tabNavigationService);
 
@@ -67,8 +73,40 @@ export default class UsersTabActionHandler extends BaseAdminTabActionHandler {
       ),
       [UsersTabViewActionId.IncludeInactive]: this.handleIncludeInactiveFilter,
       [UsersTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
+      [UsersTabViewActionId.ImportVacations]: (payload, user) =>
+        this.showImportInstructions('vacations', payload, user),
+      [UsersTabViewActionId.ImportTeams]: (payload, user) =>
+        this.showImportInstructions('teams', payload, user),
     };
   }
+
+  // How to import a CSV; the upload itself happens in the Messages tab.
+  private showImportInstructions = async (
+    kind: CsvImport,
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    // The button is shown to admins only, but Slack takes action ids from
+    // the client.
+    if (user.role !== UserRole.Admin) {
+      return;
+    }
+
+    await this.slackCommunicationService.openView(
+      payload.trigger_id!,
+      {
+        type: 'modal',
+        callback_id: ViewCallbackId.CsvImportInstructions,
+        title: {
+          type: 'plain_text',
+          text: kind === 'vacations' ? 'Import vacations' : 'Import teams',
+        },
+        close: { type: 'plain_text', text: 'Close' },
+        blocks: this.promptsService.getInstructionBlocks(kind),
+      },
+      user.slack_team_id,
+    );
+  };
 
   private updateTab = async (
     metadata: IUsersTabMetaData,

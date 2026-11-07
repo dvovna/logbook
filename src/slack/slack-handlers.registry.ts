@@ -18,6 +18,7 @@ interface ISlackHandlerRegistryItem {
 export const READ_ONLY_VIEWS: ReadonlySet<ViewCallbackId> = new Set([
   ViewCallbackId.ViewUserVacationUsage,
   ViewCallbackId.ViewVacationRequestDetails,
+  ViewCallbackId.CsvImportInstructions,
 ]);
 
 // Finds the @SlackHandler classes at startup. A mistake here would show up

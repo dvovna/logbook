@@ -115,7 +115,9 @@ describe('Admin', () => {
         workspace.token,
         admin.slack_id,
       );
-      expect(textOf(reply)).toContain('Import was not successful');
+      expect(textOf(reply)).toContain(
+        '`user-team-mapping.csv` was not imported',
+      );
       expect(textOf(reply)).toContain('Team not found: Nonexistent');
     });
 

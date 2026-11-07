@@ -20,6 +20,7 @@ export enum ViewCallbackId {
   UserFormSubmit = 'user_form_submit',
   ChangeUserStatus = 'change_user_status',
   ViewUserVacationUsage = 'view_user_vacation_usage',
+  CsvImportInstructions = 'csv_import_instructions',
 
   // teams
   TeamsTabView = 'teams_tab_view',

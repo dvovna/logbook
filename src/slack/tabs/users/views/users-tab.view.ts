@@ -81,6 +81,25 @@ export class UsersTabView extends BaseAdminTabView<
       },
     ];
 
+    // CSV imports are for admins (FileUploadService refuses anyone else).
+    if (userRole === UserRole.Admin) {
+      blocks.push({
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '📥 Import vacations (CSV)' },
+            action_id: UsersTabViewActionId.ImportVacations,
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '📥 Import teams (CSV)' },
+            action_id: UsersTabViewActionId.ImportTeams,
+          },
+        ],
+      });
+    }
+
     blocks.push(...this.getFiltersBlocks(teams, filters));
     blocks.push({
       type: 'actions',

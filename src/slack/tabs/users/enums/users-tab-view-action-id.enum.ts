@@ -10,4 +10,6 @@ export enum UsersTabViewActionId {
   IncludeInactive = 'include_inactive_users',
   FilterUsersByUser = 'filter_users_by_users',
   ResetFilters = 'reset_users_filters',
+  ImportVacations = 'import_vacations_csv',
+  ImportTeams = 'import_teams_csv',
 }

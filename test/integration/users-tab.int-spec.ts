@@ -13,6 +13,7 @@ import {
   publishedHome,
 } from './support/app-home';
 import {
+  actionIdsOf,
   listItems,
   modalError,
   sectionTexts,
@@ -83,6 +84,64 @@ describe('Users tab', () => {
       UsersTabViewActionId.ManageUserMenu,
       `${action}:${user.id}`,
     );
+
+  describe('importing a CSV', () => {
+    it('shows admins how, for vacations and for teams', async () => {
+      const tab = await openAppHomeTab(t, workspace, admin, USERS_TAB);
+
+      for (const [actionId, title, fileName] of [
+        [
+          UsersTabViewActionId.ImportVacations,
+          'Import vacations',
+          'user-vacations.csv',
+        ],
+        [
+          UsersTabViewActionId.ImportTeams,
+          'Import teams',
+          'user-team-mapping.csv',
+        ],
+      ] as const) {
+        const modal = await openModalFrom(t, workspace, admin, tab, actionId);
+
+        expect((modal as { title: { text: string } }).title.text).toBe(title);
+        expect(sectionTexts(modal)).toContainEqual(
+          expect.stringContaining(`Save the file as \`${fileName}\``),
+        );
+      }
+    });
+
+    it('is not offered to HR, and a forged click opens nothing', async () => {
+      const hr = await workspace.addUser({ role: UserRole.HR });
+      const tab = await openAppHomeTab(t, workspace, hr, USERS_TAB);
+      expect(actionIdsOf(tab)).not.toContain(
+        UsersTabViewActionId.ImportVacations,
+      );
+
+      const since = t.slackApi.mark();
+      await t.slack
+        .interaction({
+          type: 'block_actions',
+          team: { id: workspace.slackId },
+          user: { id: hr.slack_id },
+          trigger_id: 'trigger-forged',
+          container: { type: 'view' },
+          view: { team_id: workspace.slackId, ...tab },
+          actions: [
+            {
+              type: 'button',
+              action_id: UsersTabViewActionId.ImportVacations,
+              block_id: 'forged',
+            },
+          ],
+        })
+        .expect(200);
+      await t.idle();
+
+      expect(
+        t.slackApi.callsWith(workspace.token, 'views.open', { since }),
+      ).toEqual([]);
+    });
+  });
 
   describe('deactivating', () => {
     it('deactivates a user, who then only sees an access notice', async () => {

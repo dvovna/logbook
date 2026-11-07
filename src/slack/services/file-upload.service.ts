@@ -1,3 +1,5 @@
+import { KnownBlock } from '@slack/types';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
@@ -9,6 +11,9 @@ import { UserTeamMappingImportService } from '@modules/user-data-import/services
 
 // Far more than the CSVs need (1000 rows each), small enough to hold in memory.
 const MAX_IMPORT_FILE_BYTES = 1024 * 1024;
+
+// The problems a result lists; the rest are counted.
+const MAX_LISTED_PROBLEMS = 10;
 
 type Importer = (
   fileContent: string,
@@ -66,10 +71,13 @@ export default class FileUploadService {
 
     const result = await importFile(fileContent, user);
 
-    await this.reply(user, this.getImportSuccessfulMessage(result));
+    await this.reply(user, this.getImportResultMessage(file.name!, result));
   }
 
-  private reply(user: IUserViewModel, message: { text: string }) {
+  private reply(
+    user: IUserViewModel,
+    message: { text: string; blocks?: KnownBlock[] },
+  ) {
     return this.slackCommunicationService.postEphemeral(
       user.slack_id,
       message,
@@ -77,16 +85,41 @@ export default class FileUploadService {
     );
   }
 
-  private getImportSuccessfulMessage(result: IImportResult) {
-    if (result.errors.length) {
-      return {
-        text: `Import was not successful: \n ${result.errors.join('\n')}`,
-      };
+  // E.g. "✅ Imported `user-vacations.csv`: Created 12 · Updated 3 ·
+  // Skipped 0", and the first problems when there were any.
+  private getImportResultMessage(fileName: string, result: IImportResult) {
+    const { created, updated, skipped, errors } = result;
+    const counts = `Created ${created} · Updated ${updated} · Skipped ${skipped}`;
+    const nothingImported = created + updated === 0;
+    const summary = !errors.length
+      ? `✅ Imported \`${fileName}\`: ${counts}`
+      : nothingImported
+        ? `❗️ \`${fileName}\` was not imported: ${counts}`
+        : `⚠️ Imported \`${fileName}\` with problems: ${counts}`;
+    const blocks: KnownBlock[] = [
+      { type: 'section', text: { type: 'mrkdwn', text: summary } },
+    ];
+
+    if (errors.length) {
+      const listed = errors
+        .slice(0, MAX_LISTED_PROBLEMS)
+        .map((error) => `• ${escapeMrkdwn(error)}`);
+      const more = errors.length - listed.length;
+
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: [
+            `*${errors.length === 1 ? '1 problem' : `${errors.length} problems`}:*`,
+            ...listed,
+            ...(more > 0 ? [`…and ${more} more`] : []),
+          ].join('\n'),
+        },
+      });
     }
 
-    return {
-      text: `Import was successful.\n Results: \nCreated: ${result.created}\nUpdated: ${result.updated}\nSkipped: ${result.skipped}.`,
-    };
+    return { text: summary, blocks };
   }
 
   public getUnknownFileUploadPromptMessage() {

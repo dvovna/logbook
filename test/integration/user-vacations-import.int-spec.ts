@@ -1,3 +1,4 @@
+import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -84,7 +85,10 @@ describe('user-vacations.csv', () => {
       admin.slack_id,
     );
 
-    return reply?.text;
+    // The summary, then the problems, if any.
+    return reply
+      ? sectionTexts(reply as unknown as View).join('\n')
+      : undefined;
   };
 
   const vacationsOf = async (user: Tables<'users'>) =>
@@ -120,7 +124,7 @@ describe('user-vacations.csv', () => {
     );
 
     expect(reply).toBe(
-      'Import was successful.\n Results: \nCreated: 0\nUpdated: 1\nSkipped: 0.',
+      '✅ Imported `user-vacations.csv`: Created 0 · Updated 1 · Skipped 0',
     );
     // March 4 is a holiday of Ada's policy.
     expect(await vacationsOf(ada)).toEqual([
@@ -196,7 +200,7 @@ describe('user-vacations.csv', () => {
       ]),
     );
 
-    expect(reply).toContain('Import was not successful');
+    expect(reply).toContain('`user-vacations.csv` was not imported');
     expect(reply).toContain(
       'Vacation 1 for bob@example.test is invalid: field type should be one of',
     );
@@ -217,7 +221,10 @@ describe('user-vacations.csv', () => {
     );
 
     expect(reply).toBe(
-      'Import was not successful: \n User not found: ghost@example.test',
+      [
+        '⚠️ Imported `user-vacations.csv` with problems: Created 0 · Updated 1 · Skipped 1',
+        '*1 problem:*\n• User not found: ghost@example.test',
+      ].join('\n'),
     );
     expect(await vacationsOf(ada)).toHaveLength(1);
   });
