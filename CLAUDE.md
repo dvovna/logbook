@@ -97,7 +97,7 @@ Every repository query must be scoped by `slackTeamId` / `slack_team_id`; `BaseR
 
 1. `main.ts` mounts `slackBodyParserMiddleware` on `/api/slack`. It keeps `req.rawBody` for signature checks, then parses the body as JSON or urlencoded.
 2. `SlackPayloadParseMiddleware` (wired in `SlackModule.configure`) unwraps the form field `payload` for `/interactions` and `/options`.
-3. Guards run in this order: `SlackSignatureGuard` → `SlackUserGuard` (loads the DB user by Slack user ID into `req.user` and returns 401 if the user is unknown) → `SlackActiveUserGuard` → `UserRoleGuard` + `@RequireRoles`.
+3. Guards run in this order: `SlackSignatureGuard` → `SlackUserGuard` (loads the DB user by Slack user ID into `req.user` and returns 401 if the user is unknown) → `SlackActiveUserGuard` → `UserRoleGuard` + `@RequireRoles` (a route behind `UserRoleGuard` without `@RequireRoles` is closed to everyone).
 
 Controllers are in `src/slack/controllers/`:
 - OAuth: `/install` sets a random `state` in a cookie and redirects to Slack. `/oauth/redirect` checks the state against the cookie (OAuth CSRF), then calls `TeamSetupWorkflowService`, which creates the `slack_team` and an admin user and starts a background sync of workspace users.
@@ -110,8 +110,8 @@ Controllers are in `src/slack/controllers/`:
 
 ### Interaction dispatch (the most important pattern)
 
-- Handlers are `@Injectable()` classes decorated with `@SlackHandler({ type, callbackId, allowedRoles? })`.
-- `SlackHandlersRegistry` finds them at startup through `DiscoveryService` and keys them by `${type}:${callbackId}`.
+- Handlers are `@Injectable()` classes decorated with `@SlackHandler({ type, callbackId, allowedRoles })`. `allowedRoles` is required: a handler open to everyone says `ALL_ROLES` (role lists in `src/common/constants/role-groups.ts`).
+- `SlackHandlersRegistry` finds them at startup through `DiscoveryService` and keys them by `${type}:${callbackId}`. The app refuses to start on two handlers for one key, a handler with no roles, or a `ViewCallbackId` without a handler (read-only modals are listed in `READ_ONLY_VIEWS`).
 - How `callbackId` is resolved:
   - `view_submission`: `view.callback_id`.
   - `block_actions` in an App Home tab or a modal: the view's `callback_id`.
@@ -130,8 +130,8 @@ Controllers are in `src/slack/controllers/`:
 
 To add an interaction:
 1. Add a `ViewCallbackId` value (`src/slack/enums/integration-callback-id.enum.ts`).
-2. Create the decorated handler.
-3. Register it as a provider in its feature module.
+2. Create the decorated handler with its `allowedRoles`.
+3. Register it as a provider in its feature module (otherwise the app does not start).
 
 ### App Home "tabs"
 

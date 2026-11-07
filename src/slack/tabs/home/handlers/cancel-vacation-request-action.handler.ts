@@ -1,3 +1,4 @@
+import { ALL_ROLES } from '@common/constants/role-groups';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
@@ -19,6 +20,7 @@ import VacationRequestStatus from '@common/enums/vacation-status.enum';
 @SlackHandler({
   callbackId: ViewCallbackId.CancelVacationRequestFormSubmit,
   type: 'view_submission',
+  allowedRoles: ALL_ROLES,
 })
 export class CancelVacationRequestActionHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
   public constructor(

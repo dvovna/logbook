@@ -47,7 +47,7 @@ class SlackInteractionsService {
       return SlackViewResponseFactory.update(ActionForbiddenView.getView());
     }
 
-    if (allowedRoles?.length && !allowedRoles.includes(user.role)) {
+    if (!allowedRoles?.includes(user.role)) {
       this.logger.warn(
         `User ${user.id} with role ${user.role} not allowed for handler ${callbackId}`,
       );

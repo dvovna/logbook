@@ -1,3 +1,4 @@
+import { ALL_ROLES } from '@common/constants/role-groups';
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
@@ -25,6 +26,7 @@ import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums
 @SlackHandler({
   callbackId: ViewCallbackId.TimeEntriesTabView,
   type: 'block_actions',
+  allowedRoles: ALL_ROLES,
 })
 export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandler {
   private readonly logger = new Logger(TimeEntriesTabActionHandler.name);

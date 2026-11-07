@@ -1,3 +1,4 @@
+import { ALL_ROLES } from '@common/constants/role-groups';
 import { Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -17,7 +18,11 @@ import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-a
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 
 @Injectable()
-@SlackHandler({ callbackId: ViewCallbackId.HomeTabView, type: 'block_actions' })
+@SlackHandler({
+  callbackId: ViewCallbackId.HomeTabView,
+  type: 'block_actions',
+  allowedRoles: ALL_ROLES,
+})
 export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
   protected actionMap: ActionMapType;
 

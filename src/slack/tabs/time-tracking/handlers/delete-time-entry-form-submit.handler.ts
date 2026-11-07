@@ -1,3 +1,4 @@
+import { ALL_ROLES } from '@common/constants/role-groups';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -23,6 +24,7 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 @SlackHandler({
   callbackId: ViewCallbackId.DeleteTimeEntry,
   type: 'view_submission',
+  allowedRoles: ALL_ROLES,
 })
 export class DeleteTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,

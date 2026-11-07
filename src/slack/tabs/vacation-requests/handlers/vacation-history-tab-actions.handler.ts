@@ -1,3 +1,4 @@
+import { ALL_ROLES } from '@common/constants/role-groups';
 import { Injectable, Logger } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -29,6 +30,7 @@ import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-req
 @SlackHandler({
   callbackId: ViewCallbackId.VacationHistoryTabView,
   type: 'block_actions',
+  allowedRoles: ALL_ROLES,
 })
 export default class VacationHistoryTabActionsHandler extends BaseActionHandler {
   protected actionMap: ActionMapType;

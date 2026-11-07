@@ -1,3 +1,4 @@
+import { ALL_ROLES } from '@common/constants/role-groups';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -17,6 +18,7 @@ import { TimeEntriesService } from 'src/time-entries/services/time-entries.servi
 @SlackHandler({
   callbackId: ViewCallbackId.UserTimeEntry,
   type: 'view_submission',
+  allowedRoles: ALL_ROLES,
 })
 export class UserTimeEntryFormSubmitHandler extends BaseTimeEntryFormSubmitHandler<ITimeEntryFormViewData> {
   public constructor(

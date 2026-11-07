@@ -1,3 +1,4 @@
+import { ALL_ROLES } from '@common/constants/role-groups';
 import { Injectable } from '@nestjs/common';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import { BaseModalFormSubmitHandler } from 'src/slack/common/handlers/base-modal-view-submit.handler';
@@ -17,6 +18,7 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 @SlackHandler({
   callbackId: ViewCallbackId.CancelVacationRequestCommandSubmit,
   type: 'view_submission',
+  allowedRoles: ALL_ROLES,
 })
 export class CancelVacationRequestCommandSubmitHandler extends BaseModalFormSubmitHandler<
   object,

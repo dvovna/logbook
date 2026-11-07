@@ -18,8 +18,10 @@ export class UserRoleGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    if (!requiredRoles || !requiredRoles.length) {
-      return true;
+    // A route behind this guard says who may use it; without @RequireRoles
+    // nobody may.
+    if (!requiredRoles?.length) {
+      return false;
     }
 
     const request = context.switchToHttp().getRequest();

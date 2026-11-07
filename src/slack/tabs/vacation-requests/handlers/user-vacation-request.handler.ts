@@ -1,3 +1,4 @@
+import { ALL_ROLES } from '@common/constants/role-groups';
 import { Injectable } from '@nestjs/common';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
@@ -23,6 +24,7 @@ import {
 @SlackHandler({
   callbackId: ViewCallbackId.UserVacationRequest,
   type: 'view_submission',
+  allowedRoles: ALL_ROLES,
 })
 export class UserVacationRequestHandler extends BaseModalFormSubmitHandler<
   IVacationRequestModalViewMetadata,

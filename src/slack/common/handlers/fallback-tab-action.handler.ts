@@ -1,3 +1,4 @@
+import { ALL_ROLES } from '@common/constants/role-groups';
 import {
   ActionMapType,
   BaseActionHandler,
@@ -17,6 +18,7 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 @SlackHandler({
   callbackId: ViewCallbackId.FallbackTabView,
   type: 'block_actions',
+  allowedRoles: ALL_ROLES,
 })
 export class FallbackTabActionHandler extends BaseActionHandler {
   protected actionMap: ActionMapType;
