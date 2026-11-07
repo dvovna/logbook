@@ -1,3 +1,4 @@
+import { ApprovalsModule } from '@modules/slack/approvals/approvals.module';
 import { MiddlewareConsumer, Module } from '@nestjs/common';
 import SlackOauthController from '@modules/slack/controllers/slack-oauth.controller';
 import SlackOauthService from '@modules/slack/services/slack-oauth.service';
@@ -65,6 +66,7 @@ import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module
     TeamsTabModule,
     UsersTabModule,
     HomeTabModule,
+    ApprovalsModule,
     SlackCommonModule,
     PeopleTabModule,
     VacationsTabModule,

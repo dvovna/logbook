@@ -1,3 +1,8 @@
+import {
+  ListItem,
+  detail,
+} from '@modules/slack/common/views/components/list-item.view';
+import { listNames } from '@modules/slack/common/utils/list.utils';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
@@ -13,15 +18,6 @@ import { PaginatedListView } from '@modules/slack/common/views/components/pagina
 import { Divider } from '@modules/slack/common/views/components/separator';
 import { ISearchResult } from '@common/types/pagination.types';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
-
-// "Ada, Bob, Carl and 2 more", for the cards of a list.
-const listNames = (names: string[], shown = 5) => {
-  const listed = names.slice(0, shown).map(escapeMrkdwn).join(', ');
-
-  return names.length > shown
-    ? `${listed} and ${names.length - shown} more`
-    : listed;
-};
 
 interface IGetViewParams extends IBaseTabViewParams {
   policies: ISearchResult<IVacationPolicyViewModel>;
@@ -93,26 +89,22 @@ export class VacationPolicyTabView extends BaseAdminTabView<
     policy: IVacationPolicyViewModel,
     teams: string[],
   ): AnyBlock[] {
-    const blocks: AnyBlock[] = [];
-
-    const updatedAt = formatDate(policy.updated_at);
-    const createdAt = formatDate(policy.created_at);
-
-    blocks.push({
-      type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text:
-            `*${escapeMrkdwn(policy.name)}*\n` +
-            // Annual leave is checked against both limits.
-            `Annual leave a year: ${policy.vacation_days || 0} calendar days, at most ${policy.working_days || 0} of them working days\n` +
-            `Bonus days a year: ${policy.bonus_days || 0}\n` +
-            `Carryover: ${policy.carryover_days ? `up to ${policy.carryover_days} days from the previous year` : 'none'}\n` +
-            `Used by: ${teams.length ? listNames(teams) : 'no team yet'}\n` +
-            `Created: ${createdAt}\n` +
-            `Updated: ${updatedAt}`,
-        },
+    return ListItem.getBlocks({
+      title: policy.name,
+      details: [
+        // Annual leave is checked against both limits.
+        detail(
+          'Annual leave a year',
+          `${policy.vacation_days || 0} calendar days, at most ${policy.working_days || 0} of them working days`,
+        ),
+        detail('Bonus days a year', policy.bonus_days || 0),
+        detail(
+          'Carryover',
+          policy.carryover_days
+            ? `up to ${policy.carryover_days} days from the previous year`
+            : 'none',
+        ),
+        detail('Used by', teams.length ? listNames(teams) : 'no team yet'),
       ],
       accessory: {
         type: 'overflow',
@@ -133,9 +125,5 @@ export class VacationPolicyTabView extends BaseAdminTabView<
         ],
       },
     });
-
-    blocks.push(...Divider.getBlocks());
-
-    return blocks;
   }
 }

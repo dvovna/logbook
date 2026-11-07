@@ -1,5 +1,5 @@
 import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
-import { RejectStepModalView } from '@modules/request-workflows/views/reject-step-modal.view';
+import { RejectStepModalView } from '@modules/slack/approvals/views/reject-step-modal.view';
 import { Injectable, Logger } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -8,10 +8,10 @@ import {
   ActionMapType,
   BaseActionHandler,
 } from '@modules/slack/common/handlers/base-action.handler';
-import { ApproverMessageActionId } from '@modules/request-workflows/enums/approver-message-action-id.enum';
+import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import { withButtonAction } from '@modules/slack/common/utils/view.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
-import { ApproverStepCommentModalView } from '@modules/request-workflows/views/approver-step-comment-modal.view';
+import { ApproverStepCommentModalView } from '@modules/slack/approvals/views/approver-step-comment-modal.view';
 import UserRole from '@common/enums/user-role.enum';
 
 @Injectable()

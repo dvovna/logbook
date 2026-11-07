@@ -1,3 +1,4 @@
+import { ApprovalsModule } from '@modules/slack/approvals/approvals.module';
 import { Module } from '@nestjs/common';
 import { VacationApproversNoticeService } from '@modules/slack/tabs/vacation-requests/services/vacation-approvers-notice.service';
 import { VacationDecisionNotificationsService } from '@modules/slack/tabs/vacation-requests/services/vacation-decision-notifications.service';
@@ -27,6 +28,7 @@ import { VacationRequestModalService } from '@modules/slack/tabs/vacation-reques
   imports: [
     VacationRequestsModule,
     RequestWorkflowsModule,
+    ApprovalsModule,
     TeamsModule,
     SlackCommonModule,
     UsersModule,

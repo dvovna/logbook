@@ -2,7 +2,7 @@ import { formatDateRange } from '@common/utils/date.utils';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import { ApproverMessageActionId } from '@modules/request-workflows/enums/approver-message-action-id.enum';
+import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepStatus,

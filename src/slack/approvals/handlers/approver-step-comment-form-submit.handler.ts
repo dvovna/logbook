@@ -8,13 +8,13 @@ import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-
 import UserRole from '@common/enums/user-role.enum';
 import CommentModalViewValuesParser, {
   ICommentFormViewData,
-} from '@modules/request-workflows/parsers/comment-modal-view-values.parser';
+} from '@modules/slack/approvals/parsers/comment-modal-view-values.parser';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import {
   ApproverStepCommentModalView,
   IApproverStepCommentModalViewMetadata,
-} from '@modules/request-workflows/views/approver-step-comment-modal.view';
+} from '@modules/slack/approvals/views/approver-step-comment-modal.view';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 
 @Injectable()

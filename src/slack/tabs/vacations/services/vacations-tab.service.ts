@@ -1,4 +1,4 @@
-import { RejectStepModalView } from '@modules/request-workflows/views/reject-step-modal.view';
+import { RejectStepModalView } from '@modules/slack/approvals/views/reject-step-modal.view';
 import { Injectable } from '@nestjs/common';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 import BaseTabService, {
@@ -13,9 +13,9 @@ import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-reques
 import { View } from '@slack/types/dist/views';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import TeamsService from '@modules/teams/services/teams.service';
-import { ApproverStepCommentModalView } from '@modules/request-workflows/views/approver-step-comment-modal.view';
+import { ApproverStepCommentModalView } from '@modules/slack/approvals/views/approver-step-comment-modal.view';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
-import { REQUEST_CONFIRMATION_VIEW_CONFIG } from '@modules/request-workflows/configs/request-confirmation-view-config';
+import { REQUEST_CONFIRMATION_VIEW_CONFIG } from '@modules/slack/approvals/configs/request-confirmation-view-config';
 
 export type IGetVacationsTabViewParams = IPublishBaseParams;
 

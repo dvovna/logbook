@@ -1,4 +1,4 @@
-import { ApproverStepProcessor } from 'src/request-workflows/step-processors/approver-step.processor';
+import { ApproverStepProcessor } from '@modules/slack/approvals/step-processors/approver-step.processor';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import { RequestWorkflowStepsService } from 'src/request-workflows/services/request-workflow-steps.service';
 import {

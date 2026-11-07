@@ -2,7 +2,7 @@ import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { Tables } from '@common/types/database.types';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
-import { ApproverMessageActionId } from '@modules/request-workflows/enums/approver-message-action-id.enum';
+import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { textOf } from './support/block-kit';

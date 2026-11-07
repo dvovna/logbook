@@ -5,7 +5,7 @@ import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator'
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
-import { RejectStepModalView } from '@modules/request-workflows/views/reject-step-modal.view';
+import { RejectStepModalView } from '@modules/slack/approvals/views/reject-step-modal.view';
 import UserRole from '@common/enums/user-role.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import {

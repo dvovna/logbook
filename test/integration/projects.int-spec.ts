@@ -343,7 +343,8 @@ describe('Projects', () => {
         ]),
       ).toEqual([
         ['Alpha', 'Acme'],
-        ['Beta', '-'],
+        // A project without a client shows no Client line.
+        ['Beta', undefined],
       ]);
       expect(totalCount(projectsTab)).toBe(2);
 

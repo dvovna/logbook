@@ -1,3 +1,8 @@
+import {
+  ListItem,
+  detail,
+} from '@modules/slack/common/views/components/list-item.view';
+import { listNames } from '@modules/slack/common/utils/list.utils';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { IOption } from '@common/types/option.interface';
@@ -27,15 +32,6 @@ import { PROJECT_STATUS_OPTIONS } from '@modules/slack/tabs/projects/data/projec
 import { BILLABLE_PLAIN_TEXT_OPTIONS } from '@modules/slack/tabs/projects/data/billable-options';
 import { IncludeArchivedButtonView } from '@modules/slack/common/views/components/include-archvied-button.view';
 import UserRole from '@common/enums/user-role.enum';
-
-// "Ada, Bob, Carl and 2 more", for the cards of a list.
-const listNames = (names: string[], shown = 5) => {
-  const listed = names.slice(0, shown).map(escapeMrkdwn).join(', ');
-
-  return names.length > shown
-    ? `${listed} and ${names.length - shown} more`
-    : listed;
-};
 
 export interface IProjectTabFilters {
   project?: IOption;
@@ -140,34 +136,27 @@ export class ProjectsTabView extends BaseAdminTabView<
     userRole: UserRole,
     people: string[],
   ): AnyBlock[] {
-    const blocks: AnyBlock[] = [];
-
-    const updatedAt = formatDate(project.updated_at);
-    const createdAt = formatDate(project.created_at);
-    const archivedAt = project.archived_at && formatDate(project.archived_at);
     const menuOptions = this.getProjectMenuOptions(project, userRole);
 
-    blocks.push({
-      type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text:
-            `*${project.name}*\n` +
-            `Client: ${project.client_name || '-'}\n` +
-            `Status: ${capitalize(project.status)}\n` +
-            `Billable: ${project.billable ? 'Yes' : 'No'}\n`,
-        },
-        {
-          type: 'mrkdwn',
-          text:
-            `Teams: ${project.teams?.length ? listNames(project.teams) : 'none'}\n` +
-            `People: ${people.length ? listNames(people) : 'none'}\n` +
-            `Created: ${createdAt}\n` +
-            `Updated: ${updatedAt}\n` +
-            `Description: ${truncate(project.description || '-')}` +
-            `\n${archivedAt ? `*Archived:* ${archivedAt}\n` : ''}`,
-        },
+    return ListItem.getBlocks({
+      title: project.name,
+      details: [
+        detail(
+          'Client',
+          project.client_name && escapeMrkdwn(project.client_name),
+        ),
+        detail('Status', capitalize(project.status)),
+        detail('Billable', project.billable ? 'Yes' : 'No'),
+        detail(
+          'Teams',
+          project.teams?.length ? listNames(project.teams) : 'none',
+        ),
+        detail('People', people.length ? listNames(people) : 'none'),
+        detail(
+          'Description',
+          project.description && escapeMrkdwn(truncate(project.description)),
+        ),
+        project.archived_at && `*Archived:* ${formatDate(project.archived_at)}`,
       ],
       ...(menuOptions.length
         ? {
@@ -179,10 +168,6 @@ export class ProjectsTabView extends BaseAdminTabView<
           }
         : {}),
     });
-
-    blocks.push(...Divider.getBlocks());
-
-    return blocks;
   }
 
   // The menu items the user's role allows; an archived project can only be

@@ -3,7 +3,7 @@ import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { Tables } from '@common/types/database.types';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
-import { ApproverMessageActionId } from '@modules/request-workflows/enums/approver-message-action-id.enum';
+import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';

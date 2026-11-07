@@ -1,5 +1,5 @@
 import { WorkflowStepStatus } from '@modules/request-workflows/types/request-workflow-step.interface';
-import { IApprovalProgress } from '@modules/request-workflows/views/approver-message.view';
+import { IApprovalProgress } from '@modules/slack/approvals/views/approver-message.view';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   IRequestWorkflowStepViewModel,
@@ -9,7 +9,7 @@ import { IWorkflowStepProcessor } from '@modules/request-workflows/types/workflo
 import { WorkflowStepProcessor } from '@modules/request-workflows/decorators/workflow-step-handler.decorator';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
-import { ApproverMessageView } from '@modules/request-workflows/views/approver-message.view';
+import { ApproverMessageView } from '@modules/slack/approvals/views/approver-message.view';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 @Injectable()

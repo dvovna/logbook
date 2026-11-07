@@ -14,7 +14,7 @@ import {
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
 } from '@modules/slack/common/views/components/confirmation-modal.view';
-import { REQUEST_CONFIRMATION_VIEW_CONFIG } from '@modules/request-workflows/configs/request-confirmation-view-config';
+import { REQUEST_CONFIRMATION_VIEW_CONFIG } from '@modules/slack/approvals/configs/request-confirmation-view-config';
 import { runInBackground } from '@common/utils/run-in-background';
 
 @Injectable()

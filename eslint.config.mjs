@@ -96,10 +96,9 @@ export default [{
       }],
     }],
 
-    // The Slack UI in src/slack (tabs, handlers, views) uses the domain, never
-    // the other way round. Code both need belongs in the domain module or in
-    // src/common. request-workflows keeps its approver DM handlers and views
-    // next to its domain code, so only its domain folders are covered.
+    // The Slack UI in src/slack (tabs, handlers, views, approvals) uses the
+    // domain, never the other way round. Code both need belongs in the domain
+    // module or in src/common.
     'import/no-restricted-paths': ['error', {
       zones: [{
         target: [
@@ -112,11 +111,7 @@ export default [{
           './src/users',
           './src/vacation-policies',
           './src/vacation-requests',
-          './src/request-workflows/enums',
-          './src/request-workflows/events',
-          './src/request-workflows/repositories',
-          './src/request-workflows/services',
-          './src/request-workflows/types',
+          './src/request-workflows',
           './src/common',
           './src/slack-communication',
           './src/api-clients',
