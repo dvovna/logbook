@@ -6,6 +6,8 @@ import {
 } from '@slack/web-api/dist/types/request/views';
 import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
 import { SlackJson } from './block-kit';
+import { messageProblems, viewProblems } from './block-kit-rules';
+import { reportSlackViolation } from './slack-violations';
 
 export interface ISlackApiCall {
   // Slack Web API method, e.g. `chat.postMessage` or `views.publish`.
@@ -156,10 +158,12 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   // --- SlackApiClient -------------------------------------------------------
 
   public async postEphemeral({ accessToken, ...params }) {
+    this.refuseInvalid('chat.postEphemeral', messageProblems(params));
     this.record('chat.postEphemeral', params, accessToken);
   }
 
   public async postMessage({ accessToken, ...params }) {
+    this.refuseInvalid('chat.postMessage', messageProblems(params));
     // Like Slack: a message to a user ID goes to the DM channel with them.
     const channel = params.channel.startsWith('U')
       ? `D${params.channel.slice(1)}`
@@ -172,6 +176,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   public async updateMessage({ accessToken, ...params }) {
+    this.refuseInvalid('chat.update', messageProblems(params));
     this.record('chat.update', params, accessToken);
 
     return { ok: true, channel: params.channel, ts: params.ts };
@@ -181,6 +186,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     args: ViewsOpenArguments,
     accessToken: string,
   ): Promise<SlackResponse> {
+    this.refuseInvalid('views.open', viewProblems(args.view));
     this.record('views.open', args, accessToken);
 
     return { ok: true, view: { id: this.nextViewId(), ...args.view } };
@@ -190,6 +196,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     args: ViewsPublishArguments,
     accessToken: string,
   ): Promise<SlackResponse> {
+    this.refuseInvalid('views.publish', viewProblems(args.view));
     this.record('views.publish', args, accessToken);
 
     return { ok: true, view: { id: this.nextViewId(), ...args.view } };
@@ -235,6 +242,16 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   // --- fake Slack -----------------------------------------------------------
+
+  // Like Slack: a view or message it would not accept fails the call (the
+  // test fails too, see slack-violations.ts).
+  private refuseInvalid(method: string, problems: string[]) {
+    if (problems.length) {
+      reportSlackViolation(method, problems);
+
+      throw new Error(`An API error occurred: invalid_arguments (${method})`);
+    }
+  }
 
   private oauthAccess(params: Record<string, unknown>) {
     const grant = this.oauthGrants.get(params.code as string);

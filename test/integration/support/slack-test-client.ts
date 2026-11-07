@@ -3,7 +3,13 @@ import * as request from 'supertest';
 import { App } from 'supertest/types';
 import { View } from '@slack/types/dist/views';
 import { TEST_SLACK_SIGNING_SECRET } from './test-env';
-import { actionPayload, fillForm, findAction } from './block-kit';
+import { actionPayload, fillForm, findAction, SlackJson } from './block-kit';
+import {
+  errorsResponseProblems,
+  suggestionsProblems,
+  viewProblems,
+} from './block-kit-rules';
+import { reportSlackViolation } from './slack-violations';
 import { IPostedMessage } from './fake-slack-api.client';
 
 export interface ISlackActor {
@@ -15,6 +21,26 @@ export interface ISlackWorkspace {
 }
 
 const triggerId = () => `trigger-${randomUUID()}`;
+
+// Slack shows a request as failed when the app has not answered within 3
+// seconds; leave room for the network.
+const ANSWER_TIME_LIMIT_MS = 2500;
+
+// What Slack would refuse in the answer to an interaction: a view the
+// modal is updated to or pushed, or errors for fields the view lacks.
+const answerProblems = (payload: SlackJson, answer: unknown) => {
+  const body = answer as SlackJson | undefined;
+
+  switch (body?.response_action) {
+    case 'update':
+    case 'push':
+      return viewProblems(body.view);
+    case 'errors':
+      return errorsResponseProblems(payload.view, body.errors);
+    default:
+      return [];
+  }
+};
 
 // Slack only needs a 2xx within 3 seconds; the exact code doesn't matter.
 export const acknowledged = (response: request.Response) => {
@@ -77,6 +103,11 @@ export class SlackTestClient {
       '/api/slack/interactions',
       new URLSearchParams({ payload: JSON.stringify(payload) }).toString(),
       'application/x-www-form-urlencoded',
+    ).expect((response) =>
+      reportSlackViolation(
+        `answer to ${payload.type}`,
+        answerProblems(payload, response.body),
+      ),
     );
   }
 
@@ -147,6 +178,11 @@ export class SlackTestClient {
         }),
       }).toString(),
       'application/x-www-form-urlencoded',
+    ).expect((response) =>
+      reportSlackViolation(
+        'answer to block_suggestion',
+        suggestionsProblems(response.body),
+      ),
     );
   }
 
@@ -171,6 +207,7 @@ export class SlackTestClient {
 
   private post(path: string, body: string, contentType: string) {
     const timestamp = Math.floor(Date.now() / 1000).toString();
+    const sentAt = performance.now();
     const signature = createHmac('sha256', TEST_SLACK_SIGNING_SECRET)
       .update(`v0:${timestamp}:${body}`)
       .digest('hex');
@@ -183,6 +220,15 @@ export class SlackTestClient {
       .set('Content-Type', contentType)
       .set('X-Slack-Request-Timestamp', timestamp)
       .set('X-Slack-Signature', `v0=${signature}`)
-      .send(body);
+      .send(body)
+      .expect(() => {
+        const answeredAfter = performance.now() - sentAt;
+
+        if (answeredAfter > ANSWER_TIME_LIMIT_MS) {
+          throw new Error(
+            `${path} answered after ${Math.round(answeredAfter)} ms; Slack gives up after 3 seconds. Run slow work with runInBackground.`,
+          );
+        }
+      });
   }
 }
