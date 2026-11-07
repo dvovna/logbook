@@ -16,6 +16,7 @@ import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
+import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
 
 describe('Vacation request approval', () => {
   let t: ITestApp;
@@ -242,6 +243,71 @@ describe('Vacation request approval', () => {
 
     await t.idle();
     expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+  });
+
+  // A decision is one statement (decide_workflow_steps): it either closes
+  // the step with its status, or changes nothing.
+  describe('when a decision fails or two meet', () => {
+    it('keeps the step open when its decision fails, so the approver can approve again', async () => {
+      await addMember(
+        await workspace.addTeam({ manager_approvers: [manager.slack_id] }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      const approval = await approvalMessageTo(t, workspace, manager);
+      const decide = jest
+        .spyOn(t.app.get(RequestWorkflowStepsRepository), 'decide')
+        .mockRejectedValueOnce(new Error('connection reset'));
+
+      await click(manager, approval, ApproverMessageActionId.Approve);
+      await t.idle();
+      decide.mockRestore();
+
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+      const [step] = await workspace.rows('request_workflow_steps');
+      expect(step).toMatchObject({
+        completed_at: null,
+        step_data: expect.objectContaining({ status: 'pending' }),
+      });
+
+      await click(manager, approval, ApproverMessageActionId.Approve);
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+    });
+
+    it('decides once when two managers approve at the same moment', async () => {
+      const secondManager = await workspace.addUser({
+        role: UserRole.Manager,
+      });
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [manager.slack_id, secondManager.slack_id],
+        }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      const first = await approvalMessageTo(t, workspace, manager);
+      const second = await approvalMessageTo(t, workspace, secondManager);
+
+      await Promise.all([
+        click(manager, first, ApproverMessageActionId.Approve),
+        click(secondManager, second, ApproverMessageActionId.Approve),
+      ]);
+      await t.idle();
+
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      // Both steps were closed by one decision: by the same approver.
+      const deciders = new Set(
+        (await workspace.rows('request_workflow_steps')).map(
+          (step) =>
+            (step.step_data as { decided_by_slack_id?: string })
+              .decided_by_slack_id,
+        ),
+      );
+      expect(deciders.size).toBe(1);
+      const notices = t.slackApi
+        .postedMessages(workspace.token, member.slack_id)
+        .filter((message) => textOf(message).includes('approved'));
+      expect(notices).toHaveLength(1);
+    });
   });
 
   describe('deciding from the Vacations tab instead of the message', () => {

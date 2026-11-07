@@ -42,21 +42,6 @@ export class WorkflowStepProcessorService implements OnModuleInit {
     this.runForEach(WorkflowStepJob.Ask, steps);
   }
 
-  // The steps are done: they no longer count as open from now on, whether
-  // their messages are updated yet or not.
-  public async completeSteps(steps: IRequestWorkflowStepViewModel[]) {
-    if (steps.length === 0) {
-      return;
-    }
-
-    await this.requestWorkflowStepsService.markCompleted(
-      [...new Set(steps.map(({ id }) => id))],
-      steps[0].slack_team_id,
-    );
-
-    this.runForEach(WorkflowStepJob.RefreshMessage, steps);
-  }
-
   public updateStepMessages(steps: IRequestWorkflowStepViewModel[]) {
     this.runForEach(WorkflowStepJob.RefreshMessage, steps);
   }

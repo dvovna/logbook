@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { BaseRepository, Tables } from '@common/repositories/base.repository';
 import {
   IRequestWorkflowStepViewModel,
@@ -30,4 +31,36 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
       processed_at: row.processed_at,
     } as IRequestWorkflowStepViewModel;
   };
+
+  // Decides the request's open steps in one statement (decide_workflow_steps):
+  // all of them, one level's, or one step. Returns the steps it decided, none
+  // when someone else decided them first.
+  public async decide(params: {
+    slackTeamId: string;
+    requestId: string;
+    status: string;
+    decidedBySlackId: string;
+    stepId?: string;
+    stepLevel?: number;
+  }): Promise<IRequestWorkflowStepViewModel[]> {
+    const { data, error } = await this.client.rpc(
+      RpcFunctionName.DecideWorkflowSteps,
+      {
+        p_slack_team_id: params.slackTeamId,
+        p_request_id: params.requestId,
+        p_status: params.status,
+        p_decided_by_slack_id: params.decidedBySlackId,
+        p_step_id: params.stepId,
+        p_step_level: params.stepLevel,
+      },
+    );
+
+    if (error) {
+      throw new Error(
+        `${RpcFunctionName.DecideWorkflowSteps} failed: ${error.message}`,
+      );
+    }
+
+    return (data ?? []).map(this.mapToViewModel);
+  }
 }

@@ -1043,6 +1043,37 @@ export type Database = {
         };
         Returns: undefined;
       };
+      decide_workflow_steps: {
+        Args: {
+          p_decided_by_slack_id: string;
+          p_request_id: string;
+          p_slack_team_id: string;
+          p_status: string;
+          p_step_id?: string;
+          p_step_level?: number;
+        };
+        Returns: {
+          completed_at: string | null;
+          created_at: string;
+          id: string;
+          processed_at: string | null;
+          request_id: string;
+          slack_channel_id: string | null;
+          slack_message_ts: string | null;
+          slack_team_id: string;
+          slack_user_id: string | null;
+          step_data: NonNullable<Json>;
+          step_level: number;
+          step_type: string;
+          updated_at: string;
+        }[];
+        SetofOptions: {
+          from: '*';
+          to: 'request_workflow_steps';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       get_projects_list: {
         Args: {
           p_billable?: boolean;

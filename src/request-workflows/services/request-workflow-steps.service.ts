@@ -8,7 +8,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   IQueryOptions,
   SupabaseFilter,
-  Tables,
 } from '@common/repositories/base.repository';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
@@ -106,15 +105,6 @@ export class RequestWorkflowStepsService {
     );
   }
 
-  public markCompleted(stepIds: string[], slackTeamId: string) {
-    const now = new Date().toISOString();
-
-    return this.requestWorkflowStepsRepository.updateMany(
-      { id: { operator: 'in', value: stepIds }, slack_team_id: slackTeamId },
-      { completed_at: now, updated_at: now },
-    );
-  }
-
   // Marks the steps that nobody has processed yet as processed and returns
   // them, in one statement: of two callers at once, only the first gets them.
   public claimUnprocessed(findParams: IFindParams) {
@@ -124,38 +114,33 @@ export class RequestWorkflowStepsService {
     );
   }
 
-  public async updateStatus(
-    findParams: IFindParams,
+  // Decides the open steps of a request in one statement: one step
+  // (`stepId`), one level (`stepLevel`) or all of them. A step that is
+  // already closed is left alone, so of two people who decide at once only
+  // the first changes anything. Returns the steps it decided.
+  public decide(
+    {
+      requestId,
+      slackTeamId,
+      stepId,
+      stepLevel,
+    }: {
+      requestId: string;
+      slackTeamId: string;
+      stepId?: string;
+      stepLevel?: number;
+    },
     status: RequestWorkflowStatus,
     decidedBy: IUserViewModel,
   ) {
-    const stepsToUpdate = await this.requestWorkflowStepsRepository.findMany(
-      this.getFindQuery(findParams),
-    );
-
-    if (stepsToUpdate.length === 0) {
-      return [];
-    }
-
-    return await Promise.all(
-      stepsToUpdate.map((step) => {
-        return this.requestWorkflowStepsRepository.update(
-          {
-            id: step.id,
-            slack_team_id: step.slack_team_id,
-            request_id: step.request_id,
-          },
-          {
-            step_data: {
-              ...step.step_data,
-              status,
-              decided_at: new Date().toISOString(),
-              decided_by_slack_id: decidedBy.slack_id,
-            },
-          } as unknown as Tables['request_workflow_steps']['Update'],
-        );
-      }),
-    );
+    return this.requestWorkflowStepsRepository.decide({
+      slackTeamId,
+      requestId,
+      status,
+      decidedBySlackId: decidedBy.slack_id,
+      stepId,
+      stepLevel,
+    });
   }
 
   public findOne(findParams: IFindParams) {
