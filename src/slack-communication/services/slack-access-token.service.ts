@@ -3,7 +3,8 @@ import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
-const CACHE_TTL = 3600 * 24; // 1 day
+// A day. cache-manager takes milliseconds.
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export default class AccessTokenService {
@@ -26,7 +27,7 @@ export default class AccessTokenService {
       throw new NotFoundException('Team not found');
     }
 
-    await this.cacheManager.set(cacheKey, token, CACHE_TTL);
+    await this.cacheManager.set(cacheKey, token, CACHE_TTL_MS);
 
     return token;
   }

@@ -3,6 +3,8 @@ import { Tables } from '@common/types/database.types';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { acknowledged } from './support/slack-test-client';
+import { openAppHomeTab } from './support/app-home';
+import { sectionTexts } from './support/tab-readers';
 
 const HEADER = [
   'email',
@@ -143,6 +145,34 @@ describe('user-vacations.csv', () => {
       '2025-09-01',
     );
     expect(await vacationsOf(bob)).toHaveLength(1);
+  });
+
+  it('shows the imported vacations in the balance at once', async () => {
+    await t.db
+      .from('users')
+      .update({ contract_start_date: '2025-09-01' })
+      .eq('id', ada.id);
+    const annualLeave = async () =>
+      sectionTexts(await openAppHomeTab(t, workspace, ada)).filter((text) =>
+        text.startsWith('Annual leave'),
+      );
+    expect(await annualLeave()).toEqual([
+      'Annual leave: *28 available* / 28 total',
+    ]);
+
+    await importCsv(
+      row(ada.email, '2025-09-01', [
+        '2026-03-02',
+        '2026-03-06',
+        'annual_leave',
+        'approved',
+      ]),
+    );
+
+    // March 4 is a holiday of Ada's policy.
+    expect(await annualLeave()).toEqual([
+      'Annual leave: *23 available* / 28 total (*5* used, *4* working)',
+    ]);
   });
 
   it('imports nothing when a row is invalid', async () => {

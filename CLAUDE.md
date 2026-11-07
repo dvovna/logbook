@@ -156,6 +156,8 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
   - `mapToViewModel`.
 
   Filters are `SupabaseFilter`. A filter value can be a plain value (`eq`) or `{ operator, value }`. A filter value that is `undefined` is left out, so `BaseRepository` refuses any query or insert on a workspace's table without `slack_team_id` (and any query on `slack_teams` without a filter); `workspaceColumn = null` turns this off for `slack_teams` only. Search terms go into PostgREST's `.or()` only quoted (`quoteFilterValue`).
+
+  PostgREST answers a query with at most `max_rows` (1000) rows and doesn't say it cut the rest, so `findMany` reads in pages of 1000 until it has everything. `findOne` returns null only when no row matches, and throws on a failed query or several rows.
 - **Services** take camelCase params and convert them to snake_case filters, usually in a private `getFindQuery`. Services also enforce per-workspace limits from env (`MAX_TEAMS_PER_SLACK_TEAM`, `MAX_POLICIES_PER_SLACK_TEAM`, `MAX_*_REQUESTS_PER_USER`) and throw the domain errors from `src/common/errors/`.
 - Only an admin grants or removes the Admin role or deactivates an admin (`assertCanChangeUser`). Nobody approves their own vacation request: requesters are left out of their own approval levels, and `RequestWorkflowService.assertNotOwnRequest` guards the approve paths. A Slack `user_change` can deactivate a user but never reactivates one.
 - `slack_teams.slack_token` stays out of `ISlackTeamViewModel`; only `AccessTokenService` reads it, through `SlackTeamsService.findAccessToken`.
@@ -187,7 +189,6 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
 
 Two approvers can click at the same moment, so the transitions are single conditional updates rather than "read, check, write": `VacationRequestsService.finishPending` changes only a request that is still pending (whoever changes it sends the notifications), and the next level's steps are claimed through `processed_at` (`claimUnprocessed`) before anyone is asked.
 
-Request create/update/delete events also invalidate `VacationPeriodUsageCacheService`.
 
 ### Time & Billing
 
@@ -202,11 +203,11 @@ Domain modules `clients`, `projects`, `time-entries`; Slack tabs `clients`, `pro
 - **Vacation year and limits** (`VacationsUsageService`):
   - The year runs from the contract start anniversary, or over the calendar year when the user has no contract start date (`vacation-period.utils.ts`).
   - Limits come only from the vacation policy of the user's team. With no policy, `limits` is null: usage is tracked and shown, but no balance is checked. This is the "no setup" mode.
-  - The usage cache holds one entry per user and is dropped on any event for that user's requests.
+  - Usage is counted from the requests on every read (`VacationPeriodUsageService`), not cached: a cache went stale on CSV imports and holiday or policy changes.
 - **Working days:** `VacationDaysCalculationService` excludes weekends and the enabled holidays of the user's vacation policy. Holidays can be imported per country from Nager.Date (`src/holidays/clients/nager-date.client.ts`).
 - **CSV imports:** an admin command posts a prompt, the admin uploads a file, Slack sends `file_shared`, and `FileUploadService` routes the file **by its name** to `src/user-data-import/`:
   - `user-vacations.csv` (`/upload-vacations`): sets the contract start date and replaces the user's vacations;
   - `user-team-mapping.csv` (`/user-team-mapping`): `email;team_name` (both CSVs use `;`), moves users to the team with that exact name.
-- **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens, vacation usage). That's fine because production runs a single instance. Running more instances would need a shared store, for example Redis via Keyv.
+- **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens for a day, Nager.Date holidays for an hour; cache-manager takes TTLs in milliseconds). That's fine because production runs a single instance. Running more instances would need a shared store, for example Redis via Keyv.
 - **Logging:** `nestjs-pino`, pretty-printed unless `NODE_ENV=production`.
 - **Deploy:** multi-stage `Dockerfile` (Node 26 alpine, `NODE_ENV=production`, runs as the `node` user, `PORT=10000`; only `dependencies` are installed, so build and lint tools belong in `devDependencies`; `docker-compose.yml` sets `PORT` from `.env`, default 3000). The `public/` folder is served statically; the OAuth flow redirects to `/success.html`.

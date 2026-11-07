@@ -13,7 +13,6 @@ import { RequestWorkflowProcessingService } from '@modules/vacation-requests/ser
 import { UsersModule } from '@modules/users/users.module';
 import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
 import { VacationPeriodUsageService } from '@modules/vacation-requests/services/vacation-period-usage.service';
-import { VacationPeriodUsageCacheService } from '@modules/vacation-requests/services/vacation-period-usage-cache.service';
 import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
@@ -35,7 +34,6 @@ import { CacheModule } from '@nestjs/cache-manager';
     VacationRequestProcessingService,
     RequestWorkflowProcessingService,
     VacationPeriodUsageService,
-    VacationPeriodUsageCacheService,
   ],
   exports: [VacationRequestsService, VacationsUsageService],
 })

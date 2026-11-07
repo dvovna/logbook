@@ -16,7 +16,8 @@ export interface ICountryHolidaysProvider {
 
 @Injectable()
 export class CountryHolidaysProvider implements ICountryHolidaysProvider {
-  private readonly ttlSeconds = 3600;
+  // An hour. cache-manager takes milliseconds.
+  private readonly ttlMs = 60 * 60 * 1000;
 
   public constructor(
     private readonly nagerClient: NagerDateClient,
@@ -37,7 +38,7 @@ export class CountryHolidaysProvider implements ICountryHolidaysProvider {
     const nagerResponse = await this.nagerClient.fetchHolidays(country, year);
     const holidays = this.mapHolidays(nagerResponse);
 
-    await this.cacheManager.set(cacheKey, holidays, this.ttlSeconds);
+    await this.cacheManager.set(cacheKey, holidays, this.ttlMs);
 
     return holidays;
   }

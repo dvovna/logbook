@@ -6,18 +6,25 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { getDateOnly } from '@common/utils/date.utils';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
-import {
-  IVacationDaysCacheValue,
-  VacationPeriodUsageCacheService,
-} from '@modules/vacation-requests/services/vacation-period-usage-cache.service';
 import VacationType from '@common/enums/vacation-type.enum';
 import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
 
+export interface IVacationDaysUsage {
+  annualLeaveUsed: number;
+  annualLeaveWorkingDaysUsed: number;
+  bonusUsed: number;
+  sickUsed: number;
+  unpaidUsed: number;
+  otherUsed: number;
+}
+
+// Counted from the requests every time: a cache went stale whenever requests,
+// holidays or policies changed without a request event (a CSV import, for
+// one), and one query per user is cheap.
 @Injectable()
 export class VacationPeriodUsageService {
   public constructor(
     private readonly vacationRequestsRepository: VacationRequestsRepository,
-    private readonly vacationPeriodUsageCacheService: VacationPeriodUsageCacheService,
     private readonly teamsService: TeamsService,
     private readonly vacationDaysCalculationService: VacationDaysCalculationService,
   ) {}
@@ -26,39 +33,20 @@ export class VacationPeriodUsageService {
     user: IUserViewModel,
     periodStart: Date,
     periodEnd: Date,
-  ) {
-    const cachedUsage = await this.vacationPeriodUsageCacheService.get(
-      user.id,
-      periodStart,
-      periodEnd,
-    );
-
-    if (cachedUsage) {
-      return cachedUsage;
-    }
-
+  ): Promise<IVacationDaysUsage> {
     const vacationRequests = await this.getVacationRequestsByPeriod(
       user,
       periodStart,
       periodEnd,
     );
 
-    const aggregatedUsage = this.aggregateVacationDays(
+    return this.aggregateVacationDays(
       await Promise.all(
         vacationRequests.map((vacation) =>
           this.getDaysInPeriod(vacation, periodStart, periodEnd),
         ),
       ),
     );
-
-    await this.vacationPeriodUsageCacheService.set(
-      user.id,
-      periodStart,
-      periodEnd,
-      aggregatedUsage,
-    );
-
-    return aggregatedUsage;
   }
 
   // Every request with days in the period, also one across its start or end.
@@ -117,8 +105,8 @@ export class VacationPeriodUsageService {
       IVacationRequestViewModel,
       'type' | 'days' | 'working_days'
     >[],
-  ): IVacationDaysCacheValue {
-    return vacations.reduce<IVacationDaysCacheValue>(
+  ): IVacationDaysUsage {
+    return vacations.reduce<IVacationDaysUsage>(
       (acc, vacation) => {
         switch (vacation.type) {
           case VacationType.AnnualLeave:
