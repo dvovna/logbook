@@ -12,6 +12,7 @@ import { TestWorkspace } from './support/test-workspace';
 import { findAction, textOf } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
 import { addDays } from './support/dates';
+import { travelTo } from './support/clock';
 import {
   actOnTab,
   openAppHomeTab,
@@ -627,24 +628,17 @@ describe('Time entries', () => {
   });
 
   describe('summaries', () => {
-    // Another day of this week than today.
-    const otherDayThisWeek = () => {
-      const day = new Date(`${today()}T00:00:00Z`).getUTCDay();
-      const monday = addDays(today(), -((day + 6) % 7));
-
-      return monday === today() ? addDays(monday, 6) : monday;
-    };
-
+    // Today is Wednesday 2026-06-17 (TEST_NOW): the week is June 15 to 21.
     it("shows a member today's and this week's time on Home", async () => {
       const internal = await workspace.addProject({ name: 'Internal' });
       await workspace.assignToProject(internal, { teams: [design] });
       await workspace.addTimeEntry(member, website, { minutes: 90 });
       await workspace.addTimeEntry(member, internal, { minutes: 30 });
       await workspace.addTimeEntry(member, website, {
-        work_date: otherDayThisWeek(),
+        work_date: '2026-06-15',
       });
       await workspace.addTimeEntry(member, website, {
-        work_date: addDays(today(), -7),
+        work_date: '2026-06-14',
       });
       await workspace.addTimeEntry(member, website, {
         deleted_at: new Date().toISOString(),
@@ -656,6 +650,21 @@ describe('Time entries', () => {
 
       expect(home).toContain('Today: *2h* (Acme 1h 30m, No client 30m)');
       expect(home).toContain('This week: *3h* total');
+    });
+
+    it('starts the week on Monday', async () => {
+      travelTo('2026-06-15');
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-14',
+      });
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-15',
+      });
+
+      const home = textOf(await openAppHomeTab(t, workspace, member));
+
+      expect(home).toContain('Today: *1h*');
+      expect(home).toContain('This week: *1h* total');
     });
 
     it('says when nothing is logged yet', async () => {

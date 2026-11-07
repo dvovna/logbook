@@ -133,13 +133,15 @@ describe('Billing reports', () => {
   });
 
   it('defaults to this month and checks the period', async () => {
+    // Today is 2026-06-17 (TEST_NOW).
     const form = await openReportForm();
-    const today = new Date().toISOString().slice(0, 10);
 
     expect(findAction(form.blocks, 'fromDate').element.initial_date).toBe(
-      `${today.slice(0, 8)}01`,
+      '2026-06-01',
     );
-    expect(findAction(form.blocks, 'toDate').element.initial_date).toBe(today);
+    expect(findAction(form.blocks, 'toDate').element.initial_date).toBe(
+      '2026-06-17',
+    );
 
     const response = await t.slack
       .submitView(workspace, admin, form, {

@@ -22,6 +22,7 @@ const config: Config = {
   testEnvironment: 'node',
   globalSetup: '<rootDir>/test/integration/support/global-setup.ts',
   setupFiles: ['<rootDir>/test/integration/support/test-env.ts'],
+  setupFilesAfterEnv: ['<rootDir>/test/integration/support/setup-after-env.ts'],
   testTimeout: 30_000,
 };
 
