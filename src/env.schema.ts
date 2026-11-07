@@ -12,6 +12,15 @@ export const envSchema = z.object({
   SLACK_SIGN_IN_SECRET: z.string().min(1),
   SLACK_REDIRECT_URI: z.string().url(),
 
+  // Encrypts the bot tokens stored in slack_teams: 32 random bytes, base64
+  // (`openssl rand -base64 32`). Losing it means reinstalling the app in
+  // every workspace.
+  SLACK_TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .refine((key) => Buffer.from(key, 'base64').length === 32, {
+      message: 'must be 32 bytes, base64-encoded (openssl rand -base64 32)',
+    }),
+
   // The range of years the year filters offer.
   MIN_YEAR: z.coerce.number().int().min(1900).default(2020),
   MAX_YEAR: z.coerce.number().int().max(2100).default(2035),

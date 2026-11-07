@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
 import { runInBackground } from '@common/utils/run-in-background';
 import delay from '@common/utils/delay';
+import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import SlackUsersService from '@modules/slack-communication/services/slack-users.service';
@@ -25,6 +26,7 @@ export class TeamSetupWorkflowService {
     private readonly usersService: UsersService,
     private readonly slackUsersService: SlackUsersService,
     private readonly teamUsersSyncService: TeamUsersSyncService,
+    private readonly accessTokenService: AccessTokenService,
   ) {}
 
   public async execute({
@@ -33,6 +35,18 @@ export class TeamSetupWorkflowService {
     slackUserId,
     teamSlackToken,
   }: ITeamSetupWorkflowParams): Promise<void> {
+    const installed = await this.slackTeamsService.findOne({
+      slackId: slackTeamId,
+    });
+
+    if (installed) {
+      return this.reinstall(installed.id, {
+        slackTeamName,
+        slackUserId,
+        teamSlackToken,
+      });
+    }
+
     const slackTeam = await this.slackTeamsService.create({
       slack_id: slackTeamId,
       name: slackTeamName,
@@ -76,5 +90,38 @@ export class TeamSetupWorkflowService {
       await this.slackTeamsService.delete({ id: slackTeam.id });
       throw error;
     }
+  }
+
+  // Installing again (e.g. for new scopes) keeps the workspace's data and
+  // roles: it only stores the new token. Whoever reinstalls doesn't become an
+  // admin; one who isn't a user yet is added as a member.
+  private async reinstall(
+    id: string,
+    {
+      slackTeamName,
+      slackUserId,
+      teamSlackToken,
+    }: Omit<ITeamSetupWorkflowParams, 'slackTeamId'>,
+  ) {
+    await this.slackTeamsService.updateInstall(id, {
+      name: slackTeamName,
+      slackToken: teamSlackToken,
+    });
+    await this.accessTokenService.forget(id);
+
+    if (await this.usersService.findBySlackId(slackUserId, id)) {
+      return;
+    }
+
+    const { user } = await this.slackUsersService.getUser(slackUserId, id);
+
+    await this.usersService.create({
+      slackId: slackUserId,
+      teamId: null,
+      slackTeamId: id,
+      email: user.profile.email!,
+      name: user.profile.real_name || 'Unknown User',
+      role: UserRole.Member,
+    });
   }
 }

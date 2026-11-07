@@ -31,6 +31,11 @@ export default class AccessTokenService {
     return token;
   }
 
+  // After a reinstall the cached token is a revoked one.
+  public async forget(teamId: string) {
+    await this.cacheManager.del(this.getCacheKey(teamId));
+  }
+
   private getCacheKey(teamId: string) {
     return `slack:access_token:${teamId}`;
   }

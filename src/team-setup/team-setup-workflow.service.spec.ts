@@ -4,6 +4,7 @@ import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 import { UsersService } from 'src/users/services/users.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from 'src/team-setup/team-users-sync.service';
+import AccessTokenService from 'src/slack-communication/services/slack-access-token.service';
 
 const SLACK_TEAM_ID = 'b7a1c2d4-0000-4000-8000-000000000001';
 
@@ -16,6 +17,7 @@ describe('TeamSetupWorkflowService', () => {
     jest.useFakeTimers();
 
     const slackTeamsService = {
+      findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({ id: SLACK_TEAM_ID }),
       delete: jest.fn(),
     };
@@ -37,6 +39,7 @@ describe('TeamSetupWorkflowService', () => {
       usersService as unknown as UsersService,
       slackUsersService as unknown as SlackUsersService,
       teamUsersSyncService as unknown as TeamUsersSyncService,
+      { forget: jest.fn() } as unknown as AccessTokenService,
     );
   });
 

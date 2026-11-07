@@ -270,4 +270,25 @@ describe('Access control', () => {
       await t.app.get(SlackTeamsService).findAccessToken(workspace.id),
     ).toBe(workspace.token);
   });
+
+  it('encrypts a bot token stored in plain text once it is read', async () => {
+    // TestWorkspace stores its token in plain text, as the app did before.
+    const stored = async () =>
+      (
+        await t.db
+          .from('slack_teams')
+          .select('slack_token')
+          .eq('id', workspace.id)
+          .single()
+      ).data!.slack_token;
+    expect(await stored()).toBe(workspace.token);
+
+    expect(
+      await t.app.get(SlackTeamsService).findAccessToken(workspace.id),
+    ).toBe(workspace.token);
+    expect(await stored()).toMatch(/^v1:/);
+    expect(
+      await t.app.get(SlackTeamsService).findAccessToken(workspace.id),
+    ).toBe(workspace.token);
+  });
 });

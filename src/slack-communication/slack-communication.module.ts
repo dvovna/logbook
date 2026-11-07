@@ -16,6 +16,7 @@ import { ApiClientsModule } from 'src/api-clients/api-clients.module';
   ],
   imports: [CacheModule.register(), ApiClientsModule, SlackTeamsModule],
   exports: [
+    AccessTokenService,
     SlackCommandPromptsService,
     SlackCommunicationService,
     SlackUsersService,

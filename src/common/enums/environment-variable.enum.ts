@@ -6,6 +6,7 @@ enum EnvironmentVariable {
   SlackClientSecret = 'SLACK_CLIENT_SECRET',
   SlackSignInSecret = 'SLACK_SIGN_IN_SECRET',
   SlackRedirectUri = 'SLACK_REDIRECT_URI',
+  SlackTokenEncryptionKey = 'SLACK_TOKEN_ENCRYPTION_KEY',
   MinYear = 'MIN_YEAR',
   MaxYear = 'MAX_YEAR',
   MaxRequestsPerUser = 'MAX_REQUESTS_PER_USER',

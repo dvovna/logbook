@@ -4,12 +4,14 @@
 // matters (process.env wins over .env in ConfigModule).
 export const TEST_SLACK_SIGNING_SECRET = 'integration-test-signing-secret';
 export const TEST_SLACK_CLIENT_ID = 'integration-test-client-id';
+export const TEST_TOKEN_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 
 const testEnv: Record<string, string> = {
   SLACK_CLIENT_ID: TEST_SLACK_CLIENT_ID,
   SLACK_CLIENT_SECRET: 'integration-test-client-secret',
   SLACK_SIGN_IN_SECRET: TEST_SLACK_SIGNING_SECRET,
   SLACK_REDIRECT_URI: 'http://localhost/api/slack/oauth/redirect',
+  SLACK_TOKEN_ENCRYPTION_KEY: TEST_TOKEN_ENCRYPTION_KEY,
 
   MIN_YEAR: '2020',
   MAX_YEAR: '2100',

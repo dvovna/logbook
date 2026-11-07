@@ -3,6 +3,8 @@ import UserRole from '@common/enums/user-role.enum';
 import { TEST_SLACK_CLIENT_ID } from './support/test-env';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId } from './support/test-workspace';
+import { acknowledged } from './support/slack-test-client';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 
 describe('Installing the app (OAuth redirect)', () => {
   let t: ITestApp;
@@ -104,10 +106,13 @@ describe('Installing the app (OAuth redirect)', () => {
       .eq('slack_id', teamId)
       .single();
 
-    expect(slackTeam).toMatchObject({
-      name: 'Acme',
-      slack_token: `xoxb-${teamId}`,
-    });
+    // The token is stored encrypted, and the app reads it back.
+    expect(slackTeam).toMatchObject({ name: 'Acme' });
+    expect(slackTeam!.slack_token).toMatch(/^v1:/);
+    expect(slackTeam!.slack_token).not.toContain('xoxb');
+    expect(
+      await t.app.get(SlackTeamsService).findAccessToken(slackTeam!.id),
+    ).toBe(`xoxb-${teamId}`);
 
     const usersOf = async () =>
       (await t.db.from('users').select('*').eq('slack_team_id', slackTeam!.id))
@@ -132,6 +137,107 @@ describe('Installing the app (OAuth redirect)', () => {
       ]),
     );
     expect(await usersOf()).toHaveLength(2);
+  });
+
+  describe('again', () => {
+    // A workspace installed once, with its installer as admin.
+    const installOnce = async (name = 'Acme') => {
+      const teamId = slackId('T');
+      const installer = slackId('U');
+      installedTeams.push(teamId);
+
+      t.slackApi.addOauthGrant(`first-${teamId}`, {
+        teamId,
+        teamName: name,
+        botToken: `xoxb-first-${teamId}`,
+        installerId: installer,
+      });
+      t.slackApi.addUser({
+        id: installer,
+        teamId,
+        name: 'Ivy Installer',
+        email: `ivy-${teamId}@acme.test`,
+      });
+      expect((await install(`first-${teamId}`)).status).toBe(302);
+      await t.idle();
+
+      const { data } = await t.db
+        .from('slack_teams')
+        .select('*')
+        .eq('slack_id', teamId)
+        .single();
+
+      return { teamId, installer, slackTeam: data! };
+    };
+
+    it('keeps the data and roles and uses the new token', async () => {
+      const { teamId, installer, slackTeam } = await installOnce();
+      const member = slackId('U');
+      await t.db.from('users').insert({
+        slack_id: member,
+        slack_team_id: slackTeam.id,
+        name: 'Max Member',
+        email: `max-${teamId}@acme.test`,
+        role: UserRole.Member,
+      });
+      t.slackApi.addOauthGrant(`second-${teamId}`, {
+        teamId,
+        teamName: 'Acme Corp',
+        botToken: `xoxb-second-${teamId}`,
+        installerId: member,
+      });
+
+      // Opening the App Home caches the first token.
+      await t.slack
+        .event({ slackId: teamId }, {
+          type: 'app_home_opened',
+          user: installer,
+          tab: 'home',
+        })
+        .expect(acknowledged);
+      await t.idle();
+
+      expect((await install(`second-${teamId}`)).status).toBe(302);
+      await t.idle();
+
+      const { data: teams } = await t.db
+        .from('slack_teams')
+        .select('*')
+        .eq('slack_id', teamId);
+      expect(teams).toEqual([
+        expect.objectContaining({ id: slackTeam.id, name: 'Acme Corp' }),
+      ]);
+
+      const { data: users } = await t.db
+        .from('users')
+        .select('slack_id, role')
+        .eq('slack_team_id', slackTeam.id);
+      expect(users).toEqual(
+        expect.arrayContaining([
+          { slack_id: installer, role: UserRole.Admin },
+          { slack_id: member, role: UserRole.Member },
+        ]),
+      );
+      expect(users).toHaveLength(2);
+
+      const since = t.slackApi.mark();
+      await t.slack
+        .event({ slackId: teamId }, {
+          type: 'app_home_opened',
+          user: installer,
+          tab: 'home',
+        })
+        .expect(acknowledged);
+      await t.idle();
+      expect(
+        t.slackApi.calls.slice(since).map(({ token }) => token),
+      ).toEqual([`xoxb-second-${teamId}`]);
+    });
+
+    it('lets two workspaces with the same name install', async () => {
+      await installOnce('Same Name');
+      await installOnce('Same Name');
+    });
   });
 
   it('fails without creating anything when Slack rejects the code', async () => {
