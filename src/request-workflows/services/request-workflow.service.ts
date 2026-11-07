@@ -92,7 +92,7 @@ export class RequestWorkflowService {
       throw new NotFoundException('No steps found for the first level');
     }
 
-    await this.workflowStepProcessorService.processSteps(firstLevelSteps, []);
+    this.workflowStepProcessorService.processSteps(firstLevelSteps);
   }
 
   // Closes every open step of the request (on cancel, and on any later update
@@ -113,15 +113,7 @@ export class RequestWorkflowService {
       return;
     }
 
-    const comments = await this.requestWorkflowStepCommentsService.findMany({
-      requestId,
-      slackTeamId: canceledBy.slack_team_id,
-    });
-
-    await this.workflowStepProcessorService.completeSteps(
-      canceledSteps,
-      comments,
-    );
+    await this.workflowStepProcessorService.completeSteps(canceledSteps);
   }
 
   public async approveStep(stepId: string, approvedBy: IUserViewModel) {
@@ -162,16 +154,7 @@ export class RequestWorkflowService {
       stepsToComplete.push(...levelSteps);
     }
 
-    const levelComments =
-      await this.requestWorkflowStepCommentsService.findMany({
-        requestId: step.request_id,
-        slackTeamId: step.slack_team_id,
-      });
-
-    await this.workflowStepProcessorService.completeSteps(
-      stepsToComplete,
-      levelComments,
-    );
+    await this.workflowStepProcessorService.completeSteps(stepsToComplete);
 
     const isLevelComplete =
       step.step_data.rule === ApprovalRule.Any ||
@@ -228,15 +211,7 @@ export class RequestWorkflowService {
       approvedBy,
     );
 
-    const comments = await this.requestWorkflowStepCommentsService.findMany({
-      requestId,
-      slackTeamId: approvedBy.slack_team_id,
-    });
-
-    await this.workflowStepProcessorService.completeSteps(
-      approvedSteps,
-      comments,
-    );
+    await this.workflowStepProcessorService.completeSteps(approvedSteps);
 
     await this.activateNextLevel(currentStep, approvedBy);
   }
@@ -269,10 +244,7 @@ export class RequestWorkflowService {
         slackTeamId: step.slack_team_id,
       });
 
-    await this.workflowStepProcessorService.completeSteps(
-      steps,
-      approverComments,
-    );
+    await this.workflowStepProcessorService.completeSteps(steps);
 
     this.finishWorkflow({
       requestId: step.request_id,
@@ -302,15 +274,7 @@ export class RequestWorkflowService {
       return;
     }
 
-    const comments = await this.requestWorkflowStepCommentsService.findMany({
-      requestId: comment.request_id,
-      slackTeamId: comment.slack_team_id,
-    });
-
-    await this.workflowStepProcessorService.updateStepMessages(
-      stepsToUpdate,
-      comments,
-    );
+    this.workflowStepProcessorService.updateStepMessages(stepsToUpdate);
   }
 
   private async completeLevelSteps(
@@ -414,10 +378,7 @@ export class RequestWorkflowService {
       const claimedSteps =
         await this.requestWorkflowStepsService.claimUnprocessed(nextLevel);
 
-      await this.workflowStepProcessorService.processSteps(
-        claimedSteps,
-        approverComments,
-      );
+      this.workflowStepProcessorService.processSteps(claimedSteps);
 
       return;
     }

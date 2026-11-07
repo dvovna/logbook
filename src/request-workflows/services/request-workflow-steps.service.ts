@@ -106,6 +106,15 @@ export class RequestWorkflowStepsService {
     );
   }
 
+  public markCompleted(stepIds: string[], slackTeamId: string) {
+    const now = new Date().toISOString();
+
+    return this.requestWorkflowStepsRepository.updateMany(
+      { id: { operator: 'in', value: stepIds }, slack_team_id: slackTeamId },
+      { completed_at: now, updated_at: now },
+    );
+  }
+
   // Marks the steps that nobody has processed yet as processed and returns
   // them, in one statement: of two callers at once, only the first gets them.
   public claimUnprocessed(findParams: IFindParams) {

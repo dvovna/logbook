@@ -190,10 +190,7 @@ describe('RequestWorkflowService', () => {
           },
         },
       ]);
-      expect(processorService.processSteps).toHaveBeenCalledWith(
-        [level1Step],
-        [],
-      );
+      expect(processorService.processSteps).toHaveBeenCalledWith([level1Step]);
     });
 
     it('does nothing when there are no approvers', async () => {
@@ -237,10 +234,10 @@ describe('RequestWorkflowService', () => {
         'approved',
         approver,
       );
-      expect(processorService.completeSteps).toHaveBeenCalledWith(
-        [approvedStep, otherLevelStep],
-        comments,
-      );
+      expect(processorService.completeSteps).toHaveBeenCalledWith([
+        approvedStep,
+        otherLevelStep,
+      ]);
       expect(stepsService.count).not.toHaveBeenCalled();
       const nextLevel = {
         requestId: REQUEST_ID,
@@ -250,10 +247,9 @@ describe('RequestWorkflowService', () => {
       };
       expect(stepsService.findMany).toHaveBeenCalledWith(nextLevel);
       expect(stepsService.claimUnprocessed).toHaveBeenCalledWith(nextLevel);
-      expect(processorService.processSteps).toHaveBeenCalledWith(
-        [nextLevelStep],
-        comments,
-      );
+      expect(processorService.processSteps).toHaveBeenCalledWith([
+        nextLevelStep,
+      ]);
       expect(eventEmitter.emit).not.toHaveBeenCalled();
     });
 
@@ -267,7 +263,7 @@ describe('RequestWorkflowService', () => {
 
       await service.approveStep(step.id, approver);
 
-      expect(processorService.processSteps).toHaveBeenCalledWith([], comments);
+      expect(processorService.processSteps).toHaveBeenCalledWith([]);
       expect(eventEmitter.emit).not.toHaveBeenCalled();
     });
 
@@ -280,10 +276,7 @@ describe('RequestWorkflowService', () => {
       await service.approveStep(step.id, approver);
 
       expect(stepsService.updateStatus).toHaveBeenCalledTimes(1);
-      expect(processorService.completeSteps).toHaveBeenCalledWith(
-        [step],
-        comments,
-      );
+      expect(processorService.completeSteps).toHaveBeenCalledWith([step]);
       expect(stepsService.count).toHaveBeenCalledWith({
         requestId: REQUEST_ID,
         stepLevel: 1,
@@ -341,14 +334,8 @@ describe('RequestWorkflowService', () => {
         RequestWorkflowStatus.Approved,
         hr,
       );
-      expect(processorService.completeSteps).toHaveBeenCalledWith(
-        level1,
-        comments,
-      );
-      expect(processorService.processSteps).toHaveBeenCalledWith(
-        level2,
-        comments,
-      );
+      expect(processorService.completeSteps).toHaveBeenCalledWith(level1);
+      expect(processorService.processSteps).toHaveBeenCalledWith(level2);
       expect(eventEmitter.emit).not.toHaveBeenCalled();
     });
 
@@ -394,7 +381,6 @@ describe('RequestWorkflowService', () => {
       );
       expect(processorService.completeSteps).toHaveBeenCalledWith(
         rejectedSteps,
-        comments,
       );
       expect(processorService.processSteps).not.toHaveBeenCalled();
       expect(getFinishedEvent().workflow).toEqual({
@@ -457,10 +443,7 @@ describe('RequestWorkflowService', () => {
         RequestWorkflowStatus.Canceled,
         requester,
       );
-      expect(processorService.completeSteps).toHaveBeenCalledWith(
-        openSteps,
-        comments,
-      );
+      expect(processorService.completeSteps).toHaveBeenCalledWith(openSteps);
       expect(processorService.processSteps).not.toHaveBeenCalled();
       expect(eventEmitter.emit).not.toHaveBeenCalled();
     });

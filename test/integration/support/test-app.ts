@@ -1,6 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
+import { randomUUID } from 'node:crypto';
+import { Client } from 'pg';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { AppModule } from 'src/app.module';
 import { configureApp } from 'src/app.setup';
@@ -9,6 +11,11 @@ import { SupabaseService } from 'src/database/supabase.service';
 import { Database } from '@common/types/database.types';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
+import {
+  DEFAULT_JOBS_OPTIONS,
+  JOBS_OPTIONS,
+  JobsService,
+} from '@common/jobs/jobs.service';
 import { FakeSlackApiClient } from './fake-slack-api.client';
 import { FakeNagerDateClient } from './fake-nager-date.client';
 import { NagerDateClient } from 'src/holidays/clients/nager-date.client';
@@ -28,6 +35,9 @@ export interface ITestApp {
   // Resolves once the app has finished the work it does after answering
   // Slack (event handlers, EventEmitter listeners, tab updates).
   idle(): Promise<void>;
+  // Runs the saved jobs that wait for a retry now, instead of minutes later,
+  // and waits for what they start.
+  retryJobs(): Promise<void>;
   createWorkspace(): Promise<TestWorkspace>;
   close(): Promise<void>;
 }
@@ -37,12 +47,22 @@ export interface ITestApp {
 export const createTestApp = async (): Promise<ITestApp> => {
   const slackApi = new FakeSlackApiClient();
   const nager = new FakeNagerDateClient();
+  // Each app has its own job tables: test files run in parallel, and other
+  // checkouts may run their tests against the same database.
+  const jobsSchema = `pgboss_test_${randomUUID().slice(0, 8)}`;
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(SlackApiClient)
     .useValue(slackApi)
     .overrideProvider(NagerDateClient)
     .useValue(nager)
+    .overrideProvider(JOBS_OPTIONS)
+    .useValue({
+      ...DEFAULT_JOBS_OPTIONS,
+      schema: jobsSchema,
+      pollIntervalSeconds: 0,
+      maintenance: false,
+    })
     .compile();
 
   const app = moduleRef.createNestApplication({ bufferLogs: true });
@@ -58,6 +78,10 @@ export const createTestApp = async (): Promise<ITestApp> => {
     'SUPABASE_URL',
     app.get(ConfigService).get(EnvironmentVariable.SupabaseUrl),
   );
+  const databaseUrl = app
+    .get(ConfigService)
+    .get<string>(EnvironmentVariable.DatabaseUrl);
+  assertLocalUrl('DATABASE_URL', databaseUrl);
 
   const db = app.get(SupabaseService).getClient();
   const workspaces: TestWorkspace[] = [];
@@ -69,6 +93,10 @@ export const createTestApp = async (): Promise<ITestApp> => {
     slack: new SlackTestClient(app.getHttpServer()),
     db,
     idle: whenBackgroundWorkIsDone,
+    retryJobs: async () => {
+      await app.get(JobsService).runDueJobs({ includeNotDue: true });
+      await whenBackgroundWorkIsDone();
+    },
     createWorkspace: async () => {
       const workspace = await TestWorkspace.create(db);
       workspaces.push(workspace);
@@ -78,6 +106,18 @@ export const createTestApp = async (): Promise<ITestApp> => {
     close: async () => {
       await Promise.all(workspaces.map((workspace) => workspace.destroy()));
       await app.close();
+      await dropJobsSchema(databaseUrl!, jobsSchema);
     },
   };
 };
+
+async function dropJobsSchema(databaseUrl: string, schema: string) {
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+
+  try {
+    await client.query(`drop schema if exists "${schema}" cascade`);
+  } finally {
+    await client.end();
+  }
+}

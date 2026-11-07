@@ -1,6 +1,7 @@
 import { Logger, Module } from '@nestjs/common';
 import { BackgroundWorkShutdownService } from '@common/services/background-work-shutdown.service';
 import { EventTrackingService } from '@common/services/event-tracking.service';
+import { JobsModule } from '@common/jobs/jobs.module';
 import { AppController } from './app.controller';
 import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 import { SlackModule } from './slack/slack.module';
@@ -27,6 +28,7 @@ import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 
 @Module({
   imports: [
+    JobsModule,
     LoggerModule.forRoot({ pinoHttp: pinoHttpOptions() }),
     ConfigModule.forRoot({
       isGlobal: true,

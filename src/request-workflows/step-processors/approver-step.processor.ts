@@ -49,48 +49,12 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
     }
   }
 
-  public async processCompleted(
-    step: IRequestWorkflowStepViewModel,
-    comments: IWorkflowStepCommentViewModel[],
-  ): Promise<void> {
-    // Steps of a level that was never reached have no message to update.
-    if (step.slack_message_ts) {
-      await this.updateMessage(step, comments);
-    }
-
-    await this.requestWorkflowStepsService.update(
-      {
-        id: step.id,
-        slackTeamId: step.slack_team_id,
-      },
-      {
-        completedAt: new Date().toISOString(),
-      },
-    );
-  }
-
-  public async processCanceled(
-    step: IRequestWorkflowStepViewModel,
-  ): Promise<void> {
-    await this.updateMessage(step);
-
-    await this.requestWorkflowStepsService.update(
-      {
-        id: step.id,
-        slackTeamId: step.slack_team_id,
-      },
-      {
-        completedAt: new Date().toISOString(),
-      },
-    );
-  }
-
   public async updateMessage(
     step: IRequestWorkflowStepViewModel,
     comments?: IWorkflowStepCommentViewModel[],
   ): Promise<void> {
     if (!step.slack_message_ts || !step.slack_channel_id) {
-      this.logger.error('Step message timestamp or channel are missing');
+      this.logger.error(`Step ${step.id} has no message to update`);
       return;
     }
 

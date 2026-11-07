@@ -7,11 +7,6 @@ export interface IWorkflowStepProcessor {
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
   ): Promise<void>;
-  processCompleted(
-    step: IRequestWorkflowStepViewModel,
-    comments: IWorkflowStepCommentViewModel[],
-  ): Promise<void>;
-  processCanceled(step: IRequestWorkflowStepViewModel): Promise<void>;
   updateMessage(
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],

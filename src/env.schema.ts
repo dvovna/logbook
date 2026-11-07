@@ -7,6 +7,13 @@ export const envSchema = z.object({
   SUPABASE_URL: z.url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
+  // A direct Postgres connection (Supabase: the session pooler on port 5432)
+  // for the job queue. Without it background jobs run once, without retries.
+  DATABASE_URL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.url().optional(),
+  ),
+
   SLACK_CLIENT_ID: z.string().min(1),
   SLACK_CLIENT_SECRET: z.string().min(1),
   SLACK_SIGN_IN_SECRET: z.string().min(1),

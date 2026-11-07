@@ -59,10 +59,7 @@ describe('ApproverStepProcessor', () => {
   });
 
   it('replaces the buttons with a canceled note when the request is canceled', async () => {
-    await processor.processCompleted(
-      buildStep(WorkflowStepStatus.Cancelled),
-      [],
-    );
+    await processor.updateMessage(buildStep(WorkflowStepStatus.Cancelled), []);
 
     const [channel, ts, message] = communicationService.updateMessage.mock
       .calls[0] as [string, string, { text: string; blocks: object[] }];
@@ -75,26 +72,6 @@ describe('ApproverStepProcessor', () => {
     );
     expect(message.blocks).not.toContainEqual(
       expect.objectContaining({ type: 'actions' }),
-    );
-    expect(stepsService.update).toHaveBeenCalledWith(
-      { id: 'step-1', slackTeamId: 'slack-team-1' },
-      { completedAt: expect.any(String) },
-    );
-  });
-
-  it('closes a step that never got a message without touching Slack', async () => {
-    await processor.processCompleted(
-      buildStep(WorkflowStepStatus.Cancelled, {
-        slack_message_ts: null,
-        slack_channel_id: null,
-      }),
-      [],
-    );
-
-    expect(communicationService.updateMessage).not.toHaveBeenCalled();
-    expect(stepsService.update).toHaveBeenCalledWith(
-      { id: 'step-1', slackTeamId: 'slack-team-1' },
-      { completedAt: expect.any(String) },
     );
   });
 });
