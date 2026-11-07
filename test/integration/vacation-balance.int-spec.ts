@@ -155,9 +155,13 @@ describe('Vacation balance under a policy', () => {
 
       const response = await request();
 
-      expect(modalError(response.view)).toBe(
-        'Not enough vacation days. Requested: 5, available: 3',
-      );
+      expect(response).toEqual({
+        response_action: 'errors',
+        errors: {
+          end_date_block:
+            'Not enough vacation days. Requested: 5, available: 3',
+        },
+      });
       expect(await workspace.rows('vacation_requests')).toEqual([]);
     });
 
@@ -166,9 +170,12 @@ describe('Vacation balance under a policy', () => {
 
       const response = await request();
 
-      expect(modalError(response.view)).toBe(
-        'Not enough working days. Requested: 5, available: 4',
-      );
+      expect(response).toEqual({
+        response_action: 'errors',
+        errors: {
+          end_date_block: 'Not enough working days. Requested: 5, available: 4',
+        },
+      });
     });
 
     it('refuses more bonus days than are left', async () => {
@@ -181,9 +188,12 @@ describe('Vacation balance under a policy', () => {
         type: VacationType.BonusDay,
       });
 
-      expect(modalError(response.view)).toBe(
-        'Not enough bonus days. Requested: 2, available: 1',
-      );
+      expect(response).toEqual({
+        response_action: 'errors',
+        errors: {
+          end_date_block: 'Not enough bonus days. Requested: 2, available: 1',
+        },
+      });
     });
 
     it('does not limit sick leave', async () => {

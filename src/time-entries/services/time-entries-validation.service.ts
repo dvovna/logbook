@@ -96,18 +96,23 @@ export class TimeEntriesValidationService {
 
   private validateMinutes(minutes: number) {
     if (minutes <= 0) {
-      throw new ValidationError('Logged minutes must be greater than 0');
+      throw new ValidationError(
+        'Logged minutes must be greater than 0',
+        'minutes',
+      );
     }
 
     if (minutes > MAX_MINUTES_PER_DAY) {
       throw new ValidationError(
         `Logged minutes cannot exceed ${MAX_MINUTES_PER_DAY}`,
+        'minutes',
       );
     }
 
     if (minutes % MINUTES_STEP !== 0) {
       throw new ValidationError(
         `Logged minutes must be in ${MINUTES_STEP} - minute increments`,
+        'minutes',
       );
     }
   }
@@ -187,6 +192,7 @@ export class TimeEntriesValidationService {
     if (totalMinutes + newLogDurationMinutes > MAX_MINUTES_PER_DAY) {
       throw new ValidationError(
         'Total logged time for this project and date cannot exceed 24 hours',
+        'minutes',
       );
     }
   }

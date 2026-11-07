@@ -119,7 +119,9 @@ describe('/vacations', () => {
         end: addDays(end, 3),
       });
 
-      expect(textOf(response.view)).toContain(
+      // At the dates, so what was typed stays in the form.
+      expect(response.response_action).toBe('errors');
+      expect(response.errors.end_date_block).toContain(
         'overlap with another vacation request',
       );
       expect(await workspace.rows('vacation_requests')).toHaveLength(1);

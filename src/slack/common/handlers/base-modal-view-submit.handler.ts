@@ -19,6 +19,10 @@ export abstract class BaseModalFormSubmitHandler<
 > {
   protected readonly logger = new Logger(BaseModalFormSubmitHandler.name);
 
+  // Domain error fields this form calls differently, e.g. { minutes: 'hours' }.
+  // A field not listed here is looked up by its own name.
+  protected readonly errorFields: Record<string, keyof FormData & string> = {};
+
   public constructor(
     private readonly formParser?: BaseValuesParser<FormData>,
   ) {}
@@ -39,6 +43,13 @@ export abstract class BaseModalFormSubmitHandler<
 
       return this.successResponse(result, user, metadata);
     } catch (error) {
+      const fieldErrors = this.fieldErrorsOf(error);
+
+      // At the field it is about: Slack keeps what was typed and scrolls there.
+      if (fieldErrors) {
+        return SlackViewResponseFactory.errors(fieldErrors);
+      }
+
       const isKnownError =
         error instanceof PrimaryEntityDeleteError ||
         error instanceof ForbiddenException ||
@@ -60,6 +71,21 @@ export abstract class BaseModalFormSubmitHandler<
 
       return this.errorResponse(errorMessage, data, metadata, user);
     }
+  }
+
+  private fieldErrorsOf(error: unknown): Record<string, string> | null {
+    const field =
+      error instanceof ValidationError || error instanceof DuplicatedRecordError
+        ? error.field
+        : undefined;
+
+    if (!field || !this.formParser) {
+      return null;
+    }
+
+    const blockId = this.formParser.blockIdOf(this.errorFields[field] ?? field);
+
+    return blockId ? { [blockId]: (error as Error).message } : null;
   }
 
   protected getFormData(

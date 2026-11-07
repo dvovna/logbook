@@ -27,6 +27,11 @@ export abstract class BaseTimeEntryFormSubmitHandler<
   FormData,
   ITimeEntryViewModel
 > {
+  protected readonly errorFields = {
+    minutes: 'hours' as const,
+    project: 'projectId' as const,
+  };
+
   protected constructor(
     protected readonly timeEntryFormModalView: TimeEntryFormModalView,
     protected readonly timeEntryModalService: TimeEntryModalService,

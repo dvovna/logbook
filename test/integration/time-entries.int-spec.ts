@@ -381,12 +381,17 @@ describe('Time entries', () => {
         .submitView(workspace, admin, modal, { hours: '1.25' })
         .expect(200);
 
-      expect(modalError(rejected.body.view)).toBe(
-        'Total logged time for this project and date cannot exceed 24 hours',
-      );
+      expect(rejected.body).toEqual({
+        response_action: 'errors',
+        errors: {
+          hours_block:
+            'Total logged time for this project and date cannot exceed 24 hours',
+        },
+      });
 
+      // Slack keeps the same form open, with the error under Hours.
       const accepted = await t.slack
-        .submitView(workspace, admin, rejected.body.view, { hours: '1' })
+        .submitView(workspace, admin, modal, { hours: '1' })
         .expect(200);
 
       expect(sectionTexts(accepted.body.view)).toEqual([
@@ -1043,9 +1048,13 @@ describe('Time entries', () => {
         .submitView(workspace, admin, modal, { hours: '1.25' })
         .expect(200);
 
-      expect(modalError(response.body.view)).toBe(
-        'Total logged time for this project and date cannot exceed 24 hours',
-      );
+      expect(response.body).toEqual({
+        response_action: 'errors',
+        errors: {
+          hours_block:
+            'Total logged time for this project and date cannot exceed 24 hours',
+        },
+      });
       expect((await workspace.row('time_entries', entry.id)).minutes).toBe(60);
     });
 

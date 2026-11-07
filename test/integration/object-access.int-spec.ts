@@ -520,9 +520,10 @@ describe('Access to objects by ID', () => {
       { projectId: notTheirs.id },
     );
 
-    expect(modalError(response.body.view)).toContain(
-      'This project is not available',
-    );
+    expect(response.body).toEqual({
+      response_action: 'errors',
+      errors: { project_block: 'This project is not available.' },
+    });
     expect(await workspace.rows('time_entries')).toEqual([]);
   });
 });

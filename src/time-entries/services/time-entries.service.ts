@@ -279,7 +279,7 @@ export class TimeEntriesService {
       ).some(({ id }) => id === projectId);
 
     if (!project || !mayLogOn) {
-      throw new ValidationError('This project is not available.');
+      throw new ValidationError('This project is not available.', 'project');
     }
 
     return project;

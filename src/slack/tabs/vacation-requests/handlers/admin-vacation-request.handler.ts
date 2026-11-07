@@ -33,6 +33,9 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
   IVacationRequestAdminFormViewData,
   IVacationRequestViewModel
 > {
+  // Overlaps and balance concern the period: shown under its end.
+  protected readonly errorFields = { dates: 'end_date' as const };
+
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly tabNavigationService: TabNavigationService,

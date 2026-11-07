@@ -17,6 +17,10 @@ export default abstract class BaseValuesParser<ViewData extends object> {
     );
   }
 
+  public blockIdOf(field: string) {
+    return this.valuesParser.blockIdOf(field);
+  }
+
   public parse(
     values: IViewStateValues,
   ): ReturnType<SlackViewValuesParser<ViewData>['parse']> {

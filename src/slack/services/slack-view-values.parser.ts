@@ -28,6 +28,13 @@ export default class SlackViewValuesParser<ViewData extends object> {
     private fieldsConfig: IFieldsConfig<ViewData>,
   ) {}
 
+  // The block a form field sits in, to show an error at it.
+  public blockIdOf(field: string): string | undefined {
+    return (this.fieldsConfig as Record<string, IFieldConfig | undefined>)[
+      field
+    ]?.blockId;
+  }
+
   public parse(values: IViewStateValues): IViewParseResult<ViewData> {
     try {
       const data = this.getDataFromValues(values);

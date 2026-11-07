@@ -159,9 +159,10 @@ describe('Projects', () => {
         .submitView(workspace, admin, modal, { name: 'Website' })
         .expect(200);
 
-      expect(modalError(response.body.view)).toBe(
-        'Project with same name already exists.',
-      );
+      expect(response.body).toEqual({
+        response_action: 'errors',
+        errors: { name_block: 'Project with same name already exists.' },
+      });
       expect(await workspace.rows('projects')).toHaveLength(1);
     });
   });

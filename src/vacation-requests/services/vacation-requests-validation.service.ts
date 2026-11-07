@@ -82,6 +82,7 @@ export class VacationRequestsValidationService {
     if (overlapping) {
       throw new ValidationError(
         `These dates overlap with another vacation request (${formatDateRange(overlapping.start_date, overlapping.end_date)})`,
+        'dates',
       );
     }
   }
@@ -146,6 +147,7 @@ export class VacationRequestsValidationService {
     if (daysRequested > daysAvailable) {
       throw new ValidationError(
         `Not enough ${daysType} days. Requested: ${daysRequested}, available: ${daysAvailable}`,
+        'dates',
       );
     }
   }

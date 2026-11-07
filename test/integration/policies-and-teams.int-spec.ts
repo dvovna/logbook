@@ -243,9 +243,10 @@ describe('Vacation policies and teams', () => {
         .submitView(workspace, admin, form, { name: 'Design' })
         .expect(200);
 
-      expect(modalError(response.body.view)).toBe(
-        "Team with name 'Design' already exists.",
-      );
+      expect(response.body).toEqual({
+        response_action: 'errors',
+        errors: { name_block: "Team with name 'Design' already exists." },
+      });
       expect(await workspace.rows('teams')).toHaveLength(1);
     });
   });

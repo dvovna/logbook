@@ -105,9 +105,10 @@ describe('Clients', () => {
         .submitView(workspace, admin, modal, { name: 'Acme' })
         .expect(200);
 
-      expect(modalError(response.body.view)).toBe(
-        'Client with same name already exists.',
-      );
+      expect(response.body).toEqual({
+        response_action: 'errors',
+        errors: { name_block: 'Client with same name already exists.' },
+      });
       expect(await workspace.rows('clients')).toHaveLength(1);
     });
 
