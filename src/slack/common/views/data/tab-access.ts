@@ -1,7 +1,12 @@
 import UserRole from '@common/enums/user-role.enum';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 
-const EVERYONE = [UserRole.Admin, UserRole.HR, UserRole.Manager, UserRole.Member];
+const EVERYONE = [
+  UserRole.Admin,
+  UserRole.HR,
+  UserRole.Manager,
+  UserRole.Member,
+];
 const MANAGERS = [UserRole.Admin, UserRole.HR, UserRole.Manager];
 const ADMIN_AND_HR = [UserRole.Admin, UserRole.HR];
 

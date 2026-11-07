@@ -2,10 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import {
-  ISearchParams,
-  ISearchResult,
-} from '@common/types/pagination.types';
+import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import { SupabaseFilter } from '@common/repositories/base.repository';
 import { UserUpdateValidatorService } from '@modules/users/services/user-update-validator.service';
 
@@ -205,19 +202,19 @@ export class UsersService implements IUsersService {
       ...(findParams.role ? { role: findParams.role } : {}),
       ...(findParams.roles
         ? {
-          role: {
-            operator: 'in',
-            value: findParams.roles,
-          },
-        }
+            role: {
+              operator: 'in',
+              value: findParams.roles,
+            },
+          }
         : {}),
       ...(findParams.ids
         ? {
-          id: {
-            operator: 'in',
-            value: findParams.ids,
-          },
-        }
+            id: {
+              operator: 'in',
+              value: findParams.ids,
+            },
+          }
         : {}),
       ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
       ...(findParams.teamIds

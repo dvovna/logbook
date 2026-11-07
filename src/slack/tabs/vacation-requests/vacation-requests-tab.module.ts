@@ -19,9 +19,7 @@ import VacationHistoryTabActionsHandler from '@modules/slack/tabs/vacation-reque
 import { RequestWorkflowsModule } from '@modules/request-workflows/request-workflows.module';
 import { VacationRequestDetailsModalView } from '@modules/slack/tabs/vacation-requests/views/vacation-request-details-modal.view';
 import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
-import {
-  VacationRequestModalService,
-} from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
+import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 
 @Module({
   imports: [

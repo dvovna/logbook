@@ -3,13 +3,9 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import {
-  VacationRequestsRepository,
-} from '@modules/vacation-requests/repositories/vacation-requests.repository';
+import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
 import getDaysBetweenDates from '@common/utils/get-days-between-dates';
-import {
-  IVacationRequestViewModel,
-} from '@modules/vacation-requests/types/vacation-request.interface';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
@@ -19,9 +15,7 @@ import {
   VacationRequestsValidationService,
   ACTIVE_REQUEST_STATUSES,
 } from '@modules/vacation-requests/services/vacation-requests-validation.service';
-import {
-  VacationDaysCalculationService,
-} from '@modules/vacation-requests/services/vacation-days-calculation.service';
+import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import TeamsService from '@modules/teams/services/teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import { getDateOnly } from '@common/utils/date.utils';
@@ -116,9 +110,9 @@ export class VacationRequestsService implements IVacationRequestsService {
 
     const userTeam = teamId
       ? await this.teamsService.findOne({
-        id: teamId,
-        slackTeamId: user.slack_team_id,
-      })
+          id: teamId,
+          slackTeamId: user.slack_team_id,
+        })
       : null;
 
     const workingDays = await this.workingDaysCalculationService.calculate(
@@ -184,9 +178,9 @@ export class VacationRequestsService implements IVacationRequestsService {
     const userTeamId = updateParams.teamId || existingRequest.team?.id;
     const userTeam = userTeamId
       ? await this.teamsService.findOneWithValidation({
-        id: updateParams.teamId || existingRequest.team?.id,
-        slackTeamId: user.slack_team_id,
-      })
+          id: updateParams.teamId || existingRequest.team?.id,
+          slackTeamId: user.slack_team_id,
+        })
       : null;
 
     const {
@@ -402,9 +396,9 @@ export class VacationRequestsService implements IVacationRequestsService {
 
     const userTeam = user.team_id
       ? await this.teamsService.findOne({
-        id: user.team_id,
-        slackTeamId: replacedBy.slack_team_id,
-      })
+          id: user.team_id,
+          slackTeamId: replacedBy.slack_team_id,
+        })
       : null;
 
     const now = new Date().toISOString();
@@ -452,7 +446,9 @@ export class VacationRequestsService implements IVacationRequestsService {
     return {
       ...(params.id ? { id: params.id } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
-      ...(params.statuses ? { status: { operator: 'in', value: params.statuses } } : {}),
+      ...(params.statuses
+        ? { status: { operator: 'in', value: params.statuses } }
+        : {}),
       ...(params.type ? { type: params.type } : {}),
       ...(params.teamId ? { team_id: params.teamId } : {}),
       ...(params.teamIds?.length
@@ -460,9 +456,9 @@ export class VacationRequestsService implements IVacationRequestsService {
         : {}),
       ...(params.year
         ? {
-          start_date: { operator: 'lte', value: `${params.year}-12-31` },
-          end_date: { operator: 'gte', value: `${params.year}-01-01` },
-        }
+            start_date: { operator: 'lte', value: `${params.year}-12-31` },
+            end_date: { operator: 'gte', value: `${params.year}-01-01` },
+          }
         : {}),
       ...(params.slackTeamId ? { slack_team_id: params.slackTeamId } : {}),
       ...(params.startDate

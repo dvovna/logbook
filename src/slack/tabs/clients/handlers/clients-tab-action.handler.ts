@@ -12,7 +12,10 @@ import { TabNavigationService } from '@modules/slack/common/services/tab-navigat
 import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
 import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
-import { ClientsTabModalName, ClientsTabService } from '@modules/slack/tabs/clients/services/clients-tab.service';
+import {
+  ClientsTabModalName,
+  ClientsTabService,
+} from '@modules/slack/tabs/clients/services/clients-tab.service';
 import { ClientsTabViewActionId } from '@modules/slack/tabs/clients/enums/clients-tab-view-actions-id.enum';
 import { IClientsTabMetaData } from '@modules/slack/tabs/clients/views/clients-tab.view';
 import { getCheckboxActionValues } from '@modules/slack/common/utils/payload.utils';
@@ -44,7 +47,8 @@ export default class ClientsTabActionHandler extends BaseAdminTabActionHandler {
         ClientsTabViewActionId,
         [IUserViewModel]
       >(this.handleManageClientMenuAction, this.logger),
-      [ClientsTabViewActionId.IncludeArchivedClients]: this.handleIncludeArchivedClientsFilter,
+      [ClientsTabViewActionId.IncludeArchivedClients]:
+        this.handleIncludeArchivedClientsFilter,
       [ClientsTabViewActionId.PaginationPrev]: paginationHandler,
       [ClientsTabViewActionId.PaginationNext]: paginationHandler,
     };

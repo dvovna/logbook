@@ -44,16 +44,14 @@ export class ProjectModalView extends BaseModalView<
     clients,
     errorMessage,
   }: IGetViewParams): AnyBlock[] {
-    const clientOptions = clients.map<PlainTextOption>(
-      (client) => toPlainTextOption({
+    const clientOptions = clients.map<PlainTextOption>((client) =>
+      toPlainTextOption({
         id: client.id,
         name: client.name,
       }),
     );
     const selectedClient = initialData?.client_id
-      ? clientOptions.find(
-        (client) => client.value === initialData?.client_id,
-      )
+      ? clientOptions.find((client) => client.value === initialData?.client_id)
       : NO_CLIENT_OPTION;
 
     return [
@@ -120,17 +118,17 @@ export class ProjectModalView extends BaseModalView<
         element: {
           type: 'static_select',
           action_id: 'status',
-          options: Object.values(ProjectStatus)
-            .map((status) => toPlainTextOption({
+          options: Object.values(ProjectStatus).map((status) =>
+            toPlainTextOption({
               id: status,
               name: ProjectStatusDisplayNameMap[status],
-            })),
+            }),
+          ),
           initial_option: toPlainTextOption({
             id: initialData?.status || ProjectStatus.Active,
-            name:
-              initialData?.status
-                ? ProjectStatusDisplayNameMap[initialData.status]
-                : ProjectStatusDisplayNameMap[ProjectStatus.Active],
+            name: initialData?.status
+              ? ProjectStatusDisplayNameMap[initialData.status]
+              : ProjectStatusDisplayNameMap[ProjectStatus.Active],
           }),
         },
       },

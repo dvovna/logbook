@@ -2,10 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import IHolidayViewModel from '@modules/holidays/types/holiday.interface';
 import { HolidaysRepository } from '@modules/holidays/repositories/holidays.repository';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import {
-  ISearchParams,
-  ISearchResult,
-} from '@common/types/pagination.types';
+import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import { getDateOnly } from '@common/utils/date.utils';
 import { SupabaseFilter } from '@common/repositories/base.repository';
@@ -185,15 +182,15 @@ export default class HolidaysService implements IHolidaysService {
       slack_team_id: params.slackTeamId,
       ...(params.startDate || params.endDate
         ? {
-          date: [
-            ...(params.startDate
-              ? [{ operator: 'gte', value: getDateOnly(params.startDate) }]
-              : []),
-            ...(params.endDate
-              ? [{ operator: 'lte', value: getDateOnly(params.endDate) }]
-              : []),
-          ],
-        }
+            date: [
+              ...(params.startDate
+                ? [{ operator: 'gte', value: getDateOnly(params.startDate) }]
+                : []),
+              ...(params.endDate
+                ? [{ operator: 'lte', value: getDateOnly(params.endDate) }]
+                : []),
+            ],
+          }
         : {}),
       ...(params.id && { id: params.id }),
       ...(params.ids && { id: { operator: 'in', value: params.ids } }),
@@ -227,7 +224,10 @@ export default class HolidaysService implements IHolidaysService {
     );
 
     if (count >= maxCompanyHolidays) {
-      throw new MaxItemsCountReachedError(maxCompanyHolidays, 'company holidays');
+      throw new MaxItemsCountReachedError(
+        maxCompanyHolidays,
+        'company holidays',
+      );
     }
   }
 }

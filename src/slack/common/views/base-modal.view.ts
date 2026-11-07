@@ -27,7 +27,8 @@ export interface IBaseViewService<
 export default abstract class BaseModalView<
   ViewParams extends IBaseModalViewParams,
   Metadata = Record<string, unknown>,
-> implements IBaseViewService<ViewParams, Metadata> {
+> implements IBaseViewService<ViewParams, Metadata>
+{
   protected defaultCallbackId?: ViewCallbackId;
 
   public getView(viewParams?: ViewParams, metadata?: Metadata): View {

@@ -64,10 +64,16 @@ export default class TimeApprovalsTabActionHandler extends BaseAdminTabActionHan
     user: IUserViewModel,
   ) => {
     try {
-      await this.timeEntryApprovalsService.approve(user, this.entryIdOf(payload));
+      await this.timeEntryApprovalsService.approve(
+        user,
+        this.entryIdOf(payload),
+      );
     } catch (error) {
       if (
-        !(error instanceof ValidationError || error instanceof ForbiddenException)
+        !(
+          error instanceof ValidationError ||
+          error instanceof ForbiddenException
+        )
       ) {
         throw error;
       }
@@ -75,7 +81,10 @@ export default class TimeApprovalsTabActionHandler extends BaseAdminTabActionHan
       this.logger.warn(`Time entry not approved: ${error.message}`);
     }
 
-    await this.updateTab(parseMetadata<ITimeApprovalsTabMetaData>(payload), user);
+    await this.updateTab(
+      parseMetadata<ITimeApprovalsTabMetaData>(payload),
+      user,
+    );
   };
 
   private handleReject = async (

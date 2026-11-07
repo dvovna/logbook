@@ -1,10 +1,7 @@
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
-import {
-  ISearchParams,
-  ISearchResult,
-} from '@common/types/pagination.types';
+import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseFilter } from '@common/repositories/base.repository';
@@ -50,7 +47,9 @@ interface IProjectsService {
   findMany(params: IFindParams): Promise<IProjectViewModel[]>;
   findOne(params: IFindParams): Promise<IProjectViewModel | null>;
   findOneWithValidation(params: IFindParams): Promise<IProjectViewModel>;
-  search(params: ISearchClientsParams): Promise<ISearchResult<IProjectViewModel>>;
+  search(
+    params: ISearchClientsParams,
+  ): Promise<ISearchResult<IProjectViewModel>>;
   update(
     findParams: IFindParams,
     updateParams: IUpdateParams,
@@ -60,7 +59,9 @@ interface IProjectsService {
   count(params: IFindParams): Promise<number>;
 }
 
-const CatchDuplicatedProject = CatchDuplicatedRecord('Project with same name already exists.');
+const CatchDuplicatedProject = CatchDuplicatedRecord(
+  'Project with same name already exists.',
+);
 
 @Injectable()
 export default class ProjectsService implements IProjectsService {
@@ -78,7 +79,9 @@ export default class ProjectsService implements IProjectsService {
   }
 
   public async findOneWithValidation(params: IFindParams) {
-    const project = await this.projectsRepository.findOne(this.getFindQuery(params));
+    const project = await this.projectsRepository.findOne(
+      this.getFindQuery(params),
+    );
 
     if (!project) {
       throw new NotFoundException(`Project with id ${params.id} not found.`);
@@ -98,7 +101,10 @@ export default class ProjectsService implements IProjectsService {
   }
 
   @CatchDuplicatedProject
-  public async create(createParams: ICreateProjectParams, user: IUserViewModel) {
+  public async create(
+    createParams: ICreateProjectParams,
+    user: IUserViewModel,
+  ) {
     const projectsCount = await this.projectsRepository.count({
       slack_team_id: createParams.slackTeamId,
     });
@@ -144,17 +150,19 @@ export default class ProjectsService implements IProjectsService {
         ? { client_id: updateParams.clientId }
         : {}),
       ...(updateParams.status ? { status: updateParams.status } : {}),
-      ...(updateParams.billable !== undefined ? { billable: updateParams.billable } : {}),
+      ...(updateParams.billable !== undefined
+        ? { billable: updateParams.billable }
+        : {}),
       ...(updateParams.archivedAt !== undefined
         ? { archived_at: updateParams.archivedAt }
         : {}),
       // A restored project has nobody who archived it.
       ...(updateParams.archivedAt !== undefined
         ? {
-          archived_by: updateParams.archivedAt
-            ? updateParams.archivedBy || user.id
-            : null,
-        }
+            archived_by: updateParams.archivedAt
+              ? updateParams.archivedBy || user.id
+              : null,
+          }
         : {}),
       updated_at: new Date().toISOString(),
       updated_by: user.id,
@@ -167,15 +175,18 @@ export default class ProjectsService implements IProjectsService {
       slackTeamId: user.slack_team_id,
     });
 
-    await this.projectsRepository.update({
-      id: projectId,
-      slack_team_id: user.slack_team_id,
-    }, {
-      archived_at: new Date().toISOString(),
-      archived_by: user.id,
-      updated_at: new Date().toISOString(),
-      updated_by: user.id,
-    });
+    await this.projectsRepository.update(
+      {
+        id: projectId,
+        slack_team_id: user.slack_team_id,
+      },
+      {
+        archived_at: new Date().toISOString(),
+        archived_by: user.id,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      },
+    );
 
     return project;
   }
@@ -190,7 +201,9 @@ export default class ProjectsService implements IProjectsService {
       ...(params.name ? { name: params.name } : {}),
       ...(params.slackTeamId ? { slack_team_id: params.slackTeamId } : {}),
       ...(params.clientId ? { client_id: params.clientId } : {}),
-      archived_at: params.includeArchived ? undefined : { operator: 'is', value: null },
+      archived_at: params.includeArchived
+        ? undefined
+        : { operator: 'is', value: null },
     };
   }
 }

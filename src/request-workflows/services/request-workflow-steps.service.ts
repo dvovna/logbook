@@ -197,17 +197,17 @@ export class RequestWorkflowStepsService {
       ...(params.stepType ? { step_type: params.stepType } : {}),
       ...(params.completed !== undefined
         ? {
-          completed_at: params.completed
-            ? { operator: 'not.is', value: null }
-            : { operator: 'is', value: null },
-        }
+            completed_at: params.completed
+              ? { operator: 'not.is', value: null }
+              : { operator: 'is', value: null },
+          }
         : {}),
       ...(params.processed !== undefined
         ? {
-          processed_at: params.processed
-            ? { operator: 'not.is', value: null }
-            : { operator: 'is', value: null },
-        }
+            processed_at: params.processed
+              ? { operator: 'not.is', value: null }
+              : { operator: 'is', value: null },
+          }
         : {}),
     } as SupabaseFilter;
   }

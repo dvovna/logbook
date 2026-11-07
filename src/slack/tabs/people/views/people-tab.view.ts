@@ -14,10 +14,7 @@ interface IGetViewParams extends IBaseTabViewParams {
 }
 
 @Injectable()
-export class PeopleTabView extends BaseAdminTabView<
-  IGetViewParams,
-  never
-> {
+export class PeopleTabView extends BaseAdminTabView<IGetViewParams, never> {
   protected activeTabActionId = AdminNavigationActionId.ManagePeople;
   protected callbackId = ViewCallbackId.PeopleTabView;
 
@@ -31,11 +28,18 @@ export class PeopleTabView extends BaseAdminTabView<
     return '*👥 People*';
   }
 
-  protected getContentBlocks(
-    { usersCount, teamsCount }: IGetViewParams,
-  ): AnyBlock[] {
+  protected getContentBlocks({
+    usersCount,
+    teamsCount,
+  }: IGetViewParams): AnyBlock[] {
     return [
-      { type: 'section', text: { type: 'plain_text', text: 'Manage users and teams within the organization.' } },
+      {
+        type: 'section',
+        text: {
+          type: 'plain_text',
+          text: 'Manage users and teams within the organization.',
+        },
+      },
       ...Divider.getBlocks(),
       {
         type: 'section',

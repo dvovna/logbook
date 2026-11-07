@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  WebAPICallResult,
-  WebClient,
-  WebClientOptions,
-} from '@slack/web-api';
+import { WebAPICallResult, WebClient, WebClientOptions } from '@slack/web-api';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import {
   ViewsOpenArguments,

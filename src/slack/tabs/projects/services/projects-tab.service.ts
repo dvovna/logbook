@@ -9,7 +9,10 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 import ProjectsService from 'src/projects/services/projects.service';
 import { ProjectModalView } from '@modules/slack/tabs/projects/views/project-modal.view';
-import { IProjectsTabMetaData, ProjectsTabView } from '@modules/slack/tabs/projects/views/projects-tab.view';
+import {
+  IProjectsTabMetaData,
+  ProjectsTabView,
+} from '@modules/slack/tabs/projects/views/projects-tab.view';
 import { ProjectsListQuery } from 'src/projects/queries/projects-list.query';
 import ClientsService from '@modules/clients/services/clients.service';
 import { ProjectAssignmentsModalView } from '@modules/slack/tabs/projects/views/project-assignments-modal.view';
@@ -90,9 +93,10 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
       page: metadata.page,
       pageSize: PROJECTS_TAB_PAGE_SIZE,
       status: metadata?.filters?.status,
-      billable: metadata?.filters?.billable !== undefined
-        ? metadata?.filters?.billable === YesNoValue.Yes
-        : undefined,
+      billable:
+        metadata?.filters?.billable !== undefined
+          ? metadata?.filters?.billable === YesNoValue.Yes
+          : undefined,
       projectId: metadata?.filters?.project?.id,
       includeArchived: metadata?.includeArchived,
     });

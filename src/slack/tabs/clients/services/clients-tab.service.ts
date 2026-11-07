@@ -7,7 +7,10 @@ import BaseTabService, {
 import { View } from '@slack/types/dist/views';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
-import { ClientsTabView, IClientsTabMetaData } from '@modules/slack/tabs/clients/views/clients-tab.view';
+import {
+  ClientsTabView,
+  IClientsTabMetaData,
+} from '@modules/slack/tabs/clients/views/clients-tab.view';
 import ClientsService from '@modules/clients/services/clients.service';
 import { ClientModalView } from '@modules/slack/tabs/clients/views/client-modal.view';
 
@@ -84,10 +87,7 @@ export class ClientsTabService extends BaseTabService<ClientsTabModalViewResolve
     errorMessage,
     pageMetadata,
   }: IOpenModalBaseParams<string>) {
-    return this.clientModalView.getView(
-      { errorMessage },
-      { pageMetadata },
-    );
+    return this.clientModalView.getView({ errorMessage }, { pageMetadata });
   }
 
   private async getUpdateClientModalView({

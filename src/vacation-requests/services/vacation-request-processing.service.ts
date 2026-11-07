@@ -6,9 +6,7 @@ import {
   VacationRequestUpdatedEvent,
 } from '@modules/vacation-requests/events/vacation-request.events';
 import TeamsService from '@modules/teams/services/teams.service';
-import {
-  WorkflowStepType,
-} from '@modules/request-workflows/types/request-workflow-step.interface';
+import { WorkflowStepType } from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
   ICreateWorkflowLevelParams,
   ICreateWorkflowParams,
@@ -34,9 +32,9 @@ export class VacationRequestProcessingService {
 
     const team = request.team?.id
       ? await this.teamsService.findOne({
-        id: request.team?.id,
-        slackTeamId: request.slack_team_id,
-      })
+          id: request.team?.id,
+          slackTeamId: request.slack_team_id,
+        })
       : null;
 
     if (!team) {

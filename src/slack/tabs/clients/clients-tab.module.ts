@@ -9,12 +9,8 @@ import { ClientsTabService } from '@modules/slack/tabs/clients/services/clients-
 import { ClientsTabView } from '@modules/slack/tabs/clients/views/clients-tab.view';
 import { ClientModalView } from '@modules/slack/tabs/clients/views/client-modal.view';
 
-
 @Module({
-  imports: [
-    ClientsModule,
-    SlackCommonModule,
-  ],
+  imports: [ClientsModule, SlackCommonModule],
   providers: [
     ChangeClientStatusFormSubmitHandler,
     ClientFormSubmitHandler,

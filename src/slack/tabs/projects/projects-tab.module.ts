@@ -7,18 +7,13 @@ import { ProjectModalView } from '@modules/slack/tabs/projects/views/project-mod
 import { ProjectsModule } from 'src/projects/projects.module';
 import { ProjectFormSubmitHandler } from '@modules/slack/tabs/projects/handlers/project-form-submit.handler';
 import ProjectModalViewValuesParser from '@modules/slack/tabs/projects/parsers/project-modal-view-values.parser';
-import {
-  ChangeProjectStatusFormSubmitHandler,
-} from '@modules/slack/tabs/projects/handlers/change-project-status-form-submit.handler';
+import { ChangeProjectStatusFormSubmitHandler } from '@modules/slack/tabs/projects/handlers/change-project-status-form-submit.handler';
 import { ClientsModule } from '@modules/clients/clients.module';
 import { TeamsModule } from '@modules/teams/teams.module';
 import { ProjectAssignmentsModalView } from '@modules/slack/tabs/projects/views/project-assignments-modal.view';
 import { UsersModule } from '@modules/users/users.module';
-import ProjectAssignmentsModalViewValuesParser
-  from '@modules/slack/tabs/projects/parsers/project-assignments-modal-view-values.parser';
-import {
-  ProjectAssignmentsFormSubmitHandler,
-} from '@modules/slack/tabs/projects/handlers/project-assignments-form-submit.handler';
+import ProjectAssignmentsModalViewValuesParser from '@modules/slack/tabs/projects/parsers/project-assignments-modal-view-values.parser';
+import { ProjectAssignmentsFormSubmitHandler } from '@modules/slack/tabs/projects/handlers/project-assignments-form-submit.handler';
 
 @Module({
   imports: [
@@ -39,7 +34,6 @@ import {
     ProjectsTabService,
     ProjectsTabView,
     ProjectModalView,
-
   ],
   exports: [ProjectsTabService],
 })

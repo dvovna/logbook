@@ -40,9 +40,9 @@ export class BillingReportModalView extends BaseModalView<IGetViewParams> {
   protected getActionButtons({ clients }: IGetViewParams): IActionButtons {
     return clients.length
       ? {
-        submit: { type: 'plain_text', text: 'Show report' },
-        close: { type: 'plain_text', text: 'Cancel' },
-      }
+          submit: { type: 'plain_text', text: 'Show report' },
+          close: { type: 'plain_text', text: 'Cancel' },
+        }
       : { close: { type: 'plain_text', text: 'Close' } };
   }
 
@@ -66,27 +66,27 @@ export class BillingReportModalView extends BaseModalView<IGetViewParams> {
       }),
       ...(clients.length
         ? [
-          {
-            type: 'input',
-            block_id: 'from_date_block',
-            label: { type: 'plain_text', text: 'From' },
-            element: {
-              type: 'datepicker',
-              action_id: 'fromDate',
-              initial_date: fromDate,
-            },
-          } as AnyBlock,
-          {
-            type: 'input',
-            block_id: 'to_date_block',
-            label: { type: 'plain_text', text: 'To' },
-            element: {
-              type: 'datepicker',
-              action_id: 'toDate',
-              initial_date: toDate,
-            },
-          } as AnyBlock,
-        ]
+            {
+              type: 'input',
+              block_id: 'from_date_block',
+              label: { type: 'plain_text', text: 'From' },
+              element: {
+                type: 'datepicker',
+                action_id: 'fromDate',
+                initial_date: fromDate,
+              },
+            } as AnyBlock,
+            {
+              type: 'input',
+              block_id: 'to_date_block',
+              label: { type: 'plain_text', text: 'To' },
+              element: {
+                type: 'datepicker',
+                action_id: 'toDate',
+                initial_date: toDate,
+              },
+            } as AnyBlock,
+          ]
         : []),
       ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
     ];
@@ -120,30 +120,30 @@ export class BillingReportModalView extends BaseModalView<IGetViewParams> {
       ...Divider.getBlocks(),
       ...(report.approvedMinutes
         ? [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `*By project*\n${lines(report.byProject, true)}`,
-            },
-          } as AnyBlock,
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `*By person*\n${lines(report.byPerson, false)}`,
-            },
-          } as AnyBlock,
-        ]
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `*By project*\n${lines(report.byProject, true)}`,
+              },
+            } as AnyBlock,
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `*By person*\n${lines(report.byPerson, false)}`,
+              },
+            } as AnyBlock,
+          ]
         : [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: '_No approved time for this client in this period._',
-            },
-          } as AnyBlock,
-        ]),
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: '_No approved time for this client in this period._',
+              },
+            } as AnyBlock,
+          ]),
     ];
 
     return {

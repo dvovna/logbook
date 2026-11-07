@@ -17,7 +17,10 @@ import {
   withSelectFilter,
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
-import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/projects/services/projects-tab.service';
+import {
+  ProjectsTabModalName,
+  ProjectsTabService,
+} from '@modules/slack/tabs/projects/services/projects-tab.service';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { IProjectsTabMetaData } from '@modules/slack/tabs/projects/views/projects-tab.view';
 import { getCheckboxActionValues } from '@modules/slack/common/utils/payload.utils';
@@ -63,7 +66,8 @@ export default class ProjectsTabActionHandler extends BaseAdminTabActionHandler 
         'billable',
         this.updateTab,
       ),
-      [ProjectsTabViewActionId.IncludeArchivedProjects]: this.handleIncludeArchivedProjectsFilter,
+      [ProjectsTabViewActionId.IncludeArchivedProjects]:
+        this.handleIncludeArchivedProjectsFilter,
       [ProjectsTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
     };
   }

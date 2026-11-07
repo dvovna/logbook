@@ -12,7 +12,10 @@ const MAX_HOURS = 24;
 export const timeEntryFormSchema = z.object({
   description: z
     .string()
-    .max(MAX_DESCRIPTION_LENGTH, `Description must be at most ${MAX_DESCRIPTION_LENGTH} characters`)
+    .max(
+      MAX_DESCRIPTION_LENGTH,
+      `Description must be at most ${MAX_DESCRIPTION_LENGTH} characters`,
+    )
     .optional(),
   projectId: z
     .object({
@@ -20,17 +23,22 @@ export const timeEntryFormSchema = z.object({
       text: z.string(),
     })
     .required(),
-  hours: z.string()
-    .refine((val) => {
-      const num = Number(val);
+  hours: z
+    .string()
+    .refine(
+      (val) => {
+        const num = Number(val);
 
-      return !isNaN(num) && num > 0 && num <= MAX_HOURS;
-    }, {
-      message: `Hours must be a number between 0 and ${MAX_HOURS}`,
-    })
+        return !isNaN(num) && num > 0 && num <= MAX_HOURS;
+      },
+      {
+        message: `Hours must be a number between 0 and ${MAX_HOURS}`,
+      },
+    )
     .transform((val) => Number(val)),
-  workDate: z.string().refine((dateStr) =>
-    !isNaN(Date.parse(dateStr)), { message: 'Invalid date format' }),
+  workDate: z.string().refine((dateStr) => !isNaN(Date.parse(dateStr)), {
+    message: 'Invalid date format',
+  }),
 });
 
 export interface ITimeEntryFormViewData {

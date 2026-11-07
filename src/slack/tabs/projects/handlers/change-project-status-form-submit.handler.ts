@@ -8,11 +8,17 @@ import ConfirmationModalView, {
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
-import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
 import UserRole from '@common/enums/user-role.enum';
 import IProjectViewModel from 'src/projects/types/project.types';
 import ProjectsService from 'src/projects/services/projects.service';
-import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/projects/services/projects-tab.service';
+import {
+  ProjectsTabModalName,
+  ProjectsTabService,
+} from '@modules/slack/tabs/projects/services/projects-tab.service';
 
 @Injectable()
 @SlackHandler({
@@ -51,12 +57,15 @@ export class ChangeProjectStatusFormSubmitHandler extends BaseModalFormSubmitHan
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     return SlackViewResponseFactory.update(
-      await this.projectsTabService.getModalView(ProjectsTabModalName.ChangeProjectStatus, {
-        projectId: meta.id,
-        user,
-        errorMessage,
-        pageMetadata: meta.pageMetadata!,
-      }),
+      await this.projectsTabService.getModalView(
+        ProjectsTabModalName.ChangeProjectStatus,
+        {
+          projectId: meta.id,
+          user,
+          errorMessage,
+          pageMetadata: meta.pageMetadata!,
+        },
+      ),
     );
   }
 
@@ -73,19 +82,23 @@ export class ChangeProjectStatusFormSubmitHandler extends BaseModalFormSubmitHan
 
     const updateParams = projectToUpdate.archived_at
       ? {
-        archivedAt: null,
-        archivedBy: null,
-      }
+          archivedAt: null,
+          archivedBy: null,
+        }
       : {
-        archivedAt: new Date().toISOString(),
-        archivedBy: user.id,
-      };
+          archivedAt: new Date().toISOString(),
+          archivedBy: user.id,
+        };
 
-    const project = await this.projectsService.update({
-      id: projectToUpdate.id,
-      slackTeamId: user.slack_team_id,
-      includeArchived: true,
-    }, updateParams, user);
+    const project = await this.projectsService.update(
+      {
+        id: projectToUpdate.id,
+        slackTeamId: user.slack_team_id,
+        includeArchived: true,
+      },
+      updateParams,
+      user,
+    );
 
     this.tabNavigationService.navigate(TabId.Projects, { user });
 

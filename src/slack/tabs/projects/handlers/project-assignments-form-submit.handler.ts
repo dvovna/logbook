@@ -4,9 +4,15 @@ import SlackViewResponseFactory from '@modules/slack/factories/slack-response.fa
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
-import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
 import UserRole from '@common/enums/user-role.enum';
-import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/projects/services/projects-tab.service';
+import {
+  ProjectsTabModalName,
+  ProjectsTabService,
+} from '@modules/slack/tabs/projects/services/projects-tab.service';
 import { IProjectsTabMetaData } from '@modules/slack/tabs/projects/views/projects-tab.view';
 import ProjectAssignmentsModalViewValuesParser, {
   IProjectAssignmentsFormViewData,
@@ -63,12 +69,8 @@ export class ProjectAssignmentsFormSubmitHandler extends BaseModalFormSubmitHand
     metadata: IProjectAssignmentsModalViewMetadata,
     user: IUserViewModel,
   ) {
-    const userIds = data.project_users?.map(
-      ({ value }) => value,
-    ) || [];
-    const teamIds = data.project_teams?.map(
-      ({ value }) => value,
-    ) || [];
+    const userIds = data.project_users?.map(({ value }) => value) || [];
+    const teamIds = data.project_teams?.map(({ value }) => value) || [];
 
     return this.projectAssignmentsService.assignEntities({
       slackTeamId: user.slack_team_id,

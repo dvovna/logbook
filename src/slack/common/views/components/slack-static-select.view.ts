@@ -53,10 +53,12 @@ export class SlackStaticSelectView {
         element: {
           type: 'static_select',
           action_id: actionId,
-          placeholder: placeholder ? {
-            type: 'plain_text',
-            text: placeholder,
-          } : undefined,
+          placeholder: placeholder
+            ? {
+                type: 'plain_text',
+                text: placeholder,
+              }
+            : undefined,
           options: formattedOptions,
           initial_option: formattedOptions.find(
             (option) => initialValue === option.value,

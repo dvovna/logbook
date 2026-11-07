@@ -15,7 +15,10 @@ import {
 import UserRole from '@common/enums/user-role.enum';
 import IClientViewModel from '@modules/clients/types/client.interface';
 import ClientsService from '@modules/clients/services/clients.service';
-import { ClientsTabModalName, ClientsTabService } from '@modules/slack/tabs/clients/services/clients-tab.service';
+import {
+  ClientsTabModalName,
+  ClientsTabService,
+} from '@modules/slack/tabs/clients/services/clients-tab.service';
 
 @Injectable()
 @SlackHandler({
@@ -54,12 +57,15 @@ export class ChangeClientStatusFormSubmitHandler extends BaseModalFormSubmitHand
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     return SlackViewResponseFactory.update(
-      await this.clientsTabService.getModalView(ClientsTabModalName.ChangeClientStatus, {
-        clientId: meta.id,
-        user,
-        errorMessage,
-        pageMetadata: meta.pageMetadata!,
-      }),
+      await this.clientsTabService.getModalView(
+        ClientsTabModalName.ChangeClientStatus,
+        {
+          clientId: meta.id,
+          user,
+          errorMessage,
+          pageMetadata: meta.pageMetadata!,
+        },
+      ),
     );
   }
 
@@ -76,13 +82,13 @@ export class ChangeClientStatusFormSubmitHandler extends BaseModalFormSubmitHand
 
     const updateParams = client.archived_at
       ? {
-        archivedAt: null,
-        archivedBy: null,
-      }
+          archivedAt: null,
+          archivedBy: null,
+        }
       : {
-        archivedAt: new Date().toISOString(),
-        archivedBy: user.id,
-      };
+          archivedAt: new Date().toISOString(),
+          archivedBy: user.id,
+        };
 
     const updatedClient = await this.clientsService.update(
       {

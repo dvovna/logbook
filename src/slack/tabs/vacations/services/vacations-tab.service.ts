@@ -8,9 +8,7 @@ import { VacationRequestsService } from '@modules/vacation-requests/services/vac
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { VacationsTabView } from '@modules/slack/tabs/vacations/views/vacations-tab.view';
 import { VacationsTabModalName } from '@modules/slack/tabs/vacations/enums/vacations-tab-modal-name.enum';
-import {
-  VacationDetailsModalService,
-} from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
+import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
 import { View } from '@slack/types/dist/views';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import { ApproverStepCommentModalView } from '@modules/request-workflows/views/approver-step-comment-modal.view';
@@ -79,31 +77,30 @@ export class VacationsTabService extends BaseTabService<VacationsTabModalViewRes
         orderBy: ['created_at:desc'],
       });
 
-    const { items: upcomingVacations } = await this.vacationRequestsService.search({
-      filters: {
-        slackTeamId: params.user.slack_team_id,
-        statuses: [VacationRequestStatus.Approved],
-        startDate: new Date().toUTCString(),
-      },
-      pageSize: MAX_ITEMS_PER_TAB,
-      orderBy: ['created_at:desc'],
-    });
+    const { items: upcomingVacations } =
+      await this.vacationRequestsService.search({
+        filters: {
+          slackTeamId: params.user.slack_team_id,
+          statuses: [VacationRequestStatus.Approved],
+          startDate: new Date().toUTCString(),
+        },
+        pageSize: MAX_ITEMS_PER_TAB,
+        orderBy: ['created_at:desc'],
+      });
 
-    return this.vacationsViewService.getView(
-      {
-        user: params.user,
-        userId: params.user.slack_id,
-        userRole: params.user.role,
-        pendingRequestsCount,
-        pendingRequests,
-        upcomingVacations,
-      },
-    );
+    return this.vacationsViewService.getView({
+      user: params.user,
+      userId: params.user.slack_id,
+      userRole: params.user.role,
+      pendingRequestsCount,
+      pendingRequests,
+      upcomingVacations,
+    });
   }
 
   private getViewVacationRequestModal(params: IRequestModalParams) {
     return this.vacationDetailsModalService.getModal(params);
-  };
+  }
 
   private getApproveVacationRequestModal(params: IPendingRequestModalParams) {
     const { stepId, errorMessage } = params;

@@ -17,7 +17,10 @@ import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-
 import UserRole from '@common/enums/user-role.enum';
 import { Divider } from '@modules/slack/common/views/components/separator';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
-import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
+import {
+  FiltersBlockBuilder,
+  IFiltersConfig,
+} from '@modules/slack/common/views/builders/filters-block.builder';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 
@@ -66,18 +69,28 @@ export class UsersTabView extends BaseAdminTabView<
     { filters, includeInactive },
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [
-      { type: 'section', text: { type: 'plain_text', text: 'List of employees with vacation balances and details.' } },
+      {
+        type: 'section',
+        text: {
+          type: 'plain_text',
+          text: 'List of employees with vacation balances and details.',
+        },
+      },
     ];
 
     blocks.push(...this.getFiltersBlocks(teams, filters));
     blocks.push({
       type: 'actions',
-      elements: [{
-        type: 'checkboxes',
-        action_id: UsersTabViewActionId.IncludeInactive,
-        options: INACTIVE_PLAIN_TEXT_OPTIONS,
-        initial_options: includeInactive ? INACTIVE_PLAIN_TEXT_OPTIONS : undefined,
-      }],
+      elements: [
+        {
+          type: 'checkboxes',
+          action_id: UsersTabViewActionId.IncludeInactive,
+          options: INACTIVE_PLAIN_TEXT_OPTIONS,
+          initial_options: includeInactive
+            ? INACTIVE_PLAIN_TEXT_OPTIONS
+            : undefined,
+        },
+      ],
     });
 
     const blocksToAdd = this.getUsersListBlocks(users, teams, userRole);
@@ -118,12 +131,12 @@ export class UsersTabView extends BaseAdminTabView<
     const items = [
       ...(user.is_active
         ? [
-          { id: UsersTabViewActionId.EditUser, name: 'Edit User' },
-          {
-            id: UsersTabViewActionId.ViewVacationUsage,
-            name: 'View Vacation Usage',
-          },
-        ]
+            { id: UsersTabViewActionId.EditUser, name: 'Edit User' },
+            {
+              id: UsersTabViewActionId.ViewVacationUsage,
+              name: 'View Vacation Usage',
+            },
+          ]
         : []),
       {
         id: UsersTabViewActionId.ChangeStatus,

@@ -1,12 +1,12 @@
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 
-const getArchivedPlainTextOptions = (title: string) => ([
+const getArchivedPlainTextOptions = (title: string) => [
   toPlainTextOption({
     name: title,
     id: YesNoValue.Yes,
   }),
-]);
+];
 
 interface IIncludeArchivedButtonViewParams {
   includeArchived?: boolean;
@@ -24,12 +24,14 @@ export class IncludeArchivedButtonView {
 
     return {
       type: 'actions',
-      elements: [{
-        type: 'checkboxes',
-        action_id: actionId,
-        options,
-        initial_options: includeArchived ? options : undefined,
-      }],
+      elements: [
+        {
+          type: 'checkboxes',
+          action_id: actionId,
+          options,
+          initial_options: includeArchived ? options : undefined,
+        },
+      ],
     };
   }
 }

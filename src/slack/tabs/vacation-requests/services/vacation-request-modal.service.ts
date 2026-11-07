@@ -2,14 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { IOpenModalBaseParams } from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import {
-  VacationRequestFormModalView,
-} from '@modules/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
+import { VacationRequestFormModalView } from '@modules/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 
-export interface IVacationRequestModalViewParams
-  extends IOpenModalBaseParams {
-  callbackId?: ViewCallbackId.AdminVacationRequest | ViewCallbackId.UserVacationRequest;
+export interface IVacationRequestModalViewParams extends IOpenModalBaseParams {
+  callbackId?:
+    | ViewCallbackId.AdminVacationRequest
+    | ViewCallbackId.UserVacationRequest;
   requestId?: string;
   pageMetadata?: string;
 }
@@ -30,9 +29,9 @@ export class VacationRequestModalService {
   }: IVacationRequestModalViewParams): Promise<View> {
     const request = requestId
       ? await this.vacationRequestsService.findOneWithValidation({
-        id: requestId,
-        slackTeamId: user.slack_team_id,
-      })
+          id: requestId,
+          slackTeamId: user.slack_team_id,
+        })
       : undefined;
 
     return this.vacationRequestFormModalView.getView(

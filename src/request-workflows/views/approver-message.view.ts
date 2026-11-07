@@ -110,7 +110,8 @@ ${this.getRequestDetails(step, comments)}`,
     // decided_by is whoever closed the step: the requester or an admin who
     // changed the request.
     const canceledBy =
-      step.step_data.decided_by_slack_id ?? step.step_data.snapshot.slack_user_id;
+      step.step_data.decided_by_slack_id ??
+      step.step_data.snapshot.slack_user_id;
 
     return {
       text: '❌ Vacation request canceled',

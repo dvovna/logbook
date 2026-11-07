@@ -64,17 +64,11 @@ export class TimeEntriesValidationService {
     }
 
     if (update.status !== undefined) {
-      this.validateStatusTransition(
-        existing.status,
-        update.status,
-        actor,
-      );
+      this.validateStatusTransition(existing.status, update.status, actor);
     }
 
-    const targetUserId =
-      update.userId ?? existing.user_id;
-    const targetProjectId =
-      update.projectId ?? existing.project_id;
+    const targetUserId = update.userId ?? existing.user_id;
+    const targetProjectId = update.projectId ?? existing.project_id;
     const targetWorkDate = update.workDate
       ? update.workDate
       : new Date(existing.work_date);
@@ -96,18 +90,13 @@ export class TimeEntriesValidationService {
     }
   }
 
-  public validateDelete(
-    existing: ITimeEntryViewModel,
-    actor: IUserViewModel,
-  ) {
+  public validateDelete(existing: ITimeEntryViewModel, actor: IUserViewModel) {
     this.validateEditPermissions(existing, actor, 'delete');
   }
 
   private validateMinutes(minutes: number) {
     if (minutes <= 0) {
-      throw new ValidationError(
-        'Logged minutes must be greater than 0',
-      );
+      throw new ValidationError('Logged minutes must be greater than 0');
     }
 
     if (minutes > MAX_MINUTES_PER_DAY) {
@@ -127,13 +116,8 @@ export class TimeEntriesValidationService {
     targetUserId: string,
     actor: IUserViewModel,
   ) {
-    if (
-      targetUserId !== actor.id &&
-      !this.isAdmin(actor)
-    ) {
-      throw new ForbiddenException(
-        'You cannot log time for another user',
-      );
+    if (targetUserId !== actor.id && !this.isAdmin(actor)) {
+      throw new ForbiddenException('You cannot log time for another user');
     }
   }
 
@@ -142,13 +126,8 @@ export class TimeEntriesValidationService {
     actor: IUserViewModel,
     action: 'edit' | 'delete' = 'edit',
   ) {
-    if (
-      entry.user_id !== actor.id &&
-      !this.isAdmin(actor)
-    ) {
-      throw new ForbiddenException(
-        `You cannot ${action} this time entry`,
-      );
+    if (entry.user_id !== actor.id && !this.isAdmin(actor)) {
+      throw new ForbiddenException(`You cannot ${action} this time entry`);
     }
 
     if (!isOpenTimeEntry(entry.status) && !this.isAdmin(actor)) {
@@ -162,13 +141,8 @@ export class TimeEntriesValidationService {
     status: TimeEntryStatus,
     actor: IUserViewModel,
   ) {
-    if (
-      status === TimeEntryStatus.Approved
-      && !this.isAdmin(actor)
-    ) {
-      throw new ForbiddenException(
-        'Only admins can create approved entries',
-      );
+    if (status === TimeEntryStatus.Approved && !this.isAdmin(actor)) {
+      throw new ForbiddenException('Only admins can create approved entries');
     }
   }
 
@@ -181,22 +155,12 @@ export class TimeEntriesValidationService {
       return;
     }
 
-    if (
-      to === TimeEntryStatus.Approved
-      && !this.isAdmin(actor)
-    ) {
-      throw new ForbiddenException(
-        'Only admins can approve entries',
-      );
+    if (to === TimeEntryStatus.Approved && !this.isAdmin(actor)) {
+      throw new ForbiddenException('Only admins can approve entries');
     }
 
-    if (
-      from === TimeEntryStatus.Approved
-      && !this.isAdmin(actor)
-    ) {
-      throw new ForbiddenException(
-        'Approved entries cannot be modified',
-      );
+    if (from === TimeEntryStatus.Approved && !this.isAdmin(actor)) {
+      throw new ForbiddenException('Approved entries cannot be modified');
     }
   }
 
@@ -217,7 +181,7 @@ export class TimeEntriesValidationService {
     });
 
     const totalMinutes = existingLogs
-      .filter(log => log.id !== excludeId)
+      .filter((log) => log.id !== excludeId)
       .reduce((sum, log) => sum + (log.minutes || 0), 0);
 
     if (totalMinutes + newLogDurationMinutes > MAX_MINUTES_PER_DAY) {
@@ -231,4 +195,3 @@ export class TimeEntriesValidationService {
     return isTimeEntriesAdmin(user.role);
   }
 }
-

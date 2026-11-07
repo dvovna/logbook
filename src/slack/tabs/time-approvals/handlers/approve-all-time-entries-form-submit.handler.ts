@@ -6,7 +6,10 @@ import SlackViewResponseFactory from '@modules/slack/factories/slack-response.fa
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
-import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
 } from '@modules/slack/common/views/components/confirmation-modal.view';

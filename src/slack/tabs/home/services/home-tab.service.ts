@@ -12,9 +12,7 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
-import {
-  VacationRequestModalService,
-} from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
+import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
 import { TimeEntriesSummaryService } from 'src/time-entries/services/time-entries-summary.service';
 
@@ -122,11 +120,9 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
   private getCreateTimeEntryModal(params: ICreateTimeEntryModalParams) {
     const { errorMessage, user } = params;
 
-    return this.timeEntryModalService.getModal(
-      {
-        user,
-        errorMessage,
-      },
-    );
+    return this.timeEntryModalService.getModal({
+      user,
+      errorMessage,
+    });
   }
 }

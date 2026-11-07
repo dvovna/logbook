@@ -190,9 +190,7 @@ export class UsersTabService extends BaseTabService<
           ? { teamIds: userTeamIdsRange }
           : {}),
         ...(metadata?.filters?.role ? { role: metadata?.filters.role } : {}),
-        ...(metadata?.filters?.user
-          ? { id: metadata?.filters.user.id }
-          : {}),
+        ...(metadata?.filters?.user ? { id: metadata?.filters.user.id } : {}),
         ...(metadata?.includeInactive
           ? { includeInactive: metadata?.includeInactive }
           : {}),

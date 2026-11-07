@@ -13,10 +13,11 @@ import {
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 import { Divider } from '@modules/slack/common/views/components/separator';
-import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
 import {
-  VacationHistoryTabViewActionId,
-} from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
+  FiltersBlockBuilder,
+  IFiltersConfig,
+} from '@modules/slack/common/views/builders/filters-block.builder';
+import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
 
 export interface IVacationHistoryTabFilters {
   year?: string;
@@ -124,11 +125,10 @@ export class VacationHistoryTabView extends BaseTabView<
     years: number[],
     filters?: IVacationHistoryTabFilters,
   ) {
-    const yearsOptions = years.map(
-      (year) => ({
-        name: year.toString(),
-        id: year.toString(),
-      }));
+    const yearsOptions = years.map((year) => ({
+      name: year.toString(),
+      id: year.toString(),
+    }));
 
     const vacationHistoryFilters: IFiltersConfig[] = [
       {

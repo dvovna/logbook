@@ -7,16 +7,8 @@ import { PeopleTabView } from '@modules/slack/tabs/people/views/people-tab.view'
 import PeopleTabActionHandler from '@modules/slack/tabs/people/handlers/people-tab-action.handler';
 
 @Module({
-  imports: [
-    UsersModule,
-    TeamsModule,
-    SlackCommonModule,
-  ],
-  providers: [
-    PeopleTabActionHandler,
-    PeopleTabService,
-    PeopleTabView,
-  ],
+  imports: [UsersModule, TeamsModule, SlackCommonModule],
+  providers: [PeopleTabActionHandler, PeopleTabService, PeopleTabView],
   exports: [PeopleTabService],
 })
 export class PeopleTabModule {}

@@ -21,10 +21,7 @@ interface IGetViewParams extends IBaseTabViewParams {
 }
 
 @Injectable()
-export class VacationsTabView extends BaseAdminTabView<
-  IGetViewParams,
-  never
-> {
+export class VacationsTabView extends BaseAdminTabView<IGetViewParams, never> {
   protected activeTabActionId = AdminNavigationActionId.ManageVacations;
   protected callbackId = ViewCallbackId.VacationsTabView;
 

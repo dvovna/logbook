@@ -2,10 +2,7 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TeamsRepository } from '@modules/teams/repositories/teams.repository';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
-import {
-  ISearchParams,
-  ISearchResult,
-} from '@common/types/pagination.types';
+import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
@@ -166,9 +163,9 @@ export default class TeamsService implements ITeamsService {
         : {}),
       ...(updateParams.approvalNotificationRecipients !== undefined
         ? {
-          approval_notification_recipients:
+            approval_notification_recipients:
               updateParams.approvalNotificationRecipients,
-        }
+          }
         : {}),
       ...(updateParams.managerApproversRule
         ? { manager_approvers_rule: updateParams.managerApproversRule }
@@ -205,11 +202,11 @@ export default class TeamsService implements ITeamsService {
       ...(params.name ? { name: params.name } : {}),
       ...(params.managerApprovers !== undefined
         ? {
-          manager_approvers: {
-            operator: 'ov',
-            value: params.managerApprovers,
-          },
-        }
+            manager_approvers: {
+              operator: 'ov',
+              value: params.managerApprovers,
+            },
+          }
         : {}),
       slack_team_id: params.slackTeamId,
       ...(params.vacationPolicyId

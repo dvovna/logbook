@@ -52,10 +52,11 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
     metadata: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ) {
-    const waitingSteps = await this.requestWorkflowService.findCurrentLevelSteps(
-      metadata.id,
-      user.slack_team_id,
-    );
+    const waitingSteps =
+      await this.requestWorkflowService.findCurrentLevelSteps(
+        metadata.id,
+        user.slack_team_id,
+      );
 
     if (waitingSteps.length === 0) {
       throw new ValidationError(
@@ -70,7 +71,10 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
       this.logger,
       `approve request ${metadata.id} for its approvers`,
       async () => {
-        await this.requestWorkflowService.approveCurrentLevel(metadata.id, user);
+        await this.requestWorkflowService.approveCurrentLevel(
+          metadata.id,
+          user,
+        );
 
         await this.vacationRequestsTabService.publish({
           user,

@@ -3,11 +3,13 @@ export class BackButton {
     return [
       {
         type: 'actions',
-        elements: [{
-          text: { type: 'plain_text', text: '⬅️ Back' },
-          type: 'button',
-          action_id: actionId,
-        }],
+        elements: [
+          {
+            text: { type: 'plain_text', text: '⬅️ Back' },
+            type: 'button',
+            action_id: actionId,
+          },
+        ],
       },
     ];
   }

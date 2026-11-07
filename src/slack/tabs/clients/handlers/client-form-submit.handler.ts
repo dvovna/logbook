@@ -12,10 +12,16 @@ import UserRole from '@common/enums/user-role.enum';
 import ClientModalViewValuesParser, {
   IClientFormViewData,
 } from '@modules/slack/tabs/clients/parsers/client-modal-view-values.parser';
-import { ClientModalView, IClientModalViewMetadata } from '@modules/slack/tabs/clients/views/client-modal.view';
+import {
+  ClientModalView,
+  IClientModalViewMetadata,
+} from '@modules/slack/tabs/clients/views/client-modal.view';
 import IClientViewModel from '@modules/clients/types/client.interface';
 import ClientsService from '@modules/clients/services/clients.service';
-import { ClientsTabModalName, ClientsTabService } from '@modules/slack/tabs/clients/services/clients-tab.service';
+import {
+  ClientsTabModalName,
+  ClientsTabService,
+} from '@modules/slack/tabs/clients/services/clients-tab.service';
 import { IClientsTabMetaData } from '@modules/slack/tabs/clients/views/clients-tab.view';
 
 @Injectable()
@@ -123,12 +129,15 @@ export class ClientFormSubmitHandler extends BaseModalFormSubmitHandler<
     user: IUserViewModel,
   ) {
     if (metadata.id) {
-      return this.teamsTabService.getModalView(ClientsTabModalName.UpdateClient, {
-        clientId: metadata.id,
-        errorMessage,
-        user,
-        pageMetadata: metadata.pageMetadata,
-      });
+      return this.teamsTabService.getModalView(
+        ClientsTabModalName.UpdateClient,
+        {
+          clientId: metadata.id,
+          errorMessage,
+          user,
+          pageMetadata: metadata.pageMetadata,
+        },
+      );
     }
 
     return this.teamsTabService.getModalView(ClientsTabModalName.CreateClient, {

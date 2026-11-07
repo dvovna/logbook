@@ -37,9 +37,9 @@ export abstract class BaseAdminTabView<
 
     return canViewNavigation
       ? AdminTabNavigation.getNavigationBlocks(
-        this.activeTabActionId,
-        (tabActionId) => this.canViewTab(tabActionId, params.userRole),
-      )
+          this.activeTabActionId,
+          (tabActionId) => this.canViewTab(tabActionId, params.userRole),
+        )
       : [];
   }
 

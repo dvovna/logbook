@@ -6,16 +6,12 @@ import BaseModalView, {
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { AnyBlock } from '@slack/web-api';
-import {
-  IVacationRequestViewModel,
-} from '@modules/vacation-requests/types/vacation-request.interface';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepStatus,
 } from '@modules/request-workflows/types/request-workflow-step.interface';
-import {
-  IWorkflowStepCommentViewModel,
-} from '@modules/request-workflows/types/workflow-step-comment.interface';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import capitalize from '@common/utils/capitalize';
 
 const STEP_STATUS_EMOJI: Record<WorkflowStepStatus, string> = {
@@ -200,7 +196,6 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
   }
 
   private getSortedLevels(levels: string[]) {
-    return levels.map((level) => parseInt(level, 10))
-      .sort((a, b) => a - b);
+    return levels.map((level) => parseInt(level, 10)).sort((a, b) => a - b);
   }
 }

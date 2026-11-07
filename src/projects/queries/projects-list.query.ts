@@ -13,7 +13,9 @@ const DEFAULT_PROJECTS_PAGE_SIZE = 5;
 export class ProjectsListQuery {
   constructor(private readonly supabase: SupabaseService) {}
 
-  public async execute(params: IProjectsListQueryParams): Promise<IProjectsListData> {
+  public async execute(
+    params: IProjectsListQueryParams,
+  ): Promise<IProjectsListData> {
     const {
       slackTeamId,
       page = 1,
@@ -25,9 +27,9 @@ export class ProjectsListQuery {
       includeArchived,
     } = params;
 
-    const { data, error } = await this.supabase.getClient().rpc(
-      RpcFunctionName.GetProjectsList,
-      {
+    const { data, error } = await this.supabase
+      .getClient()
+      .rpc(RpcFunctionName.GetProjectsList, {
         p_slack_team_id: slackTeamId,
         p_limit: pageSize,
         p_offset: (page - 1) * pageSize,
@@ -36,8 +38,7 @@ export class ProjectsListQuery {
         p_billable: billable,
         p_project_id: projectId,
         p_include_archived: includeArchived,
-      },
-    );
+      });
 
     if (error) {
       throw new Error(

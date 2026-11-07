@@ -38,7 +38,7 @@ export class ClientsTabView extends BaseAdminTabView<
   }
 
   protected getTabTitle() {
-    return '🏢 *Clients Management*\n\nManage your organization\'s clients and their details.';
+    return "🏢 *Clients Management*\n\nManage your organization's clients and their details.";
   }
 
   protected getTitleAccessory({
@@ -109,10 +109,14 @@ export class ClientsTabView extends BaseAdminTabView<
       type: 'overflow',
       action_id: ClientsTabViewActionId.ManageClientMenu,
       options: [
-        ...(!client.archived_at ? [{
-          text: { type: 'plain_text', text: 'Edit Client' },
-          value: `${ClientsTabViewActionId.EditClient}:${client.id}`,
-        }] as const : []),
+        ...(!client.archived_at
+          ? ([
+              {
+                text: { type: 'plain_text', text: 'Edit Client' },
+                value: `${ClientsTabViewActionId.EditClient}:${client.id}`,
+              },
+            ] as const)
+          : []),
         {
           text: {
             type: 'plain_text',

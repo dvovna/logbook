@@ -21,9 +21,7 @@ export class TimeEntriesRepository extends BaseRepository<
     project: 'project_id ( id, name )',
   };
 
-  protected mapToViewModel = (
-    row: Tables['time_entries']['Row'],
-  ) => {
+  protected mapToViewModel = (row: Tables['time_entries']['Row']) => {
     const extendedRow = row as Tables['time_entries']['Row'] & {
       user?: { id: string; name: string; email: string; slack_id: string };
       team?: { id: string; name: string };
@@ -37,24 +35,32 @@ export class TimeEntriesRepository extends BaseRepository<
       slack_team_id: row.slack_team_id,
       team_id: row.team_id,
       user_id: row.user_id,
-      user: extendedRow.user ? {
-        id: extendedRow.user.id,
-        name: extendedRow.user.name,
-        email: extendedRow.user.email,
-        slack_id: extendedRow.user.slack_id,
-      } : null,
-      client: extendedRow.client ? {
-        id: extendedRow.client.id,
-        name: extendedRow.client.name,
-      } : null,
-      project: extendedRow.project ? {
-        id: extendedRow.project.id,
-        name: extendedRow.project.name,
-      } : null,
-      team: extendedRow.team ? {
-        id: extendedRow.team.id,
-        name: extendedRow.team.name,
-      } : null,
+      user: extendedRow.user
+        ? {
+            id: extendedRow.user.id,
+            name: extendedRow.user.name,
+            email: extendedRow.user.email,
+            slack_id: extendedRow.user.slack_id,
+          }
+        : null,
+      client: extendedRow.client
+        ? {
+            id: extendedRow.client.id,
+            name: extendedRow.client.name,
+          }
+        : null,
+      project: extendedRow.project
+        ? {
+            id: extendedRow.project.id,
+            name: extendedRow.project.name,
+          }
+        : null,
+      team: extendedRow.team
+        ? {
+            id: extendedRow.team.id,
+            name: extendedRow.team.name,
+          }
+        : null,
       client_id: row.client_id || null,
       work_date: row.work_date,
       minutes: row.minutes,

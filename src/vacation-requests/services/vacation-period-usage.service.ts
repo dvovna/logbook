@@ -95,9 +95,9 @@ export class VacationPeriodUsageService {
 
     const team = vacation.team_id
       ? await this.teamsService.findOne({
-        id: vacation.team_id,
-        slackTeamId: vacation.slack_team_id,
-      })
+          id: vacation.team_id,
+          slackTeamId: vacation.slack_team_id,
+        })
       : null;
 
     return {
@@ -113,7 +113,10 @@ export class VacationPeriodUsageService {
   }
 
   private aggregateVacationDays(
-    vacations: Pick<IVacationRequestViewModel, 'type' | 'days' | 'working_days'>[],
+    vacations: Pick<
+      IVacationRequestViewModel,
+      'type' | 'days' | 'working_days'
+    >[],
   ): IVacationDaysCacheValue {
     return vacations.reduce<IVacationDaysCacheValue>(
       (acc, vacation) => {

@@ -49,19 +49,19 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     private readonly timeEntriesService: TimeEntriesService,
   ) {
     super(TabId.TimeEntries, {
-      [TimeEntriesTabModalName.CreateTimeEntry]:
-        (params) =>
-          this.getCreateTimeEntryModal(params),
-      [TimeEntriesTabModalName.UpdateTimeEntry]:
-        (params) =>
-          this.getUpdateTimeEntryModal(params),
-      [TimeEntriesTabModalName.DeleteEntry]:
-        (params) =>
-          this.getDeleteTimeEntryModal(params),
+      [TimeEntriesTabModalName.CreateTimeEntry]: (params) =>
+        this.getCreateTimeEntryModal(params),
+      [TimeEntriesTabModalName.UpdateTimeEntry]: (params) =>
+        this.getUpdateTimeEntryModal(params),
+      [TimeEntriesTabModalName.DeleteEntry]: (params) =>
+        this.getDeleteTimeEntryModal(params),
     });
   }
 
-  public async getTabView({ user, metadata = {} }: IGetTimeEntriesTabViewParams) {
+  public async getTabView({
+    user,
+    metadata = {},
+  }: IGetTimeEntriesTabViewParams) {
     const seesAllEntries =
       isTimeEntriesAdmin(user.role) && !metadata.ownEntriesOnly;
     const [timeEntriesListData, openEntriesCount] = await Promise.all([
@@ -79,10 +79,10 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
       seesAllEntries
         ? 0
         : this.timeEntriesService.count({
-          userId: user.id,
-          slackTeamId: user.slack_team_id,
-          statuses: OPEN_TIME_ENTRY_STATUSES,
-        }),
+            userId: user.id,
+            slackTeamId: user.slack_team_id,
+            statuses: OPEN_TIME_ENTRY_STATUSES,
+          }),
     ]);
 
     return this.timeEntriesTabView.getView(
@@ -119,14 +119,12 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     errorMessage,
     pageMetadata,
   }: ITimeEntryModalViewParams) {
-    return this.timeEntryModalService.getModal(
-      {
-        user,
-        errorMessage,
-        timeEntryId: entryId,
-        pageMetadata,
-      },
-    );
+    return this.timeEntryModalService.getModal({
+      user,
+      errorMessage,
+      timeEntryId: entryId,
+      pageMetadata,
+    });
   }
 
   private async getDeleteTimeEntryModal({

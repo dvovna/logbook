@@ -10,10 +10,11 @@ import { SlackActionPermissionsService } from '@modules/slack/common/services/sl
 import { Divider } from '@modules/slack/common/views/components/separator';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
 import { truncate } from 'lodash';
-import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
 import {
-  TimeEntriesTabViewActionId,
-} from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
+  FiltersBlockBuilder,
+  IFiltersConfig,
+} from '@modules/slack/common/views/builders/filters-block.builder';
+import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import {
   ITimeEntriesListFilters,
   ITimeEntryListData,
@@ -159,12 +160,12 @@ export class TimeEntriesTabView extends BaseAdminTabView<
         ],
         ...(menuOptions.length
           ? {
-            accessory: {
-              type: 'overflow',
-              action_id: TimeEntriesTabViewActionId.ManageTimeEntryMenu,
-              options: menuOptions,
-            },
-          }
+              accessory: {
+                type: 'overflow',
+                action_id: TimeEntriesTabViewActionId.ManageTimeEntryMenu,
+                options: menuOptions,
+              },
+            }
           : {}),
       },
       ...Divider.getBlocks(),
@@ -205,14 +206,14 @@ export class TimeEntriesTabView extends BaseAdminTabView<
     const filtersConfig: IFiltersConfig[] = [
       ...(canFilterByUser
         ? [
-          {
-            type: 'external_select',
-            actionId: TimeEntriesTabViewActionId.FilterByUser,
-            placeholder: 'User',
-            minQueryLength: 2,
-            initialOption: filters?.user,
-          } as const,
-        ]
+            {
+              type: 'external_select',
+              actionId: TimeEntriesTabViewActionId.FilterByUser,
+              placeholder: 'User',
+              minQueryLength: 2,
+              initialOption: filters?.user,
+            } as const,
+          ]
         : []),
       {
         type: 'external_select',

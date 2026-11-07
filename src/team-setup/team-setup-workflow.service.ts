@@ -5,9 +5,7 @@ import delay from '@common/utils/delay';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import SlackUsersService from '@modules/slack-communication/services/slack-users.service';
-import {
-  TeamUsersSyncService,
-} from '@modules/team-setup/team-users-sync.service';
+import { TeamUsersSyncService } from '@modules/team-setup/team-users-sync.service';
 
 interface ITeamSetupWorkflowParams {
   slackTeamId: string;

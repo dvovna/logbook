@@ -14,11 +14,7 @@ import { RequestWorkflowsModule } from '@modules/request-workflows/request-workf
     VacationRequestsTabModule,
     RequestWorkflowsModule,
   ],
-  providers: [
-    VacationsTabActionHandler,
-    VacationsTabService,
-    VacationsTabView,
-  ],
+  providers: [VacationsTabActionHandler, VacationsTabService, VacationsTabView],
   exports: [VacationsTabService],
 })
 export class VacationsTabModule {}

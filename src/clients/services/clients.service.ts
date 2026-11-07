@@ -1,10 +1,7 @@
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
-import {
-  ISearchParams,
-  ISearchResult,
-} from '@common/types/pagination.types';
+import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseFilter } from '@common/repositories/base.repository';
@@ -42,7 +39,9 @@ interface IClientsService {
   findMany(params: IFindParams): Promise<IClientViewModel[]>;
   findOne(params: IFindParams): Promise<IClientViewModel | null>;
   findOneWithValidation(params: IFindParams): Promise<IClientViewModel>;
-  search(params: ISearchClientsParams): Promise<ISearchResult<IClientViewModel>>;
+  search(
+    params: ISearchClientsParams,
+  ): Promise<ISearchResult<IClientViewModel>>;
   update(
     findParams: IFindParams,
     updateParams: IUpdateParams,
@@ -52,7 +51,9 @@ interface IClientsService {
   count(params: IFindParams): Promise<number>;
 }
 
-const CatchDuplicatedClient = CatchDuplicatedRecord('Client with same name already exists.');
+const CatchDuplicatedClient = CatchDuplicatedRecord(
+  'Client with same name already exists.',
+);
 
 @Injectable()
 export default class ClientsService implements IClientsService {
@@ -70,7 +71,9 @@ export default class ClientsService implements IClientsService {
   }
 
   public async findOneWithValidation(params: IFindParams) {
-    const client = await this.clientsRepository.findOne(this.getFindQuery(params));
+    const client = await this.clientsRepository.findOne(
+      this.getFindQuery(params),
+    );
 
     if (!client) {
       throw new NotFoundException(`Client with id ${params.id} not found`);
@@ -160,7 +163,9 @@ export default class ClientsService implements IClientsService {
   private getFindQuery(params: IFindParams): SupabaseFilter {
     return {
       slack_team_id: params.slackTeamId,
-      archived_at: params.includeArchived ? undefined : { operator: 'is', value: null },
+      archived_at: params.includeArchived
+        ? undefined
+        : { operator: 'is', value: null },
       ...(params.id ? { id: params.id } : {}),
       ...(params.name ? { name: params.name } : {}),
     };

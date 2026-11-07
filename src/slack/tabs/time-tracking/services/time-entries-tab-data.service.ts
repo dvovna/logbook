@@ -14,9 +14,7 @@ export const TIME_ENTRIES_TAB_PAGE_SIZE = 5;
 
 @Injectable()
 export class TimeEntriesTabDataService {
-  constructor(
-    private readonly timeEntriesListQuery: TimeEntriesListQuery,
-  ) {}
+  constructor(private readonly timeEntriesListQuery: TimeEntriesListQuery) {}
 
   async getTimeEntriesTabData(params: {
     slackTeamId: string;

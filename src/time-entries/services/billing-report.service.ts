@@ -92,11 +92,11 @@ export class BillingReportService {
     const projectNames = new Map(projects.map(({ id, name }) => [id, name]));
     const entries = projects.length
       ? await this.timeEntriesService.findMany({
-        slackTeamId,
-        projectIds: projects.map(({ id }) => id),
-        dateFrom: fromDate,
-        dateTo: toDate,
-      })
+          slackTeamId,
+          projectIds: projects.map(({ id }) => id),
+          dateFrom: fromDate,
+          dateTo: toDate,
+        })
       : [];
     const approved = entries.filter(
       ({ status }) => status === TimeEntryStatus.Approved,
@@ -115,7 +115,10 @@ export class BillingReportService {
         approved,
         (entry) => projectNames.get(entry.project_id) ?? 'Unknown project',
       ),
-      byPerson: groupBy(approved, (entry) => entry.user?.name ?? 'Unknown user'),
+      byPerson: groupBy(
+        approved,
+        (entry) => entry.user?.name ?? 'Unknown user',
+      ),
     };
   }
 }
