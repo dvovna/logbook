@@ -13,8 +13,9 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - Request annual leave, sick leave, bonus days, unpaid leave and other time off from the App Home or with `/vacations request`.
 - Overlapping dates are refused. You can cancel a pending request with `/vacations cancel`, and see your balance with `/vacations usage`.
 - Two-level approval: the team's managers first, then HR. Each level is approved by any one approver or by all of them.
-- Approvers get a Slack message with Approve / Reject / Comment buttons. They can also decide from the Vacations tab.
+- Approvers get a Slack message with Approve / Reject / Comment buttons. They can also decide from the Vacations tab. A rejection can say why, and the requester sees the reason.
 - When an approver is away, HR or an admin can approve the waiting level for them, so the request moves on instead of getting stuck.
+- When nobody on the team can approve a request (no team, no approvers, or the requester is the only one), it goes to HR, or to the admins when there is no HR. Nobody approves their own request.
 - The requester and the team's notification recipients are told about the decision.
 
 **Policies and balances**
@@ -31,7 +32,9 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 
 **Time & Billing (beta)**
 - Clients, projects with team and user assignments, and billable flags.
-- Time entries in 15-minute steps, logged from the App Home.
+- Time entries in 15-minute steps, logged from the App Home as drafts and then submitted for approval.
+- The team's managers, HR or an admin approve or reject submitted time; a rejection tells the owner why.
+- A billing report per client and period, from approved time.
 - Admins and HR see everyone's time logs.
 
 ## How it works
@@ -45,6 +48,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 ## Self-hosting
 
 You need:
+- a clone of this repository with its dependencies (`yarn install`): the steps below run the Supabase CLI pinned in it;
 - a Supabase project (the free tier is enough);
 - a host that runs Docker or Node 26, reachable from Slack over HTTPS;
 - permission to create a Slack app in your workspace.
@@ -81,7 +85,7 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
 | `SLACK_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the bot tokens in the database. Keep it with your other secrets: without it the app can't read the tokens, and every workspace has to install the app again. |
 | `PORT` | Port to listen on. The Docker image defaults to 10000. |
-| `DATABASE_URL` | Optional. A direct Postgres connection for the job queue, which retries Slack messages and workflow steps that failed. On Supabase use the session pooler string from "Connect" (port 5432, not 6543). Without it the app runs those once and logs failures. |
+| `DATABASE_URL` | Optional. A direct Postgres connection for the job queue, which retries Slack messages and workflow steps that failed. On Supabase use the session pooler string from "Connect" (port 5432, not 6543). The queue creates its own `pgboss` schema there on the first start. Without it the app runs those once and logs failures. |
 
 The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` lists them.
 
@@ -113,7 +117,7 @@ The person who installs the app becomes its admin. The other members are importe
 
 ### Updating
 
-Pull the new version, run `supabase db push --remote` with the same connection string, and redeploy. Without `--remote` the CLI pushes to the local database.
+Pull the new version, run `yarn install`, apply the new migrations with `yarn supabase db push --remote "<the same connection string>"`, and redeploy. Without `--remote` the CLI pushes to the local database. Apply the migrations before the new version starts: it may need them.
 
 ### Checking the database is closed
 
@@ -151,7 +155,8 @@ On the first start the migrations from `supabase/migrations` create the schema. 
 In `.env`:
 - set `SUPABASE_URL` to `API_URL` from `yarn supabase status -o env`;
 - set `SUPABASE_SERVICE_ROLE_KEY` to `SERVICE_ROLE_KEY` from the same output;
-- set `SLACK_TOKEN_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`.
+- set `SLACK_TOKEN_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`;
+- optionally, to try the job queue, set `DATABASE_URL` to `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
 Studio is at http://127.0.0.1:54323. `yarn supabase stop` stops the stack and keeps the data.
 
@@ -209,7 +214,7 @@ LOG_LEVEL=debug yarn test:int                                  # with the app's 
 
 A bug a test has found but nobody has fixed yet stays in the suite as `it.failing`, with a `BUG:` comment that points at the code. Such a test passes while the bug is there and fails once it is fixed; then make it a plain `it`.
 
-CI runs the unit and integration tests on every pull request.
+CI runs the type check, lint, unit and integration tests on every pull request, and checks that `src/common/types/database.types.ts` matches the migrations.
 
 ## Known limitations
 
