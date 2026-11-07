@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { runInBackground } from '@common/utils/run-in-background';
 import UserRole from '@common/enums/user-role.enum';
 import SlackUserAccessService from '@modules/slack/services/slack-user-access.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -114,7 +115,7 @@ export default class SlackEventsService {
   ) {
     switch (event.type) {
       case SlackEventType.FileShared:
-        this.runInBackground(event.type, () =>
+        runInBackground(this.logger, `handle ${event.type} event`, () =>
           this.handleFileShared(event, user!),
         );
 
@@ -124,11 +125,13 @@ export default class SlackEventsService {
 
         break;
       case SlackEventType.TeamJoin:
-        this.runInBackground(event.type, () => this.handleUserJoin(event));
+        runInBackground(this.logger, `handle ${event.type} event`, () =>
+          this.handleUserJoin(event),
+        );
 
         break;
       case SlackEventType.UserChange:
-        this.runInBackground(event.type, () =>
+        runInBackground(this.logger, `handle ${event.type} event`, () =>
           this.handleUserChange(event, user),
         );
 
@@ -137,7 +140,7 @@ export default class SlackEventsService {
         const { team_id: teamSlackId } =
           body as unknown as IAppUninstalledEventBodyData;
 
-        this.runInBackground(event.type, () =>
+        runInBackground(this.logger, `handle ${event.type} event`, () =>
           this.handleAppUninstalled(teamSlackId),
         );
 
@@ -150,21 +153,6 @@ export default class SlackEventsService {
     }
 
     return { ok: true };
-  }
-
-  // Slack expects a response within 3 seconds, so handlers are not awaited.
-  // Their errors are logged here, otherwise an unhandled rejection would
-  // terminate the process.
-  private runInBackground(
-    eventType: SlackEventType,
-    handler: () => Promise<void>,
-  ) {
-    handler().catch((error: Error) => {
-      this.logger.error(
-        `Failed to handle ${eventType} event: ${error.message}`,
-        error.stack,
-      );
-    });
   }
 
   private async handleAppUninstalled(teamSlackId: string) {

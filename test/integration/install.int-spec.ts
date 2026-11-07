@@ -3,7 +3,6 @@ import UserRole from '@common/enums/user-role.enum';
 import { TEST_SLACK_CLIENT_ID } from './support/test-env';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId } from './support/test-workspace';
-import { eventually } from './support/eventually';
 
 describe('Installing the app (OAuth redirect)', () => {
   let t: ITestApp;
@@ -123,17 +122,14 @@ describe('Installing the app (OAuth redirect)', () => {
     ]);
 
     // The member import starts 5 seconds after the install.
-    await eventually(
-      async () =>
-        expect(
-          (await usersOf()).map(({ email, role }) => ({ email, role })),
-        ).toEqual(
-          expect.arrayContaining([
-            { email: `ivy-${teamId}@acme.test`, role: UserRole.Admin },
-            { email: `max-${teamId}@acme.test`, role: UserRole.Member },
-          ]),
-        ),
-      { timeout: 10_000 },
+    await t.idle();
+    expect(
+      (await usersOf()).map(({ email, role }) => ({ email, role })),
+    ).toEqual(
+      expect.arrayContaining([
+        { email: `ivy-${teamId}@acme.test`, role: UserRole.Admin },
+        { email: `max-${teamId}@acme.test`, role: UserRole.Member },
+      ]),
     );
     expect(await usersOf()).toHaveLength(2);
   });

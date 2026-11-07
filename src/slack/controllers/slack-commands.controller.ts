@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { runInBackground } from '@common/utils/run-in-background';
 import { ISlackCommandBodyData } from '@common/types/slack.types';
 import VacationCommandService, {
   VacationCommand,
@@ -38,19 +39,21 @@ export default class SlackCommandsController {
     const args = body.text?.trim().split(/\s+/) ?? [];
     const command = args[0] as VacationCommand;
 
-    try {
-      await this.vacationCommandService.handleCommand(
-        command,
-        req.user!,
-        req.body.trigger_id,
-      );
-    } catch (e) {
-      this.logger.error('Error handling vacation command:', e);
-      await this.slackCommunicationService.postEphemeral(
-        req.user!.slack_id,
-        { text: 'An error occurred while processing your command.' },
-        req.user!.slack_team_id,
-      );
-    }
+    runInBackground(this.logger, `handle /vacations ${command}`, async () => {
+      try {
+        await this.vacationCommandService.handleCommand(
+          command,
+          req.user!,
+          req.body.trigger_id,
+        );
+      } catch (e) {
+        this.logger.error('Error handling vacation command:', e);
+        await this.slackCommunicationService.postEphemeral(
+          req.user!.slack_id,
+          { text: 'An error occurred while processing your command.' },
+          req.user!.slack_team_id,
+        );
+      }
+    });
   }
 }

@@ -3,7 +3,6 @@ import { Tables } from '@common/types/database.types';
 import { ITestApp } from './test-app';
 import { TestWorkspace } from './test-workspace';
 import { acknowledged } from './slack-test-client';
-import { eventually } from './eventually';
 
 interface IRequestVacationParams {
   start: string;
@@ -33,9 +32,8 @@ export const submitVacationRequest = async (
     .command(VACATIONS_COMMAND, workspace, user, 'request')
     .expect(acknowledged);
 
-  const modal = await eventually(() =>
-    t.slackApi.openedModal(workspace.token, { since }),
-  );
+  await t.idle();
+  const modal = t.slackApi.openedModal(workspace.token, { since });
 
   const response = await t.slack
     .submitView(workspace, user, modal, {
@@ -75,20 +73,20 @@ export const requestVacation = async (
 };
 
 // The approval DM the bot sent to an approver.
-export const approvalMessageTo = (
+export const approvalMessageTo = async (
   t: ITestApp,
   workspace: TestWorkspace,
   approver: Tables<'users'>,
-) =>
-  eventually(() => {
-    const [message] = t.slackApi.postedMessages(
-      workspace.token,
-      approver.slack_id,
-    );
+) => {
+  await t.idle();
+  const [message] = t.slackApi.postedMessages(
+    workspace.token,
+    approver.slack_id,
+  );
 
-    if (!message) {
-      throw new Error(`${approver.name} got no approval request`);
-    }
+  if (!message) {
+    throw new Error(`${approver.name} got no approval request`);
+  }
 
-    return message;
-  });
+  return message;
+};

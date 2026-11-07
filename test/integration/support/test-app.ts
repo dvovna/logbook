@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { AppModule } from 'src/app.module';
@@ -8,6 +9,10 @@ import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
 import { SupabaseService } from 'src/database/supabase.service';
 import { Database } from '@common/types/database.types';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
+import {
+  trackInBackground,
+  whenBackgroundWorkIsDone,
+} from '@common/utils/run-in-background';
 import { FakeSlackApiClient } from './fake-slack-api.client';
 import { SlackTestClient } from './slack-test-client';
 import { TestWorkspace } from './test-workspace';
@@ -20,6 +25,9 @@ export interface ITestApp {
   // Sends signed Slack requests to the app.
   slack: SlackTestClient;
   db: SupabaseClient<Database>;
+  // Resolves once the app has finished the work it does after answering
+  // Slack (event handlers, EventEmitter listeners, tab updates).
+  idle(): Promise<void>;
   createWorkspace(): Promise<TestWorkspace>;
   close(): Promise<void>;
 }
@@ -41,6 +49,7 @@ export const createTestApp = async (): Promise<ITestApp> => {
   // of all addresses and sends to 127.0.0.1: when another local process
   // listens on 127.0.0.1 with that port, it gets the request.
   await app.listen(0, '127.0.0.1');
+  trackEventListeners(app.get(EventEmitter2));
 
   // Second line of defence after global-setup: what the app actually uses.
   assertLocalUrl(
@@ -56,6 +65,7 @@ export const createTestApp = async (): Promise<ITestApp> => {
     slackApi,
     slack: new SlackTestClient(app.getHttpServer()),
     db,
+    idle: whenBackgroundWorkIsDone,
     createWorkspace: async () => {
       const workspace = await TestWorkspace.create(db);
       workspaces.push(workspace);
@@ -68,3 +78,17 @@ export const createTestApp = async (): Promise<ITestApp> => {
     },
   };
 };
+
+// EventEmitter2.emit runs the listeners (@OnEvent, tab navigation) without
+// returning their promises. emitAsync runs them the same way and returns
+// one, so that idle() can wait for them too.
+function trackEventListeners(eventEmitter: EventEmitter2) {
+  eventEmitter.emit = (event, ...values) => {
+    // Nest logs a failing listener; its error must not end the test run.
+    trackInBackground(
+      eventEmitter.emitAsync(event, ...values).catch(() => undefined),
+    );
+
+    return eventEmitter.listeners(event).length > 0;
+  };
+}

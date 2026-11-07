@@ -6,7 +6,6 @@ import { TimeApprovalsTabActionId } from '@modules/slack/tabs/time-approvals/enu
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { textOf } from './support/block-kit';
-import { eventually } from './support/eventually';
 import { addDays } from './support/dates';
 import {
   actOnTab,
@@ -166,15 +165,13 @@ describe('Time approvals', () => {
         'The time entry has been rejected. Mia Member will get a message',
       );
       expect(await statusOf(entry)).toBe(TimeEntryStatus.Rejected);
-      const message = await eventually(() => {
-        const [posted] = t.slackApi.postedMessages(
-          workspace.token,
-          member.slack_id,
-        );
-        expect(posted).toBeDefined();
-
-        return textOf(posted);
-      });
+      await t.idle();
+      const [posted] = t.slackApi.postedMessages(
+        workspace.token,
+        member.slack_id,
+      );
+      expect(posted).toBeDefined();
+      const message = textOf(posted);
       expect(message).toContain('rejected your time entry: *Website* (Acme)');
       expect(message).toContain('Nov 2, 2026, 1h');
       expect(message).toContain('>Wrong project');

@@ -4,7 +4,6 @@ import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navig
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { eventually, settle } from './support/eventually';
 import { textOf } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
@@ -94,15 +93,12 @@ describe('Admin', () => {
         `email;team_name\n${ada.email};Design\n`,
       );
 
-      await eventually(async () =>
-        expect((await workspace.row('users', ada.id)).team_id).toBe(design.id),
-      );
+      await t.idle();
+      expect((await workspace.row('users', ada.id)).team_id).toBe(design.id);
       expect((await workspace.row('users', bob.id)).team_id).toBeNull();
-      await eventually(() =>
-        expect(
-          t.slackApi.ephemeralMessages(workspace.token, admin.slack_id),
-        ).toHaveLength(1),
-      );
+      expect(
+        t.slackApi.ephemeralMessages(workspace.token, admin.slack_id),
+      ).toHaveLength(1);
     });
 
     it('reports rows it cannot import', async () => {
@@ -114,14 +110,13 @@ describe('Admin', () => {
         `email;team_name\n${ada.email};Nonexistent\n`,
       );
 
-      await eventually(() => {
-        const [reply] = t.slackApi.ephemeralMessages(
-          workspace.token,
-          admin.slack_id,
-        );
-        expect(textOf(reply)).toContain('Import was not successful');
-        expect(textOf(reply)).toContain('Team not found: Nonexistent');
-      });
+      await t.idle();
+      const [reply] = t.slackApi.ephemeralMessages(
+        workspace.token,
+        admin.slack_id,
+      );
+      expect(textOf(reply)).toContain('Import was not successful');
+      expect(textOf(reply)).toContain('Team not found: Nonexistent');
     });
 
     it('logs, rather than crashes on, a file it cannot download', async () => {
@@ -139,12 +134,12 @@ describe('Admin', () => {
           })
           .expect(acknowledged);
 
-        await eventually(() =>
-          expect(
-            t.slackApi.callsWith(workspace.token, 'files.info'),
-          ).toHaveLength(1),
-        );
-        await settle();
+        await t.idle();
+        expect(
+          t.slackApi.callsWith(workspace.token, 'files.info'),
+        ).toHaveLength(1);
+        // Node reports an unhandled rejection on a later turn of the loop.
+        await new Promise((resolve) => setImmediate(resolve));
         expect(rejections).toEqual([]);
       } finally {
         process.off('unhandledRejection', onRejection);
@@ -161,7 +156,7 @@ describe('Admin', () => {
         `email;team_name\n${member.email};Design\n`,
       );
 
-      await settle();
+      await t.idle();
       expect((await workspace.row('users', member.id)).team_id).toBeNull();
       expect(design).toBeDefined();
       expect(t.slackApi.callsWith(workspace.token, 'files.info')).toEqual([]);

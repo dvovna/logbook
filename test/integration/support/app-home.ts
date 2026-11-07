@@ -3,19 +3,19 @@ import { Tables } from '@common/types/database.types';
 import { ITestApp } from './test-app';
 import { TestWorkspace } from './test-workspace';
 import { acknowledged } from './slack-test-client';
-import { eventually } from './eventually';
 
 // The App Home view the app publishes for `user` after the mark `since`
 // (t.slackApi.mark()), e.g. the tab it re-renders after a modal submit.
-export const publishedHome = (
+export const publishedHome = async (
   t: ITestApp,
   workspace: TestWorkspace,
   user: Tables<'users'>,
   since: number,
-): Promise<View> =>
-  eventually(() =>
-    t.slackApi.homeView(workspace.token, user.slack_id, { since }),
-  );
+): Promise<View> => {
+  await t.idle();
+
+  return t.slackApi.homeView(workspace.token, user.slack_id, { since });
+};
 
 // Clicks or chooses `value` in an element of the App Home `view` and returns
 // the view the app publishes in response.
@@ -75,5 +75,7 @@ export const openModalFrom = async (
 
   await t.slack.actOnView(workspace, user, view, actionId, value).expect(200);
 
-  return eventually(() => t.slackApi.openedModal(workspace.token, { since }));
+  await t.idle();
+
+  return t.slackApi.openedModal(workspace.token, { since });
 };

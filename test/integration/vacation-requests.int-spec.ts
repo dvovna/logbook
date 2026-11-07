@@ -4,7 +4,6 @@ import { Tables } from '@common/types/database.types';
 import { CANCEL_REQUEST_ACTION_ID } from '@modules/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { eventually } from './support/eventually';
 import { addDays, workWeek } from './support/dates';
 import { textOf } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
@@ -46,17 +45,17 @@ describe('/vacations', () => {
     return since;
   };
 
-  const ephemeralReply = (since: number) =>
-    eventually(() => {
-      const [reply] = t.slackApi.ephemeralMessages(
-        workspace.token,
-        member.slack_id,
-        { since },
-      );
-      expect(reply).toBeDefined();
+  const ephemeralReply = async (since: number) => {
+    await t.idle();
+    const [reply] = t.slackApi.ephemeralMessages(
+      workspace.token,
+      member.slack_id,
+      { since },
+    );
+    expect(reply).toBeDefined();
 
-      return textOf(reply);
-    });
+    return textOf(reply);
+  };
 
   describe('cancel', () => {
     it('cancels a pending request and closes its approval message', async () => {
@@ -64,9 +63,8 @@ describe('/vacations', () => {
       const approval = await approvalMessageTo(t, workspace, manager);
 
       const since = await command('cancel');
-      const modal = await eventually(() =>
-        t.slackApi.openedModal(workspace.token, { since }),
-      );
+      await t.idle();
+      const modal = t.slackApi.openedModal(workspace.token, { since });
 
       const response = await t.slack
         .submitView(workspace, member, modal, {
@@ -78,10 +76,9 @@ describe('/vacations', () => {
       expect(
         (await workspace.row('vacation_requests', request.id)).status,
       ).toBe(VacationRequestStatus.Canceled);
-      await eventually(() => {
-        const [update] = t.slackApi.messageUpdates(workspace.token, approval);
-        expect(textOf(update)).toContain(`Canceled by <@${member.slack_id}>`);
-      });
+      await t.idle();
+      const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+      expect(textOf(update)).toContain(`Canceled by <@${member.slack_id}>`);
     });
 
     it('offers only pending requests', async () => {
@@ -93,9 +90,8 @@ describe('/vacations', () => {
         .eq('id', approved.id);
 
       const since = await command('cancel');
-      const modal = await eventually(() =>
-        t.slackApi.openedModal(workspace.token, { since }),
-      );
+      await t.idle();
+      const modal = t.slackApi.openedModal(workspace.token, { since });
 
       expect(textOf(modal)).toContain(pending.id);
       expect(textOf(modal)).not.toContain(approved.id);

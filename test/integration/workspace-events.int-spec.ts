@@ -2,7 +2,6 @@ import * as request from 'supertest';
 import UserRole from '@common/enums/user-role.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId, TestWorkspace } from './support/test-workspace';
-import { eventually, settle } from './support/eventually';
 import { acknowledged } from './support/slack-test-client';
 
 const slackMember = (
@@ -65,14 +64,10 @@ describe('Slack events', () => {
       })
       .expect(acknowledged);
 
-    const user = await eventually(async () => {
-      const users = await workspace.rows('users');
-      const joined = users.find(({ slack_id }) => slack_id === id);
-
-      expect(joined).toBeDefined();
-
-      return joined!;
-    });
+    await t.idle();
+    const user = (await workspace.rows('users')).find(
+      ({ slack_id }) => slack_id === id,
+    );
 
     expect(user).toMatchObject({
       name: 'Ada Lovelace',
@@ -81,7 +76,7 @@ describe('Slack events', () => {
       is_active: true,
       team_id: null,
     });
-    expect(user.contract_start_date).not.toBeNull();
+    expect(user?.contract_start_date).not.toBeNull();
   });
 
   it('adds a member who is already in another workspace', async () => {
@@ -100,12 +95,11 @@ describe('Slack events', () => {
       })
       .expect(acknowledged);
 
-    await eventually(async () => {
-      const users = await workspace.rows('users');
+    await t.idle();
+    const users = await workspace.rows('users');
 
-      expect(users.find(({ slack_id }) => slack_id === id)).toMatchObject({
-        email: 'grace@example.test',
-      });
+    expect(users.find(({ slack_id }) => slack_id === id)).toMatchObject({
+      email: 'grace@example.test',
     });
   });
 
@@ -127,14 +121,13 @@ describe('Slack events', () => {
       })
       .expect(acknowledged);
 
-    await eventually(async () => {
-      expect(await workspace.row('users', member.id)).toMatchObject({
-        name: 'Grace Hopper',
-        email: 'grace@example.test',
-        is_active: false,
-        role: UserRole.Manager,
-        contract_start_date: '2024-03-01',
-      });
+    await t.idle();
+    expect(await workspace.row('users', member.id)).toMatchObject({
+      name: 'Grace Hopper',
+      email: 'grace@example.test',
+      is_active: false,
+      role: UserRole.Manager,
+      contract_start_date: '2024-03-01',
     });
   });
 
@@ -150,11 +143,8 @@ describe('Slack events', () => {
       })
       .expect(acknowledged);
 
-    await eventually(() =>
-      expect(
-        t.slackApi.homeView(workspace.token, member.slack_id),
-      ).toBeDefined(),
-    );
+    await t.idle();
+    expect(t.slackApi.homeView(workspace.token, member.slack_id)).toBeDefined();
   });
 
   it('ignores App Home opened by someone the bot does not know', async () => {
@@ -167,7 +157,7 @@ describe('Slack events', () => {
       })
       .expect(acknowledged);
 
-    await settle();
+    await t.idle();
     expect(t.slackApi.callsWith(workspace.token)).toEqual([]);
   });
 
@@ -179,14 +169,14 @@ describe('Slack events', () => {
       .event(workspace, { type: 'app_uninstalled' })
       .expect(acknowledged);
 
-    await eventually(async () => {
-      const { data } = await t.db
-        .from('slack_teams')
-        .select('id')
-        .eq('id', workspace.id);
+    await t.idle();
+    const { data } = await t.db
+      .from('slack_teams')
+      .select('id')
+      .eq('id', workspace.id);
 
-      expect(data).toEqual([]);
-    });
+    expect(data).toEqual([]);
+
     expect(await workspace.rows('users')).toEqual([]);
     expect(await workspace.rows('teams')).toEqual([]);
   });

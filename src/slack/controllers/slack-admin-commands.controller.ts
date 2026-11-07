@@ -1,5 +1,6 @@
 import {
   Controller,
+  Logger,
   Post,
   Req,
   Res,
@@ -7,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { runInBackground } from '@common/utils/run-in-background';
 import { SlackSignatureGuard } from '@common/guards/slack-signature.guard';
 import { SlackUserGuard } from '@common/guards/slack-user.guard';
 import UserRole from '@common/enums/user-role.enum';
@@ -27,6 +29,8 @@ import { SlackActiveUserGuard } from '@common/guards/slack-active-user.guard';
 )
 @RequireRoles([UserRole.Admin])
 export default class AdminCommandsController {
+  private readonly logger = new Logger(AdminCommandsController.name);
+
   public constructor(
     private readonly slackPromptService: SlackCommandPromptsService,
     private readonly slackCommunicationService: SlackCommunicationService,
@@ -36,13 +40,13 @@ export default class AdminCommandsController {
   public async uploadVacations(@Req() req: Request, @Res() res: Response) {
     res.status(200).send();
 
-    await this.slackCommunicationService.postEphemeral(
-      req.user!.slack_id,
-      this.slackPromptService.getUploadVacationsPromptMessage(),
-      req.user!.slack_team_id,
+    runInBackground(this.logger, 'post the upload prompt', () =>
+      this.slackCommunicationService.postEphemeral(
+        req.user!.slack_id,
+        this.slackPromptService.getUploadVacationsPromptMessage(),
+        req.user!.slack_team_id,
+      ),
     );
-
-    return;
   }
 
   @Post('/user-team-mapping-upload')
@@ -52,12 +56,12 @@ export default class AdminCommandsController {
   ) {
     res.status(200).send();
 
-    await this.slackCommunicationService.postEphemeral(
-      req.user!.slack_id,
-      this.slackPromptService.getUserTeamMappingUploadPromptMessage(),
-      req.user!.slack_team_id,
+    runInBackground(this.logger, 'post the upload prompt', () =>
+      this.slackCommunicationService.postEphemeral(
+        req.user!.slack_id,
+        this.slackPromptService.getUserTeamMappingUploadPromptMessage(),
+        req.user!.slack_team_id,
+      ),
     );
-
-    return;
   }
 }

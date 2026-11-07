@@ -15,7 +15,6 @@ import {
   VACATIONS_COMMAND,
 } from './support/vacation-flows';
 import { acknowledged } from './support/slack-test-client';
-import { eventually } from './support/eventually';
 
 describe('Requests HR files for someone else', () => {
   let t: ITestApp;
@@ -128,10 +127,9 @@ describe('Requests HR files for someone else', () => {
     expect((await workspace.row('vacation_requests', request.id)).status).toBe(
       VacationRequestStatus.Approved,
     );
-    await eventually(() => {
-      const [update] = t.slackApi.messageUpdates(workspace.token, approval);
-      expect(textOf(update)).toContain(`Canceled by <@${hr.slack_id}>`);
-    });
+    await t.idle();
+    const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+    expect(textOf(update)).toContain(`Canceled by <@${hr.slack_id}>`);
   });
 
   it("shows HR's own request form without the user and status fields", async () => {
@@ -141,9 +139,8 @@ describe('Requests HR files for someone else', () => {
       .command(VACATIONS_COMMAND, workspace, hr, 'request')
       .expect(acknowledged);
 
-    const form = await eventually(() =>
-      t.slackApi.openedModal(workspace.token, { since }),
-    );
+    await t.idle();
+    const form = t.slackApi.openedModal(workspace.token, { since });
     const blockIds = form.blocks.map((block) => block.block_id);
 
     expect(blockIds).not.toContain('user_id_block');

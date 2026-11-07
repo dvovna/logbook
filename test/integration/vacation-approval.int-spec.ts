@@ -8,7 +8,6 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { VacationsTabViewActionId } from '@modules/slack/tabs/vacations/enums/vacations-tab-view-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { eventually, settle } from './support/eventually';
 import { workWeek } from './support/dates';
 import { textOf } from './support/block-kit';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
@@ -76,27 +75,22 @@ describe('Vacation request approval', () => {
 
     await click(manager, approval, ApproverMessageActionId.Approve);
 
-    await eventually(async () =>
-      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved),
+    await t.idle();
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+    const [requesterNotice] = t.slackApi.postedMessages(
+      workspace.token,
+      member.slack_id,
     );
-    await eventually(() => {
-      const [notice] = t.slackApi.postedMessages(
-        workspace.token,
-        member.slack_id,
-      );
-      expect(textOf(notice)).toContain('has been approved');
-    });
-    await eventually(() => {
-      const [notice] = t.slackApi.postedMessages(
-        workspace.token,
-        recipient.slack_id,
-      );
-      expect(textOf(notice)).toContain('Max Member');
-    });
-    await eventually(() => {
-      const [update] = t.slackApi.messageUpdates(workspace.token, approval);
-      expect(textOf(update)).toContain(`Approved by <@${manager.slack_id}>`);
-    });
+    expect(textOf(requesterNotice)).toContain('has been approved');
+
+    const [recipientNotice] = t.slackApi.postedMessages(
+      workspace.token,
+      recipient.slack_id,
+    );
+    expect(textOf(recipientNotice)).toContain('Max Member');
+
+    const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+    expect(textOf(update)).toContain(`Approved by <@${manager.slack_id}>`);
   });
 
   it('tells the requester when the manager rejects', async () => {
@@ -110,16 +104,13 @@ describe('Vacation request approval', () => {
 
     await click(manager, approval, ApproverMessageActionId.Reject);
 
-    await eventually(async () =>
-      expect(await statusOf(request)).toBe(VacationRequestStatus.Rejected),
+    await t.idle();
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Rejected);
+    const [notice] = t.slackApi.postedMessages(
+      workspace.token,
+      member.slack_id,
     );
-    await eventually(() => {
-      const [notice] = t.slackApi.postedMessages(
-        workspace.token,
-        member.slack_id,
-      );
-      expect(textOf(notice)).toContain('has been rejected');
-    });
+    expect(textOf(notice)).toContain('has been rejected');
   });
 
   it('waits for every approver when the rule is ALL', async () => {
@@ -135,13 +126,12 @@ describe('Vacation request approval', () => {
     const second = await approvalMessageTo(t, workspace, secondManager);
 
     await click(manager, first, ApproverMessageActionId.Approve);
-    await settle();
+    await t.idle();
     expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
 
     await click(secondManager, second, ApproverMessageActionId.Approve);
-    await eventually(async () =>
-      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved),
-    );
+    await t.idle();
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
   });
 
   it('asks HR only after the managers approved', async () => {
@@ -155,7 +145,7 @@ describe('Vacation request approval', () => {
     const request = await requestVacation(t, workspace, member, workWeek(2));
     const managerApproval = await approvalMessageTo(t, workspace, manager);
 
-    await settle();
+    await t.idle();
     expect(t.slackApi.postedMessages(workspace.token, hr.slack_id)).toEqual([]);
 
     await click(manager, managerApproval, ApproverMessageActionId.Approve);
@@ -164,9 +154,8 @@ describe('Vacation request approval', () => {
     expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
 
     await click(hr, hrApproval, ApproverMessageActionId.Approve);
-    await eventually(async () =>
-      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved),
-    );
+    await t.idle();
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
   });
 
   it('does not let a member approve', async () => {
@@ -181,7 +170,7 @@ describe('Vacation request approval', () => {
     // The member somehow gets hold of the manager's message.
     await click(member, approval, ApproverMessageActionId.Approve);
 
-    await settle();
+    await t.idle();
     expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
   });
 
@@ -220,9 +209,8 @@ describe('Vacation request approval', () => {
 
       await decide(VacationsTabViewActionId.ApprovePendingRequest);
 
-      await eventually(async () =>
-        expect(await statusOf(request)).toBe(VacationRequestStatus.Approved),
-      );
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
     });
 
     it('rejects', async () => {
@@ -231,9 +219,8 @@ describe('Vacation request approval', () => {
 
       await decide(VacationsTabViewActionId.RejectPendingRequest);
 
-      await eventually(async () =>
-        expect(await statusOf(request)).toBe(VacationRequestStatus.Rejected),
-      );
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Rejected);
     });
   });
 
@@ -292,13 +279,13 @@ describe('Vacation request approval', () => {
 
       await approveForApprovers(request);
 
-      await eventually(() => {
-        const [update] = t.slackApi.messageUpdates(
-          workspace.token,
-          managerApproval,
-        );
-        expect(textOf(update)).toContain(`Approved by <@${hr.slack_id}>`);
-      });
+      await t.idle();
+      const [update] = t.slackApi.messageUpdates(
+        workspace.token,
+        managerApproval,
+      );
+      expect(textOf(update)).toContain(`Approved by <@${hr.slack_id}>`);
+
       await approvalMessageTo(t, workspace, hrApprover);
       expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
     });
@@ -329,16 +316,13 @@ describe('Vacation request approval', () => {
 
       await approveForApprovers(request);
 
-      await eventually(async () =>
-        expect(await statusOf(request)).toBe(VacationRequestStatus.Approved),
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      const [notice] = t.slackApi.postedMessages(
+        workspace.token,
+        member.slack_id,
       );
-      await eventually(() => {
-        const [notice] = t.slackApi.postedMessages(
-          workspace.token,
-          member.slack_id,
-        );
-        expect(textOf(notice)).toContain('has been approved');
-      });
+      expect(textOf(notice)).toContain('has been approved');
     });
   });
 
@@ -348,7 +332,7 @@ describe('Vacation request approval', () => {
 
     const request = await requestVacation(t, workspace, member, workWeek(2));
 
-    await settle();
+    await t.idle();
     expect(await workspace.rows('request_workflow_steps')).toEqual([]);
     expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
   });

@@ -33,7 +33,7 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - A known, unfixed bug stays as an `it.failing` test with a `BUG:` comment pointing at the code; when the bug is fixed the test fails, and it becomes a plain `it`.
   - Every test works in its own `TestWorkspace` (random `T…` ID, deleted with a cascade at the end).
   - `global-setup.ts` reads the URLs and keys from `supabase status` and refuses non-local URLs. It also stops when the local database lacks a migration from `supabase/migrations`.
-  - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners), so assert with `eventually(...)`.
+  - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners, tab updates). `await t.idle()` waits until that work is done, then assert. It works because the app runs such work through `runInBackground` (`src/common/utils/run-in-background.ts`), and the harness routes `EventEmitter2.emit` through `emitAsync`. Work after `res.send()` that skips `runInBackground` is invisible to it.
 - `yarn db:init` runs `supabase db reset` against the local stack, which drops the local database and applies `supabase/migrations`. `src/commands` holds dev scripts and is excluded from `nest build`.
 - The codebase is not lint-clean: about 140 prettier and other errors already exist. `yarn lint` uses `--fix`, so it rewrites many unrelated files. To lint only what you touched, run `npx eslint <files>`.
 - Node 26 everywhere:
