@@ -66,7 +66,7 @@ Take the session pooler connection string from the project's "Connect" dialog. T
    sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml
    ```
 2. Create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest").
-3. To install it into other workspaces too, turn on public distribution in "Manage Distribution". Share `https://<your-domain>/api/slack/install` as the install link; see below.
+3. To install it into other workspaces too, turn on public distribution in "Manage Distribution". Share `https://<your-domain>/api/slack/install` as the install link; see below. Without public distribution only your own workspace can install it, which is what a single company wants: with it, any Slack workspace that has the link can install the app on your server.
 
 ### 3. Configuration
 
@@ -79,6 +79,7 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` | Slack app → Basic Information |
 | `SLACK_SIGN_IN_SECRET` | Slack app → Basic Information → Signing Secret |
 | `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
+| `SLACK_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the bot tokens in the database. Keep it with your other secrets: without it the app can't read the tokens, and every workspace has to install the app again. |
 | `PORT` | Port to listen on. The Docker image defaults to 10000. |
 
 The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` lists them.
@@ -105,13 +106,27 @@ Open `https://<your-domain>/api/slack/install` in the browser and approve the ap
 
 Don't use "Install to Workspace" in the app settings, and don't use the sharable URL Slack generates. Both skip the `state`, so the bot refuses them and the workspace is never created. When you distribute the app, give out the `/api/slack/install` link.
 
-The person who installs the app becomes its admin. The other members are imported a few seconds later. Then, in the App Home:
+The person who installs the app becomes its admin. The other members are imported a few seconds later. Installing it again later (for example after an update adds scopes) only replaces the bot token: data and roles stay as they are. Uninstalling the app deletes all of the workspace's data at once. Then, in the App Home:
 - set up teams and their approvers under People;
 - set up vacation policies and holidays under Vacations.
 
 ### Updating
 
 Pull the new version, run `supabase db push` with the same connection string, and redeploy.
+
+### Checking the database is closed
+
+The app reaches the database only with the service role key. The `anon` and `authenticated` roles of the Supabase API get no access to its tables and functions. After changing the schema outside the migrations (for example in Studio), check that this still holds; every query should return no rows:
+
+```sql
+select relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+ where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relrowsecurity;
+select grantee, table_name, privilege_type from information_schema.role_table_grants
+ where table_schema = 'public' and grantee in ('anon', 'authenticated', 'PUBLIC');
+select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public' and (has_function_privilege('anon', p.oid, 'execute')
+   or has_function_privilege('authenticated', p.oid, 'execute'));
+```
 
 ## Development
 
@@ -134,7 +149,8 @@ On the first start the migrations from `supabase/migrations` create the schema. 
 
 In `.env`:
 - set `SUPABASE_URL` to `API_URL` from `npx supabase@latest status -o env`;
-- set `SUPABASE_SERVICE_ROLE_KEY` to `SERVICE_ROLE_KEY` from the same output.
+- set `SUPABASE_SERVICE_ROLE_KEY` to `SERVICE_ROLE_KEY` from the same output;
+- set `SLACK_TOKEN_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`.
 
 Studio is at http://127.0.0.1:54323. `npx supabase@latest stop` stops the stack and keeps the data.
 

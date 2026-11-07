@@ -44,7 +44,7 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - used by the Dockerfile and by CI (`.github/workflows/ci.yml`: tsc, jest, build, non-blocking lint of changed files).
 
   Node images and installs from 26 on have no yarn and no corepack, so the Dockerfile and CI install `yarn@1.22.22` themselves.
-- The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if a required one is missing. Only the Supabase URL and service role key and the four Slack values are required; the `MAX_*`/year limits have defaults. Copy `.env.example` to `.env` first.
+- The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if a required one is missing. Only the Supabase URL and service role key, the four Slack values and `SLACK_TOKEN_ENCRYPTION_KEY` (32 bytes, base64) are required; the `MAX_*`/year limits have defaults. Copy `.env.example` to `.env` first.
 - Local setup is in README → "Development"; self-hosting is in README → "Self-hosting":
   - Local Supabase from `supabase/config.toml`. Only Postgres, the API, auth and Studio are enabled. Auth is unused by the app but the CLI prints the API keys only with it on.
   - A dev Slack app from `slack-app-manifest.yml` (`APP_DOMAIN` replaced with the ngrok domain), reached through ngrok.
@@ -88,7 +88,7 @@ Each Slack workspace that installs the app gets a `slack_teams` row. There are t
 - `slack_teams.slack_id`: Slack's own `T…` workspace ID.
 - `slack_team_id`: the internal UUID, used as the foreign key on every other table.
 
-Almost every service and repository query must be scoped by `slackTeamId` / `slack_team_id`. The bot token is stored on `slack_teams.slack_token`. Every outgoing Slack call goes through `SlackCommunicationService`, which looks up the token per workspace via `AccessTokenService`; the token is cached for 1 day.
+Every repository query must be scoped by `slackTeamId` / `slack_team_id`; `BaseRepository` throws when one isn't (see Domain layer). The bot token is stored on `slack_teams.slack_token`, encrypted with `SLACK_TOKEN_ENCRYPTION_KEY` (`TokenCipherService`, AES-256-GCM, `v1:` prefix); tokens stored in plain text before that are encrypted at startup and on first read. Every outgoing Slack call goes through `SlackCommunicationService`, which looks up the token per workspace via `AccessTokenService`; the token is cached for 1 day. Installing again updates the token (and clears the cache) and keeps the workspace's data and roles.
 
 ### HTTP pipeline for Slack (Slack Bolt's receiver is not used; Bolt is only imported for types)
 
@@ -113,7 +113,9 @@ Controllers are in `src/slack/controllers/`:
 - `SlackHandlersRegistry` finds them at startup through `DiscoveryService` and keys them by `${type}:${callbackId}`.
 - How `callbackId` is resolved:
   - `view_submission`: `view.callback_id`.
-  - `block_actions`: the **`block_id` of the first action**. Every actionable block in a tab or message therefore has to use the matching `ViewCallbackId` as its `block_id`.
+  - `block_actions` in an App Home tab or a modal: the view's `callback_id`.
+  - `block_actions` in a message: the **`block_id` of the first action**, so actionable blocks in messages use the matching `ViewCallbackId` as their `block_id`.
+- Slack takes `action_id`, button values, menu choices and form values from the client: a member can send ones the UI never offered. `callback_id` and `private_metadata` come from the stored view. So every handler and service checks the role and that an ID from the client is the workspace's and the user may use it; hiding a button is not access control (`test/integration/access-control.int-spec.ts`, `object-access.int-spec.ts`).
 - `SlackInteractionsService` enforces `allowedRoles` and blocks inactive users before it calls the handler.
 - `BaseActionHandler` (for `block_actions`) dispatches on `action_id` through `actionMap`. `BaseAdminTabActionHandler` adds the shared admin navigation actions. Helpers such as `withPagination`, `withMenuAction` and `withButtonAction` unpack action values.
 - `BaseModalFormSubmitHandler<Metadata, FormData, Result>` (for `view_submission`):
@@ -152,10 +154,12 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
   - `searchableColumns`;
   - `mapToViewModel`.
 
-  Filters are `SupabaseFilter`. A filter value can be a plain value (`eq`) or `{ operator, value }`.
+  Filters are `SupabaseFilter`. A filter value can be a plain value (`eq`) or `{ operator, value }`. A filter value that is `undefined` is left out, so `BaseRepository` refuses any query or insert on a workspace's table without `slack_team_id` (and any query on `slack_teams` without a filter); `workspaceColumn = null` turns this off for `slack_teams` only. Search terms go into PostgREST's `.or()` only quoted (`quoteFilterValue`).
 - **Services** take camelCase params and convert them to snake_case filters, usually in a private `getFindQuery`. Services also enforce per-workspace limits from env (`MAX_TEAMS_PER_SLACK_TEAM`, `MAX_POLICIES_PER_SLACK_TEAM`, `MAX_*_REQUESTS_PER_USER`) and throw the domain errors from `src/common/errors/`.
 - Only an admin grants or removes the Admin role or deactivates an admin (`assertCanChangeUser`). Nobody approves their own vacation request: requesters are left out of their own approval levels, and `RequestWorkflowService.assertNotOwnRequest` guards the approve paths. A Slack `user_change` can deactivate a user but never reactivates one.
 - `slack_teams.slack_token` stays out of `ISlackTeamViewModel`; only `AccessTokenService` reads it, through `SlackTeamsService.findAccessToken`.
+- Admin and HR see everyone's people and vacations (`isPeopleAdmin`); a manager only the teams that list them in `manager_approvers` (`TeamsService.findManagedTeamIds`, `scopeTeamFilter`, `assertManagesTeam`), whatever team a filter names. Only the approver of a workflow step, or HR/admin, decides or comments on it (`RequestWorkflowService.assertCanActOnStep`). Members log time only on `get_user_projects` projects. IDs taken from forms (teams, clients, policies, project assignments) are checked to be the workspace's.
+- Text people typed (comments, reasons, descriptions, people's names) goes into mrkdwn through `escapeMrkdwn` (`src/slack/common/utils/mrkdwn.utils.ts`), so it can't become a link or a mention.
 - Roles (`UserRole`):
   - `admin`: full access;
   - `hr`: manages people and requests;
