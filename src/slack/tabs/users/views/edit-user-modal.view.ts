@@ -8,7 +8,7 @@ import { AnyBlock } from '@slack/web-api';
 import { ROLE_OPTIONS } from '@modules/slack/tabs/users/views/options/use-role.options';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 
 interface IGetViewParams extends IBaseModalViewParams {
   user: IUserViewModel;

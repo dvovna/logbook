@@ -4,7 +4,7 @@ import { ValidationError } from '@common/errors/validation.error';
 import { SupabaseFilter } from '@common/repositories/base.repository';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import TeamsService from '@modules/teams/services/teams.service';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeEntriesListQuery } from 'src/time-entries/queries/time-entries-list.query';
 import { ITimeEntryListData } from 'src/time-entries/types/time-entries-list.types';

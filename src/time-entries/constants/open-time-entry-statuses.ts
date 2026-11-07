@@ -1,4 +1,4 @@
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 
 // The statuses in which the owner may still change, delete and submit an
 // entry. Once submitted it waits for approval and only Admin and HR change it.

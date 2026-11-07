@@ -1,6 +1,6 @@
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 import { ITotalCount } from '@common/types/list.types';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 
 export interface ITimeEntryListItem {
   id: string;

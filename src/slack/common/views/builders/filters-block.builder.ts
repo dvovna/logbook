@@ -1,6 +1,6 @@
 import { AnyBlock } from '@slack/web-api';
 import { Divider } from '@modules/slack/common/views/components/separator';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
 export type IFiltersConfig<OptionType extends IOption = IOption> = {

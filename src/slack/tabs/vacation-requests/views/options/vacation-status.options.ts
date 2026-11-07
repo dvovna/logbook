@@ -1,5 +1,5 @@
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 
 export const STATUS_OPTIONS: IOption[] = [
   {

@@ -5,7 +5,7 @@ import {
   ITimeEntryListData,
   ITimeEntryListItemWithTotalCount,
 } from 'src/time-entries/types/time-entries-list.types';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 
 interface IExecuteParams {
   slackTeamId: string;

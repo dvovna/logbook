@@ -1,7 +1,7 @@
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeApprovalsTabActionId } from '@modules/slack/tabs/time-approvals/enums/time-approvals-tab-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';

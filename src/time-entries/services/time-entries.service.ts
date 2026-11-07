@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';

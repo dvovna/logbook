@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { VacationDecisionNotificationsService } from '@modules/slack/tabs/vacation-requests/services/vacation-decision-notifications.service';
 import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 import { VacationRequestsTabService } from '@modules/slack/tabs/vacation-requests/services/vacation-requests-tab.service';
 import { VacationRequestFormModalView } from '@modules/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
@@ -30,6 +31,7 @@ import { VacationRequestModalService } from '@modules/slack/tabs/vacation-reques
     UsersModule,
   ],
   providers: [
+    VacationDecisionNotificationsService,
     VacationRequestsTabService,
     AdminVacationRequestHandler,
     UserVacationRequestHandler,

@@ -6,7 +6,7 @@ import BaseModalView, {
 } from '@modules/slack/common/views/base-modal.view';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { SlackMultiStaticSelectView } from '@modules/slack/common/views/components/slack-multi-static-select.view';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 import { InputCheckboxesBlockBuilder } from '@modules/slack/common/views/builders/input-checkboxes-block.builder';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 

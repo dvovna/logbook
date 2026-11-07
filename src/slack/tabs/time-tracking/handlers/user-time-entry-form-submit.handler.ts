@@ -9,7 +9,7 @@ import UserTimeEntryModalViewValuesParser, {
   ITimeEntryFormViewData,
 } from '@modules/slack/tabs/time-tracking/parsers/user-time-entry-modal-view-values.parser';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { BaseTimeEntryFormSubmitHandler } from '@modules/slack/tabs/time-tracking/handlers/base-time-entry-form-submit.handler';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 

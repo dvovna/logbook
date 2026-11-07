@@ -58,6 +58,7 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 - Every class member needs an explicit `public`/`private`/`protected` (`explicit-member-accessibility`).
 - Single quotes, trailing commas and 2-space indent come from Prettier; `yarn lint` or `yarn format` applies them.
 - Imports use the tsconfig path aliases `@modules/<module>/...` and `@common/...`. Absolute `src/...` paths also resolve (`baseUrl: ./`), but relative `../` imports are a lint error. Jest maps all of them in `moduleNameMapper`.
+- Domain and shared code (the domain modules, the domain folders of `request-workflows`, `src/common`, `slack-communication`) must not import the Slack UI in `src/slack` (`import/no-restricted-paths`). What both need goes into the domain module or `src/common`, e.g. `TimeEntryStatus` lives in `src/time-entries/enums`. A domain change that people should hear about publishes an event, and a listener in `src/slack` sends the messages.
 - `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint ignores it; `yarn db:types` formats it with Prettier.
 
 ## Schema
@@ -185,7 +186,7 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - A reject at any level ends the workflow.
    - Comments re-render the messages of all pending steps.
    - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in the Vacation Requests tab (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.
-6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status and notifies the requester and the team's `approval_notification_recipients`.
+6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status and publishes `vacation_request.decided`. On the Slack side, `VacationDecisionNotificationsService` (Vacation Requests tab module) notifies the requester and the team's `approval_notification_recipients`.
 
 Two approvers can click at the same moment, so the transitions are single conditional updates rather than "read, check, write": `VacationRequestsService.finishPending` changes only a request that is still pending (whoever changes it sends the notifications), and the next level's steps are claimed through `processed_at` (`claimUnprocessed`) before anyone is asked.
 

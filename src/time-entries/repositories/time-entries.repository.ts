@@ -5,7 +5,7 @@ import {
   Tables,
 } from '@common/repositories/base.repository';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 
 @Injectable()
 export class TimeEntriesRepository extends BaseRepository<

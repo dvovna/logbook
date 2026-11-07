@@ -4,7 +4,7 @@ import {
   ExternalSelectAction,
   StaticSelectAction,
 } from '@slack/bolt/dist/types/actions/block-action';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 
 export const getCheckboxActionValues = (payload: ISlackBlockActionPayload) => {
   const action = payload.actions[0] as CheckboxesAction;

@@ -1,4 +1,4 @@
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { PlainTextOption } from '@slack/web-api';
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';

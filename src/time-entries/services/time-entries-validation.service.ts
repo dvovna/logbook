@@ -9,7 +9,7 @@ import { isOpenTimeEntry } from 'src/time-entries/constants/open-time-entry-stat
 import capitalize from '@common/utils/capitalize';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ValidationError } from '@common/errors/validation.error';
 
 const MAX_MINUTES_PER_DAY = 24 * 60; // 1440

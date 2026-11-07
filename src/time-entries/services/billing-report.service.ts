@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ValidationError } from '@common/errors/validation.error';
 import ClientsService from '@modules/clients/services/clients.service';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';

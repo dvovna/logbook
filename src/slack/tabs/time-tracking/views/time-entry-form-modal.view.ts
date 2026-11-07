@@ -6,9 +6,9 @@ import BaseModalView, {
 } from '@modules/slack/common/views/base-modal.view';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TIME_LOG_STATUS_OPTIONS } from '@modules/slack/tabs/time-tracking/data/time-log-status.options';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
 import { getDateOnly } from '@common/utils/date.utils';
 import { IUserViewModel } from '@modules/users/types/user.interface';

@@ -96,6 +96,36 @@ export default [{
       }],
     }],
 
+    // The Slack UI in src/slack (tabs, handlers, views) uses the domain, never
+    // the other way round. Code both need belongs in the domain module or in
+    // src/common. request-workflows keeps its approver DM handlers and views
+    // next to its domain code, so only its domain folders are covered.
+    'import/no-restricted-paths': ['error', {
+      zones: [{
+        target: [
+          './src/clients',
+          './src/holidays',
+          './src/projects',
+          './src/slack-teams',
+          './src/teams',
+          './src/time-entries',
+          './src/users',
+          './src/vacation-policies',
+          './src/vacation-requests',
+          './src/request-workflows/enums',
+          './src/request-workflows/events',
+          './src/request-workflows/repositories',
+          './src/request-workflows/services',
+          './src/request-workflows/types',
+          './src/common',
+          './src/slack-communication',
+          './src/api-clients',
+          './src/database',
+        ],
+        from: './src/slack',
+        message: 'Domain and shared code must not depend on the Slack UI (src/slack): move what both need into the domain module or src/common.',
+      }],
+    }],
     'import/no-relative-packages': 'error',
     'import/no-cycle': ['error', {
       maxDepth: 10,

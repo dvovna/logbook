@@ -20,7 +20,7 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
 import { UserVacationUsageModalView } from '@modules/slack/tabs/users/views/user-vacation-usage-modal.view';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 
 export interface IGetUsersTabViewParams extends IPublishBaseParams {
   metadata?: IUsersTabMetaData;

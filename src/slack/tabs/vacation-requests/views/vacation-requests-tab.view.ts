@@ -26,7 +26,7 @@ import {
   FiltersBlockBuilder,
   IFiltersConfig,
 } from '@modules/slack/common/views/builders/filters-block.builder';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 
 export interface IVacationRequestsTabFilters {
   user?: {

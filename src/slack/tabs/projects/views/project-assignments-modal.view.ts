@@ -6,7 +6,7 @@ import BaseModalView, {
 import { AnyBlock } from '@slack/web-api';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { SlackMultiStaticSelectView } from '@modules/slack/common/views/components/slack-multi-static-select.view';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { IOption } from '@common/types/option.interface';
 import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';

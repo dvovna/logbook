@@ -1,5 +1,5 @@
-import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
-import { IOption } from '@modules/slack/common/types/option.interface';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { IOption } from '@common/types/option.interface';
 
 export const TIME_LOG_STATUS_OPTIONS: (IOption & { id: TimeEntryStatus })[] = [
   { name: 'Draft', id: TimeEntryStatus.Draft },
