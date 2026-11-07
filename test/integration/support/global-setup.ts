@@ -18,14 +18,13 @@ const readLocalStackEnv = (): Record<string, string> => {
   let output: string;
 
   try {
-    output = execFileSync(
-      'npx',
-      ['--yes', 'supabase@latest', 'status', '-o', 'env'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
-    );
+    output = execFileSync('npx', ['supabase', 'status', '-o', 'env'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
   } catch {
     throw new Error(
-      'The local Supabase stack is not running. Start it with `npx supabase@latest start`.',
+      'The local Supabase stack is not running. Start it with `yarn supabase start`.',
     );
   }
 
@@ -59,7 +58,7 @@ const assertMigrationsApplied = async (dbUrl: string) => {
     if (missing.length) {
       throw new Error(
         `The local database is missing migrations ${missing.join(', ')}. ` +
-          'Apply them with `npx supabase@latest migration up` ' +
+          'Apply them with `yarn supabase migration up` ' +
           '(or recreate the database with `yarn db:init`).',
       );
     }

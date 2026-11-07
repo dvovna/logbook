@@ -32,7 +32,7 @@ Remove tokens and personal data first. Security problems go through [SECURITY.md
 
 - Imports use the path aliases (`@modules/<module>/...`, `@common/...`). Relative `../` imports are a lint error.
 - Interfaces start with `I`. Class members have an explicit `public`, `private` or `protected`.
-- A schema change is a new migration in `supabase/migrations` (`npx supabase@latest migration new <name>`). Never edit an applied migration, and regenerate `src/common/types/database.types.ts` after the change.
+- A schema change is a new migration in `supabase/migrations` (`yarn supabase migration new <name>`). Never edit an applied migration, and regenerate `src/common/types/database.types.ts` after the change.
 - Slack waits only 3 seconds for an answer to an interaction. Slow work runs after the answer, through `runInBackground`.
 
 [CLAUDE.md](CLAUDE.md) explains the architecture and the patterns the code follows: Slack handler dispatch, App Home tabs, the approval workflow.

@@ -71,7 +71,7 @@ jobs:
       # A fresh local stack from supabase/config.toml, with supabase/migrations
       # applied. The tests only need Postgres and the REST API behind Kong.
       - name: Start Supabase
-        run: npx --yes supabase@latest start -x studio,postgres-meta
+        run: yarn supabase start -x studio,postgres-meta
 
       # The committed types must be what the migrations produce.
       - name: Database types match the migrations

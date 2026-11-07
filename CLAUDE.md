@@ -23,7 +23,7 @@ yarn test -t 'finishes the workflow'                                        # by
 yarn test:int         # integration tests against the local Supabase stack
 yarn db:init          # recreate the local Supabase database from supabase/migrations
 yarn db:types         # regenerate src/common/types/database.types.ts from the local database
-npx supabase@latest start                                                    # local Supabase in Docker
+yarn supabase start                                                    # local Supabase in Docker
 yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # signed event to the local app
 ```
 
@@ -67,10 +67,10 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 The schema lives in `supabase/migrations`:
 - `20260101000000_baseline_schema.sql` is the baseline. It holds every public table, constraint, index, comment and RLS flag of the dev project, taken with `pg_dump --schema-only` and made idempotent. On a database that already has the schema it is a no-op. On an empty one it creates the tables that the later migrations rely on.
 - The later migrations add RPCs (`get_projects_list`, `assign_project_assignments`, `get_user_projects`, `get_time_entries_list`) and constraints.
-- `src/common/types/database.types.ts` is generated from the local database by `yarn db:types`, with the Supabase CLI pinned in `devDependencies` (another CLI version writes the file differently). CI applies `supabase/migrations` to a fresh stack, regenerates the file and fails when it differs from the committed one. Bump the pinned CLI when it can no longer read `supabase/config.toml`, and commit the regenerated file with it.
+- `src/common/types/database.types.ts` is generated from the local database by `yarn db:types`, with the Supabase CLI pinned in `devDependencies` (another CLI version writes the file differently). CI applies `supabase/migrations` to a fresh stack, regenerates the file and fails when it differs from the committed one. Run the CLI as `yarn supabase …` (or `npx supabase …`), never `supabase@latest`: scripts, CI and the integration tests all use the pinned one. Dependabot bumps it in a PR of its own; commit the regenerated file with it.
 
 To change the schema:
-1. Add a new migration (`npx supabase@latest migration new <name>`).
+1. Add a new migration (`yarn supabase migration new <name>`).
 2. Apply it locally (`yarn db:init`) and run `yarn db:types`. A database with migrations from other branches gives other types.
 3. Update the repository's `mapToViewModel`.
 

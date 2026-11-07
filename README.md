@@ -54,7 +54,7 @@ You need:
 Create a Supabase project and apply the migrations:
 
 ```bash
-npx supabase@latest db push --remote "postgresql://postgres.<project-ref>:<db-password>@<pooler-host>:5432/postgres"
+yarn supabase db push --remote "postgresql://postgres.<project-ref>:<db-password>@<pooler-host>:5432/postgres"
 ```
 
 Take the session pooler connection string from the project's "Connect" dialog. The direct `db.<project-ref>.supabase.co` host is IPv6-only.
@@ -143,17 +143,17 @@ yarn start:dev     # watch mode
 The app reads and writes through the Supabase API, so a plain Postgres is not enough. `supabase/config.toml` starts a local stack with only Postgres, the API and Studio enabled:
 
 ```bash
-npx supabase@latest start
+yarn supabase start
 ```
 
 On the first start the migrations from `supabase/migrations` create the schema. `yarn db:init` (`supabase db reset`) drops the local database and applies them again, for example after pulling new migrations.
 
 In `.env`:
-- set `SUPABASE_URL` to `API_URL` from `npx supabase@latest status -o env`;
+- set `SUPABASE_URL` to `API_URL` from `yarn supabase status -o env`;
 - set `SUPABASE_SERVICE_ROLE_KEY` to `SERVICE_ROLE_KEY` from the same output;
 - set `SLACK_TOKEN_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`.
 
-Studio is at http://127.0.0.1:54323. `npx supabase@latest stop` stops the stack and keeps the data.
+Studio is at http://127.0.0.1:54323. `yarn supabase stop` stops the stack and keeps the data.
 
 ### Dev Slack app
 
