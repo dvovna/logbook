@@ -11,7 +11,9 @@ import { TestWorkspace } from './support/test-workspace';
 import { workWeek } from './support/dates';
 import { formatDateRange } from '@common/utils/date.utils';
 import { textOf } from './support/block-kit';
-import { sectionTexts } from './support/tab-readers';
+import { listItems, sectionTexts } from './support/tab-readers';
+import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
+import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 
@@ -118,24 +120,67 @@ describe('Vacation request approval', () => {
     expect(textOf(update)).toContain(`Approved by <@${manager.slack_id}>`);
   });
 
-  it('tells the requester when the manager rejects', async () => {
+  it('asks the manager why on Reject, and tells the requester', async () => {
     const team = await workspace.addTeam({
       manager_approvers: [manager.slack_id],
     });
     await addMember(team);
+    const { start, end } = workWeek(2);
 
-    const request = await requestVacation(t, workspace, member, workWeek(2));
+    const request = await requestVacation(t, workspace, member, { start, end });
     const approval = await approvalMessageTo(t, workspace, manager);
 
+    const since = t.slackApi.mark();
     await click(manager, approval, ApproverMessageActionId.Reject);
+    await t.idle();
+
+    // Nothing is decided before the form is sent.
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+    const form = t.slackApi.openedModal(workspace.token, { since });
+    expect(sectionTexts(form)).toEqual([
+      `*Max Member* · Annual Leave · ${formatDateRange(start, end)} (5 days)`,
+    ]);
+
+    const response = await t.slack
+      .submitView(workspace, manager, form, {
+        reason: 'Release week <!channel>',
+      })
+      .expect(200);
+    expect(sectionTexts(response.body.view)).toEqual([
+      '❌ Vacation request rejected. The requester gets a message about it.',
+    ]);
 
     await t.idle();
-    expect(await statusOf(request)).toBe(VacationRequestStatus.Rejected);
+    expect(await workspace.row('vacation_requests', request.id)).toMatchObject({
+      status: VacationRequestStatus.Rejected,
+      rejection_reason: 'Release week <!channel>',
+    });
     const [notice] = t.slackApi.postedMessages(
       workspace.token,
       member.slack_id,
     );
     expect(textOf(notice)).toContain('Your time off request was rejected');
+    expect(textOf(notice)).toContain('>Release week &lt;!channel&gt;');
+    expect(textOf(notice)).toContain(`Rejected by <@${manager.slack_id}>`);
+
+    // The requester finds the reason in the history and in Details.
+    const history = await openAppHomeTab(t, workspace, member, [
+      HomeTabActionId.ViewHistory,
+    ]);
+    expect(listItems(history)[0].fields.Reason).toBe(
+      'Release week &lt;!channel&gt;',
+    );
+    const details = await openModalFrom(
+      t,
+      workspace,
+      member,
+      history,
+      VacationHistoryTabViewActionId.ManageRequestMenu,
+      `${VacationHistoryTabViewActionId.ViewDetails}:${request.id}`,
+    );
+    expect(sectionTexts(details)).toContain(
+      '❌ *Rejection reason:*\nRelease week &lt;!channel&gt;',
+    );
   });
 
   it('waits for every approver when the rule is ALL', async () => {
@@ -251,14 +296,25 @@ describe('Vacation request approval', () => {
       expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
     });
 
-    it('rejects', async () => {
+    it('rejects, a reason being optional', async () => {
       const request = await requestVacation(t, workspace, member, workWeek(2));
       await approvalMessageTo(t, workspace, manager);
 
       await decide(VacationsTabViewActionId.RejectPendingRequest);
 
       await t.idle();
-      expect(await statusOf(request)).toBe(VacationRequestStatus.Rejected);
+      expect(
+        await workspace.row('vacation_requests', request.id),
+      ).toMatchObject({
+        status: VacationRequestStatus.Rejected,
+        rejection_reason: null,
+      });
+      const [notice] = t.slackApi.postedMessages(
+        workspace.token,
+        member.slack_id,
+      );
+      // No quoted reason line (textOf escapes the line break).
+      expect(textOf(notice)).not.toContain('\\n>');
     });
   });
 

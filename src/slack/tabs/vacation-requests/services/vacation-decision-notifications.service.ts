@@ -36,6 +36,9 @@ interface IRecipientJob extends IRequestJob {
   recipientSlackId: string;
 }
 
+// The approver's words as a quote, safe to put in mrkdwn.
+const quote = (text: string) => `>${escapeMrkdwn(text).replace(/\n/g, '\n>')}`;
+
 // Tells the requester how their request was decided and, when it was approved,
 // the team's approval_notification_recipients. One job per message, so a
 // retry sends only the messages that failed.
@@ -171,6 +174,9 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
                 ? '✅ *Your time off request was approved*'
                 : '❌ *Your time off request was rejected*',
               this.getRequestDetails(request),
+              ...(!approved && request.rejection_reason
+                ? [quote(request.rejection_reason)]
+                : []),
               commentLines,
             ]
               .filter(Boolean)

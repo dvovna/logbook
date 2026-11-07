@@ -1,3 +1,4 @@
+import { RejectStepModalView } from '@modules/request-workflows/views/reject-step-modal.view';
 import { Injectable, Logger } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -29,6 +30,7 @@ export class ApproverStepMessageHandler extends BaseActionHandler {
     private readonly requestWorkflowService: RequestWorkflowService,
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly approverStepCommentModalView: ApproverStepCommentModalView,
+    private readonly rejectStepModalView: RejectStepModalView,
   ) {
     super();
 
@@ -49,9 +51,16 @@ export class ApproverStepMessageHandler extends BaseActionHandler {
     );
   };
 
-  private handleReject = (stepId: string, user: IUserViewModel) => {
-    runInBackground(this.logger, `reject step ${stepId}`, () =>
-      this.requestWorkflowService.rejectStep(stepId, user),
+  // Asks for a reason first; RejectRequestStepFormSubmitHandler decides.
+  private handleReject = async (
+    stepId: string,
+    user: IUserViewModel,
+    triggerId: string,
+  ) => {
+    await this.slackCommunicationService.openView(
+      triggerId,
+      await this.rejectStepModalView.getView(stepId, user),
+      user.slack_team_id,
     );
   };
 

@@ -153,6 +153,11 @@ export class TimeEntriesService {
         ...(updateParams.status !== undefined
           ? { status: updateParams.status }
           : {}),
+        // A changed entry is no longer the one that was rejected.
+        ...(updateParams.status !== undefined &&
+        updateParams.status !== TimeEntryStatus.Rejected
+          ? { rejection_reason: null }
+          : {}),
         updated_at: new Date().toISOString(),
         updated_by: user.id,
       },
@@ -220,6 +225,7 @@ export class TimeEntriesService {
       }),
       {
         status: TimeEntryStatus.Submitted,
+        rejection_reason: null,
         updated_at: new Date().toISOString(),
         updated_by: user.id,
       },

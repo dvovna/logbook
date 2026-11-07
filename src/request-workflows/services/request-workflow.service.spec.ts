@@ -391,6 +391,16 @@ describe('RequestWorkflowService', () => {
         reviewComments: comments,
       });
     });
+
+    it("passes the approver's reason on with the finished workflow", async () => {
+      const step = buildStep({ step_level: 1 });
+      stepsService.findOneWithValidation.mockResolvedValue(step);
+      stepsService.updateStatus.mockResolvedValue([step]);
+
+      await service.rejectStep(step.id, approver, '  Release week  ');
+
+      expect(getFinishedEvent().workflow.rejectionReason).toBe('Release week');
+    });
   });
 
   describe('a step that is already decided', () => {

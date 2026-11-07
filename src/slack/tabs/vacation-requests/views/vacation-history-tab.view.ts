@@ -1,3 +1,4 @@
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import capitalize from '@common/utils/capitalize';
 import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
@@ -105,6 +106,14 @@ export class VacationHistoryTabView extends BaseTabView<
             type: 'mrkdwn',
             text: `Days: ${vacationRequest.days} (${vacationRequest.working_days} working)`,
           },
+          ...(vacationRequest.rejection_reason
+            ? [
+                {
+                  type: 'mrkdwn' as const,
+                  text: `Reason: ${escapeMrkdwn(vacationRequest.rejection_reason.replace(/\s+/g, ' '))}`,
+                },
+              ]
+            : []),
         ],
         accessory: {
           type: 'overflow',

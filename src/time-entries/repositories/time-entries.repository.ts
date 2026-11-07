@@ -32,6 +32,7 @@ export class TimeEntriesRepository extends BaseRepository<
     return {
       id: row.id,
       description: row.description || '',
+      rejection_reason: row.rejection_reason ?? null,
       slack_team_id: row.slack_team_id,
       team_id: row.team_id,
       user_id: row.user_id,

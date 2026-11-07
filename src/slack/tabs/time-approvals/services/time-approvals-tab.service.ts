@@ -14,7 +14,7 @@ import {
   TIME_APPROVALS_PAGE_SIZE,
   TimeApprovalsTabView,
 } from '@modules/slack/tabs/time-approvals/views/time-approvals-tab.view';
-import { RejectTimeEntryModalView } from '@modules/slack/tabs/time-approvals/views/reject-time-entry-modal.view';
+import { RejectWithReasonModalView } from '@modules/slack/common/views/components/reject-with-reason-modal.view';
 import { TimeEntryApprovalsService } from 'src/time-entries/services/time-entry-approvals.service';
 
 interface IRejectModalParams extends IOpenModalBaseParams<string> {
@@ -39,7 +39,7 @@ export class TimeApprovalsTabService extends BaseTabService<TimeApprovalsTabModa
   public constructor(
     private readonly timeEntryApprovalsService: TimeEntryApprovalsService,
     private readonly timeApprovalsTabView: TimeApprovalsTabView,
-    private readonly rejectTimeEntryModalView: RejectTimeEntryModalView,
+    private readonly rejectWithReasonModalView: RejectWithReasonModalView,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super(TabId.TimeApprovals, {
@@ -74,8 +74,13 @@ export class TimeApprovalsTabService extends BaseTabService<TimeApprovalsTabModa
     errorMessage,
     pageMetadata,
   }: IRejectModalParams) {
-    return this.rejectTimeEntryModalView.getView(
-      { errorMessage },
+    return this.rejectWithReasonModalView.getView(
+      {
+        callbackId: ViewCallbackId.RejectTimeEntry,
+        title: 'Reject Time Entry',
+        hint: 'Sent to the person along with the entry, so they can fix it.',
+        errorMessage,
+      },
       { id: entryId, pageMetadata },
     );
   }

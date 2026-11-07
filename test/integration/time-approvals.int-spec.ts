@@ -12,6 +12,7 @@ import {
   sectionTexts,
 } from './support/tab-readers';
 import { addDays } from './support/dates';
+import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import {
   actOnTab,
   openAppHomeTab,
@@ -195,6 +196,27 @@ describe('Time approvals', () => {
       expect(
         sectionTexts(await publishedHome(t, workspace, manager, since)),
       ).toContain('_Nothing is waiting for your approval._');
+
+      // The owner sees why in their list, until they send it again.
+      const myEntries = await openAppHomeTab(t, workspace, member, [
+        HomeTabActionId.EditTimeEntries,
+      ]);
+      expect(listItems(myEntries)[0].fields).toMatchObject({
+        Status: 'Rejected',
+        Reason: 'Wrong project',
+      });
+
+      await actOnTab(
+        t,
+        workspace,
+        member,
+        await openAppHomeTab(t, workspace, member),
+        HomeTabActionId.SubmitTimeEntries,
+      );
+      expect(await workspace.row('time_entries', entry.id)).toMatchObject({
+        status: TimeEntryStatus.Submitted,
+        rejection_reason: null,
+      });
     });
 
     it('approves everything waiting at once, beyond the first page', async () => {

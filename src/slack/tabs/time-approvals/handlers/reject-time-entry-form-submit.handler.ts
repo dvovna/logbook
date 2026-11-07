@@ -9,13 +9,13 @@ import {
   TabId,
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
-import RejectTimeEntryModalViewValuesParser, {
-  IRejectTimeEntryFormViewData,
-} from '@modules/slack/tabs/time-approvals/parsers/reject-time-entry-modal-view-values.parser';
+import RejectReasonModalViewValuesParser, {
+  IRejectReasonFormViewData,
+} from '@modules/slack/common/parsers/reject-reason-modal-view-values.parser';
 import {
-  IRejectTimeEntryModalViewMetadata,
-  RejectTimeEntryModalView,
-} from '@modules/slack/tabs/time-approvals/views/reject-time-entry-modal.view';
+  IRejectWithReasonModalViewMetadata,
+  RejectWithReasonModalView,
+} from '@modules/slack/common/views/components/reject-with-reason-modal.view';
 import { TimeApprovalsTabService } from '@modules/slack/tabs/time-approvals/services/time-approvals-tab.service';
 import { TimeEntryNotificationsService } from '@modules/slack/tabs/time-approvals/services/time-entry-notifications.service';
 import { TimeApprovalsTabModalName } from '@modules/slack/tabs/time-approvals/enums/time-approvals-tab-action-id.enum';
@@ -31,27 +31,31 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
   allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
 })
 export class RejectTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler<
-  IRejectTimeEntryModalViewMetadata,
-  IRejectTimeEntryFormViewData,
+  IRejectWithReasonModalViewMetadata,
+  IRejectReasonFormViewData,
   ITimeEntryViewModel
 > {
   public constructor(
-    private readonly rejectTimeEntryModalView: RejectTimeEntryModalView,
+    private readonly rejectWithReasonModalView: RejectWithReasonModalView,
     private readonly timeEntryApprovalsService: TimeEntryApprovalsService,
     private readonly timeEntryNotificationsService: TimeEntryNotificationsService,
     private readonly timeApprovalsTabService: TimeApprovalsTabService,
     private readonly tabNavigationService: TabNavigationService,
-    formParser: RejectTimeEntryModalViewValuesParser,
+    formParser: RejectReasonModalViewValuesParser,
   ) {
     super(formParser);
   }
 
   protected async onSubmit(
-    data: IRejectTimeEntryFormViewData,
-    meta: IRejectTimeEntryModalViewMetadata,
+    data: IRejectReasonFormViewData,
+    meta: IRejectWithReasonModalViewMetadata,
     user: IUserViewModel,
   ) {
-    const entry = await this.timeEntryApprovalsService.reject(user, meta.id);
+    const entry = await this.timeEntryApprovalsService.reject(
+      user,
+      meta.id,
+      data.reason,
+    );
 
     this.timeEntryNotificationsService.notifyRejected(entry, user, data.reason);
 
@@ -61,7 +65,7 @@ export class RejectTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
   protected successResponse(
     entry: ITimeEntryViewModel,
     user: IUserViewModel,
-    meta: IRejectTimeEntryModalViewMetadata,
+    meta: IRejectWithReasonModalViewMetadata,
   ) {
     this.tabNavigationService.navigate(TabId.TimeApprovals, {
       user,
@@ -71,7 +75,7 @@ export class RejectTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
     });
 
     return SlackViewResponseFactory.update(
-      this.rejectTimeEntryModalView.getSuccessView(
+      this.rejectWithReasonModalView.getSuccessView(
         `The time entry has been rejected. ${entry.user?.name ?? 'Its owner'} will get a message about it.`,
       ),
     );
@@ -79,8 +83,8 @@ export class RejectTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
 
   protected async errorResponse(
     errorMessage: string,
-    _data: IRejectTimeEntryFormViewData,
-    meta: IRejectTimeEntryModalViewMetadata,
+    _data: IRejectReasonFormViewData,
+    meta: IRejectWithReasonModalViewMetadata,
     user: IUserViewModel,
   ) {
     return SlackViewResponseFactory.update(

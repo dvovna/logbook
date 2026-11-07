@@ -36,6 +36,7 @@ export class VacationRequestsRepository extends BaseRepository<
       days: extendedRow.days,
       working_days: extendedRow.working_days,
       user_comment: extendedRow.user_comment || null,
+      rejection_reason: extendedRow.rejection_reason || null,
       user_id: extendedRow.user_id,
       team_id: extendedRow.team_id,
       slack_team_id: extendedRow.slack_team_id,

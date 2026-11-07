@@ -63,8 +63,14 @@ export class TimeEntryApprovalsService {
   public async reject(
     user: IUserViewModel,
     id: string,
+    reason?: string,
   ): Promise<ITimeEntryViewModel> {
-    const [entry] = await this.decide(user, TimeEntryStatus.Rejected, id);
+    const [entry] = await this.decide(
+      user,
+      TimeEntryStatus.Rejected,
+      id,
+      reason,
+    );
 
     return entry;
   }
@@ -73,6 +79,7 @@ export class TimeEntryApprovalsService {
     user: IUserViewModel,
     status: TimeEntryStatus.Approved | TimeEntryStatus.Rejected,
     id?: string,
+    reason?: string,
   ): Promise<ITimeEntryViewModel[]> {
     const scope = await this.getScope(user);
 
@@ -84,6 +91,9 @@ export class TimeEntryApprovalsService {
       { ...this.getPendingFilter(user, scope), ...(id ? { id } : {}) },
       {
         status,
+        // Kept for the owner, so they know what to fix.
+        rejection_reason:
+          status === TimeEntryStatus.Rejected ? reason?.trim() || null : null,
         updated_at: new Date().toISOString(),
         updated_by: user.id,
       },

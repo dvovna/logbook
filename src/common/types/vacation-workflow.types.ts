@@ -7,4 +7,6 @@ export interface IVacationWorkflow {
   slackTeamId: string;
   approvedBy: string;
   reviewComments: IWorkflowStepCommentViewModel[];
+  // What the approver wrote in the Reject form.
+  rejectionReason?: string;
 }

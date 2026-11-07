@@ -684,6 +684,7 @@ export type Database = {
           id: string;
           minutes: number;
           project_id: string;
+          rejection_reason: string | null;
           slack_team_id: string;
           status: string;
           team_id: string | null;
@@ -704,6 +705,7 @@ export type Database = {
           id?: string;
           minutes: number;
           project_id: string;
+          rejection_reason?: string | null;
           slack_team_id: string;
           status?: string;
           team_id?: string | null;
@@ -723,6 +725,7 @@ export type Database = {
           id?: string;
           minutes?: number;
           project_id?: string;
+          rejection_reason?: string | null;
           slack_team_id?: string;
           status?: string;
           team_id?: string | null;
@@ -935,6 +938,7 @@ export type Database = {
           days: number;
           end_date: string;
           id: string;
+          rejection_reason: string | null;
           slack_team_id: string;
           start_date: string;
           status: string;
@@ -955,6 +959,7 @@ export type Database = {
           days: number;
           end_date: string;
           id?: string;
+          rejection_reason?: string | null;
           slack_team_id: string;
           start_date: string;
           status?: string;
@@ -974,6 +979,7 @@ export type Database = {
           days?: number;
           end_date?: string;
           id?: string;
+          rejection_reason?: string | null;
           slack_team_id?: string;
           start_date?: string;
           status?: string;
@@ -1089,6 +1095,7 @@ export type Database = {
           minutes: number;
           project_id: string;
           project_name: string;
+          rejection_reason: string;
           status: string;
           team_id: string;
           total_count: number;

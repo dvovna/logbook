@@ -81,7 +81,7 @@ Pushing to the dev project:
 
 How the tables handle foreign keys:
 - Every table has an FK to `slack_teams` with `ON DELETE CASCADE`. Uninstalling the app deletes the `slack_teams` row and relies on this cascade.
-- Every table has RLS enabled with no policies, and the `anon`/`authenticated` API roles have no table, sequence or function privileges, including by default for new objects (`20261107100000_lock_down_public_api.sql`). The app uses the service-role key, which bypasses RLS. A new table or RPC needs nothing extra; never grant it to `anon`.
+- Every table has RLS enabled with no policies, and the `anon`/`authenticated` API roles have no table, sequence or function privileges, including by default for new objects (`20261107100000_lock_down_public_api.sql`). The app uses the service-role key, which bypasses RLS. A new table needs nothing extra. A new or re-created function does: PostgreSQL lets `PUBLIC` execute it, and default privileges set per schema can't take that back, so revoke it from `public, anon, authenticated` and grant it to `service_role` in the same migration (see `20261107130000_rejection_reasons.sql`). Never grant anything to `anon`.
 
 ## Architecture
 

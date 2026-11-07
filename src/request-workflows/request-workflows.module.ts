@@ -1,3 +1,4 @@
+import { RejectStepModalView } from '@modules/request-workflows/views/reject-step-modal.view';
 import { Module } from '@nestjs/common';
 import { WorkflowStepProcessorService } from '@modules/request-workflows/services/workflow-step-processor.service';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
@@ -27,6 +28,7 @@ import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
   ],
   providers: [
     RequestWorkflowService,
+    RejectStepModalView,
     RequestWorkflowStepsRepository,
     RequestWorkflowStepsService,
     ApproverStepProcessor,
@@ -43,6 +45,7 @@ import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
   ],
   exports: [
     RequestWorkflowService,
+    RejectStepModalView,
     RequestWorkflowStepsService,
     RequestWorkflowStepCommentsService,
     ApproverStepCommentModalView,

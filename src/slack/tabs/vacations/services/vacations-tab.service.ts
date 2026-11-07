@@ -1,3 +1,4 @@
+import { RejectStepModalView } from '@modules/request-workflows/views/reject-step-modal.view';
 import { Injectable } from '@nestjs/common';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 import BaseTabService, {
@@ -53,6 +54,7 @@ export class VacationsTabService extends BaseTabService<VacationsTabModalViewRes
     private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly approverStepCommentModalView: ApproverStepCommentModalView,
+    private readonly rejectStepModalView: RejectStepModalView,
   ) {
     super(TabId.Vacations, {
       [VacationsTabModalName.ViewPendingRequest]: (params) =>
@@ -119,15 +121,12 @@ export class VacationsTabService extends BaseTabService<VacationsTabModalViewRes
   }
 
   private getRejectVacationRequestModal(params: IPendingRequestModalParams) {
-    const { stepId, errorMessage } = params;
+    const { stepId, errorMessage, user } = params;
 
-    return this.confirmationModalView.getView(
-      {
-        ...REQUEST_CONFIRMATION_VIEW_CONFIG.reject,
-        errorMessage,
-      },
-      { id: stepId },
-    );
+    return this.rejectStepModalView.getView(stepId, user, {
+      pageMetadata: '{}',
+      errorMessage,
+    });
   }
 
   private getCommentVacationRequestModal(params: IPendingRequestModalParams) {

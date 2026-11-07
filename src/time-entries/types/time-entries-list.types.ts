@@ -11,6 +11,8 @@ export interface ITimeEntryListItem {
   client_name: string;
   minutes: number;
   description: string;
+  // Why it was last rejected, until it is changed or submitted again.
+  rejection_reason: string | null;
   user_id: string;
   status: TimeEntryStatus;
 }

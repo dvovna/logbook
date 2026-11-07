@@ -18,6 +18,8 @@ interface IFinishRequestJob {
   slackTeamId: string;
   status: RequestWorkflowStatus;
   decidedById: string;
+  // What the approver wrote in the Reject form.
+  rejectionReason?: string;
 }
 
 // A finished workflow decides its request: approved or rejected. A job, so
@@ -48,6 +50,7 @@ export class RequestWorkflowProcessingService implements OnModuleInit {
       slackTeamId: workflow.slackTeamId,
       status: workflow.status,
       decidedById: workflow.approvedBy,
+      rejectionReason: workflow.rejectionReason,
     });
   }
 
@@ -56,6 +59,7 @@ export class RequestWorkflowProcessingService implements OnModuleInit {
     slackTeamId,
     status,
     decidedById,
+    rejectionReason,
   }: IFinishRequestJob) {
     const decidedBy = await this.usersService.findOneWithValidation({
       id: decidedById,
@@ -72,6 +76,7 @@ export class RequestWorkflowProcessingService implements OnModuleInit {
         ? VacationRequestStatus.Approved
         : VacationRequestStatus.Rejected,
       decidedBy,
+      rejectionReason,
     );
 
     if (!updatedRequest) {

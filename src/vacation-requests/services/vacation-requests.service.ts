@@ -356,6 +356,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     { id, slackTeamId }: IFindParams,
     status: VacationRequestStatus.Approved | VacationRequestStatus.Rejected,
     decidedBy: IUserViewModel,
+    rejectionReason?: string,
   ) {
     const [finished] = await this.vacationRequestsRepository.updateMany(
       {
@@ -365,6 +366,10 @@ export class VacationRequestsService implements IVacationRequestsService {
       },
       {
         status,
+        rejection_reason:
+          status === VacationRequestStatus.Rejected
+            ? rejectionReason || null
+            : null,
         updated_by: decidedBy.id,
         updated_at: new Date().toISOString(),
       },

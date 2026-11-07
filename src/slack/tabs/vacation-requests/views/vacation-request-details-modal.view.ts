@@ -91,6 +91,16 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
       });
     }
 
+    if (request.rejection_reason) {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `❌ *Rejection reason:*\n${escapeMrkdwn(request.rejection_reason)}`,
+        },
+      });
+    }
+
     blocks.push({ type: 'divider' });
 
     blocks.push({

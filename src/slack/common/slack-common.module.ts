@@ -1,3 +1,5 @@
+import { RejectWithReasonModalView } from '@modules/slack/common/views/components/reject-with-reason-modal.view';
+import RejectReasonModalViewValuesParser from '@modules/slack/common/parsers/reject-reason-modal-view-values.parser';
 import { Module } from '@nestjs/common';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
@@ -11,6 +13,8 @@ import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-t
   imports: [SlackCommunicationModule],
   providers: [
     ConfirmationModalView,
+    RejectWithReasonModalView,
+    RejectReasonModalViewValuesParser,
     TabNavigationService,
     SlackActionPermissionsService,
     FallbackTabView,
@@ -19,6 +23,8 @@ import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-t
   ],
   exports: [
     ConfirmationModalView,
+    RejectWithReasonModalView,
+    RejectReasonModalViewValuesParser,
     TabNavigationService,
     SlackCommunicationModule,
     SlackActionPermissionsService,

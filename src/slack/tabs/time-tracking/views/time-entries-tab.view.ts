@@ -1,3 +1,4 @@
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
@@ -157,7 +158,11 @@ export class TimeEntriesTabView extends BaseAdminTabView<
               `Time: ${getDisplayTime(entry.minutes)}\n` +
               `Status: ${TIME_ENTRY_STATUS_DISPLAY_NAME[entry.status]}\n` +
               `Created: ${createdAt}\n` +
-              `Description: ${escapeMrkdwn(truncate(entry.description || '-', { length: 80 }))}`,
+              `Description: ${escapeMrkdwn(truncate(entry.description || '-', { length: 80 }))}` +
+              (entry.status === TimeEntryStatus.Rejected &&
+              entry.rejection_reason
+                ? `\nReason: ${escapeMrkdwn(truncate(entry.rejection_reason.replace(/\s+/g, ' '), { length: 120 }))}`
+                : ''),
           },
         ],
         ...(menuOptions.length

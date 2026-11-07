@@ -231,7 +231,11 @@ export class RequestWorkflowService {
     await this.activateNextLevel(currentStep, approvedBy);
   }
 
-  public async rejectStep(stepId: string, rejectedBy: IUserViewModel) {
+  public async rejectStep(
+    stepId: string,
+    rejectedBy: IUserViewModel,
+    reason?: string,
+  ) {
     const step = await this.requestWorkflowStepsService.findOneWithValidation({
       id: stepId,
       slackTeamId: rejectedBy.slack_team_id,
@@ -267,6 +271,7 @@ export class RequestWorkflowService {
       slackTeamId: rejectedBy.slack_team_id,
       approvedBy: rejectedBy.id,
       reviewComments: approverComments,
+      rejectionReason: reason?.trim() || undefined,
     });
   }
 

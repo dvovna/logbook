@@ -3,9 +3,10 @@ import { Injectable } from '@nestjs/common';
 import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
 import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 
+// Also the length the database allows (rejection_reason).
 export const MAX_REJECTION_REASON_LENGTH = 300;
 
-const rejectTimeEntrySchema = z.object({
+const rejectReasonSchema = z.object({
   reason: z
     .string()
     .max(
@@ -15,14 +16,15 @@ const rejectTimeEntrySchema = z.object({
     .optional(),
 });
 
-export interface IRejectTimeEntryFormViewData {
+export interface IRejectReasonFormViewData {
   reason?: string;
 }
 
+// The Reject form of time entries and vacation requests.
 @Injectable()
-export default class RejectTimeEntryModalViewValuesParser extends BaseValuesParser<IRejectTimeEntryFormViewData> {
+export default class RejectReasonModalViewValuesParser extends BaseValuesParser<IRejectReasonFormViewData> {
   public constructor() {
-    super(rejectTimeEntrySchema, {
+    super(rejectReasonSchema, {
       reason: { blockId: 'reason_block', type: ViewFieldType.Text },
     });
   }

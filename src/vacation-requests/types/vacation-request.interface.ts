@@ -10,6 +10,7 @@ export interface IVacationRequestViewModel {
   type: VacationType;
   status: VacationRequestStatus;
   user_comment?: string | null;
+  rejection_reason?: string | null;
   team: {
     id: string;
     name: string;
