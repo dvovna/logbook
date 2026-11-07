@@ -11,6 +11,7 @@ import { VacationsTabModalName } from '@modules/slack/tabs/vacations/enums/vacat
 import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
 import { View } from '@slack/types/dist/views';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
+import TeamsService from '@modules/teams/services/teams.service';
 import { ApproverStepCommentModalView } from '@modules/request-workflows/views/approver-step-comment-modal.view';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import { REQUEST_CONFIRMATION_VIEW_CONFIG } from '@modules/request-workflows/configs/request-confirmation-view-config';
@@ -47,6 +48,7 @@ export class VacationsTabService extends BaseTabService<VacationsTabModalViewRes
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly requestWorkflowStepsService: RequestWorkflowStepsService,
+    private readonly teamsService: TeamsService,
     private readonly vacationsViewService: VacationsTabView,
     private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly confirmationModalView: ConfirmationModalView,
@@ -77,10 +79,13 @@ export class VacationsTabService extends BaseTabService<VacationsTabModalViewRes
         orderBy: ['created_at:desc'],
       });
 
+    // Admin and HR see everyone's vacations, a manager their teams' only.
+    const teamIds = await this.teamsService.findManagedTeamIds(params.user);
     const { items: upcomingVacations } =
       await this.vacationRequestsService.search({
         filters: {
           slackTeamId: params.user.slack_team_id,
+          ...(teamIds ? { teamIds } : {}),
           statuses: [VacationRequestStatus.Approved],
           startDate: new Date().toUTCString(),
         },

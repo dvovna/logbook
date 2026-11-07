@@ -6,6 +6,7 @@ import VacationsTabActionHandler from '@modules/slack/tabs/vacations/handlers/va
 import { VacationsTabView } from '@modules/slack/tabs/vacations/views/vacations-tab.view';
 import { VacationRequestsTabModule } from '@modules/slack/tabs/vacation-requests/vacation-requests-tab.module';
 import { RequestWorkflowsModule } from '@modules/request-workflows/request-workflows.module';
+import { TeamsModule } from '@modules/teams/teams.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { RequestWorkflowsModule } from '@modules/request-workflows/request-workf
     VacationRequestsModule,
     VacationRequestsTabModule,
     RequestWorkflowsModule,
+    TeamsModule,
   ],
   providers: [VacationsTabActionHandler, VacationsTabService, VacationsTabView],
   exports: [VacationsTabService],

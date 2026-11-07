@@ -20,7 +20,7 @@ import {
   openModalFrom,
   publishedHome,
 } from './support/app-home';
-import { modalError } from './support/tab-readers';
+import { modalError, sectionTexts } from './support/tab-readers';
 import { workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 
@@ -28,6 +28,7 @@ const USERS_TAB = [
   AdminNavigationActionId.ManagePeople,
   AdminNavigationActionId.ManageUsers,
 ];
+const VACATIONS_HUB = [AdminNavigationActionId.ManageVacations];
 const REQUESTS_TAB = [
   AdminNavigationActionId.ManageVacations,
   AdminNavigationActionId.ManageVacationRequests,
@@ -222,6 +223,23 @@ describe('Access to objects by ID', () => {
 
         expect(JSON.stringify(filtered)).not.toContain('Boris Otherteam');
       }
+    });
+
+    it("shows only their teams' upcoming vacations in the Vacations hub", async () => {
+      const admin = await workspace.addUser({ role: UserRole.Admin });
+      const upcoming = '2026-06-29 – 2026-07-03';
+
+      expect(
+        sectionTexts(
+          await openAppHomeTab(t, workspace, manager, VACATIONS_HUB),
+        ),
+      ).toContain(`• *Anna Ownteam* — ${upcoming}`);
+      // Admin and HR see everyone's, the latest request first.
+      expect(
+        sectionTexts(await openAppHomeTab(t, workspace, admin, VACATIONS_HUB)),
+      ).toContain(
+        `• *Boris Otherteam* — ${upcoming}\n• *Anna Ownteam* — ${upcoming}`,
+      );
     });
 
     it("opens only their teams' requests, and no admin forms", async () => {
