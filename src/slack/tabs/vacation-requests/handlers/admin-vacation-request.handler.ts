@@ -143,9 +143,9 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
       end_date: data.end_date,
       user: data.user
         ? {
-          id: data.user.value,
-          name: data.user.text,
-        }
+            id: data.user.value,
+            name: data.user.text,
+          }
         : null,
     };
 

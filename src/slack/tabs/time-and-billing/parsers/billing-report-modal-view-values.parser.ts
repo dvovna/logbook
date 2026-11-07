@@ -10,8 +10,12 @@ const billingReportSchema = z
       { value: z.string().min(1), text: z.string() },
       { message: 'Client is required' },
     ),
-    fromDate: z.string({ message: 'Start date is required' }).min(1, 'Start date is required'),
-    toDate: z.string({ message: 'End date is required' }).min(1, 'End date is required'),
+    fromDate: z
+      .string({ message: 'Start date is required' })
+      .min(1, 'Start date is required'),
+    toDate: z
+      .string({ message: 'End date is required' })
+      .min(1, 'End date is required'),
   })
   .refine(({ fromDate, toDate }) => toDate >= fromDate, {
     message: 'End date must not be before the start date',

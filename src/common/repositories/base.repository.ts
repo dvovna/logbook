@@ -2,20 +2,12 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@common/types/database.types';
 import { SupabaseService } from 'src/database/supabase.service';
 import { Injectable } from '@nestjs/common';
-import {
-  ISearchResult,
-  ISearchParams,
-} from '@common/types/pagination.types';
+import { ISearchResult, ISearchParams } from '@common/types/pagination.types';
 
 export type Tables = Database['public']['Tables'];
 export type TableName = keyof Tables;
 type SupabaseSimpleValue =
-  | string
-  | number
-  | boolean
-  | null
-  | string[]
-  | number[];
+  string | number | boolean | null | string[] | number[];
 
 type SupabaseFilterOperator =
   | 'eq'
@@ -56,6 +48,9 @@ export interface IQueryOptions {
   orderBy?: string[];
 }
 
+// `this.tableName` is a union of all tables, so supabase-js can't check an
+// insert or update against one table's columns and the data is cast to
+// `never` there. Each subclass's Entity type is what keeps the data right.
 @Injectable()
 export abstract class BaseRepository<
   Entity extends Tables[TableName],
@@ -214,7 +209,7 @@ export abstract class BaseRepository<
 
     const { data: inserted, error } = await this.client
       .from(this.tableName)
-      .insert(data)
+      .insert(data as never)
       .select();
 
     if (error) {
@@ -230,7 +225,7 @@ export abstract class BaseRepository<
   ): Promise<ViewModel> {
     this.assertScoped(filter, 'update');
 
-    const query = this.client.from(this.tableName).update(data);
+    const query = this.client.from(this.tableName).update(data as never);
 
     this.buildMatchQuery(query, filter);
 
@@ -251,7 +246,7 @@ export abstract class BaseRepository<
   ): Promise<ViewModel[]> {
     this.assertScoped(filter, 'updateMany');
 
-    const query = this.client.from(this.tableName).update(data);
+    const query = this.client.from(this.tableName).update(data as never);
 
     this.buildMatchQuery(query, filter);
 

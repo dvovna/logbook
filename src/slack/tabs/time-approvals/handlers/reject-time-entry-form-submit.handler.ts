@@ -6,7 +6,10 @@ import SlackViewResponseFactory from '@modules/slack/factories/slack-response.fa
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
-import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
 import RejectTimeEntryModalViewValuesParser, {
   IRejectTimeEntryFormViewData,
 } from '@modules/slack/tabs/time-approvals/parsers/reject-time-entry-modal-view-values.parser';
@@ -51,8 +54,15 @@ export class RejectTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
   ) {
     const entry = await this.timeEntryApprovalsService.reject(user, meta.id);
 
-    runInBackground(this.logger, `notify about rejected time entry ${entry.id}`, () =>
-      this.timeEntryNotificationsService.notifyRejected(entry, user, data.reason),
+    runInBackground(
+      this.logger,
+      `notify about rejected time entry ${entry.id}`,
+      () =>
+        this.timeEntryNotificationsService.notifyRejected(
+          entry,
+          user,
+          data.reason,
+        ),
     );
 
     return entry;

@@ -3,9 +3,7 @@ import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-inte
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import {
-  IVacationRequestsTabMetadata,
-} from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
+import { IVacationRequestsTabMetadata } from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import {
   VacationRequestsTabModalName,
   VacationRequestsTabService,
@@ -14,15 +12,14 @@ import { ActionMapType } from '@modules/slack/common/handlers/base-action.handle
 import {
   withSelectFilter,
   withPagination,
-  withAsyncSelectFilter, withResetFilters,
+  withAsyncSelectFilter,
+  withResetFilters,
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';
 import UserRole from '@common/enums/user-role.enum';
-import {
-  VacationRequestsTabViewActionId,
-} from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 
 @Injectable()
 @SlackHandler({

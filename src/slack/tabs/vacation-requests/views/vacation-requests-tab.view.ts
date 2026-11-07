@@ -6,9 +6,7 @@ import ITeamViewModel from '@modules/teams/types/team.interface';
 import { ISearchResult } from '@common/types/pagination.types';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
-import {
-  STATUS_OPTIONS,
-} from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
+import { STATUS_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
 import capitalize from '@common/utils/capitalize';
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
@@ -22,11 +20,12 @@ import { SlackActionPermissionsService } from '@modules/slack/common/services/sl
 import UserRole from '@common/enums/user-role.enum';
 import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
 import { Divider } from '@modules/slack/common/views/components/separator';
-import {
-  VacationRequestsTabViewActionId,
-} from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { BackButton } from '@modules/slack/common/views/components/back-button';
-import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
+import {
+  FiltersBlockBuilder,
+  IFiltersConfig,
+} from '@modules/slack/common/views/builders/filters-block.builder';
 import { IOption } from '@modules/slack/common/types/option.interface';
 
 export interface IVacationRequestsTabFilters {
@@ -82,10 +81,10 @@ export class VacationRequestsTabView extends BaseAdminTabView<
       VacationRequestsTabViewActionId.CreateRequest,
     )
       ? {
-        type: 'button',
-        text: { type: 'plain_text', text: '➕ Add Vacation Request' },
-        action_id: VacationRequestsTabViewActionId.CreateRequest,
-      }
+          type: 'button',
+          text: { type: 'plain_text', text: '➕ Add Vacation Request' },
+          action_id: VacationRequestsTabViewActionId.CreateRequest,
+        }
       : null;
   }
 
@@ -215,12 +214,10 @@ export class VacationRequestsTabView extends BaseAdminTabView<
     years: number[],
     filters?: IVacationRequestsTabFilters,
   ) {
-    const yearsOptions: IOption[] = years.map((year) =>
-      ({
-        id: year.toString(),
-        name: year.toString(),
-      }),
-    );
+    const yearsOptions: IOption[] = years.map((year) => ({
+      id: year.toString(),
+      name: year.toString(),
+    }));
 
     const vacationRequestsFilters: IFiltersConfig[] = [
       {

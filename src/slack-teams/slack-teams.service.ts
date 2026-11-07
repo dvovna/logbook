@@ -31,7 +31,8 @@ export class SlackTeamsService implements OnApplicationBootstrap {
   // Tokens stored before they were encrypted get encrypted once the app
   // starts, so none stays in plain text.
   public async onApplicationBootstrap() {
-    const plainTextTokens = await this.slackTeamsRepository.findPlainTextTokens();
+    const plainTextTokens =
+      await this.slackTeamsRepository.findPlainTextTokens();
 
     for (const { id, slack_token } of plainTextTokens) {
       await this.slackTeamsRepository.saveToken(
@@ -56,10 +57,16 @@ export class SlackTeamsService implements OnApplicationBootstrap {
 
   // A reinstall: Slack gives the workspace a new token, and its name may have
   // changed.
-  public async updateInstall(id: string, { name, slackToken }: {
-    name: string;
-    slackToken: string;
-  }) {
+  public async updateInstall(
+    id: string,
+    {
+      name,
+      slackToken,
+    }: {
+      name: string;
+      slackToken: string;
+    },
+  ) {
     await this.slackTeamsRepository.update({ id }, { name });
     await this.slackTeamsRepository.saveToken(
       id,

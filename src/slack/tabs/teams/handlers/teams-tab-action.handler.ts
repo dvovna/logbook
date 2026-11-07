@@ -8,9 +8,7 @@ import {
 } from '@modules/slack/tabs/teams/services/teams-tab.service';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import {
-  ITeamsTabMetaData,
-} from '@modules/slack/tabs/teams/views/teams-tab.view';
+import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.view';
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import { BaseAdminTabActionHandler } from '@modules/slack/common/handlers/base-admin-tab-action.handler';

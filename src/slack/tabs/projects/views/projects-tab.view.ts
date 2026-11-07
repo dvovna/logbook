@@ -14,8 +14,14 @@ import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/proj
 import { IProjectsListData } from 'src/projects/types/projects-list.types';
 import { IProjectListItem } from 'src/projects/types/project-list-item.types';
 import capitalize from '@common/utils/capitalize';
-import { IProjectTabFilters, PROJECTS_TAB_PAGE_SIZE } from '@modules/slack/tabs/projects/services/projects-tab.service';
-import { FiltersBlockBuilder, IFiltersConfig } from '@modules/slack/common/views/builders/filters-block.builder';
+import {
+  IProjectTabFilters,
+  PROJECTS_TAB_PAGE_SIZE,
+} from '@modules/slack/tabs/projects/services/projects-tab.service';
+import {
+  FiltersBlockBuilder,
+  IFiltersConfig,
+} from '@modules/slack/common/views/builders/filters-block.builder';
 import { PROJECT_STATUS_OPTIONS } from '@modules/slack/tabs/projects/data/project-status-options';
 import { BILLABLE_PLAIN_TEXT_OPTIONS } from '@modules/slack/tabs/projects/data/billable-options';
 import { IncludeArchivedButtonView } from '@modules/slack/common/views/components/include-archvied-button.view';
@@ -113,8 +119,8 @@ export class ProjectsTabView extends BaseAdminTabView<
 
     const updatedAt = new Date(project.updated_at).toLocaleDateString();
     const createdAt = new Date(project.created_at).toLocaleDateString();
-    const archivedAt = project.archived_at
-      && new Date(project.archived_at).toLocaleDateString();
+    const archivedAt =
+      project.archived_at && new Date(project.archived_at).toLocaleDateString();
     const menuOptions = this.getProjectMenuOptions(project, userRole);
 
     blocks.push({
@@ -130,7 +136,8 @@ export class ProjectsTabView extends BaseAdminTabView<
         },
         {
           type: 'mrkdwn',
-          text: `Teams: ${project.teams?.length || '0'} · Users: ${project.users_count}\n` +
+          text:
+            `Teams: ${project.teams?.length || '0'} · Users: ${project.users_count}\n` +
             `Created: ${createdAt}\n` +
             `Updated: ${updatedAt}\n` +
             `Description: ${truncate(project.description || '-')}` +
@@ -139,12 +146,12 @@ export class ProjectsTabView extends BaseAdminTabView<
       ],
       ...(menuOptions.length
         ? {
-          accessory: {
-            type: 'overflow',
-            action_id: ProjectsTabViewActionId.ManageProjectMenu,
-            options: menuOptions,
-          },
-        }
+            accessory: {
+              type: 'overflow',
+              action_id: ProjectsTabViewActionId.ManageProjectMenu,
+              options: menuOptions,
+            },
+          }
         : {}),
     });
 
@@ -157,15 +164,23 @@ export class ProjectsTabView extends BaseAdminTabView<
   // restored.
   private getProjectMenuOptions(project: IProjectListItem, userRole: UserRole) {
     const items = project.archived_at
-      ? [{ id: ProjectsTabViewActionId.ArchiveProject, name: 'Restore Project' }]
+      ? [
+          {
+            id: ProjectsTabViewActionId.ArchiveProject,
+            name: 'Restore Project',
+          },
+        ]
       : [
-        { id: ProjectsTabViewActionId.EditProject, name: 'Edit Project' },
-        {
-          id: ProjectsTabViewActionId.ManageProjectAssignments,
-          name: 'Manage Assignments',
-        },
-        { id: ProjectsTabViewActionId.ArchiveProject, name: 'Archive Project' },
-      ];
+          { id: ProjectsTabViewActionId.EditProject, name: 'Edit Project' },
+          {
+            id: ProjectsTabViewActionId.ManageProjectAssignments,
+            name: 'Manage Assignments',
+          },
+          {
+            id: ProjectsTabViewActionId.ArchiveProject,
+            name: 'Archive Project',
+          },
+        ];
 
     return items
       .filter(({ id }) => this.slackActionPermissionsService.can(userRole, id))

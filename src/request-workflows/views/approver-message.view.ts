@@ -111,7 +111,8 @@ ${this.getRequestDetails(step, comments)}`,
     // decided_by is whoever closed the step: the requester or an admin who
     // changed the request.
     const canceledBy =
-      step.step_data.decided_by_slack_id ?? step.step_data.snapshot.slack_user_id;
+      step.step_data.decided_by_slack_id ??
+      step.step_data.snapshot.slack_user_id;
 
     return {
       text: '❌ Vacation request canceled',
@@ -136,7 +137,9 @@ ${this.getRequestDetails(step, comments)}`,
     const lines: string[] = [];
 
     lines.push(`*Request details:*`);
-    lines.push(`👤 Employee: ${escapeMrkdwn(step.step_data.snapshot.user_name)}`);
+    lines.push(
+      `👤 Employee: ${escapeMrkdwn(step.step_data.snapshot.user_name)}`,
+    );
     lines.push(...this.getBasicRequestLines(step));
     lines.push(...this.getUserCommentLines(step));
 
@@ -153,11 +156,15 @@ ${this.getRequestDetails(step, comments)}`,
   ) {
     const lines: string[] = [];
 
-    lines.push(`⏳ Vacation request for ${escapeMrkdwn(step.step_data.snapshot.user_name)}`);
+    lines.push(
+      `⏳ Vacation request for ${escapeMrkdwn(step.step_data.snapshot.user_name)}`,
+    );
     lines.push(...this.getBasicRequestLines(step));
 
     if (step.step_data.snapshot.comment) {
-      lines.push(`💬 User comment: ${escapeMrkdwn(step.step_data.snapshot.comment)}`);
+      lines.push(
+        `💬 User comment: ${escapeMrkdwn(step.step_data.snapshot.comment)}`,
+      );
     }
 
     lines.push(...getApproverCommentLines(approverComments));

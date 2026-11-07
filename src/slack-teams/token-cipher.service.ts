@@ -35,7 +35,9 @@ export class TokenCipherService {
     ]);
 
     return [VERSION, iv, cipher.getAuthTag(), ciphertext]
-      .map((part) => (typeof part === 'string' ? part : part.toString('base64')))
+      .map((part) =>
+        typeof part === 'string' ? part : part.toString('base64'),
+      )
       .join(':');
   }
 

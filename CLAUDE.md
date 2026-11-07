@@ -14,8 +14,8 @@ yarn start:dev        # watch mode
 yarn start:debug      # watch + inspector
 yarn build            # nest build -> dist/
 yarn start:prod       # node dist/main
-yarn lint             # eslint with --fix on all of src (see note below)
-yarn format           # prettier
+yarn lint             # eslint with --fix, formatting included (see note below)
+yarn format           # prettier on src and test
 npx tsc --noEmit      # type-check only
 yarn test             # jest
 yarn test src/request-workflows/services/request-workflow.service.spec.ts   # one file
@@ -38,10 +38,10 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - `global-setup.ts` reads the URLs and keys from `supabase status` and refuses non-local URLs. It also stops when the local database lacks a migration from `supabase/migrations`.
   - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners, tab updates). `await t.idle()` waits until that work is done, then assert. It works because the app runs such work through `runInBackground` (`src/common/utils/run-in-background.ts`), and the harness routes `EventEmitter2.emit` through `emitAsync`. Work after `res.send()` that skips `runInBackground` is invisible to it.
 - `yarn db:init` runs `supabase db reset` against the local stack, which drops the local database and applies `supabase/migrations`. `src/commands` holds dev scripts and is excluded from `nest build`.
-- The codebase is not lint-clean: about 140 prettier and other errors already exist. `yarn lint` uses `--fix`, so it rewrites many unrelated files. To lint only what you touched, run `npx eslint <files>`.
+- Prettier (`.prettierrc`) owns formatting, and ESLint reports what Prettier would change (`prettier/prettier`, through `eslint-plugin-prettier` at the end of `eslint.config.mjs`). Don't add ESLint formatting rules such as `indent` or `quotes`: they fight Prettier. The codebase is lint-clean and CI fails on any lint error. The commit that formatted everything is in `.git-blame-ignore-revs` (GitHub skips it in blame; locally run `git config blame.ignoreRevsFile ':(optional).git-blame-ignore-revs'`; without `:(optional)` blame fails in a checkout or worktree whose branch predates the file).
 - Node 26 everywhere:
   - pinned in `.nvmrc`;
-  - used by the Dockerfile and by CI (`.github/workflows/ci.yml`: tsc, jest, build, non-blocking lint of changed files).
+  - used by the Dockerfile and by CI (`.github/workflows/ci.yml`: tsc, jest, build, lint).
 
   Node images and installs from 26 on have no yarn and no corepack, so the Dockerfile and CI install `yarn@1.22.22` themselves.
 - The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if a required one is missing. Only the Supabase URL and service role key, the four Slack values and `SLACK_TOKEN_ENCRYPTION_KEY` (32 bytes, base64) are required; the `MAX_*`/year limits have defaults. Copy `.env.example` to `.env` first.
@@ -55,7 +55,7 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 
 - Interfaces must be prefixed with `I` (`@typescript-eslint/naming-convention` reports an error otherwise).
 - Every class member needs an explicit `public`/`private`/`protected` (`explicit-member-accessibility`).
-- Use single quotes, trailing commas and 2-space indent.
+- Single quotes, trailing commas and 2-space indent come from Prettier; `yarn lint` or `yarn format` applies them.
 - Imports use the tsconfig path aliases `@modules/<module>/...` and `@common/...`. Absolute `src/...` paths also resolve (`baseUrl: ./`), but relative `../` imports are a lint error. Jest maps all of them in `moduleNameMapper`.
 - `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint and Prettier both ignore it.
 
@@ -88,7 +88,7 @@ Each Slack workspace that installs the app gets a `slack_teams` row. There are t
 - `slack_teams.slack_id`: Slack's own `T…` workspace ID.
 - `slack_team_id`: the internal UUID, used as the foreign key on every other table.
 
-Every repository query must be scoped by `slackTeamId` / `slack_team_id`; `BaseRepository` throws when one isn't (see Domain layer). The bot token is stored on `slack_teams.slack_token`, encrypted with `SLACK_TOKEN_ENCRYPTION_KEY` (`TokenCipherService`, AES-256-GCM, `v1:` prefix); tokens stored in plain text before that are encrypted at startup and on first read. Every outgoing Slack call goes through `SlackCommunicationService`, which looks up the token per workspace via `AccessTokenService`; the token is cached for 1 day. Installing again updates the token (and clears the cache) and keeps the workspace's data and roles.
+Every repository query must be scoped by `slackTeamId` / `slack_team_id`; `BaseRepository` throws when one isn't (see Domain layer). The bot token is stored on `slack_teams.slack_token`, encrypted with `SLACK_TOKEN_ENCRYPTION_KEY` (`TokenCipherService`, AES-256-GCM, `v1:` prefix); tokens stored in plain text before that are encrypted at startup and on first read. Every outgoing Slack call goes through `SlackCommunicationService`, which looks up the token per workspace via `AccessTokenService`; the token is cached for 1 day. Installing again updates the token (and clears the cache) and keeps the workspace's data and roles. `SlackApiClient` keeps one `WebClient` per token. `views.open` gets one try with a 2.5 s timeout and fails at once on a rate limit, because its `trigger_id` lives 3 seconds; other calls get 3 quick retries and a 10 s timeout.
 
 ### HTTP pipeline for Slack (Slack Bolt's receiver is not used; Bolt is only imported for types)
 
@@ -125,7 +125,7 @@ Controllers are in `src/slack/controllers/`:
   - Maps known domain errors (`ValidationError`, `MaxItemsCountReachedError`, `EntityHasDependenciesError`, `PrimaryEntityDeleteError`, `ForbiddenException`) to a message shown in the modal. Any other error shows a generic message.
   - Build responses with `SlackViewResponseFactory`.
   - A parser reads each field by its config key as the `action_id`, so the view element must use that key as its `action_id`. The integration tests' `submitView` fills forms from the real view and catches a mismatch.
-- Slack shows an interaction as failed when the answer takes over 3 seconds. Work that updates several messages or notifies people (deciding workflow steps, "Approve for Approvers") runs after the answer through `runInBackground` (`src/common/utils/run-in-background.ts`), which logs its errors. Checks that can fail run before it, so the modal can still show them.
+- Slack shows an interaction as failed when the answer takes over 3 seconds. Work that updates several messages or notifies people (deciding workflow steps, "Approve for Approvers") runs after the answer through `runInBackground` (`src/common/utils/run-in-background.ts`), which logs its errors. Checks that can fail run before it, so the modal can still show them. On SIGTERM the app waits up to 8 s for this work before it closes (`BackgroundWorkShutdownService`; `docker stop` kills after 10).
 
 To add an interaction:
 1. Add a `ViewCallbackId` value (`src/slack/enums/integration-callback-id.enum.ts`).
@@ -183,6 +183,8 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - Comments re-render the messages of all pending steps.
    - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in the Vacation Requests tab (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.
 6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status and notifies the requester and the team's `approval_notification_recipients`.
+
+Two approvers can click at the same moment, so the transitions are single conditional updates rather than "read, check, write": `VacationRequestsService.finishPending` changes only a request that is still pending (whoever changes it sends the notifications), and the next level's steps are claimed through `processed_at` (`claimUnprocessed`) before anyone is asked.
 
 Request create/update/delete events also invalidate `VacationPeriodUsageCacheService`.
 

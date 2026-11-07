@@ -11,15 +11,15 @@ import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-
 export const CANCEL_REQUEST_BLOCK_ID = 'request_block';
 export const CANCEL_REQUEST_ACTION_ID = 'request';
 
-export interface ICancelVacationRequestSelectModalViewParams
-  extends IBaseModalViewParams {
+export interface ICancelVacationRequestSelectModalViewParams extends IBaseModalViewParams {
   requests: IVacationRequestViewModel[];
 }
 
 // Opened by `/vacations cancel`: the user picks one of their pending requests.
 @Injectable()
 export class CancelVacationRequestSelectModalView extends BaseModalView<ICancelVacationRequestSelectModalViewParams> {
-  protected defaultCallbackId = ViewCallbackId.CancelVacationRequestCommandSubmit;
+  protected defaultCallbackId =
+    ViewCallbackId.CancelVacationRequestCommandSubmit;
 
   protected getTitleText(): string {
     return 'Cancel Vacation';

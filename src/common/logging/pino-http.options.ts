@@ -12,14 +12,14 @@ export const pinoHttpOptions = (env = process.env): Options => ({
   transport:
     env.NODE_ENV !== 'production' && env.NODE_ENV !== 'test'
       ? {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          singleLine: true,
-          translateTime: 'HH:MM:ss.l',
-          ignore: 'pid,hostname',
-        },
-      }
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            singleLine: true,
+            translateTime: 'HH:MM:ss.l',
+            ignore: 'pid,hostname',
+          },
+        }
       : undefined,
   redact: {
     paths: [

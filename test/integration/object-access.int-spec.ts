@@ -15,7 +15,11 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { fillForm } from './support/block-kit';
-import { openAppHomeTab, openModalFrom, publishedHome } from './support/app-home';
+import {
+  openAppHomeTab,
+  openModalFrom,
+  publishedHome,
+} from './support/app-home';
 import { modalError } from './support/tab-readers';
 import { workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
@@ -299,7 +303,11 @@ describe('Access to objects by ID', () => {
           trigger_id: 'trigger-forged',
           container: { type: 'message', message_ts: message.ts },
           channel: { id: message.channel },
-          message: { ts: message.ts, text: message.text, blocks: message.blocks },
+          message: {
+            ts: message.ts,
+            text: message.text,
+            blocks: message.blocks,
+          },
           actions: [
             {
               type: 'button',
@@ -328,9 +336,9 @@ describe('Access to objects by ID', () => {
         (await workspace.row('request_workflow_steps', secondStep.id))
           .completed_at,
       ).toBeNull();
-      expect((await workspace.row('vacation_requests', request.id)).status).toBe(
-        VacationRequestStatus.Pending,
-      );
+      expect(
+        (await workspace.row('vacation_requests', request.id)).status,
+      ).toBe(VacationRequestStatus.Pending);
     });
   });
 
@@ -393,7 +401,9 @@ describe('Access to objects by ID', () => {
 
       const forgedChoices: Record<string, string[]>[] = [
         { [ProjectAssignmentModalViewActionId.ProjectUsers]: [stranger.id] },
-        { [ProjectAssignmentModalViewActionId.ProjectTeams]: [strangersTeam.id] },
+        {
+          [ProjectAssignmentModalViewActionId.ProjectTeams]: [strangersTeam.id],
+        },
       ];
 
       for (const forged of forgedChoices) {

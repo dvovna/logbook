@@ -23,9 +23,7 @@ import {
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import ITeamViewModel from '@modules/teams/types/team.interface';
-import {
-  VacationRequestModalService,
-} from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
+import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 
 export enum VacationRequestsTabModalName {
@@ -43,8 +41,7 @@ interface IVacationRequestModalViewParams extends IOpenModalBaseParams<string> {
   requestId?: string;
 }
 
-interface IVacationRequestConfirmationModalViewParams
-  extends IOpenModalBaseParams<string> {
+interface IVacationRequestConfirmationModalViewParams extends IOpenModalBaseParams<string> {
   requestId: string;
 }
 
@@ -174,10 +171,11 @@ export class VacationRequestsTabService extends BaseTabService<
   }: IVacationRequestConfirmationModalViewParams): Promise<View> {
     this.assertAllowed(user, PEOPLE_ADMIN_ROLES);
 
-    const waitingSteps = await this.requestWorkflowService.findCurrentLevelSteps(
-      requestId,
-      user.slack_team_id,
-    );
+    const waitingSteps =
+      await this.requestWorkflowService.findCurrentLevelSteps(
+        requestId,
+        user.slack_team_id,
+      );
     const approvers = waitingSteps
       .map(({ slack_user_id }) => `<@${slack_user_id}>`)
       .join(', ');

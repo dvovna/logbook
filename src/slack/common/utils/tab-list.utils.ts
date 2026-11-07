@@ -2,7 +2,10 @@ import { ButtonAction, DatepickerAction } from '@slack/bolt';
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
-import { getCheckboxActionValues, getSelectActionValue } from '@modules/slack/common/utils/payload.utils';
+import {
+  getCheckboxActionValues,
+  getSelectActionValue,
+} from '@modules/slack/common/utils/payload.utils';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 
 interface IMetadataWithFilters {
@@ -51,7 +54,9 @@ export function withSelectFilter<Metadata extends IMetadataWithFilters>(
       filters: {
         ...metadata.filters,
         [filterKey]:
-          selectedOption?.id === ALL_OPTION_VALUE ? undefined : selectedOption?.id,
+          selectedOption?.id === ALL_OPTION_VALUE
+            ? undefined
+            : selectedOption?.id,
       },
     };
 
@@ -96,9 +101,9 @@ export function withAsyncSelectFilter<Metadata extends IMetadataWithFilters>(
         [filterKey]:
           selectedOption && selectedOption.id !== ALL_OPTION_VALUE
             ? {
-              id: selectedOption.id,
-              name: selectedOption.name,
-            }
+                id: selectedOption.id,
+                name: selectedOption.name,
+              }
             : undefined,
       },
     };

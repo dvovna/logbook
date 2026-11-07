@@ -112,68 +112,108 @@ describe('Vacation screens', () => {
     expect(home.callback_id).toBe(ViewCallbackId.HomeTabView);
   });
 
-  // BUG: approveStep reads the step, sees it pending and only then updates it,
-  // with nothing that stops a second request in between
-  // (request-workflow.service.ts:121-150). Two approvers clicking at once on
-  // an ANY level both finish the workflow: the requester is told twice.
-  it.failing(
-    'approves once when two approvers click at the same time',
-    async () => {
-      // Five requests, all ten clicks at once: one pair alone does not always
-      // land in between.
-      const pairs: {
-        request: Tables<'vacation_requests'>;
-        toAnna: IPostedMessage;
-        toBoris: IPostedMessage;
-      }[] = [];
-      for (let week = 2; week <= 6; week += 1) {
-        const request = await requestVacation(
-          t,
-          workspace,
-          member,
-          workWeek(week),
-        );
-        await t.idle();
-        const [toAnna] = t.slackApi
-          .postedMessages(workspace.token, anna.slack_id)
-          .slice(-1);
-        const [toBoris] = t.slackApi
-          .postedMessages(workspace.token, boris.slack_id)
-          .slice(-1);
-        pairs.push({ request, toAnna, toBoris });
-      }
-
-      await Promise.all(
-        pairs.flatMap(({ toAnna, toBoris }) => [
-          t.slack
-            .actOnMessage(
-              workspace,
-              anna,
-              toAnna,
-              ApproverMessageActionId.Approve,
-            )
-            .expect(200),
-          t.slack
-            .actOnMessage(
-              workspace,
-              boris,
-              toBoris,
-              ApproverMessageActionId.Approve,
-            )
-            .expect(200),
-        ]),
+  it('approves once when two approvers click at the same time', async () => {
+    // Five requests, all ten clicks at once: one pair alone does not always
+    // land in between.
+    const pairs: {
+      request: Tables<'vacation_requests'>;
+      toAnna: IPostedMessage;
+      toBoris: IPostedMessage;
+    }[] = [];
+    for (let week = 2; week <= 6; week += 1) {
+      const request = await requestVacation(
+        t,
+        workspace,
+        member,
+        workWeek(week),
       );
       await t.idle();
+      const [toAnna] = t.slackApi
+        .postedMessages(workspace.token, anna.slack_id)
+        .slice(-1);
+      const [toBoris] = t.slackApi
+        .postedMessages(workspace.token, boris.slack_id)
+        .slice(-1);
+      pairs.push({ request, toAnna, toBoris });
+    }
 
-      for (const { request } of pairs) {
-        expect(
-          (await workspace.row('vacation_requests', request.id)).status,
-        ).toBe(VacationRequestStatus.Approved);
-      }
-      const notices = t.slackApi
-        .postedMessages(workspace.token, member.slack_id)
-        .filter((message) => textOf(message).includes('has been approved'));
-      expect(notices).toHaveLength(pairs.length);
-    },
-  );
+    await Promise.all(
+      pairs.flatMap(({ toAnna, toBoris }) => [
+        t.slack
+          .actOnMessage(
+            workspace,
+            anna,
+            toAnna,
+            ApproverMessageActionId.Approve,
+          )
+          .expect(200),
+        t.slack
+          .actOnMessage(
+            workspace,
+            boris,
+            toBoris,
+            ApproverMessageActionId.Approve,
+          )
+          .expect(200),
+      ]),
+    );
+    await t.idle();
+
+    for (const { request } of pairs) {
+      expect(
+        (await workspace.row('vacation_requests', request.id)).status,
+      ).toBe(VacationRequestStatus.Approved);
+    }
+    const notices = t.slackApi
+      .postedMessages(workspace.token, member.slack_id)
+      .filter((message) => textOf(message).includes('has been approved'));
+    expect(notices).toHaveLength(pairs.length);
+  });
+  it('asks HR once when the last two managers approve at the same time', async () => {
+    const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+    const team = await workspace.addTeam({
+      manager_approvers: [anna.slack_id, boris.slack_id],
+      manager_approvers_rule: ApprovalRule.All,
+      hr_approvers: [hr.slack_id],
+    });
+    const requester = await workspace.addUser({ team_id: team.id });
+    const pairs: { toAnna: IPostedMessage; toBoris: IPostedMessage }[] = [];
+    for (let week = 2; week <= 6; week += 1) {
+      await requestVacation(t, workspace, requester, workWeek(week));
+      await t.idle();
+      const [toAnna] = t.slackApi
+        .postedMessages(workspace.token, anna.slack_id)
+        .slice(-1);
+      const [toBoris] = t.slackApi
+        .postedMessages(workspace.token, boris.slack_id)
+        .slice(-1);
+      pairs.push({ toAnna, toBoris });
+    }
+
+    await Promise.all(
+      pairs.flatMap(({ toAnna, toBoris }) => [
+        t.slack
+          .actOnMessage(
+            workspace,
+            anna,
+            toAnna,
+            ApproverMessageActionId.Approve,
+          )
+          .expect(200),
+        t.slack
+          .actOnMessage(
+            workspace,
+            boris,
+            toBoris,
+            ApproverMessageActionId.Approve,
+          )
+          .expect(200),
+      ]),
+    );
+    await t.idle();
+
+    expect(
+      t.slackApi.postedMessages(workspace.token, hr.slack_id),
+    ).toHaveLength(pairs.length);
+  });
 });

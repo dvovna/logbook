@@ -58,7 +58,10 @@ export class ProjectOptionsService {
 
     return {
       options: result.items.map((project) => ({
-        text: { type: 'plain_text', text: `${project.name}${project.archived_at ? ' (Archived)' : ''}` },
+        text: {
+          type: 'plain_text',
+          text: `${project.name}${project.archived_at ? ' (Archived)' : ''}`,
+        },
         value: project.id,
       })),
     };

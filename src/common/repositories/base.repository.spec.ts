@@ -31,7 +31,10 @@ describe('BaseRepository', () => {
       ['findOne', () => clients.findOne({ id: 'c1' })],
       ['findMany', () => clients.findMany({ name: 'Acme' })],
       ['search', () => clients.search({ filters: { name: 'Acme' } })],
-      ['count', () => clients.count({ name: 'Acme', slack_team_id: undefined })],
+      [
+        'count',
+        () => clients.count({ name: 'Acme', slack_team_id: undefined }),
+      ],
       ['update', () => clients.update({ id: 'c1' }, { name: 'New' })],
       ['updateMany', () => clients.updateMany({ id: 'c1' }, { name: 'New' })],
       ['deleteMany', () => clients.deleteMany({ id: 'c1' })],
@@ -68,11 +71,7 @@ describe('BaseRepository', () => {
   });
 
   it('quotes a filter value, so its commas and dots stay text', () => {
-    expect(quoteFilterValue('%a,id.not.is.null%')).toBe(
-      '"%a,id.not.is.null%"',
-    );
-    expect(quoteFilterValue('say "hi" \\ bye')).toBe(
-      '"say \\"hi\\" \\\\ bye"',
-    );
+    expect(quoteFilterValue('%a,id.not.is.null%')).toBe('"%a,id.not.is.null%"');
+    expect(quoteFilterValue('say "hi" \\ bye')).toBe('"say \\"hi\\" \\\\ bye"');
   });
 });

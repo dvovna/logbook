@@ -189,11 +189,14 @@ describe('Installing the app (OAuth redirect)', () => {
 
       // Opening the App Home caches the first token.
       await t.slack
-        .event({ slackId: teamId }, {
-          type: 'app_home_opened',
-          user: installer,
-          tab: 'home',
-        })
+        .event(
+          { slackId: teamId },
+          {
+            type: 'app_home_opened',
+            user: installer,
+            tab: 'home',
+          },
+        )
         .expect(acknowledged);
       await t.idle();
 
@@ -222,16 +225,19 @@ describe('Installing the app (OAuth redirect)', () => {
 
       const since = t.slackApi.mark();
       await t.slack
-        .event({ slackId: teamId }, {
-          type: 'app_home_opened',
-          user: installer,
-          tab: 'home',
-        })
+        .event(
+          { slackId: teamId },
+          {
+            type: 'app_home_opened',
+            user: installer,
+            tab: 'home',
+          },
+        )
         .expect(acknowledged);
       await t.idle();
-      expect(
-        t.slackApi.calls.slice(since).map(({ token }) => token),
-      ).toEqual([`xoxb-second-${teamId}`]);
+      expect(t.slackApi.calls.slice(since).map(({ token }) => token)).toEqual([
+        `xoxb-second-${teamId}`,
+      ]);
     });
 
     it('lets two workspaces with the same name install', async () => {

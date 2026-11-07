@@ -7,8 +7,13 @@ import UserRole from '@common/enums/user-role.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
-import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
-import ConfirmationModalView, { IConfirmationModalViewMetadata } from '@modules/slack/common/views/components/confirmation-modal.view';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
+import ConfirmationModalView, {
+  IConfirmationModalViewMetadata,
+} from '@modules/slack/common/views/components/confirmation-modal.view';
 import { REQUEST_CONFIRMATION_VIEW_CONFIG } from '@modules/request-workflows/configs/request-confirmation-view-config';
 import { runInBackground } from '@common/utils/run-in-background';
 
@@ -18,12 +23,11 @@ import { runInBackground } from '@common/utils/run-in-background';
   type: 'view_submission',
   allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
 })
-export class ApproveRequestStepFormSubmitHandler
-  extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
+export class ApproveRequestStepFormSubmitHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
   constructor(
     private readonly requestWorkflowService: RequestWorkflowService,
     protected readonly tabNavigationService: TabNavigationService,
-    private readonly confirmationModalView : ConfirmationModalView,
+    private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super();
   }
@@ -64,10 +68,13 @@ export class ApproveRequestStepFormSubmitHandler
     this.logger.warn(`Error approving pending request step: ${errorMessage}`);
 
     return SlackViewResponseFactory.update(
-      this.confirmationModalView.getView({
-        ...REQUEST_CONFIRMATION_VIEW_CONFIG.approve,
-        errorMessage,
-      }, metadata),
+      this.confirmationModalView.getView(
+        {
+          ...REQUEST_CONFIRMATION_VIEW_CONFIG.approve,
+          errorMessage,
+        },
+        metadata,
+      ),
     );
   }
 }

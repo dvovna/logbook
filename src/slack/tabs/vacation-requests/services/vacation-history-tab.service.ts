@@ -88,7 +88,10 @@ export class VacationHistoryTabService extends BaseTabService<
       filters: {
         slackTeamId: user.slack_team_id,
         userId: user.id,
-        statuses: [VacationRequestStatus.Approved, VacationRequestStatus.Pending],
+        statuses: [
+          VacationRequestStatus.Approved,
+          VacationRequestStatus.Pending,
+        ],
         ...(year && { year }),
         ...(type && { type }),
       },

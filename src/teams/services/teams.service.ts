@@ -8,10 +8,7 @@ import {
 import UserRole from '@common/enums/user-role.enum';
 import { isPeopleAdmin } from '@modules/users/utils/people-admin-roles';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
-import {
-  ISearchParams,
-  ISearchResult,
-} from '@common/types/pagination.types';
+import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
@@ -130,7 +127,9 @@ export default class TeamsService implements ITeamsService {
     const managedTeamIds = await this.findManagedTeamIds(user);
 
     if (managedTeamIds !== null && !managedTeamIds.includes(teamId ?? '')) {
-      throw new ForbiddenException('You can only see the people of your teams.');
+      throw new ForbiddenException(
+        'You can only see the people of your teams.',
+      );
     }
   }
 
@@ -219,9 +218,9 @@ export default class TeamsService implements ITeamsService {
         : {}),
       ...(updateParams.approvalNotificationRecipients !== undefined
         ? {
-          approval_notification_recipients:
+            approval_notification_recipients:
               updateParams.approvalNotificationRecipients,
-        }
+          }
         : {}),
       ...(updateParams.managerApproversRule
         ? { manager_approvers_rule: updateParams.managerApproversRule }
@@ -258,11 +257,11 @@ export default class TeamsService implements ITeamsService {
       ...(params.name ? { name: params.name } : {}),
       ...(params.managerApprovers !== undefined
         ? {
-          manager_approvers: {
-            operator: 'ov',
-            value: params.managerApprovers,
-          },
-        }
+            manager_approvers: {
+              operator: 'ov',
+              value: params.managerApprovers,
+            },
+          }
         : {}),
       slack_team_id: params.slackTeamId,
       ...(params.vacationPolicyId

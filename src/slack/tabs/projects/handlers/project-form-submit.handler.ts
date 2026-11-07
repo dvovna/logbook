@@ -4,7 +4,10 @@ import SlackViewResponseFactory from '@modules/slack/factories/slack-response.fa
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
-import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
 import UserRole from '@common/enums/user-role.enum';
 import IProjectViewModel from 'src/projects/types/project.types';
 import {
@@ -13,7 +16,10 @@ import {
   ProjectModalView,
 } from '@modules/slack/tabs/projects/views/project-modal.view';
 import ProjectsService from 'src/projects/services/projects.service';
-import { ProjectsTabModalName, ProjectsTabService } from '@modules/slack/tabs/projects/services/projects-tab.service';
+import {
+  ProjectsTabModalName,
+  ProjectsTabService,
+} from '@modules/slack/tabs/projects/services/projects-tab.service';
 import ProjectModalViewValuesParser, {
   IProjectFormViewData,
 } from '@modules/slack/tabs/projects/parsers/project-modal-view-values.parser';
@@ -80,7 +86,10 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
         name: data.name,
         description: data.description,
         slackTeamId: user.slack_team_id,
-        clientId: data.clientId?.value === NO_CLIENT_VALUE ? null : data.clientId?.value,
+        clientId:
+          data.clientId?.value === NO_CLIENT_VALUE
+            ? null
+            : data.clientId?.value,
         billable: data.billable?.value === 'true',
         status: data.status.value,
       },
@@ -100,7 +109,10 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
       },
       {
         name: data.name,
-        clientId: data.clientId?.value === NO_CLIENT_VALUE ? null : data.clientId?.value,
+        clientId:
+          data.clientId?.value === NO_CLIENT_VALUE
+            ? null
+            : data.clientId?.value,
         description: data.description,
         billable: data.billable?.value === 'true',
         status: data.status.value,
@@ -130,18 +142,24 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
     user: IUserViewModel,
   ) {
     if (metadata.id) {
-      return this.projectsTabService.getModalView(ProjectsTabModalName.UpdateProject, {
-        projectId: metadata.id,
+      return this.projectsTabService.getModalView(
+        ProjectsTabModalName.UpdateProject,
+        {
+          projectId: metadata.id,
+          errorMessage,
+          user,
+          pageMetadata: metadata.pageMetadata,
+        },
+      );
+    }
+
+    return this.projectsTabService.getModalView(
+      ProjectsTabModalName.CreateProject,
+      {
         errorMessage,
         user,
         pageMetadata: metadata.pageMetadata,
-      });
-    }
-
-    return this.projectsTabService.getModalView(ProjectsTabModalName.CreateProject, {
-      errorMessage,
-      user,
-      pageMetadata: metadata.pageMetadata,
-    });
+      },
+    );
   }
 }

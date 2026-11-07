@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  BaseRepository,
-  Tables,
-} from '@common/repositories/base.repository';
+import { BaseRepository, Tables } from '@common/repositories/base.repository';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';

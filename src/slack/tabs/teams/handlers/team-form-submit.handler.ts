@@ -101,7 +101,9 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     });
 
     if (!policy) {
-      throw new ValidationError('This vacation policy is not in this workspace.');
+      throw new ValidationError(
+        'This vacation policy is not in this workspace.',
+      );
     }
   }
 

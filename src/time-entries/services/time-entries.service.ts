@@ -71,10 +71,7 @@ export class TimeEntriesService {
   ): Promise<ITimeEntryViewModel> {
     const project = await this.getProject(createParams.projectId, user);
 
-    await this.timeEntriesValidationService.validateCreate(
-      createParams,
-      user,
-    );
+    await this.timeEntriesValidationService.validateCreate(createParams, user);
 
     const now = new Date().toISOString();
 
@@ -113,8 +110,8 @@ export class TimeEntriesService {
     const project =
       updateParams.projectId !== undefined
         ? await this.getProject(updateParams.projectId, user, {
-          isNewProject: updateParams.projectId !== existingEntry.project_id,
-        })
+            isNewProject: updateParams.projectId !== existingEntry.project_id,
+          })
         : undefined;
 
     await this.timeEntriesValidationService.validateUpdate(
@@ -137,16 +134,15 @@ export class TimeEntriesService {
           : {}),
         ...(project
           ? {
-            project_id: project.id,
-            client_id: project.client_id,
-            billable: project.billable,
-          }
+              project_id: project.id,
+              client_id: project.client_id,
+              billable: project.billable,
+            }
           : {}),
         ...(updateParams.workDate !== undefined
           ? {
-            work_date:
-              updateParams.workDate.toISOString(),
-          }
+              work_date: updateParams.workDate.toISOString(),
+            }
           : {}),
         ...(updateParams.minutes !== undefined
           ? { minutes: updateParams.minutes }
@@ -163,12 +159,8 @@ export class TimeEntriesService {
     );
   }
 
-  public findOne(
-    params: IFindParams,
-  ): Promise<ITimeEntryViewModel | null> {
-    return this.timeEntriesRepository.findOne(
-      this.getFindQuery(params),
-    );
+  public findOne(params: IFindParams): Promise<ITimeEntryViewModel | null> {
+    return this.timeEntriesRepository.findOne(this.getFindQuery(params));
   }
 
   public async findOneWithValidation(
@@ -184,9 +176,7 @@ export class TimeEntriesService {
   }
 
   public async findMany(params: IFindParams) {
-    return this.timeEntriesRepository.findMany(
-      this.getFindQuery(params),
-    );
+    return this.timeEntriesRepository.findMany(this.getFindQuery(params));
   }
 
   public async search(
@@ -211,7 +201,9 @@ export class TimeEntriesService {
       const entry = await this.findOneWithValidation({ id, slackTeamId });
 
       if (entry.user_id !== user.id) {
-        throw new ForbiddenException('You can only submit your own time entries');
+        throw new ForbiddenException(
+          'You can only submit your own time entries',
+        );
       }
 
       if (!isOpenTimeEntry(entry.status)) {
@@ -306,15 +298,15 @@ export class TimeEntriesService {
         : {}),
       ...(params.dateFrom || params.dateTo
         ? {
-          work_date: [
-            ...(params.dateFrom
-              ? [{ operator: 'gte' as const, value: params.dateFrom }]
-              : []),
-            ...(params.dateTo
-              ? [{ operator: 'lte' as const, value: params.dateTo }]
-              : []),
-          ],
-        }
+            work_date: [
+              ...(params.dateFrom
+                ? [{ operator: 'gte' as const, value: params.dateFrom }]
+                : []),
+              ...(params.dateTo
+                ? [{ operator: 'lte' as const, value: params.dateTo }]
+                : []),
+            ],
+          }
         : {}),
       slack_team_id: params.slackTeamId,
     };

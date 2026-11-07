@@ -3,9 +3,7 @@ import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
 import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
-import {
-  ProjectAssignmentModalViewActionId,
-} from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
+import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
 
 export const MAX_TEAMS = 30;
 export const MAX_USERS = 30;

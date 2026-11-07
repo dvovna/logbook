@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import TeamsService from '@modules/teams/services/teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
-import BaseTabService, { IPublishBaseParams } from '@modules/slack/common/services/base-tab.service';
+import BaseTabService, {
+  IPublishBaseParams,
+} from '@modules/slack/common/services/base-tab.service';
 import { PeopleTabView } from '@modules/slack/tabs/people/views/people-tab.view';
 
 export type IGetPeopleTabViewParams = IPublishBaseParams;
@@ -27,13 +29,11 @@ export class PeopleTabService extends BaseTabService<never> {
       }),
     ]);
 
-    return this.peopleViewService.getView(
-      {
-        userId: params.user.slack_id,
-        userRole: params.user.role,
-        usersCount,
-        teamsCount,
-      },
-    );
+    return this.peopleViewService.getView({
+      userId: params.user.slack_id,
+      userRole: params.user.role,
+      usersCount,
+      teamsCount,
+    });
   }
 }

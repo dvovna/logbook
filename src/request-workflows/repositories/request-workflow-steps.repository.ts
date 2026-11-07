@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  BaseRepository,
-  Tables,
-} from '@common/repositories/base.repository';
+import { BaseRepository, Tables } from '@common/repositories/base.repository';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepType,

@@ -67,7 +67,10 @@ export class ProjectAssignmentsService implements IProjectAssignmentsService {
   }
 
   public async getAssignments({ projectId, slackTeamId }: IAssignmentParams) {
-    const assignmentsQuery = { project_id: projectId, slack_team_id: slackTeamId };
+    const assignmentsQuery = {
+      project_id: projectId,
+      slack_team_id: slackTeamId,
+    };
 
     const [teams, users] = await Promise.all([
       this.projectTeamsRepository.findMany(assignmentsQuery),

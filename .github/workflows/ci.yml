@@ -18,19 +18,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-        with:
-          # The lint step diffs against the base branch.
-          fetch-depth: 0
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc # same major as the Dockerfile
 
       # Node 26 ships without corepack, so yarn 1 is installed explicitly.
       - run: npm install -g yarn@1.22.22
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/yarn
           key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
@@ -47,32 +44,23 @@ jobs:
       - name: Build
         run: yarn build
 
-      # The codebase still has ~140 lint errors from before, some of them in
-      # files a PR touches, so this step reports problems without failing the job.
-      - name: Lint changed files
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        run: |
-          files=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- '*.ts' ':!src/common/types/database.types.ts')
-          if [ -z "$files" ]; then
-            echo "No TypeScript files changed"
-            exit 0
-          fi
-          npx eslint $files
+      # ESLint also reports code Prettier would format differently.
+      - name: Lint
+        run: npx eslint src test
 
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
       - run: npm install -g yarn@1.22.22
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/yarn
           key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}

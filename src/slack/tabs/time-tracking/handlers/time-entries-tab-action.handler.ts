@@ -1,7 +1,5 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
-import {
-  ISlackInteractionPayload,
-} from '@modules/slack/common/types/slack-interaction-payload.interface';
+import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 import { ValidationError } from '@common/errors/validation.error';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
@@ -18,12 +16,8 @@ import {
   withResetFilters,
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
-import {
-  TimeEntriesTabService,
-} from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
-import {
-  TimeEntriesTabViewActionId,
-} from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
+import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
+import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { ITimeEntriesTabMetaData } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 
@@ -113,9 +107,9 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
         user,
       );
     } catch (error) {
-      if (
-        !(error instanceof ValidationError || error instanceof ForbiddenException)
-      ) {
+      if (!(
+        error instanceof ValidationError || error instanceof ForbiddenException
+      )) {
         throw error;
       }
 
@@ -163,7 +157,9 @@ export default class TimeEntriesTabActionHandler extends BaseAdminTabActionHandl
         break;
       }
       default: {
-        this.logger.warn(`Unhandled Time Entries Tab Menu actionType: ${actionType}`);
+        this.logger.warn(
+          `Unhandled Time Entries Tab Menu actionType: ${actionType}`,
+        );
       }
     }
   };

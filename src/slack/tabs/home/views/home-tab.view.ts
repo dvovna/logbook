@@ -65,7 +65,13 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
     requestedVacations?: IVacationRequestViewModel[],
   ): AnyBlock[] {
     return [
-      { type: 'section', text: { type: 'plain_text', text: 'Your personal work & vacation overview' } },
+      {
+        type: 'section',
+        text: {
+          type: 'plain_text',
+          text: 'Your personal work & vacation overview',
+        },
+      },
       ...Divider.getBlocks(),
       ...this.getTimeTrackingBlocks(timeSummary),
       ...this.getVacationUsageBlocks(usageInfo),
@@ -124,7 +130,6 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
     } as AnyBlock;
   }
 
-
   private buildBonusDaysBlock(
     usage: IVacationPeriodUsageData['usage']['bonus_day'],
     limits?: IVacationPeriodUsageData['limits'],
@@ -149,7 +154,6 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
       },
     } as AnyBlock;
   }
-
 
   private getVacationUsageBlocks(
     vacationsUsageInfo: IVacationPeriodUsageData | null,
@@ -220,7 +224,8 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
   private buildVacationBlock(vacation: IVacationRequestViewModel): AnyBlock {
     const start = new Date(vacation.start_date);
     const end = new Date(vacation.end_date);
-    const isSameDay = start.getDate() === end.getDate() && start.getMonth() === end.getMonth();
+    const isSameDay =
+      start.getDate() === end.getDate() && start.getMonth() === end.getMonth();
     const isSameMonth = start.getMonth() === end.getMonth();
     const startStr = isSameMonth
       ? start.getDate()

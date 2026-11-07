@@ -9,8 +9,7 @@ import { RequestWorkflowStepsService } from '@modules/request-workflows/services
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 
-export interface IViewVacationRequestModalViewParams
-  extends IOpenModalBaseParams {
+export interface IViewVacationRequestModalViewParams extends IOpenModalBaseParams {
   requestId: string;
   pageMetadata?: string;
 }

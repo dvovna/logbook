@@ -35,7 +35,7 @@ export class SlackTeamsRepository extends BaseRepository<
   // The token as stored: encrypted, or plain text from before encryption.
   public async findStoredToken(id: string): Promise<string | null> {
     const { data, error } = await this.client
-      .from(this.tableName)
+      .from('slack_teams')
       .select('slack_token')
       .eq('id', id)
       .maybeSingle();
@@ -44,13 +44,13 @@ export class SlackTeamsRepository extends BaseRepository<
       throw new Error(`Failed to read the bot token: ${error.message}`);
     }
 
-    return (data as { slack_token: string } | null)?.slack_token ?? null;
+    return data?.slack_token ?? null;
   }
 
   // Workspaces whose token is still stored in plain text.
   public async findPlainTextTokens(): Promise<IStoredToken[]> {
     const { data, error } = await this.client
-      .from(this.tableName)
+      .from('slack_teams')
       .select('id, slack_token')
       .not('slack_token', 'like', 'v1:%');
 
@@ -63,7 +63,7 @@ export class SlackTeamsRepository extends BaseRepository<
 
   public async saveToken(id: string, storedToken: string) {
     const { error } = await this.client
-      .from(this.tableName)
+      .from('slack_teams')
       .update({ slack_token: storedToken })
       .eq('id', id);
 

@@ -48,8 +48,7 @@ export class TimeAndBillingTabView extends BaseAdminTabView<
         type: 'section',
         text: {
           type: 'plain_text',
-          text:
-            'Manage time tracking, projects, clients and billing reports.',
+          text: 'Manage time tracking, projects, clients and billing reports.',
         },
       },
       ...Divider.getBlocks(),
@@ -70,21 +69,21 @@ export class TimeAndBillingTabView extends BaseAdminTabView<
       ),
       ...(can(AdminNavigationActionId.ManageTimeApprovals)
         ? [
-          this.buildManageBlock(
-            `✅ Approvals${pendingApprovals ? ` (${pendingApprovals})` : ''}`,
-            'Submitted time entries waiting for your decision',
-            AdminNavigationActionId.ManageTimeApprovals,
-          ),
-        ]
+            this.buildManageBlock(
+              `✅ Approvals${pendingApprovals ? ` (${pendingApprovals})` : ''}`,
+              'Submitted time entries waiting for your decision',
+              AdminNavigationActionId.ManageTimeApprovals,
+            ),
+          ]
         : []),
       ...(can(AdminNavigationActionId.ManageBillingReports)
         ? [
-          this.buildManageBlock(
-            '📊 Billing reports',
-            'Approved hours by client, project and person',
-            AdminNavigationActionId.ManageBillingReports,
-          ),
-        ]
+            this.buildManageBlock(
+              '📊 Billing reports',
+              'Approved hours by client, project and person',
+              AdminNavigationActionId.ManageBillingReports,
+            ),
+          ]
         : []),
       ...Divider.getBlocks(),
       {

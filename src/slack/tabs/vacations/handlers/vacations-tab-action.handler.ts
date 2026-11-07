@@ -73,7 +73,9 @@ export default class VacationsTabActionHandler extends BaseAdminTabActionHandler
         );
       }
       default: {
-        this.logger.warn(`Unhandled Vacations Tab Menu actionType: ${actionType}`);
+        this.logger.warn(
+          `Unhandled Vacations Tab Menu actionType: ${actionType}`,
+        );
       }
     }
   };

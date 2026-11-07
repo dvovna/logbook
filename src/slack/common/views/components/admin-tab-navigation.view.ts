@@ -7,8 +7,7 @@ export class AdminTabNavigation {
     activeTabActionId: AdminNavigationActionId | null,
     canViewTab: (tabActionId: AdminNavigationActionId) => boolean,
   ): AnyBlock[] {
-    const tabs = ADMIN_TABS.filter((tab) =>
-      canViewTab(tab.actionId));
+    const tabs = ADMIN_TABS.filter((tab) => canViewTab(tab.actionId));
 
     if (tabs.length <= 1) {
       return [];

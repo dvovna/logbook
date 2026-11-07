@@ -5,9 +5,7 @@ import BaseModalView, {
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import {
-  TimeEntriesTabViewActionId,
-} from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
+import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
 import { TIME_LOG_STATUS_OPTIONS } from '@modules/slack/tabs/time-tracking/data/time-log-status.options';
 import { IOption } from '@modules/slack/common/types/option.interface';
@@ -19,10 +17,9 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { IUserProject } from 'src/projects/queries/get-user-projects.query';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
-interface IGetViewParams
-  extends IBaseModalViewParams<
-    ViewCallbackId.UserTimeEntry | ViewCallbackId.AdminTimeEntry
-  > {
+interface IGetViewParams extends IBaseModalViewParams<
+  ViewCallbackId.UserTimeEntry | ViewCallbackId.AdminTimeEntry
+> {
   userProjects: IUserProject[];
   initialData?: ITimeEntryViewModel;
   user: IUserViewModel;
@@ -71,9 +68,8 @@ export class TimeEntryFormModalView extends BaseModalView<
 
     const isAdminView = isTimeEntriesAdmin(user.role);
     const userProjectOptions = this.getUserProjectOptions(userProjects);
-    const defaultProjectOption = userProjectOptions.length === 1
-      ? userProjectOptions[0]
-      : undefined;
+    const defaultProjectOption =
+      userProjectOptions.length === 1 ? userProjectOptions[0] : undefined;
     const selectedProjectId = initialData
       ? initialData.project_id
       : defaultProjectOption?.id;
@@ -109,7 +105,9 @@ export class TimeEntryFormModalView extends BaseModalView<
           is_decimal_allowed: true,
           min_value: '0.25',
           max_value: '24',
-          initial_value: initialData?.minutes ? (initialData.minutes / 60)?.toString() : undefined,
+          initial_value: initialData?.minutes
+            ? (initialData.minutes / 60)?.toString()
+            : undefined,
         },
       },
       {
@@ -124,13 +122,14 @@ export class TimeEntryFormModalView extends BaseModalView<
           initial_value: initialData?.description || '',
         },
       },
-      ...(errorMessage
-        ? [this.getGeneralErrorBlock(errorMessage)]
-        : []),
+      ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
     ];
   }
 
-  private getAdminBlocks(data: IGetViewParams['initialData'] | undefined, user: IUserViewModel): AnyBlock[] {
+  private getAdminBlocks(
+    data: IGetViewParams['initialData'] | undefined,
+    user: IUserViewModel,
+  ): AnyBlock[] {
     const preselectedUser = data ? data.user : user;
 
     return [
@@ -148,9 +147,9 @@ export class TimeEntryFormModalView extends BaseModalView<
           },
           initial_option: preselectedUser
             ? toPlainTextOption({
-              id: preselectedUser.id,
-              name: preselectedUser.name || 'Unknown User',
-            })
+                id: preselectedUser.id,
+                name: preselectedUser.name || 'Unknown User',
+              })
             : undefined,
         },
       },

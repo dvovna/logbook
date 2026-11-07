@@ -5,13 +5,15 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { TimeEntryFormModalView } from '@modules/slack/tabs/time-tracking/views/time-entry-form-modal.view';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import ClientsService from '@modules/clients/services/clients.service';
-import { GetUserProjectsQuery, IUserProject } from 'src/projects/queries/get-user-projects.query';
+import {
+  GetUserProjectsQuery,
+  IUserProject,
+} from 'src/projects/queries/get-user-projects.query';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
-export interface ITimeEntryModalViewParams
-  extends IOpenModalBaseParams {
+export interface ITimeEntryModalViewParams extends IOpenModalBaseParams {
   timeEntryId?: string;
   pageMetadata?: string;
 }
@@ -36,9 +38,9 @@ export class TimeEntryModalService {
       this.getProjects(user),
       timeEntryId
         ? this.timeEntriesService.findOneWithValidation({
-          id: timeEntryId,
-          slackTeamId: user.slack_team_id,
-        })
+            id: timeEntryId,
+            slackTeamId: user.slack_team_id,
+          })
         : undefined,
     ]);
 
@@ -95,7 +97,8 @@ export class TimeEntryModalService {
         id: project.id,
         name: project.name,
         clientId: project.client_id ?? '',
-        clientName: (project.client_id && clientNames.get(project.client_id)) || '',
+        clientName:
+          (project.client_id && clientNames.get(project.client_id)) || '',
       }))
       .sort(
         (a, b) =>

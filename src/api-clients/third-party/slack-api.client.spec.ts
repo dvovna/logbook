@@ -1,5 +1,8 @@
 import { WebClient } from '@slack/web-api';
-import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
+import SlackApiClient, {
+  CALL_OPTIONS,
+  INTERACTIVE_CALL_OPTIONS,
+} from 'src/api-clients/third-party/slack-api.client';
 
 jest.mock('@slack/web-api', () => ({ WebClient: jest.fn() }));
 
@@ -48,8 +51,45 @@ describe('SlackApiClient', () => {
       accessToken: 'xoxb-2',
     });
 
-    expect(WebClient).toHaveBeenNthCalledWith(1, 'xoxb-1');
-    expect(WebClient).toHaveBeenNthCalledWith(2, 'xoxb-2');
+    expect(WebClient).toHaveBeenNthCalledWith(1, 'xoxb-1', CALL_OPTIONS);
+    expect(WebClient).toHaveBeenNthCalledWith(2, 'xoxb-2', CALL_OPTIONS);
+  });
+
+  it('reuses the client of a workspace', async () => {
+    const home = { user_id: 'U1', view: { type: 'home' as const, blocks: [] } };
+
+    await client.publishView(home, 'xoxb-1');
+    await client.publishView(home, 'xoxb-1');
+    await client.postMessage({
+      channel: 'U1',
+      text: 'Hi',
+      accessToken: 'xoxb-1',
+    });
+
+    expect(WebClient).toHaveBeenCalledTimes(1);
+  });
+
+  // A modal has to open while its trigger_id lives, so views.open is not
+  // retried and does not wait out a rate limit.
+  it('opens views without retries and with a short timeout', async () => {
+    await client.openView(
+      {
+        trigger_id: 't1',
+        view: {
+          type: 'modal',
+          title: { type: 'plain_text', text: 'Hi' },
+          blocks: [],
+        },
+      },
+      'xoxb-1',
+    );
+
+    expect(WebClient).toHaveBeenCalledWith('xoxb-1', INTERACTIVE_CALL_OPTIONS);
+    expect(INTERACTIVE_CALL_OPTIONS).toMatchObject({
+      retryConfig: { retries: 0 },
+      rejectRateLimitedCalls: true,
+    });
+    expect(INTERACTIVE_CALL_OPTIONS.timeout).toBeLessThan(3_000);
   });
 
   it('posts an ephemeral message to the user in the channel', async () => {

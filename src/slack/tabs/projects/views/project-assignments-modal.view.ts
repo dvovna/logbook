@@ -7,9 +7,7 @@ import { AnyBlock } from '@slack/web-api';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { SlackMultiStaticSelectView } from '@modules/slack/common/views/components/slack-multi-static-select.view';
 import { IOption } from '@modules/slack/common/types/option.interface';
-import {
-  ProjectAssignmentModalViewActionId,
-} from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
+import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import {
@@ -50,17 +48,15 @@ export class ProjectAssignmentsModalView extends BaseModalView<
     selectedUsers,
     errorMessage,
   }: IGetViewParams): AnyBlock[] {
-    const teamOptions = teams.map<IOption>(
-      (client) => ({
-        id: client.id,
-        name: client.name,
-      }),
+    const teamOptions = teams.map<IOption>((client) => ({
+      id: client.id,
+      name: client.name,
+    }));
+    const selectedTeamOptions = teamOptions.filter((team) =>
+      assignments.teamIds.includes(team.id),
     );
-    const selectedTeamOptions = teamOptions.filter(
-      (team) => assignments.teamIds.includes(team.id),
-    );
-    const selectedUserOptions = selectedUsers.map(
-      (user) => toPlainTextOption({
+    const selectedUserOptions = selectedUsers.map((user) =>
+      toPlainTextOption({
         id: user.id,
         name: user.name,
       }),

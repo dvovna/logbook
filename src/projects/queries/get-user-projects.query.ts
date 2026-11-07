@@ -20,14 +20,13 @@ export class GetUserProjectsQuery {
   }): Promise<IUserProject[]> {
     const { userId, slackTeamId, includeArchived = false } = params;
 
-    const { data, error } = await this.supabase.getClient().rpc(
-      RpcFunctionName.GetUserProjects,
-      {
+    const { data, error } = await this.supabase
+      .getClient()
+      .rpc(RpcFunctionName.GetUserProjects, {
         p_user_id: userId,
         p_slack_team_id: slackTeamId,
         p_include_archived: includeArchived,
-      },
-    );
+      });
 
     if (error) {
       throw new Error(

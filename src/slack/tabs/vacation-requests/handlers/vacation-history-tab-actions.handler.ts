@@ -2,9 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import {
-  IVacationRequestsTabMetadata,
-} from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
+import { IVacationRequestsTabMetadata } from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import {
   ActionMapType,
   BaseActionHandler,
@@ -25,9 +23,7 @@ import {
 import { CommonViewActionId } from '@modules/slack/enums/common-view-action-id.enum';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
-import {
-  VacationHistoryTabViewActionId,
-} from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
+import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
 
 @Injectable()
 @SlackHandler({
@@ -65,7 +61,9 @@ export default class VacationHistoryTabActionsHandler extends BaseActionHandler 
         'type',
         this.updateTab,
       ),
-      [VacationHistoryTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
+      [VacationHistoryTabViewActionId.ResetFilters]: withResetFilters(
+        this.updateTab,
+      ),
     };
   }
 

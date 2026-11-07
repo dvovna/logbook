@@ -107,9 +107,9 @@ export class VacationsUsageService implements IVacationsUsageService {
   private async getVacationPolicyIfExists(user: IUserViewModel) {
     const userTeam = user.team_id
       ? await this.teamsService.findOneWithValidation({
-        id: user.team_id,
-        slackTeamId: user.slack_team_id,
-      })
+          id: user.team_id,
+          slackTeamId: user.slack_team_id,
+        })
       : null;
 
     if (!userTeam || !userTeam.vacation_policy_id) {

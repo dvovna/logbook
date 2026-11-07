@@ -1,7 +1,10 @@
 import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from 'src/database/supabase.service';
-import { ITimeEntryListData, ITimeEntryListItemWithTotalCount } from 'src/time-entries/types/time-entries-list.types';
+import {
+  ITimeEntryListData,
+  ITimeEntryListItemWithTotalCount,
+} from 'src/time-entries/types/time-entries-list.types';
 import { TimeEntryStatus } from '@modules/slack/tabs/time-tracking/enums/time-entry-status.enum';
 
 interface IExecuteParams {
@@ -27,9 +30,9 @@ export class TimeEntriesListQuery {
   constructor(private readonly supabase: SupabaseService) {}
 
   async execute(params: IExecuteParams): Promise<ITimeEntryListData> {
-    const { data, error } = await this.supabase.getClient().rpc(
-      RpcFunctionName.GetTimeEntriesList,
-      {
+    const { data, error } = await this.supabase
+      .getClient()
+      .rpc(RpcFunctionName.GetTimeEntriesList, {
         p_slack_team_id: params.slackTeamId,
         p_limit: params.pageSize,
         p_offset: (params.page - 1) * params.pageSize,
@@ -43,8 +46,7 @@ export class TimeEntriesListQuery {
         p_status: params.status,
         p_team_ids: params.teamIds,
         p_exclude_user_id: params.excludeUserId,
-      },
-    );
+      });
 
     if (error) {
       throw new Error(

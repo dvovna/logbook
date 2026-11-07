@@ -18,23 +18,23 @@ export const projectFormSchema = z.object({
     ),
   description: z
     .string()
-    .max(MAX_DESCRIPTION_LENGTH, `Description must be at most ${MAX_DESCRIPTION_LENGTH} characters`)
+    .max(
+      MAX_DESCRIPTION_LENGTH,
+      `Description must be at most ${MAX_DESCRIPTION_LENGTH} characters`,
+    )
     .optional(),
-  clientId: z
-    .object({
-      value: z.string(),
-      text: z.string(),
-    }),
-  status: z
-    .object({
-      value: z.enum(Object.values(ProjectStatus)),
-      text: z.string(),
-    }),
-  billable: z
-    .object({
-      value: z.enum(['true', 'false']),
-      text: z.string(),
-    }),
+  clientId: z.object({
+    value: z.string(),
+    text: z.string(),
+  }),
+  status: z.object({
+    value: z.enum(Object.values(ProjectStatus)),
+    text: z.string(),
+  }),
+  billable: z.object({
+    value: z.enum(['true', 'false']),
+    text: z.string(),
+  }),
 });
 
 export interface IProjectFormViewData {

@@ -76,6 +76,12 @@ export default class UserVacationsCsvParser extends AbstractCsvParser<IUserVacat
         );
       }
 
+      if (new Date(endDate) < new Date(startDate)) {
+        throw new Error(
+          `Vacation ${i + 1} for ${email} is invalid: it ends before it starts.`,
+        );
+      }
+
       if (!Object.values(VacationType).includes(type)) {
         throw new Error(
           `Vacation ${i + 1} for ${email} is invalid: field type should be one of ${Object.values(VacationType).join(', ')}`,

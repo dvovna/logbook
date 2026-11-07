@@ -10,7 +10,10 @@ import ConfirmationModalView, {
 } from '@modules/slack/common/views/components/confirmation-modal.view';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
-import { TabId, TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
 import { REQUEST_CONFIRMATION_VIEW_CONFIG } from '@modules/request-workflows/configs/request-confirmation-view-config';
 import { runInBackground } from '@common/utils/run-in-background';
 
@@ -20,12 +23,11 @@ import { runInBackground } from '@common/utils/run-in-background';
   type: 'view_submission',
   allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Manager],
 })
-export class RejectRequestStepFormSubmitHandler
-  extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
+export class RejectRequestStepFormSubmitHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
   constructor(
     private readonly requestWorkflowService: RequestWorkflowService,
     protected readonly tabNavigationService: TabNavigationService,
-    private readonly confirmationModalView : ConfirmationModalView,
+    private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super();
   }
@@ -66,10 +68,13 @@ export class RejectRequestStepFormSubmitHandler
     this.logger.warn(`Error rejecting pending request: ${errorMessage}`);
 
     return SlackViewResponseFactory.update(
-      this.confirmationModalView.getView({
-        ...REQUEST_CONFIRMATION_VIEW_CONFIG.reject,
-        errorMessage,
-      }, metadata),
+      this.confirmationModalView.getView(
+        {
+          ...REQUEST_CONFIRMATION_VIEW_CONFIG.reject,
+          errorMessage,
+        },
+        metadata,
+      ),
     );
   }
 }

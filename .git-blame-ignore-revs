@@ -1,0 +1,9 @@
+# Commits that only reformat code. GitHub skips them in blame; locally:
+#   git config blame.ignoreRevsFile ':(optional).git-blame-ignore-revs'
+# Without ':(optional)', blame fails in checkouts whose branch lacks this file.
+
+# Format the codebase with Prettier
+ca1d82e9b7c66f92bfd54bf4dd9e93c0d8673717
+
+# Reformat with Prettier 3.9
+70f46d4e04edf1ce9e8344a15417a02f2c3ba1ad

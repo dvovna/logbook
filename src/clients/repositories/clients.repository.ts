@@ -13,9 +13,7 @@ export class ClientsRepository extends BaseRepository<
 > {
   protected tableName: TableName = 'clients';
 
-  protected mapToViewModel = (
-    row: Tables['clients']['Row'],
-  ) => {
+  protected mapToViewModel = (row: Tables['clients']['Row']) => {
     return {
       id: row.id,
       name: row.name,

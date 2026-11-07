@@ -288,31 +288,31 @@ describe('user-vacations.csv', () => {
     });
   });
 
-  // BUG: the import deletes the user's vacations before it inserts the new
-  // ones, outside a transaction (vacation-requests.service.ts,
-  // replaceUserVacations). A row the database refuses (here one that ends
-  // before it starts, which the parser lets through) leaves the user with no
-  // vacations at all.
-  it.failing(
-    "keeps the user's vacations when the new ones cannot be saved",
-    async () => {
-      await workspace.addVacationRequest(ada, {
-        start_date: '2026-01-05',
-        end_date: '2026-01-09',
-      });
+  // A database refusal while saving the new vacations leaves the old ones
+  // too (unit-tested in vacation-requests.service.spec.ts).
+  it('changes nothing for a vacation that ends before it starts', async () => {
+    await workspace.addVacationRequest(ada, {
+      start_date: '2026-01-05',
+      end_date: '2026-01-09',
+    });
 
-      await importCsv(
-        row(ada.email, '2025-09-01', [
-          '2026-03-06',
-          '2026-03-02',
-          'annual_leave',
-          'approved',
-        ]),
-      );
+    const reply = await importCsv(
+      row(ada.email, '2025-09-01', [
+        '2026-03-06',
+        '2026-03-02',
+        'annual_leave',
+        'approved',
+      ]),
+    );
 
-      expect(await vacationsOf(ada)).toEqual([
-        expect.objectContaining({ start_date: '2026-01-05' }),
-      ]);
-    },
-  );
+    expect(reply).toContain(
+      'Vacation 1 for ada@example.test is invalid: it ends before it starts.',
+    );
+    expect(await vacationsOf(ada)).toEqual([
+      expect.objectContaining({ start_date: '2026-01-05' }),
+    ]);
+    expect(
+      (await workspace.row('users', ada.id)).contract_start_date,
+    ).toBeNull();
+  });
 });

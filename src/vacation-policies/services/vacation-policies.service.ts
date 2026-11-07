@@ -12,10 +12,7 @@ import {
 import VacationPolicyEvent from '@modules/vacation-policies/enums/vacation-policy-event.enum';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
-import {
-  ISearchParams,
-  ISearchResult,
-} from '@common/types/pagination.types';
+import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import HolidaysService from '@modules/holidays/services/holidays.service';
 import TeamsService from '@modules/teams/services/teams.service';
 import EntityHasDependenciesError from '@common/errors/entity-has-dependencies.error';
@@ -67,8 +64,7 @@ interface IVacationPoliciesService {
 }
 
 @Injectable()
-export default class VacationPoliciesService
-implements IVacationPoliciesService {
+export default class VacationPoliciesService implements IVacationPoliciesService {
   public constructor(
     private readonly vacationPoliciesRepository: VacationPoliciesRepository,
     private readonly holidaysService: HolidaysService,

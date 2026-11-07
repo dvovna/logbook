@@ -1,6 +1,7 @@
 # Weekly dependency updates as pull requests into development. Minor and patch
 # updates come grouped, so there are a few PRs a week rather than dozens;
-# majors come one by one, since they may need code changes. Security updates
+# majors come one by one, since they may need code changes (NestJS is the
+# exception: all its packages come in one PR). Security updates
 # for known vulnerabilities are opened as soon as an advisory appears.
 version: 2
 updates:
@@ -12,6 +13,11 @@ updates:
       day: monday
     open-pull-requests-limit: 10
     groups:
+      # NestJS packages only work at matching versions, so they move together,
+      # majors included (a group listed first wins).
+      nestjs:
+        patterns: ['@nestjs/*', 'nestjs-pino']
+        update-types: [major, minor, patch]
       production:
         dependency-type: production
         update-types: [minor, patch]

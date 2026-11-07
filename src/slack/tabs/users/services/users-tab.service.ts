@@ -192,9 +192,7 @@ export class UsersTabService extends BaseTabService<
         slackTeamId: user.slack_team_id,
         ...(teamIds ? { teamIds } : {}),
         ...(metadata?.filters?.role ? { role: metadata?.filters.role } : {}),
-        ...(metadata?.filters?.user
-          ? { id: metadata?.filters.user.id }
-          : {}),
+        ...(metadata?.filters?.user ? { id: metadata?.filters.user.id } : {}),
         ...(metadata?.includeInactive
           ? { includeInactive: metadata?.includeInactive }
           : {}),

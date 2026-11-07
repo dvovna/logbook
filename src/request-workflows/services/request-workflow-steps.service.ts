@@ -106,6 +106,15 @@ export class RequestWorkflowStepsService {
     );
   }
 
+  // Marks the steps that nobody has processed yet as processed and returns
+  // them, in one statement: of two callers at once, only the first gets them.
+  public claimUnprocessed(findParams: IFindParams) {
+    return this.requestWorkflowStepsRepository.updateMany(
+      this.getFindQuery({ ...findParams, processed: false }),
+      { processed_at: new Date().toISOString() },
+    );
+  }
+
   public async updateStatus(
     findParams: IFindParams,
     status: RequestWorkflowStatus,
@@ -188,17 +197,17 @@ export class RequestWorkflowStepsService {
       ...(params.stepType ? { step_type: params.stepType } : {}),
       ...(params.completed !== undefined
         ? {
-          completed_at: params.completed
-            ? { operator: 'not.is', value: null }
-            : { operator: 'is', value: null },
-        }
+            completed_at: params.completed
+              ? { operator: 'not.is', value: null }
+              : { operator: 'is', value: null },
+          }
         : {}),
       ...(params.processed !== undefined
         ? {
-          processed_at: params.processed
-            ? { operator: 'not.is', value: null }
-            : { operator: 'is', value: null },
-        }
+            processed_at: params.processed
+              ? { operator: 'not.is', value: null }
+              : { operator: 'is', value: null },
+          }
         : {}),
     } as SupabaseFilter;
   }

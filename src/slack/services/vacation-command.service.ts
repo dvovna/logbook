@@ -5,21 +5,13 @@ import {
 } from '@modules/vacation-requests/services/vacation-usage.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
-import {
-  ViewCallbackId,
-} from '@modules/slack/enums/integration-callback-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { getVacationTypeIcon } from '@common/utils/get-vacation-type-icon';
 import VacationType from '@common/enums/vacation-type.enum';
-import {
-  VacationRequestModalService,
-} from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
+import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
-import {
-  VacationRequestsService,
-} from '@modules/vacation-requests/services/vacation-requests.service';
-import {
-  CancelVacationRequestSelectModalView,
-} from '@modules/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import { CancelVacationRequestSelectModalView } from '@modules/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 
 export enum VacationCommand {
   Usage = 'usage',

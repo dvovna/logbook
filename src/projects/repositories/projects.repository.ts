@@ -16,9 +16,7 @@ export class ProjectsRepository extends BaseRepository<
 
   protected searchableColumns = ['name'];
 
-  protected mapToViewModel = (
-    row: Tables['projects']['Row'],
-  ) => {
+  protected mapToViewModel = (row: Tables['projects']['Row']) => {
     return {
       id: row.id,
       name: row.name,

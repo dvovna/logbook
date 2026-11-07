@@ -10,9 +10,7 @@ import {
   MAX_COMMENT_LENGTH,
 } from '@modules/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
 import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
-import {
-  VacationRequestsTabViewActionId,
-} from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 
 export const adminVacationRequestSchema = z
   .object({
@@ -62,8 +60,7 @@ export const adminVacationRequestSchema = z
     },
   );
 
-export interface IVacationRequestAdminFormViewData
-  extends IVacationRequestUserFormViewData {
+export interface IVacationRequestAdminFormViewData extends IVacationRequestUserFormViewData {
   [VacationRequestsTabViewActionId.UserField]: ISelectedOption;
   status: ISelectedOption<VacationRequestStatus>;
 }

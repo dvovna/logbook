@@ -237,11 +237,11 @@ export class HolidaysTabView extends BaseAdminTabView<
           options: [
             ...((isCustom
               ? [
-                {
-                  text: { type: 'plain_text', text: 'Edit Holiday' },
-                  value: `${HolidaysTabViewActionId.EditHoliday}:${holiday.id}`,
-                },
-              ]
+                  {
+                    text: { type: 'plain_text', text: 'Edit Holiday' },
+                    value: `${HolidaysTabViewActionId.EditHoliday}:${holiday.id}`,
+                  },
+                ]
               : []) as PlainTextOption[]),
             {
               text: {
@@ -254,11 +254,11 @@ export class HolidaysTabView extends BaseAdminTabView<
             },
             ...((isCustom
               ? [
-                {
-                  text: { type: 'plain_text', text: 'Delete Holiday' },
-                  value: `${HolidaysTabViewActionId.DeleteHoliday}:${holiday.id}`,
-                },
-              ]
+                  {
+                    text: { type: 'plain_text', text: 'Delete Holiday' },
+                    value: `${HolidaysTabViewActionId.DeleteHoliday}:${holiday.id}`,
+                  },
+                ]
               : []) as PlainTextOption[]),
           ],
         },

@@ -337,7 +337,9 @@ export class RequestWorkflowService {
     user: IUserViewModel,
   ) {
     if (step.slack_user_id !== user.slack_id && !isPeopleAdmin(user.role)) {
-      throw new ForbiddenException('This approval is assigned to someone else.');
+      throw new ForbiddenException(
+        'This approval is assigned to someone else.',
+      );
     }
   }
 
@@ -391,12 +393,14 @@ export class RequestWorkflowService {
     step: IRequestWorkflowStepViewModel,
     approvedBy: IUserViewModel,
   ) {
-    const nextLevelSteps = await this.requestWorkflowStepsService.findMany({
+    const nextLevel = {
       requestId: step.request_id,
       stepLevel: step.step_level + 1,
       slackTeamId: step.slack_team_id,
       completed: false,
-    });
+    };
+    const nextLevelSteps =
+      await this.requestWorkflowStepsService.findMany(nextLevel);
 
     const approverComments =
       await this.requestWorkflowStepCommentsService.findMany({
@@ -405,8 +409,13 @@ export class RequestWorkflowService {
       });
 
     if (nextLevelSteps.length > 0) {
+      // Two approvers who complete the level at the same time both get here;
+      // only the first one asks the next level.
+      const claimedSteps =
+        await this.requestWorkflowStepsService.claimUnprocessed(nextLevel);
+
       await this.workflowStepProcessorService.processSteps(
-        nextLevelSteps,
+        claimedSteps,
         approverComments,
       );
 
