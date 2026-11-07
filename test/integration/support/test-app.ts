@@ -14,6 +14,8 @@ import {
   whenBackgroundWorkIsDone,
 } from '@common/utils/run-in-background';
 import { FakeSlackApiClient } from './fake-slack-api.client';
+import { FakeNagerDateClient } from './fake-nager-date.client';
+import { NagerDateClient } from 'src/holidays/clients/nager-date.client';
 import { SlackTestClient } from './slack-test-client';
 import { TestWorkspace } from './test-workspace';
 import { assertLocalUrl } from './local-url';
@@ -22,6 +24,8 @@ export interface ITestApp {
   app: INestApplication;
   // Every Slack Web API call the app made.
   slackApi: FakeSlackApiClient;
+  // Public holidays the app imports by country, instead of Nager.Date.
+  nager: FakeNagerDateClient;
   // Sends signed Slack requests to the app.
   slack: SlackTestClient;
   db: SupabaseClient<Database>;
@@ -33,13 +37,16 @@ export interface ITestApp {
 }
 
 // The real AppModule and request pipeline (main.ts), on the local Supabase
-// stack. Only SlackApiClient is replaced.
+// stack. Only the outside services are replaced: Slack and Nager.Date.
 export const createTestApp = async (): Promise<ITestApp> => {
   const slackApi = new FakeSlackApiClient();
+  const nager = new FakeNagerDateClient();
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(SlackApiClient)
     .useValue(slackApi)
+    .overrideProvider(NagerDateClient)
+    .useValue(nager)
     .compile();
 
   const app = moduleRef.createNestApplication({ bufferLogs: true });
@@ -63,6 +70,7 @@ export const createTestApp = async (): Promise<ITestApp> => {
   return {
     app,
     slackApi,
+    nager,
     slack: new SlackTestClient(app.getHttpServer()),
     db,
     idle: whenBackgroundWorkIsDone,
