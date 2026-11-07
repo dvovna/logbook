@@ -1,3 +1,4 @@
+import { reportError } from '@common/errors/error-reporter';
 import {
   Inject,
   Injectable,
@@ -128,6 +129,7 @@ export class JobsService
       const jobs = await this.boss.fetch<object>(queue, {
         batchSize: 20,
         ignoreStartAfter: includeNotDue,
+        includeMetadata: true,
       });
 
       for (const job of jobs) {
@@ -135,7 +137,14 @@ export class JobsService
           await handler(job.data);
           await this.boss.complete(queue, job.id);
         } catch (error) {
-          this.logFailure(queue, error as Error, 'will be retried');
+          const isLastTry = job.retryCount >= job.retryLimit;
+
+          this.logFailure(
+            queue,
+            error as Error,
+            isLastTry ? 'gives up after its last retry' : 'will be retried',
+            isLastTry,
+          );
           await this.boss.fail(queue, job.id, {
             message: (error as Error).message,
           });
@@ -233,7 +242,8 @@ export class JobsService
     try {
       await handler(payload);
     } catch (error) {
-      this.logFailure(name, error as Error, id ? 'will be retried' : null);
+      // Without a saved copy nothing retries it: that was its only try.
+      this.logFailure(name, error as Error, id ? 'will be retried' : null, !id);
 
       return;
     }
@@ -268,10 +278,21 @@ export class JobsService
     }
   }
 
-  private logFailure(name: string, error: Error, retry: string | null) {
+  // A job that won't run again is reported (error tracking); one that will
+  // be retried is only logged.
+  private logFailure(
+    name: string,
+    error: Error,
+    retry: string | null,
+    isFinal: boolean,
+  ) {
     this.logger.error(
       `Job ${name} failed${retry ? ` and ${retry}` : ''}: ${error.message}`,
       error.stack,
     );
+
+    if (isFinal) {
+      reportError(error, { job: name });
+    }
   }
 }

@@ -85,6 +85,7 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
 | `SLACK_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the bot tokens in the database. Keep it with your other secrets: without it the app can't read the tokens, and every workspace has to install the app again. |
 | `PORT` | Port to listen on. The Docker image defaults to 10000. |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Optional. Sends unexpected errors to your Sentry project: the error and its stack, no request data or people's details. Empty sends nothing anywhere. |
 | `DATABASE_URL` | Optional. A direct Postgres connection for the job queue, which retries Slack messages and workflow steps that failed. On Supabase use the session pooler string from "Connect" (port 5432, not 6543). The queue creates its own `pgboss` schema there on the first start. Without it the app runs those once and logs failures. |
 
 The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` lists them.
@@ -104,6 +105,8 @@ yarn start:prod
 ```
 
 Put the app behind HTTPS (a reverse proxy, or a platform such as Render or Fly.io). Then open "Event Subscriptions" in the Slack app settings and retry the URL verification.
+
+`GET /health` answers 200 while the app reaches its database and 503 when it can't; point your platform's health check at it. The Docker image already uses it.
 
 ### 5. Install
 

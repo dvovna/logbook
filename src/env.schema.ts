@@ -14,6 +14,13 @@ export const envSchema = z.object({
     z.url().optional(),
   ),
 
+  // Optional error tracking: unexpected errors go to this Sentry project.
+  SENTRY_DSN: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.url().optional(),
+  ),
+  SENTRY_ENVIRONMENT: z.string().optional(),
+
   SLACK_CLIENT_ID: z.string().min(1),
   SLACK_CLIENT_SECRET: z.string().min(1),
   SLACK_SIGN_IN_SECRET: z.string().min(1),

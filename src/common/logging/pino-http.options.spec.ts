@@ -42,4 +42,16 @@ describe('pinoHttpOptions', () => {
       },
     });
   });
+
+  it('gives every request its own id, and keeps /health out of the log', () => {
+    const { genReqId, autoLogging } = pinoHttpOptions({ LOG_LEVEL: 'info' });
+    const idOf = genReqId as () => string;
+    const ignored = (autoLogging as { ignore: (req: object) => boolean })
+      .ignore;
+
+    expect(idOf()).toMatch(/^[0-9a-f-]{36}$/);
+    expect(idOf()).not.toBe(idOf());
+    expect(ignored({ url: '/health' })).toBe(true);
+    expect(ignored({ url: '/api/slack/events' })).toBe(false);
+  });
 });

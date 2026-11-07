@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { GlobalExceptionsFilter } from '@common/filters/global-exceptions.filter';
+import * as errorReporter from '@common/errors/error-reporter';
 
 const hostFor = (headersSent = false) => {
   const response = {
@@ -86,6 +87,20 @@ describe('GlobalExceptionsFilter', () => {
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('"user_slack_id":"U1"'),
     );
+  });
+
+  it('reports unexpected errors to error tracking, not client errors', () => {
+    const report = jest.spyOn(errorReporter, 'reportError');
+    const failure = new Error('database down');
+
+    filter.catch(failure, hostFor().host);
+    filter.catch(new NotFoundException('Team not found'), hostFor().host);
+
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith(failure, {
+      path: '/api/slack/interactions',
+      status: 500,
+    });
   });
 
   it('only logs when the answer went out already', () => {

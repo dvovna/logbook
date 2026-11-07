@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { pathOf } from '@common/logging/pino-http.options';
+import { reportError } from '@common/errors/error-reporter';
 
 // Every error a request ends with comes here, and only here is it logged:
 // once, with the stack it was thrown with.
@@ -36,6 +37,7 @@ export class GlobalExceptionsFilter implements ExceptionFilter {
       this.logger.warn(`${status} ${details} | Path: ${path}`);
     } else {
       this.logger.error(`${status} ${details} | Path: ${path}`, error.stack);
+      reportError(error, { path, status });
     }
 
     // The answer went out already (Slack is answered before slow work).

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Options } from 'pino-http';
 
 // A URL without its query string: the OAuth redirect carries the one-time
@@ -9,6 +10,11 @@ const withoutQuery = (url?: string) => url?.split('?')[0];
 // none of them is written to the logs.
 export const pinoHttpOptions = (env = process.env): Options => ({
   level: env.LOG_LEVEL || (env.NODE_ENV === 'production' ? 'info' : 'debug'),
+  // Every line logged while handling a request, and by the background work it
+  // starts, carries this id, so one Slack interaction can be followed.
+  genReqId: () => randomUUID(),
+  // The health check is called every few seconds and says nothing new.
+  autoLogging: { ignore: (req) => withoutQuery(req.url) === '/health' },
   transport:
     env.NODE_ENV !== 'production' && env.NODE_ENV !== 'test'
       ? {

@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { reportError } from '@common/errors/error-reporter';
 
 // Background work started and not finished yet.
 const pending = new Set<Promise<unknown>>();
@@ -15,6 +16,7 @@ export const runInBackground = (
   trackInBackground(
     task().catch((error: Error) => {
       logger.error(`Failed to ${description}: ${error.message}`, error.stack);
+      reportError(error, { task: description });
     }),
   );
 };

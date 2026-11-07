@@ -28,4 +28,8 @@ COPY --from=builder /app/supabase/migrations ./supabase/migrations
 # Run as the image's unprivileged user rather than root.
 USER node
 
+# /health answers 503 when the database is out of reach.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/health" || exit 1
+
 CMD ["node", "dist/main.js"]
