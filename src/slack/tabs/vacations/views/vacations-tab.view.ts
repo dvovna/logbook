@@ -39,6 +39,7 @@ export class VacationsTabView extends BaseAdminTabView<IGetViewParams, never> {
     pendingRequests,
     upcomingVacations,
     pendingRequestsCount,
+    userRole,
   }: IGetViewParams): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
@@ -115,6 +116,17 @@ export class VacationsTabView extends BaseAdminTabView<IGetViewParams, never> {
           action_id: AdminNavigationActionId.ManageVacationRequests,
         },
       });
+    }
+
+    // Policies and holidays are Admin and HR's; a manager clicking through
+    // would land back on Home without a word.
+    if (
+      !this.slackActionPermissionsService.can(
+        userRole,
+        AdminNavigationActionId.ManageVacationPolicies,
+      )
+    ) {
+      return blocks;
     }
 
     blocks.push(...Divider.getBlocks());

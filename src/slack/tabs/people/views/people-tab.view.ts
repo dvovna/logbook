@@ -31,7 +31,15 @@ export class PeopleTabView extends BaseAdminTabView<IGetViewParams, never> {
   protected getContentBlocks({
     usersCount,
     teamsCount,
+    userRole,
   }: IGetViewParams): AnyBlock[] {
+    // Only the sections the role can open: a hidden tab would send the
+    // viewer back to Home without a word.
+    const canManageTeams = this.slackActionPermissionsService.can(
+      userRole,
+      AdminNavigationActionId.ManageTeams,
+    );
+
     return [
       {
         type: 'section',
@@ -53,19 +61,22 @@ export class PeopleTabView extends BaseAdminTabView<IGetViewParams, never> {
           action_id: AdminNavigationActionId.ManageUsers,
         },
       },
-      { type: 'section', text: { type: 'plain_text', text: '\n' } },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*:office: Teams*\n\n*${teamsCount}* active ${teamsCount === 1 ? 'team' : 'teams'}`,
-        },
-        accessory: {
-          type: 'button',
-          text: { type: 'plain_text', text: 'Manage' },
-          action_id: AdminNavigationActionId.ManageTeams,
-        },
-      },
+      ...(canManageTeams ? [this.getTeamsBlock(teamsCount)] : []),
     ];
+  }
+
+  private getTeamsBlock(teamsCount: number): AnyBlock {
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*:office: Teams*\n\n*${teamsCount}* active ${teamsCount === 1 ? 'team' : 'teams'}`,
+      },
+      accessory: {
+        type: 'button',
+        text: { type: 'plain_text', text: 'Manage' },
+        action_id: AdminNavigationActionId.ManageTeams,
+      },
+    };
   }
 }

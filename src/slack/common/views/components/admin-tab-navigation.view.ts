@@ -15,13 +15,6 @@ export class AdminTabNavigation {
 
     return [
       {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: '*⚙ Admin Panel*\nManage users, teams, vacation requests and policies.',
-        },
-      },
-      {
         type: 'actions',
         elements: tabs.map((tab) => ({
           type: 'button',

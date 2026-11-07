@@ -10,7 +10,8 @@ import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
-import { modalError } from './support/tab-readers';
+import { ADMIN_TABS } from '@modules/slack/common/views/data/admin-tabs';
+import { actionIdsOf, modalError } from './support/tab-readers';
 import { workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 
@@ -98,6 +99,50 @@ describe('Access control', () => {
         await navigateFromHome(manager, AdminNavigationActionId.ManageTeams),
       ).toEqual([ViewCallbackId.HomeTabView]);
     });
+
+    // The other way round: a button the role sees must not lead back to Home.
+    it.each(['manager', 'hr', 'admin'] as const)(
+      'offers a %s only the sections it can open',
+      async (role) => {
+        const user = { manager, hr, admin }[role];
+        const topNavigation = new Set<string>(
+          ADMIN_TABS.map(({ actionId }) => actionId),
+        );
+        const sections = new Set<string>(
+          Object.values(AdminNavigationActionId),
+        );
+        const bounced: string[] = [];
+
+        for (const hub of [
+          AdminNavigationActionId.ManagePeople,
+          AdminNavigationActionId.ManageTimeAndBilling,
+          AdminNavigationActionId.ManageVacations,
+        ]) {
+          const hubTab = await openAppHomeTab(t, workspace, user, [hub]);
+          const offered = actionIdsOf(hubTab).filter(
+            (id) => sections.has(id) && !topNavigation.has(id),
+          );
+
+          for (const actionId of offered) {
+            const since = t.slackApi.mark();
+            await t.slack
+              .actOnView(workspace, user, hubTab, actionId)
+              .expect(200);
+            await t.idle();
+
+            const published = t.slackApi
+              .callsWith(workspace.token, 'views.publish', { since })
+              .map(({ params }) => params.view.callback_id);
+
+            if (published.includes(ViewCallbackId.HomeTabView)) {
+              bounced.push(actionId);
+            }
+          }
+        }
+
+        expect(bounced).toEqual([]);
+      },
+    );
 
     it('still opens the tabs a role may see', async () => {
       expect(
