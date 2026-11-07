@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock } from '@slack/web-api';
 import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
 import { AdminNavigationActionId } from '@modules/slack/common/enums/admin-navigation-action-id';
@@ -109,7 +110,7 @@ export class VacationsTabView extends BaseAdminTabView<
           text: upcomingVacations
             .map(
               (request) =>
-                `• *${request.user?.name || request.user?.email}* — ${request.start_date} – ${request.end_date}`,
+                `• *${escapeMrkdwn(request.user?.name || request.user?.email)}* — ${request.start_date} – ${request.end_date}`,
             )
             .join('\n'),
         },
@@ -152,7 +153,7 @@ export class VacationsTabView extends BaseAdminTabView<
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `User: *${userName}*\nType: ${VACATION_TYPE_DISPLAY_NAME_MAP[requestSnapshot.type]}
+        text: `User: *${escapeMrkdwn(userName)}*\nType: ${VACATION_TYPE_DISPLAY_NAME_MAP[requestSnapshot.type]}
 ${requestSnapshot.start_date} – ${requestSnapshot.end_date} (${pluralize('day', requestSnapshot.days, true)})`,
       },
       accessory: {

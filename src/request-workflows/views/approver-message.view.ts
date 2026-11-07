@@ -1,4 +1,5 @@
 import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ApproverMessageActionId } from '@modules/request-workflows/enums/approver-message-action-id.enum';
 import {
@@ -135,7 +136,7 @@ ${this.getRequestDetails(step, comments)}`,
     const lines: string[] = [];
 
     lines.push(`*Request details:*`);
-    lines.push(`👤 Employee: ${step.step_data.snapshot.user_name}`);
+    lines.push(`👤 Employee: ${escapeMrkdwn(step.step_data.snapshot.user_name)}`);
     lines.push(...this.getBasicRequestLines(step));
     lines.push(...this.getUserCommentLines(step));
 
@@ -152,11 +153,11 @@ ${this.getRequestDetails(step, comments)}`,
   ) {
     const lines: string[] = [];
 
-    lines.push(`⏳ Vacation request for ${step.step_data.snapshot.user_name}`);
+    lines.push(`⏳ Vacation request for ${escapeMrkdwn(step.step_data.snapshot.user_name)}`);
     lines.push(...this.getBasicRequestLines(step));
 
     if (step.step_data.snapshot.comment) {
-      lines.push(`💬 User comment: ${step.step_data.snapshot.comment}`);
+      lines.push(`💬 User comment: ${escapeMrkdwn(step.step_data.snapshot.comment)}`);
     }
 
     lines.push(...getApproverCommentLines(approverComments));
@@ -174,7 +175,7 @@ ${this.getRequestDetails(step, comments)}`,
 
   private static getUserCommentLines(step: IRequestWorkflowStepViewModel) {
     return step.step_data.snapshot.comment
-      ? [`💬 User comment: ${step.step_data.snapshot.comment}\n`]
+      ? [`💬 User comment: ${escapeMrkdwn(step.step_data.snapshot.comment)}\n`]
       : [];
   }
 }

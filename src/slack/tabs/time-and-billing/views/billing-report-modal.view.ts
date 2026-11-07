@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock } from '@slack/web-api';
 import { View } from '@slack/types/dist/views';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -98,7 +99,7 @@ export class BillingReportModalView extends BaseModalView<IGetViewParams> {
       items
         .map(
           ({ name, minutes, billableMinutes }) =>
-            `• ${name} — ${hours(minutes)}${
+            `• ${escapeMrkdwn(name)} — ${hours(minutes)}${
               withBillable ? ` (billable ${hours(billableMinutes)})` : ''
             }`,
         )

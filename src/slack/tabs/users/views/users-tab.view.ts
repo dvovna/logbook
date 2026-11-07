@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -165,7 +166,7 @@ export class UsersTabView extends BaseAdminTabView<
         {
           type: 'mrkdwn',
           text:
-            `*${user.name}* (${user.email})\n` +
+            `*${escapeMrkdwn(user.name)}* (${escapeMrkdwn(user.email)})\n` +
             `Role: ${capitalize(user.role)}\n` +
             `Team: ${team?.name || '-'}\n` +
             `Contract Start Date: ${user.contract_start_date || '-'}\n` +

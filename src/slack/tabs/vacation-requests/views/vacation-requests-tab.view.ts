@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import ITeamViewModel from '@modules/teams/types/team.interface';
@@ -117,7 +118,7 @@ export class VacationRequestsTabView extends BaseAdminTabView<
         fields: [
           {
             type: 'mrkdwn',
-            text: `*${vacationRequest.user?.name || 'Unknown'}* (${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]})`,
+            text: `*${escapeMrkdwn(vacationRequest.user?.name || 'Unknown')}* (${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]})`,
           },
           { type: 'mrkdwn', text: `📅 ${start} → ${end}` },
           {

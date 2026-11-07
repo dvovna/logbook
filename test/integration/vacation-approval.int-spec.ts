@@ -46,6 +46,24 @@ describe('Vacation request approval', () => {
     action: ApproverMessageActionId,
   ) => t.slack.actOnMessage(workspace, approver, message, action).expect(200);
 
+  it("shows the requester's comment as typed, not as a link", async () => {
+    const team = await workspace.addTeam({
+      manager_approvers: [manager.slack_id],
+    });
+    await addMember(team);
+
+    await requestVacation(t, workspace, member, {
+      ...workWeek(2),
+      comment: '<https://evil.example|Approve here> <!channel>',
+    });
+
+    const text = textOf(await approvalMessageTo(t, workspace, manager));
+    expect(text).toContain(
+      '&lt;https://evil.example|Approve here&gt; &lt;!channel&gt;',
+    );
+    expect(text).not.toContain('<https://evil.example');
+  });
+
   it('asks the manager, and tells the requester once approved', async () => {
     const recipient = await workspace.addUser({ name: 'Hana HR' });
     const team = await workspace.addTeam({

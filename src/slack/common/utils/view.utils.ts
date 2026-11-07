@@ -1,4 +1,5 @@
 import { IOption } from '@modules/slack/common/types/option.interface';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { PlainTextOption } from '@slack/web-api';
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -46,7 +47,7 @@ export const getApproverCommentLines = (
     lines.push(`\n📝 Approver comments:`);
 
     approverComments.forEach((comment) => {
-      lines.push(`• ${comment.comment} (by <@${comment.slack_user_id}>)`);
+      lines.push(`• ${escapeMrkdwn(comment.comment)} (by <@${comment.slack_user_id}>)`);
     });
   }
 

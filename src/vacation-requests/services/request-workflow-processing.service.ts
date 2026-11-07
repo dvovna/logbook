@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { OnEvent } from '@nestjs/event-emitter';
 import { VacationWorkflowEventEnum } from '@common/enums/vacation-workflow-event.enum';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
@@ -236,7 +237,7 @@ ${getApproverCommentLines(comments).join('\n')}
     comments: IWorkflowStepCommentViewModel[],
   ) {
     return {
-      text: `✅ Vacation request approved for ${request.user!.name}:
+      text: `✅ Vacation request approved for ${escapeMrkdwn(request.user!.name)}:
 
 📅 ${request.start_date} → ${request.end_date} (${request.days} calendar days, ${request.working_days} working days)
 🏖️ Type: ${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]}

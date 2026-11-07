@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import BaseModalView, {
   IActionButtons,
   IBaseModalViewParams,
@@ -88,7 +89,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `💬 *User comment:*\n${request.user_comment}`,
+          text: `💬 *User comment:*\n${escapeMrkdwn(request.user_comment)}`,
         },
       });
     }
@@ -162,7 +163,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
 
     if (stepComments.length > 0) {
       stepComments.forEach((c) => {
-        lines.push(`• ${c.comment} (by <@${c.slack_user_id}>)`);
+        lines.push(`• ${escapeMrkdwn(c.comment)} (by <@${c.slack_user_id}>)`);
       });
     }
 

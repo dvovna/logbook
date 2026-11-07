@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import BaseModalView, {
   IActionButtons,
   IBaseModalViewParams,
@@ -49,7 +50,7 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
         fields: [
           {
             type: 'mrkdwn',
-            text: `*User:* ${user.name} (<@${user.slack_id}>)`,
+            text: `*User:* ${escapeMrkdwn(user.name)} (<@${user.slack_id}>)`,
           },
           {
             type: 'mrkdwn',

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { BaseAdminTabView } from '@modules/slack/common/views/base-admin-tab.view';
@@ -143,7 +144,7 @@ export class TimeEntriesTabView extends BaseAdminTabView<
           {
             type: 'mrkdwn',
             text:
-              `*${entry.user_name}*\n` +
+              `*${escapeMrkdwn(entry.user_name)}*\n` +
               `Project: ${entry.project_name || '-'}\n` +
               `Client: ${entry.client_name || '-'}\n`,
           },
@@ -154,7 +155,7 @@ export class TimeEntriesTabView extends BaseAdminTabView<
               `Time: ${getDisplayTime(entry.minutes)}\n` +
               `Status: ${TIME_ENTRY_STATUS_DISPLAY_NAME[entry.status]}\n` +
               `Created: ${createdAt}\n` +
-              `Description: ${truncate(entry.description || '-', { length: 80 })}`,
+              `Description: ${escapeMrkdwn(truncate(entry.description || '-', { length: 80 }))}`,
           },
         ],
         ...(menuOptions.length

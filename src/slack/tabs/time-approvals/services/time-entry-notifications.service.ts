@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { getDisplayTime } from '@common/utils/time.utils';
@@ -27,11 +28,11 @@ export class TimeEntryNotificationsService {
       year: 'numeric',
       timeZone: 'UTC',
     });
-    const project = entry.project?.name ?? 'a project';
-    const client = entry.client ? ` (${entry.client.name})` : '';
+    const project = escapeMrkdwn(entry.project?.name ?? 'a project');
+    const client = entry.client ? ` (${escapeMrkdwn(entry.client.name)})` : '';
     const lines = [
-      `:x: ${reviewer.name} rejected your time entry: *${project}*${client}, ${workDate}, ${getDisplayTime(entry.minutes)}.`,
-      ...(reason ? [`>${reason.replace(/\n/g, '\n>')}`] : []),
+      `:x: ${escapeMrkdwn(reviewer.name)} rejected your time entry: *${project}*${client}, ${workDate}, ${getDisplayTime(entry.minutes)}.`,
+      ...(reason ? [`>${escapeMrkdwn(reason).replace(/\n/g, '\n>')}`] : []),
       'Fix it under Home → ✏️ Edit Entries and submit it again.',
     ];
 
