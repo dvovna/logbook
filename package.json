@@ -39,7 +39,7 @@
     "axios": "^1.11.0",
     "cache-manager": "^7.2.9",
     "csv-parse": "^7.0.3",
-    "keyv": "^5.5.2",
+    "keyv": "^6.1.0",
     "lodash": "^4.17.21",
     "nestjs-pino": "^4.4.1",
     "pg-boss": "^10.4.2",
