@@ -1,3 +1,4 @@
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
@@ -68,7 +69,7 @@ export abstract class BaseTimeEntryFormSubmitHandler<
   }
 
   protected successResponse(
-    _entry: ITimeEntryViewModel,
+    entry: ITimeEntryViewModel,
     user: IUserViewModel,
     metadata: ITimeEntryModalViewMetadata,
   ) {
@@ -83,7 +84,9 @@ export abstract class BaseTimeEntryFormSubmitHandler<
 
     return SlackViewResponseFactory.update(
       this.timeEntryFormModalView.getSuccessView(
-        `✅ Time Log was ${metadata.id ? 'updated' : 'created'} successfully!`,
+        entry.status === TimeEntryStatus.Draft
+          ? '✅ Saved as a draft. Submit it from Home when your time is complete.'
+          : `✅ Time entry ${metadata.id ? 'updated' : 'saved'}.`,
       ),
     );
   }

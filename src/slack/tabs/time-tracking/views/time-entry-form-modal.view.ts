@@ -41,11 +41,15 @@ export class TimeEntryFormModalView extends BaseModalView<
     return initialData ? 'Edit Time Log' : 'Log Time';
   }
 
-  // Without a project there is nothing to log time on.
+  // Without a project there is nothing to log time on. "Save", not
+  // "Submit": an entry goes to the approvers only once it is submitted.
   protected getActionButtons(params: IGetViewParams): IActionButtons {
     return this.hasNoProjects(params)
       ? { close: { type: 'plain_text', text: 'Close' } }
-      : super.getActionButtons(params);
+      : {
+          submit: { type: 'plain_text', text: 'Save' },
+          close: { type: 'plain_text', text: 'Cancel' },
+        };
   }
 
   public getViewBlocks({
@@ -99,6 +103,10 @@ export class TimeEntryFormModalView extends BaseModalView<
         type: 'input',
         block_id: 'hours_block',
         label: { type: 'plain_text', text: 'Hours' },
+        hint: {
+          type: 'plain_text',
+          text: 'In 15-minute steps: 0.25 is 15 minutes, 1.5 is 1 hour 30 minutes.',
+        },
         element: {
           type: 'number_input',
           action_id: 'hours',
@@ -122,6 +130,19 @@ export class TimeEntryFormModalView extends BaseModalView<
           initial_value: initialData?.description || '',
         },
       },
+      ...(isAdminView
+        ? []
+        : [
+            {
+              type: 'context',
+              elements: [
+                {
+                  type: 'mrkdwn',
+                  text: 'Saved as a draft. Your approvers see it once you submit it from Home.',
+                },
+              ],
+            } as AnyBlock,
+          ]),
       ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
     ];
   }

@@ -35,6 +35,11 @@ export const timeEntryFormSchema = z.object({
         message: `Hours must be a number between 0 and ${MAX_HOURS}`,
       },
     )
+    // Next to the field rather than as a general error after saving. Not a
+    // number at all is the check above's to report.
+    .refine((val) => isNaN(Number(val)) || Number.isInteger(Number(val) * 4), {
+      message: 'Use 15-minute steps: 0.25, 0.5, 0.75, 1…',
+    })
     .transform((val) => Number(val)),
   workDate: z.string().refine((dateStr) => !isNaN(Date.parse(dateStr)), {
     message: 'Invalid date format',

@@ -1,3 +1,4 @@
+import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import ProjectsService from 'src/projects/services/projects.service';
@@ -10,6 +11,8 @@ export interface IUserTimeSummary {
   // Today's time per client, most first; entries without one under null.
   todayByClient: { clientName: string | null; minutes: number }[];
   weekMinutes: number;
+  // Drafts and rejected entries of any date, not sent for approval yet.
+  unsubmitted: { count: number; minutes: number };
 }
 
 export interface IWorkspaceTimeSummary {
@@ -48,11 +51,18 @@ export class TimeEntriesSummaryService {
     now = new Date(),
   ): Promise<IUserTimeSummary> {
     const today = isoDate(now);
-    const weekEntries = await this.timeEntriesService.findMany({
-      userId: user.id,
-      slackTeamId: user.slack_team_id,
-      ...weekOf(now),
-    });
+    const [weekEntries, unsubmittedEntries] = await Promise.all([
+      this.timeEntriesService.findMany({
+        userId: user.id,
+        slackTeamId: user.slack_team_id,
+        ...weekOf(now),
+      }),
+      this.timeEntriesService.findMany({
+        userId: user.id,
+        slackTeamId: user.slack_team_id,
+        statuses: OPEN_TIME_ENTRY_STATUSES,
+      }),
+    ]);
     const todayEntries = weekEntries.filter(
       ({ work_date }) => work_date === today,
     );
@@ -69,6 +79,10 @@ export class TimeEntriesSummaryService {
         .map(([clientName, minutes]) => ({ clientName, minutes }))
         .sort((a, b) => b.minutes - a.minutes),
       weekMinutes: sumMinutes(weekEntries),
+      unsubmitted: {
+        count: unsubmittedEntries.length,
+        minutes: sumMinutes(unsubmittedEntries),
+      },
     };
   }
 

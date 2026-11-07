@@ -191,7 +191,7 @@ describe('Time entries', () => {
         .expect(200);
 
       expect(sectionTexts(response.body.view)).toEqual([
-        '✅ Time Log was created successfully!',
+        '✅ Saved as a draft. Submit it from Home when your time is complete.',
       ]);
       expect(await entries()).toEqual([
         expect.objectContaining({
@@ -220,7 +220,7 @@ describe('Time entries', () => {
 
       expect(response.body).toMatchObject({ response_action: 'update' });
       expect(sectionTexts(response.body.view)).toEqual([
-        '✅ Time Log was created successfully!',
+        '✅ Saved as a draft. Submit it from Home when your time is complete.',
       ]);
       expect(await entries()).toEqual([
         expect.objectContaining({
@@ -284,6 +284,44 @@ describe('Time entries', () => {
         }),
       ]);
     });
+
+    it('reminds of unsubmitted entries on Home and submits them from there', async () => {
+      await workspace.addTimeEntry(member, website, { minutes: 90 });
+      await workspace.addTimeEntry(member, website, {
+        minutes: 30,
+        status: TimeEntryStatus.Rejected,
+        work_date: addDays(today(), -7),
+      });
+      await workspace.addTimeEntry(member, website, {
+        status: TimeEntryStatus.Submitted,
+      });
+
+      const home = await openAppHomeTab(t, workspace, member);
+
+      expect(sectionTexts(home)).toContain(
+        'Not submitted yet: *2 entries* (2h)',
+      );
+      expect(buttonText(home, HomeTabActionId.SubmitTimeEntries)).toBe(
+        '📤 Submit for Approval (2)',
+      );
+
+      const after = await actOnTab(
+        t,
+        workspace,
+        member,
+        home,
+        HomeTabActionId.SubmitTimeEntries,
+      );
+
+      expect((await entries()).map(({ status }) => status)).toEqual([
+        TimeEntryStatus.Submitted,
+        TimeEntryStatus.Submitted,
+        TimeEntryStatus.Submitted,
+      ]);
+      expect(actionIdsOf(after)).not.toContain(
+        HomeTabActionId.SubmitTimeEntries,
+      );
+    });
   });
 
   describe('validation', () => {
@@ -296,18 +334,19 @@ describe('Time entries', () => {
         .submitView(workspace, admin, modal, { hours: '0.3' })
         .expect(200);
 
-      expect(modalError(rejected.body.view)).toBe(
-        'Logged minutes must be in 15 - minute increments',
-      );
+      // Next to the field, so the modal and what was typed stay as they are.
+      expect(rejected.body).toEqual({
+        response_action: 'errors',
+        errors: { hours_block: 'Use 15-minute steps: 0.25, 0.5, 0.75, 1…' },
+      });
       expect(await entries()).toEqual([]);
 
-      // The user corrects the hours in the modal the app answered with.
       const accepted = await t.slack
-        .submitView(workspace, admin, rejected.body.view, { hours: '0.25' })
+        .submitView(workspace, admin, modal, { hours: '0.25' })
         .expect(200);
 
       expect(sectionTexts(accepted.body.view)).toEqual([
-        '✅ Time Log was created successfully!',
+        '✅ Saved as a draft. Submit it from Home when your time is complete.',
       ]);
       expect(await entries()).toEqual([
         expect.objectContaining({ minutes: 15 }),
@@ -350,7 +389,7 @@ describe('Time entries', () => {
         .expect(200);
 
       expect(sectionTexts(accepted.body.view)).toEqual([
-        '✅ Time Log was created successfully!',
+        '✅ Saved as a draft. Submit it from Home when your time is complete.',
       ]);
       expect(await entries()).toHaveLength(2);
     });
@@ -958,7 +997,7 @@ describe('Time entries', () => {
         .expect(200);
 
       expect(sectionTexts(response.body.view)).toEqual([
-        '✅ Time Log was updated successfully!',
+        '✅ Saved as a draft. Submit it from Home when your time is complete.',
       ]);
       expect(await entries()).toEqual([
         expect.objectContaining({ id: entry.id, minutes: 120 }),

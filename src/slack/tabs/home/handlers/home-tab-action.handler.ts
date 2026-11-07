@@ -1,3 +1,4 @@
+import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { ALL_ROLES } from '@common/constants/role-groups';
 import { Injectable, Logger } from '@nestjs/common';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
@@ -30,6 +31,7 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
 
   public constructor(
     private readonly homeTabService: HomeTabService,
+    private readonly timeEntriesService: TimeEntriesService,
     protected readonly tabNavigationService: TabNavigationService,
   ) {
     super(tabNavigationService);
@@ -43,6 +45,7 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
         this.logger,
       ),
       [HomeTabActionId.LogTime]: this.handleLogTime,
+      [HomeTabActionId.SubmitTimeEntries]: this.handleSubmitTimeEntries,
     };
   }
 
@@ -66,6 +69,20 @@ export default class HomeTabActionHandler extends BaseAdminTabActionHandler {
       HomeTabModalName.CreateTimeEntry,
       { user },
     );
+  };
+
+  // Sends all of the user's drafts and rejected entries for approval, then
+  // shows Home without the reminder.
+  private handleSubmitTimeEntries = async (
+    _payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    await this.timeEntriesService.submit(
+      { slackTeamId: user.slack_team_id },
+      user,
+    );
+
+    this.tabNavigationService.navigate(TabId.Home, { user });
   };
 
   private handleViewHistory = (

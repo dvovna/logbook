@@ -1,3 +1,4 @@
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
@@ -29,6 +30,7 @@ export enum HomeTabActionId {
   ManagePendingRequestMenu = 'manage_pending_request_menu',
   LogTime = 'log_time',
   EditTimeEntries = 'edit_time_entries',
+  SubmitTimeEntries = 'submit_time_entries_from_home',
 }
 
 @Injectable()
@@ -276,11 +278,12 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
     todayMinutes,
     todayByClient,
     weekMinutes,
+    unsubmitted,
   }: IUserTimeSummary): AnyBlock[] {
     const clients = todayByClient
       .map(
         ({ clientName, minutes }) =>
-          `${clientName ?? 'No client'} ${getDisplayTime(minutes)}`,
+          `${clientName ? escapeMrkdwn(clientName) : 'No client'} ${getDisplayTime(minutes)}`,
       )
       .join(', ');
 
@@ -305,6 +308,18 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
           text: `This week: *${weekMinutes ? getDisplayTime(weekMinutes) : '0h'}* total`,
         },
       },
+      // Logged time reaches the approvers only once it is submitted.
+      ...(unsubmitted.count
+        ? [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `Not submitted yet: *${pluralize('entry', unsubmitted.count, true)}* (${getDisplayTime(unsubmitted.minutes)})`,
+              },
+            } as AnyBlock,
+          ]
+        : []),
       {
         type: 'actions',
         elements: [
@@ -312,8 +327,20 @@ export class HomeTabView extends BaseAdminTabView<IGetViewParams, never> {
             type: 'button',
             text: { type: 'plain_text', text: '➕ Log Time' },
             style: 'primary',
-            action_id: 'log_time',
+            action_id: HomeTabActionId.LogTime,
           },
+          ...(unsubmitted.count
+            ? [
+                {
+                  type: 'button' as const,
+                  text: {
+                    type: 'plain_text' as const,
+                    text: `📤 Submit for Approval (${unsubmitted.count})`,
+                  },
+                  action_id: HomeTabActionId.SubmitTimeEntries,
+                },
+              ]
+            : []),
           {
             type: 'button',
             text: { type: 'plain_text', text: '✏️ Edit Entries' },
