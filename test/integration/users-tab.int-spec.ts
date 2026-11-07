@@ -223,12 +223,7 @@ describe('Users tab', () => {
       expect(titles).not.toContain(titleOf(olga));
     });
 
-    // BUG?: a manager's menu offers Edit User and Deactivate User
-    // (users-tab.view.ts, getUserRowAccessory), but only Admin and HR may
-    // submit those forms (edit-user-form-submit.handler.ts,
-    // change-user-status-form-submit.handler.ts), so the manager ends up on
-    // "not allowed".
-    it.failing('offers a manager only what a manager may do', async () => {
+    it('offers a manager only what a manager may do', async () => {
       const [adaRow] = listItems(await openUsersTab(manager)).filter(
         ({ title }) => title === titleOf(ada),
       );

@@ -110,44 +110,48 @@ export class UsersTabView extends BaseAdminTabView<
     });
   }
 
+  // The menu items the role allows; an inactive user can only be activated.
   private getUserRowAccessory(
     user: IUserViewModel,
     userRole: UserRole,
   ): SectionBlockAccessory | undefined {
-    return this.slackActionPermissionsService.can(
-      userRole,
-      UsersTabViewActionId.ManageUserMenu,
-    )
-      ? {
-        type: 'overflow',
-        action_id: UsersTabViewActionId.ManageUserMenu,
-        options: [
-          ...(user.is_active
-            ? [
-                  {
-                    text: { type: 'plain_text', text: 'Edit User' },
-                    value: `${UsersTabViewActionId.EditUser}:${user.id}`,
-                  } as PlainTextOption,
-            ]
-            : []),
-          ...(user.is_active
-            ? [
-              {
-                text: { type: 'plain_text', text: 'View Vacation Usage' },
-                value: `${UsersTabViewActionId.ViewVacationUsage}:${user.id}`,
-              } as PlainTextOption,
-            ]
-            : []),
+    const items = [
+      ...(user.is_active
+        ? [
+          { id: UsersTabViewActionId.EditUser, name: 'Edit User' },
           {
-            text: {
-              type: 'plain_text',
-              text: `${user.is_active ? 'Deactivate' : 'Activate'} User`,
-            },
-            value: `${UsersTabViewActionId.ChangeStatus}:${user.id}`,
+            id: UsersTabViewActionId.ViewVacationUsage,
+            name: 'View Vacation Usage',
           },
-        ],
-      }
-      : undefined;
+        ]
+        : []),
+      {
+        id: UsersTabViewActionId.ChangeStatus,
+        name: `${user.is_active ? 'Deactivate' : 'Activate'} User`,
+      },
+    ].filter(({ id }) => this.slackActionPermissionsService.can(userRole, id));
+
+    if (
+      !items.length ||
+      !this.slackActionPermissionsService.can(
+        userRole,
+        UsersTabViewActionId.ManageUserMenu,
+      )
+    ) {
+      return undefined;
+    }
+
+    return {
+      type: 'overflow',
+      action_id: UsersTabViewActionId.ManageUserMenu,
+      options: items.map(
+        ({ id, name }) =>
+          ({
+            text: { type: 'plain_text', text: name },
+            value: `${id}:${user.id}`,
+          }) as PlainTextOption,
+      ),
+    };
   }
 
   private getUserListItemBlocks(

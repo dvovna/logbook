@@ -31,6 +31,15 @@ export class SlackActionPermissionsService {
       UserRole.HR,
       UserRole.Manager,
     ],
+    // A manager may look at a user's vacation usage; only Admin and HR
+    // submit the edit and status forms.
+    [UsersTabViewActionId.ViewVacationUsage]: [
+      UserRole.Admin,
+      UserRole.HR,
+      UserRole.Manager,
+    ],
+    [UsersTabViewActionId.EditUser]: [UserRole.Admin, UserRole.HR],
+    [UsersTabViewActionId.ChangeStatus]: [UserRole.Admin, UserRole.HR],
     [AdminNavigationActionId.ManageTeams]: [UserRole.Admin, UserRole.HR],
     [VacationRequestsTabViewActionId.CreateRequest]: [
       UserRole.Admin,
