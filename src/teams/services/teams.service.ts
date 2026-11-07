@@ -64,13 +64,7 @@ interface ITeamsService {
   ): Promise<ITeamViewModel>;
   delete(teamId: string, user: IUserViewModel): Promise<ITeamViewModel>;
   count(params: IFindParams): Promise<number>;
-  createDefaultTeam(
-    slackTeamId: string,
-    vacationPolicyId: string,
-  ): Promise<ITeamViewModel>;
 }
-
-const DEFAULT_TEAM_NAME = 'Main Team';
 
 @Injectable()
 export default class TeamsService implements ITeamsService {
@@ -222,20 +216,5 @@ export default class TeamsService implements ITeamsService {
         ? { vacation_policy_id: params.vacationPolicyId }
         : {}),
     };
-  }
-
-  public createDefaultTeam(slackTeamId: string, vacationPolicyId: string) {
-    const createdAt = new Date().toISOString();
-
-    return this.teamsRepository.create({
-      name: DEFAULT_TEAM_NAME,
-      description: '',
-      slack_team_id: slackTeamId,
-      vacation_policy_id: vacationPolicyId,
-      created_at: createdAt,
-      updated_at: createdAt,
-      created_by: null,
-      updated_by: null,
-    });
   }
 }
