@@ -44,7 +44,7 @@ export interface IProjectTabFilters {
   billable?: YesNoValue;
 }
 
-export const PROJECTS_TAB_PAGE_SIZE = 5;
+export const PROJECTS_TAB_PAGE_SIZE = 10;
 
 type ProjectsTabModalViewResolversMapType = {
   [ProjectsTabModalName.CreateProject]: (

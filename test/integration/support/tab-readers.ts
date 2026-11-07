@@ -94,18 +94,25 @@ export const actionIdsOf = (view: View): string[] =>
       .filter(Boolean),
   );
 
-// The "Total Count: N" under a list.
-export const totalCount = (view: View): number => {
-  const text = sectionTexts(view).find((line) =>
-    line.startsWith('Total Count:'),
-  );
+// The line under a list: "3 in total", or "11–20 of 23" when it has pages.
+export const listCount = (view: View): string => {
+  const text = blocksOf(view)
+    .filter((block) => block.type === 'context')
+    .flatMap((block) =>
+      block.elements.map((element: SlackJson) => element.text),
+    )
+    .find((line: string) => /^(\d+ in total|\d+–\d+ of \d+)$/.test(line));
 
   if (!text) {
-    throw new Error('The view has no Total Count');
+    throw new Error('The view has no count under its list');
   }
 
-  return Number(text.replace('Total Count:', ''));
+  return text;
 };
+
+// The number of items of a list, on all its pages.
+export const totalCount = (view: View): number =>
+  Number(listCount(view).match(/(\d+)(?: in total)?$/)![1]);
 
 // The error a modal shows after a failed submit (getGeneralErrorBlock).
 export const modalError = (view: View): string | undefined =>

@@ -67,7 +67,7 @@ export abstract class BaseRepository<
 
   protected relations: Record<string, unknown> | null = null;
 
-  protected readonly defaultPageLimit = 5;
+  protected readonly defaultPageLimit = 10;
 
   protected searchableColumns: string[] = [];
 

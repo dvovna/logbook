@@ -28,7 +28,7 @@ interface IGetVacationPoliciesTabViewParams extends IPublishBaseParams {
   metadata?: IVacationPoliciesTabMetaData;
 }
 
-const DEFAULT_POLICIES_PAGE_SIZE = 5;
+const DEFAULT_POLICIES_PAGE_SIZE = 10;
 
 type VacationPoliciesTabModalViewResolversMapType = {
   [VacationPoliciesTabModalName.CreatePolicy]: (

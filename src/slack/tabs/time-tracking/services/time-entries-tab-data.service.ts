@@ -10,7 +10,7 @@ export interface ITimeEntriesTabFilters {
   toDate?: string;
 }
 
-export const TIME_ENTRIES_TAB_PAGE_SIZE = 5;
+export const TIME_ENTRIES_TAB_PAGE_SIZE = 10;
 
 @Injectable()
 export class TimeEntriesTabDataService {

@@ -10,7 +10,7 @@ interface IPaginationParams {
   prevPageActionId: string;
 }
 
-const DEFAULT_PAGE_SIZE = 5;
+const DEFAULT_PAGE_SIZE = 10;
 
 export default class PaginationView {
   public static getBlocks({
@@ -21,25 +21,30 @@ export default class PaginationView {
     nextPageActionId,
   }: IPaginationParams) {
     const blocks: AnyBlock[] = [];
-
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: `Total Count: ${totalCount}` },
-    });
-
     const totalPages = Math.ceil(totalCount / pageSize);
+
+    // "1–10 of 23" under the list; an empty list says so itself.
+    if (totalCount > 0) {
+      const from = (page - 1) * pageSize + 1;
+      const to = Math.min(page * pageSize, totalCount);
+
+      blocks.push({
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text:
+              totalPages > 1
+                ? `${from}–${to} of ${totalCount}`
+                : `${totalCount} in total`,
+          },
+        ],
+      });
+    }
 
     if (totalPages <= 1) {
       return blocks;
     }
-
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*Page ${page} of ${totalPages}*`,
-      },
-    });
 
     const elements: ActionsBlockElement[] = [];
 

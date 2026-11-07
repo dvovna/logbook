@@ -19,7 +19,7 @@ import { View } from '@slack/types';
 export type IPublishVacationsHistoryTabViewParams =
   IPublishBaseParams<IVacationHistoryTabMetadata>;
 
-const VACATION_HISTORY_PAGE_SIZE = 5;
+const VACATION_HISTORY_PAGE_SIZE = 10;
 
 export enum HistoryTabModalName {
   ViewRequestDetails = 'ViewRequestDetails',

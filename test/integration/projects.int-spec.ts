@@ -17,6 +17,7 @@ import {
   sectionTexts,
   titlesOf,
   totalCount,
+  listCount,
 } from './support/tab-readers';
 import { acknowledged } from './support/slack-test-client';
 import {
@@ -381,14 +382,18 @@ describe('Projects', () => {
       expect(totalCount(withArchived)).toBe(3);
     });
 
-    it('pages through projects by name', async () => {
-      for (const name of ['P6', 'P2', 'P5', 'P1', 'P4', 'P3']) {
+    it('pages through projects by name, ten per page', async () => {
+      const names = Array.from(
+        { length: 11 },
+        (_, i) => `P${String(i + 1).padStart(2, '0')}`,
+      );
+      for (const name of [...names].reverse()) {
         await workspace.addProject({ name });
       }
 
       const firstPage = await openProjectsTab();
-      expect(sectionTexts(firstPage)).toContain('*Page 1 of 2*');
-      expect(titlesOf(firstPage)).toEqual(['P1', 'P2', 'P3', 'P4', 'P5']);
+      expect(listCount(firstPage)).toBe('1–10 of 11');
+      expect(titlesOf(firstPage)).toEqual(names.slice(0, 10));
 
       const secondPage = await actOnTab(
         t,
@@ -397,9 +402,9 @@ describe('Projects', () => {
         firstPage,
         ProjectsTabViewActionId.PaginationNext,
       );
-      expect(sectionTexts(secondPage)).toContain('*Page 2 of 2*');
-      expect(titlesOf(secondPage)).toEqual(['P6']);
-      expect(totalCount(secondPage)).toBe(6);
+      expect(listCount(secondPage)).toBe('11–11 of 11');
+      expect(titlesOf(secondPage)).toEqual(['P11']);
+      expect(totalCount(secondPage)).toBe(11);
     });
 
     it('finds a project by name', async () => {

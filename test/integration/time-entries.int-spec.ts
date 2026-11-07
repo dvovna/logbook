@@ -17,6 +17,7 @@ import {
   modalError,
   sectionTexts,
   totalCount,
+  listCount,
 } from './support/tab-readers';
 import { acknowledged } from './support/slack-test-client';
 import { addDays } from './support/dates';
@@ -579,8 +580,9 @@ describe('Time entries', () => {
     });
 
     // Six days of work, today's first.
-    const addWeekOfWork = async () => {
-      for (let day = 0; day < 6; day += 1) {
+    // Eleven entries, one more than a page.
+    const addWorkOfElevenDays = async () => {
+      for (let day = 0; day < 11; day += 1) {
         await workspace.addTimeEntry(admin, website, {
           work_date: addDays(today(), -day),
           description: `Day ${day}`,
@@ -588,8 +590,8 @@ describe('Time entries', () => {
       }
     };
 
-    it('lists the newest work first, five per page', async () => {
-      await addWeekOfWork();
+    it('lists the newest work first, ten per page', async () => {
+      await addWorkOfElevenDays();
 
       const firstPage = await openAppHomeTab(
         t,
@@ -598,19 +600,14 @@ describe('Time entries', () => {
         TIME_LOGS_TAB,
       );
 
-      expect(descriptionsOf(firstPage)).toEqual([
-        'Day 0',
-        'Day 1',
-        'Day 2',
-        'Day 3',
-        'Day 4',
-      ]);
-      expect(totalCount(firstPage)).toBe(6);
-      expect(sectionTexts(firstPage)).toContain('*Page 1 of 2*');
+      expect(descriptionsOf(firstPage)).toEqual(
+        Array.from({ length: 10 }, (_, day) => `Day ${day}`),
+      );
+      expect(listCount(firstPage)).toBe('1–10 of 11');
     });
 
     it('pages to older work', async () => {
-      await addWeekOfWork();
+      await addWorkOfElevenDays();
       const firstPage = await openAppHomeTab(
         t,
         workspace,
@@ -625,7 +622,7 @@ describe('Time entries', () => {
         firstPage,
         TimeEntriesTabViewActionId.PaginationNext,
       );
-      expect(descriptionsOf(secondPage)).toEqual(['Day 5']);
+      expect(descriptionsOf(secondPage)).toEqual(['Day 10']);
     });
 
     it.each([UserRole.Admin, UserRole.HR])(
@@ -666,7 +663,7 @@ describe('Time entries', () => {
     });
 
     it('shows an admin only their own entries under Edit Entries, on every page', async () => {
-      await addWeekOfWork();
+      await addWorkOfElevenDays();
       await workspace.addTimeEntry(member, website, { description: 'Kickoff' });
 
       const firstPage = await openAppHomeTab(
@@ -676,7 +673,7 @@ describe('Time entries', () => {
         MY_ENTRIES_TAB,
       );
       expect(descriptionsOf(firstPage)).not.toContain('Kickoff');
-      expect(totalCount(firstPage)).toBe(6);
+      expect(totalCount(firstPage)).toBe(11);
 
       const secondPage = await actOnTab(
         t,
@@ -685,7 +682,7 @@ describe('Time entries', () => {
         firstPage,
         TimeEntriesTabViewActionId.PaginationNext,
       );
-      expect(descriptionsOf(secondPage)).toEqual(['Day 5']);
+      expect(descriptionsOf(secondPage)).toEqual(['Day 10']);
     });
   });
 

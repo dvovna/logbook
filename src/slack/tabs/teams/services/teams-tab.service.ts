@@ -33,7 +33,7 @@ interface IGetTeamsTabViewParams extends IPublishBaseParams {
   metadata?: ITeamsTabMetaData;
 }
 
-const TEAMS_TAB_PAGE_SIZE = 5;
+const TEAMS_TAB_PAGE_SIZE = 10;
 
 type TeamsTabModalViewResolversMapType = {
   [TeamsTabModalName.CreateTeam]: (

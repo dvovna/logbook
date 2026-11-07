@@ -27,7 +27,7 @@ export interface ITimeApprovalsTabMetaData {
   page?: number;
 }
 
-export const TIME_APPROVALS_PAGE_SIZE = 5;
+export const TIME_APPROVALS_PAGE_SIZE = 10;
 
 // The submitted time entries the viewer decides on.
 @Injectable()
