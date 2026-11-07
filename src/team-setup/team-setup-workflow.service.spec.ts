@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+import { DEFAULT_JOBS_OPTIONS, JobsService } from '@common/jobs/jobs.service';
 import { Logger } from '@nestjs/common';
 import { TeamSetupWorkflowService } from 'src/team-setup/team-setup-workflow.service';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
@@ -40,7 +42,13 @@ describe('TeamSetupWorkflowService', () => {
       slackUsersService as unknown as SlackUsersService,
       teamUsersSyncService as unknown as TeamUsersSyncService,
       { forget: jest.fn() } as unknown as AccessTokenService,
+      // Without a database: a job runs once, at once.
+      new JobsService(
+        { get: () => undefined } as unknown as ConfigService,
+        DEFAULT_JOBS_OPTIONS,
+      ),
     );
+    service.onModuleInit();
   });
 
   afterEach(() => {
@@ -70,14 +78,14 @@ describe('TeamSetupWorkflowService', () => {
     });
   });
 
-  it('logs a failed background sync instead of leaving its rejection unhandled', async () => {
+  it('logs a failed sync job instead of leaving its rejection unhandled', async () => {
     teamUsersSyncService.syncUsers.mockRejectedValue(new Error('ratelimited'));
 
     await setupTeam();
     await jest.advanceTimersByTimeAsync(5000);
 
     expect(loggerError).toHaveBeenCalledWith(
-      `Failed to sync users of slack team ${SLACK_TEAM_ID}: ratelimited`,
+      'Job team-sync-users failed: ratelimited',
       expect.any(String),
     );
   });

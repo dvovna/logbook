@@ -104,16 +104,24 @@ export class JobsService
     this.handlers.set(name, handler as JobHandler<object>);
   }
 
-  // Callers don't wait: the job counts as background work, which the shutdown
-  // and the integration tests wait for.
-  public run<Payload extends object>(name: string, payload: Payload) {
+  // Callers needn't wait: the job counts as background work, which the
+  // shutdown and the integration tests wait for. The promise resolves once the
+  // first run is over, whether it succeeded or not (it never rejects), for a
+  // caller that has more to do after it, such as re-rendering a tab.
+  public run<Payload extends object>(
+    name: string,
+    payload: Payload,
+  ): Promise<void> {
     const handler = this.handlers.get(name);
 
     if (!handler) {
       throw new Error(`Job ${name} is not defined`);
     }
 
-    trackInBackground(this.runNow(name, handler, payload));
+    const firstRun = this.runNow(name, handler, payload);
+    trackInBackground(firstRun);
+
+    return firstRun;
   }
 
   // Runs the saved jobs whose time has come: retries, and jobs a stopped

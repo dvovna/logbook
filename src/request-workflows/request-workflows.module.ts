@@ -1,3 +1,5 @@
+import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
+import { UsersModule } from '@modules/users/users.module';
 import { RejectStepModalView } from '@modules/request-workflows/views/reject-step-modal.view';
 import { Module } from '@nestjs/common';
 import { WorkflowStepProcessorService } from '@modules/request-workflows/services/workflow-step-processor.service';
@@ -25,9 +27,11 @@ import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
     SlackCommunicationModule,
     TeamsModule,
     SlackCommonModule,
+    UsersModule,
   ],
   providers: [
     RequestWorkflowService,
+    WorkflowDecisionsService,
     RejectStepModalView,
     RequestWorkflowStepsRepository,
     RequestWorkflowStepsService,
@@ -44,6 +48,7 @@ import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
     ApproverStepMessageHandler,
   ],
   exports: [
+    WorkflowDecisionsService,
     RequestWorkflowService,
     RejectStepModalView,
     RequestWorkflowStepsService,

@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { runInBackground } from '@common/utils/run-in-background';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { JobsService } from '@common/jobs/jobs.service';
 import UserRole from '@common/enums/user-role.enum';
 import SlackUserAccessService from '@modules/slack/services/slack-user-access.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -96,8 +96,23 @@ export type SlackEvent =
   | IAppUninstalledEvent
   | IUserChangeEvent;
 
+export enum SlackEventJob {
+  FileShared = 'slack-event-file-shared',
+  TeamJoin = 'slack-event-team-join',
+  UserChange = 'slack-event-user-change',
+  AppUninstalled = 'slack-event-app-uninstalled',
+}
+
+interface IEventJob<Event> {
+  event: Event;
+  userId?: string;
+  slackTeamId?: string;
+  // The workspace the event came from (team_join on Enterprise Grid).
+  workspaceSlackId?: string;
+}
+
 @Injectable()
-export default class SlackEventsService {
+export default class SlackEventsService implements OnModuleInit {
   private readonly logger = new Logger(SlackEventsService.name);
 
   public constructor(
@@ -107,7 +122,37 @@ export default class SlackEventsService {
     private readonly usersService: UsersService,
     private readonly slackAppUninstallService: SlackAppUninstallService,
     private readonly slackTeamService: SlackTeamsService,
+    private readonly jobs: JobsService,
   ) {}
+
+  // Slack sends an event once and gets its answer at once, so the work runs
+  // as a job: a failure or a restart in the middle is retried. A job carries
+  // the event and the user's ID; the user is read again when it runs.
+  public onModuleInit() {
+    this.jobs.define<IEventJob<IFileSharedEvent>>(
+      SlackEventJob.FileShared,
+      async ({ event, userId, slackTeamId }) =>
+        this.handleFileShared(event, await this.findUser(userId, slackTeamId)),
+    );
+    this.jobs.define<IEventJob<ITeamJoinEvent>>(
+      SlackEventJob.TeamJoin,
+      async ({ event, userId, slackTeamId, workspaceSlackId }) =>
+        this.handleUserJoin(
+          event,
+          await this.findUser(userId, slackTeamId),
+          workspaceSlackId,
+        ),
+    );
+    this.jobs.define<IEventJob<IUserChangeEvent>>(
+      SlackEventJob.UserChange,
+      async ({ event, userId, slackTeamId }) =>
+        this.handleUserChange(event, await this.findUser(userId, slackTeamId)),
+    );
+    this.jobs.define<{ teamSlackId: string }>(
+      SlackEventJob.AppUninstalled,
+      ({ teamSlackId }) => this.handleAppUninstalled(teamSlackId),
+    );
+  }
 
   public async handleSlackEvent(
     event: SlackEvent,
@@ -116,8 +161,9 @@ export default class SlackEventsService {
   ) {
     switch (event.type) {
       case SlackEventType.FileShared:
-        runInBackground(this.logger, `handle ${event.type} event`, () =>
-          this.handleFileShared(event, user),
+        void this.jobs.run<IEventJob<IFileSharedEvent>>(
+          SlackEventJob.FileShared,
+          { event, ...this.actor(user) },
         );
 
         break;
@@ -126,14 +172,17 @@ export default class SlackEventsService {
 
         break;
       case SlackEventType.TeamJoin:
-        runInBackground(this.logger, `handle ${event.type} event`, () =>
-          this.handleUserJoin(event, user, body),
-        );
+        void this.jobs.run<IEventJob<ITeamJoinEvent>>(SlackEventJob.TeamJoin, {
+          event,
+          ...this.actor(user),
+          workspaceSlackId: getRequestWorkspaceSlackId(body),
+        });
 
         break;
       case SlackEventType.UserChange:
-        runInBackground(this.logger, `handle ${event.type} event`, () =>
-          this.handleUserChange(event, user),
+        void this.jobs.run<IEventJob<IUserChangeEvent>>(
+          SlackEventJob.UserChange,
+          { event, ...this.actor(user) },
         );
 
         break;
@@ -141,9 +190,7 @@ export default class SlackEventsService {
         const { team_id: teamSlackId } =
           body as unknown as IAppUninstalledEventBodyData;
 
-        runInBackground(this.logger, `handle ${event.type} event`, () =>
-          this.handleAppUninstalled(teamSlackId),
-        );
+        void this.jobs.run(SlackEventJob.AppUninstalled, { teamSlackId });
 
         break;
       }
@@ -154,6 +201,24 @@ export default class SlackEventsService {
     }
 
     return { ok: true };
+  }
+
+  private actor(user: IUserViewModel | undefined) {
+    return user ? { userId: user.id, slackTeamId: user.slack_team_id } : {};
+  }
+
+  private async findUser(userId?: string, slackTeamId?: string) {
+    if (!userId || !slackTeamId) {
+      return undefined;
+    }
+
+    return (
+      (await this.usersService.findOne({
+        id: userId,
+        slackTeamId,
+        includeInactive: true,
+      })) ?? undefined
+    );
   }
 
   private async handleAppUninstalled(teamSlackId: string) {
@@ -196,7 +261,7 @@ export default class SlackEventsService {
   private async handleUserJoin(
     event: ITeamJoinEvent,
     user: IUserViewModel | undefined,
-    body: Record<string, unknown>,
+    workspaceSlackId: string | undefined,
   ) {
     if (user) {
       this.logger.log('Handling a join of a known user', {
@@ -220,7 +285,7 @@ export default class SlackEventsService {
     // The workspace the event comes from: on Enterprise Grid the user's own
     // team_id can name another workspace of the organization.
     const slackTeam = await this.slackTeamService.findOneWithValidation({
-      slackId: getRequestWorkspaceSlackId(body),
+      slackId: workspaceSlackId,
     });
 
     this.logger.log('Handling new user join', {

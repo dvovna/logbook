@@ -1,8 +1,8 @@
+import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 import UserRole from '@common/enums/user-role.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import { ViewResponseAction } from '@slack/bolt/dist/types/view';
@@ -25,7 +25,7 @@ import { runInBackground } from '@common/utils/run-in-background';
 })
 export class ApproveRequestStepFormSubmitHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
   constructor(
-    private readonly requestWorkflowService: RequestWorkflowService,
+    private readonly workflowDecisionsService: WorkflowDecisionsService,
     protected readonly tabNavigationService: TabNavigationService,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
@@ -43,7 +43,7 @@ export class ApproveRequestStepFormSubmitHandler extends BaseModalFormSubmitHand
     const pageMetadata = meta.pageMetadata ? JSON.parse(meta.pageMetadata) : {};
 
     runInBackground(this.logger, `approve step ${stepId}`, async () => {
-      await this.requestWorkflowService.approveStep(stepId, user);
+      await this.workflowDecisionsService.approveStep(stepId, user);
 
       this.tabNavigationService.navigate(TabId.Vacations, {
         user,

@@ -1,4 +1,7 @@
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { DEFAULT_JOBS_OPTIONS, JobsService } from '@common/jobs/jobs.service';
+import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
 import SlackEventsService, {
   ITeamJoinEvent,
   IUserChangeEvent,
@@ -33,11 +36,15 @@ const slackUser = {
   deleted: false,
 };
 
-// Event handlers run in the background, so let their promises settle.
-const flushPromises = () => new Promise((resolve) => setImmediate(resolve));
+// Event handlers run as jobs, after the answer; wait for them.
+const flushPromises = whenBackgroundWorkIsDone;
 
 describe('SlackEventsService', () => {
-  let usersService: { upsert: jest.Mock; findBySlackId: jest.Mock };
+  let usersService: {
+    upsert: jest.Mock;
+    findBySlackId: jest.Mock;
+    findOne: jest.Mock;
+  };
   let slackTeamsService: { findOneWithValidation: jest.Mock };
   let tabNavigationService: { navigate: jest.Mock };
   let loggerError: jest.SpyInstance;
@@ -47,6 +54,7 @@ describe('SlackEventsService', () => {
     usersService = {
       upsert: jest.fn().mockResolvedValue(undefined),
       findBySlackId: jest.fn(),
+      findOne: jest.fn().mockResolvedValue(null),
     };
     slackTeamsService = {
       findOneWithValidation: jest.fn().mockResolvedValue(slackTeam),
@@ -63,13 +71,20 @@ describe('SlackEventsService', () => {
       usersService as unknown as UsersService,
       {} as SlackAppUninstallService,
       slackTeamsService as unknown as SlackTeamsService,
+      // Without a database: a job runs once, at once.
+      new JobsService(
+        { get: () => undefined } as unknown as ConfigService,
+        DEFAULT_JOBS_OPTIONS,
+      ),
     );
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    service.onModuleInit();
   });
 
   afterEach(() => jest.restoreAllMocks());
 
   describe('background handlers', () => {
-    it('logs a failed handler instead of leaving its rejection unhandled', async () => {
+    it('logs a failed job instead of leaving its rejection unhandled', async () => {
       usersService.upsert.mockRejectedValue(new Error('db is down'));
 
       const response = await service.handleSlackEvent(
@@ -81,7 +96,7 @@ describe('SlackEventsService', () => {
 
       expect(response).toEqual({ ok: true });
       expect(loggerError).toHaveBeenCalledWith(
-        'Failed to handle team_join event: db is down',
+        'Job slack-event-team-join failed: db is down',
         expect.any(String),
       );
     });
@@ -156,8 +171,16 @@ describe('SlackEventsService', () => {
         type: SlackEventType.UserChange,
         user: { ...slackUser, deleted: true },
       };
+      // The job reads the user again when it runs.
+      usersService.findOne.mockResolvedValue(existingUser);
       service.handleSlackEvent(event, existingUser, {});
       await flushPromises();
+
+      expect(usersService.findOne).toHaveBeenCalledWith({
+        id: 'user-1',
+        slackTeamId: slackTeam.id,
+        includeInactive: true,
+      });
 
       expect(usersService.upsert).toHaveBeenCalledWith({
         slackId: 'U_NEW',

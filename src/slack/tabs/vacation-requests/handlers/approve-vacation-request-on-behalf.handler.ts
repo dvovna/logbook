@@ -1,3 +1,4 @@
+import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
 import { Injectable } from '@nestjs/common';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -30,6 +31,7 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
   public constructor(
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly requestWorkflowService: RequestWorkflowService,
+    private readonly workflowDecisionsService: WorkflowDecisionsService,
     private readonly vacationRequestsTabService: VacationRequestsTabService,
   ) {
     super();
@@ -71,7 +73,7 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
       this.logger,
       `approve request ${metadata.id} for its approvers`,
       async () => {
-        await this.requestWorkflowService.approveCurrentLevel(
+        await this.workflowDecisionsService.approveCurrentLevel(
           metadata.id,
           user,
         );

@@ -202,8 +202,16 @@ Domain modules `clients`, `projects`, `time-entries`; Slack tabs `clients`, `pro
 
 ### Background jobs
 
-`JobsService` (`src/common/jobs/`, pg-boss 10 on `DATABASE_URL`) runs the work that must happen even when Slack or the database fails for a while: starting a vacation workflow, asking approvers, updating their messages, finishing the request, telling people of the decision, and the DM about a rejected time entry.
-- A service defines its jobs in `onModuleInit` (`jobs.define(name, handler)`) and starts one with `jobs.run(name, payload)`, which returns at once.
+`JobsService` (`src/common/jobs/`, pg-boss 10 on `DATABASE_URL`) runs the work that must happen even when Slack or the database fails for a while:
+- approving and rejecting, including "Approve for Approvers" (`WorkflowDecisionsService`);
+- starting a vacation workflow, asking approvers, updating their messages, finishing the request;
+- telling people of the decision, the DM about a request nobody on the team can approve, and the DM about a rejected time entry;
+- the Slack events `file_shared` (CSV imports), `team_join`, `user_change` and `app_uninstalled` (`SlackEventsService`);
+- importing the workspace's members after an install (`TeamSetupWorkflowService`).
+
+Slash command replies stay in memory (`runInBackground`): a reply hours later is no use, and `trigger_id` lives 3 seconds.
+- A service defines its jobs in `onModuleInit` (`jobs.define(name, handler)`) and starts one with `jobs.run(name, payload)`. Callers needn't wait; the returned promise resolves when the first run is over (it never rejects), for a caller that re-renders a tab after it.
+- A decision job ends without a retry when the decision can no longer be made (the step was decided, or the user may not): those errors would only repeat.
 - `run` saves the job, then runs it right away in the same process (tracked as background work). The saved copy is deleted when the run succeeds; otherwise a poller (every 30 s) retries it from 5 minutes on, up to 8 times with growing delays (about 8 hours in all). A job a stopped process never finished is retried too.
 - Payloads hold IDs, and handlers load the current data: a retry may come after the request was canceled or the entry fixed, and then does nothing. A handler must be safe to run twice, because a run can fail after it did part of the work (e.g. `WorkflowStepJob.Ask` skips a step that already has a message).
 - Without `DATABASE_URL` a job runs once, as before, and the app says so at startup. pg-boss keeps its tables in the `pgboss` schema, which it creates and migrates itself; it is not exposed through the REST API.

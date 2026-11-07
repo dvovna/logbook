@@ -274,6 +274,27 @@ describe('Vacation request approval', () => {
       expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
     });
 
+    it('retries a failed approval without another click', async () => {
+      await addMember(
+        await workspace.addTeam({ manager_approvers: [manager.slack_id] }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      const approval = await approvalMessageTo(t, workspace, manager);
+      const decide = jest
+        .spyOn(t.app.get(RequestWorkflowStepsRepository), 'decide')
+        .mockRejectedValueOnce(new Error('connection reset'));
+
+      await click(manager, approval, ApproverMessageActionId.Approve);
+      await t.idle();
+      decide.mockRestore();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+
+      // The approval is a saved job, which the queue runs again.
+      await t.retryJobs();
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+    });
+
     it('decides once when two managers approve at the same moment', async () => {
       const secondManager = await workspace.addUser({
         role: UserRole.Manager,

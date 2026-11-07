@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { JobsService } from '@common/jobs/jobs.service';
 import UserRole from '@common/enums/user-role.enum';
-import { runInBackground } from '@common/utils/run-in-background';
 import delay from '@common/utils/delay';
 import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
@@ -15,8 +15,15 @@ interface ITeamSetupWorkflowParams {
   slackUserId: string;
 }
 
+export const SYNC_USERS_JOB = 'team-sync-users';
+
+interface ISyncUsersJob {
+  slackTeamId: string;
+  userSlackIdsToIgnore: string[];
+}
+
 @Injectable()
-export class TeamSetupWorkflowService {
+export class TeamSetupWorkflowService implements OnModuleInit {
   private readonly logger = new Logger(TeamSetupWorkflowService.name);
 
   public constructor(
@@ -25,7 +32,19 @@ export class TeamSetupWorkflowService {
     private readonly slackUsersService: SlackUsersService,
     private readonly teamUsersSyncService: TeamUsersSyncService,
     private readonly accessTokenService: AccessTokenService,
+    private readonly jobs: JobsService,
   ) {}
+
+  // Importing the workspace's members takes a while after the install, so it
+  // is a job: a restart or a Slack failure in the middle is retried, and the
+  // sync only adds and updates, so running it again is safe.
+  public onModuleInit() {
+    this.jobs.define<ISyncUsersJob>(SYNC_USERS_JOB, async (job) => {
+      // No hurry: the installing admin is in already.
+      await delay(5000);
+      await this.teamUsersSyncService.syncUsers(job);
+    });
+  }
 
   public async execute({
     slackTeamId,
@@ -72,18 +91,10 @@ export class TeamSetupWorkflowService {
         role: UserRole.Admin,
       });
 
-      // no need to sync users instantly
-      runInBackground(
-        this.logger,
-        `sync users of slack team ${slackTeam.id}`,
-        async () => {
-          await delay(5000);
-          await this.teamUsersSyncService.syncUsers({
-            slackTeamId: slackTeam.id,
-            userSlackIdsToIgnore: [adminUser.slack_id],
-          });
-        },
-      );
+      void this.jobs.run<ISyncUsersJob>(SYNC_USERS_JOB, {
+        slackTeamId: slackTeam.id,
+        userSlackIdsToIgnore: [adminUser.slack_id],
+      });
     } catch (error) {
       await this.slackTeamsService.delete({ id: slackTeam.id });
       throw error;

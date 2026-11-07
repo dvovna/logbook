@@ -1,3 +1,4 @@
+import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
 import { RejectStepModalView } from '@modules/request-workflows/views/reject-step-modal.view';
 import { Injectable, Logger } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -9,11 +10,9 @@ import {
 } from '@modules/slack/common/handlers/base-action.handler';
 import { ApproverMessageActionId } from '@modules/request-workflows/enums/approver-message-action-id.enum';
 import { withButtonAction } from '@modules/slack/common/utils/view.utils';
-import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { ApproverStepCommentModalView } from '@modules/request-workflows/views/approver-step-comment-modal.view';
 import UserRole from '@common/enums/user-role.enum';
-import { runInBackground } from '@common/utils/run-in-background';
 
 @Injectable()
 @SlackHandler({
@@ -27,7 +26,7 @@ export class ApproverStepMessageHandler extends BaseActionHandler {
   private readonly logger = new Logger(ApproverStepMessageHandler.name);
 
   public constructor(
-    private readonly requestWorkflowService: RequestWorkflowService,
+    private readonly workflowDecisionsService: WorkflowDecisionsService,
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly approverStepCommentModalView: ApproverStepCommentModalView,
     private readonly rejectStepModalView: RejectStepModalView,
@@ -46,9 +45,7 @@ export class ApproverStepMessageHandler extends BaseActionHandler {
   // Deciding a step updates every approver's message and notifies the next
   // level, which can take longer than Slack waits for the click's answer.
   private handleApprove = (stepId: string, user: IUserViewModel) => {
-    runInBackground(this.logger, `approve step ${stepId}`, () =>
-      this.requestWorkflowService.approveStep(stepId, user),
-    );
+    void this.workflowDecisionsService.approveStep(stepId, user);
   };
 
   // Asks for a reason first; RejectRequestStepFormSubmitHandler decides.

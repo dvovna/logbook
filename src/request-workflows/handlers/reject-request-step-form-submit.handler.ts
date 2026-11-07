@@ -1,3 +1,4 @@
+import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -36,6 +37,7 @@ export class RejectRequestStepFormSubmitHandler extends BaseModalFormSubmitHandl
 > {
   constructor(
     private readonly requestWorkflowService: RequestWorkflowService,
+    private readonly workflowDecisionsService: WorkflowDecisionsService,
     private readonly requestWorkflowStepsService: RequestWorkflowStepsService,
     private readonly rejectStepModalView: RejectStepModalView,
     private readonly rejectWithReasonModalView: RejectWithReasonModalView,
@@ -62,7 +64,7 @@ export class RejectRequestStepFormSubmitHandler extends BaseModalFormSubmitHandl
     this.requestWorkflowService.assertCanActOnStep(step, user);
 
     runInBackground(this.logger, `reject step ${stepId}`, async () => {
-      await this.requestWorkflowService.rejectStep(stepId, user, reason);
+      await this.workflowDecisionsService.rejectStep(stepId, user, reason);
 
       // Opened from the Vacations tab, which then shows the request gone.
       if (pageMetadata !== undefined) {
