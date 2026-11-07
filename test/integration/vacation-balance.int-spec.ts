@@ -109,28 +109,30 @@ describe('Vacation balance under a policy', () => {
       ]);
     });
 
-    // BUG?: usage only counts requests that start and end inside the vacation
-    // year (vacation-period-usage.service.ts:61-62), so a vacation across the
-    // start of the year counts in neither year.
-    it.failing(
-      'counts a vacation that crosses the start of the year',
-      async () => {
-        await setUp(
-          { vacation_days: 20 },
-          { contract_start_date: '2025-09-01' },
-        );
-        await workspace.addVacationRequest(member, {
-          start_date: '2025-08-29',
-          end_date: '2025-09-04',
-          days: 7,
-          working_days: 5,
-        });
+    it('counts the days of a vacation that fall in this vacation year', async () => {
+      await setUp({ vacation_days: 20 }, { contract_start_date: '2025-09-01' });
+      // Friday to Thursday: the year starts on Monday, September 1.
+      await workspace.addVacationRequest(member, {
+        start_date: '2025-08-29',
+        end_date: '2025-09-04',
+        days: 7,
+        working_days: 5,
+      });
 
-        const [annualLeave] = await usageOnHome();
+      // A holiday of the policy in the part that counts.
+      await t.db.from('holidays').insert({
+        slack_team_id: workspace.id,
+        vacation_policy_id: policy.id,
+        name: 'Holiday',
+        date: '2025-09-02',
+        year: 2025,
+        created_by: member.id,
+      });
 
-        expect(annualLeave).not.toMatch(/^Annual leave: \*20 available\*/);
-      },
-    );
+      expect(await usageOnHome()).toEqual([
+        'Annual leave: *16 available* / 20 total (*4* used, *3* working)',
+      ]);
+    });
   });
 
   describe('requesting', () => {
