@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { WebAPICallResult, WebClient } from '@slack/web-api';
+import {
+  WebAPICallResult,
+  WebClient,
+  WebClientOptions,
+} from '@slack/web-api';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import {
   ViewsOpenArguments,
@@ -17,8 +21,26 @@ interface ISendEphemeralMessageParams extends ISendMessageParams {
   userId: string;
 }
 
+// views.open has to reach Slack while its trigger_id lives (3 seconds): one
+// try, and a rate limit fails it at once instead of being waited out.
+export const INTERACTIVE_CALL_OPTIONS: WebClientOptions = {
+  retryConfig: { retries: 0 },
+  rejectRateLimitedCalls: true,
+  timeout: 2_500,
+};
+
+// The other calls mostly run after Slack got its answer: a few quick
+// retries instead of the library's ten over about half an hour.
+export const CALL_OPTIONS: WebClientOptions = {
+  retryConfig: { retries: 3, factor: 2, minTimeout: 500, maxTimeout: 4_000 },
+  timeout: 10_000,
+};
+
 @Injectable()
 export default class SlackApiClient {
+  // One client per workspace token and kind of call, reused across calls.
+  private readonly clients = new Map<string, WebClient>();
+
   public async postEphemeral({
     channel,
     text,
@@ -85,7 +107,7 @@ export default class SlackApiClient {
   }
 
   public async openView(viewOpenArgs: ViewsOpenArguments, accessToken: string) {
-    const client = this.getClient(accessToken);
+    const client = this.getClient(accessToken, { interactive: true });
 
     const result = await client.views.open(viewOpenArgs);
 
@@ -139,7 +161,18 @@ export default class SlackApiClient {
     return result as ResponseData & WebAPICallResult;
   }
 
-  private getClient(token?: string) {
-    return new WebClient(token);
+  private getClient(token?: string, { interactive = false } = {}) {
+    const key = `${interactive ? 'interactive' : 'other'}:${token ?? ''}`;
+    let client = this.clients.get(key);
+
+    if (!client) {
+      client = new WebClient(
+        token,
+        interactive ? INTERACTIVE_CALL_OPTIONS : CALL_OPTIONS,
+      );
+      this.clients.set(key, client);
+    }
+
+    return client;
   }
 }
