@@ -9,6 +9,7 @@ import {
 } from '@modules/slack/common/services/tab-navigation.service';
 import { FallbackTabView } from '@modules/slack/common/views/fallback-tab.view';
 import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-tab.view';
+import { trackInBackground } from '@common/utils/run-in-background';
 
 export type IOpenModalBaseParams<PageMetadata = undefined> = {
   user: IUserViewModel;
@@ -61,7 +62,16 @@ export default abstract class BaseTabService<
 
   // Callers often don't await publish (tab navigation, after a modal submit),
   // so it must not reject: an unhandled rejection would terminate the process.
-  public publish = async (params: PublishParams) => {
+  public publish = (params: PublishParams): Promise<void> => {
+    const publishing = this.publishTab(params);
+
+    // Not every caller awaits it; either way it counts as background work.
+    trackInBackground(publishing);
+
+    return publishing;
+  };
+
+  private async publishTab(params: PublishParams) {
     try {
       await this.slackCommunicationService.publishView(
         await this.getSafeTabView(params),
@@ -75,7 +85,7 @@ export default abstract class BaseTabService<
         stack,
       );
     }
-  };
+  }
 
   public async openModal<ModalName extends keyof ModalViewResolversMap>(
     triggerId: string,
