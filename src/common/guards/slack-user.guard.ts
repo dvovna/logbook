@@ -8,6 +8,11 @@ import {
 import { Request } from 'express';
 import { UsersService } from '@modules/users/services/users.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
+import {
+  getRequestWorkspaceSlackId,
+  ISlackRequestWorkspace,
+} from '@common/utils/slack-request.utils';
 
 interface ISlackRequest extends Request {
   user: IUserViewModel;
@@ -17,7 +22,10 @@ interface ISlackRequest extends Request {
 export class SlackUserGuard implements CanActivate {
   private readonly logger = new Logger(SlackUserGuard.name);
 
-  public constructor(private readonly usersService: UsersService) {}
+  public constructor(
+    private readonly usersService: UsersService,
+    private readonly slackTeamsService: SlackTeamsService,
+  ) {}
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<ISlackRequest>();
@@ -34,7 +42,7 @@ export class SlackUserGuard implements CanActivate {
       return true;
     }
 
-    const user = await this.usersService.findBySlackId(slackUserId);
+    const user = await this.findWorkspaceUser(slackUserId, body);
 
     if (!user) {
       this.logger.log('SlackUserGuard: User not found for slack_id', {
@@ -47,5 +55,23 @@ export class SlackUserGuard implements CanActivate {
     req.user = user;
 
     return true;
+  }
+
+  // The same Slack user ID can exist in several workspaces, so the user is
+  // looked up in the workspace the request comes from.
+  private async findWorkspaceUser(
+    slackUserId: string,
+    body: ISlackRequestWorkspace,
+  ): Promise<IUserViewModel | null> {
+    const workspaceSlackId = getRequestWorkspaceSlackId(body);
+    const workspace = workspaceSlackId
+      ? await this.slackTeamsService.findOne({ slackId: workspaceSlackId })
+      : null;
+
+    if (!workspace) {
+      return null;
+    }
+
+    return this.usersService.findBySlackId(slackUserId, workspace.id);
   }
 }

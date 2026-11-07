@@ -179,28 +179,25 @@ export default class SlackEventsService {
       return;
     }
 
-    const existingUser = await this.usersService.findBySlackId(event.user.id);
-    const slackTeam = await this.slackTeamService.findOneWithValidation({
-      slackId: event.user.team_id,
-    });
-
+    // `user` is the changed user as the guard found them in the workspace the
+    // event comes from.
     this.logger.log('Handling user change', {
       slackId: event.user.id,
-      teamId: user?.team_id,
+      teamId: user.team_id,
       email: event.user.profile.email,
       name: event.user.real_name,
       isActive: !event.user.deleted,
-      slackTeamId: slackTeam.slack_id,
+      slackTeamId: user.slack_team_id,
     });
 
     await this.usersService.upsert({
       slackId: event.user.id,
-      teamId: existingUser?.team_id || null,
+      teamId: user.team_id || null,
       role: user.role,
       email: event.user.profile.email!,
       name: event.user.real_name || user.name,
       isActive: !event.user.deleted,
-      slackTeamId: slackTeam?.id,
+      slackTeamId: user.slack_team_id,
     });
   }
 

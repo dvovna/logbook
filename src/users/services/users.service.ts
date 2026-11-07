@@ -98,7 +98,7 @@ export class UsersService implements IUsersService {
         contract_start_date: contractStartDate?.toISOString(),
         updated_at: new Date().toISOString(),
       },
-      ['slack_id'],
+      ['slack_team_id', 'slack_id'],
     );
   }
 
@@ -189,9 +189,12 @@ export class UsersService implements IUsersService {
     return user;
   }
 
-  public async findBySlackId(slackId: string) {
+  // A Slack user ID is unique only within a workspace: on Enterprise Grid the
+  // same person has the same ID in every workspace of the organization.
+  public async findBySlackId(slackId: string, slackTeamId: string) {
     return await this.userRepository.findOne({
       slack_id: slackId,
+      slack_team_id: slackTeamId,
     });
   }
 

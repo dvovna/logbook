@@ -153,8 +153,6 @@ describe('SlackEventsService', () => {
         slack_id: 'U_NEW',
         created_at: '2026-01-01T00:00:00Z',
       };
-      usersService.findBySlackId.mockResolvedValue(existingUser);
-
       const event: IUserChangeEvent = {
         type: SlackEventType.UserChange,
         user: { ...slackUser, deleted: true },
