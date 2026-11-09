@@ -20,14 +20,13 @@ describe('TeamSetupWorkflowService', () => {
 
     const slackTeamsService = {
       findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockResolvedValue({ id: SLACK_TEAM_ID }),
-      delete: jest.fn(),
+      createWorkspace: jest.fn().mockResolvedValue({ id: SLACK_TEAM_ID }),
     };
     const usersService = {
       create: jest.fn().mockResolvedValue({ slack_id: 'U_ADMIN' }),
     };
     const slackUsersService = {
-      getUser: jest.fn().mockResolvedValue({
+      getUserWithToken: jest.fn().mockResolvedValue({
         user: { profile: { email: 'admin@example.com', real_name: 'Admin' } },
       }),
     };
@@ -60,7 +59,7 @@ describe('TeamSetupWorkflowService', () => {
     service.execute({
       slackTeamId: 'T_ACME',
       slackTeamName: 'Acme',
-      teamSlackToken: 'xoxb-test',
+      tokens: { token: 'xoxb-test' },
       slackUserId: 'U_ADMIN',
     });
 

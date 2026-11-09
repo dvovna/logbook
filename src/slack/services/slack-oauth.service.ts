@@ -14,6 +14,10 @@ export const SLACK_BOT_SCOPES = [
 
 type IOauthCompleteResponseData = {
   access_token: string;
+  // With token rotation on: the bot token expires after `expires_in`
+  // seconds and the refresh token gets the next one.
+  refresh_token?: string;
+  expires_in?: number;
   team: {
     id: string;
     name: string;

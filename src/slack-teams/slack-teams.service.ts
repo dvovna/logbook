@@ -8,10 +8,19 @@ import { SlackTeamsRepository } from '@modules/slack-teams/slack-teams.repositor
 import { SupabaseFilter } from '@common/repositories/base.repository';
 import { TokenCipherService } from '@modules/slack-teams/token-cipher.service';
 
-interface ICreateTeamParams {
+// A bot token as Slack issues it. A rotating one expires and comes with a
+// refresh token; one from before rotation has neither.
+export interface IBotTokens {
+  token: string;
+  refreshToken?: string | null;
+  expiresAt?: Date | null;
+}
+
+interface ICreateWorkspaceParams {
+  slackId: string;
   name: string;
-  slack_id: string;
-  slack_token: string;
+  tokens: IBotTokens;
+  admin: { slackId: string; email: string; name: string };
 }
 
 interface IFindParams {
@@ -46,49 +55,100 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     }
   }
 
-  public async create({ name, slack_id, slack_token }: ICreateTeamParams) {
-    return await this.slackTeamsRepository.create({
-      slack_id,
+  // A new install: the workspace and its installing admin, in one
+  // transaction.
+  public createWorkspace({
+    slackId,
+    name,
+    tokens,
+    admin,
+  }: ICreateWorkspaceParams) {
+    return this.slackTeamsRepository.createWorkspace({
+      slackId,
       name,
-      slack_token: this.tokenCipher.encrypt(slack_token),
-      created_at: new Date().toISOString(),
+      tokens: this.encrypt(tokens),
+      admin,
     });
   }
 
   // A reinstall: Slack gives the workspace a new token, and its name may have
-  // changed.
+  // changed. A workspace that was uninstalled is back, with its data.
   public async updateInstall(
     id: string,
-    {
-      name,
-      slackToken,
-    }: {
-      name: string;
-      slackToken: string;
-    },
+    { name, tokens }: { name: string; tokens: IBotTokens },
   ) {
-    await this.slackTeamsRepository.update({ id }, { name });
-    await this.slackTeamsRepository.saveToken(
-      id,
-      this.tokenCipher.encrypt(slackToken),
+    await this.slackTeamsRepository.update(
+      { id },
+      { name, uninstalled_at: null },
     );
+    await this.slackTeamsRepository.saveTokens(id, this.encrypt(tokens));
+  }
+
+  // The token goes; the data waits for a reinstall until
+  // deleteUninstalledBefore takes it.
+  public async markUninstalled(id: string) {
+    await this.slackTeamsRepository.update(
+      { id },
+      { uninstalled_at: new Date().toISOString() },
+    );
+    await this.slackTeamsRepository.saveTokens(id, {
+      slack_token: null,
+      slack_refresh_token: null,
+      slack_token_expires_at: null,
+    });
+  }
+
+  // Deletes the workspaces uninstalled before `cutoff`, with all their data
+  // (every table cascades from slack_teams). Returns how many.
+  public deleteUninstalledBefore(cutoff: Date): Promise<number> {
+    return this.slackTeamsRepository.deleteMany({
+      uninstalled_at: { operator: 'lt', value: cutoff.toISOString() },
+    });
   }
 
   public async findAccessToken(id: string): Promise<string | null> {
-    const stored = await this.slackTeamsRepository.findStoredToken(id);
+    return (await this.findTokens(id))?.token ?? null;
+  }
 
-    if (!stored) {
+  // The workspace's bot token, decrypted, with its refresh token and expiry
+  // when it rotates. Null for an unknown or uninstalled workspace.
+  public async findTokens(id: string): Promise<IBotTokens | null> {
+    const stored = await this.slackTeamsRepository.findStoredTokens(id);
+
+    if (!stored?.slack_token) {
       return null;
     }
 
-    if (!this.tokenCipher.isEncrypted(stored)) {
+    if (!this.tokenCipher.isEncrypted(stored.slack_token)) {
       await this.slackTeamsRepository.saveToken(
         id,
-        this.tokenCipher.encrypt(stored),
+        this.tokenCipher.encrypt(stored.slack_token),
       );
     }
 
-    return this.tokenCipher.decrypt(stored);
+    return {
+      token: this.tokenCipher.decrypt(stored.slack_token),
+      refreshToken: stored.slack_refresh_token
+        ? this.tokenCipher.decrypt(stored.slack_refresh_token)
+        : null,
+      expiresAt: stored.slack_token_expires_at
+        ? new Date(stored.slack_token_expires_at)
+        : null,
+    };
+  }
+
+  public async saveTokens(id: string, tokens: IBotTokens) {
+    await this.slackTeamsRepository.saveTokens(id, this.encrypt(tokens));
+  }
+
+  private encrypt({ token, refreshToken, expiresAt }: IBotTokens) {
+    return {
+      slack_token: this.tokenCipher.encrypt(token),
+      slack_refresh_token: refreshToken
+        ? this.tokenCipher.encrypt(refreshToken)
+        : null,
+      slack_token_expires_at: expiresAt ? expiresAt.toISOString() : null,
+    };
   }
 
   public async findOne(findParams: IFindParams) {

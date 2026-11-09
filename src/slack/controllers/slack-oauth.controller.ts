@@ -98,7 +98,13 @@ export default class SlackOauthController {
       await this.teamSetupWorkflowService.execute({
         slackTeamId: data.team.id,
         slackTeamName: data.team.name,
-        teamSlackToken: data.access_token,
+        tokens: {
+          token: data.access_token,
+          refreshToken: data.refresh_token ?? null,
+          expiresAt: data.expires_in
+            ? new Date(Date.now() + data.expires_in * 1000)
+            : null,
+        },
         slackUserId: data.authed_user.id,
       });
 

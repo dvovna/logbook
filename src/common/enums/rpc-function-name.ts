@@ -7,4 +7,5 @@ export enum RpcFunctionName {
   AppliedMigrations = 'applied_migrations',
   ReplaceUserVacations = 'replace_user_vacations',
   ReplaceCountryHolidays = 'replace_country_holidays',
+  CreateWorkspace = 'create_workspace',
 }

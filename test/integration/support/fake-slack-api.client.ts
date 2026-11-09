@@ -48,6 +48,11 @@ export interface IFakeOauthGrant {
   teamName: string;
   botToken: string;
   installerId: string;
+  // Token rotation: the bot token expires after `expiresIn` seconds, and
+  // the refresh token gets the next pair (oauth.v2.access with
+  // grant_type=refresh_token).
+  refreshToken?: string;
+  expiresIn?: number;
 }
 
 type PublicMethods<T> = Pick<T, keyof T>;
@@ -107,7 +112,11 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     return this.calls.length;
   }
 
-  public callsWith(token: string, method?: string, { since = 0 }: ISince = {}) {
+  public callsWith(
+    token: string | undefined,
+    method?: string,
+    { since = 0 }: ISince = {},
+  ) {
     return this.calls
       .slice(since)
       .filter(
@@ -293,6 +302,10 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   private oauthAccess(params: Record<string, unknown>) {
+    if (params.grant_type === 'refresh_token') {
+      return this.refreshToken(params.refresh_token as string);
+    }
+
     const grant = this.oauthGrants.get(params.code as string);
 
     if (!grant) {
@@ -302,6 +315,9 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     return {
       ok: true,
       access_token: grant.botToken,
+      ...(grant.refreshToken
+        ? { refresh_token: grant.refreshToken, expires_in: grant.expiresIn }
+        : {}),
       team: { id: grant.teamId, name: grant.teamName },
       authed_user: {
         id: grant.installerId,
@@ -309,6 +325,31 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
         scope: '',
         token_type: 'user',
       },
+    };
+  }
+
+  // A new pair for a rotating token; the grant follows it, so the workspace
+  // is still known by its new token.
+  private refreshToken(refreshToken: string) {
+    const grant = [...this.oauthGrants.values()].find(
+      (candidate) => candidate.refreshToken === refreshToken,
+    );
+
+    if (!grant) {
+      throw new Error('invalid_refresh_token');
+    }
+
+    grant.botToken = `${grant.botToken}-r`;
+    grant.refreshToken = `${refreshToken}-r`;
+
+    return {
+      ok: true,
+      token_type: 'bot',
+      access_token: grant.botToken,
+      refresh_token: grant.refreshToken,
+      // A refreshed token lives 12 hours, as on Slack.
+      expires_in: 43200,
+      team: { id: grant.teamId, name: grant.teamName },
     };
   }
 

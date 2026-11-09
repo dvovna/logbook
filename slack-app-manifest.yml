@@ -58,4 +58,5 @@ settings:
     message_menu_options_url: https://APP_DOMAIN/api/slack/options
   org_deploy_enabled: false
   socket_mode_enabled: false
-  token_rotation_enabled: false
+  # Bot tokens expire after 12 hours; the app refreshes them.
+  token_rotation_enabled: true

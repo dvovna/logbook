@@ -41,7 +41,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 
 - A NestJS app that receives Slack events, slash commands and interactions over HTTPS. It verifies Slack's signature on every request.
 - Data is stored in [Supabase](https://supabase.com) (Postgres plus its REST API). The schema is in `supabase/migrations`.
-- Every Slack workspace that installs the app through OAuth gets its own row in `slack_teams`. All other data is scoped to it, and uninstalling the app deletes it.
+- Every Slack workspace that installs the app through OAuth gets its own row in `slack_teams`. All other data is scoped to it. Uninstalling the app removes the bot token at once and deletes the data after `UNINSTALLED_DATA_RETENTION_DAYS` (30 by default); installing again before then restores it.
 
 [CLAUDE.md](CLAUDE.md) describes the architecture in more detail.
 
@@ -69,7 +69,7 @@ Take the session pooler connection string from the project's "Connect" dialog. T
    ```bash
    sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml
    ```
-2. Create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest").
+2. Create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest"). The manifest turns on token rotation: bot tokens expire after 12 hours and the app refreshes them, so a token that leaks is soon useless. Slack can't turn rotation off again for an app.
 3. To install it into other workspaces too, turn on public distribution in "Manage Distribution". Share `https://<your-domain>/api/slack/install` as the install link; see below. Without public distribution only your own workspace can install it, which is what a single company wants: with it, any Slack workspace that has the link can install the app on your server, unless you list the allowed ones in `ALLOWED_SLACK_TEAM_IDS`.
 
 ### 3. Configuration
@@ -115,11 +115,13 @@ Open `https://<your-domain>/api/slack/install` in the browser and approve the ap
 
 Don't use "Install to Workspace" in the app settings, and don't use the sharable URL Slack generates. Both skip the `state`, so the bot refuses them and the workspace is never created. When you distribute the app, give out the `/api/slack/install` link.
 
-The person who installs the app becomes its admin. The other members are imported a few seconds later. Installing it again later (for example after an update adds scopes) only replaces the bot token: data and roles stay as they are. Uninstalling the app deletes all of the workspace's data at once. Then, in the App Home:
+The person who installs the app becomes its admin. The other members are imported a few seconds later. Installing it again later (for example after an update adds scopes) only replaces the bot token: data and roles stay as they are. Uninstalling the app removes its bot token at once and keeps the workspace's data for `UNINSTALLED_DATA_RETENTION_DAYS` days (30 by default; 0 deletes it at once): installing again within that time restores everything, with the members who joined meanwhile. After it, the data is deleted for good. Then, in the App Home:
 - set up teams and their approvers under People;
 - set up vacation policies and holidays under Vacations.
 
 ### Updating
+
+An app created before token rotation keeps working with its tokens, which never expire. To switch to rotating tokens, turn on "Advanced token security via token rotation" under "OAuth & Permissions" and install the app again in each workspace: the new install gets a rotating token.
 
 Pull the new version, run `yarn install`, apply the new migrations with `yarn supabase db push --remote "<the same connection string>"`, and redeploy. Without `--remote` the CLI pushes to the local database. Apply the migrations before the new version starts: it checks the database at startup and refuses to start, naming the missing migrations, until they are applied.
 

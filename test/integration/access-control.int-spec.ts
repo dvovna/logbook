@@ -336,6 +336,7 @@ describe('Access control', () => {
       'id',
       'name',
       'slack_id',
+      'uninstalled_at',
     ]);
     expect(
       await t.app.get(SlackTeamsService).findAccessToken(workspace.id),

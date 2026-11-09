@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
 import { WebAPICallResult } from '@slack/web-api';
 import delay from '@common/utils/delay';
 
@@ -34,7 +35,18 @@ export default class SlackUsersService {
 
   public constructor(
     private readonly slackCommunicationService: SlackCommunicationService,
+    private readonly slackApiClient: SlackApiClient,
   ) {}
+
+  // With a token the app hasn't stored yet: the installer, before the
+  // workspace exists.
+  public async getUserWithToken(userId: string, accessToken: string) {
+    return this.slackApiClient.makeCall<IUserProfileResponseData>(
+      'users.info',
+      { user: userId },
+      accessToken,
+    );
+  }
 
   public async getUser(userId: string, teamId: string) {
     return this.slackCommunicationService.makeCall<IUserProfileResponseData>(

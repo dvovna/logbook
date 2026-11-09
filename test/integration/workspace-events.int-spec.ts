@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+import { WorkspaceRetentionService } from '@modules/slack-teams/workspace-retention.service';
 import * as request from 'supertest';
 import UserRole from '@common/enums/user-role.enum';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -249,23 +251,75 @@ describe('Slack events', () => {
     expect(t.slackApi.callsWith(workspace.token)).toEqual([]);
   });
 
-  it('deletes the workspace and all its data when the app is uninstalled', async () => {
-    const team = await workspace.addTeam();
-    await workspace.addUser({ team_id: team.id });
-
+  const uninstall = async () => {
     await t.slack
       .event(workspace, { type: 'app_uninstalled' })
       .expect(acknowledged);
-
     await t.idle();
-    const { data } = await t.db
+  };
+
+  const workspaceRow = async () =>
+    (
+      await t.db
+        .from('slack_teams')
+        .select('slack_token, slack_refresh_token, uninstalled_at')
+        .eq('id', workspace.id)
+        .maybeSingle()
+    ).data;
+
+  it('keeps the data of an uninstalled workspace, without its token', async () => {
+    const team = await workspace.addTeam();
+    await workspace.addUser({ team_id: team.id });
+
+    await uninstall();
+
+    expect(await workspaceRow()).toEqual({
+      slack_token: null,
+      slack_refresh_token: null,
+      uninstalled_at: expect.any(String),
+    });
+    expect(await workspace.rows('users')).toHaveLength(1);
+    expect(await workspace.rows('teams')).toHaveLength(1);
+  });
+
+  // The grace period is 30 days by default. Only this workspace was
+  // uninstalled that long ago: the others in the database just now.
+  it('deletes an uninstalled workspace and its data after the grace period', async () => {
+    await workspace.addTeam();
+    await uninstall();
+    const daysAgo = (days: number) =>
+      new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const retention = t.app.get(WorkspaceRetentionService);
+
+    await t.db
       .from('slack_teams')
-      .select('id')
+      .update({ uninstalled_at: daysAgo(29) })
       .eq('id', workspace.id);
+    await retention.deleteExpired();
+    expect(await workspace.rows('teams')).toHaveLength(1);
 
-    expect(data).toEqual([]);
+    await t.db
+      .from('slack_teams')
+      .update({ uninstalled_at: daysAgo(31) })
+      .eq('id', workspace.id);
+    await retention.deleteExpired();
+    expect(await workspaceRow()).toBeNull();
+    expect(await workspace.rows('teams')).toEqual([]);
+  });
 
-    expect(await workspace.rows('users')).toEqual([]);
+  it('deletes everything at once with UNINSTALLED_DATA_RETENTION_DAYS=0', async () => {
+    await workspace.addTeam();
+    const config = t.app.get(ConfigService);
+    const getOrThrow = config.getOrThrow.bind(config);
+    jest
+      .spyOn(config, 'getOrThrow')
+      .mockImplementation((key: string) =>
+        key === 'UNINSTALLED_DATA_RETENTION_DAYS' ? 0 : getOrThrow(key),
+      );
+
+    await uninstall();
+
+    expect(await workspaceRow()).toBeNull();
     expect(await workspace.rows('teams')).toEqual([]);
   });
 });

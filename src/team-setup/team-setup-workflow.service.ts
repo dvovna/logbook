@@ -1,9 +1,13 @@
+import ISlackTeamViewModel from '@modules/slack-teams/types/slack-team.interface';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
 import UserRole from '@common/enums/user-role.enum';
 import delay from '@common/utils/delay';
 import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
-import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
+import {
+  IBotTokens,
+  SlackTeamsService,
+} from '@modules/slack-teams/slack-teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import SlackUsersService from '@modules/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from '@modules/team-setup/team-users-sync.service';
@@ -11,7 +15,7 @@ import { TeamUsersSyncService } from '@modules/team-setup/team-users-sync.servic
 interface ITeamSetupWorkflowParams {
   slackTeamId: string;
   slackTeamName: string;
-  teamSlackToken: string;
+  tokens: IBotTokens;
   slackUserId: string;
 }
 
@@ -50,73 +54,76 @@ export class TeamSetupWorkflowService implements OnModuleInit {
     slackTeamId,
     slackTeamName,
     slackUserId,
-    teamSlackToken,
+    tokens,
   }: ITeamSetupWorkflowParams): Promise<void> {
     const installed = await this.slackTeamsService.findOne({
       slackId: slackTeamId,
     });
 
     if (installed) {
-      return this.reinstall(installed.id, {
+      return this.reinstall(installed, {
         slackTeamName,
         slackUserId,
-        teamSlackToken,
+        tokens,
       });
     }
 
-    const slackTeam = await this.slackTeamsService.create({
-      slack_id: slackTeamId,
-      name: slackTeamName,
-      slack_token: teamSlackToken,
-    });
-
-    const userProfile = await this.slackUsersService.getUser(
+    const { user: installer } = await this.slackUsersService.getUserWithToken(
       slackUserId,
-      slackTeam.id,
+      tokens.token,
     );
 
-    if (!userProfile.user.profile.email) {
+    if (!installer.profile.email) {
       throw new Error(
         'Email is not available for the authed user. Check scopes and workspace settings.',
       );
     }
 
-    try {
-      const adminUser = await this.usersService.create({
+    // The workspace and its first admin, in one transaction.
+    const workspace = await this.slackTeamsService.createWorkspace({
+      slackId: slackTeamId,
+      name: slackTeamName,
+      tokens,
+      admin: {
         slackId: slackUserId,
-        teamId: null,
-        slackTeamId: slackTeam.id,
-        email: userProfile.user.profile.email,
-        name: userProfile.user.profile.real_name || 'Admin User',
-        role: UserRole.Admin,
-      });
+        email: installer.profile.email,
+        name: installer.profile.real_name || 'Admin User',
+      },
+    });
 
-      void this.jobs.run<ISyncUsersJob>(SYNC_USERS_JOB, {
-        slackTeamId: slackTeam.id,
-        userSlackIdsToIgnore: [adminUser.slack_id],
-      });
-    } catch (error) {
-      await this.slackTeamsService.delete({ id: slackTeam.id });
-      throw error;
-    }
+    void this.jobs.run<ISyncUsersJob>(SYNC_USERS_JOB, {
+      slackTeamId: workspace.id,
+      userSlackIdsToIgnore: [slackUserId],
+    });
   }
 
   // Installing again (e.g. for new scopes) keeps the workspace's data and
-  // roles: it only stores the new token. Whoever reinstalls doesn't become an
-  // admin; one who isn't a user yet is added as a member.
+  // roles: it only stores the new token. Within the grace period after an
+  // uninstall it restores the workspace, and the members who joined or left
+  // meanwhile are synced. Whoever reinstalls doesn't become an admin; one who
+  // isn't a user yet is added as a member.
   private async reinstall(
-    id: string,
+    workspace: ISlackTeamViewModel,
     {
       slackTeamName,
       slackUserId,
-      teamSlackToken,
+      tokens,
     }: Omit<ITeamSetupWorkflowParams, 'slackTeamId'>,
   ) {
+    const { id } = workspace;
+
     await this.slackTeamsService.updateInstall(id, {
       name: slackTeamName,
-      slackToken: teamSlackToken,
+      tokens,
     });
     await this.accessTokenService.forget(id);
+
+    if (workspace.uninstalled_at) {
+      void this.jobs.run<ISyncUsersJob>(SYNC_USERS_JOB, {
+        slackTeamId: id,
+        userSlackIdsToIgnore: [slackUserId],
+      });
+    }
 
     if (await this.usersService.findBySlackId(slackUserId, id)) {
       return;

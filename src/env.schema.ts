@@ -48,6 +48,10 @@ export const envSchema = z.object({
       message: 'must be 32 bytes, base64-encoded (openssl rand -base64 32)',
     }),
 
+  // How long an uninstalled workspace's data is kept, so that installing
+  // again restores it; 0 deletes it at once.
+  UNINSTALLED_DATA_RETENTION_DAYS: z.coerce.number().int().min(0).default(30),
+
   // The range of years the year filters offer.
   MIN_YEAR: z.coerce.number().int().min(1900).default(2020),
   MAX_YEAR: z.coerce.number().int().max(2100).default(2035),

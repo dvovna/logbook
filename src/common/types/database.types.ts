@@ -572,7 +572,10 @@ export type Database = {
           id: string;
           name: string;
           slack_id: string;
-          slack_token: string;
+          slack_refresh_token: string | null;
+          slack_token: string | null;
+          slack_token_expires_at: string | null;
+          uninstalled_at: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -580,14 +583,20 @@ export type Database = {
           id?: string;
           name: string;
           slack_id: string;
-          slack_token: string;
+          slack_refresh_token?: string | null;
+          slack_token?: string | null;
+          slack_token_expires_at?: string | null;
+          uninstalled_at?: string | null;
         };
         Update: {
           created_at?: string;
           id?: string;
           name?: string;
           slack_id?: string;
-          slack_token?: string;
+          slack_refresh_token?: string | null;
+          slack_token?: string | null;
+          slack_token_expires_at?: string | null;
+          uninstalled_at?: string | null;
         };
         Relationships: [];
       };
@@ -1046,6 +1055,34 @@ export type Database = {
           p_user_ids: string[];
         };
         Returns: undefined;
+      };
+      create_workspace: {
+        Args: {
+          p_admin_email: string;
+          p_admin_name: string;
+          p_admin_slack_id: string;
+          p_name: string;
+          p_slack_id: string;
+          p_slack_refresh_token: string;
+          p_slack_token: string;
+          p_slack_token_expires_at: string;
+        };
+        Returns: {
+          created_at: string;
+          id: string;
+          name: string;
+          slack_id: string;
+          slack_refresh_token: string | null;
+          slack_token: string | null;
+          slack_token_expires_at: string | null;
+          uninstalled_at: string | null;
+        }[];
+        SetofOptions: {
+          from: '*';
+          to: 'slack_teams';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
       };
       decide_workflow_steps: {
         Args: {

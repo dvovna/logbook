@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
 import * as request from 'supertest';
 import { ConfigService } from '@nestjs/config';
 import UserRole from '@common/enums/user-role.enum';
@@ -20,6 +22,15 @@ describe('Installing the app (OAuth redirect)', () => {
     await t.db.from('slack_teams').delete().in('slack_id', installedTeams);
     await t.close();
   });
+
+  const workspaceRow = async (teamId: string) =>
+    (
+      await t.db
+        .from('slack_teams')
+        .select('*')
+        .eq('slack_id', teamId)
+        .maybeSingle()
+    ).data;
 
   // /api/slack/install: where it sends the browser and the state cookie it sets.
   const startInstall = async () => {
@@ -253,9 +264,173 @@ describe('Installing the app (OAuth redirect)', () => {
       ]);
     });
 
+    it('restores an uninstalled workspace with its data and syncs its members', async () => {
+      const { teamId, installer, slackTeam } = await installOnce();
+      const workspace = { slackId: teamId };
+
+      await t.slack
+        .event(workspace, { type: 'app_uninstalled' })
+        .expect(acknowledged);
+      await t.idle();
+      expect(await workspaceRow(teamId)).toMatchObject({
+        slack_token: null,
+        uninstalled_at: expect.any(String),
+      });
+
+      // Joined while the app was away.
+      const newcomer = slackId('U');
+      t.slackApi.addUser({
+        id: newcomer,
+        teamId,
+        name: 'Nia Newcomer',
+        email: `nia-${teamId}@acme.test`,
+      });
+      t.slackApi.addOauthGrant(`back-${teamId}`, {
+        teamId,
+        teamName: 'Acme',
+        botToken: `xoxb-back-${teamId}`,
+        installerId: installer,
+      });
+      expect((await install(`back-${teamId}`)).status).toBe(302);
+      await t.idle();
+
+      expect(await workspaceRow(teamId)).toMatchObject({
+        id: slackTeam.id,
+        uninstalled_at: null,
+      });
+      const { data: users } = await t.db
+        .from('users')
+        .select('slack_id, role')
+        .eq('slack_team_id', slackTeam.id);
+      expect(users).toEqual(
+        expect.arrayContaining([
+          { slack_id: installer, role: UserRole.Admin },
+          { slack_id: newcomer, role: UserRole.Member },
+        ]),
+      );
+    });
+
     it('lets two workspaces with the same name install', async () => {
       await installOnce('Same Name');
       await installOnce('Same Name');
+    });
+  });
+
+  // The workspace and its first admin are one transaction.
+  it('creates nothing when Slack has no email for the installer', async () => {
+    const teamId = slackId('T');
+    const installer = slackId('U');
+    installedTeams.push(teamId);
+    t.slackApi.addOauthGrant(`no-email-${teamId}`, {
+      teamId,
+      teamName: 'Acme',
+      botToken: `xoxb-${teamId}`,
+      installerId: installer,
+    });
+    t.slackApi.addUser({ id: installer, teamId, name: 'Ivy', email: '' });
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+    expect((await install(`no-email-${teamId}`)).status).toBe(500);
+    expect(await workspaceRow(teamId)).toBeNull();
+  });
+
+  describe('with token rotation', () => {
+    // Installed with a rotating token that expires in `expiresIn` seconds.
+    const installRotating = async (expiresIn: number) => {
+      const teamId = slackId('T');
+      const installer = slackId('U');
+      installedTeams.push(teamId);
+      t.slackApi.addOauthGrant(`rotating-${teamId}`, {
+        teamId,
+        teamName: 'Acme',
+        botToken: `xoxe.xoxb-${teamId}`,
+        installerId: installer,
+        refreshToken: `xoxe-1-${teamId}`,
+        expiresIn,
+      });
+      t.slackApi.addUser({
+        id: installer,
+        teamId,
+        name: 'Ivy Installer',
+        email: `ivy-${teamId}@acme.test`,
+      });
+      expect((await install(`rotating-${teamId}`)).status).toBe(302);
+      await t.idle();
+
+      return { teamId, slackTeam: (await workspaceRow(teamId))! };
+    };
+
+    it('keeps the refresh token and the expiry, encrypted', async () => {
+      const { teamId, slackTeam } = await installRotating(43200);
+
+      expect(slackTeam.slack_refresh_token).toMatch(/^v1:/);
+      expect(slackTeam.slack_refresh_token).not.toContain(teamId);
+      expect(
+        new Date(slackTeam.slack_token_expires_at!).getTime() - Date.now(),
+      ).toBeGreaterThan(43000 * 1000);
+    });
+
+    it('refreshes a token about to expire, once for calls at the same time', async () => {
+      const { slackTeam } = await installRotating(43200);
+      const teams = t.app.get(SlackTeamsService);
+      const tokens = t.app.get(AccessTokenService);
+      const before = await teams.findTokens(slackTeam.id);
+      // A minute left: within the margin, so the next call refreshes.
+      await t.db
+        .from('slack_teams')
+        .update({
+          slack_token_expires_at: new Date(Date.now() + 60_000).toISOString(),
+        })
+        .eq('id', slackTeam.id);
+      await tokens.forget(slackTeam.id);
+      const since = t.slackApi.mark();
+
+      const got = await Promise.all([
+        tokens.getAccessToken(slackTeam.id),
+        tokens.getAccessToken(slackTeam.id),
+        tokens.getAccessToken(slackTeam.id),
+      ]);
+
+      const after = await teams.findTokens(slackTeam.id);
+      expect(after!.token).not.toBe(before!.token);
+      expect(after!.refreshToken).not.toBe(before!.refreshToken);
+      expect(got).toEqual([after!.token, after!.token, after!.token]);
+      expect(
+        t.slackApi
+          .callsWith(undefined, 'oauth.v2.access', { since })
+          .map(({ params }) => params.grant_type),
+      ).toEqual(['refresh_token']);
+      expect(after!.expiresAt!.getTime() - Date.now()).toBeGreaterThan(
+        43000 * 1000,
+      );
+    });
+
+    it('keeps a token from before rotation, which never expires', async () => {
+      const teamId = slackId('T');
+      const installer = slackId('U');
+      installedTeams.push(teamId);
+      t.slackApi.addOauthGrant(`plain-${teamId}`, {
+        teamId,
+        teamName: 'Acme',
+        botToken: `xoxb-${teamId}`,
+        installerId: installer,
+      });
+      t.slackApi.addUser({
+        id: installer,
+        teamId,
+        name: 'Ivy',
+        email: `i-${teamId}@a.test`,
+      });
+      await install(`plain-${teamId}`);
+      const slackTeam = (await workspaceRow(teamId))!;
+
+      expect(slackTeam).toMatchObject({
+        slack_refresh_token: null,
+        slack_token_expires_at: null,
+      });
+      expect(
+        await t.app.get(AccessTokenService).getAccessToken(slackTeam.id),
+      ).toBe(`xoxb-${teamId}`);
     });
   });
 
