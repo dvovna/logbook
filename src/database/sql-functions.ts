@@ -7,7 +7,7 @@ type Functions = Database['public']['Functions'];
 export type SqlFunctionName = keyof Functions & string;
 
 // Calls one of the app's SQL functions (supabase/migrations) over the direct
-// connection and returns its rows, typed as `yarn db:types` generated them.
+// connection and returns its rows, typed as `pnpm db:types` generated them.
 // Arguments go by name; an undefined one takes the function's default, as it
 // did through PostgREST. A jsonb argument goes in as JSON text
 // (JSON.stringify): node-postgres would send an array as a Postgres array.

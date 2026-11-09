@@ -9,7 +9,7 @@ interface ISupabaseTable {
   Update: object;
 }
 
-// One table in Kysely's terms, taken from the types `yarn db:types` generates:
+// One table in Kysely's terms, taken from the types `pnpm db:types` generates:
 // a column reads as its Row type, is written as its Insert and Update types,
 // and is optional on insert where Supabase made it optional (it has a default
 // or takes null). So both data layers read one generated file, which CI checks

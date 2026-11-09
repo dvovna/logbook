@@ -14,8 +14,8 @@ can be saved in the same transaction as the change it is about.
 
 The prototype on this branch shows it working: `SqlRepository` has the public
 interface of `BaseRepository`, `clients` runs on it end to end, and a job is
-enqueued in a transaction. `yarn test` (197), `yarn test:int` (289),
-`npx tsc --noEmit`, `yarn lint` and `yarn build` pass.
+enqueued in a transaction. `pnpm test` (197), `pnpm test:int` (289),
+`npx tsc --noEmit`, `pnpm lint` and `pnpm build` pass.
 
 Recommendation: do stage 1 below now, then move `time_entries`, `projects` and
 `clients` before billing snapshots start. Billing can then be written on the
@@ -27,7 +27,23 @@ direct connection from its first line.
 - **Stage 1 (foundation): done in code** on the same branch. Left for whoever
   deploys: set `DATABASE_URL` in every environment, and check the project's
   Pool Size (see "Connections on Supabase").
-- **Stage 2: not started.**
+- **Stage 2 (repositories): done** on the same branch, one commit per group.
+  All 14 repositories extend `SqlRepository`, and the four query classes call
+  their functions over the pool. What came up:
+  - `UsersService.upsert` relied on PostgREST dropping `undefined` keys ("an
+    upsert keeps the existing date"). `SqlRepository.upsert` now leaves them
+    out of `do update set` too; without that, a Slack profile change would
+    have cleared contract start dates.
+  - `UsersRepository.getUsersCountByTeam` read every active user through
+    PostgREST, so it miscounted past 1000 users. It is now one `group by`.
+  - The SQL functions are called as they are, through `callFunction`
+    (`src/database/sql-functions.ts`): typed by the generated `Functions`,
+    named arguments, `JSON.stringify` for jsonb. Stage 3 rewrites the write
+    functions.
+  - Still on PostgREST: `/health`, `MigrationsCheckService` and
+    `BaseRepository` itself (kept for `repository.int-spec.ts`). They go in
+    stage 4.
+- **Stage 3: not started.**
 
 ## Why
 
@@ -70,7 +86,8 @@ gives:
 | `test/integration/direct-postgres.int-spec.ts` | Rows read through the pool equal PostgREST's for five tables, relations included. Rollback, commit and after-commit behaviour. The client limit under concurrent creates (this test fails without the lock). A job saved with a change: it runs after the commit, nothing is saved on a rollback, and it is retried when the first run fails. |
 | `src/common/repositories/sql.repository.spec.ts` | The SQL each method generates, compiled by a recording driver without a database. |
 
-The other 13 repositories still run on `BaseRepository` over PostgREST.
+When the prototype was written, the other 13 repositories still ran on
+`BaseRepository` over PostgREST; stage 2 has moved them since.
 
 ## Decisions
 
@@ -119,7 +136,7 @@ Revisit when the project moves to ESM.
 **Types.** The prototype derives Kysely's database type from the generated
 `database.types.ts`: a column reads as its `Row` type and is written as its
 `Insert` and `Update` types. One generated file serves both data layers, and
-CI's `yarn db:types` check covers both. The alternative is kysely-codegen,
+CI's `pnpm db:types` check covers both. The alternative is kysely-codegen,
 which generates from a live database. It reads more (enums from check
 constraints don't come through either way) but would need its own generated
 file and CI check. Keep deriving. Reconsider in stage 5 if self-hosting
@@ -262,7 +279,7 @@ code that called it is gone, so that a rollback of the app still finds it.
 
 ### 7. Effects on CI, tests and self-hosting
 
-- **CI type generation:** unchanged. The `yarn db:types` diff check covers the
+- **CI type generation:** unchanged. The `pnpm db:types` diff check covers the
   only generated file, and Kysely's types follow it. If kysely-codegen is ever
   adopted, it needs its own script and diff check.
 - **Integration tests:**
@@ -346,7 +363,7 @@ conditional grants, and a compose file with Postgres.
   unconverted repository in one `transaction()` gets false atomicity, and its
   PostgREST reads don't see the uncommitted writes. Move the repositories a
   flow needs together, and don't wrap a flow in a transaction until all of
-  them are on the pool.
+  them are on the pool. (Gone since stage 2: every repository is on the pool.)
 - **Async context.** Work started inside a transaction inherits it. Events
   wait for the commit (stage 1), and work that outlives the transaction uses
   the pool. But a promise started inside without awaiting it (a stray
