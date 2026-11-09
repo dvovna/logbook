@@ -48,7 +48,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 ## Self-hosting
 
 You need:
-- a clone of this repository with its dependencies (`yarn install`): the steps below run the Supabase CLI pinned in it;
+- the source of the release you run, for its database migrations: `git clone --branch v0.1.0 https://github.com/dvovna/logbook && cd logbook && yarn install` (the steps below run the Supabase CLI pinned in it);
 - a Supabase project. The free plan runs the bot, but it keeps no backups and Supabase pauses it after a week of little activity (see [Run](#4-run)). For a company's real data, take a paid plan or back the database up yourself, e.g. with `pg_dump` over the session pooler connection string;
 - a host that runs Docker or Node 26, reachable from Slack over HTTPS;
 - permission to create a Slack app in your workspace.
@@ -93,11 +93,19 @@ The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` li
 
 ### 4. Run
 
+The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.1.0`), its minor line (`0.1`) and `latest`:
+
 ```bash
-docker compose up -d --build
+docker run -d --name logbook --restart always --env-file .env -p 3000:10000 ghcr.io/dvovna/logbook:0.1
 ```
 
-Or without Docker:
+Or with the compose file, which runs the same image (`LOGBOOK_VERSION` picks the tag, `latest` by default):
+
+```bash
+docker compose up -d
+```
+
+`docker compose up -d --build` builds the image from your checkout instead. Or without Docker:
 
 ```bash
 yarn install
@@ -118,14 +126,15 @@ Open `https://<your-domain>/api/slack/install` in the browser and approve the ap
 Don't use "Install to Workspace" in the app settings, and don't use the sharable URL Slack generates. Both skip the `state`, so the bot refuses them and the workspace is never created. When you distribute the app, give out the `/api/slack/install` link.
 
 The person who installs the app becomes its admin. The other members are imported a few seconds later. Installing it again later (for example after an update adds scopes) only replaces the bot token: data and roles stay as they are. Uninstalling the app removes its bot token at once and keeps the workspace's data for `UNINSTALLED_DATA_RETENTION_DAYS` days (30 by default; 0 deletes it at once): installing again within that time restores everything, with the members who joined meanwhile. After it, the data is deleted for good. Then, in the App Home:
-- set up teams and their approvers under People;
-- set up vacation policies and holidays under Vacations.
+- create vacation policies and their holidays under Settings → Policies;
+- create teams and pick their approvers under Settings → Teams;
+- put people in teams under People.
 
 ### Updating
 
 An app created before token rotation keeps working with its tokens, which never expire. To switch to rotating tokens, turn on "Advanced token security via token rotation" under "OAuth & Permissions" and install the app again in each workspace: the new install gets a rotating token.
 
-Pull the new version, run `yarn install`, apply the new migrations with `yarn supabase db push --remote "<the same connection string>"`, and redeploy. Without `--remote` the CLI pushes to the local database. Apply the migrations before the new version starts: it checks the database at startup and refuses to start, naming the missing migrations, until they are applied.
+Read the version's section in [CHANGELOG.md](CHANGELOG.md) first: it says when an update needs a step of its own. Check out the new release's tag, run `yarn install`, apply the new migrations with `yarn supabase db push --remote "<the same connection string>"`. Without `--remote` the CLI pushes to the local database. Apply the migrations before the new version starts: it checks the database at startup and refuses to start, naming the missing migrations, until they are applied. Then run the new image (`docker compose pull && docker compose up -d`, with `LOGBOOK_VERSION` set to the new version if you pin one).
 
 ### Checking the database is closed
 

@@ -1,5 +1,7 @@
 services:
   logbook:
+    # The published image; `docker compose up --build` builds this checkout.
+    image: ghcr.io/dvovna/logbook:${LOGBOOK_VERSION:-latest}
     build: .
     container_name: logbook
     restart: always

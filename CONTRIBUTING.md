@@ -39,3 +39,11 @@ Remove tokens and personal data first. Security problems go through [SECURITY.md
 [CLAUDE.md](CLAUDE.md) explains the architecture and the patterns the code follows: Slack handler dispatch, App Home tabs, the approval workflow.
 
 By contributing, you agree that your contribution is licensed under the project's license (AGPL-3.0-or-later).
+
+## Releasing
+
+1. In [CHANGELOG.md](CHANGELOG.md), give the new version its section and date, saying what changed for people who self-host and any step an update needs.
+2. Set the same version in `package.json`, commit, and push to `development` once CI is green.
+3. Tag the commit and push the tag: `git tag v0.1.0 && git push origin v0.1.0`. The Release workflow builds the image for amd64 and arm64, pushes it to `ghcr.io/dvovna/logbook` and publishes the GitHub release with the changelog section.
+4. After the first release, make the package public once: the repository's Packages → logbook → Package settings → Change visibility.
+

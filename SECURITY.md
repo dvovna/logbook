@@ -15,7 +15,7 @@ You should get an answer within a week.
 
 ## Supported versions
 
-Security fixes go into the latest commit on `development`. There are no maintained release branches yet.
+Security fixes go into the next release, cut from `development`, and its image. Only the latest release gets them; there are no maintained release branches yet.
 
 ## Notes for people who self-host
 
