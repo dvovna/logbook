@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-// Only Supabase and Slack have to be configured; the limits have defaults.
+// Only Supabase, Postgres and Slack have to be configured; the limits have
+// defaults.
 export const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
 
@@ -8,11 +9,11 @@ export const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
   // A direct Postgres connection (Supabase: the session pooler on port 5432)
-  // for the job queue. Without it background jobs run once, without retries.
-  DATABASE_URL: z.preprocess(
-    (value) => (value === '' ? undefined : value),
-    z.url().optional(),
-  ),
+  // for the repositories that moved off PostgREST and for the job queue.
+  DATABASE_URL: z.url(),
+  // Connections the app's own pool may hold; pg-boss holds 2 more. Supabase's
+  // session pooler allows only its "Pool Size" (15 on small plans) at once.
+  DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(50).default(5),
 
   // Optional: only these Slack workspaces (T… IDs, comma-separated) may
   // install the app. Unset, any workspace that has the install link may.

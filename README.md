@@ -87,7 +87,8 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `PORT` | Port to listen on. The Docker image defaults to 10000. |
 | `ALLOWED_SLACK_TEAM_IDS` | Optional. Comma-separated Slack workspace IDs (`T…`) that may install the app on your server. Any other workspace gets a refusal, and its token is revoked. Unset, every workspace with the install link may install. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Optional. Sends unexpected errors to your Sentry project: the error and its stack, no request data or people's details. Empty sends nothing anywhere. |
-| `DATABASE_URL` | Optional. A direct Postgres connection for the job queue, which retries Slack messages and workflow steps that failed. On Supabase use the session pooler string from "Connect" (port 5432, not 6543). The queue creates its own `pgboss` schema there on the first start. Without it the app runs those once and logs failures. |
+| `DATABASE_URL` | Required. A direct Postgres connection, for the data the app reads without PostgREST (see `docs/direct-postgres-plan.md`) and for the job queue, which retries Slack messages and workflow steps that failed. On Supabase use the session pooler string from "Connect" (port 5432, not 6543). The queue creates its own `pgboss` schema there on the first start. |
+| `DATABASE_POOL_SIZE` | Optional, default 5. Connections the app's pool may hold; the job queue holds 2 more. Keep both under the Supabase project's "Pool Size". |
 
 The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` lists them.
 
@@ -175,7 +176,7 @@ In `.env`:
 - set `SUPABASE_URL` to `API_URL` from `pnpm supabase status -o env`;
 - set `SUPABASE_SERVICE_ROLE_KEY` to `SERVICE_ROLE_KEY` from the same output;
 - set `SLACK_TOKEN_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`;
-- optionally, to try the job queue, set `DATABASE_URL` to `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
+- set `DATABASE_URL` to `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
 Studio is at http://127.0.0.1:54323. `pnpm supabase stop` stops the stack and keeps the data.
 

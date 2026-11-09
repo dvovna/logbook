@@ -4,7 +4,8 @@ import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.er
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
+import { DatabaseService } from 'src/database/database.service';
 import { ClientsRepository } from '@modules/clients/repositories/clients.repository';
 import IClientViewModel from '@modules/clients/types/client.interface';
 import CatchDuplicatedRecord from '@common/decorators/catch-duplicated-record';
@@ -60,6 +61,7 @@ export default class ClientsService implements IClientsService {
   public constructor(
     private readonly clientsRepository: ClientsRepository,
     private readonly config: ConfigService,
+    private readonly database: DatabaseService,
   ) {}
 
   public async findMany(params: IFindParams) {
@@ -92,31 +94,38 @@ export default class ClientsService implements IClientsService {
     });
   }
 
+  // The count and the insert in one transaction, which waits for any other
+  // that creates a client in the same workspace: two admins submitting at
+  // once can't both pass the limit.
   @CatchDuplicatedClient
-  public async create(createParams: ICreateClientParams, user: IUserViewModel) {
-    const clientsCount = await this.clientsRepository.count({
-      slack_team_id: createParams.slackTeamId,
-    });
+  public create(createParams: ICreateClientParams, user: IUserViewModel) {
+    return this.database.transaction(async () => {
+      await this.database.lock(`clients:${createParams.slackTeamId}`);
 
-    const maxClientsCount = this.config.getOrThrow<number>(
-      EnvironmentVariable.MaxClientsPerSlackTeam,
-    );
+      const clientsCount = await this.clientsRepository.count({
+        slack_team_id: createParams.slackTeamId,
+      });
 
-    if (clientsCount >= maxClientsCount) {
-      throw new MaxItemsCountReachedError(maxClientsCount, 'clients');
-    }
+      const maxClientsCount = this.config.getOrThrow<number>(
+        EnvironmentVariable.MaxClientsPerSlackTeam,
+      );
 
-    const createdAt = new Date().toISOString();
+      if (clientsCount >= maxClientsCount) {
+        throw new MaxItemsCountReachedError(maxClientsCount, 'clients');
+      }
 
-    return await this.clientsRepository.create({
-      name: createParams.name,
-      description: createParams.description || '',
-      slack_team_id: createParams.slackTeamId,
-      created_at: createdAt,
-      updated_at: createdAt,
-      created_by: user.id,
-      updated_by: user.id,
-      archived_by: null,
+      const createdAt = new Date().toISOString();
+
+      return await this.clientsRepository.create({
+        name: createParams.name,
+        description: createParams.description || '',
+        slack_team_id: createParams.slackTeamId,
+        created_at: createdAt,
+        updated_at: createdAt,
+        created_by: user.id,
+        updated_by: user.id,
+        archived_by: null,
+      });
     });
   }
 
@@ -143,15 +152,14 @@ export default class ClientsService implements IClientsService {
   }
 
   public async delete(clientId: string, user: IUserViewModel) {
-    const client = await this.findOneWithValidation({
-      id: clientId,
-      slackTeamId: user.slack_team_id,
-    });
+    const client = await this.clientsRepository.deleteOne(
+      clientId,
+      user.slack_team_id,
+    );
 
-    await this.clientsRepository.deleteMany({
-      id: clientId,
-      slack_team_id: user.slack_team_id,
-    });
+    if (!client) {
+      throw new NotFoundException(`Client with id ${clientId} not found`);
+    }
 
     return client;
   }
@@ -160,7 +168,7 @@ export default class ClientsService implements IClientsService {
     return this.clientsRepository.count(this.getFindQuery(params));
   }
 
-  private getFindQuery(params: IFindParams): SupabaseFilter {
+  private getFindQuery(params: IFindParams): RepositoryFilter {
     return {
       slack_team_id: params.slackTeamId,
       archived_at: params.includeArchived

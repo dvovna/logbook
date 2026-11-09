@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { DEFAULT_JOBS_OPTIONS, JobsService } from '@common/jobs/jobs.service';
+import { DatabaseService } from 'src/database/database.service';
 import { Logger } from '@nestjs/common';
 import { TeamSetupWorkflowService } from 'src/team-setup/team-setup-workflow.service';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
@@ -46,6 +47,7 @@ describe('TeamSetupWorkflowService', () => {
       new JobsService(
         { get: () => undefined } as unknown as ConfigService,
         DEFAULT_JOBS_OPTIONS,
+        {} as DatabaseService,
       ),
       { postMessage: jest.fn() } as unknown as SlackCommunicationService,
     );

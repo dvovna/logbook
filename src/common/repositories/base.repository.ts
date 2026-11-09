@@ -3,37 +3,22 @@ import { Database } from '@common/types/database.types';
 import { SupabaseService } from 'src/database/supabase.service';
 import { Injectable } from '@nestjs/common';
 import { ISearchResult, ISearchParams } from '@common/types/pagination.types';
+import {
+  assertRowsScoped,
+  assertScoped,
+  IFilterParams,
+  IQueryOptions,
+  IRepository,
+  isFilterParams,
+  RepositoryFilter,
+} from '@common/repositories/repository.types';
 
 export type Tables = Database['public']['Tables'];
 export type TableName = keyof Tables;
-type SupabaseSimpleValue =
-  string | number | boolean | null | string[] | number[];
-
-type SupabaseFilterOperator =
-  | 'eq'
-  | 'neq'
-  | 'gt'
-  | 'gte'
-  | 'is'
-  | 'not.is'
-  | 'lt'
-  | 'lte'
-  | 'in'
-  | 'like'
-  | 'ilike'
-  | 'cs'
-  | 'cd'
-  | 'ov';
-
-interface IFilterParams {
-  operator: SupabaseFilterOperator;
-  value: SupabaseSimpleValue;
-}
-
-export type SupabaseFilter = Record<
-  string,
-  SupabaseSimpleValue | undefined | IFilterParams | IFilterParams[]
->;
+// The filters are shared with SqlRepository; the old names stay for the
+// services that import them from here.
+export type SupabaseFilter = RepositoryFilter;
+export type { IQueryOptions };
 
 // PostgREST reads `,`, `.`, `:` and parentheses in a filter value as filter
 // syntax unless the value is in double quotes, where `\` escapes `"` and `\`.
@@ -47,12 +32,6 @@ export const quoteFilterValue = (value: string) =>
 // result short, so findMany reads in pages no larger than that.
 export const PAGE_SIZE = 1000;
 
-export interface IQueryOptions {
-  limit?: number;
-  offset?: number;
-  orderBy?: string[];
-}
-
 // `this.tableName` is a union of all tables, so supabase-js can't check an
 // insert or update against one table's columns and the data is cast to
 // `never` there. Each subclass's Entity type is what keeps the data right.
@@ -60,7 +39,7 @@ export interface IQueryOptions {
 export abstract class BaseRepository<
   Entity extends Tables[TableName],
   ViewModel,
-> {
+> implements IRepository<Entity['Insert'], Entity['Update'], ViewModel> {
   protected readonly client: SupabaseClient<Database>;
 
   protected tableName: TableName;
@@ -333,30 +312,11 @@ export abstract class BaseRepository<
   }
 
   private assertScoped(filter: SupabaseFilter, operation: string) {
-    const hasCondition = Object.values(filter).some(
-      (value) => value !== undefined,
-    );
-
-    if (!hasCondition) {
-      throw new Error(`[${this.tableName}] ${operation} without a filter`);
-    }
-
-    if (this.workspaceColumn && !filter[this.workspaceColumn]) {
-      throw new Error(
-        `[${this.tableName}] ${operation} without ${this.workspaceColumn}`,
-      );
-    }
+    assertScoped(this.tableName, this.workspaceColumn, filter, operation);
   }
 
   private assertRowsScoped(rows: object[], operation: string) {
-    const column = this.workspaceColumn;
-
-    if (
-      column &&
-      rows.some((row) => !(row as Record<string, unknown>)[column])
-    ) {
-      throw new Error(`[${this.tableName}] ${operation} without ${column}`);
-    }
+    assertRowsScoped(this.tableName, this.workspaceColumn, rows, operation);
   }
 
   private buildSelect() {
@@ -446,15 +406,10 @@ export abstract class BaseRepository<
         for (const params of filter) {
           query = applyFilter(query, column, params);
         }
-      } else if (
-        typeof filter === 'object' &&
-        filter !== null &&
-        'operator' in filter &&
-        'value' in filter
-      ) {
+      } else if (isFilterParams(filter)) {
         query = applyFilter(query, column, filter);
       } else {
-        query = query.eq(column, filter as SupabaseSimpleValue);
+        query = query.eq(column, filter);
       }
     }
 

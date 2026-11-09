@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DEFAULT_JOBS_OPTIONS, JobsService } from '@common/jobs/jobs.service';
+import { DatabaseService } from 'src/database/database.service';
 import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
 import SlackEventsService, {
   ITeamJoinEvent,
@@ -76,6 +77,7 @@ describe('SlackEventsService', () => {
       new JobsService(
         { get: () => undefined } as unknown as ConfigService,
         DEFAULT_JOBS_OPTIONS,
+        {} as DatabaseService,
       ),
     );
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);

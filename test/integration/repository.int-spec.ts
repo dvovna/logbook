@@ -1,18 +1,67 @@
 import { ClientsRepository } from '@modules/clients/repositories/clients.repository';
-import { PAGE_SIZE } from '@common/repositories/base.repository';
+import {
+  BaseRepository,
+  PAGE_SIZE,
+  TableName,
+  Tables as SupabaseTables,
+} from '@common/repositories/base.repository';
+import { IRepository } from '@common/repositories/repository.types';
+import {
+  Tables,
+  TablesInsert,
+  TablesUpdate,
+} from '@common/types/database.types';
+import IClientViewModel from '@modules/clients/types/client.interface';
+import { SupabaseService } from 'src/database/supabase.service';
+import { DatabaseService } from 'src/database/database.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 
-// BaseRepository against the real PostgREST, which returns at most max_rows
-// (1000) rows per request and says nothing about the rest.
-describe('BaseRepository', () => {
+class PostgrestClientsRepository extends BaseRepository<
+  SupabaseTables['clients'],
+  IClientViewModel
+> {
+  protected tableName: TableName = 'clients';
+  protected searchableColumns = ['name'];
+  protected mapToViewModel = (row: Tables<'clients'>) => ({
+    ...row,
+    description: row.description || '',
+  });
+}
+
+class SqlClientsRepository extends ClientsRepository {
+  protected searchableColumns = ['name'];
+}
+
+type IClientsRepository = IRepository<
+  TablesInsert<'clients'>,
+  TablesUpdate<'clients'>,
+  IClientViewModel
+>;
+
+// Both repository implementations against the real database: BaseRepository
+// over PostgREST, which returns at most max_rows (1000) rows per request and
+// says nothing about the rest, and SqlRepository over the direct connection
+// (ClientsRepository). They must behave the same. Both search names here.
+describe.each([
+  [
+    'BaseRepository (PostgREST)',
+    (t: ITestApp): IClientsRepository =>
+      new PostgrestClientsRepository(t.app.get(SupabaseService)),
+  ],
+  [
+    'SqlRepository (direct connection)',
+    (t: ITestApp): IClientsRepository =>
+      new SqlClientsRepository(t.app.get(DatabaseService)),
+  ],
+])('%s', (_, repositoryOf) => {
   let t: ITestApp;
   let workspace: TestWorkspace;
-  let clients: ClientsRepository;
+  let clients: IClientsRepository;
 
   beforeAll(async () => {
     t = await createTestApp();
-    clients = t.app.get(ClientsRepository);
+    clients = repositoryOf(t);
   });
 
   afterAll(() => t.close());
@@ -103,5 +152,43 @@ describe('BaseRepository', () => {
     await expect(
       clients.findOne({ slack_team_id: workspace.id, id: 'not-a-uuid' }),
     ).rejects.toThrow('[clients] findOne error');
+  });
+
+  it('updates one row, and changes nothing when the filter matches several', async () => {
+    const acme = await workspace.addClient({ name: 'Acme' });
+    await workspace.addClient({ name: 'Globex' });
+
+    await expect(
+      clients.update(
+        { slack_team_id: workspace.id, id: acme.id },
+        { description: 'Rockets' },
+      ),
+    ).resolves.toMatchObject({ id: acme.id, description: 'Rockets' });
+    await expect(
+      clients.update({ slack_team_id: workspace.id }, { description: 'All' }),
+    ).rejects.toThrow('[clients] update error');
+    await expect(
+      clients.update(
+        { slack_team_id: workspace.id, name: 'Initech' },
+        { description: 'None' },
+      ),
+    ).rejects.toThrow('[clients] update error');
+
+    expect(
+      (await workspace.rows('clients')).map(({ description }) => description),
+    ).not.toContain('All');
+  });
+
+  it('searches names for the term as text', async () => {
+    await workspace.addClient({ name: 'Acme, Inc.' });
+    await workspace.addClient({ name: 'Globex' });
+
+    const result = await clients.search({
+      filters: { slack_team_id: workspace.id },
+      searchTerm: 'me, I',
+    });
+
+    expect(result.items.map(({ name }) => name)).toEqual(['Acme, Inc.']);
+    expect(result.totalCount).toBe(1);
   });
 });

@@ -11,6 +11,7 @@ import * as PgBoss from 'pg-boss';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import delay from '@common/utils/delay';
 import { trackInBackground } from '@common/utils/run-in-background';
+import { DatabaseService } from 'src/database/database.service';
 
 export interface IJobsOptions {
   // The Postgres schema of pg-boss's tables. The integration tests give each
@@ -73,6 +74,7 @@ export class JobsService
   public constructor(
     config: ConfigService,
     @Inject(JOBS_OPTIONS) private readonly options: IJobsOptions,
+    private readonly database: DatabaseService,
   ) {
     const connectionString = config.get<string>(
       EnvironmentVariable.DatabaseUrl,
@@ -112,16 +114,40 @@ export class JobsService
     name: string,
     payload: Payload,
   ): Promise<void> {
-    const handler = this.handlers.get(name);
-
-    if (!handler) {
-      throw new Error(`Job ${name} is not defined`);
-    }
+    const handler = this.handlerOf(name);
 
     const firstRun = this.runNow(name, handler, payload);
     trackInBackground(firstRun);
 
     return firstRun;
+  }
+
+  // Saves the job in the current transaction (DatabaseService.transaction()),
+  // so that it exists exactly when the data it is about was committed, and
+  // runs it first once the transaction has committed. Await it inside the
+  // transaction; the first run is background work, as with run().
+  public async enqueue<Payload extends object>(
+    name: string,
+    payload: Payload,
+  ): Promise<void> {
+    const handler = this.handlerOf(name);
+
+    if (!this.database.inTransaction) {
+      throw new Error(`Job ${name} enqueued outside a transaction: use run()`);
+    }
+
+    let id: string | null = null;
+
+    if (this.boss) {
+      await this.started;
+
+      id = await this.boss.send(name, payload, {
+        startAfter: FIRST_RETRY_AFTER_SECONDS,
+        db: this.database.sqlExecutor(),
+      });
+    }
+
+    this.database.afterCommit(() => this.runSaved(name, handler, payload, id));
   }
 
   // Runs the saved jobs whose time has come: retries, and jobs a stopped
@@ -240,13 +266,31 @@ export class JobsService
     }
   }
 
+  private handlerOf(name: string) {
+    const handler = this.handlers.get(name);
+
+    if (!handler) {
+      throw new Error(`Job ${name} is not defined`);
+    }
+
+    return handler;
+  }
+
   private async runNow(
     name: string,
     handler: JobHandler<object>,
     payload: object,
   ) {
-    const id = await this.save(name, payload);
+    await this.runSaved(name, handler, payload, await this.save(name, payload));
+  }
 
+  // The first run of a job saved as `id` (null: not saved, its only run).
+  private async runSaved(
+    name: string,
+    handler: JobHandler<object>,
+    payload: object,
+    id: string | null,
+  ) {
     try {
       await handler(payload);
     } catch (error) {
