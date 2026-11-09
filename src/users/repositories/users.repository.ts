@@ -1,42 +1,33 @@
-import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { Injectable } from '@nestjs/common';
-import { BaseRepository, Tables } from '@common/repositories/base.repository';
+import { SqlRepository } from '@common/repositories/sql.repository';
+import { SqlRow } from '@common/types/sql-database.types';
+import { callFunction } from 'src/database/sql-functions';
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 
 @Injectable()
-export class UsersRepository extends BaseRepository<
-  Tables['users'],
-  IUserViewModel
-> {
+export class UsersRepository extends SqlRepository<'users', IUserViewModel> {
   protected readonly tableName = 'users';
 
   protected searchableColumns = ['name', 'email'];
 
-  public async getUsersCountByTeam(slackTeamId: string) {
-    const { data, error } = await this.client
-      .from(this.tableName)
-      .select('id, team_id')
-      .eq('is_active', true)
-      .eq('slack_team_id', slackTeamId);
+  // Active members per team ID.
+  public async getUsersCountByTeam(
+    slackTeamId: string,
+  ): Promise<Record<string, number>> {
+    const rows = await this.selectInWorkspace(slackTeamId)
+      .select((eb) => ['team_id', eb.fn.countAll<number>().as('count')])
+      .where('is_active', '=', true)
+      .where('team_id', 'is not', null)
+      .groupBy('team_id')
+      .execute();
 
-    if (error) {
-      throw new Error(`Failed to fetch users count by team: ${error.message}`);
-    }
-
-    return (data || []).reduce<Record<string, number>>(
-      (acc, row) => {
-        if (row.team_id) {
-          acc[row.team_id] = (acc[row.team_id] || 0) + 1;
-        }
-
-        return acc;
-      },
-      {} as Record<string, number>,
+    return Object.fromEntries(
+      rows.map(({ team_id, count }) => [team_id!, Number(count)]),
     );
   }
 
-  protected mapToViewModel = (row: Tables['users']['Row']) => {
+  protected mapToViewModel = (row: SqlRow<'users'>) => {
     return {
       id: row.id,
       email: row.email,
@@ -62,22 +53,13 @@ export class UsersRepository extends BaseRepository<
     userIds: string[];
     updatedBy: string;
   }): Promise<IUserViewModel[]> {
-    const { data, error } = await this.client.rpc(
-      RpcFunctionName.SetTeamMembers,
-      {
-        p_slack_team_id: params.slackTeamId,
-        p_team_id: params.teamId,
-        p_user_ids: params.userIds,
-        p_updated_by: params.updatedBy,
-      },
-    );
+    const rows = await callFunction(this.db, 'set_team_members', {
+      p_slack_team_id: params.slackTeamId,
+      p_team_id: params.teamId,
+      p_user_ids: params.userIds,
+      p_updated_by: params.updatedBy,
+    });
 
-    if (error) {
-      throw new Error(
-        `${RpcFunctionName.SetTeamMembers} failed: ${error.message}`,
-      );
-    }
-
-    return (data ?? []).map(this.mapToViewModel);
+    return rows.map(this.mapToViewModel);
   }
 }

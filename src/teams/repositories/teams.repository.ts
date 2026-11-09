@@ -1,25 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import {
-  BaseRepository,
-  TableName,
-  Tables,
-} from '@common/repositories/base.repository';
+  ISqlRelation,
+  SqlRepository,
+} from '@common/repositories/sql.repository';
+import { SqlRow } from '@common/types/sql-database.types';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 
 @Injectable()
-export class TeamsRepository extends BaseRepository<
-  Tables['teams'],
-  ITeamViewModel
-> {
-  protected tableName: TableName = 'teams';
+export class TeamsRepository extends SqlRepository<'teams', ITeamViewModel> {
+  protected readonly tableName = 'teams';
 
-  protected relations = {
-    vacation_policy: 'vacation_policy_id ( id, name )',
+  protected relations: Record<string, ISqlRelation> = {
+    vacation_policy: {
+      table: 'vacation_policies',
+      foreignKey: 'vacation_policy_id',
+      columns: ['id', 'name'],
+    },
   };
 
-  protected mapToViewModel = (row: Tables['teams']['Row']) => {
-    const extendedRow = row as Tables['teams']['Row'] & {
+  protected mapToViewModel = (row: SqlRow<'teams'>) => {
+    const extendedRow = row as SqlRow<'teams'> & {
       vacation_policy: { id: string; name: string } | null;
     };
 
