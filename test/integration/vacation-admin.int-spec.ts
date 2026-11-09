@@ -1,10 +1,11 @@
-import { noticeOf } from './support/tab-readers';
+import { actionIdsOf, noticeOf } from './support/tab-readers';
 import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationType from '@common/enums/vacation-type.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
+import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { workWeek } from './support/dates';
@@ -21,7 +22,7 @@ import {
 } from './support/vacation-flows';
 import { acknowledged } from './support/slack-test-client';
 
-describe('Requests HR files for someone else', () => {
+describe('Requests HR and admins manage for someone else', () => {
   let t: ITestApp;
   let workspace: TestWorkspace;
   let hr: Tables<'users'>;
@@ -158,5 +159,88 @@ describe('Requests HR files for someone else', () => {
 
     expect(blockIds).not.toContain('user_id_block');
     expect(blockIds).not.toContain('status_block');
+  });
+
+  describe('when an admin deletes a pending request', () => {
+    let admin: Tables<'users'>;
+    let request: Tables<'vacation_requests'>;
+    let approval: Awaited<ReturnType<typeof approvalMessageTo>>;
+
+    beforeEach(async () => {
+      admin = await workspace.addUser({ role: UserRole.Admin });
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+      });
+      const member = await workspace.addUser({ team_id: team.id });
+      request = await requestVacation(t, workspace, member, workWeek(2));
+      approval = await approvalMessageTo(t, workspace, manager);
+    });
+
+    // All requests → the request's menu → Delete Request → Delete.
+    const deleteRequest = async () => {
+      const form = await openModalFrom(
+        t,
+        workspace,
+        admin,
+        await openAppHomeTab(t, workspace, admin, [
+          NavigationActionId.TimeOff,
+          NavigationActionId.AllRequests,
+        ]),
+        VacationRequestsTabViewActionId.ManageRequestMenu,
+        `${VacationRequestsTabViewActionId.DeleteRequest}:${request.id}`,
+      );
+      const since = t.slackApi.mark();
+      const response = await t.slack
+        .submitView(workspace, admin, form)
+        .expect(200);
+
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Vacation request deleted.',
+      );
+      await t.idle();
+    };
+
+    it("closes the approver's message, and a click on it does nothing", async () => {
+      await deleteRequest();
+
+      expect(await workspace.rows('vacation_requests')).toEqual([]);
+      expect(await workspace.rows('request_workflow_steps')).toEqual([]);
+      const updates = t.slackApi.messageUpdates(workspace.token, approval);
+      expect(updates).toHaveLength(1);
+      expect(textOf(updates[0])).toContain(`Deleted by <@${admin.slack_id}>`);
+      expect(actionIdsOf(updates[0])).toEqual([]);
+
+      // Slack may still deliver a click on the message as it was before.
+      const since = t.slackApi.mark();
+      await t.slack
+        .actOnMessage(
+          workspace,
+          manager,
+          approval,
+          ApproverMessageActionId.Approve,
+        )
+        .expect(200);
+      await t.idle();
+
+      expect(
+        t.slackApi.callsWith(workspace.token, undefined, { since }),
+      ).toEqual([]);
+      expect(await workspace.rows('vacation_requests')).toEqual([]);
+    });
+
+    it("updates the approver's message once Slack answers", async () => {
+      t.slackApi.failNext('chat.update');
+
+      await deleteRequest();
+
+      expect(t.slackApi.messageUpdates(workspace.token, approval)).toEqual([]);
+
+      await t.retryJobs();
+
+      const updates = t.slackApi.messageUpdates(workspace.token, approval);
+      expect(updates).toHaveLength(1);
+      expect(textOf(updates[0])).toContain(`Deleted by <@${admin.slack_id}>`);
+    });
   });
 });

@@ -41,6 +41,9 @@ export class ApproverMessageView {
       case WorkflowStepStatus.Cancelled: {
         return this.getCanceledMessage(params);
       }
+      case WorkflowStepStatus.Deleted: {
+        return this.getDeletedMessage(params);
+      }
     }
   }
 
@@ -148,6 +151,24 @@ ${this.getRequestDetails(step, comments)}`,
           text: {
             type: 'mrkdwn',
             text: `❌ Canceled by <@${canceledBy}>
+
+${this.getRequestDetails(step, comments)}`,
+          },
+        },
+      ],
+    };
+  }
+
+  // An admin deleted the request (All requests → Delete Request).
+  private static getDeletedMessage({ step, comments }: IGetMessageParams) {
+    return {
+      text: '🗑️ Vacation request deleted',
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `🗑️ Deleted by <@${step.step_data.decided_by_slack_id}>
 
 ${this.getRequestDetails(step, comments)}`,
           },

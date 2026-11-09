@@ -34,6 +34,7 @@ import {
   assertDatesInOrder,
   assertVacationType,
 } from '@modules/vacation-requests/utils/vacation-request-input.utils';
+import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 
 interface ICreateParams {
   userId: string;
@@ -100,6 +101,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     private readonly eventEmitter: EventEmitter2,
     private readonly usersService: UsersService,
     private readonly transactions: TransactionService,
+    private readonly requestWorkflowService: RequestWorkflowService,
   ) {}
 
   public async create(createParams: ICreateParams, user: IUserViewModel) {
@@ -373,9 +375,14 @@ export class VacationRequestsService implements IVacationRequestsService {
   public async delete(findParams: IFindParams, user: IUserViewModel) {
     const request = await this.findOneWithValidation(findParams);
 
-    await this.vacationRequestsRepository.deleteMany(
-      this.getFindQuery(findParams),
-    );
+    // Its approval workflow is deleted with it; the approvers' messages lose
+    // their buttons, as on a cancel, once the delete has committed.
+    await this.transactions.transaction(async () => {
+      await this.requestWorkflowService.closeBeforeDelete(request.id, user);
+      await this.vacationRequestsRepository.deleteMany(
+        this.getFindQuery(findParams),
+      );
+    });
 
     this.eventEmitter.emit(
       VacationRequestEvent.Deleted,

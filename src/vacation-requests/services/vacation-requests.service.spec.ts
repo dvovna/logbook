@@ -6,6 +6,7 @@ import { VacationRequestsValidationService } from 'src/vacation-requests/service
 import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
 import TeamsService from 'src/teams/services/teams.service';
 import { UsersService } from 'src/users/services/users.service';
+import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
@@ -67,6 +68,7 @@ describe('VacationRequestsService', () => {
   >;
   let eventEmitter: { emit: jest.Mock };
   let usersService: { findOneWithValidation: jest.Mock };
+  let workflowService: { closeBeforeDelete: jest.Mock };
   let service: VacationRequestsService;
   // Which repository calls ran inside TransactionService.transaction().
   let inTransaction: boolean;
@@ -98,6 +100,7 @@ describe('VacationRequestsService', () => {
     };
     eventEmitter = { emit: jest.fn() };
     usersService = { findOneWithValidation: jest.fn() };
+    workflowService = { closeBeforeDelete: jest.fn() };
 
     service = new VacationRequestsService(
       repository as unknown as VacationRequestsRepository,
@@ -109,6 +112,7 @@ describe('VacationRequestsService', () => {
       eventEmitter as unknown as EventEmitter2,
       usersService as unknown as UsersService,
       transactions as unknown as TransactionService,
+      workflowService as unknown as RequestWorkflowService,
     );
     inTransaction = false;
   });
@@ -411,6 +415,43 @@ describe('VacationRequestsService', () => {
       expect(repository.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('delete', () => {
+    const admin: IUserViewModel = {
+      ...requester,
+      id: 'admin-1',
+      slack_id: 'U_ADMIN',
+      role: UserRole.Admin,
+    };
+
+    // The steps go with the request (ON DELETE CASCADE): closing them and
+    // deleting it either both happen or neither does.
+    it("closes the request's approvals in the transaction that deletes it", async () => {
+      const calls: string[] = [];
+      repository.findOne.mockResolvedValue(buildRequest());
+      workflowService.closeBeforeDelete.mockImplementation(() => {
+        calls.push(`close the approvals, in a transaction: ${inTransaction}`);
+      });
+      repository.deleteMany.mockImplementation(() => {
+        calls.push(`delete, in a transaction: ${inTransaction}`);
+      });
+
+      await service.delete(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        admin,
+      );
+
+      expect(workflowService.closeBeforeDelete).toHaveBeenCalledWith(
+        'request-1',
+        admin,
+      );
+      expect(calls).toEqual([
+        'close the approvals, in a transaction: true',
+        'delete, in a transaction: true',
+      ]);
+    });
+  });
+
   describe("replacing a user's vacations (CSV import)", () => {
     const vacations = [
       {
