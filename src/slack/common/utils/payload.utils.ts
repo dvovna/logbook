@@ -1,5 +1,5 @@
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
-import {
+import type {
   CheckboxesAction,
   ExternalSelectAction,
   StaticSelectAction,

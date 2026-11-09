@@ -4,7 +4,7 @@ import {
   IUserViewModel,
   IUserViewModel as IUserEntity,
 } from '@modules/users/types/user.interface';
-import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import { UsersService } from '@modules/users/services/users.service';
 import {

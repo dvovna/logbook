@@ -1,4 +1,4 @@
-import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
 import { Injectable } from '@nestjs/common';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';

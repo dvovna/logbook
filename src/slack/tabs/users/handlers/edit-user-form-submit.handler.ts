@@ -1,7 +1,7 @@
 import { assertCanChangeUser } from '@modules/users/utils/admin-role.utils';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import {
   EditUserModalView,

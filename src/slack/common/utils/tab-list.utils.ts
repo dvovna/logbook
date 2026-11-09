@@ -1,4 +1,4 @@
-import { ButtonAction, DatepickerAction } from '@slack/bolt';
+import type { ButtonAction, DatepickerAction } from '@slack/bolt';
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';

@@ -8,7 +8,7 @@ import {
   UseFilters,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { BlockSuggestion } from '@slack/bolt/dist/types/options';
+import type { BlockSuggestion } from '@slack/bolt/dist/types/options';
 import { SlackSignatureGuard } from '@modules/slack/guards/slack-signature.guard';
 import { SlackUserGuard } from '@modules/slack/guards/slack-user.guard';
 import { SlackActiveUserGuard } from '@modules/slack/guards/slack-active-user.guard';

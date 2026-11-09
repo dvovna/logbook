@@ -1,4 +1,4 @@
-import { OverflowAction } from '@slack/bolt';
+import type { OverflowAction } from '@slack/bolt';
 import {
   ISlackBlockActionPayload,
   ISlackInteractionPayload,

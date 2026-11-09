@@ -49,7 +49,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 
 You need:
 - a clone of this repository with its dependencies (`yarn install`): the steps below run the Supabase CLI pinned in it;
-- a Supabase project (the free tier is enough);
+- a Supabase project. The free plan runs the bot, but it keeps no backups and Supabase pauses it after a week of little activity (see [Run](#4-run)). For a company's real data, take a paid plan or back the database up yourself, e.g. with `pg_dump` over the session pooler connection string;
 - a host that runs Docker or Node 26, reachable from Slack over HTTPS;
 - permission to create a Slack app in your workspace.
 
@@ -108,6 +108,8 @@ yarn start:prod
 Put the app behind HTTPS (a reverse proxy, or a platform such as Render or Fly.io). Then open "Event Subscriptions" in the Slack app settings and retry the URL verification.
 
 `GET /health` answers 200 while the app reaches its database and 503 when it can't; point your platform's health check at it. The Docker image already uses it.
+
+On Supabase's free plan the health check also keeps the project awake. Supabase pauses a free project after 7 days of little activity. A quiet week, such as the New Year holidays, is enough, and then the bot stops answering until someone restores the project in the Supabase dashboard. Every `/health` call queries the database through the Supabase API, which counts as activity. So make sure something calls it regularly: the image's `HEALTHCHECK` does it every 30 seconds under Docker, but some platforms ignore it and need their own health check pointed at `/health`.
 
 ### 5. Install
 

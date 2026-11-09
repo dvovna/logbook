@@ -7,7 +7,7 @@ import { Injectable } from '@nestjs/common';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import {

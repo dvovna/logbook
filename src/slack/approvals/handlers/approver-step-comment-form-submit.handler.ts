@@ -1,4 +1,4 @@
-import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import { Injectable } from '@nestjs/common';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';

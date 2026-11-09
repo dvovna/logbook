@@ -15,7 +15,7 @@ import {
 import RejectReasonModalViewValuesParser, {
   IRejectReasonFormViewData,
 } from '@modules/slack/common/parsers/reject-reason-modal-view-values.parser';
-import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import {
   TabId,

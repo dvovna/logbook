@@ -1,5 +1,5 @@
 import { IViewStateValues } from '@modules/slack/common/types/slack-view-state-values.interface';
-import {
+import type {
   DatepickerAction,
   MultiStaticSelectAction,
   StaticSelectAction,

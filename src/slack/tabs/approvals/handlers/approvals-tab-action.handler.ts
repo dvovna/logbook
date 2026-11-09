@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
-import { ButtonAction } from '@slack/bolt';
+import type { ButtonAction } from '@slack/bolt';
 import { ValidationError } from '@common/errors/validation.error';
 import {
   ISlackBlockActionPayload,

@@ -1,6 +1,6 @@
 import { ISlackViewSubmissionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';

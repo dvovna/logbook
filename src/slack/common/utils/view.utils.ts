@@ -3,7 +3,7 @@ import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { PlainTextOption } from '@slack/web-api';
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { ButtonAction } from '@slack/bolt';
+import type { ButtonAction } from '@slack/bolt';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 export const toPlainTextOption = <OptionType extends IOption = IOption>({

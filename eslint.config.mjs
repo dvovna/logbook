@@ -89,10 +89,19 @@ export default [{
       ignoreMiddleExtensions: true,
     }],
 
-    'no-restricted-imports': ['error', {
+    // The typescript-eslint version of the core rule: it can let type-only
+    // imports through.
+    'no-restricted-imports': 'off',
+    '@typescript-eslint/no-restricted-imports': ['error', {
       patterns: [{
         group: ['../*'],
         message: 'Relative parent imports (..) are forbidden. Use same-level (./) or absolute imports (@libs, @apps).',
+      }, {
+        // Bolt is a devDependency, missing from the production image: a value
+        // import builds and passes the tests, then crashes the app at startup.
+        group: ['@slack/bolt', '@slack/bolt/*'],
+        allowTypeImports: true,
+        message: '@slack/bolt is a devDependency and not in the production image: import its types with `import type`.',
       }],
     }],
 
@@ -157,7 +166,7 @@ export default [{
 }, {
   files: ['bin/**/*.ts'],
   rules: {
-    'no-restricted-imports': 'off',
+    '@typescript-eslint/no-restricted-imports': 'off',
   },
 },
 // Reports code Prettier would format differently, and turns off the ESLint

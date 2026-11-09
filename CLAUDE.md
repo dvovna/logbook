@@ -95,7 +95,7 @@ Every repository query must be scoped by `slackTeamId` / `slack_team_id`; `BaseR
 
 ### HTTP pipeline for Slack (Slack Bolt's receiver is not used; Bolt is only imported for types)
 
-`@slack/bolt` is a devDependency and is not in the production image. Import only types from it (`import type` or type-only names); a value import crashes the app in production.
+`@slack/bolt` is a devDependency and is not in the production image. Import only types from it, with `import type` (`@typescript-eslint/no-restricted-imports` refuses any other import from it): a value import builds and passes the tests, then crashes the app in production.
 
 1. `main.ts` mounts `slackBodyParserMiddleware` on `/api/slack`. It keeps `req.rawBody` for signature checks, then parses the body as JSON or urlencoded.
 2. `SlackPayloadParseMiddleware` (wired in `SlackModule.configure`) unwraps the form field `payload` for `/interactions` and `/options`.

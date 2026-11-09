@@ -1,5 +1,5 @@
 import { View } from '@slack/web-api';
-import { ViewResponseAction } from '@slack/bolt/dist/types/view';
+import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 
 export enum SlackViewResponseAction {
   Errors = 'errors',
