@@ -43,7 +43,28 @@ direct connection from its first line.
   - Still on PostgREST: `/health`, `MigrationsCheckService` and
     `BaseRepository` itself (kept for `repository.int-spec.ts`). They go in
     stage 4.
-- **Stage 3: not started.**
+- **Stage 3 (write functions to TypeScript): done in code.**
+  - Delete-then-insert writes (`replace_user_vacations`,
+    `replace_country_holidays`, `assign_project_assignments`, and
+    `set_team_members`, added since) are TypeScript transactions in their
+    services.
+  - An install creates the workspace and its admin, and enqueues the welcome
+    and member sync jobs, in one transaction.
+  - `decide_workflow_steps` is a typed `UPDATE`. Each workflow transition
+    (create, cancel, approve, reject, approve the level) is one transaction
+    with the jobs that follow it. The finished workflow's event is delivered
+    inside it (`emitAsync`), so the job that finishes the request is saved with
+    the last decision.
+  - `jobs.enqueue` outside a transaction now starts the job as `run` does, so
+    a service can call it either way.
+  - Found on the way: with the ALL rule, two approvers deciding at once in two
+    transactions each missed the other's uncommitted decision, and nobody asked
+    the next level (`vacation-screens.int-spec.ts` caught it). Decisions on one
+    request now take an advisory lock first.
+  - The functions are no longer called but stay in the database. A migration
+    in a later release drops them, so that rolling back to an older image
+    still works.
+- **Stage 4: not started.**
 
 ## Why
 
