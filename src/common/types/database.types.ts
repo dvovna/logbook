@@ -1248,6 +1248,35 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      set_team_members: {
+        Args: {
+          p_slack_team_id: string;
+          p_team_id: string;
+          p_updated_by: string;
+          p_user_ids: string[];
+        };
+        Returns: {
+          carryover_days: number;
+          contract_start_date: string | null;
+          created_at: string;
+          email: string;
+          id: string;
+          is_active: boolean;
+          name: string;
+          role: string;
+          slack_id: string;
+          slack_team_id: string;
+          team_id: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        }[];
+        SetofOptions: {
+          from: '*';
+          to: 'users';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
     };
     Enums: {
       ProjectStatus: 'active' | 'completed' | 'on-hold';

@@ -1,3 +1,4 @@
+import { UsersService } from '@modules/users/services/users.service';
 import { Injectable } from '@nestjs/common';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import { ValidationError } from '@common/errors/validation.error';
@@ -45,6 +46,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     private readonly teamsTabService: TeamsTabService,
     private readonly tabNavigationService: TabNavigationService,
     private readonly vacationPoliciesService: VacationPoliciesService,
+    private readonly usersService: UsersService,
     teamModalViewValuesParser: TeamModalViewValuesParser,
   ) {
     super(teamModalViewValuesParser);
@@ -75,9 +77,20 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   ) {
     await this.assertPolicyInWorkspace(data, user);
 
-    return metadata.id
-      ? this.update(metadata.id, data, user)
-      : this.create(data, user);
+    const team = metadata.id
+      ? await this.update(metadata.id, data, user)
+      : await this.create(data, user);
+
+    // Only users of the workspace are touched, whatever IDs the form sends.
+    if (metadata.setsMembers) {
+      await this.usersService.setTeamMembers(
+        team.id,
+        (data.members ?? []).map(({ value }) => value),
+        user,
+      );
+    }
+
+    return team;
   }
 
   // The policy ID comes from the form, so it has to be one of the

@@ -12,6 +12,8 @@ interface ISelectViewParams {
   maxSelectedItems?: number;
   emptyText?: string;
   optional?: boolean;
+  // Under the field, e.g. who can be chosen.
+  hint?: string;
 }
 
 export class SlackMultiStaticSelectView {
@@ -25,6 +27,7 @@ export class SlackMultiStaticSelectView {
     initialValues,
     emptyText,
     optional = false,
+    hint,
   }: ISelectViewParams): [InputBlock] | SectionBlock[] {
     if (!options || options.length === 0) {
       return [
@@ -52,6 +55,7 @@ export class SlackMultiStaticSelectView {
         type: 'input',
         block_id: blockId,
         optional,
+        ...(hint ? { hint: { type: 'plain_text' as const, text: hint } } : {}),
         element: {
           type: 'multi_static_select',
           action_id: actionId,

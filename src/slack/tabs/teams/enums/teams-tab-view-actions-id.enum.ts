@@ -6,3 +6,8 @@ export enum TeamsTabViewActionId {
   PaginationPrev = 'teams_pagination_prev',
   PaginationNext = 'teams_pagination_next',
 }
+
+// The team form's members: people searched as you type.
+export enum TeamModalActionId {
+  Members = 'members',
+}

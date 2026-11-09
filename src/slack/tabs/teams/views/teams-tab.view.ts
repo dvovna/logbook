@@ -65,6 +65,12 @@ export class TeamsTabView extends BaseTabView<
         this.getTeamListItemBlocks(item, membersByTeam[item.id] ?? []),
       prevPageActionId: TeamsTabViewActionId.PaginationPrev,
       nextPageActionId: TeamsTabViewActionId.PaginationNext,
+      emptyText:
+        "_No teams yet._ A team's approvers decide its people's time off, under its vacation policy.",
+      emptyAction: {
+        text: 'Create a team',
+        actionId: TeamsTabViewActionId.AddTeam,
+      },
     });
 
     blocks.push(...listBlocks);

@@ -25,6 +25,8 @@ interface IFindParams {
   ids?: string[];
   teamId?: string;
   teamIds?: string[];
+  // People in no team.
+  withoutTeam?: boolean;
   role?: UserRole;
   roles?: UserRole[];
   slackId?: string;
@@ -113,6 +115,21 @@ export class UsersService implements IUsersService {
 
   public getUsersCountByTeam(slackTeamId: string) {
     return this.userRepository.getUsersCountByTeam(slackTeamId);
+  }
+
+  // The users `userIds` of the workspace become the team's members; the
+  // team's other members leave it. One transaction.
+  public setTeamMembers(
+    teamId: string,
+    userIds: string[],
+    updatedBy: IUserViewModel,
+  ) {
+    return this.userRepository.setTeamMembers({
+      slackTeamId: updatedBy.slack_team_id,
+      teamId,
+      userIds,
+      updatedBy: updatedBy.id,
+    });
   }
 
   public count(params: IFindParams) {
@@ -217,6 +234,9 @@ export class UsersService implements IUsersService {
           }
         : {}),
       ...(findParams.teamId ? { team_id: findParams.teamId } : {}),
+      ...(findParams.withoutTeam
+        ? { team_id: { operator: 'is', value: null } }
+        : {}),
       ...(findParams.teamIds
         ? { team_id: { operator: 'in', value: findParams.teamIds } }
         : {}),

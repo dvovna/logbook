@@ -18,12 +18,15 @@ import { getDisplayTime } from '@common/utils/time.utils';
 import { IUserTimeSummary } from 'src/time-entries/services/time-entries-summary.service';
 import { IPendingApprovals } from '@modules/slack/common/services/pending-approvals.service';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
+import { ISetupProgress } from '@modules/slack/tabs/home/services/setup-progress.service';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;
   requestedVacations?: IVacationRequestViewModel[];
   timeSummary: IUserTimeSummary;
   pendingApprovals: IPendingApprovals;
+  // The setup checklist, for Admin and HR until the workspace is set up.
+  setup: ISetupProgress | null;
 }
 
 export enum HomeTabActionId {
@@ -51,8 +54,10 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     requestedVacations,
     timeSummary,
     pendingApprovals,
+    setup,
   }: IGetViewParams) {
     return [
+      ...(setup ? this.getSetupBlocks(setup) : []),
       ...this.getAttentionBlocks(pendingApprovals),
       ...this.getUserViewBlocks(
         vacationUsageInfo,
@@ -64,6 +69,65 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
 
   protected getTabTitle() {
     return `*🏠 Home*\n`;
+  }
+
+  // What is left to set up, each step with the screen that does it.
+  private getSetupBlocks({
+    hasPolicy,
+    hasTeamWithApprovers,
+    peopleWithoutTeam,
+    hasProjects,
+  }: ISetupProgress): AnyBlock[] {
+    const steps = [
+      {
+        done: hasPolicy,
+        text: 'Create a vacation policy: days per year and holidays',
+        button: 'Policies',
+        actionId: NavigationActionId.Policies,
+      },
+      {
+        done: hasTeamWithApprovers,
+        text: 'Create a team and pick its approvers',
+        button: 'Teams',
+        actionId: NavigationActionId.Teams,
+      },
+      {
+        done: peopleWithoutTeam === 0,
+        text: `Put people in teams${peopleWithoutTeam ? ` (${pluralize('person', peopleWithoutTeam, true)} without a team)` : ''}`,
+        button: 'People',
+        actionId: NavigationActionId.People,
+      },
+      {
+        done: hasProjects,
+        text: 'Add projects, if you track time',
+        button: 'Projects',
+        actionId: NavigationActionId.Projects,
+      },
+    ];
+
+    return [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: [
+            '*🚀 Set up Logbook*',
+            ...steps.map(({ done, text }) => `${done ? '✅' : '⬜'} ${text}`),
+          ].join('\n'),
+        },
+      },
+      {
+        type: 'actions',
+        elements: steps
+          .filter(({ done }) => !done)
+          .map(({ button, actionId }) => ({
+            type: 'button' as const,
+            text: { type: 'plain_text' as const, text: button },
+            action_id: actionId,
+          })),
+      },
+      ...Divider.getBlocks(),
+    ];
   }
 
   // What waits for the viewer's decision, for those who approve.

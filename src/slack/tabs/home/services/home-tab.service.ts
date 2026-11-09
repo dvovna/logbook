@@ -46,6 +46,8 @@ type HomeTabModalViewResolversMapType = {
 
 import { PendingApprovalsService } from '@modules/slack/common/services/pending-approvals.service';
 
+import { SetupProgressService } from '@modules/slack/tabs/home/services/setup-progress.service';
+
 @Injectable()
 export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapType> {
   public constructor(
@@ -58,6 +60,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
     private readonly approvalsCounter: PendingApprovalsService,
+    private readonly setupProgressService: SetupProgressService,
   ) {
     super(TabId.Home, {
       [HomeTabModalName.ViewVacationRequest]: (params) =>
@@ -77,6 +80,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       requestedVacations,
       timeSummary,
       pendingApprovals,
+      setup,
     ] = await Promise.all([
       this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
       this.vacationsService.findMany({
@@ -87,6 +91,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       }),
       this.timeEntriesSummaryService.getUserSummary(user),
       this.approvalsCounter.count(user),
+      this.setupProgressService.get(user),
     ]);
 
     return this.homeTabViewService.getView({
@@ -96,6 +101,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       requestedVacations,
       timeSummary,
       pendingApprovals,
+      setup,
     });
   }
 

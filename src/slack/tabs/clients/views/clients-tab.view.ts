@@ -86,6 +86,13 @@ export class ClientsTabView extends BaseTabView<
         ),
       prevPageActionId: ClientsTabViewActionId.PaginationPrev,
       nextPageActionId: ClientsTabViewActionId.PaginationNext,
+      emptyText: '_No clients yet._ Projects can belong to one.',
+      emptyAction: this.slackActionPermissionsService.can(
+        userRole,
+        ClientsTabViewActionId.AddClient,
+      )
+        ? { text: 'Add a client', actionId: ClientsTabViewActionId.AddClient }
+        : undefined,
     });
 
     blocks.push(...listBlocks);

@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import TeamsService from '@modules/teams/services/teams.service';
-import { TeamModalView } from '@modules/slack/tabs/teams/views/team-modal.view';
+import {
+  MAX_TEAM_MEMBERS,
+  TeamModalView,
+} from '@modules/slack/tabs/teams/views/team-modal.view';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import { UsersService } from '@modules/users/services/users.service';
 import {
@@ -111,6 +114,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       },
       {
         pageMetadata,
+        setsMembers: true,
       },
     );
   }
@@ -126,10 +130,13 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       slackTeamId: user.slack_team_id,
     });
 
-    const { policies, managers, hrUsers } = await this.getTeamFormData(
-      user,
-      team,
-    );
+    const [{ policies, managers, hrUsers }, members] = await Promise.all([
+      this.getTeamFormData(user, team),
+      this.usersService.findMany({
+        slackTeamId: user.slack_team_id,
+        teamId: team.id,
+      }),
+    ]);
 
     return this.teamModalView.getView(
       {
@@ -145,12 +152,19 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
             team.approval_notification_recipients || undefined,
           managerApproversRule: team.manager_approvers_rule,
           hrApproversRule: team.hr_approvers_rule,
+          members: members
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(({ id, name }) => ({ id, name })),
         },
         errorMessage,
         managers,
         hrUsers,
       },
-      { id: team.id, pageMetadata },
+      {
+        id: team.id,
+        pageMetadata,
+        setsMembers: members.length <= MAX_TEAM_MEMBERS,
+      },
     );
   }
 

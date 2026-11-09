@@ -1,3 +1,4 @@
+import { WELCOME_TEXT } from '@modules/team-setup/team-setup-workflow.service';
 import { Logger } from '@nestjs/common';
 import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
 import * as request from 'supertest';
@@ -161,6 +162,13 @@ describe('Installing the app (OAuth redirect)', () => {
       ]),
     );
     expect(await usersOf()).toHaveLength(2);
+
+    // The installer is told what to set up, in what order.
+    expect(
+      t.slackApi
+        .postedMessages(`xoxb-${teamId}`, installer)
+        .map(({ text }) => text),
+    ).toEqual([WELCOME_TEXT]);
   });
 
   describe('again', () => {

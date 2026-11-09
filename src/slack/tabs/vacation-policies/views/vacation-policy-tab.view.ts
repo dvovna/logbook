@@ -73,6 +73,12 @@ export class VacationPolicyTabView extends BaseTabView<
         this.getPolicyListItemBlocks(item, teamsByPolicy[item.id] ?? []),
       prevPageActionId: PolicyTabViewActionId.PaginationPrev,
       nextPageActionId: PolicyTabViewActionId.PaginationNext,
+      emptyText:
+        '_No vacation policies yet._ Without one, time off is tracked with no limits.',
+      emptyAction: {
+        text: 'Create a policy',
+        actionId: PolicyTabViewActionId.AddPolicy,
+      },
     });
 
     blocks.push(...listBlocks);

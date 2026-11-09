@@ -1,3 +1,4 @@
+import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { Injectable } from '@nestjs/common';
 import { BaseRepository, Tables } from '@common/repositories/base.repository';
 import UserRole from '@common/enums/user-role.enum';
@@ -52,4 +53,31 @@ export class UsersRepository extends BaseRepository<
       updated_by: row.updated_by,
     };
   };
+
+  // In one transaction (set_team_members): the users `userIds` are the
+  // team's members, and nobody else. Returns them.
+  public async setTeamMembers(params: {
+    slackTeamId: string;
+    teamId: string;
+    userIds: string[];
+    updatedBy: string;
+  }): Promise<IUserViewModel[]> {
+    const { data, error } = await this.client.rpc(
+      RpcFunctionName.SetTeamMembers,
+      {
+        p_slack_team_id: params.slackTeamId,
+        p_team_id: params.teamId,
+        p_user_ids: params.userIds,
+        p_updated_by: params.updatedBy,
+      },
+    );
+
+    if (error) {
+      throw new Error(
+        `${RpcFunctionName.SetTeamMembers} failed: ${error.message}`,
+      );
+    }
+
+    return (data ?? []).map(this.mapToViewModel);
+  }
 }

@@ -7,6 +7,7 @@ import { UsersService } from 'src/users/services/users.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from 'src/team-setup/team-users-sync.service';
 import AccessTokenService from 'src/slack-communication/services/slack-access-token.service';
+import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 
 const SLACK_TEAM_ID = 'b7a1c2d4-0000-4000-8000-000000000001';
 
@@ -46,6 +47,7 @@ describe('TeamSetupWorkflowService', () => {
         { get: () => undefined } as unknown as ConfigService,
         DEFAULT_JOBS_OPTIONS,
       ),
+      { postMessage: jest.fn() } as unknown as SlackCommunicationService,
     );
     service.onModuleInit();
   });

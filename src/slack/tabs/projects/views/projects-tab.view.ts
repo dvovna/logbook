@@ -118,7 +118,16 @@ export class ProjectsTabView extends BaseTabView<
         ),
       prevPageActionId: ProjectsTabViewActionId.PaginationPrev,
       nextPageActionId: ProjectsTabViewActionId.PaginationNext,
-      emptyText: '_No projects found_',
+      emptyText: '_No projects found._',
+      emptyAction: this.slackActionPermissionsService.can(
+        userRole,
+        ProjectsTabViewActionId.AddProject,
+      )
+        ? {
+            text: 'Add a project',
+            actionId: ProjectsTabViewActionId.AddProject,
+          }
+        : undefined,
     });
 
     blocks.push(...listBlocks);

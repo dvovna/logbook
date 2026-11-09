@@ -8,4 +8,5 @@ export enum RpcFunctionName {
   ReplaceUserVacations = 'replace_user_vacations',
   ReplaceCountryHolidays = 'replace_country_holidays',
   CreateWorkspace = 'create_workspace',
+  SetTeamMembers = 'set_team_members',
 }

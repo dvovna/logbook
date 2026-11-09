@@ -1,4 +1,9 @@
 import { Module } from '@nestjs/common';
+import { SetupProgressService } from '@modules/slack/tabs/home/services/setup-progress.service';
+import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
+import { TeamsModule } from '@modules/teams/teams.module';
+import { UsersModule } from '@modules/users/users.module';
+import { ProjectsModule } from 'src/projects/projects.module';
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 import HomeTabActionHandler from '@modules/slack/tabs/home/handlers/home-tab-action.handler';
 import { HomeTabService } from '@modules/slack/tabs/home/services/home-tab.service';
@@ -15,6 +20,10 @@ import { CancelVacationRequestSelectModalView } from '@modules/slack/tabs/home/v
 
 @Module({
   imports: [
+    VacationPoliciesModule,
+    TeamsModule,
+    UsersModule,
+    ProjectsModule,
     SlackCommunicationModule,
     SlackCommonModule,
     VacationRequestsModule,
@@ -23,6 +32,7 @@ import { CancelVacationRequestSelectModalView } from '@modules/slack/tabs/home/v
     TimeEntriesModule,
   ],
   providers: [
+    SetupProgressService,
     HomeTabView,
     HomeTabActionHandler,
     HomeTabService,

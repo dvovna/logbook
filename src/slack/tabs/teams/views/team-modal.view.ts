@@ -9,6 +9,8 @@ import { SlackMultiStaticSelectView } from '@modules/slack/common/views/componen
 import { IOption } from '@common/types/option.interface';
 import { InputCheckboxesBlockBuilder } from '@modules/slack/common/views/builders/input-checkboxes-block.builder';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { TeamModalActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
 interface IGetViewParams extends IBaseModalViewParams {
   initialData?: {
@@ -21,6 +23,8 @@ interface IGetViewParams extends IBaseModalViewParams {
     approvalNotificationRecipients: string[] | undefined;
     managerApproversRule: ApprovalRule | null;
     hrApproversRule: ApprovalRule | null;
+    // Its active members.
+    members: IOption[];
   } | null;
   policies: IOption[];
   managers: IOption[];
@@ -30,9 +34,16 @@ interface IGetViewParams extends IBaseModalViewParams {
 export interface ITeamModalViewMetadata {
   id?: string | null;
   pageMetadata: string;
+  // The form has the members field: what it holds is the team. False for a
+  // team too big to show them all.
+  setsMembers?: boolean;
 }
 
 export const NO_POLICY_VALUE = 'NO_POLICY';
+
+// As many as Slack shows chosen in one field. A bigger team is changed
+// person by person under People, so the form doesn't drop the rest.
+export const MAX_TEAM_MEMBERS = 100;
 
 const NO_POLICY_OPTION: PlainTextOption = {
   text: { type: 'plain_text', text: 'No Policy' },
@@ -68,6 +79,7 @@ export class TeamModalView extends BaseModalView<
         },
       },
       this.getPolicyBlock(policies, initialData?.vacation_policy_id),
+      ...this.getMembersBlocks(params),
       ...this.getApproverBlocks(params),
       {
         type: 'input',
@@ -89,15 +101,57 @@ export class TeamModalView extends BaseModalView<
     ];
   }
 
+  private getMembersBlocks({ initialData }: IGetViewParams): AnyBlock[] {
+    const members = initialData?.members ?? [];
+
+    if (members.length > MAX_TEAM_MEMBERS) {
+      return [
+        {
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: `${members.length} members: change them one by one under People (Edit user).`,
+            },
+          ],
+        },
+      ];
+    }
+
+    return [
+      {
+        type: 'input',
+        block_id: 'members_block',
+        optional: true,
+        label: { type: 'plain_text', text: 'Members' },
+        hint: {
+          type: 'plain_text',
+          text: "Someone in another team moves to this one. Their time off goes to this team's approvers.",
+        },
+        element: {
+          type: 'multi_external_select',
+          action_id: TeamModalActionId.Members,
+          placeholder: { type: 'plain_text', text: 'Type a name' },
+          min_query_length: 2,
+          max_selected_items: MAX_TEAM_MEMBERS,
+          ...(members.length
+            ? { initial_options: members.map(toPlainTextOption) }
+            : {}),
+        },
+      },
+    ];
+  }
+
   private getApproverBlocks(params: IGetViewParams) {
     return [
       ...SlackMultiStaticSelectView.getView({
         blockId: 'manager_approvers_block',
         actionId: 'manager_approvers',
-        label: 'Managers (Level 1 Approvers)',
+        label: 'Level 1: managers',
+        hint: 'People with the Manager or Admin role. Give someone that role under People to choose them here.',
         maxSelectedItems: 5,
         emptyText:
-          'No user with Manager role available. Please assign some first.',
+          'Level 1 approvers are people with the Manager or Admin role. Nobody has it yet: change a role under People first.',
         optional: true,
         placeholder: 'Manager Approvers',
         options: params.managers,
@@ -106,7 +160,7 @@ export class TeamModalView extends BaseModalView<
       ...InputCheckboxesBlockBuilder.build({
         blockId: 'manager_approvers_rule_block',
         actionId: 'manager_approvers_rule',
-        label: 'Managers Approval Rule',
+        label: 'Level 1 rule',
         options: [
           { name: 'All listed approvers must approve', id: ApprovalRule.All },
         ],
@@ -120,8 +174,10 @@ export class TeamModalView extends BaseModalView<
         blockId: 'hr_approvers_block',
         actionId: 'hr_approvers',
         maxSelectedItems: 5,
-        label: 'HR (Level 2 Approvers)',
-        emptyText: 'No user with HR role available. Please assign some first.',
+        label: 'Level 2: HR',
+        hint: 'People with the HR or Admin role. Give someone that role under People to choose them here.',
+        emptyText:
+          'Level 2 approvers are people with the HR or Admin role. Nobody has it yet: change a role under People first.',
         optional: true,
         placeholder: 'HR Approvers',
         options: params.hrUsers,
@@ -130,7 +186,7 @@ export class TeamModalView extends BaseModalView<
       ...InputCheckboxesBlockBuilder.build({
         blockId: 'hr_approvers_rule_block',
         actionId: 'hr_approvers_rule',
-        label: 'HR Approval Rule',
+        label: 'Level 2 rule',
         options: [
           { name: 'All listed approvers must approve', id: ApprovalRule.All },
         ],

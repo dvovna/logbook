@@ -61,6 +61,9 @@ const teamFormSchema = z.object({
   approval_notification_recipients: z
     .array(z.string().min(1, 'User ID cannot be empty'))
     .optional(),
+  members: z
+    .array(z.object({ value: z.string().uuid(), text: z.string() }))
+    .optional(),
 });
 
 export interface ITeamFormViewData {
@@ -72,6 +75,8 @@ export interface ITeamFormViewData {
   hr_approvers?: ISelectedOption[];
   hr_approvers_rule?: ISelectedOption<ApprovalRule>[];
   approval_notification_recipients?: string[];
+  // Not on a form for a team too big to show its members.
+  members?: ISelectedOption[];
 }
 
 @Injectable()
@@ -109,6 +114,10 @@ export default class TeamModalViewValuesParser extends BaseValuesParser<ITeamFor
       approval_notification_recipients: {
         blockId: 'approval_notification_recipients_block',
         type: ViewFieldType.MultiUserSelect,
+      },
+      members: {
+        blockId: 'members_block',
+        type: ViewFieldType.MultiSelect,
       },
     });
   }

@@ -127,8 +127,10 @@ Don't use "Install to Workspace" in the app settings, and don't use the sharable
 
 The person who installs the app becomes its admin. The other members are imported a few seconds later. Installing it again later (for example after an update adds scopes) only replaces the bot token: data and roles stay as they are. Uninstalling the app removes its bot token at once and keeps the workspace's data for `UNINSTALLED_DATA_RETENTION_DAYS` days (30 by default; 0 deletes it at once): installing again within that time restores everything, with the members who joined meanwhile. After it, the data is deleted for good. Then, in the App Home:
 - create vacation policies and their holidays under Settings → Policies;
-- create teams and pick their approvers under Settings → Teams;
-- put people in teams under People.
+- give approvers the Manager or HR role under People;
+- create teams, their members and approvers under Settings → Teams.
+
+The installer gets a message with these steps, and Home shows admins and HR a checklist until they are done.
 
 ### Updating
 

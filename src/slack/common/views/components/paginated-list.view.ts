@@ -7,6 +7,8 @@ interface IPaginatedListViewParams<Item = unknown> {
   prevPageActionId: string;
   nextPageActionId: string;
   emptyText?: string;
+  // The button that fills an empty list, e.g. "Create a team".
+  emptyAction?: { text: string; actionId: string };
   getItemBlocks: (item: Item) => AnyBlock[];
 }
 
@@ -17,6 +19,7 @@ export class PaginatedListView {
     prevPageActionId,
     nextPageActionId,
     emptyText = 'No items found',
+    emptyAction,
   }: IPaginatedListViewParams<Item>) {
     const blocks: AnyBlock[] = [];
 
@@ -24,6 +27,16 @@ export class PaginatedListView {
       blocks.push({
         type: 'section',
         text: { type: 'mrkdwn', text: emptyText },
+        ...(emptyAction
+          ? {
+              accessory: {
+                type: 'button',
+                text: { type: 'plain_text', text: emptyAction.text },
+                style: 'primary',
+                action_id: emptyAction.actionId,
+              },
+            }
+          : {}),
       });
     } else {
       const itemBlocks = itemsData.items.map(getItemBlocks);

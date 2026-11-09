@@ -1,3 +1,4 @@
+import { TeamModalActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { SlackUserAccessFilter } from '@modules/slack/filters/slack-user-access.filter';
 import {
   Controller,
@@ -46,6 +47,7 @@ export class SlackOptionsController {
           includeInactive: true,
         });
       }
+      case TeamModalActionId.Members:
       case ProjectAssignmentModalViewActionId.ProjectUsers: {
         return this.userOptionsService.searchUsers({
           query: payload.value,
