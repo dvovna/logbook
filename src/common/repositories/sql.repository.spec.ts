@@ -261,6 +261,22 @@ describe('SqlRepository', () => {
     );
   });
 
+  it('keeps the columns an upsert leaves undefined', async () => {
+    const { database, sqlOf } = recordingDatabase([[{ id: 'c1' }]]);
+
+    await new ClientsRepository(database).upsert(
+      {
+        id: 'c1',
+        name: 'Acme',
+        slack_team_id: 'w1',
+        description: undefined,
+      },
+      ['id'],
+    );
+
+    expect(sqlOf(0)).not.toContain('description');
+  });
+
   it('embeds a relation as an object, also in the rows it writes', async () => {
     const { database, sqlOf } = recordingDatabase([[], [{ id: 't1' }]]);
     const teams = new TeamsRepository(database);

@@ -296,7 +296,17 @@ export abstract class SqlRepository<
     const conflictColumns = Array.isArray(onConflict)
       ? onConflict
       : onConflict.split(',').map((column) => column.trim());
-    const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+    // The columns given a value: one left undefined keeps what the row has,
+    // as with PostgREST, which never sees undefined (JSON drops it).
+    const columns = [
+      ...new Set(
+        rows.flatMap((row) =>
+          Object.entries(row)
+            .filter(([, value]) => value !== undefined)
+            .map(([column]) => column),
+        ),
+      ),
+    ];
 
     const upserted = await this.run('upsert', () =>
       this.written(

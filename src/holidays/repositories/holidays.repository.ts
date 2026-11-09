@@ -1,21 +1,17 @@
-import { Json } from '@common/types/database.types';
-import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { Injectable } from '@nestjs/common';
-import {
-  BaseRepository,
-  TableName,
-  Tables,
-} from '@common/repositories/base.repository';
+import { SqlRepository } from '@common/repositories/sql.repository';
+import { SqlInsert, SqlRow } from '@common/types/sql-database.types';
+import { callFunction } from 'src/database/sql-functions';
 import IHolidayViewModel from '@modules/holidays/types/holiday.interface';
 
 @Injectable()
-export class HolidaysRepository extends BaseRepository<
-  Tables['holidays'],
+export class HolidaysRepository extends SqlRepository<
+  'holidays',
   IHolidayViewModel
 > {
-  protected tableName: TableName = 'holidays';
+  protected readonly tableName = 'holidays';
 
-  protected mapToViewModel = (row: Tables['holidays']['Row']) => {
+  protected mapToViewModel = (row: SqlRow<'holidays'>) => {
     return {
       id: row.id,
       name: row.name,
@@ -38,26 +34,17 @@ export class HolidaysRepository extends BaseRepository<
   public async replaceCountryHolidays(
     params: { slackTeamId: string; vacationPolicyId: string; year: number },
     holidays: Pick<
-      Tables['holidays']['Insert'],
+      SqlInsert<'holidays'>,
       'name' | 'date' | 'country_code' | 'created_by' | 'updated_by'
     >[],
   ): Promise<IHolidayViewModel[]> {
-    const { data, error } = await this.client.rpc(
-      RpcFunctionName.ReplaceCountryHolidays,
-      {
-        p_slack_team_id: params.slackTeamId,
-        p_vacation_policy_id: params.vacationPolicyId,
-        p_year: params.year,
-        p_holidays: holidays as unknown as Json,
-      },
-    );
+    const rows = await callFunction(this.db, 'replace_country_holidays', {
+      p_slack_team_id: params.slackTeamId,
+      p_vacation_policy_id: params.vacationPolicyId,
+      p_year: params.year,
+      p_holidays: JSON.stringify(holidays),
+    });
 
-    if (error) {
-      throw new Error(
-        `${RpcFunctionName.ReplaceCountryHolidays} failed: ${error.message}`,
-      );
-    }
-
-    return (data ?? []).map(this.mapToViewModel);
+    return rows.map(this.mapToViewModel);
   }
 }

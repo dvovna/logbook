@@ -1,19 +1,16 @@
-import {
-  BaseRepository,
-  TableName,
-  Tables,
-} from '@common/repositories/base.repository';
 import { Injectable } from '@nestjs/common';
+import { SqlRepository } from '@common/repositories/sql.repository';
+import { SqlRow } from '@common/types/sql-database.types';
 import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
 
 @Injectable()
-export default class VacationPoliciesRepository extends BaseRepository<
-  Tables['vacation_policies'],
+export default class VacationPoliciesRepository extends SqlRepository<
+  'vacation_policies',
   IVacationPolicyViewModel
 > {
-  protected tableName: TableName = 'vacation_policies';
+  protected readonly tableName = 'vacation_policies';
 
-  protected mapToViewModel = (data: Tables['vacation_policies']['Row']) => {
+  protected mapToViewModel = (data: SqlRow<'vacation_policies'>) => {
     return {
       id: data.id,
       vacation_days: data.vacation_days,
