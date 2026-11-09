@@ -1,12 +1,6 @@
+// SQL functions called through PostgREST. The repositories call theirs over
+// the direct connection (callFunction, src/database/sql-functions.ts), by the
+// names `yarn db:types` generated.
 export enum RpcFunctionName {
-  GetProjectsList = 'get_projects_list',
-  AssignProjectAssignments = 'assign_project_assignments',
-  GetUserProjects = 'get_user_projects',
-  GetTimeEntriesList = 'get_time_entries_list',
-  DecideWorkflowSteps = 'decide_workflow_steps',
   AppliedMigrations = 'applied_migrations',
-  ReplaceUserVacations = 'replace_user_vacations',
-  ReplaceCountryHolidays = 'replace_country_holidays',
-  CreateWorkspace = 'create_workspace',
-  SetTeamMembers = 'set_team_members',
 }

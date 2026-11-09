@@ -1,16 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { BaseRepository, Tables } from '@common/repositories/base.repository';
+import { SqlRepository } from '@common/repositories/sql.repository';
+import { SqlRow } from '@common/types/sql-database.types';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 @Injectable()
-export class RequestWorkflowStepCommentsRepository extends BaseRepository<
-  Tables['request_workflow_step_comments'],
+export class RequestWorkflowStepCommentsRepository extends SqlRepository<
+  'request_workflow_step_comments',
   IWorkflowStepCommentViewModel
 > {
   protected readonly tableName = 'request_workflow_step_comments';
 
   protected mapToViewModel = (
-    row: Tables['request_workflow_step_comments']['Row'],
+    row: SqlRow<'request_workflow_step_comments'>,
   ) => {
     return {
       id: row.id,

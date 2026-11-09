@@ -1,10 +1,7 @@
-import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { Injectable } from '@nestjs/common';
-import {
-  BaseRepository,
-  TableName,
-  Tables,
-} from '@common/repositories/base.repository';
+import { SqlRepository } from '@common/repositories/sql.repository';
+import { SqlRow } from '@common/types/sql-database.types';
+import { callFunction } from 'src/database/sql-functions';
 import ISlackTeamViewModel from '@modules/slack-teams/types/slack-team.interface';
 
 interface IStoredToken {
@@ -28,18 +25,18 @@ export interface ICreateWorkspaceRow {
 }
 
 @Injectable()
-export class SlackTeamsRepository extends BaseRepository<
-  Tables['slack_teams'],
+export class SlackTeamsRepository extends SqlRepository<
+  'slack_teams',
   ISlackTeamViewModel
 > {
-  protected tableName: TableName = 'slack_teams';
+  protected readonly tableName = 'slack_teams';
 
-  // The workspaces themselves.
+  // The workspaces themselves: their queries name no workspace column.
   protected readonly workspaceColumn = null;
 
   // The bot token stays out of the view model, so it doesn't travel with every
-  // workspace object (logs, errors, views). findStoredToken reads it.
-  protected mapToViewModel = (row: Tables['slack_teams']['Row']) => {
+  // workspace object (logs, errors, views). findStoredTokens reads it.
+  protected mapToViewModel = (row: SqlRow<'slack_teams'>) => {
     return {
       id: row.id,
       name: row.name,
@@ -50,17 +47,19 @@ export class SlackTeamsRepository extends BaseRepository<
   };
 
   public async findStoredTokens(id: string): Promise<IStoredTokens | null> {
-    const { data, error } = await this.client
-      .from('slack_teams')
-      .select('slack_token, slack_refresh_token, slack_token_expires_at')
-      .eq('id', id)
-      .maybeSingle();
+    const row = await this.failingWith('Failed to read the bot token', () =>
+      this.db
+        .selectFrom('slack_teams')
+        .select([
+          'slack_token',
+          'slack_refresh_token',
+          'slack_token_expires_at',
+        ])
+        .where('id', '=', id)
+        .executeTakeFirst(),
+    );
 
-    if (error) {
-      throw new Error(`Failed to read the bot token: ${error.message}`);
-    }
-
-    return data;
+    return row ?? null;
   }
 
   // The workspace and its installing admin, in one transaction.
@@ -70,41 +69,36 @@ export class SlackTeamsRepository extends BaseRepository<
     tokens,
     admin,
   }: ICreateWorkspaceRow): Promise<ISlackTeamViewModel> {
-    const { data, error } = await this.client.rpc(
-      RpcFunctionName.CreateWorkspace,
-      {
-        p_slack_id: slackId,
-        p_name: name,
-        p_slack_token: tokens.slack_token!,
-        p_slack_refresh_token: tokens.slack_refresh_token!,
-        p_slack_token_expires_at: tokens.slack_token_expires_at!,
-        p_admin_slack_id: admin.slackId,
-        p_admin_email: admin.email,
-        p_admin_name: admin.name,
-      },
-    );
+    const [row] = await callFunction(this.db, 'create_workspace', {
+      p_slack_id: slackId,
+      p_name: name,
+      p_slack_token: tokens.slack_token!,
+      p_slack_refresh_token: tokens.slack_refresh_token!,
+      p_slack_token_expires_at: tokens.slack_token_expires_at!,
+      p_admin_slack_id: admin.slackId,
+      p_admin_email: admin.email,
+      p_admin_name: admin.name,
+    });
 
-    if (error || !data?.[0]) {
-      throw new Error(
-        `${RpcFunctionName.CreateWorkspace} failed: ${error?.message ?? 'no row'}`,
-      );
+    if (!row) {
+      throw new Error('create_workspace failed: no row');
     }
 
-    return this.mapToViewModel(data[0]);
+    return this.mapToViewModel(row);
   }
 
   // Workspaces whose token is still stored in plain text.
   public async findPlainTextTokens(): Promise<IStoredToken[]> {
-    const { data, error } = await this.client
-      .from('slack_teams')
-      .select('id, slack_token')
-      .not('slack_token', 'like', 'v1:%');
+    const rows = await this.failingWith('Failed to read the bot tokens', () =>
+      this.db
+        .selectFrom('slack_teams')
+        .select(['id', 'slack_token'])
+        .where('slack_token', 'not like', 'v1:%')
+        .execute(),
+    );
 
-    if (error) {
-      throw new Error(`Failed to read the bot tokens: ${error.message}`);
-    }
-
-    return (data ?? []) as unknown as IStoredToken[];
+    // `not like` leaves out the workspaces without a token.
+    return rows as IStoredToken[];
   }
 
   public async saveToken(id: string, storedToken: string) {
@@ -112,13 +106,23 @@ export class SlackTeamsRepository extends BaseRepository<
   }
 
   public async saveTokens(id: string, tokens: Partial<IStoredTokens>) {
-    const { error } = await this.client
-      .from('slack_teams')
-      .update(tokens)
-      .eq('id', id);
+    await this.failingWith('Failed to save the bot token', () =>
+      this.db
+        .updateTable('slack_teams')
+        .set(tokens)
+        .where('id', '=', id)
+        .execute(),
+    );
+  }
 
-    if (error) {
-      throw new Error(`Failed to save the bot token: ${error.message}`);
+  private async failingWith<T>(message: string, query: () => Promise<T>) {
+    try {
+      return await query();
+    } catch (error) {
+      throw Object.assign(
+        new Error(`${message}: ${(error as Error).message}`),
+        { cause: error },
+      );
     }
   }
 }

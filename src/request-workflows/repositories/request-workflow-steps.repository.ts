@@ -1,19 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { RpcFunctionName } from '@common/enums/rpc-function-name';
-import { BaseRepository, Tables } from '@common/repositories/base.repository';
+import { SqlRepository } from '@common/repositories/sql.repository';
+import { SqlRow } from '@common/types/sql-database.types';
+import { callFunction } from 'src/database/sql-functions';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepType,
 } from '@modules/request-workflows/types/request-workflow-step.interface';
 
 @Injectable()
-export class RequestWorkflowStepsRepository extends BaseRepository<
-  Tables['request_workflow_steps'],
+export class RequestWorkflowStepsRepository extends SqlRepository<
+  'request_workflow_steps',
   IRequestWorkflowStepViewModel
 > {
   protected readonly tableName = 'request_workflow_steps';
 
-  protected mapToViewModel = (row: Tables['request_workflow_steps']['Row']) => {
+  protected mapToViewModel = (row: SqlRow<'request_workflow_steps'>) => {
     return {
       id: row.id,
       request_id: row.request_id,
@@ -43,24 +44,15 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
     stepId?: string;
     stepLevel?: number;
   }): Promise<IRequestWorkflowStepViewModel[]> {
-    const { data, error } = await this.client.rpc(
-      RpcFunctionName.DecideWorkflowSteps,
-      {
-        p_slack_team_id: params.slackTeamId,
-        p_request_id: params.requestId,
-        p_status: params.status,
-        p_decided_by_slack_id: params.decidedBySlackId,
-        p_step_id: params.stepId,
-        p_step_level: params.stepLevel,
-      },
-    );
+    const rows = await callFunction(this.db, 'decide_workflow_steps', {
+      p_slack_team_id: params.slackTeamId,
+      p_request_id: params.requestId,
+      p_status: params.status,
+      p_decided_by_slack_id: params.decidedBySlackId,
+      p_step_id: params.stepId,
+      p_step_level: params.stepLevel,
+    });
 
-    if (error) {
-      throw new Error(
-        `${RpcFunctionName.DecideWorkflowSteps} failed: ${error.message}`,
-      );
-    }
-
-    return (data ?? []).map(this.mapToViewModel);
+    return rows.map(this.mapToViewModel);
   }
 }
