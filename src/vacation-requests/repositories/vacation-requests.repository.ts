@@ -1,25 +1,32 @@
-import { Json } from '@common/types/database.types';
-import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { Injectable } from '@nestjs/common';
-import { BaseRepository, Tables } from '@common/repositories/base.repository';
+import {
+  ISqlRelation,
+  SqlRepository,
+} from '@common/repositories/sql.repository';
+import { SqlInsert, SqlRow } from '@common/types/sql-database.types';
+import { callFunction } from 'src/database/sql-functions';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 
 @Injectable()
-export class VacationRequestsRepository extends BaseRepository<
-  Tables['vacation_requests'],
+export class VacationRequestsRepository extends SqlRepository<
+  'vacation_requests',
   IVacationRequestViewModel
 > {
   protected readonly tableName = 'vacation_requests';
 
-  protected relations = {
-    user: 'user_id ( id, name, email, slack_id )',
-    team: 'team_id ( id, name )',
+  protected relations: Record<string, ISqlRelation> = {
+    user: {
+      table: 'users',
+      foreignKey: 'user_id',
+      columns: ['id', 'name', 'email', 'slack_id'],
+    },
+    team: { table: 'teams', foreignKey: 'team_id', columns: ['id', 'name'] },
   };
 
-  protected mapToViewModel = (row: Tables['vacation_requests']['Row']) => {
-    const extendedRow = row as Tables['vacation_requests']['Row'] & {
+  protected mapToViewModel = (row: SqlRow<'vacation_requests'>) => {
+    const extendedRow = row as SqlRow<'vacation_requests'> & {
       user: {
         id: string;
         name: string;
@@ -57,25 +64,23 @@ export class VacationRequestsRepository extends BaseRepository<
     slackTeamId: string,
     userId: string,
     vacations: Omit<
-      Tables['vacation_requests']['Insert'],
+      SqlInsert<'vacation_requests'>,
       'slack_team_id' | 'user_id'
     >[],
   ): Promise<IVacationRequestViewModel[]> {
-    const { data, error } = await this.client.rpc(
-      RpcFunctionName.ReplaceUserVacations,
-      {
-        p_slack_team_id: slackTeamId,
-        p_user_id: userId,
-        p_vacations: vacations as unknown as Json,
-      },
+    const rows = await callFunction(this.db, 'replace_user_vacations', {
+      p_slack_team_id: slackTeamId,
+      p_user_id: userId,
+      p_vacations: JSON.stringify(vacations),
+    });
+
+    // The function returns bare rows, without the user and the team.
+    return rows.map((row) =>
+      this.mapToViewModel({
+        ...row,
+        user: null,
+        team: null,
+      } as SqlRow<'vacation_requests'>),
     );
-
-    if (error) {
-      throw new Error(
-        `${RpcFunctionName.ReplaceUserVacations} failed: ${error.message}`,
-      );
-    }
-
-    return (data ?? []).map(this.mapToViewModel);
   }
 }

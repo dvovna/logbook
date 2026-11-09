@@ -1,28 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import {
-  BaseRepository,
-  TableName,
-  Tables,
-} from '@common/repositories/base.repository';
+  ISqlRelation,
+  SqlRepository,
+} from '@common/repositories/sql.repository';
+import { SqlRow } from '@common/types/sql-database.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 
 @Injectable()
-export class TimeEntriesRepository extends BaseRepository<
-  Tables['time_entries'],
+export class TimeEntriesRepository extends SqlRepository<
+  'time_entries',
   ITimeEntryViewModel
 > {
-  protected tableName: TableName = 'time_entries';
+  protected readonly tableName = 'time_entries';
 
-  protected relations = {
-    user: 'user_id ( id, name, email, slack_id )',
-    team: 'team_id ( id, name )',
-    client: 'client_id ( id, name )',
-    project: 'project_id ( id, name )',
+  protected relations: Record<string, ISqlRelation> = {
+    user: {
+      table: 'users',
+      foreignKey: 'user_id',
+      columns: ['id', 'name', 'email', 'slack_id'],
+    },
+    team: { table: 'teams', foreignKey: 'team_id', columns: ['id', 'name'] },
+    client: {
+      table: 'clients',
+      foreignKey: 'client_id',
+      columns: ['id', 'name'],
+    },
+    project: {
+      table: 'projects',
+      foreignKey: 'project_id',
+      columns: ['id', 'name'],
+    },
   };
 
-  protected mapToViewModel = (row: Tables['time_entries']['Row']) => {
-    const extendedRow = row as Tables['time_entries']['Row'] & {
+  protected mapToViewModel = (row: SqlRow<'time_entries'>) => {
+    const extendedRow = row as SqlRow<'time_entries'> & {
       user?: { id: string; name: string; email: string; slack_id: string };
       team?: { id: string; name: string };
       client?: { id: string; name: string };
