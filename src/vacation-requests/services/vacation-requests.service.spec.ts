@@ -500,5 +500,35 @@ describe('VacationRequestsService', () => {
         }),
       ]);
     });
+
+    // A refused import rolls back the closed steps and the jobs with it.
+    it("closes the approvals of the user's pending requests in the same transaction", async () => {
+      const calls: string[] = [];
+      repository.findMany.mockResolvedValue([
+        buildRequest({ id: 'pending-1' }),
+      ]);
+      workflowService.closeBeforeDelete.mockImplementation(() => {
+        calls.push(`close the approvals, in a transaction: ${inTransaction}`);
+      });
+      repository.deleteMany.mockImplementation(() => {
+        calls.push(`delete, in a transaction: ${inTransaction}`);
+      });
+
+      await service.replaceUserVacations(requester, vacations, requester);
+
+      expect(repository.findMany).toHaveBeenCalledWith({
+        user_id: requester.id,
+        slack_team_id: SLACK_TEAM_ID,
+        status: { operator: 'in', value: [VacationRequestStatus.Pending] },
+      });
+      expect(workflowService.closeBeforeDelete).toHaveBeenCalledWith(
+        'pending-1',
+        requester,
+      );
+      expect(calls).toEqual([
+        'close the approvals, in a transaction: true',
+        'delete, in a transaction: true',
+      ]);
+    });
   });
 });

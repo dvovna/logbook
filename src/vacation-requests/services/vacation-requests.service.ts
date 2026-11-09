@@ -431,7 +431,8 @@ export class VacationRequestsService implements IVacationRequestsService {
   }
 
   // The user's vacations become `vacations`, in one transaction: when the
-  // database refuses one of them, the user keeps what they had.
+  // database refuses one of them, the user keeps what they had, and the
+  // approvals of their pending requests stay open.
   public async replaceUserVacations(
     user: IUserViewModel,
     vacations: ICreateParams[],
@@ -466,6 +467,18 @@ export class VacationRequestsService implements IVacationRequestsService {
     const owner = { slack_team_id: replacedBy.slack_team_id, user_id: user.id };
 
     return this.transactions.transaction(async () => {
+      // As on Delete Request, the approvers of a pending request see their
+      // message without buttons once the import has committed.
+      const pending = await this.findMany({
+        userId: user.id,
+        slackTeamId: replacedBy.slack_team_id,
+        statuses: [VacationRequestStatus.Pending],
+      });
+
+      for (const { id } of pending) {
+        await this.requestWorkflowService.closeBeforeDelete(id, replacedBy);
+      }
+
       await this.vacationRequestsRepository.deleteMany(owner);
 
       return this.vacationRequestsRepository.createMany(
