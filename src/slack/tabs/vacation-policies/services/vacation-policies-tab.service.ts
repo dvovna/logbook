@@ -1,3 +1,4 @@
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import TeamsService from '@modules/teams/services/teams.service';
 import { Injectable } from '@nestjs/common';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
@@ -143,7 +144,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       {
         callbackId: ViewCallbackId.DeleteVacationPolicy,
         title: 'Delete Vacation Policy',
-        message: `The policy *${policy.name}* will be permanently deleted. This action cannot be undone.`,
+        message: `The policy *${escapeMrkdwn(policy.name)}* will be permanently deleted. This action cannot be undone.`,
         errorMessage,
       },
       {

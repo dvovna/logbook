@@ -1,8 +1,12 @@
+import { truncate } from 'lodash';
+import { getDisplayTime } from '@common/utils/time.utils';
+import { formatDate } from '@common/utils/date.utils';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,
 } from '@modules/slack/common/services/base-tab.service';
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 import {
@@ -133,16 +137,39 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     });
   }
 
+  // Says which entry goes. The ID comes from the client: only Admin and HR
+  // see others' entries.
   private async getDeleteTimeEntryModal({
     entryId,
     errorMessage,
     pageMetadata,
+    user,
   }: ITimeEntryModalViewParams) {
+    const entry = await this.timeEntriesService.findOneWithValidation({
+      id: entryId,
+      slackTeamId: user.slack_team_id,
+    });
+
+    if (entry.user_id !== user.id && !isTimeEntriesAdmin(user.role)) {
+      throw new ForbiddenException('You cannot delete this time entry.');
+    }
+
+    const what = [
+      `*${getDisplayTime(entry.minutes)}*`,
+      entry.project?.name && `on *${escapeMrkdwn(entry.project.name)}*`,
+      formatDate(entry.work_date),
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const description = entry.description
+      ? `\n_${escapeMrkdwn(truncate(entry.description.replace(/\s+/g, ' '), { length: 80 }))}_`
+      : '';
+
     return this.confirmationModalView.getView(
       {
         callbackId: ViewCallbackId.DeleteTimeEntry,
         title: 'Delete time entry',
-        message: 'This time entry will be permanently deleted.',
+        message: `${what} will be deleted.${description}`,
         errorMessage,
       },
       { id: entryId, pageMetadata },

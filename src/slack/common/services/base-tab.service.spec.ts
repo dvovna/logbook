@@ -54,10 +54,16 @@ describe('BaseTabService', () => {
     return tabView as ViewsPublishArguments;
   };
 
+  // The navigation's rows, each a list of button labels.
   const navigationOf = (tabView: ViewsPublishArguments) =>
     (
-      tabView.view.blocks[0] as { elements: { text: { text: string } }[] }
-    ).elements.map(({ text }) => text.text);
+      tabView.view.blocks as {
+        block_id?: string;
+        elements?: { text: { text: string } }[];
+      }[]
+    )
+      .filter(({ block_id }) => block_id?.startsWith('navigation'))
+      .map(({ elements }) => elements!.map(({ text }) => text.text));
 
   beforeEach(() => {
     slackCommunicationService = {
@@ -82,16 +88,12 @@ describe('BaseTabService', () => {
       tabView,
       user.slack_team_id,
     );
+    // Slack folds an actions block past five buttons into "+ N more".
     expect(navigationOf(tabView)).toEqual([
-      '🏠 Home',
-      '🕒 My time',
-      '🌴 Time off',
-      '✅ Approvals (3)',
-      '👥 People',
-      '📊 Reports',
-      '⚙️ Settings',
+      ['🏠 Home', '🕒 My time', '🌴 Time off', '✅ Approvals (3)'],
+      ['👥 People', '📊 Reports', '⚙️ Settings'],
     ]);
-    expect(tabView.view.blocks.slice(1)).toEqual([
+    expect(tabView.view.blocks.slice(2)).toEqual([
       expect.objectContaining({ block_id: 'tab_notice' }),
       content,
     ]);
@@ -103,7 +105,7 @@ describe('BaseTabService', () => {
 
     await createService().publish({ user });
 
-    expect(navigationOf(published())).toContain('✅ Approvals');
+    expect(navigationOf(published())[0]).toContain('✅ Approvals');
   });
 
   it('sends a role to Home from a screen it may not open', async () => {

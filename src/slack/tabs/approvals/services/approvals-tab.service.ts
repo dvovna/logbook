@@ -93,22 +93,20 @@ export class ApprovalsTabService extends BaseTabService<ApprovalsTabModalViewRes
   }
 
   public async getTabView({ user, metadata = {} }: IGetApprovalsTabViewParams) {
-    const [timeOff, pendingEntries] = await Promise.all([
-      this.requestWorkflowStepsService.search({
-        filters: {
-          slackUserId: user.slack_id,
-          slackTeamId: user.slack_team_id,
-          processed: true,
-          completed: false,
-        },
-        pageSize: TIME_OFF_SHOWN,
-        orderBy: ['created_at:asc'],
-      }),
+    const [waiting, pendingEntries] = await Promise.all([
+      this.requestWorkflowStepsService.findWaitingFor(user),
       this.timeEntryApprovalsService.listPending(user, {
         page: metadata.page,
         pageSize: TIME_APPROVALS_PAGE_SIZE,
       }),
     ]);
+
+    const timeOff = {
+      items: waiting.slice(0, TIME_OFF_SHOWN),
+      totalCount: waiting.length,
+      page: 1,
+      pageSize: TIME_OFF_SHOWN,
+    };
 
     return this.approvalsTabView.getView(
       {

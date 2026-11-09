@@ -29,15 +29,10 @@ export class PendingApprovalsService {
     }
 
     const [timeOff, timeEntries] = await Promise.all([
-      this.requestWorkflowStepsService.count({
-        slackUserId: user.slack_id,
-        slackTeamId: user.slack_team_id,
-        processed: true,
-        completed: false,
-      }),
+      this.requestWorkflowStepsService.findWaitingFor(user),
       this.timeEntryApprovalsService.countPending(user),
     ]);
 
-    return { timeOff, timeEntries };
+    return { timeOff: timeOff.length, timeEntries };
   }
 }

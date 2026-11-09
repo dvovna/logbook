@@ -1131,6 +1131,10 @@ describe('Time entries', () => {
         TimeEntriesTabViewActionId.DeleteTimeEntry,
         entry,
       );
+      // It says which entry goes.
+      expect(sectionTexts(confirmation)[0]).toMatch(
+        /^\*[0-9hm ]+\* on \*Website\* 17 Jun 2026 will be deleted\.\n_Typo_$/,
+      );
       const since = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, admin, confirmation)

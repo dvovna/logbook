@@ -430,6 +430,8 @@ describe('Installing the app (OAuth redirect)', () => {
         email: `i-${teamId}@a.test`,
       });
       await install(`plain-${teamId}`);
+      // The welcome message and the member import run after the redirect.
+      await t.idle();
       const slackTeam = (await workspaceRow(teamId))!;
 
       expect(slackTeam).toMatchObject({

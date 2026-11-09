@@ -61,15 +61,14 @@ describe('Navigation', () => {
         ]),
         HEADER_BLOCK_IDS.navigation,
       ),
-    ).toEqual([
-      '🏠 Home',
-      '🕒 My time',
-      '[🌴 Time off]',
-      '✅ Approvals',
-      '👥 People',
-      '📊 Reports',
-      '⚙️ Settings',
-    ]);
+    ).toEqual(['🏠 Home', '🕒 My time', '[🌴 Time off]', '✅ Approvals']);
+    // Slack shows five buttons of a row and folds the rest into "+ N more".
+    expect(
+      rowOf(
+        await openAppHomeTab(t, workspace, manager),
+        HEADER_BLOCK_IDS.navigationMore,
+      ),
+    ).toEqual(['👥 People', '📊 Reports', '⚙️ Settings']);
   });
 
   it('opens the first Settings screen a role may use, with the Settings row', async () => {
@@ -92,7 +91,7 @@ describe('Navigation', () => {
       '[📁 Projects]',
       '💼 Clients',
     ]);
-    expect(rowOf(managerSettings, HEADER_BLOCK_IDS.navigation)).toContain(
+    expect(rowOf(managerSettings, HEADER_BLOCK_IDS.navigationMore)).toContain(
       '[⚙️ Settings]',
     );
   });
@@ -153,6 +152,56 @@ describe('Navigation', () => {
       NavigationActionId.Approvals,
     );
     expect(approvals.callback_id).toBe(ViewCallbackId.ApprovalsTabView);
+  });
+
+  // Nobody approves their own request. A step made for the requester before
+  // that rule would otherwise wait in their inbox forever.
+  it("leaves the approver's own request out of Approvals and its count", async () => {
+    const request = await workspace.addVacationRequest(manager, {
+      start_date: '2026-07-06',
+      end_date: '2026-07-06',
+      status: 'pending',
+    });
+    await t.db.from('request_workflow_steps').insert({
+      request_id: request.id,
+      slack_team_id: workspace.id,
+      step_type: 'approver',
+      step_level: 1,
+      slack_user_id: manager.slack_id,
+      processed_at: new Date().toISOString(),
+      step_data: {
+        status: 'pending',
+        snapshot: {
+          user_id: manager.id,
+          slack_user_id: manager.slack_id,
+          user_name: manager.name,
+          user_email: manager.email,
+          start_date: '2026-07-06',
+          end_date: '2026-07-06',
+          days: 1,
+          working_days: 1,
+          type: 'annual_leave',
+          comment: '',
+        },
+      },
+    });
+
+    const home = await openAppHomeTab(t, workspace, manager);
+    expect(buttonText(home, NavigationActionId.Approvals)).toBe('✅ Approvals');
+    expect(
+      sectionTexts(home).filter((text) =>
+        text.includes('Needs your attention'),
+      ),
+    ).toEqual([]);
+
+    const approvals = await actOnTab(
+      t,
+      workspace,
+      manager,
+      home,
+      NavigationActionId.Approvals,
+    );
+    expect(sectionTexts(approvals)).toContain('*🌴 Time off* (0)');
   });
 
   it('keeps Home quiet for people with nothing to decide', async () => {

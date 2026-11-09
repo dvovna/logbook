@@ -1,3 +1,4 @@
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { Injectable } from '@nestjs/common';
 import TeamsService from '@modules/teams/services/teams.service';
 import {
@@ -183,7 +184,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       {
         callbackId: ViewCallbackId.DeleteTeam,
         title: 'Delete Team',
-        message: `The team *${team.name}* will be permanently deleted. This action cannot be undone.`,
+        message: `The team *${escapeMrkdwn(team.name)}* will be permanently deleted. This action cannot be undone.`,
         errorMessage,
       },
       {
