@@ -12,6 +12,7 @@ import {
 import { UsersService } from '@modules/users/services/users.service';
 import SlackUsersService from '@modules/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from '@modules/team-setup/team-users-sync.service';
+import { TransactionService } from 'src/database/transaction.service';
 
 interface ITeamSetupWorkflowParams {
   slackTeamId: string;
@@ -55,6 +56,7 @@ export class TeamSetupWorkflowService implements OnModuleInit {
     private readonly accessTokenService: AccessTokenService,
     private readonly jobs: JobsService,
     private readonly slackCommunicationService: SlackCommunicationService,
+    private readonly transactions: TransactionService,
   ) {}
 
   // Importing the workspace's members takes a while after the install, so it
@@ -105,25 +107,29 @@ export class TeamSetupWorkflowService implements OnModuleInit {
       );
     }
 
-    // The workspace and its first admin, in one transaction.
-    const workspace = await this.slackTeamsService.createWorkspace({
-      slackId: slackTeamId,
-      name: slackTeamName,
-      tokens,
-      admin: {
-        slackId: slackUserId,
-        email: installer.profile.email,
-        name: installer.profile.real_name || 'Admin User',
-      },
-    });
+    // The workspace, its first admin, and the jobs that welcome the admin and
+    // import the members, in one transaction: an install never ends with a
+    // workspace whose members are never imported.
+    await this.transactions.transaction(async () => {
+      const workspace = await this.slackTeamsService.createWorkspace({
+        slackId: slackTeamId,
+        name: slackTeamName,
+        tokens,
+        admin: {
+          slackId: slackUserId,
+          email: installer.profile.email!,
+          name: installer.profile.real_name || 'Admin User',
+        },
+      });
 
-    void this.jobs.run<IWelcomeJob>(WELCOME_JOB, {
-      slackTeamId: workspace.id,
-      slackUserId,
-    });
-    void this.jobs.run<ISyncUsersJob>(SYNC_USERS_JOB, {
-      slackTeamId: workspace.id,
-      userSlackIdsToIgnore: [slackUserId],
+      await this.jobs.enqueue<IWelcomeJob>(WELCOME_JOB, {
+        slackTeamId: workspace.id,
+        slackUserId,
+      });
+      await this.jobs.enqueue<ISyncUsersJob>(SYNC_USERS_JOB, {
+        slackTeamId: workspace.id,
+        userSlackIdsToIgnore: [slackUserId],
+      });
     });
   }
 

@@ -7,6 +7,7 @@ import {
 import { SlackTeamsRepository } from '@modules/slack-teams/slack-teams.repository';
 import { SupabaseFilter } from '@common/repositories/base.repository';
 import { TokenCipherService } from '@modules/slack-teams/token-cipher.service';
+import { TransactionService } from 'src/database/transaction.service';
 
 // A bot token as Slack issues it. A rotating one expires and comes with a
 // refresh token; one from before rotation has neither.
@@ -35,6 +36,7 @@ export class SlackTeamsService implements OnApplicationBootstrap {
   public constructor(
     private readonly slackTeamsRepository: SlackTeamsRepository,
     private readonly tokenCipher: TokenCipherService,
+    private readonly transactions: TransactionService,
   ) {}
 
   // Tokens stored before they were encrypted get encrypted once the app
@@ -63,12 +65,16 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     tokens,
     admin,
   }: ICreateWorkspaceParams) {
-    return this.slackTeamsRepository.createWorkspace({
-      slackId,
-      name,
-      tokens: this.encrypt(tokens),
-      admin,
-    });
+    const encrypted = this.encrypt(tokens);
+
+    return this.transactions.transaction(() =>
+      this.slackTeamsRepository.createWorkspace({
+        slackId,
+        name,
+        tokens: encrypted,
+        admin,
+      }),
+    );
   }
 
   // A reinstall: Slack gives the workspace a new token, and its name may have

@@ -54,6 +54,9 @@ describe('TeamSetupWorkflowService', () => {
         {} as TransactionService,
       ),
       { postMessage: jest.fn() } as unknown as SlackCommunicationService,
+      {
+        transaction: <T>(work: () => Promise<T>) => work(),
+      } as unknown as TransactionService,
     );
     service.onModuleInit();
   });

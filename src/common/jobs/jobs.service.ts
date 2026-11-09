@@ -135,10 +135,10 @@ export class JobsService
     return firstRun;
   }
 
-  // Saves the job in the current transaction (TransactionService),
-  // so that it exists exactly when the data it is about was committed, and
-  // runs it first once the transaction has committed. Await it inside the
-  // transaction; the first run is background work, as with run().
+  // Inside a transaction (TransactionService), saves the job in it, so that
+  // the job exists exactly when the data it is about was committed, and runs
+  // it first once the transaction has committed: await it there. Outside one,
+  // it starts the job as run() does, without waiting for the first run.
   public async enqueue<Payload extends object>(
     name: string,
     payload: Payload,
@@ -146,7 +146,9 @@ export class JobsService
     const handler = this.handlerOf(name);
 
     if (!this.transactions.inTransaction) {
-      throw new Error(`Job ${name} enqueued outside a transaction: use run()`);
+      void this.run(name, payload);
+
+      return;
     }
 
     await this.started;

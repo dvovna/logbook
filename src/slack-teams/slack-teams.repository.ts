@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SqlRepository } from '@common/repositories/sql.repository';
 import { SqlRow } from '@common/types/sql-database.types';
-import { callFunction } from 'src/database/sql-functions';
+import UserRole from '@common/enums/user-role.enum';
 import ISlackTeamViewModel from '@modules/slack-teams/types/slack-team.interface';
 
 interface IStoredToken {
@@ -62,29 +62,32 @@ export class SlackTeamsRepository extends SqlRepository<
     return row ?? null;
   }
 
-  // The workspace and its installing admin, in one transaction.
+  // The workspace and its installing admin. Two statements: the caller runs
+  // them in one transaction, so a workspace is never without its admin.
   public async createWorkspace({
     slackId,
     name,
     tokens,
     admin,
   }: ICreateWorkspaceRow): Promise<ISlackTeamViewModel> {
-    const [row] = await callFunction(this.db, 'create_workspace', {
-      p_slack_id: slackId,
-      p_name: name,
-      p_slack_token: tokens.slack_token!,
-      p_slack_refresh_token: tokens.slack_refresh_token!,
-      p_slack_token_expires_at: tokens.slack_token_expires_at!,
-      p_admin_slack_id: admin.slackId,
-      p_admin_email: admin.email,
-      p_admin_name: admin.name,
-    });
+    const workspace = await this.db
+      .insertInto('slack_teams')
+      .values({ slack_id: slackId, name, ...tokens })
+      .returningAll()
+      .executeTakeFirstOrThrow();
 
-    if (!row) {
-      throw new Error('create_workspace failed: no row');
-    }
+    await this.db
+      .insertInto('users')
+      .values({
+        slack_team_id: workspace.id,
+        slack_id: admin.slackId,
+        email: admin.email,
+        name: admin.name,
+        role: UserRole.Admin,
+      })
+      .execute();
 
-    return this.mapToViewModel(row);
+    return this.mapToViewModel(workspace);
   }
 
   // Workspaces whose token is still stored in plain text.

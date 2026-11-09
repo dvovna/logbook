@@ -153,11 +153,17 @@ describe('JobsService', () => {
     expect(queue.deleteJob).toHaveBeenCalledWith('notify', 'job-1');
   });
 
-  it('refuses to enqueue a job outside a transaction', async () => {
-    await expect(jobs.enqueue('notify', {})).rejects.toThrow(
-      'Job notify enqueued outside a transaction: use run()',
+  it('runs a job enqueued outside a transaction at once, as run() does', async () => {
+    await jobs.enqueue('notify', { to: 'U1' });
+    await whenBackgroundWorkIsDone();
+
+    expect(sent).toEqual(['U1']);
+    expect(queue.send).toHaveBeenCalledWith(
+      'notify',
+      { to: 'U1' },
+      { startAfter: FIRST_RETRY_AFTER_SECONDS },
     );
-    expect(queue.send).not.toHaveBeenCalled();
+    expect(transactions.afterCommit).not.toHaveBeenCalled();
   });
 
   it('refuses a job nobody defined, and a second definition', () => {
