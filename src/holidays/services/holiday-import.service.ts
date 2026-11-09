@@ -33,33 +33,13 @@ export default class HolidayImportService {
       year,
     );
 
-    // The country holidays imported before; the company's own ones stay.
-    const previous = await this.holidaysService.findMany({
-      slackTeamId,
-      vacationPolicyId: policyId,
-      year,
-      isCompanyCustom: false,
-    });
-
-    await this.holidaysService.createMany(
-      holidays.map((holiday) => ({
-        name: holiday.name,
-        date: holiday.date,
-        isCompanyCustom: false,
-        slackTeamId,
-        countryCode,
-        vacationPolicyId: policyId,
-      })),
+    // In one transaction: the country holidays imported before go, the
+    // company's own ones stay.
+    await this.holidaysService.replaceCountryHolidays(
+      { slackTeamId, vacationPolicyId: policyId, year },
+      holidays.map(({ name, date }) => ({ name, date, countryCode })),
       user,
     );
-
-    // Only once the new ones are saved.
-    if (previous.length) {
-      await this.holidaysService.deleteMany({
-        slackTeamId,
-        ids: previous.map(({ id }) => id),
-      });
-    }
 
     this.logger.log(
       `Imported ${holidays.length} holidays for policy=${policyId}, year=${year}`,

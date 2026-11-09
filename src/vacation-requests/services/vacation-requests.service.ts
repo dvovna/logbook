@@ -389,18 +389,13 @@ export class VacationRequestsService implements IVacationRequestsService {
     return finished;
   }
 
+  // The user's vacations become `vacations`, in one transaction: when the
+  // database refuses one of them, the user keeps what they had.
   public async replaceUserVacations(
     user: IUserViewModel,
     vacations: ICreateParams[],
     replacedBy: IUserViewModel,
   ) {
-    // The new vacations are saved before the old ones are deleted: when the
-    // database refuses one of them, the user keeps what they had.
-    const previous = await this.vacationRequestsRepository.findMany({
-      user_id: user.id,
-      slack_team_id: replacedBy.slack_team_id,
-    });
-
     const userTeam = user.team_id
       ? await this.teamsService.findOne({
           id: user.team_id,
@@ -408,45 +403,30 @@ export class VacationRequestsService implements IVacationRequestsService {
         })
       : null;
 
-    const now = new Date().toISOString();
     const vacationRecords = await Promise.all(
-      vacations.map(async (vacation) => {
-        const workingDays = await this.workingDaysCalculationService.calculate(
+      vacations.map(async (vacation) => ({
+        start_date: vacation.startDate.toISOString(),
+        end_date: vacation.endDate.toISOString(),
+        days: getDaysBetweenDates(vacation.startDate, vacation.endDate),
+        working_days: await this.workingDaysCalculationService.calculate(
           vacation.startDate,
           vacation.endDate,
           userTeam?.vacation_policy_id || null,
           user.slack_team_id,
-        );
-
-        return {
-          user_id: user.id,
-          start_date: vacation.startDate.toISOString(),
-          end_date: vacation.endDate.toISOString(),
-          days: getDaysBetweenDates(vacation.startDate, vacation.endDate),
-          working_days: workingDays,
-          type: vacation.type,
-          status: vacation.status,
-          team_id: vacation.teamId,
-          slack_team_id: replacedBy.slack_team_id,
-          created_at: now,
-          updated_at: now,
-          created_by: replacedBy.id,
-          updated_by: replacedBy.id,
-        };
-      }),
+        ),
+        type: vacation.type,
+        status: vacation.status,
+        team_id: vacation.teamId,
+        created_by: replacedBy.id,
+        updated_by: replacedBy.id,
+      })),
     );
 
-    const created =
-      await this.vacationRequestsRepository.createMany(vacationRecords);
-
-    if (previous.length) {
-      await this.vacationRequestsRepository.deleteMany({
-        id: { operator: 'in', value: previous.map(({ id }) => id) },
-        slack_team_id: replacedBy.slack_team_id,
-      });
-    }
-
-    return created;
+    return this.vacationRequestsRepository.replaceUserVacations(
+      replacedBy.slack_team_id,
+      user.id,
+      vacationRecords,
+    );
   }
 
   private getFindQuery(params: IFindParams): SupabaseFilter {

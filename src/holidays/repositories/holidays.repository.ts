@@ -1,3 +1,5 @@
+import { Json } from '@common/types/database.types';
+import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { Injectable } from '@nestjs/common';
 import {
   BaseRepository,
@@ -29,4 +31,33 @@ export class HolidaysRepository extends BaseRepository<
       updated_by: row.updated_by,
     };
   };
+
+  // In one transaction (replace_country_holidays): a policy's country
+  // holidays of `year` are replaced by `holidays`, or nothing changes. The
+  // company's own holidays stay.
+  public async replaceCountryHolidays(
+    params: { slackTeamId: string; vacationPolicyId: string; year: number },
+    holidays: Pick<
+      Tables['holidays']['Insert'],
+      'name' | 'date' | 'country_code' | 'created_by' | 'updated_by'
+    >[],
+  ): Promise<IHolidayViewModel[]> {
+    const { data, error } = await this.client.rpc(
+      RpcFunctionName.ReplaceCountryHolidays,
+      {
+        p_slack_team_id: params.slackTeamId,
+        p_vacation_policy_id: params.vacationPolicyId,
+        p_year: params.year,
+        p_holidays: holidays as unknown as Json,
+      },
+    );
+
+    if (error) {
+      throw new Error(
+        `${RpcFunctionName.ReplaceCountryHolidays} failed: ${error.message}`,
+      );
+    }
+
+    return (data ?? []).map(this.mapToViewModel);
+  }
 }

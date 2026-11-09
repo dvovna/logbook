@@ -57,7 +57,13 @@ const buildRequest = (
 
 describe('VacationRequestsService', () => {
   let repository: Record<
-    'findOne' | 'update' | 'create' | 'findMany' | 'createMany' | 'deleteMany',
+    | 'findOne'
+    | 'update'
+    | 'create'
+    | 'findMany'
+    | 'createMany'
+    | 'deleteMany'
+    | 'replaceUserVacations',
     jest.Mock
   >;
   let validator: Record<
@@ -76,6 +82,7 @@ describe('VacationRequestsService', () => {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn(),
+      replaceUserVacations: jest.fn().mockResolvedValue([]),
     };
     validator = {
       validateRequestLimits: jest.fn(),
@@ -292,28 +299,26 @@ describe('VacationRequestsService', () => {
       },
     ];
 
-    beforeEach(() => {
-      repository.findMany.mockResolvedValue([buildRequest({ id: 'old-1' })]);
-    });
-
-    it('deletes the old vacations only after the new ones are saved', async () => {
+    // The old vacations out and the new ones in are one transaction in the
+    // database (replace_user_vacations; test/integration covers a refusal).
+    it("hands the user's new vacations to the database in one call", async () => {
       await service.replaceUserVacations(requester, vacations, requester);
 
-      expect(repository.deleteMany).toHaveBeenCalledWith({
-        id: { operator: 'in', value: ['old-1'] },
-        slack_team_id: SLACK_TEAM_ID,
-      });
-      expect(repository.createMany.mock.invocationCallOrder[0]).toBeLessThan(
-        repository.deleteMany.mock.invocationCallOrder[0],
+      expect(repository.replaceUserVacations).toHaveBeenCalledWith(
+        SLACK_TEAM_ID,
+        requester.id,
+        [
+          expect.objectContaining({
+            start_date: '2026-03-02T00:00:00.000Z',
+            end_date: '2026-03-06T00:00:00.000Z',
+            days: 5,
+            type: VacationType.AnnualLeave,
+            status: VacationRequestStatus.Approved,
+            created_by: requester.id,
+          }),
+        ],
       );
-    });
-
-    it('keeps the old vacations when the new ones cannot be saved', async () => {
-      repository.createMany.mockRejectedValue(new Error('check violation'));
-
-      await expect(
-        service.replaceUserVacations(requester, vacations, requester),
-      ).rejects.toThrow('check violation');
+      expect(repository.createMany).not.toHaveBeenCalled();
       expect(repository.deleteMany).not.toHaveBeenCalled();
     });
   });

@@ -152,6 +152,25 @@ export default class HolidaysService implements IHolidaysService {
     return await this.holidaysRepository.createMany(holidaysToCreate);
   }
 
+  // A policy's country holidays of `year` become `holidays`, in one
+  // transaction; the company's own holidays stay.
+  public replaceCountryHolidays(
+    params: { slackTeamId: string; vacationPolicyId: string; year: number },
+    holidays: { name: string; date: string; countryCode: string }[],
+    user: IUserViewModel,
+  ): Promise<IHolidayViewModel[]> {
+    return this.holidaysRepository.replaceCountryHolidays(
+      params,
+      holidays.map(({ name, date, countryCode }) => ({
+        name,
+        date,
+        country_code: countryCode,
+        created_by: user.id,
+        updated_by: user.id,
+      })),
+    );
+  }
+
   public async update(
     findParams: IFindParams,
     updateParams: IUpdateParams,

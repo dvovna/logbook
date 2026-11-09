@@ -1153,6 +1153,64 @@ export type Database = {
           project_name: string;
         }[];
       };
+      replace_country_holidays: {
+        Args: {
+          p_holidays: Json;
+          p_slack_team_id: string;
+          p_vacation_policy_id: string;
+          p_year: number;
+        };
+        Returns: {
+          country_code: string | null;
+          created_at: string;
+          created_by: string;
+          date: string;
+          id: string;
+          is_company_custom: boolean;
+          is_disabled: boolean;
+          name: string;
+          slack_team_id: string;
+          updated_at: string;
+          updated_by: string | null;
+          vacation_policy_id: string;
+          year: number;
+        }[];
+        SetofOptions: {
+          from: '*';
+          to: 'holidays';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
+      replace_user_vacations: {
+        Args: { p_slack_team_id: string; p_user_id: string; p_vacations: Json };
+        Returns: {
+          approved_by_hr: boolean;
+          approved_by_manager: boolean;
+          created_at: string;
+          created_by: string;
+          days: number;
+          end_date: string;
+          id: string;
+          rejection_reason: string | null;
+          slack_team_id: string;
+          start_date: string;
+          status: string;
+          team_id: string | null;
+          type: string;
+          updated_at: string;
+          updated_by: string | null;
+          user_comment: string | null;
+          user_id: string;
+          working_days: number;
+        }[];
+        SetofOptions: {
+          from: '*';
+          to: 'vacation_requests';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
     };
     Enums: {
       ProjectStatus: 'active' | 'completed' | 'on-hold';

@@ -1,3 +1,7 @@
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import VacationType from '@common/enums/vacation-type.enum';
+import { UsersService } from '@modules/users/services/users.service';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
@@ -149,6 +153,41 @@ describe('user-vacations.csv', () => {
       '2025-09-01',
     );
     expect(await vacationsOf(bob)).toHaveLength(1);
+  });
+
+  // The old vacations out and the new ones in are one transaction: when the
+  // database refuses one of them, the user keeps what they had.
+  it('keeps the vacations when the database refuses a new one', async () => {
+    await workspace.addVacationRequest(ada, {
+      start_date: '2026-01-05',
+      end_date: '2026-01-09',
+    });
+    const before = await vacationsOf(ada);
+    const vacations = t.app.get(VacationRequestsService);
+    const vacation = {
+      userId: ada.id,
+      teamId: ada.team_id,
+      startDate: new Date('2026-03-02'),
+      endDate: new Date('2026-03-06'),
+      type: VacationType.AnnualLeave,
+      status: VacationRequestStatus.Approved,
+    };
+    const asAdmin = await t.app
+      .get(UsersService)
+      .findBySlackId(admin.slack_id, workspace.id);
+    const adaUser = await t.app
+      .get(UsersService)
+      .findBySlackId(ada.slack_id, workspace.id);
+
+    await expect(
+      vacations.replaceUserVacations(
+        adaUser!,
+        [vacation, { ...vacation, type: 'no_such_type' as VacationType }],
+        asAdmin!,
+      ),
+    ).rejects.toThrow('replace_user_vacations failed');
+
+    expect(await vacationsOf(ada)).toEqual(before);
   });
 
   it('shows the imported vacations in the balance at once', async () => {

@@ -5,4 +5,6 @@ export enum RpcFunctionName {
   GetTimeEntriesList = 'get_time_entries_list',
   DecideWorkflowSteps = 'decide_workflow_steps',
   AppliedMigrations = 'applied_migrations',
+  ReplaceUserVacations = 'replace_user_vacations',
+  ReplaceCountryHolidays = 'replace_country_holidays',
 }

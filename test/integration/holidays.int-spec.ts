@@ -1,3 +1,5 @@
+import HolidaysService from '@modules/holidays/services/holidays.service';
+import { UsersService } from '@modules/users/services/users.service';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
@@ -229,6 +231,43 @@ describe('Holidays', () => {
 
       expect((await holidays()).map(({ name }) => name)).toEqual([
         'Independence Day',
+      ]);
+    });
+
+    // Old ones out and new ones in are one transaction: a holiday the
+    // database refuses leaves the policy as it was.
+    it('keeps the holidays imported before when the database refuses a new one', async () => {
+      await addHoliday({
+        name: 'Old Holiday',
+        date: '2026-05-01',
+        is_company_custom: false,
+        country_code: 'PL',
+      });
+      const adminUser = await t.app
+        .get(UsersService)
+        .findBySlackId(admin.slack_id, workspace.id);
+
+      await expect(
+        t.app.get(HolidaysService).replaceCountryHolidays(
+          {
+            slackTeamId: workspace.id,
+            vacationPolicyId: policy.id,
+            year: 2026,
+          },
+          [
+            { name: 'Independence Day', date: '2026-11-11', countryCode: 'PL' },
+            {
+              name: null as unknown as string,
+              date: '2026-11-12',
+              countryCode: 'PL',
+            },
+          ],
+          adminUser!,
+        ),
+      ).rejects.toThrow('replace_country_holidays failed');
+
+      expect((await holidays()).map(({ name }) => name)).toEqual([
+        'Old Holiday',
       ]);
     });
 

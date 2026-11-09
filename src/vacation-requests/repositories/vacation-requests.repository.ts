@@ -1,3 +1,5 @@
+import { Json } from '@common/types/database.types';
+import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { Injectable } from '@nestjs/common';
 import { BaseRepository, Tables } from '@common/repositories/base.repository';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
@@ -48,4 +50,32 @@ export class VacationRequestsRepository extends BaseRepository<
       created_by: extendedRow.created_by,
     };
   };
+
+  // In one transaction (replace_user_vacations): the user's vacations are
+  // replaced by `vacations`, or nothing changes.
+  public async replaceUserVacations(
+    slackTeamId: string,
+    userId: string,
+    vacations: Omit<
+      Tables['vacation_requests']['Insert'],
+      'slack_team_id' | 'user_id'
+    >[],
+  ): Promise<IVacationRequestViewModel[]> {
+    const { data, error } = await this.client.rpc(
+      RpcFunctionName.ReplaceUserVacations,
+      {
+        p_slack_team_id: slackTeamId,
+        p_user_id: userId,
+        p_vacations: vacations as unknown as Json,
+      },
+    );
+
+    if (error) {
+      throw new Error(
+        `${RpcFunctionName.ReplaceUserVacations} failed: ${error.message}`,
+      );
+    }
+
+    return (data ?? []).map(this.mapToViewModel);
+  }
 }
