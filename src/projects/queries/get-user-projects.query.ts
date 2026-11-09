@@ -1,6 +1,6 @@
-import { RpcFunctionName } from '@common/enums/rpc-function-name';
 import { Injectable } from '@nestjs/common';
-import { SupabaseService } from 'src/database/supabase.service';
+import { DatabaseService } from 'src/database/database.service';
+import { callFunction } from 'src/database/sql-functions';
 
 export interface IUserProject {
   id: string;
@@ -11,7 +11,7 @@ export interface IUserProject {
 
 @Injectable()
 export class GetUserProjectsQuery {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(private readonly database: DatabaseService) {}
 
   public async execute(params: {
     userId: string;
@@ -20,21 +20,13 @@ export class GetUserProjectsQuery {
   }): Promise<IUserProject[]> {
     const { userId, slackTeamId, includeArchived = false } = params;
 
-    const { data, error } = await this.supabase
-      .getClient()
-      .rpc(RpcFunctionName.GetUserProjects, {
-        p_user_id: userId,
-        p_slack_team_id: slackTeamId,
-        p_include_archived: includeArchived,
-      });
+    const rows = await callFunction(this.database.db, 'get_user_projects', {
+      p_user_id: userId,
+      p_slack_team_id: slackTeamId,
+      p_include_archived: includeArchived,
+    });
 
-    if (error) {
-      throw new Error(
-        `${RpcFunctionName.GetUserProjects} failed: ${error.message}`,
-      );
-    }
-
-    return (data || []).map((row) => ({
+    return rows.map((row) => ({
       id: row.project_id,
       name: row.project_name,
       clientId: row.client_id,

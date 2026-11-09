@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { SupabaseService } from 'src/database/supabase.service';
-import { RpcFunctionName } from '@common/enums/rpc-function-name';
+import { DatabaseService } from 'src/database/database.service';
+import { callFunction } from 'src/database/sql-functions';
 
 export interface IAssignProjectTeamsQueryParams {
   slackTeamId: string;
@@ -11,24 +11,16 @@ export interface IAssignProjectTeamsQueryParams {
 
 @Injectable()
 export class AssignProjectAssignmentsQuery {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(private readonly database: DatabaseService) {}
 
   public async execute(params: IAssignProjectTeamsQueryParams): Promise<void> {
     const { slackTeamId, projectId, teamIds, userIds } = params;
 
-    const { error } = await this.supabase
-      .getClient()
-      .rpc(RpcFunctionName.AssignProjectAssignments, {
-        p_slack_team_id: slackTeamId,
-        p_project_id: projectId,
-        p_team_ids: teamIds,
-        p_user_ids: userIds,
-      });
-
-    if (error) {
-      throw new Error(
-        `${RpcFunctionName.AssignProjectAssignments} failed: ${error.message}`,
-      );
-    }
+    await callFunction(this.database.db, 'assign_project_assignments', {
+      p_slack_team_id: slackTeamId,
+      p_project_id: projectId,
+      p_team_ids: teamIds,
+      p_user_ids: userIds,
+    });
   }
 }

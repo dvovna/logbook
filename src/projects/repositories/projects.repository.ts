@@ -1,22 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import {
-  BaseRepository,
-  TableName,
-  Tables,
-} from '@common/repositories/base.repository';
+import { SqlRepository } from '@common/repositories/sql.repository';
+import { SqlRow } from '@common/types/sql-database.types';
 import IProjectViewModel from 'src/projects/types/project.types';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 
 @Injectable()
-export class ProjectsRepository extends BaseRepository<
-  Tables['projects'],
+export class ProjectsRepository extends SqlRepository<
+  'projects',
   IProjectViewModel
 > {
-  protected tableName: TableName = 'projects';
+  protected readonly tableName = 'projects';
 
   protected searchableColumns = ['name'];
 
-  protected mapToViewModel = (row: Tables['projects']['Row']) => {
+  protected mapToViewModel = (row: SqlRow<'projects'>) => {
     return {
       id: row.id,
       name: row.name,
