@@ -33,14 +33,20 @@ describe('Slack events', () => {
     workspace = await t.createWorkspace();
   });
 
-  it('rejects requests without a valid Slack signature', async () => {
-    await request(t.app.getHttpServer())
-      .post('/api/slack/events')
-      .set('X-Slack-Request-Timestamp', `${Math.floor(Date.now() / 1000)}`)
-      .set('X-Slack-Signature', `v0=${'0'.repeat(64)}`)
-      .send({ type: 'url_verification', challenge: 'abc' })
-      .expect(403);
-  });
+  it.each([
+    ['of the right length', `v0=${'0'.repeat(64)}`],
+    ['shorter than a real one', 'v0=abc'],
+  ])(
+    'rejects requests with a wrong Slack signature %s',
+    async (_, signature) => {
+      await request(t.app.getHttpServer())
+        .post('/api/slack/events')
+        .set('X-Slack-Request-Timestamp', `${Math.floor(Date.now() / 1000)}`)
+        .set('X-Slack-Signature', signature)
+        .send({ type: 'url_verification', challenge: 'abc' })
+        .expect(403);
+    },
+  );
 
   it('answers the URL verification challenge', async () => {
     const response = await t.slack

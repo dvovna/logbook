@@ -1,20 +1,15 @@
-import {
-  BadRequestException,
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 
 const FIVE_MINUTES_IN_SECONDS = 5 * 60;
 
+// Checks Slack's signature of the raw body. Anything that doesn't match,
+// whatever its shape, is refused with 403 (Nest's answer to `false`).
 @Injectable()
 export class SlackSignatureGuard implements CanActivate {
   private slackSigningSecret =
     process.env[EnvironmentVariable.SlackSignInSecret]!;
-  private logger = new Logger(SlackSignatureGuard.name);
 
   public canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest();
@@ -26,7 +21,7 @@ export class SlackSignatureGuard implements CanActivate {
     const ts = Number(requestTimestamp);
     const now = Math.floor(Date.now() / 1000);
 
-    if (!slackSignature || !requestTimestamp || !rawBody) {
+    if (typeof slackSignature !== 'string' || !requestTimestamp || !rawBody) {
       return false;
     }
 
@@ -36,17 +31,17 @@ export class SlackSignatureGuard implements CanActivate {
 
     const sigBaseString = `v0:${requestTimestamp}:${rawBody}`;
     const hmac = crypto.createHmac('sha256', this.slackSigningSecret);
-    const mySignature =
-      'v0=' + hmac.update(sigBaseString, 'utf8').digest('hex');
+    const expected = Buffer.from(
+      'v0=' + hmac.update(sigBaseString, 'utf8').digest('hex'),
+      'utf8',
+    );
+    const received = Buffer.from(slackSignature, 'utf8');
 
-    try {
-      return crypto.timingSafeEqual(
-        Buffer.from(mySignature, 'utf8'),
-        Buffer.from(slackSignature, 'utf8'),
-      );
-    } catch (error) {
-      this.logger.error(error.message);
-      throw new BadRequestException('Failed to check signature.');
-    }
+    // timingSafeEqual throws on buffers of different lengths; the length of
+    // a valid signature is no secret.
+    return (
+      expected.length === received.length &&
+      crypto.timingSafeEqual(expected, received)
+    );
   }
 }
