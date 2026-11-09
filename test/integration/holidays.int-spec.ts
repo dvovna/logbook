@@ -264,7 +264,9 @@ describe('Holidays', () => {
           ],
           adminUser!,
         ),
-      ).rejects.toThrow('replace_country_holidays failed');
+      ).rejects.toThrow(
+        '[holidays] createMany error: null value in column "name"',
+      );
 
       expect((await holidays()).map(({ name }) => name)).toEqual([
         'Old Holiday',

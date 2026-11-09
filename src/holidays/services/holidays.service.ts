@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import IHolidayViewModel from '@modules/holidays/types/holiday.interface';
 import { HolidaysRepository } from '@modules/holidays/repositories/holidays.repository';
+import { TransactionService } from 'src/database/transaction.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
@@ -66,6 +67,7 @@ export default class HolidaysService implements IHolidaysService {
   constructor(
     private readonly holidaysRepository: HolidaysRepository,
     private readonly config: ConfigService,
+    private readonly transactions: TransactionService,
   ) {}
 
   public async search(
@@ -159,16 +161,31 @@ export default class HolidaysService implements IHolidaysService {
     holidays: { name: string; date: string; countryCode: string }[],
     user: IUserViewModel,
   ): Promise<IHolidayViewModel[]> {
-    return this.holidaysRepository.replaceCountryHolidays(
-      params,
-      holidays.map(({ name, date, countryCode }) => ({
-        name,
-        date,
-        country_code: countryCode,
-        created_by: user.id,
-        updated_by: user.id,
-      })),
-    );
+    const policy = {
+      slack_team_id: params.slackTeamId,
+      vacation_policy_id: params.vacationPolicyId,
+    };
+
+    return this.transactions.transaction(async () => {
+      await this.holidaysRepository.deleteMany({
+        ...policy,
+        year: params.year,
+        is_company_custom: false,
+      });
+
+      return this.holidaysRepository.createMany(
+        holidays.map(({ name, date, countryCode }) => ({
+          ...policy,
+          name,
+          date,
+          year: Number(date.slice(0, 4)),
+          is_company_custom: false,
+          country_code: countryCode,
+          created_by: user.id,
+          updated_by: user.id,
+        })),
+      );
+    });
   }
 
   public async update(

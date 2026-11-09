@@ -13,6 +13,7 @@ import VacationType from 'src/common/enums/vacation-type.enum';
 import UserRole from 'src/common/enums/user-role.enum';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
+import { TransactionService } from 'src/database/transaction.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -57,13 +58,7 @@ const buildRequest = (
 
 describe('VacationRequestsService', () => {
   let repository: Record<
-    | 'findOne'
-    | 'update'
-    | 'create'
-    | 'findMany'
-    | 'createMany'
-    | 'deleteMany'
-    | 'replaceUserVacations',
+    'findOne' | 'update' | 'create' | 'findMany' | 'createMany' | 'deleteMany',
     jest.Mock
   >;
   let validator: Record<
@@ -73,6 +68,19 @@ describe('VacationRequestsService', () => {
   let eventEmitter: { emit: jest.Mock };
   let usersService: { findOneWithValidation: jest.Mock };
   let service: VacationRequestsService;
+  // Which repository calls ran inside TransactionService.transaction().
+  let inTransaction: boolean;
+  const transactions = {
+    transaction: async <T>(work: () => Promise<T>) => {
+      inTransaction = true;
+
+      try {
+        return await work();
+      } finally {
+        inTransaction = false;
+      }
+    },
+  };
 
   beforeEach(() => {
     repository = {
@@ -82,7 +90,6 @@ describe('VacationRequestsService', () => {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn(),
-      replaceUserVacations: jest.fn().mockResolvedValue([]),
     };
     validator = {
       validateRequestLimits: jest.fn(),
@@ -101,7 +108,9 @@ describe('VacationRequestsService', () => {
       {} as TeamsService,
       eventEmitter as unknown as EventEmitter2,
       usersService as unknown as UsersService,
+      transactions as unknown as TransactionService,
     );
+    inTransaction = false;
   });
 
   describe('overlap check', () => {
@@ -299,27 +308,41 @@ describe('VacationRequestsService', () => {
       },
     ];
 
-    // The old vacations out and the new ones in are one transaction in the
-    // database (replace_user_vacations; test/integration covers a refusal).
-    it("hands the user's new vacations to the database in one call", async () => {
+    // The old vacations out and the new ones in are one transaction
+    // (test/integration covers a refusal).
+    it("replaces the user's vacations in one transaction", async () => {
+      const calls: string[] = [];
+      repository.deleteMany.mockImplementation(() => {
+        calls.push(`delete, in a transaction: ${inTransaction}`);
+      });
+      repository.createMany.mockImplementation(() => {
+        calls.push(`insert, in a transaction: ${inTransaction}`);
+
+        return Promise.resolve([]);
+      });
+
       await service.replaceUserVacations(requester, vacations, requester);
 
-      expect(repository.replaceUserVacations).toHaveBeenCalledWith(
-        SLACK_TEAM_ID,
-        requester.id,
-        [
-          expect.objectContaining({
-            start_date: '2026-03-02T00:00:00.000Z',
-            end_date: '2026-03-06T00:00:00.000Z',
-            days: 5,
-            type: VacationType.AnnualLeave,
-            status: VacationRequestStatus.Approved,
-            created_by: requester.id,
-          }),
-        ],
-      );
-      expect(repository.createMany).not.toHaveBeenCalled();
-      expect(repository.deleteMany).not.toHaveBeenCalled();
+      expect(calls).toEqual([
+        'delete, in a transaction: true',
+        'insert, in a transaction: true',
+      ]);
+      expect(repository.deleteMany).toHaveBeenCalledWith({
+        slack_team_id: SLACK_TEAM_ID,
+        user_id: requester.id,
+      });
+      expect(repository.createMany).toHaveBeenCalledWith([
+        expect.objectContaining({
+          slack_team_id: SLACK_TEAM_ID,
+          user_id: requester.id,
+          start_date: '2026-03-02T00:00:00.000Z',
+          end_date: '2026-03-06T00:00:00.000Z',
+          days: 5,
+          type: VacationType.AnnualLeave,
+          status: VacationRequestStatus.Approved,
+          created_by: requester.id,
+        }),
+      ]);
     });
   });
 });

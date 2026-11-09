@@ -3,8 +3,7 @@ import {
   ISqlRelation,
   SqlRepository,
 } from '@common/repositories/sql.repository';
-import { SqlInsert, SqlRow } from '@common/types/sql-database.types';
-import { callFunction } from 'src/database/sql-functions';
+import { SqlRow } from '@common/types/sql-database.types';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
@@ -57,30 +56,4 @@ export class VacationRequestsRepository extends SqlRepository<
       created_by: extendedRow.created_by,
     };
   };
-
-  // In one transaction (replace_user_vacations): the user's vacations are
-  // replaced by `vacations`, or nothing changes.
-  public async replaceUserVacations(
-    slackTeamId: string,
-    userId: string,
-    vacations: Omit<
-      SqlInsert<'vacation_requests'>,
-      'slack_team_id' | 'user_id'
-    >[],
-  ): Promise<IVacationRequestViewModel[]> {
-    const rows = await callFunction(this.db, 'replace_user_vacations', {
-      p_slack_team_id: slackTeamId,
-      p_user_id: userId,
-      p_vacations: JSON.stringify(vacations),
-    });
-
-    // The function returns bare rows, without the user and the team.
-    return rows.map((row) =>
-      this.mapToViewModel({
-        ...row,
-        user: null,
-        team: null,
-      } as SqlRow<'vacation_requests'>),
-    );
-  }
 }

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
+import { TransactionService } from 'src/database/transaction.service';
 import getDaysBetweenDates from '@common/utils/get-days-between-dates';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -91,6 +92,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     private readonly teamsService: TeamsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly usersService: UsersService,
+    private readonly transactions: TransactionService,
   ) {}
 
   public async create(createParams: ICreateParams, user: IUserViewModel) {
@@ -422,11 +424,15 @@ export class VacationRequestsService implements IVacationRequestsService {
       })),
     );
 
-    return this.vacationRequestsRepository.replaceUserVacations(
-      replacedBy.slack_team_id,
-      user.id,
-      vacationRecords,
-    );
+    const owner = { slack_team_id: replacedBy.slack_team_id, user_id: user.id };
+
+    return this.transactions.transaction(async () => {
+      await this.vacationRequestsRepository.deleteMany(owner);
+
+      return this.vacationRequestsRepository.createMany(
+        vacationRecords.map((record) => ({ ...record, ...owner })),
+      );
+    });
   }
 
   private getFindQuery(params: IFindParams): SupabaseFilter {

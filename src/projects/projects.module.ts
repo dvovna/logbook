@@ -5,7 +5,6 @@ import { ProjectsListQuery } from 'src/projects/queries/projects-list.query';
 import { ProjectAssignmentsService } from 'src/projects/services/project-assignments.service';
 import { ProjectTeamsRepository } from 'src/projects/repositories/project-teams.repository';
 import { ProjectUsersRepository } from 'src/projects/repositories/project-users.repository';
-import { AssignProjectAssignmentsQuery } from 'src/projects/queries/assign-project-assignments.query';
 import { GetUserProjectsQuery } from 'src/projects/queries/get-user-projects.query';
 import { ClientsModule } from '@modules/clients/clients.module';
 import { TeamsModule } from '@modules/teams/teams.module';
@@ -19,7 +18,6 @@ import { UsersModule } from '@modules/users/users.module';
     ProjectUsersRepository,
     ProjectsService,
     ProjectsListQuery,
-    AssignProjectAssignmentsQuery,
     ProjectAssignmentsService,
     GetUserProjectsQuery,
   ],

@@ -185,7 +185,7 @@ describe('user-vacations.csv', () => {
         [vacation, { ...vacation, type: 'no_such_type' as VacationType }],
         asAdmin!,
       ),
-    ).rejects.toThrow('replace_user_vacations failed');
+    ).rejects.toThrow('[vacation_requests] createMany error: new row');
 
     expect(await vacationsOf(ada)).toEqual(before);
   });

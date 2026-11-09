@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
+import { TransactionService } from 'src/database/transaction.service';
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
@@ -51,6 +52,7 @@ export class UsersService implements IUsersService {
   public constructor(
     private readonly userRepository: UsersRepository,
     private readonly userUpdateValidatorService: UserUpdateValidatorService,
+    private readonly transactions: TransactionService,
   ) {}
 
   public async create({
@@ -124,12 +126,14 @@ export class UsersService implements IUsersService {
     userIds: string[],
     updatedBy: IUserViewModel,
   ) {
-    return this.userRepository.setTeamMembers({
-      slackTeamId: updatedBy.slack_team_id,
-      teamId,
-      userIds,
-      updatedBy: updatedBy.id,
-    });
+    return this.transactions.transaction(() =>
+      this.userRepository.setTeamMembers({
+        slackTeamId: updatedBy.slack_team_id,
+        teamId,
+        userIds,
+        updatedBy: updatedBy.id,
+      }),
+    );
   }
 
   public count(params: IFindParams) {

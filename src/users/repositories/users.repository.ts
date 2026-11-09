@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SqlRepository } from '@common/repositories/sql.repository';
 import { SqlRow } from '@common/types/sql-database.types';
-import { callFunction } from 'src/database/sql-functions';
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 
@@ -45,21 +44,48 @@ export class UsersRepository extends SqlRepository<'users', IUserViewModel> {
     };
   };
 
-  // In one transaction (set_team_members): the users `userIds` are the
-  // team's members, and nobody else. Returns them.
+  // The users `userIds` of the workspace become the team's members, and its
+  // other members leave it. Returns the members. Several statements: the
+  // caller runs them in one transaction.
   public async setTeamMembers(params: {
     slackTeamId: string;
     teamId: string;
     userIds: string[];
     updatedBy: string;
   }): Promise<IUserViewModel[]> {
-    const rows = await callFunction(this.db, 'set_team_members', {
-      p_slack_team_id: params.slackTeamId,
-      p_team_id: params.teamId,
-      p_user_ids: params.userIds,
-      p_updated_by: params.updatedBy,
-    });
+    const { slackTeamId, teamId, userIds, updatedBy } = params;
+    const team = await this.db
+      .selectFrom('teams')
+      .select('id')
+      .where('slack_team_id', '=', slackTeamId)
+      .where('id', '=', teamId)
+      .executeTakeFirst();
 
-    return rows.map(this.mapToViewModel);
+    if (!team) {
+      throw new Error(`Team ${teamId} is not in workspace ${slackTeamId}`);
+    }
+
+    const changed = {
+      updated_at: new Date().toISOString(),
+      updated_by: updatedBy,
+    };
+
+    await this.updateInWorkspace(slackTeamId)
+      .set({ team_id: null, ...changed })
+      .where('team_id', '=', teamId)
+      .$if(userIds.length > 0, (query) => query.where('id', 'not in', userIds))
+      .execute();
+
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    const members = await this.updateInWorkspace(slackTeamId)
+      .set({ team_id: teamId, ...changed })
+      .where('id', 'in', userIds)
+      .returningAll()
+      .execute();
+
+    return members.map(this.mapToViewModel);
   }
 }

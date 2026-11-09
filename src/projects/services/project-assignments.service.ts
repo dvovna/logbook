@@ -3,7 +3,7 @@ import { ValidationError } from '@common/errors/validation.error';
 import TeamsService from '@modules/teams/services/teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import ProjectsService from 'src/projects/services/projects.service';
-import { AssignProjectAssignmentsQuery } from 'src/projects/queries/assign-project-assignments.query';
+import { TransactionService } from 'src/database/transaction.service';
 import { ProjectTeamsRepository } from 'src/projects/repositories/project-teams.repository';
 import { ProjectUsersRepository } from 'src/projects/repositories/project-users.repository';
 import { IProjectAssignments } from 'src/projects/types/project-assignments.types';
@@ -26,7 +26,7 @@ interface IProjectAssignmentsService {
 @Injectable()
 export class ProjectAssignmentsService implements IProjectAssignmentsService {
   constructor(
-    private readonly assignProjectAssignmentsQuery: AssignProjectAssignmentsQuery,
+    private readonly transactions: TransactionService,
     private readonly projectTeamsRepository: ProjectTeamsRepository,
     private readonly projectUsersRepository: ProjectUsersRepository,
     private readonly projectsService: ProjectsService,
@@ -35,7 +35,8 @@ export class ProjectAssignmentsService implements IProjectAssignmentsService {
   ) {}
 
   // The IDs come from the form, so the project, teams and people have to be
-  // the workspace's: the database function takes them as they are.
+  // the workspace's. Then the project's teams and people become these, in one
+  // transaction.
   public async assignEntities(params: IAssignEntitiesParams) {
     const { projectId, slackTeamId, teamIds, userIds } = params;
 
@@ -63,7 +64,18 @@ export class ProjectAssignmentsService implements IProjectAssignmentsService {
       );
     }
 
-    return this.assignProjectAssignmentsQuery.execute(params);
+    const link = { slack_team_id: slackTeamId, project_id: projectId };
+
+    await this.transactions.transaction(async () => {
+      await this.projectTeamsRepository.deleteMany(link);
+      await this.projectTeamsRepository.createMany(
+        teamIds.map((team_id) => ({ ...link, team_id })),
+      );
+      await this.projectUsersRepository.deleteMany(link);
+      await this.projectUsersRepository.createMany(
+        userIds.map((user_id) => ({ ...link, user_id })),
+      );
+    });
   }
 
   // The active people assigned to each of these projects, by name.
