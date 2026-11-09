@@ -2,7 +2,7 @@ import * as express from 'express';
 import * as qs from 'qs';
 import { Request } from 'express';
 
-export function slackBodyParserMiddleware() {
+export function slackBodyParserMiddleware(): express.RequestHandler[] {
   return [
     express.raw({
       type: '*/*',

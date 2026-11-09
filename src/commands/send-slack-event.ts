@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 // Sends a Slack Events API payload to the running app, signed the way Slack
 // signs it, so event handlers can be checked without Slack or a public URL:
 //
-//   yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD
+//   pnpm slack:event src/commands/slack-events/team-join.json --team T0123ABCD
 //
 // The sample payloads use T_LOCAL as the workspace ID; --team replaces it with
 // the slack_id of a workspace that exists in the database.
@@ -23,7 +23,7 @@ function parseArgs(args: string[]): ISendEventOptions {
 
   if (!payloadPath) {
     throw new Error(
-      'Usage: yarn slack:event <payload.json> [--team <T-id>] [--url <url>]',
+      'Usage: pnpm slack:event <payload.json> [--team <T-id>] [--url <url>]',
     );
   }
 

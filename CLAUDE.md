@@ -9,22 +9,22 @@ Logbook, a multi-tenant Slack app (NestJS 11, TypeScript) for vacation requests 
 ## Commands
 
 ```bash
-yarn install
-yarn start:dev        # watch mode
-yarn start:debug      # watch + inspector
-yarn build            # nest build -> dist/
-yarn start:prod       # node dist/main
-yarn lint             # eslint with --fix, formatting included (see note below)
-yarn format           # prettier on src and test
+pnpm install
+pnpm start:dev        # watch mode
+pnpm start:debug      # watch + inspector
+pnpm build            # nest build -> dist/
+pnpm start:prod       # node dist/main
+pnpm lint             # eslint with --fix, formatting included (see note below)
+pnpm format           # prettier on src and test
 npx tsc --noEmit      # type-check only
-yarn test             # jest
-yarn test src/request-workflows/services/request-workflow.service.spec.ts   # one file
-yarn test -t 'finishes the workflow'                                        # by test name
-yarn test:int         # integration tests against the local Supabase stack
-yarn db:init          # recreate the local Supabase database from supabase/migrations
-yarn db:types         # regenerate src/common/types/database.types.ts from the local database
-yarn supabase start                                                    # local Supabase in Docker
-yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # signed event to the local app
+pnpm test             # jest
+pnpm test src/request-workflows/services/request-workflow.service.spec.ts   # one file
+pnpm test -t 'finishes the workflow'                                        # by test name
+pnpm test:int         # integration tests against the local Supabase stack
+pnpm db:init          # recreate the local Supabase database from supabase/migrations
+pnpm db:types         # regenerate src/common/types/database.types.ts from the local database
+pnpm supabase start                                                    # local Supabase in Docker
+pnpm slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # signed event to the local app
 ```
 
 - Tests are `*.spec.ts` files next to the code (rootDir `src`, config in `jest.config.ts`). They build services directly with `jest.fn()` mocks rather than through a Nest testing module. `jest.config.ts` pins `TZ=UTC`, because the date code mixes local `getDay()` with `toISOString()` and production runs in UTC.
@@ -39,39 +39,40 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - Every test starts at `TEST_NOW` (Wednesday 2026-06-17, `support/clock.ts`): only `Date` is faked, for the tests and the app in the same process, and the clock keeps running. `travelTo('YYYY-MM-DD')` moves it within a test.
   - `global-setup.ts` reads the URLs and keys from `supabase status` and refuses non-local URLs. It also stops when the local database lacks a migration from `supabase/migrations`.
   - Most effects happen after Slack's acknowledgement (event handlers, EventEmitter listeners, tab updates). `await t.idle()` waits until that work is done, then assert. It works because the app runs such work through `runInBackground` (`src/common/utils/run-in-background.ts`) or `JobsService.run`, and `EventTrackingService` counts what event listeners do as background work too. Work after `res.send()` that skips all three is invisible to it.
-- `yarn db:init` runs `supabase db reset` against the local stack, which drops the local database and applies `supabase/migrations`. `src/commands` holds dev scripts and is excluded from `nest build`.
+- `pnpm db:init` runs `supabase db reset` against the local stack, which drops the local database and applies `supabase/migrations`. `src/commands` holds dev scripts and is excluded from `nest build`.
 - Prettier (`.prettierrc`) owns formatting, and ESLint reports what Prettier would change (`prettier/prettier`, through `eslint-plugin-prettier` at the end of `eslint.config.mjs`). Don't add ESLint formatting rules such as `indent` or `quotes`: they fight Prettier. The codebase is lint-clean and CI fails on any lint error. The commit that formatted everything is in `.git-blame-ignore-revs` (GitHub skips it in blame; locally run `git config blame.ignoreRevsFile ':(optional).git-blame-ignore-revs'`; without `:(optional)` blame fails in a checkout or worktree whose branch predates the file).
 - Node 26 everywhere:
   - pinned in `.nvmrc`;
   - used by the Dockerfile and by CI (`.github/workflows/ci.yml`: tsc, jest, build, lint).
 
-  Node images and installs from 26 on have no yarn and no corepack, so the Dockerfile and CI install `yarn@1.22.22` themselves.
+  Node images and installs from 26 on have no corepack. The Dockerfile installs the pnpm version that `packageManager` in `package.json` names, and CI does the same with `pnpm/action-setup`.
+- pnpm 10. Its `node_modules` lets code import only the packages `package.json` declares, so a package the code imports must be listed there even when a dependency already brings it (`express`, `qs`, `@slack/types`). `pnpm-workspace.yaml` holds the `overrides` (versions forced on dependencies of dependencies) and `allowBuilds` (which install scripts may run; none do). The Dockerfile copies it, since the lockfile doesn't match without the overrides. Stay on pnpm 10 for now: Dependabot opens no security updates for pnpm 11 and 12 projects.
 - The app validates env vars with zod (`src/env.schema.ts`) at startup and **exits** if a required one is missing. Only the Supabase URL and service role key, the four Slack values and `SLACK_TOKEN_ENCRYPTION_KEY` (32 bytes, base64) are required; the `MAX_*`/year limits have defaults. `DATABASE_URL` (a direct Postgres connection, on Supabase the session pooler on port 5432) is optional and turns on job retries. Copy `.env.example` to `.env` first.
 - Local setup is in README → "Development"; self-hosting is in README → "Self-hosting":
   - Local Supabase from `supabase/config.toml`. Only Postgres, the API, auth and Studio are enabled. Auth is unused by the app but the CLI prints the API keys only with it on.
   - A dev Slack app from `slack-app-manifest.yml` (`APP_DOMAIN` replaced with the ngrok domain), reached through ngrok.
   - Install the dev app by opening `/api/slack/install`, not with the "Install to Workspace" button: only the OAuth redirect creates the `slack_teams` row, and it accepts only a `state` that `/install` set in a cookie.
-- `yarn slack:event <payload.json> [--team <T-id>] [--url <url>]` (`src/commands/send-slack-event.ts`) signs a payload with `SLACK_SIGN_IN_SECRET` and posts it to `/api/slack/events`. Use it to exercise event handlers without Slack. Samples in `src/commands/slack-events/` use `T_LOCAL` as the workspace ID, which `--team` replaces.
+- `pnpm slack:event <payload.json> [--team <T-id>] [--url <url>]` (`src/commands/send-slack-event.ts`) signs a payload with `SLACK_SIGN_IN_SECRET` and posts it to `/api/slack/events`. Use it to exercise event handlers without Slack. Samples in `src/commands/slack-events/` use `T_LOCAL` as the workspace ID, which `--team` replaces.
 
 ## Conventions enforced by lint/config
 
 - Interfaces must be prefixed with `I` (`@typescript-eslint/naming-convention` reports an error otherwise).
 - Every class member needs an explicit `public`/`private`/`protected` (`explicit-member-accessibility`).
-- Single quotes, trailing commas and 2-space indent come from Prettier; `yarn lint` or `yarn format` applies them.
+- Single quotes, trailing commas and 2-space indent come from Prettier; `pnpm lint` or `pnpm format` applies them.
 - Imports use the tsconfig path aliases `@modules/<module>/...` and `@common/...`. Absolute `src/...` paths also resolve (`baseUrl: ./`), but relative `../` imports are a lint error. Jest maps all of them in `moduleNameMapper`.
 - Domain and shared code (the domain modules, `request-workflows` included, `src/common`, `slack-communication`) must not import the Slack UI in `src/slack` (`import/no-restricted-paths`). What both need goes into the domain module or `src/common`, e.g. `TimeEntryStatus` lives in `src/time-entries/enums`. A domain change that people should hear about publishes an event, and a listener in `src/slack` sends the messages. `src/common` in turn imports no feature module (a second zone of the same rule): the Slack request guards live in `src/slack/guards`, and `req.user` is typed in `src/slack/types/express.d.ts`.
-- `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint ignores it; `yarn db:types` formats it with Prettier.
+- `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint ignores it; `pnpm db:types` formats it with Prettier.
 
 ## Schema
 
 The schema lives in `supabase/migrations`:
 - `20260101000000_baseline_schema.sql` is the baseline. It holds every public table, constraint, index, comment and RLS flag of the dev project, taken with `pg_dump --schema-only` and made idempotent. On a database that already has the schema it is a no-op. On an empty one it creates the tables that the later migrations rely on.
 - The later migrations add RPCs (`get_projects_list`, `assign_project_assignments`, `get_user_projects`, `get_time_entries_list`) and constraints.
-- `src/common/types/database.types.ts` is generated from the local database by `yarn db:types`, with the Supabase CLI pinned in `devDependencies` (another CLI version writes the file differently). CI applies `supabase/migrations` to a fresh stack, regenerates the file and fails when it differs from the committed one. Run the CLI as `yarn supabase …` (or `npx supabase …`), never `supabase@latest`: scripts, CI and the integration tests all use the pinned one. Dependabot bumps it in a PR of its own; commit the regenerated file with it.
+- `src/common/types/database.types.ts` is generated from the local database by `pnpm db:types`, with the Supabase CLI pinned in `devDependencies` (another CLI version writes the file differently). CI applies `supabase/migrations` to a fresh stack, regenerates the file and fails when it differs from the committed one. Run the CLI as `pnpm supabase …` (or `npx supabase …`), never `supabase@latest`: scripts, CI and the integration tests all use the pinned one. Dependabot bumps it in a PR of its own; commit the regenerated file with it.
 
 To change the schema:
-1. Add a new migration (`yarn supabase migration new <name>`). The app refuses to start on a database that lacks a migration it ships (`MigrationsCheckService`, through the RPC `applied_migrations`), and the Docker image copies `supabase/migrations` for that.
-2. Apply it locally (`yarn db:init`) and run `yarn db:types`. A database with migrations from other branches gives other types.
+1. Add a new migration (`pnpm supabase migration new <name>`). The app refuses to start on a database that lacks a migration it ships (`MigrationsCheckService`, through the RPC `applied_migrations`), and the Docker image copies `supabase/migrations` for that.
+2. Apply it locally (`pnpm db:init`) and run `pnpm db:types`. A database with migrations from other branches gives other types.
 3. Update the repository's `mapToViewModel`.
 
 Pushing to the dev project:

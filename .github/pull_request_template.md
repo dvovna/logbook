@@ -5,8 +5,8 @@
 ## How it was checked
 
 - [ ] `npx tsc --noEmit`
-- [ ] `yarn test`
-- [ ] `yarn test:int` (needs the local Supabase stack, see the README)
+- [ ] `pnpm test`
+- [ ] `pnpm test:int` (needs the local Supabase stack, see the README)
 - [ ] `npx eslint src test`
 - [ ] Tried in Slack, or not needed (say which)
 

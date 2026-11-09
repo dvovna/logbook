@@ -1,24 +1,29 @@
-# Node images from 26 on ship without yarn and corepack, so yarn 1 is installed explicitly.
+# Node images from 26 on ship without corepack, so pnpm is installed explicitly,
+# at the version `packageManager` in package.json names. pnpm-workspace.yaml
+# holds the overrides, without which the lockfile doesn't match.
 FROM node:26-alpine AS builder
 WORKDIR /app
-RUN npm install -g yarn@1.22.22
 
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN npm install -g "$(node -p "require('./package.json').packageManager")" \
+  && pnpm install --frozen-lockfile
 
 COPY . .
-RUN yarn build
+RUN pnpm build
 
 FROM node:26-alpine AS runner
 WORKDIR /app
-RUN npm install -g yarn@1.22.22
 
 # Production mode: info-level JSON logs instead of the pretty dev output.
 ENV NODE_ENV=production
 ENV PORT=10000
 
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production && yarn cache clean
+# The app runs with node, so pnpm, its store and its cache go once it has installed.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN npm install -g "$(node -p "require('./package.json').packageManager")" \
+  && pnpm install --frozen-lockfile --prod \
+  && rm -rf "$(pnpm store path)" ~/.cache/pnpm \
+  && npm uninstall -g pnpm
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public

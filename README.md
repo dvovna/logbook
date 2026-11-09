@@ -48,7 +48,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 ## Self-hosting
 
 You need:
-- the source of the release you run, for its database migrations: `git clone --branch v0.1.0 https://github.com/dvovna/logbook && cd logbook && yarn install` (the steps below run the Supabase CLI pinned in it);
+- the source of the release you run, for its database migrations: `git clone --branch v0.1.0 https://github.com/dvovna/logbook && cd logbook && pnpm install` (with pnpm 10, `npm install -g pnpm@10`; the steps below run the Supabase CLI pinned in it);
 - a Supabase project. The free plan runs the bot, but it keeps no backups and Supabase pauses it after a week of little activity (see [Run](#4-run)). For a company's real data, take a paid plan or back the database up yourself, e.g. with `pg_dump` over the session pooler connection string;
 - a host that runs Docker or Node 26, reachable from Slack over HTTPS;
 - permission to create a Slack app in your workspace.
@@ -58,7 +58,7 @@ You need:
 Create a Supabase project and apply the migrations:
 
 ```bash
-yarn supabase db push --remote "postgresql://postgres.<project-ref>:<db-password>@<pooler-host>:5432/postgres"
+pnpm supabase db push --remote "postgresql://postgres.<project-ref>:<db-password>@<pooler-host>:5432/postgres"
 ```
 
 Take the session pooler connection string from the project's "Connect" dialog. The direct `db.<project-ref>.supabase.co` host is IPv6-only.
@@ -108,9 +108,9 @@ docker compose up -d
 `docker compose up -d --build` builds the image from your checkout instead. Or without Docker:
 
 ```bash
-yarn install
-yarn build
-yarn start:prod
+pnpm install
+pnpm build
+pnpm start:prod
 ```
 
 Put the app behind HTTPS (a reverse proxy, or a platform such as Render or Fly.io). Then open "Event Subscriptions" in the Slack app settings and retry the URL verification.
@@ -136,7 +136,7 @@ The installer gets a message with these steps, and Home shows admins and HR a ch
 
 An app created before token rotation keeps working with its tokens, which never expire. To switch to rotating tokens, turn on "Advanced token security via token rotation" under "OAuth & Permissions" and install the app again in each workspace: the new install gets a rotating token.
 
-Read the version's section in [CHANGELOG.md](CHANGELOG.md) first: it says when an update needs a step of its own. Check out the new release's tag, run `yarn install`, apply the new migrations with `yarn supabase db push --remote "<the same connection string>"`. Without `--remote` the CLI pushes to the local database. Apply the migrations before the new version starts: it checks the database at startup and refuses to start, naming the missing migrations, until they are applied. Then run the new image (`docker compose pull && docker compose up -d`, with `LOGBOOK_VERSION` set to the new version if you pin one).
+Read the version's section in [CHANGELOG.md](CHANGELOG.md) first: it says when an update needs a step of its own. Check out the new release's tag, run `pnpm install`, apply the new migrations with `pnpm supabase db push --remote "<the same connection string>"`. Without `--remote` the CLI pushes to the local database. Apply the migrations before the new version starts: it checks the database at startup and refuses to start, naming the missing migrations, until they are applied. Then run the new image (`docker compose pull && docker compose up -d`, with `LOGBOOK_VERSION` set to the new version if you pin one).
 
 ### Checking the database is closed
 
@@ -154,11 +154,11 @@ select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 
 ## Development
 
-You need Node 26 (pinned in `.nvmrc`, so `nvm use` picks it up), yarn 1 and Docker.
+You need Node 26 (pinned in `.nvmrc`, so `nvm use` picks it up), pnpm 10 (`npm install -g pnpm@10`) and Docker.
 
 ```bash
-yarn install
-yarn start:dev     # watch mode
+pnpm install
+pnpm start:dev     # watch mode
 ```
 
 ### Local database
@@ -166,18 +166,18 @@ yarn start:dev     # watch mode
 The app reads and writes through the Supabase API, so a plain Postgres is not enough. `supabase/config.toml` starts a local stack with only Postgres, the API and Studio enabled:
 
 ```bash
-yarn supabase start
+pnpm supabase start
 ```
 
-On the first start the migrations from `supabase/migrations` create the schema. `yarn db:init` (`supabase db reset`) drops the local database and applies them again, for example after pulling new migrations.
+On the first start the migrations from `supabase/migrations` create the schema. `pnpm db:init` (`supabase db reset`) drops the local database and applies them again, for example after pulling new migrations.
 
 In `.env`:
-- set `SUPABASE_URL` to `API_URL` from `yarn supabase status -o env`;
+- set `SUPABASE_URL` to `API_URL` from `pnpm supabase status -o env`;
 - set `SUPABASE_SERVICE_ROLE_KEY` to `SERVICE_ROLE_KEY` from the same output;
 - set `SLACK_TOKEN_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`;
 - optionally, to try the job queue, set `DATABASE_URL` to `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
-Studio is at http://127.0.0.1:54323. `yarn supabase stop` stops the stack and keeps the data.
+Studio is at http://127.0.0.1:54323. `pnpm supabase stop` stops the stack and keeps the data.
 
 ### Dev Slack app
 
@@ -187,20 +187,20 @@ Studio is at http://127.0.0.1:54323. `yarn supabase stop` stops the stack and ke
    ```
 2. Create a separate app from `slack-app-manifest.yml`, with `APP_DOMAIN` replaced by your ngrok domain. An app has one set of request URLs, so keep it apart from the production app.
 3. Fill in the Slack values in `.env`.
-4. Run `yarn start:dev`.
+4. Run `pnpm start:dev`.
 5. Install the app by opening `https://<your-ngrok-domain>/api/slack/install`, as described above.
 
 To go through an approval you need at least two people in the workspace: one requests a vacation, the other approves it.
 
 ### Sending events without Slack
 
-`yarn slack:event` posts a payload to the running app, signed with `SLACK_SIGN_IN_SECRET` from `.env`. This lets you check event handlers without Slack or ngrok.
+`pnpm slack:event` posts a payload to the running app, signed with `SLACK_SIGN_IN_SECRET` from `.env`. This lets you check event handlers without Slack or ngrok.
 
 Sample payloads are in `src/commands/slack-events/`. They use `T_LOCAL` as the workspace ID; `--team` replaces it with the `slack_id` of a workspace from the `slack_teams` table:
 
 ```bash
-yarn slack:event src/commands/slack-events/url-verification.json
-yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD
+pnpm slack:event src/commands/slack-events/url-verification.json
+pnpm slack:event src/commands/slack-events/team-join.json --team T0123ABCD
 ```
 
 `--url` sends the payload elsewhere, e.g. through the tunnel.
@@ -208,8 +208,8 @@ yarn slack:event src/commands/slack-events/team-join.json --team T0123ABCD
 ## Tests
 
 ```bash
-yarn test          # unit tests
-yarn test:int      # integration tests, need the local Supabase stack
+pnpm test          # unit tests
+pnpm test:int      # integration tests, need the local Supabase stack
 npx tsc --noEmit
 ```
 
@@ -227,8 +227,8 @@ Rules for the integration tests:
 - Each test creates its own workspace (a `slack_teams` row with a random `T…` ID) and deletes it at the end. The foreign keys cascade, so nothing is left behind and your local data is not touched.
 
 ```bash
-yarn test:int test/integration/vacation-approval.int-spec.ts   # one file
-LOG_LEVEL=debug yarn test:int                                  # with the app's logs
+pnpm test:int test/integration/vacation-approval.int-spec.ts   # one file
+LOG_LEVEL=debug pnpm test:int                                  # with the app's logs
 ```
 
 A bug a test has found but nobody has fixed yet stays in the suite as `it.failing`, with a `BUG:` comment that points at the code. Such a test passes while the bug is there and fails once it is fixed; then make it a plain `it`.

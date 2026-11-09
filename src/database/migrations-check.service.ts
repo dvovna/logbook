@@ -75,8 +75,8 @@ export class MigrationsCheckService implements OnModuleInit {
     const message =
       `The database lacks ${missing.length} migration(s) this version needs: ` +
       `${missing.join(', ')}${applied === 'none-known' ? ' and possibly older ones' : ''}. ` +
-      'Apply them with `yarn supabase db push --remote "<connection string>"` ' +
-      '(locally `yarn supabase migration up`), then start the app again.';
+      'Apply them with `pnpm supabase db push --remote "<connection string>"` ' +
+      '(locally `pnpm supabase migration up`), then start the app again.';
 
     this.logger.error(message);
     throw new Error(message);

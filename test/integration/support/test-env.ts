@@ -29,7 +29,7 @@ Object.assign(process.env, testEnv);
 // The job queue uses the local database too (global-setup checked it is local).
 process.env.DATABASE_URL = process.env.SUPABASE_DB_URL;
 
-// App logs are noise in test output; `LOG_LEVEL=debug yarn test:int` shows them.
+// App logs are noise in test output; `LOG_LEVEL=debug pnpm test:int` shows them.
 process.env.LOG_LEVEL ??= 'silent';
 
 for (const name of [

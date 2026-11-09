@@ -20,29 +20,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Node 26 ships without corepack. The action installs the pnpm version
+      # `packageManager` in package.json names and caches the pnpm store.
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc # same major as the Dockerfile
 
-      # Node 26 ships without corepack, so yarn 1 is installed explicitly.
-      - run: npm install -g yarn@1.22.22
-
-      - uses: actions/cache@v6
-        with:
-          path: ~/.cache/yarn
-          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: yarn-${{ runner.os }}-
-
-      - run: yarn install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
       - name: Type-check
         run: npx tsc --noEmit
 
       - name: Unit tests
-        run: yarn test --ci
+        run: pnpm test --ci
 
       - name: Build
-        run: yarn build
+        run: pnpm build
 
       # ESLint also reports code Prettier would format differently.
       - name: Lint
@@ -54,33 +51,29 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
-      - run: npm install -g yarn@1.22.22
-
-      - uses: actions/cache@v6
-        with:
-          path: ~/.cache/yarn
-          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: yarn-${{ runner.os }}-
-
-      - run: yarn install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
       # A fresh local stack from supabase/config.toml, with supabase/migrations
       # applied. The tests only need Postgres and the REST API behind Kong.
       - name: Start Supabase
-        run: yarn supabase start -x studio,postgres-meta
+        run: pnpm supabase start -x studio,postgres-meta
 
       # The committed types must be what the migrations produce.
       - name: Database types match the migrations
         run: |
-          yarn db:types
+          pnpm db:types
           if ! git diff --exit-code -- src/common/types/database.types.ts; then
-            echo "::error file=src/common/types/database.types.ts::Differs from what supabase/migrations produce. Run yarn db:init, then yarn db:types, and commit the file."
+            echo "::error file=src/common/types/database.types.ts::Differs from what supabase/migrations produce. Run pnpm db:init, then pnpm db:types, and commit the file."
             exit 1
           fi
 
       - name: Integration tests
-        run: yarn test:int --ci
+        run: pnpm test:int --ci

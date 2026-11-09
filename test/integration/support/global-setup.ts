@@ -24,7 +24,7 @@ const readLocalStackEnv = (): Record<string, string> => {
     });
   } catch {
     throw new Error(
-      'The local Supabase stack is not running. Start it with `yarn supabase start`.',
+      'The local Supabase stack is not running. Start it with `pnpm supabase start`.',
     );
   }
 
@@ -58,8 +58,8 @@ const assertMigrationsApplied = async (dbUrl: string) => {
     if (missing.length) {
       throw new Error(
         `The local database is missing migrations ${missing.join(', ')}. ` +
-          'Apply them with `yarn supabase migration up` ' +
-          '(or recreate the database with `yarn db:init`).',
+          'Apply them with `pnpm supabase migration up` ' +
+          '(or recreate the database with `pnpm db:init`).',
       );
     }
   } finally {
