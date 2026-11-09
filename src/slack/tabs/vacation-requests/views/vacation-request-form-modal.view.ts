@@ -47,7 +47,7 @@ export class VacationRequestFormModalView extends BaseModalView<
   protected defaultCallbackId = ViewCallbackId.UserVacationRequest;
 
   protected getTitleText({ initialData }: IGetViewParams): string {
-    return initialData ? 'Edit Vacation Request' : 'New Vacation Request';
+    return initialData ? 'Edit time off' : 'Time off request';
   }
 
   public getViewBlocks({
@@ -91,10 +91,10 @@ export class VacationRequestFormModalView extends BaseModalView<
       ...SlackStaticSelectView.getView({
         blockId: 'type_block',
         actionId: 'type_option',
-        label: 'Vacation Type',
-        placeholder: 'Select vacation type',
+        label: 'Type',
+        placeholder: 'Select a type',
         options: VACATION_TYPE_OPTIONS,
-        initialValue: initialData?.type,
+        initialValue: initialData?.type ?? VacationType.AnnualLeave,
       }),
       {
         type: 'input',

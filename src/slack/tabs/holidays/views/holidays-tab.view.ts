@@ -73,37 +73,11 @@ export class HolidaysTabView extends BaseTabView<
 
     blocks.push(...this.getCustomHolidaysBlocks(companyHolidays, policyId));
 
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: ' ',
-      },
-    });
-
     return blocks;
   }
 
   private getSectionDividerBlocks() {
-    const blocks: AnyBlock[] = [];
-
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: ' ',
-      },
-    });
-    blocks.push({ type: 'divider' });
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: ' ',
-      },
-    });
-
-    return blocks;
+    return [{ type: 'divider' } as AnyBlock];
   }
 
   private getCustomHolidaysBlocks(

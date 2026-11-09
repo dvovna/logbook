@@ -32,7 +32,6 @@ export class PaginatedListView {
               accessory: {
                 type: 'button',
                 text: { type: 'plain_text', text: emptyAction.text },
-                style: 'primary',
                 action_id: emptyAction.actionId,
               },
             }

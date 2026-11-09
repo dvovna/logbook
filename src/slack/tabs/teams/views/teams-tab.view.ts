@@ -1,3 +1,4 @@
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import {
   ListItem,
   detail,
@@ -45,7 +46,7 @@ export class TeamsTabView extends BaseTabView<
   }
 
   protected getTabTitle() {
-    return '🏢 *Teams Management*\n\nManage team membership, assign vacation policies, \nand configure approvers/notification recipients.';
+    return `*${SCREENS[ScreenId.Teams].title}*\nEach team's members, approvers and vacation policy.`;
   }
 
   protected getTitleAccessory(): SectionBlockAccessory {

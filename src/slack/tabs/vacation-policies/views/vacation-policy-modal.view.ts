@@ -65,6 +65,10 @@ export class VacationPolicyModalView extends BaseModalView<
           type: 'plain_text',
           text: 'Vacation Days (Calendar)',
         },
+        hint: {
+          type: 'plain_text',
+          text: 'Annual leave per year in calendar days: every day of a request counts, weekends too.',
+        },
       },
       {
         type: 'input',
@@ -80,6 +84,10 @@ export class VacationPolicyModalView extends BaseModalView<
         label: {
           type: 'plain_text',
           text: 'Vacation Days (Working)',
+        },
+        hint: {
+          type: 'plain_text',
+          text: "The same leave in working days: weekends and this policy's enabled holidays don't count. A request has to fit both limits.",
         },
       },
       {

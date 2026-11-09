@@ -1,3 +1,4 @@
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
@@ -68,7 +69,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
   }
 
   protected getTabTitle() {
-    return `*🏠 Home*\n`;
+    return `*${SCREENS[ScreenId.Home].title}*`;
   }
 
   // What is left to set up, each step with the screen that does it.
@@ -154,7 +155,6 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         accessory: {
           type: 'button',
           text: { type: 'plain_text', text: 'Open Approvals' },
-          style: 'primary',
           action_id: NavigationActionId.Approvals,
         },
       },
@@ -184,8 +184,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         elements: [
           {
             type: 'button',
-            text: { type: 'plain_text', text: '➕ Request Vacation' },
-            style: 'primary',
+            text: { type: 'plain_text', text: '🌴 Request time off' },
             action_id: HomeTabActionId.OpenVacationModal,
           },
         ],
@@ -266,7 +265,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     vacationsUsageInfo: IVacationPeriodUsageData | null,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [
-      { type: 'section', text: { type: 'plain_text', text: '\n' } },
+      ...Divider.getBlocks(),
       {
         type: 'section',
         text: { type: 'mrkdwn', text: '*🏝 Vacation Usage*' },
@@ -360,7 +359,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     }
 
     return [
-      { type: 'section', text: { type: 'plain_text', text: '\n' } },
+      ...Divider.getBlocks(),
       {
         type: 'section',
         text: { type: 'mrkdwn', text: '*🗓 Your Pending Vacation Requests*' },

@@ -1,3 +1,4 @@
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
@@ -54,7 +55,7 @@ export class VacationHistoryTabView extends BaseTabView<
   protected callbackId: ViewCallbackId = ViewCallbackId.VacationHistoryTabView;
 
   protected getTabTitle(): string {
-    return '*🌴 Time off*';
+    return `*${SCREENS[ScreenId.TimeOff].title}*`;
   }
 
   protected getTitleAccessory(): SectionBlockAccessory {

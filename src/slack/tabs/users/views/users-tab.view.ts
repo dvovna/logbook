@@ -1,3 +1,4 @@
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { formatDate } from '@common/utils/date.utils';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { IOption } from '@common/types/option.interface';
@@ -66,7 +67,7 @@ export class UsersTabView extends BaseTabView<
   }
 
   protected getTabTitle(): string {
-    return '*👥 Users Management*';
+    return `*${SCREENS[ScreenId.People].title}*`;
   }
 
   protected getContentBlocks(

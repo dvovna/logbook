@@ -1,3 +1,4 @@
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { formatDate, formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
@@ -61,7 +62,7 @@ export class ApprovalsTabView extends BaseTabView<
   protected callbackId = ViewCallbackId.ApprovalsTabView;
 
   protected getTabTitle() {
-    return '*✅ Approvals*\nWhat waits for your decision.';
+    return `*${SCREENS[ScreenId.Approvals].title}*\nWhat waits for your decision.`;
   }
 
   protected getContentBlocks(
@@ -146,12 +147,7 @@ export class ApprovalsTabView extends BaseTabView<
         ],
       },
       buttons: [
-        button(
-          'Approve',
-          ApprovalsTabActionId.ApproveTimeOff,
-          step.id,
-          'primary',
-        ),
+        button('Approve', ApprovalsTabActionId.ApproveTimeOff, step.id),
         button('Reject', ApprovalsTabActionId.RejectTimeOff, step.id, 'danger'),
       ],
     });
@@ -208,12 +204,7 @@ export class ApprovalsTabView extends BaseTabView<
           `Description: ${escapeMrkdwn(truncate(entry.description, { length: 80 }))}`,
       ],
       buttons: [
-        button(
-          'Approve',
-          ApprovalsTabActionId.ApproveEntry,
-          entry.id,
-          'primary',
-        ),
+        button('Approve', ApprovalsTabActionId.ApproveEntry, entry.id),
         button('Reject', ApprovalsTabActionId.RejectEntry, entry.id, 'danger'),
       ],
     });

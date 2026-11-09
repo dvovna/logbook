@@ -1,3 +1,4 @@
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { Injectable } from '@nestjs/common';
@@ -38,7 +39,7 @@ export class ClientsTabView extends BaseTabView<
   }
 
   protected getTabTitle() {
-    return "🏢 *Clients Management*\n\nManage your organization's clients and their details.";
+    return `*${SCREENS[ScreenId.Clients].title}*\nCustomers whose projects you track time on.`;
   }
 
   protected getTitleAccessory({

@@ -349,6 +349,19 @@ describe('Time entries', () => {
   describe('validation', () => {
     beforeEach(() => workspace.assignToProject(website, { users: [admin] }));
 
+    it('takes a decimal comma as well as a point', async () => {
+      const modal = await openLogTimeModal(admin);
+
+      const response = await t.slack
+        .submitView(workspace, admin, modal, { hours: '1,5' })
+        .expect(200);
+
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(await entries()).toEqual([
+        expect.objectContaining({ minutes: 90 }),
+      ]);
+    });
+
     it('accepts only whole quarter hours', async () => {
       const modal = await openLogTimeModal(admin);
 
@@ -867,7 +880,7 @@ describe('Time entries', () => {
       );
       expect(
         buttonText(myEntries, TimeEntriesTabViewActionId.SubmitDrafts),
-      ).toBe('📤 Submit drafts (2)');
+      ).toBe('📤 Submit 2 entries');
 
       const updated = await actOnTab(
         t,
@@ -912,7 +925,7 @@ describe('Time entries', () => {
       expect(await statusOf(first)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(second)).toBe(TimeEntryStatus.Draft);
       expect(buttonText(updated, TimeEntriesTabViewActionId.SubmitDrafts)).toBe(
-        '📤 Submit drafts (1)',
+        '📤 Submit 1 entry',
       );
     });
 

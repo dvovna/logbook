@@ -1,3 +1,4 @@
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import {
   ListItem,
   detail,
@@ -53,7 +54,7 @@ export class VacationPolicyTabView extends BaseTabView<
   }
 
   protected getTabTitle() {
-    return '*🏢 Vacation Policy Management*\n\nRules for vacation accrual, periods, and entitlements.';
+    return `*${SCREENS[ScreenId.Policies].title}*\nDays per year, carryover and holidays, for the teams on each policy.`;
   }
 
   protected getTitleAccessory(): SectionBlockAccessory | null {

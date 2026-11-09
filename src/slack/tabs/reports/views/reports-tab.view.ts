@@ -16,6 +16,7 @@ import { Divider } from '@modules/slack/common/views/components/separator';
 import {
   canOpenScreen,
   ScreenId,
+  SCREENS,
 } from '@modules/slack/common/navigation/screens';
 
 export interface IReportsTabMetadata {
@@ -45,7 +46,7 @@ export class ReportsTabView extends BaseTabView<
   protected callbackId = ViewCallbackId.ReportsTabView;
 
   protected getTabTitle(): string {
-    return '*📊 Reports*';
+    return `*${SCREENS[ScreenId.Reports].title}*`;
   }
 
   protected getContentBlocks({

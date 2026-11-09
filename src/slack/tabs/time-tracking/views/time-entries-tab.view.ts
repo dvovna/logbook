@@ -1,3 +1,5 @@
+import * as pluralize from 'pluralize';
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { formatDay } from '@common/utils/date.utils';
@@ -65,8 +67,8 @@ export class TimeEntriesTabView extends BaseTabView<
   // My time, or Time logs: everyone's entries, for Admin and HR.
   protected getTabTitle({ canFilterByUser }: IGetTimeEntriesViewParams) {
     return canFilterByUser
-      ? "*⏱ Time logs*\nEveryone's logged time."
-      : '*🕒 My time*';
+      ? `*${SCREENS[ScreenId.TimeLogs].title}*\nEveryone's logged time.`
+      : `*${SCREENS[ScreenId.MyTime].title}*`;
   }
 
   protected getTitleAccessory(): SectionBlockAccessory {
@@ -98,7 +100,7 @@ export class TimeEntriesTabView extends BaseTabView<
             type: 'button',
             text: {
               type: 'plain_text',
-              text: `📤 Submit drafts (${openEntriesCount})`,
+              text: `📤 Submit ${pluralize('entry', openEntriesCount, true)}`,
             },
             style: 'primary',
             action_id: TimeEntriesTabViewActionId.SubmitDrafts,

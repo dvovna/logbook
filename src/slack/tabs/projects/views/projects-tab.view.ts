@@ -1,3 +1,4 @@
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import {
   ListItem,
   detail,
@@ -67,7 +68,7 @@ export class ProjectsTabView extends BaseTabView<
   }
 
   protected getTabTitle() {
-    return '🗂 *Projects, Teams & Assignments*\n\nControl which teams and users can track time on specific projects.';
+    return `*${SCREENS[ScreenId.Projects].title}*\nWho tracks time on which project: its teams and people.`;
   }
 
   protected getTitleAccessory({

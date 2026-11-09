@@ -23,8 +23,10 @@ export const timeEntryFormSchema = z.object({
       text: z.string(),
     })
     .required(),
+  // "1,5" as well as "1.5".
   hours: z
     .string()
+    .transform((val) => val.trim().replace(',', '.'))
     .refine(
       (val) => {
         const num = Number(val);

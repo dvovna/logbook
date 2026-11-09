@@ -1,3 +1,4 @@
+import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
@@ -66,7 +67,7 @@ export class VacationRequestsTabView extends BaseTabView<
   }
 
   protected getTabTitle(): string {
-    return '*🌴 Vacation Requests Management*\n\nSubmit and manage employee vacation requests';
+    return `*${SCREENS[ScreenId.AllRequests].title}*\nEveryone's time off you can see, with what became of it.`;
   }
 
   protected getTitleAccessory({
