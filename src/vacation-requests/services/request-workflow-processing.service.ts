@@ -43,9 +43,11 @@ export class RequestWorkflowProcessingService implements OnModuleInit {
     );
   }
 
-  @OnEvent(VacationWorkflowEventEnum.Finished)
-  public handleWorkflowFinished({ workflow }: VacationWorkflowFinished) {
-    this.jobs.run<IFinishRequestJob>(FINISH_REQUEST_JOB, {
+  // Runs inside the transaction of the last decision (emitAsync), so the job
+  // is saved with it; a failure here rolls the decision back to be retried.
+  @OnEvent(VacationWorkflowEventEnum.Finished, { suppressErrors: false })
+  public async handleWorkflowFinished({ workflow }: VacationWorkflowFinished) {
+    await this.jobs.enqueue<IFinishRequestJob>(FINISH_REQUEST_JOB, {
       requestId: workflow.requestId,
       slackTeamId: workflow.slackTeamId,
       status: workflow.status,

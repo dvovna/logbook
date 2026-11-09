@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { SqlRepository } from '@common/repositories/sql.repository';
 import { SqlRow } from '@common/types/sql-database.types';
-import { callFunction } from 'src/database/sql-functions';
+import { sql } from 'kysely';
+import { Json } from '@common/types/database.types';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepType,
@@ -33,9 +34,11 @@ export class RequestWorkflowStepsRepository extends SqlRepository<
     } as IRequestWorkflowStepViewModel;
   };
 
-  // Decides the request's open steps in one statement (decide_workflow_steps):
-  // all of them, one level's, or one step. Returns the steps it decided, none
-  // when someone else decided them first.
+  // Decides the request's open steps in one statement: all of them, one
+  // level's, or one step. The status, who decided and when go into step_data,
+  // and completed_at closes the step. Only open steps are touched, so of two
+  // people who decide at once only the first changes anything: returns the
+  // steps it decided, none when someone else was first.
   public async decide(params: {
     slackTeamId: string;
     requestId: string;
@@ -44,14 +47,25 @@ export class RequestWorkflowStepsRepository extends SqlRepository<
     stepId?: string;
     stepLevel?: number;
   }): Promise<IRequestWorkflowStepViewModel[]> {
-    const rows = await callFunction(this.db, 'decide_workflow_steps', {
-      p_slack_team_id: params.slackTeamId,
-      p_request_id: params.requestId,
-      p_status: params.status,
-      p_decided_by_slack_id: params.decidedBySlackId,
-      p_step_id: params.stepId,
-      p_step_level: params.stepLevel,
-    });
+    const { stepId, stepLevel } = params;
+    const rows = await this.updateInWorkspace(params.slackTeamId)
+      .set({
+        step_data: sql<NonNullable<Json>>`step_data || jsonb_build_object(
+          'status', ${params.status}::text,
+          'decided_at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+          'decided_by_slack_id', ${params.decidedBySlackId}::text
+        )`,
+        completed_at: sql<string>`now()`,
+        updated_at: sql<string>`now()`,
+      })
+      .where('request_id', '=', params.requestId)
+      .where('completed_at', 'is', null)
+      .$if(stepId !== undefined, (query) => query.where('id', '=', stepId!))
+      .$if(stepLevel !== undefined, (query) =>
+        query.where('step_level', '=', stepLevel!),
+      )
+      .returningAll()
+      .execute();
 
     return rows.map(this.mapToViewModel);
   }

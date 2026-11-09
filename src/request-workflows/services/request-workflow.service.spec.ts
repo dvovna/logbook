@@ -18,6 +18,7 @@ import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.
 import { VacationWorkflowFinished } from 'src/request-workflows/events/vacation-workflow.events';
 import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
 import { ValidationError } from 'src/common/errors/validation.error';
+import { TransactionService } from 'src/database/transaction.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 const REQUEST_ID = 'request-1';
@@ -97,8 +98,22 @@ describe('RequestWorkflowService', () => {
     jest.Mock
   >;
   let commentsService: { findMany: jest.Mock };
-  let eventEmitter: { emit: jest.Mock };
+  let eventEmitter: { emitAsync: jest.Mock };
   let service: RequestWorkflowService;
+  // What ran inside TransactionService.transaction().
+  let inTransaction: boolean;
+  const transactions = {
+    lock: () => Promise.resolve(),
+    transaction: async <T>(work: () => Promise<T>) => {
+      inTransaction = true;
+
+      try {
+        return await work();
+      } finally {
+        inTransaction = false;
+      }
+    },
+  };
 
   beforeEach(() => {
     stepsService = {
@@ -114,20 +129,22 @@ describe('RequestWorkflowService', () => {
       updateStepMessages: jest.fn(),
     };
     commentsService = { findMany: jest.fn().mockResolvedValue(comments) };
-    eventEmitter = { emit: jest.fn() };
+    eventEmitter = { emitAsync: jest.fn().mockResolvedValue([]) };
+    inTransaction = false;
 
     service = new RequestWorkflowService(
       stepsService as unknown as RequestWorkflowStepsService,
       processorService as unknown as WorkflowStepProcessorService,
       commentsService as unknown as RequestWorkflowStepCommentsService,
       eventEmitter as unknown as EventEmitter2,
+      transactions as unknown as TransactionService,
     );
   });
 
   const getFinishedEvent = (): VacationWorkflowFinished => {
-    expect(eventEmitter.emit).toHaveBeenCalledTimes(1);
+    expect(eventEmitter.emitAsync).toHaveBeenCalledTimes(1);
 
-    const [eventName, event] = eventEmitter.emit.mock.calls[0] as [
+    const [eventName, event] = eventEmitter.emitAsync.mock.calls[0] as [
       string,
       VacationWorkflowFinished,
     ];
@@ -242,7 +259,7 @@ describe('RequestWorkflowService', () => {
       expect(processorService.processSteps).toHaveBeenCalledWith([
         nextLevelStep,
       ]);
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
 
     it('does not ask the next level again when another approver already did', async () => {
@@ -257,7 +274,7 @@ describe('RequestWorkflowService', () => {
       await service.approveStep(step.id, approver);
 
       expect(processorService.processSteps).toHaveBeenCalledWith([]);
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
 
     it('with ALL rule waits while other approvers of the level are pending', async () => {
@@ -281,7 +298,7 @@ describe('RequestWorkflowService', () => {
         completed: false,
       });
       expect(processorService.processSteps).not.toHaveBeenCalled();
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
 
     it('finishes the workflow as approved after the last approval of the last level', async () => {
@@ -301,6 +318,32 @@ describe('RequestWorkflowService', () => {
         approvedBy: approver.id,
         reviewComments: comments,
       });
+    });
+
+    // A decision never stays without what follows it: the messages to
+    // refresh and the request to finish are saved with it, as jobs.
+    it('decides, refreshes the messages and finishes in one transaction', async () => {
+      const step = buildStep({ step_level: 2, rule: ApprovalRule.Any });
+      stepsService.findOneWithValidation.mockResolvedValue(step);
+      const calls: string[] = [];
+      const record = (call: string) => () => {
+        calls.push(`${call}, in a transaction: ${inTransaction}`);
+
+        return Promise.resolve([step]);
+      };
+      stepsService.decide.mockImplementation(record('decide'));
+      processorService.updateStepMessages.mockImplementation(
+        record('refresh messages'),
+      );
+      eventEmitter.emitAsync.mockImplementation(record('finish'));
+
+      await service.approveStep(step.id, approver);
+
+      expect(calls).toEqual([
+        'decide, in a transaction: true',
+        'refresh messages, in a transaction: true',
+        'finish, in a transaction: true',
+      ]);
     });
   });
 
@@ -328,7 +371,7 @@ describe('RequestWorkflowService', () => {
       );
       expect(processorService.updateStepMessages).toHaveBeenCalledWith(level1);
       expect(processorService.processSteps).toHaveBeenCalledWith(level2);
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
 
     it('finishes the workflow as approved when it was the last level', async () => {
@@ -363,7 +406,7 @@ describe('RequestWorkflowService', () => {
       await service.approveCurrentLevel(REQUEST_ID, hr);
 
       expect(stepsService.claimUnprocessed).not.toHaveBeenCalled();
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -423,7 +466,7 @@ describe('RequestWorkflowService', () => {
 
       expect(stepsService.decide).not.toHaveBeenCalled();
       expect(processorService.processSteps).not.toHaveBeenCalled();
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
 
     // Two approvers click at the same moment: the step was open when read,
@@ -438,7 +481,7 @@ describe('RequestWorkflowService', () => {
 
       expect(stepsService.claimUnprocessed).not.toHaveBeenCalled();
       expect(processorService.processSteps).not.toHaveBeenCalled();
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
 
     it('ignores Reject when the step is canceled', async () => {
@@ -449,7 +492,7 @@ describe('RequestWorkflowService', () => {
       await service.rejectStep('step-1', approver);
 
       expect(stepsService.decide).not.toHaveBeenCalled();
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -474,7 +517,7 @@ describe('RequestWorkflowService', () => {
         openSteps,
       );
       expect(processorService.processSteps).not.toHaveBeenCalled();
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
 
     it('does nothing when the request has no open steps', async () => {

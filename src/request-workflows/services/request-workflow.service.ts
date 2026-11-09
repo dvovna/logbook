@@ -27,6 +27,7 @@ import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workf
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
 import { ValidationError } from '@common/errors/validation.error';
+import { TransactionService } from 'src/database/transaction.service';
 
 export interface ICreateWorkflowLevelParams {
   rule: ApprovalRule;
@@ -56,125 +57,140 @@ export class RequestWorkflowService {
     private readonly workflowStepProcessorService: WorkflowStepProcessorService,
     private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly transactions: TransactionService,
   ) {}
 
   // Safe to repeat: when an earlier run made the steps, only the first
   // level's approvers who got no message yet are asked.
-  public async create({
+  public create({
     requestId,
     levels,
     slackTeamId,
     snapshot,
   }: ICreateWorkflowParams) {
-    const existingSteps = await this.requestWorkflowStepsService.findMany({
-      requestId,
-      slackTeamId,
-    });
+    return this.transactions.transaction(async () => {
+      await this.lockRequest(requestId);
 
-    if (existingSteps.length) {
-      this.workflowStepProcessorService.processSteps(
-        existingSteps.filter((step) => step.step_level === 1),
+      const existingSteps = await this.requestWorkflowStepsService.findMany({
+        requestId,
+        slackTeamId,
+      });
+
+      if (existingSteps.length) {
+        await this.workflowStepProcessorService.processSteps(
+          existingSteps.filter((step) => step.step_level === 1),
+        );
+
+        return;
+      }
+
+      const steps = levels.flatMap<ICreateParams>(
+        ({ rule, name, steps }, levelIndex) =>
+          steps.map<ICreateParams>(({ stepType, slackUserId }) => ({
+            requestId,
+            slackUserId,
+            stepLevel: levelIndex + 1,
+            stepType,
+            slackTeamId,
+            stepData: {
+              snapshot,
+              rule,
+              status: INITIAL_STEP_STATUS,
+              ...(name ? { level_name: name } : {}),
+            },
+          })),
       );
 
-      return;
-    }
+      if (steps.length === 0) {
+        return;
+      }
 
-    const steps = levels.flatMap<ICreateParams>(
-      ({ rule, name, steps }, levelIndex) =>
-        steps.map<ICreateParams>(({ stepType, slackUserId }) => ({
-          requestId,
-          slackUserId,
-          stepLevel: levelIndex + 1,
-          stepType,
-          slackTeamId,
-          stepData: {
-            snapshot,
-            rule,
-            status: INITIAL_STEP_STATUS,
-            ...(name ? { level_name: name } : {}),
-          },
-        })),
-    );
+      const createdSteps =
+        await this.requestWorkflowStepsService.createMany(steps);
 
-    if (steps.length === 0) {
-      return;
-    }
+      const firstLevelSteps = createdSteps.filter(
+        (step) => step.step_level === 1,
+      );
 
-    const createdSteps =
-      await this.requestWorkflowStepsService.createMany(steps);
+      if (!firstLevelSteps.length) {
+        throw new NotFoundException('No steps found for the first level');
+      }
 
-    const firstLevelSteps = createdSteps.filter(
-      (step) => step.step_level === 1,
-    );
-
-    if (!firstLevelSteps.length) {
-      throw new NotFoundException('No steps found for the first level');
-    }
-
-    this.workflowStepProcessorService.processSteps(firstLevelSteps);
+      await this.workflowStepProcessorService.processSteps(firstLevelSteps);
+    });
   }
 
   // Closes every open step of the request (on cancel, and on any later update
   // of the request): approvers who got a message see it without buttons, steps
   // of levels that were never reached are closed too, so they never start.
-  public async cancel(requestId: string, canceledBy: IUserViewModel) {
-    const canceledSteps = await this.requestWorkflowStepsService.decide(
-      { requestId, slackTeamId: canceledBy.slack_team_id },
-      RequestWorkflowStatus.Canceled,
-      canceledBy,
-    );
+  public cancel(requestId: string, canceledBy: IUserViewModel) {
+    return this.transactions.transaction(async () => {
+      await this.lockRequest(requestId);
 
-    if (canceledSteps.length === 0) {
-      return;
-    }
+      const canceledSteps = await this.requestWorkflowStepsService.decide(
+        { requestId, slackTeamId: canceledBy.slack_team_id },
+        RequestWorkflowStatus.Canceled,
+        canceledBy,
+      );
 
-    this.workflowStepProcessorService.updateStepMessages(canceledSteps);
+      if (canceledSteps.length === 0) {
+        return;
+      }
+
+      await this.workflowStepProcessorService.updateStepMessages(canceledSteps);
+    });
   }
 
-  // Each decision below is one statement that closes the steps it decides
-  // (decide_workflow_steps), so a failure leaves the step open and the click
-  // can be repeated. Asking the next level and finishing come after it.
-  public async approveStep(stepId: string, approvedBy: IUserViewModel) {
-    const step = await this.requestWorkflowStepsService.findOneWithValidation({
-      id: stepId,
-      slackTeamId: approvedBy.slack_team_id,
-      completed: false,
+  // Each decision below is one transaction: the statement that closes the
+  // steps it decides, and the jobs that ask the next level, refresh the
+  // messages or finish the request. A failure leaves the step open and the
+  // click can be repeated; a decision never stays without what follows it.
+  public approveStep(stepId: string, approvedBy: IUserViewModel) {
+    return this.transactions.transaction(async () => {
+      const step = await this.requestWorkflowStepsService.findOneWithValidation(
+        {
+          id: stepId,
+          slackTeamId: approvedBy.slack_team_id,
+          completed: false,
+        },
+      );
+
+      await this.lockRequest(step.request_id);
+      this.assertCanActOnStep(step, approvedBy);
+
+      if (this.isStepDecided(step)) {
+        return;
+      }
+
+      this.assertNotOwnRequest(step, approvedBy);
+
+      // With ANY one approval completes the level: its other steps are closed
+      // in the same statement.
+      const isAnyRule = step.step_data.rule === ApprovalRule.Any;
+      const decidedSteps = await this.requestWorkflowStepsService.decide(
+        {
+          requestId: step.request_id,
+          slackTeamId: approvedBy.slack_team_id,
+          ...(isAnyRule ? { stepLevel: step.step_level } : { stepId }),
+        },
+        RequestWorkflowStatus.Approved,
+        approvedBy,
+      );
+
+      await this.workflowStepProcessorService.updateStepMessages(decidedSteps);
+
+      // Someone else decided it in the meantime.
+      if (!decidedSteps.some(({ id }) => id === stepId)) {
+        return;
+      }
+
+      const isLevelComplete =
+        isAnyRule || (await this.isLevelComplete(step, approvedBy));
+
+      if (isLevelComplete) {
+        await this.activateNextLevel(step, approvedBy);
+      }
     });
-
-    this.assertCanActOnStep(step, approvedBy);
-
-    if (this.isStepDecided(step)) {
-      return;
-    }
-
-    this.assertNotOwnRequest(step, approvedBy);
-
-    // With ANY one approval completes the level: its other steps are closed
-    // in the same statement.
-    const isAnyRule = step.step_data.rule === ApprovalRule.Any;
-    const decidedSteps = await this.requestWorkflowStepsService.decide(
-      {
-        requestId: step.request_id,
-        slackTeamId: approvedBy.slack_team_id,
-        ...(isAnyRule ? { stepLevel: step.step_level } : { stepId }),
-      },
-      RequestWorkflowStatus.Approved,
-      approvedBy,
-    );
-
-    this.workflowStepProcessorService.updateStepMessages(decidedSteps);
-
-    // Someone else decided it in the meantime.
-    if (!decidedSteps.some(({ id }) => id === stepId)) {
-      return;
-    }
-
-    const isLevelComplete =
-      isAnyRule || (await this.isLevelComplete(step, approvedBy));
-
-    if (isLevelComplete) {
-      await this.activateNextLevel(step, approvedBy);
-    }
   }
 
   // The open steps of the level the request is waiting on: the lowest level
@@ -195,90 +211,96 @@ export class RequestWorkflowService {
   // manager is away, so the request moves on to the next level (or gets
   // approved) instead of waiting. With the ALL rule every open step of the
   // level is approved.
-  public async approveCurrentLevel(
-    requestId: string,
-    approvedBy: IUserViewModel,
-  ) {
-    const [currentStep] = await this.findCurrentLevelSteps(
-      requestId,
-      approvedBy.slack_team_id,
-    );
+  public approveCurrentLevel(requestId: string, approvedBy: IUserViewModel) {
+    return this.transactions.transaction(async () => {
+      await this.lockRequest(requestId);
 
-    if (!currentStep) {
-      throw new ValidationError(
-        'This request is not waiting for anyone to approve it.',
-      );
-    }
-
-    this.assertNotOwnRequest(currentStep, approvedBy);
-
-    const approvedSteps = await this.requestWorkflowStepsService.decide(
-      {
+      const [currentStep] = await this.findCurrentLevelSteps(
         requestId,
-        stepLevel: currentStep.step_level,
-        slackTeamId: approvedBy.slack_team_id,
-      },
-      RequestWorkflowStatus.Approved,
-      approvedBy,
-    );
+        approvedBy.slack_team_id,
+      );
 
-    // An approver decided the level in the meantime and moved it on.
-    if (approvedSteps.length === 0) {
-      return;
-    }
+      if (!currentStep) {
+        throw new ValidationError(
+          'This request is not waiting for anyone to approve it.',
+        );
+      }
 
-    this.workflowStepProcessorService.updateStepMessages(approvedSteps);
+      this.assertNotOwnRequest(currentStep, approvedBy);
 
-    await this.activateNextLevel(currentStep, approvedBy);
+      const approvedSteps = await this.requestWorkflowStepsService.decide(
+        {
+          requestId,
+          stepLevel: currentStep.step_level,
+          slackTeamId: approvedBy.slack_team_id,
+        },
+        RequestWorkflowStatus.Approved,
+        approvedBy,
+      );
+
+      // An approver decided the level in the meantime and moved it on.
+      if (approvedSteps.length === 0) {
+        return;
+      }
+
+      await this.workflowStepProcessorService.updateStepMessages(approvedSteps);
+
+      await this.activateNextLevel(currentStep, approvedBy);
+    });
   }
 
-  public async rejectStep(
+  public rejectStep(
     stepId: string,
     rejectedBy: IUserViewModel,
     reason?: string,
   ) {
-    const step = await this.requestWorkflowStepsService.findOneWithValidation({
-      id: stepId,
-      slackTeamId: rejectedBy.slack_team_id,
-    });
+    return this.transactions.transaction(async () => {
+      const step = await this.requestWorkflowStepsService.findOneWithValidation(
+        {
+          id: stepId,
+          slackTeamId: rejectedBy.slack_team_id,
+        },
+      );
 
-    this.assertCanActOnStep(step, rejectedBy);
+      await this.lockRequest(step.request_id);
+      this.assertCanActOnStep(step, rejectedBy);
 
-    if (this.isStepDecided(step)) {
-      return;
-    }
+      if (this.isStepDecided(step)) {
+        return;
+      }
 
-    // One rejection rejects the level, and with it the request.
-    const rejectedSteps = await this.requestWorkflowStepsService.decide(
-      {
+      // One rejection rejects the level, and with it the request.
+      const rejectedSteps = await this.requestWorkflowStepsService.decide(
+        {
+          requestId: step.request_id,
+          stepLevel: step.step_level,
+          slackTeamId: rejectedBy.slack_team_id,
+        },
+        RequestWorkflowStatus.Rejected,
+        rejectedBy,
+      );
+
+      await this.workflowStepProcessorService.updateStepMessages(rejectedSteps);
+
+      // Someone else decided it in the meantime.
+      if (!rejectedSteps.some(({ id }) => id === stepId)) {
+        return;
+      }
+
+      const approverComments =
+        await this.requestWorkflowStepCommentsService.findMany({
+          requestId: step.request_id,
+          slackTeamId: step.slack_team_id,
+        });
+
+      await this.finishWorkflow({
         requestId: step.request_id,
-        stepLevel: step.step_level,
+        status: RequestWorkflowStatus.Rejected,
         slackTeamId: rejectedBy.slack_team_id,
-      },
-      RequestWorkflowStatus.Rejected,
-      rejectedBy,
-    );
-
-    this.workflowStepProcessorService.updateStepMessages(rejectedSteps);
-
-    // Someone else decided it in the meantime.
-    if (!rejectedSteps.some(({ id }) => id === stepId)) {
-      return;
-    }
-
-    const approverComments =
-      await this.requestWorkflowStepCommentsService.findMany({
-        requestId: step.request_id,
-        slackTeamId: step.slack_team_id,
+        approvedBy: rejectedBy.id,
+        reviewComments: approverComments,
+        rejectionReason: reason?.trim() || undefined,
       });
-
-    this.finishWorkflow({
-      requestId: step.request_id,
-      status: RequestWorkflowStatus.Rejected,
-      slackTeamId: rejectedBy.slack_team_id,
-      approvedBy: rejectedBy.id,
-      reviewComments: approverComments,
-      rejectionReason: reason?.trim() || undefined,
     });
   }
 
@@ -301,7 +323,14 @@ export class RequestWorkflowService {
       return;
     }
 
-    this.workflowStepProcessorService.updateStepMessages(stepsToUpdate);
+    await this.workflowStepProcessorService.updateStepMessages(stepsToUpdate);
+  }
+
+  // Decisions on one request wait for each other. With the ALL rule two
+  // approvers deciding at once would each miss the other's decision, not yet
+  // committed, and neither would ask the next level.
+  private lockRequest(requestId: string) {
+    return this.transactions.lock(`workflow:${requestId}`);
   }
 
   // A step belongs to its approver. HR and admins may decide for an approver
@@ -343,8 +372,11 @@ export class RequestWorkflowService {
     return true;
   }
 
-  private finishWorkflow(workflowData: IVacationWorkflow) {
-    this.eventEmitter.emit(
+  // Delivered inside the decision's transaction (emitAsync, not emit, which
+  // waits for the commit): its listener saves the job that finishes the
+  // request together with the decision.
+  private async finishWorkflow(workflowData: IVacationWorkflow) {
+    await this.eventEmitter.emitAsync(
       VacationWorkflowEventEnum.Finished,
       new VacationWorkflowFinished(workflowData),
     );
@@ -389,12 +421,12 @@ export class RequestWorkflowService {
       const claimedSteps =
         await this.requestWorkflowStepsService.claimUnprocessed(nextLevel);
 
-      this.workflowStepProcessorService.processSteps(claimedSteps);
+      await this.workflowStepProcessorService.processSteps(claimedSteps);
 
       return;
     }
 
-    this.finishWorkflow({
+    await this.finishWorkflow({
       requestId: step.request_id,
       status: RequestWorkflowStatus.Approved,
       slackTeamId: step.slack_team_id,

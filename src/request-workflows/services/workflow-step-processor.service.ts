@@ -21,7 +21,8 @@ interface IStepJob {
 // What a workflow step means outside the database: asking its approver, and
 // keeping that message up to date. Each is a job (JobsService) per step, so a
 // Slack failure is retried and never stops the workflow: the workflow's state
-// is in the database, written before the jobs start.
+// is in the database. Inside a transaction the jobs are saved in it and start
+// after the commit, so they exist exactly when the decision does: await them.
 @Injectable()
 export class WorkflowStepProcessorService implements OnModuleInit {
   public constructor(
@@ -39,22 +40,25 @@ export class WorkflowStepProcessorService implements OnModuleInit {
   }
 
   public processSteps(steps: IRequestWorkflowStepViewModel[]) {
-    this.runForEach(WorkflowStepJob.Ask, steps);
+    return this.enqueueForEach(WorkflowStepJob.Ask, steps);
   }
 
   public updateStepMessages(steps: IRequestWorkflowStepViewModel[]) {
-    this.runForEach(WorkflowStepJob.RefreshMessage, steps);
+    return this.enqueueForEach(WorkflowStepJob.RefreshMessage, steps);
   }
 
   // Once per step: an approval lists the approved step with its level too.
-  private runForEach(
+  private async enqueueForEach(
     job: WorkflowStepJob,
     steps: IRequestWorkflowStepViewModel[],
   ) {
     const unique = new Map(steps.map((step) => [step.id, step]));
 
     for (const { id, slack_team_id } of unique.values()) {
-      this.jobs.run<IStepJob>(job, { stepId: id, slackTeamId: slack_team_id });
+      await this.jobs.enqueue<IStepJob>(job, {
+        stepId: id,
+        slackTeamId: slack_team_id,
+      });
     }
   }
 
