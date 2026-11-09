@@ -61,7 +61,7 @@ Create a Supabase project and apply the migrations:
 pnpm supabase db push --remote "postgresql://postgres.<project-ref>:<db-password>@<pooler-host>:5432/postgres"
 ```
 
-Take the session pooler connection string from the project's "Connect" dialog. The direct `db.<project-ref>.supabase.co` host is IPv6-only.
+Take the session pooler connection string from the project's "Connect" dialog. The direct `db.<project-ref>.supabase.co` host is IPv6-only. The app connects with the same string (`DATABASE_URL` below).
 
 ### 2. Slack app
 
@@ -80,6 +80,7 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | --- | --- |
 | `SUPABASE_URL` | Project URL (Project Settings → API) |
 | `SUPABASE_SERVICE_ROLE_KEY` | The `service_role` key. It bypasses row-level security, so keep it on the server only. |
+| `DATABASE_URL` | The session pooler connection string from step 1 (port 5432, not 6543). The app reads and writes part of its data over it without PostgREST (see [`docs/direct-postgres-plan.md`](docs/direct-postgres-plan.md)), and the job queue, which retries Slack messages and workflow steps that failed, keeps its own `pgboss` schema there. |
 | `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` | Slack app → Basic Information |
 | `SLACK_SIGN_IN_SECRET` | Slack app → Basic Information → Signing Secret |
 | `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
@@ -87,7 +88,6 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `PORT` | Port to listen on. The Docker image defaults to 10000. |
 | `ALLOWED_SLACK_TEAM_IDS` | Optional. Comma-separated Slack workspace IDs (`T…`) that may install the app on your server. Any other workspace gets a refusal, and its token is revoked. Unset, every workspace with the install link may install. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Optional. Sends unexpected errors to your Sentry project: the error and its stack, no request data or people's details. Empty sends nothing anywhere. |
-| `DATABASE_URL` | Required. A direct Postgres connection, for the data the app reads without PostgREST (see `docs/direct-postgres-plan.md`) and for the job queue, which retries Slack messages and workflow steps that failed. On Supabase use the session pooler string from "Connect" (port 5432, not 6543). The queue creates its own `pgboss` schema there on the first start. |
 | `DATABASE_POOL_SIZE` | Optional, default 5. Connections the app's pool may hold; the job queue holds 2 more. Keep both under the Supabase project's "Pool Size". |
 
 The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` lists them.

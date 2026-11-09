@@ -73,7 +73,7 @@ export const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
 // BaseRepository's public interface over a direct Postgres connection
 // (DatabaseService), with the same workspace checks. Unlike PostgREST, a
-// query returns every row it matches, and inside DatabaseService.transaction()
+// query returns every row it matches, and inside TransactionService.transaction()
 // every method takes part in the transaction.
 @Injectable()
 export abstract class SqlRepository<

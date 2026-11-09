@@ -21,6 +21,14 @@ Recommendation: do stage 1 below now, then move `time_entries`, `projects` and
 `clients` before billing snapshots start. Billing can then be written on the
 direct connection from its first line.
 
+## Progress
+
+- **Stage 0 (prototype): done.**
+- **Stage 1 (foundation): done in code** on the same branch. Left for whoever
+  deploys: set `DATABASE_URL` in every environment, and check the project's
+  Pool Size (see "Connections on Supabase").
+- **Stage 2: not started.**
+
 ## Why
 
 PostgREST is a good API for browsers. From a backend it costs us more than it
@@ -50,7 +58,8 @@ gives:
 
 | File | What it is |
 | --- | --- |
-| `src/database/database.service.ts` | The pool (`DATABASE_URL`, `DATABASE_POOL_SIZE`), Kysely, `transaction()`, `afterCommit()`, `lock()`, and an executor for pg-boss. |
+| `src/database/database.service.ts` | The pool (`DATABASE_URL`, `DATABASE_POOL_SIZE`) with its session settings, and the Kysely executor the repositories use: the current transaction's, or the pool's. |
+| `src/database/transaction.service.ts` | What services use: `transaction()`, `afterCommit()`, `lock()`, and an executor for pg-boss. |
 | `src/database/pg-type-parsers.ts` | Values as PostgREST returns them: timestamps as the same ISO strings, dates as text, bigint and numeric as numbers. Only for this pool; pg-boss keeps the defaults. |
 | `src/common/types/sql-database.types.ts` | Kysely's database type, derived from `database.types.ts`. |
 | `src/common/repositories/repository.types.ts` | What both repositories share: the filter types, the workspace checks, `IRepository`. |
@@ -67,15 +76,15 @@ The other 13 repositories still run on `BaseRepository` over PostgREST.
 
 ### 1. `DATABASE_URL` becomes required
 
-The prototype already makes it required (`src/env.schema.ts`) and adds
-`DATABASE_POOL_SIZE` (default 5). It was optional only because jobs could run
-without retries. With data on it, the app can't start without it.
+It is required (`src/env.schema.ts`), and `DATABASE_POOL_SIZE` (default 5)
+is new. It was optional only because jobs could run without retries. With data
+on it, the app can't start without it.
 
-Follow-ups in stage 1:
-
-- Remove `JobsService`'s branch without a database. It is unreachable now, but
-  its unit tests still construct the service without one.
-- Point `/health` at the pool (`select 1`), and later only at the pool.
+- `JobsService` has no branch without a database any more. It takes the
+  pg-boss instance from a provider (`JOB_QUEUE`), so its unit tests pass a
+  fake queue and cover the real save, run and delete path.
+- `/health` checks both ways to the database, PostgREST and the pool
+  (`select 1`). In stage 4, only the pool.
 - Production must have `DATABASE_URL` set before deploying. pg-boss already
   uses it there, so its SSL settings are known to work.
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` stay required until the last
@@ -147,12 +156,14 @@ What stays enforced:
   implementation a repository uses.
 
 What becomes easier to get wrong: a raw `this.db.selectFrom('time_entries')`
-compiles without a workspace condition. Two measures for stage 1:
+compiles without a workspace condition. Two measures, the first in place
+since stage 1:
 
-- **Only repositories and query classes touch Kysely.** Split
-  `DatabaseService` into `TransactionService` (`transaction`, `afterCommit`,
-  `lock`) for services and the executor for repositories. Enforce it with an
-  `import/no-restricted-paths` zone, as is done for `src/slack`.
+- **Only repositories and query classes touch Kysely.** Services use
+  `TransactionService` (`transaction`, `afterCommit`, `lock`), repositories
+  use `DatabaseService`. An `import/no-restricted-paths` zone in
+  `eslint.config.mjs` refuses `DatabaseService` in any `*.service.ts` outside
+  `src/database`, any `*.handler.ts`, and anything in `src/slack`.
 - **Review rule.** Every hand-written query starts from an `…InWorkspace`
   builder, or says in a comment why it is global (retention, the migrations
   check).
@@ -167,8 +178,8 @@ Keep it as an option if the app ever gets more than one writer.
 ### 4. Transactions in TypeScript
 
 ```ts
-return this.database.transaction(async () => {
-  await this.database.lock(`clients:${slackTeamId}`);
+return this.transactions.transaction(async () => {
+  await this.transactions.lock(`clients:${slackTeamId}`);
   const count = await this.clientsRepository.count({ slack_team_id: slackTeamId });
   if (count >= max) throw new MaxItemsCountReachedError(max, 'clients');
   return this.clientsRepository.create({ ... });
@@ -194,10 +205,10 @@ return this.database.transaction(async () => {
 - **Rules:**
   - No Slack or other HTTP calls inside a transaction: they hold a connection
     and the locks while waiting.
-  - Emit events after the commit. `EventTrackingService` starts listeners in
-    the emitter's async context, so a listener started inside a transaction
-    would use its connection. The prototype sends work that outlives the
-    transaction to the pool, but a listener that runs during it would join it.
+  - Events wait for the commit. `EventTrackingService` starts the listeners
+    of an event emitted inside a transaction after the commit, and never after
+    a rollback. Otherwise a listener would run on the transaction's
+    connection, on data that may still go away.
   - A transaction must not mix in PostgREST calls (see Risks).
 
 ### 5. The RPCs: back to TypeScript, or stay in SQL
@@ -240,10 +251,11 @@ code that called it is gone, so that a rollback of the app still finds it.
   one instance (in-memory caches and token refresh, see `CLAUDE.md`), but a
   rolling deploy overlaps two for a moment: 14. Check the project's Pool Size
   before stage 2 and lower the pool to 4 if it is 15.
-- **Timeouts.** Set `statement_timeout` (10 s) and
-  `idle_in_transaction_session_timeout` (30 s) on the pool's connections in
-  stage 1, so that a stuck query or a forgotten transaction can't hold a
-  connection.
+- **Timeouts.** Every connection of the pool gets `statement_timeout` (10 s)
+  and `idle_in_transaction_session_timeout` (30 s), so that a stuck query or a
+  forgotten transaction can't hold a connection (`SESSION_SETTINGS` in
+  `database.service.ts`). Work that needs longer, such as deleting a large
+  workspace, can `set local statement_timeout` in its transaction.
 - **Credentials.** `DATABASE_URL` carries the `postgres` role, which bypasses
   RLS like the service role key does now. Optionally give the app a role
   without DDL rights and keep `postgres` for migrations.
@@ -283,12 +295,13 @@ Each stage leaves the app working and deployable on its own.
 **Stage 0: this prototype.** Kysely, `DatabaseService`, `SqlRepository`,
 `clients` converted, `jobs.enqueue`. `DATABASE_URL` required.
 
-**Stage 1: foundation (small).**
+**Stage 1: foundation (small; done in code).**
 - Set `DATABASE_URL` in every environment before the deploy.
 - Remove the job queue's no-database branch and rewrite its unit spec.
 - `/health` checks the pool.
 - Add statement and idle-in-transaction timeouts.
 - Split `TransactionService` from the executor and add the lint zone.
+- Defer events emitted inside a transaction until the commit.
 - Update README → Self-hosting and `.env.example`.
 
 **Stage 2: repositories, one per PR (medium overall).**
@@ -334,11 +347,11 @@ conditional grants, and a compose file with Postgres.
   PostgREST reads don't see the uncommitted writes. Move the repositories a
   flow needs together, and don't wrap a flow in a transaction until all of
   them are on the pool.
-- **Async context.** Work started inside a transaction inherits it. The
-  prototype hands work that outlives the transaction to the pool, but
-  listeners that run during it would join it. The rule is to emit after the
-  commit. Stage 1 could enforce it by making `EventTrackingService` defer
-  emits made inside a transaction to `afterCommit`.
+- **Async context.** Work started inside a transaction inherits it. Events
+  wait for the commit (stage 1), and work that outlives the transaction uses
+  the pool. But a promise started inside without awaiting it (a stray
+  `runInBackground`) would run on the transaction's connection while it is
+  open. Start such work with `afterCommit`.
 - **Connection budget.** Exhausting the session pooler gives "max clients
   reached" errors, not slowness. Size the pool, keep transactions short, no
   HTTP inside them, and add the timeouts.

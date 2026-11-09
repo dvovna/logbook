@@ -1,6 +1,9 @@
-import { ConfigService } from '@nestjs/config';
-import { DEFAULT_JOBS_OPTIONS, JobsService } from '@common/jobs/jobs.service';
-import { DatabaseService } from 'src/database/database.service';
+import {
+  DEFAULT_JOBS_OPTIONS,
+  JobQueue,
+  JobsService,
+} from '@common/jobs/jobs.service';
+import { TransactionService } from 'src/database/transaction.service';
 import { Logger } from '@nestjs/common';
 import { TeamSetupWorkflowService } from 'src/team-setup/team-setup-workflow.service';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
@@ -43,11 +46,12 @@ describe('TeamSetupWorkflowService', () => {
       slackUsersService as unknown as SlackUsersService,
       teamUsersSyncService as unknown as TeamUsersSyncService,
       { forget: jest.fn() } as unknown as AccessTokenService,
-      // Without a database: a job runs once, at once.
+      // A queue that saves nothing (pg-boss answers null): a job runs once,
+      // at once.
       new JobsService(
-        { get: () => undefined } as unknown as ConfigService,
+        { send: () => Promise.resolve(null) } as unknown as JobQueue,
         DEFAULT_JOBS_OPTIONS,
-        {} as DatabaseService,
+        {} as TransactionService,
       ),
       { postMessage: jest.fn() } as unknown as SlackCommunicationService,
     );

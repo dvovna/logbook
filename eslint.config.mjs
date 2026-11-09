@@ -148,6 +148,17 @@ export default [{
           './src/vacation-requests',
         ],
         message: 'src/common must not depend on feature modules: move the code to the module that needs it.',
+      }, {
+        // Queries live in repositories and query classes, which scope them to
+        // a workspace (SqlRepository). Services, handlers and the Slack UI
+        // group repository calls with TransactionService instead.
+        target: [
+          './src/!(database)/**/*.service.ts',
+          './src/**/*.handler.ts',
+          './src/slack/**',
+        ],
+        from: './src/database/database.service.ts',
+        message: 'Only repositories and query classes use DatabaseService: put the query in a repository, and use TransactionService for transactions.',
       }],
     }],
     'import/no-relative-packages': 'error',

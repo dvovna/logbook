@@ -2,13 +2,20 @@ import { Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EventTrackingService } from '@common/services/event-tracking.service';
 import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
+import { TransactionService } from 'src/database/transaction.service';
 
 describe('EventTrackingService', () => {
   let eventEmitter: EventEmitter2;
+  // A transaction that has not committed yet: what it runs after the commit.
+  let transactions: { inTransaction: boolean; afterCommit: jest.Mock };
 
   beforeEach(() => {
     eventEmitter = new EventEmitter2();
-    new EventTrackingService(eventEmitter).onModuleInit();
+    transactions = { inTransaction: false, afterCommit: jest.fn() };
+    new EventTrackingService(
+      eventEmitter,
+      transactions as unknown as TransactionService,
+    ).onModuleInit();
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -44,6 +51,26 @@ describe('EventTrackingService', () => {
       'Failed to handle tab: Slack is down',
       expect.any(String),
     );
+  });
+
+  it('starts the listeners of an event emitted in a transaction after the commit', async () => {
+    const handled: unknown[] = [];
+    eventEmitter.on('vacation_request.created', (payload) => {
+      handled.push(payload);
+    });
+    transactions.inTransaction = true;
+
+    expect(eventEmitter.emit('vacation_request.created', { id: 'r1' })).toBe(
+      true,
+    );
+    await whenBackgroundWorkIsDone();
+    expect(handled).toEqual([]);
+
+    const [[commit]] = transactions.afterCommit.mock.calls as [
+      [() => Promise<unknown>],
+    ];
+    await commit();
+    expect(handled).toEqual([{ id: 'r1' }]);
   });
 
   it('says whether anyone listens, as emit does', () => {

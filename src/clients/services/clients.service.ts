@@ -5,7 +5,7 @@ import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { RepositoryFilter } from '@common/repositories/repository.types';
-import { DatabaseService } from 'src/database/database.service';
+import { TransactionService } from 'src/database/transaction.service';
 import { ClientsRepository } from '@modules/clients/repositories/clients.repository';
 import IClientViewModel from '@modules/clients/types/client.interface';
 import CatchDuplicatedRecord from '@common/decorators/catch-duplicated-record';
@@ -61,7 +61,7 @@ export default class ClientsService implements IClientsService {
   public constructor(
     private readonly clientsRepository: ClientsRepository,
     private readonly config: ConfigService,
-    private readonly database: DatabaseService,
+    private readonly transactions: TransactionService,
   ) {}
 
   public async findMany(params: IFindParams) {
@@ -99,8 +99,8 @@ export default class ClientsService implements IClientsService {
   // once can't both pass the limit.
   @CatchDuplicatedClient
   public create(createParams: ICreateClientParams, user: IUserViewModel) {
-    return this.database.transaction(async () => {
-      await this.database.lock(`clients:${createParams.slackTeamId}`);
+    return this.transactions.transaction(async () => {
+      await this.transactions.lock(`clients:${createParams.slackTeamId}`);
 
       const clientsCount = await this.clientsRepository.count({
         slack_team_id: createParams.slackTeamId,

@@ -1,7 +1,10 @@
 import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { DEFAULT_JOBS_OPTIONS, JobsService } from '@common/jobs/jobs.service';
-import { DatabaseService } from 'src/database/database.service';
+import {
+  DEFAULT_JOBS_OPTIONS,
+  JobQueue,
+  JobsService,
+} from '@common/jobs/jobs.service';
+import { TransactionService } from 'src/database/transaction.service';
 import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
 import SlackEventsService, {
   ITeamJoinEvent,
@@ -73,11 +76,12 @@ describe('SlackEventsService', () => {
       usersService as unknown as UsersService,
       {} as SlackAppUninstallService,
       slackTeamsService as unknown as SlackTeamsService,
-      // Without a database: a job runs once, at once.
+      // A queue that saves nothing (pg-boss answers null): a job runs once,
+      // at once.
       new JobsService(
-        { get: () => undefined } as unknown as ConfigService,
+        { send: () => Promise.resolve(null) } as unknown as JobQueue,
         DEFAULT_JOBS_OPTIONS,
-        {} as DatabaseService,
+        {} as TransactionService,
       ),
     );
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);

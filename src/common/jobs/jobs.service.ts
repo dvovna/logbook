@@ -11,7 +11,7 @@ import * as PgBoss from 'pg-boss';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import delay from '@common/utils/delay';
 import { trackInBackground } from '@common/utils/run-in-background';
-import { DatabaseService } from 'src/database/database.service';
+import { TransactionService } from 'src/database/transaction.service';
 
 export interface IJobsOptions {
   // The Postgres schema of pg-boss's tables. The integration tests give each
@@ -48,13 +48,44 @@ const DEADLOCK_DETECTED = '40P01';
 
 type JobHandler<Payload> = (payload: Payload) => Promise<void>;
 
+// The pg-boss instance, from JobsModule; the unit tests give a fake.
+export const JOB_QUEUE = Symbol('JOB_QUEUE');
+
+export type JobQueue = Pick<
+  PgBoss,
+  | 'on'
+  | 'start'
+  | 'stop'
+  | 'createQueue'
+  | 'send'
+  | 'fetch'
+  | 'complete'
+  | 'fail'
+  | 'deleteJob'
+>;
+
+export const createJobQueue = (
+  config: ConfigService,
+  options: IJobsOptions,
+): JobQueue =>
+  new PgBoss({
+    connectionString: config.getOrThrow<string>(
+      EnvironmentVariable.DatabaseUrl,
+    ),
+    schema: options.schema,
+    application_name: 'logbook-jobs',
+    // Supabase's pooler allows few connections per project.
+    max: 2,
+    schedule: false,
+    supervise: options.maintenance,
+  });
+
 // Work that has to happen even when Slack or the database fails for a while:
 // asking approvers, updating their messages, telling people of decisions.
 //
 // run() saves the job in Postgres (pg-boss) and runs it right away. When the
 // run succeeds the saved job is deleted; when it fails or the process stops,
-// a worker retries it later. Without DATABASE_URL a job runs once, as all
-// background work did before. Handlers take IDs and load what they need, so
+// a worker retries it later. Handlers take IDs and load what they need, so
 // a retry sees the current data, and must be safe to run twice: a retry can
 // follow a run that did part of the work.
 @Injectable()
@@ -65,33 +96,15 @@ export class JobsService
 
   private readonly handlers = new Map<string, JobHandler<object>>();
 
-  private readonly boss: PgBoss | null;
-
   private started: Promise<void> | null = null;
 
   private poller: NodeJS.Timeout | null = null;
 
   public constructor(
-    config: ConfigService,
+    @Inject(JOB_QUEUE) private readonly boss: JobQueue,
     @Inject(JOBS_OPTIONS) private readonly options: IJobsOptions,
-    private readonly database: DatabaseService,
-  ) {
-    const connectionString = config.get<string>(
-      EnvironmentVariable.DatabaseUrl,
-    );
-
-    this.boss = connectionString
-      ? new PgBoss({
-          connectionString,
-          schema: options.schema,
-          application_name: 'logbook-jobs',
-          // Supabase's pooler allows few connections per project.
-          max: 2,
-          schedule: false,
-          supervise: options.maintenance,
-        })
-      : null;
-  }
+    private readonly transactions: TransactionService,
+  ) {}
 
   // The services that own a job define it in onModuleInit, before the app
   // starts and the worker can take saved jobs.
@@ -122,7 +135,7 @@ export class JobsService
     return firstRun;
   }
 
-  // Saves the job in the current transaction (DatabaseService.transaction()),
+  // Saves the job in the current transaction (TransactionService),
   // so that it exists exactly when the data it is about was committed, and
   // runs it first once the transaction has committed. Await it inside the
   // transaction; the first run is background work, as with run().
@@ -132,31 +145,25 @@ export class JobsService
   ): Promise<void> {
     const handler = this.handlerOf(name);
 
-    if (!this.database.inTransaction) {
+    if (!this.transactions.inTransaction) {
       throw new Error(`Job ${name} enqueued outside a transaction: use run()`);
     }
 
-    let id: string | null = null;
+    await this.started;
 
-    if (this.boss) {
-      await this.started;
+    const id = await this.boss.send(name, payload, {
+      startAfter: FIRST_RETRY_AFTER_SECONDS,
+      db: this.transactions.sqlExecutor(),
+    });
 
-      id = await this.boss.send(name, payload, {
-        startAfter: FIRST_RETRY_AFTER_SECONDS,
-        db: this.database.sqlExecutor(),
-      });
-    }
-
-    this.database.afterCommit(() => this.runSaved(name, handler, payload, id));
+    this.transactions.afterCommit(() =>
+      this.runSaved(name, handler, payload, id),
+    );
   }
 
   // Runs the saved jobs whose time has come: retries, and jobs a stopped
   // process left. `includeNotDue` runs the waiting ones as well (tests).
   public async runDueJobs({ includeNotDue = false } = {}) {
-    if (!this.boss) {
-      return;
-    }
-
     await this.started;
 
     for (const [queue, handler] of this.handlers) {
@@ -188,14 +195,6 @@ export class JobsService
   }
 
   public onApplicationBootstrap() {
-    if (!this.boss) {
-      this.logger.warn(
-        'DATABASE_URL is not set: background jobs run once, without retries',
-      );
-
-      return;
-    }
-
     this.started = this.start(this.boss);
 
     return this.started;
@@ -208,10 +207,10 @@ export class JobsService
 
     // The background work, saved jobs included, was waited for before
     // (BackgroundWorkShutdownService); what still runs is retried later.
-    await this.boss?.stop({ graceful: false, wait: true, timeout: 5_000 });
+    await this.boss.stop({ graceful: false, wait: true, timeout: 5_000 });
   }
 
-  private async start(boss: PgBoss) {
+  private async start(boss: JobQueue) {
     boss.on('error', (error) =>
       this.logger.error(`Job queue: ${error.message}`, error.stack),
     );
@@ -241,7 +240,7 @@ export class JobsService
 
   // pg-boss creates a table per queue. Two instances doing that at once can
   // deadlock; Postgres rolls back one of them, which tries again.
-  private async createQueue(boss: PgBoss, queue: string) {
+  private async createQueue(boss: JobQueue, queue: string) {
     for (let attempt = 1; ; attempt += 1) {
       try {
         await boss.createQueue(queue, {
@@ -301,20 +300,18 @@ export class JobsService
     }
 
     if (id) {
-      await this.boss!.deleteJob(name, id).catch((error: Error) =>
-        this.logger.error(
-          `Failed to delete the done job ${name} ${id}: ${error.message}`,
-        ),
-      );
+      await this.boss
+        .deleteJob(name, id)
+        .catch((error: Error) =>
+          this.logger.error(
+            `Failed to delete the done job ${name} ${id}: ${error.message}`,
+          ),
+        );
     }
   }
 
   // The saved copy, for a retry. If saving fails the job still runs once.
   private async save(name: string, payload: object) {
-    if (!this.boss) {
-      return null;
-    }
-
     try {
       await this.started;
 

@@ -1,4 +1,5 @@
 import { sortBy } from 'lodash';
+import { sql } from 'kysely';
 import UserRole from '@common/enums/user-role.enum';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import { JobsService } from '@common/jobs/jobs.service';
@@ -15,6 +16,7 @@ import ClientsService from '@modules/clients/services/clients.service';
 import { NOTIFY_REJECTED_JOB } from '@modules/slack/tabs/approvals/services/time-entry-notifications.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { DatabaseService } from 'src/database/database.service';
+import { TransactionService } from 'src/database/transaction.service';
 import { SupabaseService } from 'src/database/supabase.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -51,11 +53,13 @@ describe('The direct Postgres connection', () => {
   let t: ITestApp;
   let workspace: TestWorkspace;
   let database: DatabaseService;
+  let transactions: TransactionService;
   let clients: ClientsRepository;
 
   beforeAll(async () => {
     t = await createTestApp();
     database = t.app.get(DatabaseService);
+    transactions = t.app.get(TransactionService);
     clients = t.app.get(ClientsRepository);
   });
 
@@ -123,10 +127,22 @@ describe('The direct Postgres connection', () => {
     });
   });
 
+  it('sets the time zone and the timeouts on its connections', async () => {
+    const { rows } = await sql<Record<string, string>>`
+      select current_setting('TimeZone') as time_zone,
+             current_setting('statement_timeout') as statement_timeout,
+             current_setting('idle_in_transaction_session_timeout') as idle
+    `.execute(database.db);
+
+    expect(rows).toEqual([
+      { time_zone: 'UTC', statement_timeout: '10s', idle: '30s' },
+    ]);
+  });
+
   describe('transactions', () => {
     it('rolls back every write of a transaction that fails', async () => {
       await expect(
-        database.transaction(async () => {
+        transactions.transaction(async () => {
           await clients.create(newClient('Acme'));
           await database.db
             .insertInto('teams')
@@ -142,7 +158,7 @@ describe('The direct Postgres connection', () => {
     });
 
     it('commits every write of a transaction that succeeds', async () => {
-      await database.transaction(async () => {
+      await transactions.transaction(async () => {
         await clients.create(newClient('Acme'));
         await clients.create(newClient('Globex'));
       });
@@ -159,14 +175,14 @@ describe('The direct Postgres connection', () => {
           .rows('clients')
           .then((rows) => seen.push(rows.map(({ name }) => name)));
 
-      await database.transaction(async () => {
+      await transactions.transaction(async () => {
         await clients.create(newClient('Acme'));
-        database.afterCommit(afterCommit);
+        transactions.afterCommit(afterCommit);
       });
       await expect(
-        database.transaction(async () => {
+        transactions.transaction(async () => {
           await clients.create(newClient('Globex'));
-          database.afterCommit(afterCommit);
+          transactions.afterCommit(afterCommit);
 
           throw new Error('rolled back');
         }),
@@ -222,7 +238,7 @@ describe('The direct Postgres connection', () => {
     });
 
     const reject = () =>
-      database.transaction(async () => {
+      transactions.transaction(async () => {
         await database.db
           .updateTable('time_entries')
           .set({ status: TimeEntryStatus.Rejected })
@@ -250,7 +266,7 @@ describe('The direct Postgres connection', () => {
 
     it('saves no job when the change is rolled back', async () => {
       await expect(
-        database.transaction(async () => {
+        transactions.transaction(async () => {
           await reject();
 
           throw new Error('rolled back');
