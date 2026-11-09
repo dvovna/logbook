@@ -6176,10 +6176,10 @@ neo-async@^2.6.2:
   resolved "https://registry.npmjs.org/neo-async/-/neo-async-2.6.2.tgz"
   integrity sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==
 
-nestjs-pino@^4.4.1:
-  version "4.6.1"
-  resolved "https://registry.yarnpkg.com/nestjs-pino/-/nestjs-pino-4.6.1.tgz#6547c4488566f6d83dcd590863413a37b15f9a47"
-  integrity sha512-nuARXa0xpdJ1lY2+fgycIQr6H3g0VgqAWNK3xMYjOFcj2DoPETNXj0lV3Y86nRuI7BUfQp5PGiVoZvT4dTWbpQ==
+nestjs-pino@^5.3.1:
+  version "5.3.1"
+  resolved "https://registry.yarnpkg.com/nestjs-pino/-/nestjs-pino-5.3.1.tgz#8c0fe51e58c8d743d8a19c985ecbf92a7eec417e"
+  integrity sha512-tL3fFSY38Wuv3VS4dCo+zlHVt1xU7+RSXnlgenyTvfy74GLBLgisqvG+76983ilf2C2uFkPe68qUapXCYnoSoA==
 
 node-abort-controller@^3.0.1:
   version "3.1.1"
