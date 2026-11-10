@@ -7,13 +7,18 @@ import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
+import { PersonRateModalActionId } from '@modules/slack/tabs/projects/enums/person-rate-modal-action-id.enum';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
-import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import {
+  TeamModalActionId,
+  TeamsTabViewActionId,
+} from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
+import { acknowledged } from './support/slack-test-client';
 import { fillForm } from './support/block-kit';
 import {
   openAppHomeTab,
@@ -278,6 +283,109 @@ describe('Access to objects by ID', () => {
 
         expect([action, openedModals(since).length]).toEqual([action, opens]);
       }
+    });
+
+    // The names the people select `actionId` in `view` offers `user`.
+    const suggestedNames = async (
+      user: Tables<'users'>,
+      view: View,
+      actionId: string,
+    ) => {
+      const response = await t.slack
+        .suggest(workspace, user, view, actionId, '')
+        .expect(acknowledged);
+
+      return [
+        actionId,
+        response.body.options
+          .map(({ text }: { text: { text: string } }) => text.text)
+          .sort(),
+      ];
+    };
+
+    // Only the external select `actionId`: the client sends the action ID of
+    // a search, whatever view the app showed it.
+    const viewWithSelect = (actionId: string) =>
+      ({
+        type: 'modal',
+        title: { type: 'plain_text', text: 'Forged' },
+        blocks: [
+          {
+            type: 'input',
+            block_id: 'forged',
+            label: { type: 'plain_text', text: 'Person' },
+            element: { type: 'external_select', action_id: actionId },
+          },
+        ],
+      }) as View;
+
+    it("finds only their teams' people to filter People and All requests by", async () => {
+      for (const [path, filter] of [
+        [USERS_TAB, UsersTabViewActionId.FilterUsersByUser],
+        [REQUESTS_TAB, VacationRequestsTabViewActionId.FilterRequestsByUser],
+      ] as const) {
+        const tab = await openAppHomeTab(t, workspace, manager, [...path]);
+
+        // Not themselves: they are in none of their teams, so the list
+        // doesn't show them.
+        expect(await suggestedNames(manager, tab, filter)).toEqual([
+          filter,
+          ['Anna Ownteam'],
+        ]);
+      }
+    });
+
+    it("finds only their teams' people in the people selects of Admin's and HR's forms", async () => {
+      const admin = await workspace.addUser({
+        role: UserRole.Admin,
+        name: 'Ada Admin',
+      });
+
+      for (const select of [
+        TeamModalActionId.Members,
+        PersonRateModalActionId.Person,
+        TimeEntriesTabViewActionId.SelectUser,
+        TimeEntriesTabViewActionId.FilterByUser,
+        VacationRequestsTabViewActionId.UserField,
+      ]) {
+        const view = viewWithSelect(select);
+
+        expect(await suggestedNames(admin, view, select)).toEqual([
+          select,
+          ['Ada Admin', 'Anna Ownteam', 'Boris Otherteam', 'Max Manager'],
+        ]);
+        expect(await suggestedNames(manager, view, select)).toEqual([
+          select,
+          ['Anna Ownteam'],
+        ]);
+        expect(await suggestedNames(ownTeam, view, select)).toEqual([
+          select,
+          [],
+        ]);
+      }
+    });
+
+    it("finds everyone to assign to a project, as the form's teams are everyone's", async () => {
+      const project = await workspace.addProject({ name: 'Website' });
+      const select = ProjectAssignmentModalViewActionId.ProjectUsers;
+      const modal = await openModalFrom(
+        t,
+        workspace,
+        manager,
+        await openAppHomeTab(t, workspace, manager, PROJECTS_TAB),
+        ProjectsTabViewActionId.ManageProjectMenu,
+        `${ProjectsTabViewActionId.ManageProjectAssignments}:${project.id}`,
+      );
+
+      expect(await suggestedNames(manager, modal, select)).toEqual([
+        select,
+        ['Anna Ownteam', 'Boris Otherteam', 'Max Manager'],
+      ]);
+      // A member opens no Projects.
+      expect(await suggestedNames(ownTeam, modal, select)).toEqual([
+        select,
+        [],
+      ]);
     });
   });
 

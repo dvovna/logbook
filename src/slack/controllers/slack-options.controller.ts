@@ -39,6 +39,8 @@ export class SlackOptionsController {
     const actionId = payload.action_id as unknown;
 
     switch (actionId) {
+      // The people the viewer manages: a manager's teams on People and All
+      // requests; the other selects are Admin's and HR's.
       case VacationRequestsTabViewActionId.UserField:
       case UsersTabViewActionId.FilterUsersByUser:
       case TimeEntriesTabViewActionId.SelectUser:
@@ -52,13 +54,24 @@ export class SlackOptionsController {
           includeInactive: true,
         });
       }
-      case TeamModalActionId.Members:
-      case ProjectAssignmentModalViewActionId.ProjectUsers: {
+      case TeamModalActionId.Members: {
         return this.userOptionsService.searchUsers({
           query: payload.value,
           user: request.user!,
           includeInactive: false,
         });
+      }
+      // Projects are the workspace's: a manager assigns any team or person
+      // to one, as the form's teams show.
+      case ProjectAssignmentModalViewActionId.ProjectUsers: {
+        return MANAGER_ROLES.includes(request.user!.role)
+          ? this.userOptionsService.searchUsers({
+              query: payload.value,
+              user: request.user!,
+              includeInactive: false,
+              wholeWorkspace: true,
+            })
+          : { options: [] };
       }
       case TimeEntriesTabViewActionId.FilterByProject: {
         const params = { query: payload.value, user: request.user! };
