@@ -15,6 +15,10 @@ import {
 } from '@modules/slack/tabs/vacation-requests/services/vacation-requests-tab.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
 import { jsonParse } from '@common/utils/json-parse';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import UserRole from '@common/enums/user-role.enum';
@@ -35,6 +39,7 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly vacationRequestsTabService: VacationRequestsTabService,
+    private readonly tabNavigationService: TabNavigationService,
   ) {
     super();
   }
@@ -48,7 +53,8 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<
       metadata.pageMetadata || '{}',
     );
 
-    this.vacationRequestsTabService.publish({
+    // After the answer, as every form's tab.
+    this.tabNavigationService.navigate(TabId.VacationRequests, {
       user,
       metadata: {
         ...pageMetadata,

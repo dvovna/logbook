@@ -153,15 +153,18 @@ export class RequestWorkflowService {
     return this.transactions.transaction(async () => {
       await this.lockRequest(requestId);
 
-      const comments = await this.requestWorkflowStepCommentsService.findMany({
-        requestId,
-        slackTeamId: deletedBy.slack_team_id,
-      });
       const closedSteps = await this.requestWorkflowStepsService.decide(
         { requestId, slackTeamId: deletedBy.slack_team_id },
         RequestWorkflowStatus.Deleted,
         deletedBy,
       );
+      // For the messages of the closed steps; a decided request has none.
+      const comments = closedSteps.length
+        ? await this.requestWorkflowStepCommentsService.findMany({
+            requestId,
+            slackTeamId: deletedBy.slack_team_id,
+          })
+        : [];
 
       await this.workflowStepProcessorService.updateDeletedStepMessages(
         closedSteps,

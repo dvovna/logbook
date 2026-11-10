@@ -8,6 +8,8 @@ import { SqlRow, SqlUpdate } from '@common/types/sql-database.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 
+const dateOf = ({ work_date }: { work_date: string }) => work_date;
+
 @Injectable()
 export class TimeEntriesRepository extends BaseRepository<
   'time_entries',
@@ -178,6 +180,66 @@ export class TimeEntriesRepository extends BaseRepository<
       .execute();
 
     return rows.map(({ id }) => id);
+  }
+
+  // Deletes the entries logged from a vacation (keeping them as history) but
+  // those a billing snapshot holds, in one statement. Returns what it
+  // deleted, and the days of the kept ones.
+  public async deleteVacationTime(
+    slackTeamId: string,
+    vacationRequestId: string,
+    deletedBy: string,
+  ): Promise<{
+    deleted: { work_date: string; minutes: number; project_id: string }[];
+    billedDates: string[];
+  }> {
+    const ofVacation = this.selectInWorkspace(slackTeamId)
+      .where('vacation_request_id', '=', vacationRequestId)
+      .where('deleted_at', 'is', null);
+    const billed = this.db
+      .selectFrom('billing_snapshot_entries')
+      .select('billing_snapshot_entries.time_entry_id')
+      .where('billing_snapshot_entries.slack_team_id', '=', slackTeamId);
+    const rows = await this.db
+      .with('deleted', (db) =>
+        db
+          .updateTable('time_entries')
+          .set({ deleted_at: new Date().toISOString(), deleted_by: deletedBy })
+          .where('slack_team_id', '=', slackTeamId)
+          .where('vacation_request_id', '=', vacationRequestId)
+          .where('deleted_at', 'is', null)
+          .where('id', 'not in', billed)
+          .returning(['work_date', 'minutes', 'project_id']),
+      )
+      .selectFrom('deleted')
+      .select([
+        sql<boolean>`false`.as('billed'),
+        'work_date',
+        'minutes',
+        'project_id',
+      ])
+      .unionAll(
+        ofVacation
+          .where('id', 'in', billed)
+          .select([
+            sql<boolean>`true`.as('billed'),
+            'work_date',
+            'minutes',
+            'project_id',
+          ]),
+      )
+      .execute();
+
+    return {
+      deleted: rows
+        .filter((row) => !row.billed)
+        .map(({ work_date, minutes, project_id }) => ({
+          work_date,
+          minutes,
+          project_id,
+        })),
+      billedDates: rows.filter((row) => row.billed).map(dateOf),
+    };
   }
 
   // Which of the entries are in a billing snapshot, and so can't change
