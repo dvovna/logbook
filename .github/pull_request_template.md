@@ -1,3 +1,5 @@
+<!-- Open the pull request against `development`; `main` only takes releases. -->
+
 ## What changed
 
 <!-- What the change does and why. Link the issue it closes, e.g. "Fixes #123". -->
