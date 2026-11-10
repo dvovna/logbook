@@ -47,11 +47,12 @@ export default class VacationHistoryTabActionsHandler extends BaseTabActionHandl
         VacationHistoryTabViewActionId,
         [IUserViewModel]
       >(this.handleManageRequestMenuAction, this.logger),
+      // With the tab's metadata, so the form re-renders this tab when sent.
       [VacationHistoryTabViewActionId.RequestTimeOff]: (payload, user) =>
         this.vacationHistoryTabService.openModal(
           payload.trigger_id || user.slack_id,
           HistoryTabModalName.RequestTimeOff,
-          { user },
+          { user, pageMetadata: payload.view.private_metadata },
         ),
       [VacationHistoryTabViewActionId.PaginationPrev]: paginationHandler,
       [VacationHistoryTabViewActionId.PaginationNext]: paginationHandler,

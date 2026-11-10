@@ -7,6 +7,9 @@ import { TestWorkspace } from './support/test-workspace';
 import { addDays, workWeek } from './support/dates';
 import { findAction, textOf } from './support/block-kit';
 import { acknowledged } from './support/slack-test-client';
+import { publishedHome } from './support/app-home';
+import { noticeOf, sectionTexts } from './support/tab-readers';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   approvalMessageTo,
   requestVacation,
@@ -66,13 +69,21 @@ describe('/vacations', () => {
       await t.idle();
       const modal = t.slackApi.openedModal(workspace.token, { since });
 
+      const submitted = t.slackApi.mark();
       const response = await t.slack
         .submitView(workspace, member, modal, {
           [CANCEL_REQUEST_ACTION_ID]: request.id,
         })
         .expect(200);
 
-      expect(textOf(response.body.view)).toContain('has been canceled');
+      // The form closes; Home shows the request gone.
+      expect(response.body).toEqual({ response_action: 'clear' });
+      const home = await publishedHome(t, workspace, member, submitted);
+      expect(home.callback_id).toBe(ViewCallbackId.HomeTabView);
+      expect(noticeOf(home)).toBe('✅ Vacation request canceled.');
+      expect(
+        sectionTexts(home).filter((text) => text.startsWith('*Annual leave*')),
+      ).toEqual([]);
       expect(
         (await workspace.row('vacation_requests', request.id)).status,
       ).toBe(VacationRequestStatus.Canceled);
@@ -142,7 +153,8 @@ describe('/vacations', () => {
         end: dates.end,
       });
 
-      expect(textOf(response.view)).toContain('created successfully');
+      expect(response).toEqual({ response_action: 'clear' });
+      expect(await workspace.rows('vacation_requests')).toHaveLength(2);
     });
 
     it('returns field errors for an invalid form', async () => {
