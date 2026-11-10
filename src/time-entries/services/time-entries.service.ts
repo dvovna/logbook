@@ -162,6 +162,7 @@ export class TimeEntriesService {
     minutes,
     dates,
     vacationRequestId,
+    description,
     slackTeamId,
   }: {
     userId: string;
@@ -170,6 +171,8 @@ export class TimeEntriesService {
     minutes: number;
     dates: string[];
     vacationRequestId: string;
+    // Of every entry: what the time is (the leave type).
+    description?: string;
     slackTeamId: string;
   }): Promise<number> {
     if (!dates.length) {
@@ -194,6 +197,7 @@ export class TimeEntriesService {
             projectId,
             workDate: new Date(date),
             minutes,
+            description,
             status: TimeEntryStatus.Approved,
           },
           project,

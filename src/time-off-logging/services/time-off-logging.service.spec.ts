@@ -157,6 +157,7 @@ describe('TimeOffLoggingService', () => {
       minutes: 480,
       dates: ['2026-06-23'],
       vacationRequestId: 'r1',
+      description: 'Annual leave',
       slackTeamId: SLACK_TEAM_ID,
     });
     expect(result).toMatchObject({

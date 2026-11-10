@@ -15,7 +15,11 @@ import { TimeEntriesService } from 'src/time-entries/services/time-entries.servi
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TransactionService } from 'src/database/transaction.service';
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
-import { isTimeOffLeaveType } from 'src/time-off-logging/constants/time-off-leave-types';
+import {
+  isTimeOffLeaveType,
+  TIME_OFF_DESCRIPTIONS,
+  TimeOffLeaveType,
+} from 'src/time-off-logging/constants/time-off-leave-types';
 
 // What logging an approved time off would write.
 export interface ITimeOffOffer {
@@ -147,6 +151,8 @@ export class TimeOffLoggingService {
           minutes: offer.minutes,
           dates: free,
           vacationRequestId: request.id,
+          // plan() returned an offer: the type is one of them.
+          description: TIME_OFF_DESCRIPTIONS[request.type as TimeOffLeaveType],
           slackTeamId,
         });
       }

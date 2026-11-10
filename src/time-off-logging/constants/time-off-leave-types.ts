@@ -13,3 +13,13 @@ export type TimeOffLeaveType = (typeof TIME_OFF_LEAVE_TYPES)[number];
 
 export const isTimeOffLeaveType = (type: string): type is TimeOffLeaveType =>
   (TIME_OFF_LEAVE_TYPES as readonly string[]).includes(type);
+
+// The description of the entries a time off is logged as, so that lists say
+// why the hours are there. The domain's own words: the Slack labels
+// (labels.ts) are the UI's.
+export const TIME_OFF_DESCRIPTIONS: Record<TimeOffLeaveType, string> = {
+  [VacationType.AnnualLeave]: 'Annual leave',
+  [VacationType.BonusDay]: 'Bonus day',
+  [VacationType.SickLeave]: 'Sick leave',
+  [VacationType.UnpaidLeave]: 'Unpaid leave',
+};

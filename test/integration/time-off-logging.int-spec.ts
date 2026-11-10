@@ -319,6 +319,7 @@ describe('Time off logging', () => {
           entry.team_id,
           entry.created_by,
           entry.vacation_request_id,
+          entry.description,
         ]),
       ).toEqual(
         ['2026-06-19', '2026-06-23'].map((date) => [
@@ -329,8 +330,30 @@ describe('Time off logging', () => {
           team.id,
           requester.id,
           request.id,
+          'Annual leave',
         ]),
       );
+    });
+
+    it('describes the entries by the leave type, so lists say what the hours are', async () => {
+      const { requester } = await setup();
+      const sick = await workspace.addProject({ name: 'Sick Leave' });
+      await mapProject('sick_leave', sick.id);
+      const request = await workspace.addVacationRequest(requester, {
+        start_date: '2026-06-24',
+        end_date: '2026-06-24',
+        working_days: 1,
+        type: 'sick_leave',
+      });
+
+      await logging().log(await asViewModel(requester), request.id);
+
+      expect(
+        (await entriesOf(requester)).map(({ project_id, description }) => [
+          project_id,
+          description,
+        ]),
+      ).toEqual([[sick.id, 'Sick leave']]);
     });
 
     it('skips days that already have time on the project', async () => {
