@@ -33,7 +33,9 @@ import {
 import { PersonRateModalView } from '@modules/slack/tabs/projects/views/person-rate-modal.view';
 import { TimeOffSettingsModalView } from '@modules/slack/tabs/projects/views/time-off-settings-modal.view';
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
+import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { CurrencyModalView } from '@modules/slack/tabs/projects/views/currency-modal.view';
+import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 
 interface IProjectModalViewParams extends IOpenModalBaseParams<string> {
   projectId: string;
@@ -96,6 +98,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     private readonly timeOffSettingsService: TimeOffSettingsService,
     private readonly projectsTabView: ProjectsTabView,
     private readonly confirmationModalView: ConfirmationModalView,
+    private readonly slackActionPermissionsService: SlackActionPermissionsService,
   ) {
     super(TabId.Projects, {
       [ProjectsTabModalName.CreateProject]: (params) =>
@@ -116,18 +119,27 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
   }
 
   public async getTabView({ user, metadata = {} }: IGetProjectsTabViewParams) {
-    const projectsListData = await this.projectsListQuery.execute({
-      slackTeamId: user.slack_team_id,
-      page: metadata.page,
-      pageSize: PROJECTS_TAB_PAGE_SIZE,
-      status: metadata?.filters?.status,
-      billable:
-        metadata?.filters?.billable !== undefined
-          ? metadata?.filters?.billable === YesNoValue.Yes
-          : undefined,
-      projectId: metadata?.filters?.project?.id,
-      includeArchived: metadata?.includeArchived,
-    });
+    const [projectsListData, timeOff] = await Promise.all([
+      this.projectsListQuery.execute({
+        slackTeamId: user.slack_team_id,
+        page: metadata.page,
+        pageSize: PROJECTS_TAB_PAGE_SIZE,
+        status: metadata?.filters?.status,
+        billable:
+          metadata?.filters?.billable !== undefined
+            ? metadata?.filters?.billable === YesNoValue.Yes
+            : undefined,
+        projectId: metadata?.filters?.project?.id,
+        includeArchived: metadata?.includeArchived,
+      }),
+      // What time off is logged as, beside its button: for whoever has it.
+      this.slackActionPermissionsService.can(
+        user.role,
+        ProjectsTabViewActionId.TimeOffSettings,
+      )
+        ? this.timeOffSettingsService.getSetup(user.slack_team_id)
+        : null,
+    ]);
 
     const projectIds = projectsListData.items.map(({ id }) => id);
     // Rates and the currency are Admin's and Finance's.
@@ -152,6 +164,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         peopleByProject,
         rates,
         currency,
+        timeOff,
       },
       metadata,
     );

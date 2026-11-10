@@ -7,8 +7,14 @@ import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TransactionService } from 'src/database/transaction.service';
 import { TimeOffProjectsRepository } from 'src/time-off-logging/repositories/time-off-projects.repository';
-import { ITimeOffSettings } from 'src/time-off-logging/types/time-off-settings.types';
-import { isTimeOffLeaveType } from 'src/time-off-logging/constants/time-off-leave-types';
+import {
+  ITimeOffSettings,
+  ITimeOffSetup,
+} from 'src/time-off-logging/types/time-off-settings.types';
+import {
+  isTimeOffLeaveType,
+  TIME_OFF_LEAVE_TYPES,
+} from 'src/time-off-logging/constants/time-off-leave-types';
 
 const MINUTES_IN_DAY = 24 * 60;
 
@@ -37,6 +43,30 @@ export class TimeOffSettingsService {
     }
 
     return { minutesPerDay, projectIds };
+  }
+
+  // The settings with the names of their projects. A project archived since
+  // it was chosen takes no time: its leave type is left out, as unset.
+  public async getSetup(slackTeamId: string): Promise<ITimeOffSetup> {
+    const [minutesPerDay, rows] = await Promise.all([
+      this.slackTeamsService.getTimeOffMinutesPerDay(slackTeamId),
+      this.timeOffProjectsRepository.findWithActiveProjects(slackTeamId),
+    ]);
+    const names = new Map(
+      rows.map(({ vacation_type, project_name }) => [
+        vacation_type,
+        project_name,
+      ]),
+    );
+
+    return {
+      minutesPerDay,
+      projects: TIME_OFF_LEAVE_TYPES.flatMap((type) => {
+        const projectName = names.get(type);
+
+        return projectName ? [{ type, projectName }] : [];
+      }),
+    };
   }
 
   // An admin's. The projects become exactly the ones given, in one

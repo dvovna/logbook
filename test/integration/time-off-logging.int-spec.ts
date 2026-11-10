@@ -15,7 +15,12 @@ import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-lo
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { actionIdsOf, buttonText, noticeOf } from './support/tab-readers';
+import {
+  actionIdsOf,
+  buttonText,
+  noticeOf,
+  sectionTexts,
+} from './support/tab-readers';
 import { textOf } from './support/block-kit';
 import { addDays, workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
@@ -134,6 +139,78 @@ describe('Time off logging', () => {
       await t.slack.submitView(workspace, admin, modal).expect(200);
 
       expect(await storedRows()).toEqual([]);
+    });
+
+    describe('on Projects', () => {
+      const INTRO =
+        'Approved time off can be logged as time on a project of its leave type.';
+
+      const setupLine = async (user = admin) =>
+        sectionTexts(
+          await openAppHomeTab(t, workspace, user, PROJECTS_TAB),
+        ).find((text) => text.startsWith(INTRO));
+
+      it('says what is set, by leave type, and the hours of a day', async () => {
+        const vacations = await workspace.addProject({ name: 'Vacations' });
+        const sick = await workspace.addProject({ name: 'R&D <Sick>' });
+        const modal = await openSettings();
+
+        expect(await setupLine()).toBe(
+          `${INTRO}\nNo leave type has a project yet.`,
+        );
+
+        const since = t.slackApi.mark();
+        await t.slack
+          .submitView(workspace, admin, modal, {
+            hours: '7.5',
+            sick_leave: sick.id,
+            annual_leave: vacations.id,
+          })
+          .expect(200);
+
+        // The tab the form goes back to shows it at once.
+        expect(
+          sectionTexts(await publishedHome(t, workspace, admin, since)).find(
+            (text) => text.startsWith(INTRO),
+          ),
+        ).toBe(
+          `${INTRO}\nAnnual leave → Vacations · Sick leave → R&amp;D &lt;Sick&gt; · 7h 30m a day`,
+        );
+      });
+
+      it('shows a leave type whose project was archived as not set', async () => {
+        const vacations = await workspace.addProject({ name: 'Vacations' });
+        await t.db
+          .insertInto('time_off_projects')
+          .values({
+            slack_team_id: workspace.id,
+            vacation_type: 'annual_leave',
+            project_id: vacations.id,
+          })
+          .execute();
+
+        expect(await setupLine()).toBe(
+          `${INTRO}\nAnnual leave → Vacations · 8h a day`,
+        );
+
+        await t.db
+          .updateTable('projects')
+          .set({ archived_at: new Date().toISOString() })
+          .where('id', '=', vacations.id)
+          .execute();
+
+        expect(await setupLine()).toBe(
+          `${INTRO}\nNo leave type has a project yet.`,
+        );
+      });
+
+      it('is shown only to those who set it', async () => {
+        for (const role of [UserRole.HR, UserRole.Finance]) {
+          const user = await workspace.addUser({ role });
+
+          expect(await setupLine(user)).toBeUndefined();
+        }
+      });
     });
 
     it('opens in a workspace with no projects, with the hours only', async () => {
