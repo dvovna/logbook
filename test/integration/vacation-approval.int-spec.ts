@@ -287,8 +287,8 @@ describe('Vacation request approval', () => {
     expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
   });
 
-  // A decision is one statement (decide_workflow_steps): it either closes
-  // the step with its status, or changes nothing.
+  // A decision is one statement (RequestWorkflowStepsRepository.decide): it
+  // either closes the step with its status, or changes nothing.
   describe('when a decision fails or two meet', () => {
     it('keeps the step open when its decision fails, so the approver can approve again', async () => {
       await addMember(

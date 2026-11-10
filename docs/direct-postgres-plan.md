@@ -61,9 +61,9 @@ direct connection from its first line.
     transactions each missed the other's uncommitted decision, and nobody asked
     the next level (`vacation-screens.int-spec.ts` caught it). Decisions on one
     request now take an advisory lock first.
-  - The functions are no longer called but stay in the database. A migration
-    in a later release drops them, so that rolling back to an older image
-    still works.
+  - The functions are no longer called. They were kept for a rollback to an
+    older image, but the app had not been deployed anywhere, so stage 4
+    drops them at once.
 - **Stage 4 (remove PostgREST): done in code.**
   - `SupabaseService`, the PostgREST `BaseRepository`, `quoteFilterValue`
     and `@supabase/supabase-js` are gone, and `SqlRepository` is now
@@ -83,9 +83,10 @@ direct connection from its first line.
   - Unit specs of SQL use `recordingDatabase`
     (`src/database/testing/recording-database.ts`), which is left out of the
     build.
-  - `applied_migrations()` stays in the database with the old write
-    functions, for an older image that still calls it; one migration drops
-    them all in a later release.
+  - `20261110071250_drop_unused_write_functions.sql` drops the write
+    functions and `applied_migrations()`. Only the read functions
+    (`get_projects_list`, `get_user_projects`, `get_time_entries_list`)
+    remain.
 
 ## Why
 
@@ -383,7 +384,8 @@ Each stage leaves the app working and deployable on its own.
   `assign_project_assignments` become transactions.
 - `decide_workflow_steps` becomes a Kysely statement, and the workflow's jobs
   are enqueued with their decisions.
-- The functions are dropped a release later.
+- The functions are dropped a release later (in the end right after stage 4:
+  nothing had been deployed).
 
 **Stage 4: remove PostgREST (small).**
 - Delete `SupabaseService`, `BaseRepository` and `quoteFilterValue`, and
