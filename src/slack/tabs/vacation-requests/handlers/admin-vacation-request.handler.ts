@@ -122,7 +122,6 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
         slackTeamId: user.slack_team_id,
       },
       {
-        inOwnersTeam: true,
         userId: data.user.value,
         type: data.type_option.value,
         status: data.status.value,

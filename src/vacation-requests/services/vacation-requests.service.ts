@@ -52,14 +52,12 @@ interface ICreateParams {
 }
 
 interface IUpdateParams {
-  teamId?: string | null;
-  // The request goes to the team of its person (userId), instead of teamId.
-  inOwnersTeam?: boolean;
   startDate?: Date;
   endDate?: Date;
   type?: VacationType;
   status?: VacationRequestStatus;
   userComment?: string | null;
+  // The request's person; the request goes to their team.
   userId?: string;
 }
 
@@ -227,11 +225,7 @@ export class VacationRequestsService implements IVacationRequestsService {
       status,
       userId,
     } = updateParams;
-    // HR's and the admin's form: the request goes to its person's team.
-    const teamId =
-      updateParams.inOwnersTeam && chosenOwner
-        ? chosenOwner.team_id
-        : updateParams.teamId;
+    const teamId = chosenOwner?.team_id;
 
     // Only what changes is checked: a cancel must work on a request whose
     // old comment wouldn't pass today.

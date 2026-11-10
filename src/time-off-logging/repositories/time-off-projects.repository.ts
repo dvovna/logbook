@@ -18,18 +18,12 @@ export class TimeOffProjectsRepository extends BaseRepository<
   public findWithActiveProjects(
     slackTeamId: string,
   ): Promise<{ vacation_type: string; project_name: string }[]> {
-    if (!slackTeamId) {
-      throw new Error('[time_off_projects] query without slack_team_id');
-    }
-
-    return this.db
-      .selectFrom('time_off_projects')
+    return this.selectInWorkspace(slackTeamId)
       .innerJoin('projects', 'projects.id', 'time_off_projects.project_id')
       .select([
         'time_off_projects.vacation_type',
         'projects.name as project_name',
       ])
-      .where('time_off_projects.slack_team_id', '=', slackTeamId)
       .where('projects.slack_team_id', '=', slackTeamId)
       .where('projects.archived_at', 'is', null)
       .execute();

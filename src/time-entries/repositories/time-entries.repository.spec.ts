@@ -16,7 +16,7 @@ describe('TimeEntriesRepository', () => {
     ).resolves.toEqual({ count: 2, oldest: '2026-06-03' });
     expect(sqlOf(0)).toBe(
       'select count(*) as "count", min("work_date") as "oldest" from "time_entries" ' +
-        'where "slack_team_id" = $1 and "user_id" = $2 and "status" in ($3, $4) ' +
+        'where "time_entries"."slack_team_id" = $1 and "user_id" = $2 and "status" in ($3, $4) ' +
         'and "deleted_at" is null and "work_date" <= $5',
     );
     expect(parametersOf(0)).toEqual([
@@ -49,7 +49,7 @@ describe('TimeEntriesRepository', () => {
         'returning "work_date", "minutes", "project_id", "user_id") ' +
         'select false as "billed", "work_date", "minutes", "project_id", "user_id" from "deleted" ' +
         'union all select true as "billed", "work_date", "minutes", "project_id", "user_id" from "time_entries" ' +
-        'where "slack_team_id" = $6 and "vacation_request_id" = $7 and "deleted_at" is null ' +
+        'where "time_entries"."slack_team_id" = $6 and "vacation_request_id" = $7 and "deleted_at" is null ' +
         `and ${billed('$8')}`,
     );
   });

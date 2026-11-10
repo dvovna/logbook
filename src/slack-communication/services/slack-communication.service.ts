@@ -1,8 +1,9 @@
 import SlackApiClient, {
   IUploadFileParams,
+  slackErrorOf,
 } from 'src/api-clients/third-party/slack-api.client';
 import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
 import { WebAPICallResult } from '@slack/web-api';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
@@ -10,6 +11,8 @@ import { View } from '@slack/types/dist/views';
 
 @Injectable()
 export default class SlackCommunicationService {
+  private readonly logger = new Logger(SlackCommunicationService.name);
+
   public constructor(
     private readonly slackApiClient: SlackApiClient,
     private readonly accessTokenService: AccessTokenService,
@@ -75,19 +78,33 @@ export default class SlackCommunicationService {
 
   // A modal the user has open, by the view ID its interaction carries.
   // With `hash` (the interaction's view.hash), Slack refuses the update
-  // (hash_conflict) when the view changed since that interaction.
+  // (hash_conflict) when the view changed since that interaction: after two
+  // quick clicks the later one's view may be up first, and the older one must
+  // not replace it. That is skipped with a warning (false), not an error.
   public async updateView(
     viewId: string,
     view: View,
     teamId: string,
     hash?: string,
-  ) {
+  ): Promise<boolean> {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 
-    return this.slackApiClient.updateView(
-      { view_id: viewId, view, ...(hash ? { hash } : {}) },
-      accessToken,
-    );
+    try {
+      await this.slackApiClient.updateView(
+        { view_id: viewId, view, ...(hash ? { hash } : {}) },
+        accessToken,
+      );
+
+      return true;
+    } catch (error) {
+      if (slackErrorOf(error) !== 'hash_conflict') {
+        throw error;
+      }
+
+      this.logger.warn(`View ${viewId} changed since the click: not updated`);
+
+      return false;
+    }
   }
 
   public async publishView(view: ViewsPublishArguments, slackTeamId: string) {

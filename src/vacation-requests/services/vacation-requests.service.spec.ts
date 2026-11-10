@@ -270,7 +270,7 @@ describe('VacationRequestsService', () => {
 
       await service.update(
         { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
-        { userId: 'user-2', inOwnersTeam: true },
+        { userId: 'user-2' },
         admin,
       );
 

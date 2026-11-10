@@ -348,12 +348,18 @@ export abstract class BaseRepository<
 
   // The queries a subclass writes itself start from these, so that they are
   // scoped to one workspace like the generic ones, and typed by the table.
+  // A select names the table with the column, so that it may join another
+  // workspace table.
   protected selectInWorkspace(
     slackTeamId: string,
   ): SelectQueryBuilder<SqlDatabase, Table, object> {
     return this.anyDb
       .selectFrom(this.table)
-      .where(this.workspaceRef(), '=', this.requireId(slackTeamId)) as never;
+      .where(
+        `${this.table}.${this.workspaceRef()}`,
+        '=',
+        this.requireId(slackTeamId),
+      ) as never;
   }
 
   protected updateInWorkspace(

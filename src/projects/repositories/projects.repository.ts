@@ -25,18 +25,12 @@ export class ProjectsRepository extends BaseRepository<
       archived_at: string | null;
     }[]
   > {
-    if (!slackTeamId) {
-      throw new Error('[projects] findAllWithClientNames without a workspace');
-    }
-
-    return this.db
-      .selectFrom('projects')
+    return this.selectInWorkspace(slackTeamId)
       .leftJoin('clients', (join) =>
         join
           .onRef('clients.id', '=', 'projects.client_id')
           .on('clients.slack_team_id', '=', slackTeamId),
       )
-      .where('projects.slack_team_id', '=', slackTeamId)
       .select([
         'projects.id',
         'projects.name',
