@@ -30,6 +30,9 @@ interface IGetViewParams extends IBaseTabViewParams {
   setup: ISetupProgress | null;
 }
 
+// The setup checklist's blocks: `setup`, `setup_done`, `setup_<step>`.
+export const SETUP_BLOCK_ID = 'setup';
+
 export enum HomeTabActionId {
   OpenVacationModal = 'open_vacation_modal',
   CancelRequest = 'cancel_vacation_request',
@@ -72,7 +75,9 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     return `*${SCREENS[ScreenId.Home].title}*`;
   }
 
-  // What is left to set up, each step with the screen that does it.
+  // What is left to set up: how many required steps are done, the done
+  // ones in one line, then each step left with why it matters and the
+  // button to the screen that does it.
   private getSetupBlocks({
     hasPolicy,
     hasTeamWithApprovers,
@@ -81,52 +86,84 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
   }: ISetupProgress): AnyBlock[] {
     const steps = [
       {
+        key: 'policy',
         done: hasPolicy,
-        text: 'Create a vacation policy: days per year and holidays',
-        button: 'Policies',
+        title: 'Create a vacation policy',
+        why: "Days per year and public holidays. Without one, balances aren't checked.",
+        doneLabel: 'vacation policy',
+        button: 'Open Policies',
         actionId: NavigationActionId.Policies,
       },
       {
+        key: 'team',
         done: hasTeamWithApprovers,
-        text: 'Create a team and pick its approvers',
-        button: 'Teams',
+        title: 'Create a team and pick its approvers',
+        why: 'Its approvers decide time off for the people in it.',
+        doneLabel: 'team with approvers',
+        button: 'Open Teams',
         actionId: NavigationActionId.Teams,
       },
       {
+        key: 'people',
         done: peopleWithoutTeam === 0,
-        text: `Put people in teams${peopleWithoutTeam ? ` (${pluralize('person', peopleWithoutTeam, true)} without a team)` : ''}`,
-        button: 'People',
+        title: 'Put people in teams',
+        why: `${pluralize('person', peopleWithoutTeam, true)} ${peopleWithoutTeam === 1 ? 'has' : 'have'} no team: their requests go to HR or the admins.`,
+        doneLabel: 'everyone in a team',
+        button: 'Open People',
         actionId: NavigationActionId.People,
       },
       {
+        key: 'projects',
+        optional: true,
         done: hasProjects,
-        text: 'Add projects, if you track time',
-        button: 'Projects',
+        title: 'Add projects',
+        why: 'Only if you track time: people log hours on them.',
+        doneLabel: 'projects',
+        button: 'Open Projects',
         actionId: NavigationActionId.Projects,
       },
     ];
+    const required = steps.filter(({ optional }) => !optional);
+    const done = steps.filter((step) => step.done);
 
     return [
       {
         type: 'section',
+        block_id: SETUP_BLOCK_ID,
         text: {
           type: 'mrkdwn',
-          text: [
-            '*🚀 Set up Logbook*',
-            ...steps.map(({ done, text }) => `${done ? '✅' : '⬜'} ${text}`),
-          ].join('\n'),
+          text: `*🚀 Set up Logbook* · ${required.filter((step) => step.done).length} of ${required.length} done`,
         },
       },
-      {
-        type: 'actions',
-        elements: steps
-          .filter(({ done }) => !done)
-          .map(({ button, actionId }) => ({
+      ...(done.length
+        ? [
+            {
+              type: 'context' as const,
+              block_id: `${SETUP_BLOCK_ID}_done`,
+              elements: [
+                {
+                  type: 'mrkdwn' as const,
+                  text: `✅ Done: ${done.map(({ doneLabel }) => doneLabel).join(', ')}`,
+                },
+              ],
+            },
+          ]
+        : []),
+      ...steps
+        .filter((step) => !step.done)
+        .map(({ key, optional, title, why, button, actionId }) => ({
+          type: 'section' as const,
+          block_id: `${SETUP_BLOCK_ID}_${key}`,
+          text: {
+            type: 'mrkdwn' as const,
+            text: `*${title}*${optional ? ' · _optional_' : ''}\n${why}`,
+          },
+          accessory: {
             type: 'button' as const,
             text: { type: 'plain_text' as const, text: button },
             action_id: actionId,
-          })),
-      },
+          },
+        })),
       ...Divider.getBlocks(),
     ];
   }
