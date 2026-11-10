@@ -13,8 +13,7 @@ export class ProjectsRepository extends BaseRepository<
 
   protected searchableColumns = ['name'];
 
-  // Every project of the workspace, archived ones too, with the name of its
-  // client (archived or not), in one statement.
+  // Archived projects too, and their client's name, archived or not.
   public findAllWithClientNames(slackTeamId: string): Promise<
     {
       id: string;

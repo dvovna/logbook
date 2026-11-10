@@ -121,7 +121,6 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
     });
   }
 
-  // Not when `allows` refuses the projects the user may log on.
   private async updateForm(
     payload: ISlackBlockActionPayload,
     user: IUserViewModel,

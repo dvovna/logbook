@@ -164,7 +164,6 @@ ${this.getRequestDetails(step, comments)}`,
     };
   }
 
-  // An admin deleted the request (All requests → Delete Request).
   private static getDeletedMessage({ step, comments }: IGetMessageParams) {
     return {
       text: '🗑️ Vacation request deleted',

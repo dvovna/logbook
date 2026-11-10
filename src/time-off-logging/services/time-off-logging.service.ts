@@ -53,8 +53,6 @@ interface ITimeOffPlan {
   teamId: string | null;
 }
 
-// Turns an approved time off into approved time entries on the project of its
-// leave type, one per working day.
 @Injectable()
 export class TimeOffLoggingService {
   public constructor(
@@ -170,7 +168,6 @@ export class TimeOffLoggingService {
     });
   }
 
-  // The days of `entries` by the name of their project.
   private byProject(entries: ITimeEntryViewModel[]) {
     const days = new Map<string, string[]>();
 

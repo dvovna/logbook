@@ -57,7 +57,6 @@ export const requestVacation = async (
 ) => {
   const response = await submitVacationRequest(t, workspace, user, params);
 
-  // The form closes.
   expect(response).toEqual({ response_action: 'clear' });
 
   const requests = await workspace.rows('vacation_requests');

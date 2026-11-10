@@ -114,10 +114,8 @@ export class TimeEntriesRepository extends BaseRepository<
       .execute();
   }
 
-  // The user's entries between two days that aren't deleted, cancelled ones
-  // included, and which of them a billing snapshot holds, in one statement.
-  // Without the relations (user, team, client, project), in findMany's
-  // order.
+  // Not deleted, cancelled ones included; without the relations, in
+  // findMany's order.
   public async findOfUserWithBilled(
     slackTeamId: string,
     {
@@ -157,8 +155,7 @@ export class TimeEntriesRepository extends BaseRepository<
     };
   }
 
-  // How many drafts and rejected entries the user has dated up to `dateTo`,
-  // and the day of the oldest one (null when none), in one statement.
+  // With the day of the oldest one, null when none.
   public async countOpenUpTo(
     slackTeamId: string,
     userId: string,

@@ -89,8 +89,6 @@ export const sectionTexts = (view: View): string[] =>
     .filter((block) => block.type === 'section' && block.text)
     .map((block) => block.text.text);
 
-// The action_ids of every interactive element: buttons, menus, selects. Of a
-// view, or of a message the app sent.
 export const actionIdsOf = (view: View | { blocks?: unknown[] }): string[] =>
   blocksOf(view).flatMap((block) =>
     [
@@ -159,7 +157,6 @@ export const buttonText = (view: View, actionId: string): string | undefined =>
         element.type === 'button' && element.action_id === actionId,
     )?.text.text;
 
-// The status line of My time's week: "🕒 Week of 15 Jun · 3h 30m · 📝 1 draft".
 export const timesheetStatusOf = (view: View): string | undefined =>
   blocksOf(view)
     .filter((block) => block.type === 'context')
@@ -175,7 +172,6 @@ export interface ITimesheetFormRow {
   cells: string[];
 }
 
-// The rows of the week form (Fill in the week), as a user reads them.
 export const timesheetFormRows = (view: View): ITimesheetFormRow[] => {
   const rows: ITimesheetFormRow[] = [];
   let row: ITimesheetFormRow | undefined;

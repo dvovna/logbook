@@ -46,10 +46,8 @@ export const COMMENT_BLOCK_ID = 'timesheet_comment';
 // from its blocks.
 export type TimesheetFormMetadata = {
   mode: 'week' | 'day';
-  // The Monday of the form's week.
   weekStart: string;
   date?: string;
-  // Rows added with "Add a project".
   addedProjectIds: string[];
   showWeekend: boolean;
   // My time's metadata, to show it again after saving.
@@ -63,11 +61,8 @@ interface ITimesheetFormViewParams extends IBaseModalViewParams<ViewCallbackId.T
   projects: IUserProject[];
 }
 
-// Fill in the week: an input for every day of every row project, hours in
-// each, saved at once. Fill in the day (`mode: 'day'`): the same rows with
-// one input each for a chosen day, and a comment for what is saved. A cell
-// that can't be changed here (several entries, submitted, approved, billed,
-// or a project closed for logging) shows as text.
+// A cell that can't be changed here (several entries, submitted, approved,
+// billed, or a project closed for logging) shows as text.
 @Injectable()
 export class TimesheetFormModalView extends BaseModalView<
   ITimesheetFormViewParams,
@@ -205,7 +200,6 @@ export class TimesheetFormModalView extends BaseModalView<
         block_id: `${TIMESHEET_ROW_BLOCK_ID}:${row.projectId}`,
         text: {
           type: 'mrkdwn',
-          // Names people typed.
           text: [
             `*${escapeMrkdwn(row.projectName)}*`,
             ...(row.clientName ? [escapeMrkdwn(row.clientName)] : []),
@@ -239,7 +233,6 @@ export class TimesheetFormModalView extends BaseModalView<
     };
   }
 
-  // 'Wed 17 · 2h · submitted'
   private getLockedCellBlock(cell: ITimesheetCell): AnyBlock {
     return this.getContextBlock(
       [

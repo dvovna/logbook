@@ -104,9 +104,8 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
     });
   };
 
-  // Previous week, Next week, and the oldest week with open entries before
-  // the shown one. The button's value is the Monday it goes to; it comes from
-  // the client, so it has to be a date, and is turned into its week's Monday.
+  // The button's value comes from the client: it has to be a date, and is
+  // turned into its week's Monday.
   private handleWeekChange = async (
     payload: ISlackBlockActionPayload,
     user: IUserViewModel,
@@ -127,8 +126,8 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
     );
   };
 
-  // Fill in the week: the shown week of the viewer's own time. The tab's
-  // metadata goes along, to show it again after saving.
+  // The viewer's own time. The tab's metadata goes along, to show it again
+  // after saving.
   private handleFillWeek = async (
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
@@ -151,7 +150,6 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
     );
   };
 
-  // Fill in today: the day form for today, the viewer's own time.
   private handleFillDay = async (
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
@@ -186,9 +184,7 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
     );
   };
 
-  // Sends the user's entry `entryId`, or the drafts and rejected entries of
-  // the shown week, for approval and shows the result. An entry already
-  // submitted in the meantime just shows up as such.
+  // An entry submitted in the meantime just shows up as such.
   private submit = async (
     payload: ISlackInteractionPayload,
     user: IUserViewModel,

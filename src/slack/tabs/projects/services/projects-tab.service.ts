@@ -132,7 +132,6 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         projectId: metadata?.filters?.project?.id,
         includeArchived: metadata?.includeArchived,
       }),
-      // What time off is logged as, beside its button: for whoever has it.
       this.slackActionPermissionsService.can(
         user.role,
         ProjectsTabViewActionId.TimeOffSettings,

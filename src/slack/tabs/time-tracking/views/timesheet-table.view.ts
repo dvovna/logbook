@@ -14,11 +14,9 @@ import { ITimesheetWeek } from 'src/time-entries/types/timesheet.types';
 // The index of Saturday in a week's days (Monday first).
 export const SATURDAY = 5;
 
-// 'Mon 15'
 export const dayHeading = (date: string) =>
   `${weekdayOf(date)} ${Number(date.slice(8))}`;
 
-// 'Wed 17 Jun'
 export const dayLabel = (date: string) =>
   `${weekdayOf(date)} ${formatDayMonth(date)}`;
 
@@ -26,8 +24,7 @@ export const dayLabel = (date: string) =>
 const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '–');
 
 export class TimesheetTableView {
-  // The week's status line and its table of projects by day. Saturday and
-  // Sunday show only when they hold time.
+  // Saturday and Sunday show only when they hold time.
   public static getBlocks(week: ITimesheetWeek): AnyBlock[] {
     return [
       {

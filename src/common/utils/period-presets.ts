@@ -94,11 +94,9 @@ export const weekStartOf = (date: string): string =>
 // Today, 'YYYY-MM-DD' (UTC, as the app runs).
 export const todayIso = (): string => getDateOnly(new Date());
 
-// The Monday of the week of `now` (UTC), this week's by default.
 export const currentWeekStart = (now: Date = new Date()): string =>
   weekStartOf(getDateOnly(now));
 
-// The seven days of the week that starts on `weekStart`, Monday to Sunday.
 export const weekDays = (weekStart: string): string[] => {
   const start = new Date(`${weekStart}T00:00:00Z`).getTime();
 
@@ -107,7 +105,6 @@ export const weekDays = (weekStart: string): string[] => {
   );
 };
 
-// The Monday `weeks` weeks after (or, negative, before) `weekStart`.
 export const shiftWeek = (weekStart: string, weeks: number): string =>
   getDateOnly(
     new Date(new Date(`${weekStart}T00:00:00Z`).getTime() + weeks * 7 * DAY_MS),

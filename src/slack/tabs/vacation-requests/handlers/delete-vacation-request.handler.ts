@@ -53,7 +53,6 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<
       metadata.pageMetadata || '{}',
     );
 
-    // After the answer, as every form's tab.
     this.tabNavigationService.navigate(TabId.VacationRequests, {
       user,
       metadata: {

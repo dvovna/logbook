@@ -2,7 +2,6 @@ import VacationType from '@common/enums/vacation-type.enum';
 import { TimeOffLeaveType } from 'src/time-off-logging/constants/time-off-leave-types';
 
 export interface ITimeOffSettings {
-  // The hours of a working day, in minutes.
   minutesPerDay: number;
   // The project each leave type is logged on; a type without one is not.
   projectIds: Partial<Record<VacationType, string>>;

@@ -10,7 +10,6 @@ export type TimesheetCellLock =
 export interface ITimesheetCell {
   date: string;
   minutes: number;
-  // How many entries the cell sums up.
   entryCount: number;
   lock: TimesheetCellLock | null;
 }
@@ -19,7 +18,6 @@ export interface ITimesheetRow {
   projectId: string;
   projectName: string;
   clientName: string | null;
-  // One cell per day of the week.
   cells: ITimesheetCell[];
 }
 
@@ -33,9 +31,8 @@ export interface ITimesheetWeek {
   statusCounts: Record<TimeEntryStatus, number>;
 }
 
-// My time's week: its table, and for the list of the week's entries under it
-// the user's entries of the week that aren't deleted (cancelled ones too, as
-// the list shows them) and which of them are billed.
+// For the list under My time's week: the week's entries that aren't deleted
+// (cancelled ones too, as the list shows them), and which are billed.
 export interface ITimesheetWeekWithEntries {
   week: ITimesheetWeek;
   entries: ITimeEntryViewModel[];
@@ -49,7 +46,6 @@ export interface ITimesheetOpenBefore {
   weekStart: string;
 }
 
-// The most project rows the week form offers.
 export const MAX_TIMESHEET_ROWS = 10;
 
 // A cell of a project and a day: the block_id and action_id of its input in
@@ -57,7 +53,6 @@ export const MAX_TIMESHEET_ROWS = 10;
 export const cellKey = (projectId: string, date: string) =>
   `${projectId}_${date}`;
 
-// What a form sends for one cell.
 export interface ITimesheetCellInput {
   projectId: string;
   date: string;

@@ -18,8 +18,6 @@ import {
 
 const MINUTES_IN_DAY = 24 * 60;
 
-// What time off is logged as: the hours of a working day and the project of
-// each leave type.
 @Injectable()
 export class TimeOffSettingsService {
   public constructor(

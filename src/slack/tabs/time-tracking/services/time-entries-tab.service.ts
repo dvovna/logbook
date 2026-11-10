@@ -179,9 +179,8 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     });
   }
 
-  // Fill in the week or the day (`metadata.mode`; the day's rows are those of
-  // its week): the viewer's own time, whatever their role. With the projects
-  // the viewer may log on.
+  // The day form's rows are those of its week. The viewer's own time,
+  // whatever their role.
   public async getTimesheetForm({
     user,
     errorMessage,

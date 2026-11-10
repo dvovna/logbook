@@ -207,8 +207,6 @@ export class UsersService implements IUsersService {
     return user;
   }
 
-  // The user of a Slack request: by the Slack IDs of its workspace and of its
-  // user, with the workspace's ID, in one query.
   public findInWorkspaceBySlackIds(
     workspaceSlackId: string,
     userSlackId: string,

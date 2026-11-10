@@ -30,8 +30,7 @@ export const runInBackground = (
   );
 };
 
-// Starts `task`, which handles its own errors, as background work and
-// returns its promise.
+// `task` handles its own errors.
 export const startInBackground = <T>(task: () => Promise<T>): Promise<T> => {
   const work = backgroundWork.run(true, task);
 

@@ -28,8 +28,8 @@ import { ITimeEntriesTabMetaData } from '@modules/slack/tabs/time-tracking/views
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
 import { ITimesheetSaveResult } from 'src/time-entries/types/timesheet.types';
 
-// Saves Fill in the week, for the viewer's own time whatever their role, and
-// goes back to My time. Null: the form had nothing to save.
+// The viewer's own time, whatever their role. Null: the form had nothing
+// to save.
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.TimesheetForm,
@@ -82,7 +82,6 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
         ? cell.date === metadata.date
         : weekDays(metadata.weekStart).includes(cell.date),
     );
-    // Only the day form has a comment.
     const dayComment = isDay ? comment : undefined;
 
     if (!inputs.length && !submitWeek && !dayComment) {
@@ -118,8 +117,6 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
     return SlackViewResponseFactory.success();
   }
 
-  // What the week or the day holds after saving: '✅ Saved. Week of 15 Jun:
-  // 26h.', '✅ Saved. Wed 17 Jun: 8h.'
   private noticeOf(
     result: ITimesheetSaveResult,
     { mode, date, weekStart }: TimesheetFormMetadata,

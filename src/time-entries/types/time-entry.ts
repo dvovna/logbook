@@ -12,7 +12,6 @@ export interface ITimeEntryViewModel {
   status: TimeEntryStatus;
   description?: string | null;
   rejection_reason?: string | null;
-  // The time off the entry was logged from.
   vacation_request_id: string | null;
   slack_team_id: string;
   created_at: string;

@@ -33,7 +33,6 @@ import { timesheetLock } from 'src/time-entries/utils/timesheet-lock';
 // The week form offers the projects of the shown week and of the 4 before.
 const RECENT_WEEKS = 4;
 
-// The error at a cell that can't be changed in a form.
 const LOCK_MESSAGES: Record<TimesheetCellLock, string> = {
   several:
     'This day has more than one entry on this project: change them on My time.',
@@ -43,7 +42,6 @@ const LOCK_MESSAGES: Record<TimesheetCellLock, string> = {
   project: 'This project is not available.',
 };
 
-// The day form's comment when no cell changed: there is no entry to put it on.
 const COMMENT_WITHOUT_CHANGES_MESSAGE =
   'The comment goes on the entries whose hours you add or change: nothing changed.';
 
@@ -56,7 +54,6 @@ interface IProjectInfo {
   archived: boolean;
 }
 
-// The workspace's projects as the forms and the week need them.
 interface IProjectsOfUser {
   // Every project, archived ones too, by ID.
   projects: Map<string, IProjectInfo>;
@@ -71,8 +68,6 @@ interface IEntriesOfUser {
   billedIds: Set<string>;
 }
 
-// What saving does to a cell: creates its entry, or changes or deletes the
-// one it has.
 interface ICellChange {
   key: string;
   input: ITimesheetCellInput;
@@ -127,8 +122,6 @@ export class TimesheetService {
     };
   }
 
-  // The week form's table, of the recent projects and the added ones, and
-  // the projects the user may log on (to add).
   public async getForm(
     user: IUserViewModel,
     weekStart: string,
@@ -291,8 +284,6 @@ export class TimesheetService {
     );
   }
 
-  // Every project of the workspace and those the user may log on: one query
-  // for Admin and HR, two at once for everyone else.
   private async loadProjects(user: IUserViewModel): Promise<IProjectsOfUser> {
     const [all, userProjects] = await Promise.all([
       this.projectsService.findAllWithClientNames(user.slack_team_id),
@@ -324,8 +315,7 @@ export class TimesheetService {
     });
   }
 
-  // The active ones of `projects`, in the order of get_user_projects: by
-  // client, projects without one last.
+  // In the order of get_user_projects.
   private activeProjects(
     projects: Awaited<ReturnType<ProjectsService['findAllWithClientNames']>>,
   ): IUserProject[] {
@@ -379,7 +369,6 @@ export class TimesheetService {
 
       const [entry] = cellEntries;
 
-      // Nothing there, and nothing typed.
       if (!entry && input.minutes === null) {
         continue;
       }
@@ -477,7 +466,6 @@ export class TimesheetService {
     }
   }
 
-  // The user's draft a cell creates.
   private newEntry(
     user: IUserViewModel,
     input: ITimesheetCellInput,
@@ -494,8 +482,7 @@ export class TimesheetService {
     };
   }
 
-  // What a cell changes in its entry besides its minutes: a rejected one is
-  // a draft again.
+  // A rejected entry is a draft again.
   private entryChanges(comment?: string) {
     return {
       status: TimeEntryStatus.Draft,

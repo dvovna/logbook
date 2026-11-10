@@ -58,7 +58,6 @@ interface IEntryProject {
   billable: boolean;
 }
 
-// Who writes an entry.
 type IEntryActor = Pick<IUserViewModel, 'id' | 'slack_team_id'>;
 
 interface IWriteOptions {
@@ -87,7 +86,6 @@ interface IFindParams {
   statuses?: TimeEntryStatus[];
   // The entries of these teams; an empty list matches none.
   teamIds?: string[];
-  // The time logged from this vacation.
   vacationRequestId?: string;
   slackTeamId: string;
 }
@@ -128,8 +126,7 @@ export class TimeEntriesService {
     return created;
   }
 
-  // Writes a new entry the caller has checked (create()). It takes its
-  // client and billability from its project.
+  // For an entry the caller has checked (create()).
   private insert(
     params: ICreateParams,
     project: IEntryProject,
@@ -140,8 +137,7 @@ export class TimeEntriesService {
     );
   }
 
-  // Writes new entries the caller has checked (the timesheet) in one insert,
-  // as insert() does one.
+  // For entries the caller has checked (the timesheet), in one insert.
   public insertMany(
     entries: { params: ICreateParams; project: IEntryProject }[],
     actor: IEntryActor,
@@ -341,7 +337,6 @@ export class TimeEntriesService {
     return [...minutesById.keys()].filter((id) => !written.has(id));
   }
 
-  // The columns an update writes.
   private changedColumns(changes: IUpdateParams, actor: IEntryActor) {
     return {
       ...(changes.userId !== undefined ? { user_id: changes.userId } : {}),
@@ -488,7 +483,6 @@ export class TimeEntriesService {
     }: {
       id?: string;
       slackTeamId: string;
-      // Only the entries worked between these days (a week).
       dateFrom?: string;
       dateTo?: string;
     },
@@ -557,8 +551,6 @@ export class TimeEntriesService {
     return this.timeEntriesRepository.findBilledIds(slackTeamId, ids);
   }
 
-  // The user's entries between two days, cancelled ones included, without
-  // their relations, and which of them are billed: in one query.
   public findOfUserWithBilled(params: {
     userId: string;
     slackTeamId: string;
@@ -571,8 +563,6 @@ export class TimeEntriesService {
     );
   }
 
-  // The user's drafts and rejected entries dated up to `dateTo`: how many,
-  // and the oldest one's day.
   public countOpenUpTo(params: {
     userId: string;
     slackTeamId: string;

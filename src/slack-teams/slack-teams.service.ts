@@ -127,7 +127,6 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return this.slackTeamsRepository.claimReminderWeek(id, monday);
   }
 
-  // The workspaces uninstalled before `cutoff`: their data is due to go.
   public async findUninstalledBefore(cutoff: Date): Promise<string[]> {
     const workspaces = await this.slackTeamsRepository.findMany({
       uninstalled_at: { operator: 'lt', value: cutoff.toISOString() },
@@ -136,12 +135,9 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return workspaces.map(({ id }) => id);
   }
 
-  // Deletes a workspace with all its data (every table cascades from
-  // slack_teams), in a transaction of its own. With `uninstalledBefore`,
-  // only while it is still uninstalled since before then: one installed
-  // again meanwhile stays. Years of a big workspace's time take longer than
-  // the pool's statement timeout, hence its own. Returns whether it deleted
-  // the workspace.
+  // Every table cascades from slack_teams. With `uninstalledBefore`, a
+  // workspace installed again meanwhile stays. Years of a big workspace's
+  // time outlast the pool's statement timeout, hence its own.
   public deleteWorkspace(
     id: string,
     uninstalledBefore?: Date,
@@ -244,7 +240,6 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return code;
   }
 
-  // The minutes of a working day, a day of time off is logged as.
   public async getTimeOffMinutesPerDay(id: string): Promise<number> {
     return (await this.findOneWithValidation({ id })).time_off_minutes_per_day;
   }

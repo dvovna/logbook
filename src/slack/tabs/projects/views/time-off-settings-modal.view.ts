@@ -33,7 +33,6 @@ export interface ITimeOffSettingsModalViewMetadata {
 
 export const timeOffBlockId = (type: string) => `${type}_block`;
 
-// The hours of a working day and a project for each leave type, for an admin.
 @Injectable()
 export class TimeOffSettingsModalView extends BaseModalView<
   IGetViewParams,

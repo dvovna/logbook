@@ -13,7 +13,6 @@ export interface ITimeEntriesTabFilters {
 
 export const TIME_ENTRIES_TAB_PAGE_SIZE = 10;
 
-// The minutes of each of `days` over `entries`.
 export const totalsByDay = (
   days: string[],
   entries: { work_date: string; minutes: number }[],

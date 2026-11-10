@@ -3,7 +3,6 @@ import { Client } from 'pg';
 import { isBackgroundWork } from '@common/utils/run-in-background';
 import { SESSION_SETUP } from 'src/database/database.service';
 
-// One statement the app (or pg-boss) sent to Postgres.
 export interface ISqlStatement {
   text: string;
   // Run by background work (runInBackground, jobs, event listeners): nobody
@@ -23,7 +22,6 @@ export interface ISqlCount {
 }
 
 export interface ISqlLog {
-  // The position in the log now, for count() and statements().
   mark(): number;
   // Makes every statement come back `ms` later, as from a database far away,
   // for the rest of the test file: round trips then show clearly in the

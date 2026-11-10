@@ -43,9 +43,8 @@ export class WorkspaceRetentionService
     this.stopTimers?.();
   }
 
-  // One workspace per transaction: a workspace that can't be deleted (the
-  // next run tries again) doesn't keep the others. Returns how many it
-  // deleted.
+  // One workspace per transaction: one that can't be deleted (the next run
+  // tries again) doesn't keep the others.
   public async deleteExpired(): Promise<number> {
     const days = this.config.getOrThrow<number>(
       EnvironmentVariable.UninstalledDataRetentionDays,

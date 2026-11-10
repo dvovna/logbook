@@ -609,7 +609,6 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     return `${Math.floor(Date.now() / 1000)}.${String(this.messageCount).padStart(6, '0')}`;
   }
 
-  // A new version of the view `viewId`.
   private nextViewHash(viewId: string) {
     const hash = `${Date.now()}.${randomUUID().slice(0, 8)}`;
 

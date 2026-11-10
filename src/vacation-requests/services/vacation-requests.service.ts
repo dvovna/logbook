@@ -86,7 +86,6 @@ const settled = <T>(result: PromiseSettledResult<T>): T => {
   return result.value;
 };
 
-// A request after an edit or a deletion that removed the time logged from it.
 export interface IVacationRequestChange {
   request: IVacationRequestViewModel;
   // The days whose logged time stays, sorted: it is in a billing snapshot.
@@ -611,7 +610,6 @@ export class VacationRequestsService implements IVacationRequestsService {
     }
   }
 
-  // The working days of the period under the holidays of the team's policy.
   private async countWorkingDays(
     startDate: Date,
     endDate: Date,

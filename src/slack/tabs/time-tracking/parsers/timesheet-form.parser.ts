@@ -17,7 +17,6 @@ import { ITimesheetCellInput } from 'src/time-entries/types/timesheet.types';
 export interface ITimesheetFormData {
   // Every cell the form sent, typed into or not.
   cells: ITimesheetCellInput[];
-  // Submit the week's drafts and rejected entries after saving.
   submitWeek: boolean;
   // The day form's comment; undefined when empty or not in the form.
   comment?: string;

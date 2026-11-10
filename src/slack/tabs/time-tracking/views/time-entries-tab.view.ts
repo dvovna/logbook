@@ -50,7 +50,6 @@ interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
   viewerId: string;
   // The shown week of the viewer's own time (My time); Time logs has none.
   week?: ITimesheetWeek;
-  // The viewer's drafts and rejected entries before the shown week.
   openBefore?: ITimesheetOpenBefore | null;
   // The minutes of each day on the page, over all its entries.
   dayTotals: Record<string, number>;
@@ -188,8 +187,6 @@ export class TimeEntriesTabView extends BaseTabView<
     ];
   }
 
-  // The week's navigation, its form and its submit button (the drafts and
-  // rejected entries of the shown week).
   private getWeekButtons(week: ITimesheetWeek): AnyBlock[] {
     const toSubmit =
       week.statusCounts[TimeEntryStatus.Draft] +

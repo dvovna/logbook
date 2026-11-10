@@ -55,14 +55,12 @@ export const formatDate = (input: string | Date) => {
   return `${day} ${month} ${year}`;
 };
 
-// '6 Jul': a date whose year goes without saying.
 export const formatDayMonth = (input: string | Date) => {
   const { day, month } = dateParts(input);
 
   return `${day} ${month}`;
 };
 
-// 'Mon'
 export const weekdayOf = (input: string | Date) =>
   WEEKDAYS[toDate(input).getUTCDay()];
 
@@ -70,7 +68,6 @@ export const weekdayOf = (input: string | Date) =>
 export const formatDay = (input: string | Date) =>
   `${weekdayOf(input)}, ${formatDate(input)}`;
 
-// The week of Monday 15 June 2026: '15 Jun'.
 export const weekLabel = (weekStart: string) => formatDayMonth(weekStart);
 
 const formatRange = (

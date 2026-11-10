@@ -32,7 +32,6 @@ export interface ITestApp {
   slack: SlackTestClient;
   // The app's pool, outside any transaction of the app.
   db: TestDatabase;
-  // Every statement sent to Postgres, to count the round trips of an action.
   sql: ISqlLog;
   // Resolves once the app has finished the work it does after answering
   // Slack (event handlers, EventEmitter listeners, tab updates).

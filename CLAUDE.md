@@ -66,6 +66,7 @@ pnpm slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
 - Imports use the tsconfig path aliases `@modules/<module>/...` and `@common/...`. Absolute `src/...` paths also resolve (`src/*` in `paths`; TypeScript 6 deprecates `baseUrl`), but relative `../` imports are a lint error. Jest maps all of them in `moduleNameMapper`.
 - Domain and shared code (the domain modules, `request-workflows` included, `src/common`, `slack-communication`) must not import the Slack UI in `src/slack` (`import/no-restricted-paths`). What both need goes into the domain module or `src/common`, e.g. `TimeEntryStatus` lives in `src/time-entries/enums`. A domain change that people should hear about publishes an event, and a listener in `src/slack` sends the messages. `src/common` in turn imports no feature module (a second zone of the same rule): the Slack request guards live in `src/slack/guards`, and `req.user` is typed in `src/slack/types/express.d.ts`.
 - `src/common/types/database.types.ts` is the generated Supabase `Database` type. ESLint ignores it; `pnpm db:types` formats it with Prettier.
+- Comments only for non-obvious things: why, constraints (Slack, Postgres), races and ordering; no comments that restate the code.
 
 ## Schema
 

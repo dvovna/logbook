@@ -81,8 +81,6 @@ interface IRemovedTimeNotice {
   billedDates: string[];
 }
 
-// Offers the requester to log an approved time off as time on the project of
-// its leave type: a button in a DM, and what the click does.
 @Injectable()
 export class TimeOffOfferService implements OnModuleInit {
   private readonly logger = new Logger(TimeOffOfferService.name);
@@ -102,8 +100,7 @@ export class TimeOffOfferService implements OnModuleInit {
     );
   }
 
-  // The button, as blocks to put into a message. A message's action is
-  // dispatched by the `block_id` of its first action.
+  // A message's action is dispatched by the `block_id` of its first action.
   public getBlocks(offer: ITimeOffOffer): AnyBlock[] {
     const hours = getDisplayTime(offer.dates.length * offer.minutes);
 
@@ -134,12 +131,10 @@ export class TimeOffOfferService implements OnModuleInit {
     }
   }
 
-  // An edit that approved the request, or changed the person, days or type
-  // of an approved one (which removed its logged time). The workflow's own
-  // approval carries no `previous`: its decision DM holds the button.
-  // Time the edit removed is told to whose it was (who logged it): in the
-  // offer's DM when the request is still theirs and approved, in a DM of its
-  // own otherwise; a new person gets the offer in a DM of their own.
+  // The workflow's own approval carries no `previous`: its decision DM holds
+  // the button. Removed time is told to whoever logged it: in the offer's DM
+  // when the request is still theirs and approved, else in a DM of its own; a
+  // new person gets the offer in a DM of their own.
   @OnEvent(VacationRequestEvent.Updated)
   public handleUpdated({
     request,
@@ -184,7 +179,6 @@ export class TimeOffOfferService implements OnModuleInit {
     }
   }
 
-  // A deletion that removed logged time: whose time it was hears what went.
   @OnEvent(VacationRequestEvent.Deleted)
   public handleDeleted({ request, removedTime }: VacationRequestUpdatedEvent) {
     for (const owner of removedTime?.owners ?? []) {
@@ -195,8 +189,7 @@ export class TimeOffOfferService implements OnModuleInit {
     }
   }
 
-  // The offer DM, as a job, with the removed time first when there is some;
-  // sends nothing when the request no longer has an offer (a retry after a
+  // Sends nothing when the request no longer has an offer (a retry after a
   // change) and there is no removal to tell.
   public async sendOffer({
     requestId,
@@ -261,10 +254,9 @@ export class TimeOffOfferService implements OnModuleInit {
     );
   }
 
-  // A click on the button. What can be refused answers the clicker here; the
-  // logging and the message update run after the answer. Someone else's click
-  // is dropped with a warning and the message stays as it is, as an approver
-  // step's refused click is.
+  // What can be refused answers the clicker here; the logging and the
+  // message update run after the answer. Someone else's click is dropped with
+  // a warning, as an approver step's refused click is.
   public async handleClick(
     user: IUserViewModel,
     requestId: string,
@@ -309,8 +301,6 @@ export class TimeOffOfferService implements OnModuleInit {
     });
   }
 
-  // A click refused for what the clicker can know (told to them) or for
-  // being someone else's (dropped with a warning). False for any other error.
   private async refuse(
     error: unknown,
     user: IUserViewModel,
@@ -366,8 +356,6 @@ export class TimeOffOfferService implements OnModuleInit {
     };
   }
 
-  // What an edit did to the time off of `ownerId`, as the edited `request`
-  // shows it.
   private changeOf(
     request: IVacationRequestViewModel,
     ownerId: string,
@@ -388,9 +376,7 @@ export class TimeOffOfferService implements OnModuleInit {
     }
   }
 
-  // 'Your annual leave 16–20 Nov 2026 was rejected: the 40h logged on
-  // Vacations were removed.', with the billed days that stay, for whose time
-  // it was. Null when they were deactivated since.
+  // For whose time it was; null when they were deactivated since.
   private async removalOf(
     removed: IRemovedTimeNotice,
     slackTeamId: string,
@@ -453,7 +439,6 @@ export class TimeOffOfferService implements OnModuleInit {
     linked: ITimeOffResult['linked'],
   ) {
     const project = escapeMrkdwn(offer.projectName);
-    // '17–18 Jun, 22 Jun', as the notice of billed days.
     const days = (dates: string[]) => formatDateList([...dates].sort());
     // What is stored for the request, so every click (the first, a second at
     // once, a late one) writes the same true text. Days the request holds on

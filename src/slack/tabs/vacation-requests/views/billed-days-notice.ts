@@ -9,9 +9,7 @@ const billedDays = (dates: string[]) => {
     : `${pluralize('day', dates.length, true)} stay logged: they are billed (${days}).`;
 };
 
-// `notice`, and the days of the vacation whose logged time stayed when it
-// changed, because a billing snapshot holds it: '✅ Vacation request updated.
-// 2 days stay logged: they are billed (17–18 Jun).' `billedDates` are sorted
-// 'YYYY-MM-DD'.
+// `billedDates` (sorted 'YYYY-MM-DD'): the days whose logged time stayed
+// because a billing snapshot holds it.
 export const withBilledDays = (notice: string, billedDates: string[]) =>
   billedDates.length ? `${notice} ${billedDays(billedDates)}` : notice;
