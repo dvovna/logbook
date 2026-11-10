@@ -1,3 +1,4 @@
+import { runPeriodically } from '@common/utils/periodic.utils';
 import {
   Injectable,
   Logger,
@@ -21,7 +22,7 @@ export class WorkspaceRetentionService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(WorkspaceRetentionService.name);
-  private timers: NodeJS.Timeout[] = [];
+  private stopTimers?: () => void;
 
   public constructor(
     private readonly slackTeamsService: SlackTeamsService,
@@ -29,23 +30,16 @@ export class WorkspaceRetentionService
   ) {}
 
   public onModuleInit() {
-    const run = () => {
-      this.deleteExpired().catch((error: Error) =>
-        this.logger.error(
-          `Could not delete uninstalled workspaces: ${error.message}`,
-        ),
-      );
-    };
-
-    // unref: the timers alone don't keep the process running.
-    this.timers = [
-      setTimeout(run, FIRST_RUN_AFTER_MS).unref(),
-      setInterval(run, EVERY_MS).unref(),
-    ];
+    this.stopTimers = runPeriodically(() => this.deleteExpired(), {
+      firstAfterMs: FIRST_RUN_AFTER_MS,
+      everyMs: EVERY_MS,
+      logger: this.logger,
+      failure: 'Could not delete uninstalled workspaces',
+    });
   }
 
   public onModuleDestroy() {
-    this.timers.forEach((timer) => clearTimeout(timer));
+    this.stopTimers?.();
   }
 
   public async deleteExpired(): Promise<number> {

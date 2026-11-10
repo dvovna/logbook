@@ -44,8 +44,6 @@ type HomeTabModalViewResolversMapType = {
   ) => Promise<View>;
 };
 
-import { PendingApprovalsService } from '@modules/slack/common/services/pending-approvals.service';
-
 import { SetupProgressService } from '@modules/slack/tabs/home/services/setup-progress.service';
 
 @Injectable()
@@ -59,7 +57,6 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
-    private readonly approvalsCounter: PendingApprovalsService,
     private readonly setupProgressService: SetupProgressService,
   ) {
     super(TabId.Home, {
@@ -74,25 +71,19 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     });
   }
 
-  public async getTabView({ user }: IPublishBaseParams) {
-    const [
-      vacationUsageInfo,
-      requestedVacations,
-      timeSummary,
-      pendingApprovals,
-      setup,
-    ] = await Promise.all([
-      this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
-      this.vacationsService.findMany({
-        userId: user.id,
-        slackTeamId: user.slack_team_id,
-        startDate: user.contract_start_date || undefined,
-        statuses: [VacationRequestStatus.Pending],
-      }),
-      this.timeEntriesSummaryService.getUserSummary(user),
-      this.approvalsCounter.count(user),
-      this.setupProgressService.get(user),
-    ]);
+  public async getTabView({ user, pendingApprovals }: IPublishBaseParams) {
+    const [vacationUsageInfo, requestedVacations, timeSummary, setup] =
+      await Promise.all([
+        this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
+        this.vacationsService.findMany({
+          userId: user.id,
+          slackTeamId: user.slack_team_id,
+          startDate: user.contract_start_date || undefined,
+          statuses: [VacationRequestStatus.Pending],
+        }),
+        this.timeEntriesSummaryService.getUserSummary(user),
+        this.setupProgressService.get(user),
+      ]);
 
     return this.homeTabViewService.getView({
       userId: user.slack_id,
@@ -100,7 +91,8 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       vacationUsageInfo,
       requestedVacations,
       timeSummary,
-      pendingApprovals,
+      // Counted by BaseTabService for the Approvals button too.
+      pendingApprovals: pendingApprovals ?? { timeOff: 0, timeEntries: 0 },
       setup,
     });
   }

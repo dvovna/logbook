@@ -1,4 +1,7 @@
-import { VACATION_TYPE_LABELS } from '@modules/slack/common/views/data/labels';
+import {
+  VACATION_TYPE_LABELS,
+  vacationTypeLabel,
+} from '@modules/slack/common/views/data/labels';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
@@ -61,7 +64,7 @@ export class CancelVacationRequestSelectModalView extends BaseModalView<ICancelV
   }
 
   private getRequestLabel(request: IVacationRequestViewModel) {
-    const type = VACATION_TYPE_LABELS[request.type]?.label ?? 'Unknown';
+    const type = vacationTypeLabel(request.type);
 
     return `${formatDateRange(request.start_date, request.end_date)} · ${type} · ${request.days} days`;
   }

@@ -1,8 +1,10 @@
+import { MenuGroup } from '@modules/slack/common/enums/menu-group.enum';
 import UserRole from '@common/enums/user-role.enum';
 import {
   ADMIN_AND_HR_ROLES,
   ALL_ROLES,
   BILLING_ROLES,
+  PROJECT_ROLES,
   MANAGER_ROLES,
 } from '@common/constants/role-groups';
 import { TabId } from '@modules/slack/common/enums/tab-id.enum';
@@ -31,12 +33,6 @@ export enum ScreenId {
   BillingSnapshots = 'billing_snapshots',
 }
 
-// The groups of the More menu, in their order.
-export enum MenuGroup {
-  Manage = 'Manage',
-  Settings = 'Settings',
-}
-
 export interface IScreen {
   // With its icon, as on its button: '🏢 Teams'.
   title: string;
@@ -54,10 +50,6 @@ export interface IScreen {
   // Opened from that screen: Back goes there, and the navigation marks it.
   parent?: ScreenId;
 }
-
-// Projects and clients: managers assign people to projects, Finance sets
-// their rates.
-const PROJECT_ROLES: readonly UserRole[] = [...MANAGER_ROLES, UserRole.Finance];
 
 export const SCREENS: Record<ScreenId, IScreen> = {
   [ScreenId.Home]: {
@@ -152,7 +144,7 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     actionId: NavigationActionId.TimeLogs,
     parent: ScreenId.Reports,
   },
-  // Billing snapshots are Admin's and Finance's, as rates are (SNAPSHOT_ROLES).
+  // Billing snapshots are Admin's and Finance's, as rates are (BILLING_ROLES).
   [ScreenId.BillingSnapshots]: {
     title: '🔒 Billing snapshots',
     roles: BILLING_ROLES,
@@ -175,11 +167,17 @@ const screensFor = (role: UserRole, include: (screen: IScreen) => boolean) =>
 export const navigationScreensFor = (role: UserRole): ScreenId[] =>
   screensFor(role, (screen) => !screen.parent && !screen.menuGroup);
 
-// The More menu, in order: its groups, each with its screens.
-export const menuScreensFor = (role: UserRole): ScreenId[] =>
-  Object.values(MenuGroup).flatMap((group) =>
-    screensFor(role, (screen) => screen.menuGroup === group),
-  );
+// The More menu, in order: its groups that have screens for the role, each
+// with its screens.
+export const menuGroupsFor = (
+  role: UserRole,
+): { group: MenuGroup; screens: ScreenId[] }[] =>
+  Object.values(MenuGroup)
+    .map((group) => ({
+      group,
+      screens: screensFor(role, (screen) => screen.menuGroup === group),
+    }))
+    .filter(({ screens }) => screens.length);
 
 export const settingsScreensFor = (role: UserRole): ScreenId[] =>
   screensFor(role, (screen) => screen.menuGroup === MenuGroup.Settings);

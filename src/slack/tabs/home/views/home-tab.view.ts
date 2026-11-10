@@ -1,4 +1,7 @@
-import { VACATION_TYPE_LABELS } from '@modules/slack/common/views/data/labels';
+import {
+  VACATION_TYPE_LABELS,
+  vacationTypeLabel,
+} from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { formatDateRange } from '@common/utils/date.utils';
@@ -375,7 +378,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${VACATION_TYPE_LABELS[vacation.type].label}*\n${formatDateRange(vacation.start_date, vacation.end_date)} (${pluralize('day', vacation.days, true)})`,
+        text: `*${vacationTypeLabel(vacation.type)}*\n${formatDateRange(vacation.start_date, vacation.end_date)} (${pluralize('day', vacation.days, true)})`,
       },
       accessory: {
         type: 'overflow',

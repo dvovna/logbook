@@ -1,3 +1,6 @@
+import { UNLOCK_SNAPSHOT_ROLES } from 'src/billing/constants/snapshot-roles';
+import { RATE_ROLES } from 'src/projects/constants/rate-roles';
+import { CLIENT_EDITOR_ROLES } from '@common/constants/role-groups';
 import { Injectable } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
@@ -43,18 +46,10 @@ export class SlackActionPermissionsService {
     // Admin and Finance projects (their form has the rate). A manager or HR
     // may assign people to a project and archive it. Rates are Admin's and
     // Finance's, the currency an admin's.
-    [ClientsTabViewActionId.AddClient]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Finance,
-    ],
-    [ClientsTabViewActionId.ManageClientMenu]: [
-      UserRole.Admin,
-      UserRole.HR,
-      UserRole.Finance,
-    ],
-    [ProjectsTabViewActionId.AddProject]: [UserRole.Admin, UserRole.Finance],
-    [ProjectsTabViewActionId.EditProject]: [UserRole.Admin, UserRole.Finance],
+    [ClientsTabViewActionId.AddClient]: [...CLIENT_EDITOR_ROLES],
+    [ClientsTabViewActionId.ManageClientMenu]: [...CLIENT_EDITOR_ROLES],
+    [ProjectsTabViewActionId.AddProject]: [...RATE_ROLES],
+    [ProjectsTabViewActionId.EditProject]: [...RATE_ROLES],
     [ProjectsTabViewActionId.ManageProjectAssignments]: [
       UserRole.Admin,
       UserRole.HR,
@@ -66,13 +61,10 @@ export class SlackActionPermissionsService {
       UserRole.Manager,
       UserRole.Finance,
     ],
-    [ProjectsTabViewActionId.ManagePersonRates]: [
-      UserRole.Admin,
-      UserRole.Finance,
-    ],
+    [ProjectsTabViewActionId.ManagePersonRates]: [...RATE_ROLES],
     [ProjectsTabViewActionId.ChangeCurrency]: [UserRole.Admin],
     // Admin and Finance make billing snapshots; only an admin unlocks one.
-    [BillingSnapshotsTabActionId.UnlockSnapshot]: [UserRole.Admin],
+    [BillingSnapshotsTabActionId.UnlockSnapshot]: [...UNLOCK_SNAPSHOT_ROLES],
   } as const;
 
   public can(

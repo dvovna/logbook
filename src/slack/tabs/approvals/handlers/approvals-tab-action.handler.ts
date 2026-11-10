@@ -61,26 +61,25 @@ export default class ApprovalsTabActionHandler extends BaseTabActionHandler {
       [ApprovalsTabActionId.RejectEntry]: this.handleReject,
       [ApprovalsTabActionId.ApproveAll]: this.handleApproveAll,
       [ApprovalsTabActionId.ShowAllEntries]: (payload, user) =>
-        this.updateTab(
-          {
-            ...parseMetadata<IApprovalsTabMetaData>(payload),
-            allEntries: true,
-            page: 1,
-          },
-          user,
-        ),
+        this.showEntries(payload, user, true),
       [ApprovalsTabActionId.ShowWaitingEntries]: (payload, user) =>
-        this.updateTab(
-          {
-            ...parseMetadata<IApprovalsTabMetaData>(payload),
-            allEntries: false,
-            page: 1,
-          },
-          user,
-        ),
+        this.showEntries(payload, user, false),
       [ApprovalsTabActionId.PaginationPrev]: paginationHandler,
       [ApprovalsTabActionId.PaginationNext]: paginationHandler,
     };
+  }
+
+  // Admin and HR switch between what waits for them and every submitted
+  // entry; for anyone else the service lists what waits for them anyway.
+  private showEntries(
+    payload: ISlackBlockActionPayload,
+    user: IUserViewModel,
+    allEntries: boolean,
+  ) {
+    return this.updateTab(
+      { ...parseMetadata<IApprovalsTabMetaData>(payload), allEntries, page: 1 },
+      user,
+    );
   }
 
   private updateTab = async (

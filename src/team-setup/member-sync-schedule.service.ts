@@ -1,3 +1,4 @@
+import { runPeriodically } from '@common/utils/periodic.utils';
 import {
   Injectable,
   Logger,
@@ -25,7 +26,7 @@ export class MemberSyncScheduleService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(MemberSyncScheduleService.name);
-  private timers: NodeJS.Timeout[] = [];
+  private stopTimers?: () => void;
 
   public constructor(
     private readonly slackTeamsService: SlackTeamsService,
@@ -33,21 +34,16 @@ export class MemberSyncScheduleService
   ) {}
 
   public onModuleInit() {
-    const run = () => {
-      this.syncAll().catch((error: Error) =>
-        this.logger.error(`Could not sync the members: ${error.message}`),
-      );
-    };
-
-    // unref: the timers alone don't keep the process running.
-    this.timers = [
-      setTimeout(run, FIRST_RUN_AFTER_MS).unref(),
-      setInterval(run, EVERY_MS).unref(),
-    ];
+    this.stopTimers = runPeriodically(() => this.syncAll(), {
+      firstAfterMs: FIRST_RUN_AFTER_MS,
+      everyMs: EVERY_MS,
+      logger: this.logger,
+      failure: 'Could not sync the members',
+    });
   }
 
   public onModuleDestroy() {
-    this.timers.forEach((timer) => clearTimeout(timer));
+    this.stopTimers?.();
   }
 
   // One workspace after another, so a big installation doesn't call Slack
@@ -56,7 +52,10 @@ export class MemberSyncScheduleService
     const ids = await this.slackTeamsService.findInstalledIds();
 
     for (const slackTeamId of ids) {
-      await this.jobs.run<ISyncUsersJob>(SYNC_USERS_JOB, { slackTeamId });
+      await this.jobs.run<ISyncUsersJob>(SYNC_USERS_JOB, {
+        slackTeamId,
+        scheduled: true,
+      });
     }
 
     return ids.length;

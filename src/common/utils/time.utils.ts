@@ -14,3 +14,6 @@ export const getDisplayTime = (minutes: number) => {
     return `${remainingMinutes}m`;
   }
 };
+
+export const sumMinutes = (entries: { minutes: number }[]) =>
+  entries.reduce((sum, { minutes }) => sum + minutes, 0);

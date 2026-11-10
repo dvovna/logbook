@@ -16,7 +16,10 @@ import {
   screenOfTab,
 } from '@modules/slack/common/navigation/screens';
 import { ScreenHeader } from '@modules/slack/common/views/components/screen-header.view';
-import { PendingApprovalsService } from '@modules/slack/common/services/pending-approvals.service';
+import {
+  IPendingApprovals,
+  PendingApprovalsService,
+} from '@modules/slack/common/services/pending-approvals.service';
 import { AnyBlock } from '@slack/web-api';
 
 // Kept apart, so that TabNavigationService can use them without importing
@@ -95,10 +98,22 @@ export default abstract class BaseTabService<
     }
 
     try {
-      const tabView = await this.getSafeTabView(params);
+      const pendingApprovals = params.user.is_active
+        ? await this.countPendingApprovals(params.user)
+        : undefined;
+      const tabView = await this.getSafeTabView({
+        ...params,
+        pendingApprovals,
+      });
       const header = params.user.is_active
         ? [
-            ...(await this.getHeaderBlocks(screenId, params)),
+            ...ScreenHeader.getBlocks({
+              screenId,
+              role: params.user.role,
+              approvalsCount:
+                pendingApprovals &&
+                pendingApprovals.timeOff + pendingApprovals.timeEntries,
+            }),
             ...this.getNoticeBlocks(params.notice),
           ]
         : [];
@@ -128,21 +143,15 @@ export default abstract class BaseTabService<
     return screenOfTab(this.tabId, params.metadata ?? {});
   }
 
-  private async getHeaderBlocks(screenId: ScreenId, { user }: PublishParams) {
-    // Only a number on a button: without it the screen still shows.
-    const approvalsCount = await this.pendingApprovalsService
-      .count(user)
-      .then(({ timeOff, timeEntries }) => timeOff + timeEntries)
-      .catch((error: Error) => {
-        this.logger.warn(`Could not count pending approvals: ${error.message}`);
+  // Only a number on a button and a line on Home: without it the screen
+  // still shows.
+  private countPendingApprovals(
+    user: IUserViewModel,
+  ): Promise<IPendingApprovals | undefined> {
+    return this.pendingApprovalsService.count(user).catch((error: Error) => {
+      this.logger.warn(`Could not count pending approvals: ${error.message}`);
 
-        return undefined;
-      });
-
-    return ScreenHeader.getBlocks({
-      screenId,
-      role: user.role,
-      approvalsCount,
+      return undefined;
     });
   }
 

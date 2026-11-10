@@ -1,6 +1,8 @@
+import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import {
   personLabel,
   VACATION_TYPE_LABELS,
+  vacationTypeLabel,
 } from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { formatDate, formatDateRange } from '@common/utils/date.utils';
@@ -139,7 +141,7 @@ export class ApprovalsTabView extends BaseTabView<
         email: request.user_email,
       }),
       details: [
-        `${VACATION_TYPE_LABELS[request.type].label} · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)})`,
+        `${vacationTypeLabel(request.type)} · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)})`,
       ],
       accessory: {
         type: 'overflow',
@@ -169,7 +171,7 @@ export class ApprovalsTabView extends BaseTabView<
     { page, allEntries }: IApprovalsTabMetaData,
   ): AnyBlock[] {
     const { totalCount } = pendingEntries;
-    const mayShowAll = ADMIN_AND_HR_ROLES.includes(userRole);
+    const mayShowAll = isTimeEntriesAdmin(userRole);
     const showsAll = mayShowAll && !!allEntries;
 
     return [

@@ -277,7 +277,10 @@ describe('Time entries', () => {
 
     it('logs time for the user and in the status the admin picks', async () => {
       await workspace.assignToProject(website, { users: [admin] });
+      // Design has no manager: its entries wait for HR.
+      const hr = await workspace.addUser({ role: UserRole.HR });
       const modal = await openLogTimeModal(admin);
+      const since = t.slackApi.mark();
 
       const suggestions = await t.slack
         .suggest(
@@ -311,6 +314,22 @@ describe('Time entries', () => {
           created_by: admin.id,
         }),
       ]);
+
+      // Its approver hears of it as of any submitted time; the admin who
+      // logged it doesn't.
+      await t.idle();
+      expect(
+        t.slackApi
+          .postedMessages(workspace.token, hr.slack_id, { since })
+          .map(({ text }) => text),
+      ).toEqual([
+        expect.stringContaining(
+          '*Mia Member* submitted *1 time entry* (1h) for your approval',
+        ),
+      ]);
+      expect(
+        t.slackApi.postedMessages(workspace.token, admin.slack_id, { since }),
+      ).toEqual([]);
     });
 
     it('reminds of unsubmitted entries on Home and submits them from there', async () => {

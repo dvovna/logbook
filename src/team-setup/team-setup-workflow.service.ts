@@ -42,6 +42,8 @@ export const WELCOME_TEXT = [
 export interface ISyncUsersJob {
   slackTeamId: string;
   userSlackIdsToIgnore?: string[];
+  // The daily sync (MemberSyncScheduleService): no install to wait for.
+  scheduled?: boolean;
 }
 
 @Injectable()
@@ -72,8 +74,12 @@ export class TeamSetupWorkflowService implements OnModuleInit {
     });
 
     this.jobs.define<ISyncUsersJob>(SYNC_USERS_JOB, async (job) => {
-      // No hurry: the installing admin is in already.
-      await delay(5000);
+      // After an install there is no hurry: the installing admin is in
+      // already.
+      if (!job.scheduled) {
+        await delay(5000);
+      }
+
       await this.teamUsersSyncService.syncUsers(job);
     });
   }

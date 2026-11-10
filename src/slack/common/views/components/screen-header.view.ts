@@ -7,7 +7,7 @@ import {
 } from '@slack/web-api';
 import UserRole from '@common/enums/user-role.enum';
 import {
-  menuScreensFor,
+  menuGroupsFor,
   navigationScreensFor,
   rootOf,
   SCREENS,
@@ -97,32 +97,35 @@ export class ScreenHeader {
         id === root,
       );
     };
-    const menu = menuScreensFor(role);
+    const groups = menuGroupsFor(role);
+    const menu = groups.flatMap(({ screens }) => screens);
 
     // A menu of one screen would hide it a click deeper: a button it is.
     return [
       ...navigationScreensFor(role).map(buttonOf),
-      ...(menu.length > 1 ? [this.getMenu(menu, root)] : menu.map(buttonOf)),
+      ...(menu.length > 1
+        ? [this.getMenu(groups, menu, root)]
+        : menu.map(buttonOf)),
     ];
   }
 
-  private static getMenu(screens: ScreenId[], root: ScreenId): StaticSelect {
-    const groups = [
-      ...new Set(screens.map((id) => SCREENS[id].menuGroup!)),
-    ].map((group) => ({
-      label: { type: 'plain_text' as const, text: group },
-      options: screens
-        .filter((id) => SCREENS[id].menuGroup === group)
-        .map(menuOption),
-    }));
-
+  private static getMenu(
+    groups: ReturnType<typeof menuGroupsFor>,
+    screens: ScreenId[],
+    root: ScreenId,
+  ): StaticSelect {
     return {
       type: 'static_select',
       action_id: NavigationActionId.Menu,
       placeholder: { type: 'plain_text', text: MENU_PLACEHOLDER, emoji: true },
       ...(groups.length > 1
-        ? { option_groups: groups }
-        : { options: groups[0].options }),
+        ? {
+            option_groups: groups.map(({ group, screens: inGroup }) => ({
+              label: { type: 'plain_text' as const, text: group },
+              options: inGroup.map(menuOption),
+            })),
+          }
+        : { options: screens.map(menuOption) }),
       ...(screens.includes(root) ? { initial_option: menuOption(root) } : {}),
     };
   }

@@ -1,3 +1,4 @@
+import { CLIENT_EDITOR_ROLES } from '@common/constants/role-groups';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -28,7 +29,7 @@ import { IClientsTabMetaData } from '@modules/slack/tabs/clients/views/clients-t
 @SlackHandler({
   callbackId: ViewCallbackId.ClientFormSubmit,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Finance],
+  allowedRoles: CLIENT_EDITOR_ROLES,
 })
 export class ClientFormSubmitHandler extends BaseModalFormSubmitHandler<
   IClientModalViewMetadata,

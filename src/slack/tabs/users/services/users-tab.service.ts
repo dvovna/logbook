@@ -1,3 +1,4 @@
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { isPeopleAdmin } from '@modules/users/utils/people-admin-roles';
 import TeamsService from '@modules/teams/services/teams.service';
@@ -165,7 +166,7 @@ export class UsersTabService extends BaseTabService<
       {
         errorMessage,
         title: `${userToEdit.is_active ? 'Deactivate' : 'Activate'} User`,
-        message: `Are you sure you want to ${userToEdit.is_active ? 'deactivate' : 'activate'} the user *${userToEdit.name}*?`,
+        message: `Are you sure you want to ${userToEdit.is_active ? 'deactivate' : 'activate'} the user *${escapeMrkdwn(userToEdit.name)}*?`,
         callbackId: ViewCallbackId.ChangeUserStatus,
       },
       {

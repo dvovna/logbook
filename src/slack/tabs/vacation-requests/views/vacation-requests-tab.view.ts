@@ -4,6 +4,7 @@ import {
   VACATION_STATUS_LABELS,
   VACATION_TYPE_LABELS,
   withIcon,
+  vacationTypeLabel,
 } from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
@@ -113,7 +114,7 @@ export class VacationRequestsTabView extends BaseTabView<
     return ListItem.getBlocks({
       title: personLabel(vacationRequest.user ?? {}),
       details: [
-        `${VACATION_TYPE_LABELS[vacationRequest.type].label} · ${dates}`,
+        `${vacationTypeLabel(vacationRequest.type)} · ${dates}`,
         [
           `Days: ${vacationRequest.days} (${vacationRequest.working_days} working)`,
           `Status: ${withIcon(VACATION_STATUS_LABELS[vacationRequest.status])}`,

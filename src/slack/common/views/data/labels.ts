@@ -42,6 +42,11 @@ export const VACATION_TYPE_LABELS: Record<
   [VacationType.Other]: { label: 'Other', balance: 'Other', icon: '📌' },
 };
 
+// A type's label; a value the app no longer knows (stored by an older
+// version) shows as it is rather than breaking the message.
+export const vacationTypeLabel = (type: VacationType): string =>
+  VACATION_TYPE_LABELS[type]?.label ?? type;
+
 // What the days left of a type are called, with its icon: '🎁 Bonus days'.
 export const balanceTitle = (type: VacationType) =>
   `${VACATION_TYPE_LABELS[type].icon} ${VACATION_TYPE_LABELS[type].balance}`;

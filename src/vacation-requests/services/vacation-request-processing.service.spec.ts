@@ -88,8 +88,15 @@ describe('VacationRequestProcessingService', () => {
     workflowService = { create: jest.fn(), cancel: jest.fn() };
     usersByRole = {};
     usersService = {
-      findMany: jest.fn(async ({ role }: { role: UserRole }) =>
-        (usersByRole[role] ?? []).map((slack_id) => ({ slack_id })),
+      // The requester's Slack ID stands for them: their id is user-1.
+      findMany: jest.fn(async ({ roles }: { roles: UserRole[] }) =>
+        roles.flatMap((role) =>
+          (usersByRole[role] ?? []).map((slack_id) => ({
+            id: slack_id === 'U_REQUESTER' ? 'user-1' : slack_id,
+            slack_id,
+            role,
+          })),
+        ),
       ),
       findOne: jest.fn().mockResolvedValue(null),
     };

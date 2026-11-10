@@ -28,6 +28,20 @@ export const BILLING_ROLES: readonly UserRole[] = [
   UserRole.Finance,
 ];
 
+// Who changes clients: Admin, HR and Finance.
+export const CLIENT_EDITOR_ROLES: readonly UserRole[] = [
+  UserRole.Admin,
+  UserRole.HR,
+  UserRole.Finance,
+];
+
+// Who sees projects and clients: managers assign people to projects,
+// Finance sets their rates.
+export const PROJECT_ROLES: readonly UserRole[] = [
+  ...MANAGER_ROLES,
+  UserRole.Finance,
+];
+
 // Who sees everyone's time in reports and their CSV.
 export const COMPANY_TIME_ROLES: readonly UserRole[] = [
   UserRole.Admin,

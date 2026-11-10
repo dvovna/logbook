@@ -13,7 +13,7 @@ import { JobsService } from '@common/jobs/jobs.service';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { getDisplayTime } from '@common/utils/time.utils';
+import { getDisplayTime, sumMinutes } from '@common/utils/time.utils';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
@@ -63,19 +63,31 @@ export class TimeEntryNotificationsService implements OnModuleInit {
   // for them (TimeEntryApprovalsService.groupByApprover). A job per
   // approver: when Slack fails the message is retried, not lost.
   @OnEvent(TIME_ENTRIES_SUBMITTED)
-  public async handleSubmitted({ entries, owner }: TimeEntriesSubmittedEvent) {
+  public async handleSubmitted({
+    entries,
+    slackTeamId,
+    submittedById,
+  }: TimeEntriesSubmittedEvent) {
     const groups = await this.timeEntryApprovalsService.groupByApprover(
       entries,
-      owner.slack_team_id,
+      slackTeamId,
     );
 
-    for (const { approver, entries: theirs } of groups) {
-      void this.jobs.run<INotifySubmittedJob>(NOTIFY_SUBMITTED_JOB, {
-        slackTeamId: owner.slack_team_id,
-        approverId: approver.id,
-        ownerId: owner.id,
-        entryIds: theirs.map(({ id }) => id),
-      });
+    // Admin or HR who logged it as submitted knows already.
+    for (const { approver, entries: theirs } of groups.filter(
+      ({ approver }) => approver.id !== submittedById,
+    )) {
+      // One message per owner: Admin or HR may log time for several people.
+      for (const [ownerId, owned] of Object.entries(
+        groupBy(theirs, ({ user_id }) => user_id),
+      )) {
+        void this.jobs.run<INotifySubmittedJob>(NOTIFY_SUBMITTED_JOB, {
+          slackTeamId,
+          approverId: approver.id,
+          ownerId,
+          entryIds: owned.map(({ id }) => id),
+        });
+      }
     }
   }
 
@@ -119,16 +131,14 @@ export class TimeEntryNotificationsService implements OnModuleInit {
       return;
     }
 
-    const minutes = (list: ITimeEntryViewModel[]) =>
-      list.reduce((sum, entry) => sum + entry.minutes, 0);
     const byProject = Object.entries(
       groupBy(waiting, (entry) => entry.project?.name ?? 'No project'),
-    ).sort(([, a], [, b]) => minutes(b) - minutes(a));
+    ).sort(([, a], [, b]) => sumMinutes(b) - sumMinutes(a));
     const projects = byProject
       .slice(0, PROJECTS_NAMED)
       .map(
         ([name, list]) =>
-          `${escapeMrkdwn(name)} (${getDisplayTime(minutes(list))})`,
+          `${escapeMrkdwn(name)} (${getDisplayTime(sumMinutes(list))})`,
       );
     const more =
       byProject.length > PROJECTS_NAMED
@@ -139,7 +149,7 @@ export class TimeEntryNotificationsService implements OnModuleInit {
       approver.slack_id,
       {
         text: [
-          `:inbox_tray: *${escapeMrkdwn(personLabel(owner))}* submitted *${pluralize('time entry', waiting.length, true)}* (${getDisplayTime(minutes(waiting))}) for your approval: ${projects.join(', ')}${more}.`,
+          `:inbox_tray: *${escapeMrkdwn(personLabel(owner))}* submitted *${pluralize('time entry', waiting.length, true)}* (${getDisplayTime(sumMinutes(waiting))}) for your approval: ${projects.join(', ')}${more}.`,
           'They wait for you in Logbook → ✅ Approvals.',
         ].join('\n'),
       },

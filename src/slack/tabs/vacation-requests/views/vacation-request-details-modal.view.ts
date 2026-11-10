@@ -3,6 +3,7 @@ import {
   VACATION_STATUS_LABELS,
   VACATION_TYPE_LABELS,
   withIcon,
+  vacationTypeLabel,
 } from '@modules/slack/common/views/data/labels';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
@@ -64,7 +65,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
           },
           {
             type: 'mrkdwn',
-            text: `🏖️ *Type:*\n${VACATION_TYPE_LABELS[request.type].label}`,
+            text: `🏖️ *Type:*\n${vacationTypeLabel(request.type)}`,
           },
           {
             type: 'mrkdwn',

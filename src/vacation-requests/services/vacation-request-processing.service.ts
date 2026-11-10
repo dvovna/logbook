@@ -1,3 +1,4 @@
+import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
 import VacationType from '@common/enums/vacation-type.enum';
 import { IRequestContext } from '@modules/request-workflows/types/request-workflow-step.interface';
@@ -165,24 +166,23 @@ export class VacationRequestProcessingService implements OnModuleInit {
     );
   }
 
-  // Everyone with the HR role, else every admin; never the requester.
+  // Everyone with the HR role, else every admin; never the requester
+  // (fallbackApprovers, as for time entries).
   private async findFallbackApprovers(request: IVacationRequestViewModel) {
-    for (const role of [UserRole.HR, UserRole.Admin] as const) {
-      const approvers = (
-        await this.usersService.findMany({
-          slackTeamId: request.slack_team_id,
-          role,
-        })
-      )
-        .map(({ slack_id }) => slack_id)
-        .filter((slackId) => slackId !== request.user!.slack_id);
+    const fallback = fallbackApprovers(
+      await this.usersService.findMany({
+        slackTeamId: request.slack_team_id,
+        roles: [UserRole.HR, UserRole.Admin],
+      }),
+      request.user!.id,
+    );
 
-      if (approvers.length) {
-        return { role, approvers };
+    return (
+      fallback && {
+        role: fallback.role,
+        approvers: fallback.approvers.map(({ slack_id }) => slack_id),
       }
-    }
-
-    return null;
+    );
   }
 
   @OnEvent(VacationRequestEvent.Updated)

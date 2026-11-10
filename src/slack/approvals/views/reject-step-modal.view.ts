@@ -1,6 +1,7 @@
 import {
   personLabel,
   VACATION_TYPE_LABELS,
+  vacationTypeLabel,
 } from '@modules/slack/common/views/data/labels';
 import { Injectable } from '@nestjs/common';
 import pluralize from 'pluralize';
@@ -50,7 +51,7 @@ export class RejectStepModalView {
       {
         callbackId: ViewCallbackId.RejectRequestStepMessage,
         title: 'Reject Request',
-        summary: `*${requester}* · ${VACATION_TYPE_LABELS[request.type].label} · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)})`,
+        summary: `*${requester}* · ${vacationTypeLabel(request.type)} · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)})`,
         hint: 'Sent to the requester along with the decision.',
         errorMessage,
       },

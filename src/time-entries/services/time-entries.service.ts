@@ -106,7 +106,11 @@ export class TimeEntriesService {
       updated_by: user.id,
     };
 
-    return await this.timeEntriesRepository.create(record);
+    const created = await this.timeEntriesRepository.create(record);
+
+    this.announceSubmitted([created], user);
+
+    return created;
   }
 
   public async update(
@@ -134,7 +138,7 @@ export class TimeEntriesService {
       user,
     );
 
-    return this.refusingBilled(() =>
+    const updated = await this.refusingBilled(() =>
       this.timeEntriesRepository.update(
         {
           id,
@@ -178,6 +182,12 @@ export class TimeEntriesService {
         },
       ),
     );
+
+    if (existingEntry.status !== TimeEntryStatus.Submitted) {
+      this.announceSubmitted([updated], user);
+    }
+
+    return updated;
   }
 
   public findOne(params: IFindParams): Promise<ITimeEntryViewModel | null> {
@@ -247,14 +257,31 @@ export class TimeEntriesService {
       },
     );
 
+    this.announceSubmitted(submitted, user);
+
+    return submitted;
+  }
+
+  // Entries that just went to their approvers: submitted by their owner, or
+  // logged or set as submitted by Admin or HR. The approvers hear of them.
+  private announceSubmitted(
+    entries: ITimeEntryViewModel[],
+    submittedBy: IUserViewModel,
+  ) {
+    const submitted = entries.filter(
+      ({ status }) => status === TimeEntryStatus.Submitted,
+    );
+
     if (submitted.length) {
       this.eventEmitter.emit(
         TIME_ENTRIES_SUBMITTED,
-        new TimeEntriesSubmittedEvent(submitted, user),
+        new TimeEntriesSubmittedEvent(
+          submitted,
+          submitted[0].slack_team_id,
+          submittedBy.id,
+        ),
       );
     }
-
-    return submitted;
   }
 
   // Which of the entries are in a billing snapshot (locked).

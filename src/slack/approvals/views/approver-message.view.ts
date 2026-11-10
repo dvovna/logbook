@@ -1,4 +1,7 @@
-import { VACATION_TYPE_LABELS } from '@modules/slack/common/views/data/labels';
+import {
+  VACATION_TYPE_LABELS,
+  vacationTypeLabel,
+} from '@modules/slack/common/views/data/labels';
 import { formatDateRange } from '@common/utils/date.utils';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -199,7 +202,7 @@ ${this.getRequestDetails(step, comments)}`,
   private static getBasicRequestLines(step: IRequestWorkflowStepViewModel) {
     return [
       `📅 Dates: ${formatDateRange(step.step_data.snapshot.start_date, step.step_data.snapshot.end_date)} (${step.step_data.snapshot.days} calendar days, ${step.step_data.snapshot.working_days} working days)`,
-      `🏖️ Type: ${VACATION_TYPE_LABELS[step.step_data.snapshot.type].label}`,
+      `🏖️ Type: ${vacationTypeLabel(step.step_data.snapshot.type)}`,
     ];
   }
 

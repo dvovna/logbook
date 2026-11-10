@@ -1,3 +1,4 @@
+import { CLIENT_EDITOR_ROLES } from '@common/constants/role-groups';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
@@ -24,7 +25,7 @@ import {
 @SlackHandler({
   callbackId: ViewCallbackId.ChangeClientStatus,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Finance],
+  allowedRoles: CLIENT_EDITOR_ROLES,
 })
 export class ChangeClientStatusFormSubmitHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,

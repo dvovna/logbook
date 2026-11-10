@@ -89,6 +89,22 @@ export class TimeEntriesRepository extends BaseRepository<
     };
   };
 
+  // The submitted entries of the workspace but `excludeUserId`'s, newest
+  // work first: only what deciding who approves them needs, no joins.
+  public async findSubmittedKeys(
+    slackTeamId: string,
+    excludeUserId: string,
+  ): Promise<{ id: string; team_id: string | null; user_id: string }[]> {
+    return this.selectInWorkspace(slackTeamId)
+      .select(['id', 'team_id', 'user_id'])
+      .where('status', '=', TimeEntryStatus.Submitted)
+      .where('deleted_at', 'is', null)
+      .where('user_id', '!=', excludeUserId)
+      .orderBy('work_date', 'desc')
+      .orderBy('created_at', 'desc')
+      .execute();
+  }
+
   // Which of the entries are in a billing snapshot, and so can't change
   // until an admin unlocks it.
   public async findBilledIds(

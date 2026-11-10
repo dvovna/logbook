@@ -1,3 +1,4 @@
+import { sumMinutes } from '@common/utils/time.utils';
 import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -32,9 +33,6 @@ const weekOf = (date: Date) => {
 
   return { dateFrom: isoDate(monday), dateTo: isoDate(sunday) };
 };
-
-const sumMinutes = (entries: { minutes: number }[]) =>
-  entries.reduce((sum, { minutes }) => sum + minutes, 0);
 
 // The numbers Home and Reports show, over all entries but
 // deleted ones, whatever their status.
