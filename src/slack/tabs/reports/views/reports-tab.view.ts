@@ -35,12 +35,16 @@ import {
   moreLinesBlocks,
   tableBlock,
 } from '@modules/slack/tabs/reports/views/report-table';
+import { formatDate } from '@common/utils/date.utils';
+import { IUninvoicedReport } from 'src/billing/services/uninvoiced-report.service';
 
 export interface IReportsTabMetadata {
   // The billing report on show, from its form.
   report?: { clientId: string; fromDate: string; toDate: string };
   // The time report on show, from its form; one report shows at a time.
   timeReport?: { kind: TimeReportKind; fromDate: string; toDate: string };
+  // The uninvoiced report is on show (it has no form: it covers all time).
+  uninvoiced?: boolean;
 }
 
 interface IGetViewParams extends IBaseTabViewParams {
@@ -48,6 +52,7 @@ interface IGetViewParams extends IBaseTabViewParams {
   billingReport: IBillingReport | null;
   timeReport: ITimeReport | null;
   missingTime: IMissingTimeReport | null;
+  uninvoiced: IUninvoicedReport | null;
 }
 
 // Lines of a "By project" or "By person" list.
@@ -77,8 +82,9 @@ const context = (text: string): AnyBlock => ({
 });
 
 // The week at a glance and the time report, for everyone in their scope
-// (TimeEntriesScopeService); for Admin and HR also the billing report and
-// everyone's time logs.
+// (TimeEntriesScopeService); for Admin and HR also the billing report (and
+// locking its time in a snapshot), the uninvoiced report, billing snapshots
+// and everyone's time logs.
 @Injectable()
 export class ReportsTabView extends BaseTabView<
   IGetViewParams,
@@ -95,6 +101,7 @@ export class ReportsTabView extends BaseTabView<
     billingReport,
     timeReport,
     missingTime,
+    uninvoiced,
     userRole,
   }: IGetViewParams): AnyBlock[] {
     const week: AnyBlock = {
@@ -137,6 +144,19 @@ export class ReportsTabView extends BaseTabView<
                 },
                 {
                   type: 'button',
+                  text: { type: 'plain_text', text: '🧾 Uninvoiced' },
+                  action_id: ReportsTabActionId.Uninvoiced,
+                },
+                {
+                  type: 'button',
+                  text: {
+                    type: 'plain_text',
+                    text: SCREENS[ScreenId.BillingSnapshots].title,
+                  },
+                  action_id: NavigationActionId.BillingSnapshots,
+                },
+                {
+                  type: 'button',
                   text: { type: 'plain_text', text: '⏱ Time logs' },
                   action_id: NavigationActionId.TimeLogs,
                 },
@@ -147,6 +167,7 @@ export class ReportsTabView extends BaseTabView<
       ...(timeReport ? this.getTimeReportBlocks(timeReport) : []),
       ...(missingTime ? this.getMissingTimeBlocks(missingTime) : []),
       ...(billingReport ? this.getBillingReportBlocks(billingReport) : []),
+      ...(uninvoiced ? this.getUninvoicedBlocks(uninvoiced) : []),
     ];
   }
 
@@ -294,6 +315,8 @@ export class ReportsTabView extends BaseTabView<
             `_No rate: ${hours(report.unratedMinutes)} of billable time, not in the amount_`,
           report.unapprovedMinutes &&
             `_Not approved yet: ${hours(report.unapprovedMinutes)}_`,
+          report.snapshotMinutes &&
+            `_In billing snapshots already: ${hours(report.snapshotMinutes)} of the approved time_`,
         ]
           .filter(Boolean)
           .join('\n'),
@@ -339,6 +362,100 @@ export class ReportsTabView extends BaseTabView<
       ...moreLinesBlocks(left, ', in the total'),
       this.getTotalsBlock('By project', report.byProject, money),
       this.getTotalsBlock('By person', report.byPerson, money),
+      ...(report.approvedMinutes > report.snapshotMinutes
+        ? this.getLockBlocks()
+        : []),
+    ];
+  }
+
+  // Locks the approved time of the report that isn't in a snapshot yet.
+  private getLockBlocks(): AnyBlock[] {
+    return [
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '🔒 Lock in a snapshot' },
+            action_id: ReportsTabActionId.LockSnapshot,
+          },
+        ],
+      } as AnyBlock,
+      context(
+        "_A snapshot keeps this approved time with today's rates for an invoice: nobody can change it until an admin unlocks the snapshot._",
+      ),
+    ];
+  }
+
+  // Per client, what hasn't been invoiced: approved billable time in no
+  // snapshot (at today's rates), and the time of snapshots not marked
+  // invoiced (at their rates).
+  private getUninvoicedBlocks(report: IUninvoicedReport): AnyBlock[] {
+    const money = (cents: number) => formatMoney(cents, report.currency);
+    const { total } = report;
+    const summary: AnyBlock = {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: [
+          "*Uninvoiced time* · Approved billable time that isn't invoiced yet",
+          `Not in a snapshot: *${hours(total.minutes)}*, *${money(total.amountCents)}* at today's rates`,
+          `In snapshots not marked invoiced: *${hours(total.snapshotMinutes)}*, *${money(total.snapshotAmountCents)}*`,
+          total.unratedMinutes &&
+            `_No rate: ${hours(total.unratedMinutes)} of billable time, not in the amounts_`,
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      },
+    };
+
+    if (!report.rows.length) {
+      return [
+        ...Divider.getBlocks(),
+        summary,
+        context(
+          '_Nothing to invoice: all approved billable time is invoiced._',
+        ),
+      ];
+    }
+
+    const { rows, left } = fitTableRows(
+      [
+        'Client',
+        'Not in a snapshot',
+        'Amount',
+        'Since',
+        'In snapshots',
+        'Snapshot amount',
+      ],
+      report.rows.map((row) => [
+        row.clientName,
+        hours(row.minutes),
+        money(row.amountCents),
+        row.since ? formatDate(row.since) : NONE,
+        hours(row.snapshotMinutes),
+        money(row.snapshotAmountCents),
+      ]),
+      [
+        [
+          'Total',
+          hours(total.minutes),
+          money(total.amountCents),
+          NONE,
+          hours(total.snapshotMinutes),
+          money(total.snapshotAmountCents),
+        ],
+      ],
+    );
+
+    return [
+      ...Divider.getBlocks(),
+      summary,
+      tableBlock(rows, ['left', 'right', 'right', 'right', 'right', 'right']),
+      ...moreLinesBlocks(left, ', in the total'),
+      context(
+        '_Since: the earliest day of the time not in a snapshot. In snapshots: the snapshots not marked invoiced yet, at the rates they keep; mark them in Billing snapshots._',
+      ),
     ];
   }
 

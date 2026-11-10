@@ -20,6 +20,7 @@ export enum NavigationActionId {
 
   AllRequests = 'nav_all_requests',
   TimeLogs = 'nav_time_logs',
+  BillingSnapshots = 'nav_billing_snapshots',
 
   // The More menu of the navigation row: the chosen option's value is one
   // of the actions above.

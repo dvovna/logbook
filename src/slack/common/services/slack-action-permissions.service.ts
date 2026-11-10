@@ -4,6 +4,7 @@ import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { ClientsTabViewActionId } from '@modules/slack/tabs/clients/enums/clients-tab-view-actions-id.enum';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
+import { BillingSnapshotsTabActionId } from '@modules/slack/tabs/billing-snapshots/enums/billing-snapshots-tab-action-id.enum';
 
 // Which role sees an action inside a screen, when not everyone who may open
 // the screen (SCREENS) may use it. Hiding is not access control: the
@@ -57,6 +58,8 @@ export class SlackActionPermissionsService {
     ],
     [ProjectsTabViewActionId.ManagePersonRates]: [UserRole.Admin, UserRole.HR],
     [ProjectsTabViewActionId.ChangeCurrency]: [UserRole.Admin],
+    // Admin and HR make billing snapshots; only an admin unlocks one.
+    [BillingSnapshotsTabActionId.UnlockSnapshot]: [UserRole.Admin],
   } as const;
 
   public can(

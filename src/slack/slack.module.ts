@@ -42,6 +42,7 @@ import { ApprovalsTabModule } from '@modules/slack/tabs/approvals/approvals-tab.
 import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
 import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-tracking.module';
 import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module';
+import { BillingSnapshotsTabModule } from '@modules/slack/tabs/billing-snapshots/billing-snapshots-tab.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module
     ReportsTabModule,
     TimeTrackingModule,
     ClientsTabModule,
+    BillingSnapshotsTabModule,
     ApprovalsTabModule,
   ],
   controllers: [

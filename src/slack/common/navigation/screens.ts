@@ -27,6 +27,7 @@ export enum ScreenId {
   Holidays = 'holidays',
   AllRequests = 'all_requests',
   TimeLogs = 'time_logs',
+  BillingSnapshots = 'billing_snapshots',
 }
 
 // The groups of the More menu, in their order.
@@ -144,6 +145,14 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     roles: ADMIN_AND_HR_ROLES,
     tabId: TabId.TimeEntries,
     actionId: NavigationActionId.TimeLogs,
+    parent: ScreenId.Reports,
+  },
+  // Billing snapshots are Admin's and HR's, as rates are (SNAPSHOT_ROLES).
+  [ScreenId.BillingSnapshots]: {
+    title: '🔒 Billing snapshots',
+    roles: ADMIN_AND_HR_ROLES,
+    tabId: TabId.BillingSnapshots,
+    actionId: NavigationActionId.BillingSnapshots,
     parent: ScreenId.Reports,
   },
 };

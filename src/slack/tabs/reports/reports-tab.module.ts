@@ -12,9 +12,11 @@ import { TimeReportFormSubmitHandler } from '@modules/slack/tabs/reports/handler
 import TimeReportModalViewValuesParser from '@modules/slack/tabs/reports/parsers/time-report-modal-view-values.parser';
 import { TimeReportModalView } from '@modules/slack/tabs/reports/views/time-report-modal.view';
 import { TimeReportExportService } from '@modules/slack/tabs/reports/services/time-report-export.service';
+import { CreateBillingSnapshotFormSubmitHandler } from '@modules/slack/tabs/reports/handlers/create-billing-snapshot-form-submit.handler';
+import { BillingModule } from 'src/billing/billing.module';
 
 @Module({
-  imports: [SlackCommonModule, TimeEntriesModule, ClientsModule],
+  imports: [SlackCommonModule, TimeEntriesModule, ClientsModule, BillingModule],
   providers: [
     ReportsTabActionHandler,
     ReportsTabService,
@@ -26,6 +28,7 @@ import { TimeReportExportService } from '@modules/slack/tabs/reports/services/ti
     TimeReportModalViewValuesParser,
     TimeReportModalView,
     TimeReportExportService,
+    CreateBillingSnapshotFormSubmitHandler,
   ],
   exports: [ReportsTabService],
 })

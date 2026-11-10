@@ -20,6 +20,7 @@ import { TimeReportExportService } from '@modules/slack/tabs/reports/services/ti
 import { runInBackground } from '@common/utils/run-in-background';
 import { ValidationError } from '@common/errors/validation.error';
 import { assertReportPeriod } from 'src/time-entries/utils/report-period';
+import { assertCanManageSnapshots } from 'src/billing/constants/snapshot-roles';
 
 // What the Reports view on show was made with (its private_metadata).
 const metadataOf = (payload: ISlackInteractionPayload): IReportsTabMetadata => {
@@ -51,6 +52,8 @@ export default class ReportsTabActionHandler extends BaseTabActionHandler {
       [ReportsTabActionId.BillingReport]: this.handleBillingReports,
       [ReportsTabActionId.TimeReport]: this.handleTimeReport,
       [ReportsTabActionId.ExportTimeReport]: this.handleExportTimeReport,
+      [ReportsTabActionId.LockSnapshot]: this.handleLockSnapshot,
+      [ReportsTabActionId.Uninvoiced]: this.handleUninvoiced,
     };
   }
 
@@ -68,6 +71,38 @@ export default class ReportsTabActionHandler extends BaseTabActionHandler {
       ReportsModalName.BillingReport,
       { user },
     );
+  };
+
+  // Asks to confirm locking the billing report on show in a snapshot; the
+  // form carries the view's metadata, which names the report.
+  private handleLockSnapshot = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    assertCanManageSnapshots(user);
+
+    if (!metadataOf(payload).report) {
+      throw new ValidationError('Show a billing report first.');
+    }
+
+    await this.reportsTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      ReportsModalName.LockSnapshot,
+      { user, pageMetadata: payload.view?.private_metadata ?? '{}' },
+    );
+  };
+
+  // In place of any other report: it has no form.
+  private handleUninvoiced = async (
+    _payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    assertCanManageSnapshots(user);
+
+    await this.reportsTabService.publish({
+      user,
+      metadata: { uninvoiced: true },
+    });
   };
 
   private handleTimeReport = async (

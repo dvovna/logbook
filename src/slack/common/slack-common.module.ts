@@ -11,6 +11,7 @@ import { InactiveUserTabView } from '@modules/slack/common/views/inactive-user-t
 import { PendingApprovalsService } from '@modules/slack/common/services/pending-approvals.service';
 import { RequestWorkflowsModule } from '@modules/request-workflows/request-workflows.module';
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
+import { DmFileService } from '@modules/slack/common/services/dm-file.service';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
     FallbackTabActionHandler,
     InactiveUserTabView,
     PendingApprovalsService,
+    DmFileService,
   ],
   exports: [
     ConfirmationModalView,
@@ -39,6 +41,7 @@ import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
     FallbackTabView,
     InactiveUserTabView,
     PendingApprovalsService,
+    DmFileService,
   ],
 })
 export class SlackCommonModule {}

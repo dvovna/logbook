@@ -75,6 +75,12 @@ export enum ViewCallbackId {
   // time reports
   TimeReportFormSubmit = 'time_report_form_submit',
 
+  // billing snapshots
+  BillingSnapshotsTabView = 'billing_snapshots_tab_view',
+  CreateBillingSnapshot = 'create_billing_snapshot',
+  MarkBillingSnapshotInvoiced = 'mark_billing_snapshot_invoiced',
+  UnlockBillingSnapshot = 'unlock_billing_snapshot',
+
   // clients
   ClientsTabView = 'clients_tab_view',
   ClientFormSubmit = 'client_form_submit',

@@ -23,11 +23,41 @@ import { TimeEntriesSummaryService } from 'src/time-entries/services/time-entrie
 import { TimeReportService } from 'src/time-entries/services/time-report.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { MANAGER_ROLES } from '@common/constants/role-groups';
+import { ValidationError } from '@common/errors/validation.error';
+import { formatDateRange } from '@common/utils/date.utils';
+import { formatMoney } from '@common/utils/money.utils';
+import { getDisplayTime } from '@common/utils/time.utils';
+import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { BillingSnapshotsService } from 'src/billing/services/billing-snapshots.service';
+import { UninvoicedReportService } from 'src/billing/services/uninvoiced-report.service';
+import { canManageSnapshots } from 'src/billing/constants/snapshot-roles';
 
 export type IGetReportsTabViewParams = IPublishBaseParams<IReportsTabMetadata>;
 
 type ReportsModalViewResolversMap = {
-  [key in ReportsModalName]: (params: IOpenModalBaseParams) => Promise<View>;
+  [ReportsModalName.BillingReport]: (
+    params: IOpenModalBaseParams,
+  ) => Promise<View>;
+  [ReportsModalName.TimeReport]: (
+    params: IOpenModalBaseParams,
+  ) => Promise<View>;
+  // The Reports view's metadata, with the billing report on show.
+  [ReportsModalName.LockSnapshot]: (
+    params: IOpenModalBaseParams<string>,
+  ) => Promise<View>;
+};
+
+// The billing report a view's metadata names, if any.
+export const billingReportOf = (
+  metadata: string | undefined,
+): IReportsTabMetadata['report'] | undefined => {
+  try {
+    return (JSON.parse(metadata || '{}') as IReportsTabMetadata).report;
+  } catch {
+    return undefined;
+  }
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -42,12 +72,17 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
     private readonly billingReportService: BillingReportService,
     private readonly timeReportService: TimeReportService,
     private readonly clientsService: ClientsService,
+    private readonly uninvoicedReportService: UninvoicedReportService,
+    private readonly billingSnapshotsService: BillingSnapshotsService,
+    private readonly confirmationModalView: ConfirmationModalView,
   ) {
     super(TabId.Reports, {
       [ReportsModalName.BillingReport]: (params) =>
         this.getBillingReportModal(params),
       [ReportsModalName.TimeReport]: (params) =>
         this.getTimeReportModal(params),
+      [ReportsModalName.LockSnapshot]: (params) =>
+        this.getLockSnapshotModal(params),
     });
   }
 
@@ -55,18 +90,23 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
     user,
     metadata = {},
   }: IGetReportsTabViewParams) {
-    const { report, timeReport } = metadata;
-    const [weekSummary, billingReport, timeReports] = await Promise.all([
-      this.timeEntriesSummaryService.getWeekSummary(user),
-      // The billing report is Admin's and HR's.
-      report && isTimeEntriesAdmin(user.role)
-        ? this.billingReportService.getClientReport({
-            user,
-            ...report,
-          })
-        : null,
-      timeReport ? this.getTimeReports(user, timeReport) : null,
-    ]);
+    const { report, timeReport, uninvoiced } = metadata;
+    const [weekSummary, billingReport, timeReports, uninvoicedReport] =
+      await Promise.all([
+        this.timeEntriesSummaryService.getWeekSummary(user),
+        // The billing report is Admin's and HR's.
+        report && isTimeEntriesAdmin(user.role)
+          ? this.billingReportService.getClientReport({
+              user,
+              ...report,
+            })
+          : null,
+        timeReport ? this.getTimeReports(user, timeReport) : null,
+        // As billing snapshots, Admin's and HR's.
+        uninvoiced && canManageSnapshots(user.role)
+          ? this.uninvoicedReportService.getReport(user)
+          : null,
+      ]);
 
     return this.reportsTabView.getView(
       {
@@ -76,6 +116,7 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
         billingReport,
         timeReport: timeReports?.timeReport ?? null,
         missingTime: timeReports?.missingTime ?? null,
+        uninvoiced: uninvoicedReport,
       },
       metadata,
     );
@@ -123,6 +164,50 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
       toDate: today(),
       errorMessage,
     });
+  }
+
+  // What locking the billing report on show would take: its approved time
+  // that isn't in a snapshot yet.
+  private async getLockSnapshotModal({
+    user,
+    pageMetadata,
+    errorMessage,
+  }: IOpenModalBaseParams<string>) {
+    const report = billingReportOf(pageMetadata);
+
+    if (!report) {
+      throw new ValidationError('Show a billing report first.');
+    }
+
+    const preview = await this.billingSnapshotsService.preview({
+      user,
+      ...report,
+    });
+    const money = (cents: number) => formatMoney(cents, preview.currency);
+    const period = formatDateRange(preview.fromDate, preview.toDate);
+    const entries = `${preview.entryCount} ${preview.entryCount === 1 ? 'entry' : 'entries'}`;
+
+    return this.confirmationModalView.getView(
+      {
+        callbackId: ViewCallbackId.CreateBillingSnapshot,
+        title: 'Lock in a snapshot',
+        confirmText: 'Lock',
+        message: preview.entryCount
+          ? [
+              `*${escapeMrkdwn(preview.clientName)}* · ${period}: the approved time that isn't in a snapshot yet.`,
+              `• ${entries}, *${getDisplayTime(preview.totalMinutes)}*, billable *${preview.billableMinutes ? getDisplayTime(preview.billableMinutes) : '0h'}*`,
+              `• Amount: *${money(preview.amountCents)}* at today's rates, kept with the snapshot`,
+              preview.unratedMinutes &&
+                `_No rate: ${getDisplayTime(preview.unratedMinutes)} of billable time, which gets no amount._`,
+              'Nobody can change these entries until an admin unlocks the snapshot.',
+            ]
+              .filter(Boolean)
+              .join('\n')
+          : `No approved time of *${escapeMrkdwn(preview.clientName)}* in ${period} is left outside snapshots.`,
+        errorMessage,
+      },
+      { id: report.clientId, pageMetadata },
+    );
   }
 
   // Time by client, project, person or team for everyone; who hasn't

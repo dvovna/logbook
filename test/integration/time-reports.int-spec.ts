@@ -4,7 +4,7 @@ import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ReportsTabActionId } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
 import { TimeReportKind } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
-import { NO_FILES_PERMISSION } from '@modules/slack/tabs/reports/services/time-report-export.service';
+import { NO_FILES_PERMISSION } from '@modules/slack/common/services/dm-file.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
