@@ -529,6 +529,25 @@ describe('TimesheetService.saveCells', () => {
     );
   });
 
+  it("names the first changed cell in the form's order, whatever its write", async () => {
+    entries = [
+      entry('gone', 'web', 60, { work_date: MONDAY }),
+      entry('changed', 'web', 60, { work_date: TUESDAY }),
+    ];
+    writes.writeMinutes.mockResolvedValue(['changed']);
+    writes.writeDeletes.mockResolvedValue(['gone']);
+
+    await expect(
+      service.saveCells(member, [
+        { projectId: 'web', date: MONDAY, minutes: null, shownMinutes: 60 },
+        { projectId: 'web', date: TUESDAY, minutes: 120, shownMinutes: 60 },
+      ]),
+    ).rejects.toMatchObject({
+      message: 'This time changed after the form opened: open the form again.',
+      field: cellKey('web', MONDAY),
+    });
+  });
+
   it("counts the cell's cancelled time in the 24 hours, and not the entry it changes", async () => {
     service = serviceWith(
       new TimeEntriesValidationService({} as TimeEntriesRepository),

@@ -424,7 +424,8 @@ export class TimesheetService {
   // statement for the new entries, one for the changed ones and one for the
   // deleted ones. A change or deletion happens only while the entry is
   // still a draft or rejected, for every role: one submitted after the check
-  // is refused, at its cell.
+  // is refused, at the first such cell in the form's order (the transaction
+  // undoes the rest).
   private async writeCells(
     user: IUserViewModel,
     changes: ICellChange[],
@@ -438,16 +439,6 @@ export class TimesheetService {
       ({ entry, input }) => entry && input.minutes === null,
     );
     const openOnly = { openOnly: true };
-    // The first cell, in the form's order, whose entry changed since.
-    const refuseChanged = (ids: string[]) => {
-      const changed = changes.find(
-        ({ entry }) => entry && ids.includes(entry.id),
-      );
-
-      if (changed) {
-        throw new TimeEntryChangedError(changed.key);
-      }
-    };
 
     if (created.length) {
       await this.timeEntriesService.insertMany(
@@ -463,27 +454,32 @@ export class TimesheetService {
       );
     }
 
-    if (updated.length) {
-      refuseChanged(
-        await this.timeEntriesService.writeMinutes(
-          new Map(
-            updated.map(({ entry, input }) => [entry!.id, input.minutes!]),
-          ),
-          this.entryChanges(comment),
-          user,
-          openOnly,
-        ),
-      );
-    }
+    // The entries left alone because they changed since the check.
+    const leftAlone = new Set([
+      ...(updated.length
+        ? await this.timeEntriesService.writeMinutes(
+            new Map(
+              updated.map(({ entry, input }) => [entry!.id, input.minutes!]),
+            ),
+            this.entryChanges(comment),
+            user,
+            openOnly,
+          )
+        : []),
+      ...(deleted.length
+        ? await this.timeEntriesService.writeDeletes(
+            deleted.map(({ entry }) => entry!),
+            user,
+            openOnly,
+          )
+        : []),
+    ]);
+    const changed = changes.find(
+      ({ entry }) => entry && leftAlone.has(entry.id),
+    );
 
-    if (deleted.length) {
-      refuseChanged(
-        await this.timeEntriesService.writeDeletes(
-          deleted.map(({ entry }) => entry!),
-          user,
-          openOnly,
-        ),
-      );
+    if (changed) {
+      throw new TimeEntryChangedError(changed.key);
     }
 
     return {
