@@ -41,7 +41,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 ## How it works
 
 - A NestJS app that receives Slack events, slash commands and interactions over HTTPS. It verifies Slack's signature on every request.
-- Data is stored in [Supabase](https://supabase.com) (Postgres plus its REST API). The schema is in `supabase/migrations`.
+- Data is stored in [Supabase](https://supabase.com) Postgres. The app connects to the database directly (`DATABASE_URL`) and doesn't use Supabase's REST API, which stays closed. The schema is in `supabase/migrations`.
 - Every Slack workspace that installs the app through OAuth gets its own row in `slack_teams`. All other data is scoped to it. Uninstalling the app removes the bot token at once and deletes the data after `UNINSTALLED_DATA_RETENTION_DAYS` (30 by default); installing again before then restores it.
 
 [CLAUDE.md](CLAUDE.md) describes the architecture in more detail.
