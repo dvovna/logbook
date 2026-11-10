@@ -1,27 +1,8 @@
 import pluralize from 'pluralize';
-import { formatDateRange } from '@common/utils/date.utils';
+import { formatDateList } from '@common/utils/date.utils';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Days in a row read as a range; the year shows only when the days span two.
 const billedDays = (dates: string[]) => {
-  const runs: { start: string; end: string }[] = [];
-
-  for (const date of dates) {
-    const last = runs[runs.length - 1];
-
-    if (last && Date.parse(date) - Date.parse(last.end) === DAY_MS) {
-      last.end = date;
-    } else {
-      runs.push({ start: date, end: date });
-    }
-  }
-
-  const oneYear = dates[0].slice(0, 4) === dates[dates.length - 1].slice(0, 4);
-  const days = runs
-    .map(({ start, end }) => formatDateRange(start, end))
-    .map((range) => (oneYear ? range.replace(/ \d{4}$/, '') : range))
-    .join(', ');
+  const days = formatDateList(dates);
 
   return dates.length === 1
     ? `1 day stays logged: it is billed (${days}).`

@@ -11,7 +11,7 @@ import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import { JobsService } from '@common/jobs/jobs.service';
-import { formatDateRange } from '@common/utils/date.utils';
+import { formatDateList, formatDateRange } from '@common/utils/date.utils';
 import { runInBackground } from '@common/utils/run-in-background';
 import { getDisplayTime } from '@common/utils/time.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
@@ -241,8 +241,8 @@ export class TimeOffOfferService implements OnModuleInit {
     linked: ITimeOffResult['linked'],
   ) {
     const project = escapeMrkdwn(offer.projectName);
-    const days = (dates: string[]) =>
-      dates.map((date) => formatDateRange(date, date)).join(', ');
+    // '17–18 Jun, 22 Jun', as the notice of billed days.
+    const days = (dates: string[]) => formatDateList([...dates].sort());
     // What is stored for the request, so every click (the first, a second at
     // once, a late one) writes the same true text. Days the request holds on
     // another project (billed time of its type before HR changed it) are

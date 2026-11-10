@@ -66,3 +66,30 @@ export const formatDateRange = (start: string | Date, end: string | Date) => {
 
   return formatDate(end);
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Sorted days ('YYYY-MM-DD') as a list in which days in a row read as a
+// range, the year only when the days span two: '17–18 Jun, 22 Jun',
+// '31 Dec 2026 – 1 Jan 2027'.
+export const formatDateList = (dates: string[]) => {
+  const runs: { start: string; end: string }[] = [];
+
+  for (const date of dates) {
+    const last = runs[runs.length - 1];
+
+    if (last && Date.parse(date) - Date.parse(last.end) === DAY_MS) {
+      last.end = date;
+    } else {
+      runs.push({ start: date, end: date });
+    }
+  }
+
+  const oneYear =
+    dates[0]?.slice(0, 4) === dates[dates.length - 1]?.slice(0, 4);
+
+  return runs
+    .map(({ start, end }) => formatDateRange(start, end))
+    .map((range) => (oneYear ? range.replace(/ \d{4}$/, '') : range))
+    .join(', ');
+};

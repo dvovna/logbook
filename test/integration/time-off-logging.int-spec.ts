@@ -1,7 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationType from '@common/enums/vacation-type.enum';
-import { formatDateRange } from '@common/utils/date.utils';
+import { formatDateList, formatDateRange } from '@common/utils/date.utils';
 import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { View } from '@slack/types/dist/views';
@@ -554,7 +554,7 @@ describe('Time off logging', () => {
       const [update] = t.slackApi.messageUpdates(workspace.token, offer);
       expect(textOf(update)).toContain('✅ 32h logged to Vacations Paid.');
       expect(textOf(update)).toContain(
-        `Skipped, already have time on Vacations Paid: ${formatDateRange(start, start)}.`,
+        `Skipped, already have time on Vacations Paid: ${formatDateList([start])}.`,
       );
     });
 
@@ -1095,7 +1095,7 @@ describe('Time off logging', () => {
       ]);
       const [update] = t.slackApi.messageUpdates(workspace.token, offer);
       expect(textOf(update)).toContain(
-        `✅ 24h logged to Sick Leave.\\nAlready logged for this time off on Vacations: ${formatDateRange('2026-06-17', '2026-06-17')}, ${formatDateRange('2026-06-18', '2026-06-18')}.`,
+        '✅ 24h logged to Sick Leave.\\nAlready logged for this time off on Vacations: 17–18 Jun.',
       );
       expect(textOf(update)).not.toContain('Skipped');
     });

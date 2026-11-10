@@ -1,4 +1,8 @@
-import { formatDate, formatDateRange } from '@common/utils/date.utils';
+import {
+  formatDate,
+  formatDateList,
+  formatDateRange,
+} from '@common/utils/date.utils';
 
 describe('formatDate', () => {
   it('writes the day, the short month and the year', () => {
@@ -31,5 +35,25 @@ describe('formatDateRange', () => {
 
   it('writes one date for a single day', () => {
     expect(formatDateRange('2026-07-06', '2026-07-06')).toBe('6 Jul 2026');
+  });
+});
+
+describe('formatDateList', () => {
+  it('reads days in a row as a range, without the year', () => {
+    expect(formatDateList(['2026-06-17', '2026-06-18'])).toBe('17–18 Jun');
+    expect(formatDateList(['2026-06-19', '2026-06-22', '2026-06-23'])).toBe(
+      '19 Jun, 22–23 Jun',
+    );
+    expect(formatDateList(['2026-06-30', '2026-07-01'])).toBe('30 Jun – 1 Jul');
+  });
+
+  it('writes one day alone', () => {
+    expect(formatDateList(['2026-06-17'])).toBe('17 Jun');
+  });
+
+  it('shows the years of days in two years', () => {
+    expect(formatDateList(['2026-12-31', '2027-01-01'])).toBe(
+      '31 Dec 2026 – 1 Jan 2027',
+    );
   });
 });
