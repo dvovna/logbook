@@ -5,14 +5,14 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 ## [Unreleased]
 
 ### Time tracking
-- My time shows a week: a table of every project with your time on each day, a status line, previous and next week, and "Submit week" for the week's drafts.
+- My time shows a week: a table of every project with your time on each day, a status line, previous and next week, and "Submit week" for the week's drafts and rejected entries. A line counts the drafts and rejected entries of earlier weeks, with a button to the oldest of them; the rejection message and the Monday reminder name the week.
 - Fill in a whole week, or a single day with a comment, in one form: a row per project (your recent ones, and any you add), one input per day. Time that waits for approval, is approved or is billed stays read-only, and a day changed since the form opened is refused instead of overwritten.
 
 ### Time off
 - Time off as time: an admin picks a project per leave type and the hours of a working day on Projects. An approved request then offers, in the requester's DM, to log one approved entry per working day on that project. Changing the request's dates, status, type or person, or deleting it, removes that time again, except days already in a billing snapshot, which the notice names.
 
 ### Running it
-- This release adds a database migration (`20261111100000_time_off_logging.sql`). Apply it with `supabase db push` when you update; the app refuses to start without it.
+- This release adds a database migration (`20261111100000_time_off_logging.sql`). Apply it with `pnpm supabase db push --remote "<connection string>"` when you update (without `--remote` the CLI pushes to the local database); the app refuses to start without it.
 
 ## [0.1.0] - 2026-11-10
 
