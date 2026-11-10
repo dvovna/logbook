@@ -238,9 +238,14 @@ export class TimesheetService {
       throw new ValidationError(COMMENT_WITHOUT_CHANGES_MESSAGE, 'comment');
     }
 
-    // The projects aren't the user's time, which the lock below guards: read
-    // them at once, beside the transaction.
-    const projects = touched.length ? await this.loadProjects(user) : null;
+    // The projects aren't the user's time, which the lock below guards: they
+    // are read on the pool, while the transaction starts and takes the lock.
+    // Started first, they get their connections before the transaction.
+    const loadingProjects = touched.length ? this.loadProjects(user) : null;
+
+    // Awaited inside; this only keeps a failure before then from being an
+    // unhandled rejection.
+    loadingProjects?.catch(() => undefined);
 
     return this.transactions.transaction(async () => {
       // Two saves of one person's time (a second click on Save), or a save
@@ -252,6 +257,7 @@ export class TimesheetService {
       const week = weekStart
         ? await this.findEntries(user, days[0], days[6])
         : { entries: [], billedIds: new Set<string>() };
+      const projects = await loadingProjects;
       const changes = projects
         ? this.checkCells(user, touched, week, projects, comment)
         : [];
