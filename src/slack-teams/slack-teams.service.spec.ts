@@ -52,3 +52,59 @@ describe('SlackTeamsService currency', () => {
     },
   );
 });
+
+describe('SlackTeamsService.deleteWorkspace', () => {
+  let repository: { deleteMany: jest.Mock };
+  let transactions: { transaction: jest.Mock; allowLongStatements: jest.Mock };
+  let service: SlackTeamsService;
+  let inTransaction: boolean;
+
+  beforeEach(() => {
+    inTransaction = false;
+    repository = {
+      deleteMany: jest.fn(() => {
+        expect(inTransaction).toBe(true);
+
+        return Promise.resolve(1);
+      }),
+    };
+    transactions = {
+      transaction: jest.fn(async (work: () => Promise<unknown>) => {
+        inTransaction = true;
+
+        try {
+          return await work();
+        } finally {
+          inTransaction = false;
+        }
+      }),
+      allowLongStatements: jest.fn(),
+    };
+    service = new SlackTeamsService(
+      repository as unknown as SlackTeamsRepository,
+      {} as TokenCipherService,
+      transactions as unknown as TransactionService,
+    );
+  });
+
+  it('deletes the workspace in a transaction of its own, with a long statement timeout', async () => {
+    await expect(service.deleteWorkspace('workspace-1')).resolves.toBe(true);
+
+    expect(transactions.allowLongStatements).toHaveBeenCalledWith(300);
+    expect(repository.deleteMany).toHaveBeenCalledWith({ id: 'workspace-1' });
+  });
+
+  it('deletes it only while it is still uninstalled since before the cutoff', async () => {
+    repository.deleteMany.mockResolvedValue(0);
+    const cutoff = new Date('2026-05-18T12:00:00.000Z');
+
+    await expect(service.deleteWorkspace('workspace-1', cutoff)).resolves.toBe(
+      false,
+    );
+
+    expect(repository.deleteMany).toHaveBeenCalledWith({
+      id: 'workspace-1',
+      uninstalled_at: { operator: 'lt', value: '2026-05-18T12:00:00.000Z' },
+    });
+  });
+});

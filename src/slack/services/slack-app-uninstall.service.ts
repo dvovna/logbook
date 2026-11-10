@@ -33,7 +33,7 @@ export class SlackAppUninstallService {
     );
 
     if (retentionDays === 0) {
-      await this.slackTeamService.delete({ id: slackTeam.id });
+      await this.slackTeamService.deleteWorkspace(slackTeam.id);
       this.logger.log(`Deleted workspace ${teamSlackId} and its data.`);
     } else {
       await this.slackTeamService.markUninstalled(slackTeam.id);
