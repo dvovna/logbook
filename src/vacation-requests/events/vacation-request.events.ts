@@ -11,9 +11,12 @@ export class VacationRequestCreatedEvent {
 }
 
 export class VacationRequestUpdatedEvent {
+  // `previous` is the request as it was before an edit. The workflow's
+  // outcome (`finishPending`) passes none: it has a decision event of its own.
   public constructor(
     public readonly request: IVacationRequestViewModel,
     public readonly user: IUserViewModel,
+    public readonly previous?: IVacationRequestViewModel,
   ) {}
 }
 

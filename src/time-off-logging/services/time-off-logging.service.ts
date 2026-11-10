@@ -46,11 +46,23 @@ export class TimeOffLoggingService {
     private readonly transactions: TransactionService,
   ) {}
 
-  // Null unless the time off is approved and its type has an active project.
+  // Null unless the time off is approved, its type has an active project and
+  // it has working days left.
   public async offerFor(
     request: IVacationRequestViewModel,
   ): Promise<ITimeOffOffer | null> {
     return (await this.plan(request))?.offer ?? null;
+  }
+
+  // What a click needs before it is worth acting on: the requester's own,
+  // approved time off. `log` checks it again under its lock.
+  public async assertCanLog(user: IUserViewModel, requestId: string) {
+    const request = await this.vacationRequestsService.findOneWithValidation({
+      id: requestId,
+      slackTeamId: user.slack_team_id,
+    });
+
+    this.assertLoggable(request, user);
   }
 
   // The requester's own time off only. A day that has any time of theirs on
@@ -70,13 +82,7 @@ export class TimeOffLoggingService {
         slackTeamId,
       });
 
-      if (request.user_id !== user.id) {
-        throw new ForbiddenException('You can only log your own time off.');
-      }
-
-      if (request.status !== VacationRequestStatus.Approved) {
-        throw new ValidationError('This time off is no longer approved.');
-      }
+      this.assertLoggable(request, user);
 
       const plan = await this.plan(request);
 
@@ -115,6 +121,19 @@ export class TimeOffLoggingService {
         skipped: offer.dates.filter((date) => taken.has(date)),
       };
     });
+  }
+
+  private assertLoggable(
+    request: IVacationRequestViewModel,
+    user: IUserViewModel,
+  ) {
+    if (request.user_id !== user.id) {
+      throw new ForbiddenException('You can only log your own time off.');
+    }
+
+    if (request.status !== VacationRequestStatus.Approved) {
+      throw new ValidationError('This time off is no longer approved.');
+    }
   }
 
   private async plan(
@@ -161,6 +180,10 @@ export class TimeOffLoggingService {
       team?.vacation_policy_id ?? null,
       slackTeamId,
     );
+
+    if (!dates.length) {
+      return null;
+    }
 
     return {
       offer: {

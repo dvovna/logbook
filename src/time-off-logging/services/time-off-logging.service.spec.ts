@@ -115,6 +115,14 @@ describe('TimeOffLoggingService', () => {
     await expect(service.offerFor(request())).resolves.toBeNull();
   });
 
+  it('offers nothing when no working days are left', async () => {
+    days.workingDates.mockResolvedValue([]);
+
+    await expect(service.offerFor(request())).resolves.toBeNull();
+    await expect(service.log(user, 'r1')).rejects.toThrow(ValidationError);
+    expect(entries.findMany).not.toHaveBeenCalled();
+  });
+
   it('logs the days with no time yet, under a lock of the request', async () => {
     entries.findMany.mockResolvedValue([{ work_date: '2026-06-19T00:00:00Z' }]);
 

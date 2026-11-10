@@ -30,6 +30,9 @@ export interface ISlackBlockActionPayload {
   team?: { id: string };
   actions: BlockElementAction[];
   view: ISlackView;
+  // Set when the click is in a message.
+  channel?: { id: string };
+  message?: { ts: string; text?: string; blocks?: AnyBlock[] };
 }
 
 /**

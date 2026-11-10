@@ -40,6 +40,7 @@ export enum ViewCallbackId {
   DeleteVacationRequest = 'delete_vacation_request',
   ApproveVacationRequestOnBehalf = 'approve_vacation_request_on_behalf',
   ViewVacationRequestDetails = 'view_vacation_request_details',
+  TimeOffLoggingOffer = 'time_off_logging_offer',
 
   // approver-step-comments
   ApproverMessageCommentFormSubmit = 'approver_message_comment_form_submit',

@@ -108,4 +108,23 @@ describe('TimeEntriesService writes', () => {
       expect.objectContaining({ minutes: 120 }),
     );
   });
+
+  it('creates nothing for time off with no days', async () => {
+    const createMany = jest.fn();
+    (repository as unknown as Record<string, jest.Mock>).createMany =
+      createMany;
+
+    await expect(
+      service.createForVacation({
+        userId: 'me',
+        teamId: null,
+        projectId: 'web',
+        minutes: 480,
+        dates: [],
+        vacationRequestId: 'r',
+        slackTeamId: 'team-1',
+      }),
+    ).resolves.toBe(0);
+    expect(createMany).not.toHaveBeenCalled();
+  });
 });

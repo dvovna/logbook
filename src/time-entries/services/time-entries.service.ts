@@ -149,6 +149,10 @@ export class TimeEntriesService {
     vacationRequestId: string;
     slackTeamId: string;
   }): Promise<number> {
+    if (!dates.length) {
+      return 0;
+    }
+
     const project = await this.projectsService.findOne({
       id: projectId,
       slackTeamId,

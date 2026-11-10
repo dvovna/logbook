@@ -303,7 +303,7 @@ export class VacationRequestsService implements IVacationRequestsService {
 
     this.eventEmitter.emit(
       VacationRequestEvent.Updated,
-      new VacationRequestUpdatedEvent(updatedRequest, user),
+      new VacationRequestUpdatedEvent(updatedRequest, user, existingRequest),
     );
 
     return updatedRequest;

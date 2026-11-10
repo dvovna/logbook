@@ -1,4 +1,9 @@
 import { ForbiddenException } from '@nestjs/common';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import VacationType from '@common/enums/vacation-type.enum';
+import { formatDateRange } from '@common/utils/date.utils';
+import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
@@ -10,7 +15,10 @@ import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-lo
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { actionIdsOf, noticeOf } from './support/tab-readers';
+import { actionIdsOf, buttonText, noticeOf } from './support/tab-readers';
+import { textOf } from './support/block-kit';
+import { workWeek } from './support/dates';
+import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 import {
   openAppHomeTab,
   openModalFrom,
@@ -427,6 +435,240 @@ describe('Time off logging', () => {
         .execute();
 
       expect(await logging().offerFor(await model(request.id))).toBeNull();
+    });
+  });
+
+  describe('The offer', () => {
+    const OFFER = 'log_time_off';
+
+    let manager: Tables<'users'>;
+    let requester: Tables<'users'>;
+
+    beforeEach(async () => {
+      manager = await workspace.addUser({
+        role: UserRole.Manager,
+        name: 'Mary Manager',
+      });
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+      });
+      requester = await workspace.addUser({
+        team_id: team.id,
+        name: 'Max Member',
+      });
+    });
+
+    const mapProject = async (name: string, type = 'annual_leave') => {
+      const project = await workspace.addProject({ name });
+      await t.db
+        .insertInto('time_off_projects')
+        .values({
+          slack_team_id: workspace.id,
+          vacation_type: type,
+          project_id: project.id,
+        })
+        .execute();
+
+      return project;
+    };
+
+    const messagesTo = (user: Tables<'users'>) =>
+      t.slackApi.postedMessages(workspace.token, user.slack_id);
+
+    const offersTo = (user: Tables<'users'>) =>
+      messagesTo(user).filter((message) =>
+        buttonText(message as unknown as View, OFFER),
+      );
+
+    const entriesOf = async (user: Tables<'users'>) =>
+      (await workspace.rows('time_entries'))
+        .filter(({ user_id }) => user_id === user.id)
+        .sort((a, b) => a.work_date.localeCompare(b.work_date));
+
+    // The requester asks, the manager approves.
+    const approvedThroughWorkflow = async (
+      type = VacationType.AnnualLeave,
+      weeksAhead = 2,
+    ) => {
+      await requestVacation(t, workspace, requester, {
+        ...workWeek(weeksAhead),
+        type,
+      });
+      await t.slack
+        .actOnMessage(
+          workspace,
+          manager,
+          await approvalMessageTo(t, workspace, manager),
+          ApproverMessageActionId.Approve,
+        )
+        .expect(200);
+      await t.idle();
+    };
+
+    it('offers the button in the approved DM and logs on click', async () => {
+      const project = await mapProject('Vacations Paid');
+      await approvedThroughWorkflow();
+
+      // One message, the decision DM, holds the button.
+      const offers = offersTo(requester);
+      expect(offers).toHaveLength(1);
+      expect(textOf(offers[0])).toContain('Your time off request was approved');
+      expect(buttonText(offers[0] as unknown as View, OFFER)).toBe(
+        'Log 40h to Vacations Paid',
+      );
+
+      await t.slack
+        .actOnMessage(workspace, requester, offers[0], OFFER)
+        .expect(200);
+      await t.idle();
+
+      const entries = await entriesOf(requester);
+      expect(entries).toHaveLength(5);
+      expect(entries.map(({ project_id }) => project_id)).toEqual(
+        Array(5).fill(project.id),
+      );
+
+      const [update] = t.slackApi.messageUpdates(workspace.token, offers[0]);
+      expect(textOf(update)).toContain('✅ 40h logged to Vacations Paid.');
+      expect(textOf(update)).toContain('Your time off request was approved');
+      expect(JSON.stringify(update.blocks)).not.toContain(OFFER);
+    });
+
+    it('lists the days it skipped', async () => {
+      const project = await mapProject('Vacations Paid');
+      const { start } = workWeek(2);
+      await workspace.addTimeEntry(requester, project, {
+        work_date: start,
+        minutes: 60,
+      });
+      await approvedThroughWorkflow();
+      const [offer] = offersTo(requester);
+
+      await t.slack
+        .actOnMessage(workspace, requester, offer, OFFER)
+        .expect(200);
+      await t.idle();
+
+      expect(await entriesOf(requester)).toHaveLength(5);
+      const [update] = t.slackApi.messageUpdates(workspace.token, offer);
+      expect(textOf(update)).toContain('✅ 32h logged to Vacations Paid.');
+      expect(textOf(update)).toContain(
+        `Skipped, already have time on Vacations Paid: ${formatDateRange(start, start)}.`,
+      );
+    });
+
+    it('offers it for time off HR approves directly', async () => {
+      const hr = await workspace.addUser({ role: UserRole.HR });
+      await mapProject('Vacations Paid');
+      const requestsTab = await openAppHomeTab(t, workspace, hr, [
+        NavigationActionId.TimeOff,
+        NavigationActionId.AllRequests,
+      ]);
+      const form = await openModalFrom(
+        t,
+        workspace,
+        hr,
+        requestsTab,
+        VacationRequestsTabViewActionId.CreateRequest,
+      );
+      const { start, end } = workWeek(2);
+
+      await t.slack
+        .submitView(workspace, hr, form, {
+          [VacationRequestsTabViewActionId.UserField]: requester.id,
+          status: VacationRequestStatus.Approved,
+          start_date: start,
+          end_date: end,
+          type_option: VacationType.AnnualLeave,
+        })
+        .expect(200);
+      await t.idle();
+
+      const offers = offersTo(requester);
+      expect(offers).toHaveLength(1);
+      expect(buttonText(offers[0] as unknown as View, OFFER)).toBe(
+        'Log 40h to Vacations Paid',
+      );
+      expect(offers[0].to).toBe(requester.slack_id);
+    });
+
+    it('has no button without a project for the type, or when that project is archived', async () => {
+      await approvedThroughWorkflow(VacationType.SickLeave);
+
+      expect(messagesTo(requester).length).toBeGreaterThan(0);
+      expect(offersTo(requester)).toEqual([]);
+
+      const project = await mapProject('Vacations Paid');
+      await t.db
+        .updateTable('projects')
+        .set({ archived_at: new Date().toISOString() })
+        .where('id', '=', project.id)
+        .execute();
+      await approvedThroughWorkflow(VacationType.AnnualLeave, 3);
+
+      expect(offersTo(requester)).toEqual([]);
+    });
+
+    it("refuses someone else's click", async () => {
+      await mapProject('Vacations Paid');
+      await approvedThroughWorkflow();
+      const [offer] = offersTo(requester);
+
+      for (const other of [
+        await workspace.addUser({ name: 'Eve Member' }),
+        manager,
+      ]) {
+        await t.slack.actOnMessage(workspace, other, offer, OFFER).expect(200);
+        await t.idle();
+      }
+
+      expect(await workspace.rows('time_entries')).toEqual([]);
+      expect(t.slackApi.messageUpdates(workspace.token, offer)).toEqual([]);
+    });
+
+    it('answers a click on time off that is no longer approved', async () => {
+      await mapProject('Vacations Paid');
+      await approvedThroughWorkflow();
+      const [offer] = offersTo(requester);
+      await t.db
+        .updateTable('vacation_requests')
+        .set({ status: 'canceled' })
+        .execute();
+
+      await t.slack
+        .actOnMessage(workspace, requester, offer, OFFER)
+        .expect(200);
+      await t.idle();
+
+      expect(await workspace.rows('time_entries')).toEqual([]);
+      expect(
+        t.slackApi
+          .ephemeralMessages(workspace.token, requester.slack_id)
+          .map(({ text }) => text),
+      ).toEqual(['This time off is no longer approved.']);
+    });
+
+    it('escapes the project name', async () => {
+      // The display rules refuse '<!here>' even in a plain_text label, where
+      // it is harmless, so the name has other markup.
+      await mapProject('R&D <b>PTO</b>');
+      await approvedThroughWorkflow();
+      const [offer] = offersTo(requester);
+
+      expect(buttonText(offer as unknown as View, OFFER)).toBe(
+        'Log 40h to R&D <b>PTO</b>',
+      );
+
+      await t.slack
+        .actOnMessage(workspace, requester, offer, OFFER)
+        .expect(200);
+      await t.idle();
+
+      const [update] = t.slackApi.messageUpdates(workspace.token, offer);
+      expect(textOf(update)).toContain(
+        '✅ 40h logged to R&amp;D &lt;b&gt;PTO&lt;/b&gt;.',
+      );
+      expect(textOf(update)).not.toContain('<b>');
     });
   });
 });
