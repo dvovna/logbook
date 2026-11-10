@@ -27,3 +27,12 @@ export const TIME_REPORT_KIND_NAMES: Record<TimeReportKind, string> = {
   [TimeReportKind.Team]: 'Time by team',
   [TimeReportKind.Missing]: "Who hasn't submitted",
 };
+
+// The optional filters of the time report form, by their action_id (which
+// the parser reads them by). Project and Person are external selects, which
+// SlackOptionsController fills within what the viewer may see.
+export enum TimeReportFilterId {
+  Client = 'report_client',
+  Project = 'report_project',
+  Person = 'report_person',
+}

@@ -6,11 +6,10 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { canSeeRates } from 'src/projects/constants/rate-roles';
 import { ProjectRatesService } from 'src/projects/services/project-rates.service';
 import { IProjectRates } from 'src/projects/types/project-user-rate.types';
+import { TimeScopeKind } from 'src/time-entries/services/time-entries-scope.service';
 import {
-  TimeEntriesScopeService,
-  TimeScopeKind,
-} from 'src/time-entries/services/time-entries-scope.service';
-import {
+  IAppliedFilters,
+  ITimeReportFilters,
   rateOf,
   TimeReportService,
 } from 'src/time-entries/services/time-report.service';
@@ -20,6 +19,7 @@ export interface ITimeEntriesExport {
   filename: string;
   content: string;
   scope: TimeScopeKind;
+  filters: IAppliedFilters;
   entryCount: number;
   minutes: number;
 }
@@ -46,14 +46,13 @@ const hours = (minutes: number) => (minutes / 60).toFixed(2);
 const money = (cents: number) => (cents / 100).toFixed(2);
 
 // The time entries of a period as a CSV file, one line each, for a
-// spreadsheet or an invoice: the same entries and scope as the time report
-// (TimeEntriesScopeService). Admin and HR also get each entry's rate (the
+// spreadsheet or an invoice: the same entries, scope and filters as the time
+// report (TimeReportService.findFilteredEntries). Admin and HR also get each entry's rate (the
 // person's own on the project, else the project's) and amount: its billable
 // time at that rate, rounded to the cent.
 @Injectable()
 export class TimeEntriesExportService {
   public constructor(
-    private readonly scopeService: TimeEntriesScopeService,
     private readonly timeReportService: TimeReportService,
     private readonly projectRatesService: ProjectRatesService,
     private readonly slackTeamsService: SlackTeamsService,
@@ -63,18 +62,23 @@ export class TimeEntriesExportService {
     user,
     fromDate,
     toDate,
+    filters,
   }: {
     user: IUserViewModel;
     fromDate: string;
     toDate: string;
+    filters?: ITimeReportFilters;
   }): Promise<ITimeEntriesExport> {
     assertReportPeriod(fromDate, toDate);
 
     const withRates = canSeeRates(user.role);
-    const { scope, entries } = await this.scopeService.findEntries(user, {
-      dateFrom: fromDate,
-      dateTo: toDate,
-    });
+    const { scope, entries, applied } =
+      await this.timeReportService.findFilteredEntries({
+        user,
+        fromDate,
+        toDate,
+        filters,
+      });
     const projectIds = [...new Set(entries.map((entry) => entry.project_id))];
     const [clientOf, rates, currency] = await Promise.all([
       this.timeReportService.clientsByProject(user, projectIds),
@@ -138,6 +142,7 @@ export class TimeEntriesExportService {
         ...rows,
       ]),
       scope: scope.kind,
+      filters: applied,
       entryCount: entries.length,
       minutes: entries.reduce((sum, { minutes }) => sum + minutes, 0),
     };

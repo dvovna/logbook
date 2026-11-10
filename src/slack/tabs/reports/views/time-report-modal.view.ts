@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
+import { DATED_PERIOD_PRESETS } from '@common/utils/period-presets';
+import { IOption } from '@common/types/option.interface';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
   IActionButtons,
@@ -8,16 +10,48 @@ import BaseModalView, {
 import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
 import {
   TIME_REPORT_KIND_NAMES,
+  TimeReportFilterId,
   TimeReportKind,
 } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
+import {
+  IPeriodFieldsParams,
+  periodFields,
+} from '@modules/slack/tabs/reports/views/period-fields';
 
-interface IGetViewParams extends IBaseModalViewParams {
+interface IGetViewParams
+  extends
+    IBaseModalViewParams,
+    Pick<IPeriodFieldsParams, 'fromDate' | 'toDate' | 'version'> {
   kinds: TimeReportKind[];
-  fromDate: string;
-  toDate: string;
+  // The clients to filter by; none: no Client filter.
+  clients: IOption[];
+  // Whether the viewer sees other people's time, so may filter by person.
+  withPerson: boolean;
 }
 
-// The time report form: what to report and the period.
+// A static select holds 100 options.
+const MAX_OPTIONS = 100;
+
+const externalSelect = (
+  actionId: TimeReportFilterId,
+  label: string,
+  placeholder: string,
+): AnyBlock =>
+  ({
+    type: 'input',
+    block_id: `${actionId}_block`,
+    optional: true,
+    label: { type: 'plain_text', text: label },
+    element: {
+      type: 'external_select',
+      action_id: actionId,
+      placeholder: { type: 'plain_text', text: placeholder },
+      min_query_length: 0,
+    },
+  }) as AnyBlock;
+
+// The time report form: what to report, the period (a quick period fills the
+// dates), and optional filters, which the report and its CSV share.
 @Injectable()
 export class TimeReportModalView extends BaseModalView<IGetViewParams> {
   protected defaultCallbackId = ViewCallbackId.TimeReportFormSubmit;
@@ -37,6 +71,9 @@ export class TimeReportModalView extends BaseModalView<IGetViewParams> {
     kinds,
     fromDate,
     toDate,
+    version,
+    clients,
+    withPerson,
     errorMessage,
   }: IGetViewParams): AnyBlock[] {
     return [
@@ -50,25 +87,34 @@ export class TimeReportModalView extends BaseModalView<IGetViewParams> {
         })),
         initialValue: TimeReportKind.Project,
       }),
+      ...periodFields({
+        fromDate,
+        toDate,
+        version,
+        presets: DATED_PERIOD_PRESETS,
+      }),
+      ...(clients.length
+        ? SlackStaticSelectView.getView({
+            blockId: `${TimeReportFilterId.Client}_block`,
+            actionId: TimeReportFilterId.Client,
+            label: 'Client',
+            placeholder: 'Any client',
+            options: clients.slice(0, MAX_OPTIONS),
+            optional: true,
+          })
+        : []),
+      externalSelect(TimeReportFilterId.Project, 'Project', 'Any project'),
+      ...(withPerson
+        ? [externalSelect(TimeReportFilterId.Person, 'Person', 'Anyone')]
+        : []),
       {
-        type: 'input',
-        block_id: 'from_date_block',
-        label: { type: 'plain_text', text: 'From' },
-        element: {
-          type: 'datepicker',
-          action_id: 'fromDate',
-          initial_date: fromDate,
-        },
-      } as AnyBlock,
-      {
-        type: 'input',
-        block_id: 'to_date_block',
-        label: { type: 'plain_text', text: 'To' },
-        element: {
-          type: 'datepicker',
-          action_id: 'toDate',
-          initial_date: toDate,
-        },
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: "_The filters narrow the report and its CSV; Who hasn't submitted doesn't use them._",
+          },
+        ],
       } as AnyBlock,
       ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
     ];

@@ -36,11 +36,28 @@ export interface ITimeReportRow {
   amount: number | null;
 }
 
+// What a time report and its CSV may be narrowed to. IDs come from the form,
+// so they only ever narrow the viewer's scope: an ID they may not see, or of
+// another workspace, matches nothing.
+export interface ITimeReportFilters {
+  clientId?: string;
+  projectId?: string;
+  userId?: string;
+}
+
+// The names of the filters a report was narrowed by, to show with it.
+export interface IAppliedFilters {
+  client?: string;
+  project?: string;
+  person?: string;
+}
+
 export interface ITimeReport {
   groupBy: TimeReportGrouping;
   fromDate: string;
   toDate: string;
   scope: TimeScopeKind;
+  filters: IAppliedFilters;
   // The workspace's currency; null for those who don't see amounts.
   currency: string | null;
   // Most time first.
@@ -77,6 +94,8 @@ interface IReportParams {
   fromDate: string;
   toDate: string;
 }
+
+type IFilteredReportParams = IReportParams & { filters?: ITimeReportFilters };
 
 interface IClientRef {
   id: string;
@@ -135,13 +154,18 @@ export class TimeReportService {
     groupBy,
     fromDate,
     toDate,
-  }: IReportParams & { groupBy: TimeReportGrouping }): Promise<ITimeReport> {
+    filters,
+  }: IFilteredReportParams & {
+    groupBy: TimeReportGrouping;
+  }): Promise<ITimeReport> {
     assertReportPeriod(fromDate, toDate);
 
     const withAmounts = canSeeRates(user.role);
-    const { scope, entries } = await this.scopeService.findEntries(user, {
-      dateFrom: fromDate,
-      dateTo: toDate,
+    const { scope, entries, applied } = await this.findFilteredEntries({
+      user,
+      fromDate,
+      toDate,
+      filters,
     });
     const projectIds = [...new Set(entries.map((entry) => entry.project_id))];
     const [rates, currency, groupOf] = await Promise.all([
@@ -211,6 +235,7 @@ export class TimeReportService {
       fromDate,
       toDate,
       scope: scope.kind,
+      filters: applied,
       currency,
       rows: sorted,
       total,
@@ -327,6 +352,80 @@ export class TimeReportService {
             ? { key: entry.team.id, name: entry.team.name }
             : { key: '', name: NO_TEAM };
     }
+  }
+
+  // The entries of the period `user` sees (TimeEntriesScopeService), then
+  // narrowed by the filters: a client's projects, a project, a person.
+  public async findFilteredEntries({
+    user,
+    fromDate,
+    toDate,
+    filters = {},
+  }: IFilteredReportParams) {
+    const [{ scope, entries }, { matches, names }] = await Promise.all([
+      this.scopeService.findEntries(user, {
+        dateFrom: fromDate,
+        dateTo: toDate,
+      }),
+      this.filterOf(user, filters),
+    ]);
+    const filtered = entries.filter(matches);
+    const personName = filters.userId
+      ? (filtered[0]?.user?.name ?? 'Unknown person')
+      : undefined;
+
+    return {
+      scope,
+      entries: filtered,
+      applied: {
+        ...names,
+        ...(personName ? { person: personName } : {}),
+      } as IAppliedFilters,
+    };
+  }
+
+  private async filterOf(
+    user: IUserViewModel,
+    { clientId, projectId, userId }: ITimeReportFilters,
+  ) {
+    const slackTeamId = user.slack_team_id;
+    const [client, clientProjects, project] = await Promise.all([
+      clientId
+        ? this.clientsService.findOne({
+            id: clientId,
+            slackTeamId,
+            includeArchived: true,
+          })
+        : null,
+      clientId
+        ? this.projectsService.findMany({
+            slackTeamId,
+            clientId,
+            includeArchived: true,
+          })
+        : null,
+      projectId
+        ? this.projectsService.findOne({
+            id: projectId,
+            slackTeamId,
+            includeArchived: true,
+          })
+        : null,
+    ]);
+    // A client of another workspace has no projects here: nothing matches.
+    const clientProjectIds =
+      clientProjects && new Set(clientProjects.map(({ id }) => id));
+
+    return {
+      matches: (entry: ITimeEntryViewModel) =>
+        (!clientProjectIds || clientProjectIds.has(entry.project_id)) &&
+        (!projectId || entry.project_id === projectId) &&
+        (!userId || entry.user_id === userId),
+      names: {
+        ...(clientId ? { client: client?.name ?? 'Unknown client' } : {}),
+        ...(projectId ? { project: project?.name ?? 'Unknown project' } : {}),
+      },
+    };
   }
 
   // Each project's client (archived ones included), or null, by project ID.

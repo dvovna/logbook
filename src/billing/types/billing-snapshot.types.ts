@@ -69,6 +69,12 @@ export interface ISnapshotLine {
   createdAt: string;
 }
 
+// A period that may be open on either side: no date is no limit.
+export interface IOpenPeriod {
+  fromDate?: string;
+  toDate?: string;
+}
+
 // A client's approved billable time that isn't in a snapshot, at today's
 // rates.
 export interface IUnbilledClientTime {

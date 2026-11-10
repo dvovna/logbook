@@ -9,7 +9,10 @@ import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
-import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
+import {
+  withPagination,
+  withSelectFilter,
+} from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 import {
@@ -49,6 +52,11 @@ export default class BillingSnapshotsTabActionHandler extends BaseTabActionHandl
         BillingSnapshotsTabActionId,
         [IUserViewModel]
       >(this.handleMenuAction, this.logger),
+      [BillingSnapshotsTabActionId.FilterByClient]:
+        withSelectFilter<IBillingSnapshotsTabMetadata>(
+          'clientId',
+          this.updateTab,
+        ),
       [BillingSnapshotsTabActionId.PaginationPrev]: paginationHandler,
       [BillingSnapshotsTabActionId.PaginationNext]: paginationHandler,
     };
@@ -73,6 +81,13 @@ export default class BillingSnapshotsTabActionHandler extends BaseTabActionHandl
       case BillingSnapshotsTabActionId.MarkInvoiced:
         return this.openModal(
           BillingSnapshotsModalName.MarkInvoiced,
+          snapshotId,
+          payload,
+          user,
+        );
+      case BillingSnapshotsTabActionId.MarkNotInvoiced:
+        return this.openModal(
+          BillingSnapshotsModalName.MarkNotInvoiced,
           snapshotId,
           payload,
           user,

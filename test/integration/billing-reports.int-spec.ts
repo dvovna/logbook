@@ -4,6 +4,7 @@ import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { PERIOD_PRESET_ACTION_ID } from '@modules/slack/tabs/reports/views/period-fields';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { findAction, textOf } from './support/block-kit';
@@ -90,6 +91,34 @@ describe('Billing reports', () => {
       work_date: '2026-10-15',
       ...fields,
     });
+
+  it('fills its dates from a quick period', async () => {
+    const form = await openReportForm();
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .actOnView(
+        workspace,
+        admin,
+        form,
+        PERIOD_PRESET_ACTION_ID,
+        'last_quarter',
+      )
+      .expect(200);
+    await t.idle();
+
+    const filled = t.slackApi.updatedModal(workspace.token, { since });
+
+    expect(
+      ['fromDate', 'toDate'].map(
+        (actionId) => findAction(filled.blocks, actionId).element.initial_date,
+      ),
+    ).toEqual(['2026-01-01', '2026-03-31']);
+    // The client the admin chose stays: its block is the same.
+    expect(findAction(filled.blocks, 'clientId').blockId).toBe(
+      findAction(form.blocks, 'clientId').blockId,
+    );
+  });
 
   it("sums a client's approved hours by project and person", async () => {
     const support = await workspace.addProject({

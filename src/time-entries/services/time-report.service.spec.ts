@@ -28,6 +28,11 @@ const userWith = (role: UserRole) =>
 const PEOPLE = { ann: 'Ann Admin', mia: 'Mia Member' } as const;
 const PROJECTS = { web: 'Website', app: 'App', int: 'Internal' } as const;
 const TEAMS = { backend: 'Backend' } as const;
+const PROJECT_ROWS = [
+  { id: 'web', name: PROJECTS.web, client_id: 'acme' },
+  { id: 'app', name: PROJECTS.app, client_id: 'acme' },
+  { id: 'int', name: PROJECTS.int, client_id: null },
+];
 
 const entry = (
   projectId: keyof typeof PROJECTS,
@@ -77,15 +82,22 @@ describe('TimeReportService', () => {
       scopeService as unknown as TimeEntriesScopeService,
       timeEntriesService as unknown as TimeEntriesService,
       {
-        findMany: jest.fn().mockResolvedValue([
-          { id: 'web', client_id: 'acme' },
-          { id: 'app', client_id: 'acme' },
-          { id: 'int', client_id: null },
-        ]),
+        findMany: jest.fn(async ({ clientId }: { clientId?: string }) =>
+          PROJECT_ROWS.filter(
+            (project) => !clientId || project.client_id === clientId,
+          ),
+        ),
+        findOne: jest.fn(
+          async ({ id }: { id: string }) =>
+            PROJECT_ROWS.find((project) => project.id === id) ?? null,
+        ),
       } as unknown as ProjectsService,
       projectRatesService as unknown as ProjectRatesService,
       {
         findMany: jest.fn().mockResolvedValue([{ id: 'acme', name: 'Acme' }]),
+        findOne: jest.fn(async ({ id }: { id: string }) =>
+          id === 'acme' ? { id, name: 'Acme' } : null,
+        ),
       } as unknown as ClientsService,
       {
         findMany: jest
@@ -118,6 +130,7 @@ describe('TimeReportService', () => {
       groupBy: TimeReportGrouping.Project,
       ...PERIOD,
       scope: 'workspace',
+      filters: {},
       currency: 'EUR',
       rows: [
         {
@@ -223,6 +236,63 @@ describe('TimeReportService', () => {
       expect(scopeService.findEntries).not.toHaveBeenCalled();
     },
   );
+
+  describe('filters', () => {
+    beforeEach(() => {
+      entries.push(
+        entry('web', 'mia', 90),
+        entry('app', 'ann', 30),
+        entry('int', 'mia', 60),
+      );
+    });
+
+    const filtered = (filters: Record<string, string>) =>
+      service.getReport({
+        user: userWith(UserRole.Admin),
+        groupBy: TimeReportGrouping.Project,
+        ...PERIOD,
+        filters,
+      });
+
+    it("narrow the report to a client's projects, a project or a person", async () => {
+      const byClient = await filtered({ clientId: 'acme' });
+
+      expect(byClient.rows.map(({ name }) => name)).toEqual([
+        PROJECTS.web,
+        PROJECTS.app,
+      ]);
+      expect(byClient.filters).toEqual({ client: 'Acme' });
+
+      const byBoth = await filtered({ clientId: 'acme', userId: 'mia' });
+
+      expect(byBoth.total.minutes).toBe(90);
+      expect(byBoth.filters).toEqual({ client: 'Acme', person: PEOPLE.mia });
+
+      const byProject = await filtered({ projectId: 'int' });
+
+      expect(byProject.total.minutes).toBe(60);
+      expect(byProject.filters).toEqual({ project: PROJECTS.int });
+    });
+
+    it('come after the scope, so they never widen it', async () => {
+      await filtered({ userId: 'ann' });
+
+      expect(scopeService.findEntries).toHaveBeenCalledWith(
+        userWith(UserRole.Admin),
+        { dateFrom: PERIOD.fromDate, dateTo: PERIOD.toDate },
+      );
+    });
+
+    it("match nothing for a client or a project that isn't the workspace's", async () => {
+      const otherClient = await filtered({ clientId: 'elsewhere' });
+      const otherProject = await filtered({ projectId: 'elsewhere' });
+
+      expect(otherClient.total.minutes).toBe(0);
+      expect(otherClient.filters).toEqual({ client: 'Unknown client' });
+      expect(otherProject.total.minutes).toBe(0);
+      expect(otherProject.filters).toEqual({ project: 'Unknown project' });
+    });
+  });
 
   it('accepts a whole leap year', async () => {
     await expect(

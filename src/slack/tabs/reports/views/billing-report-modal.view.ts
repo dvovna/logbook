@@ -9,11 +9,17 @@ import BaseModalView, {
 import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
 import { getDisplayTime } from '@common/utils/time.utils';
 import IClientViewModel from '@modules/clients/types/client.interface';
+import { DATED_PERIOD_PRESETS } from '@common/utils/period-presets';
+import {
+  IPeriodFieldsParams,
+  periodFields,
+} from '@modules/slack/tabs/reports/views/period-fields';
 
-interface IGetViewParams extends IBaseModalViewParams {
+interface IGetViewParams
+  extends
+    IBaseModalViewParams,
+    Pick<IPeriodFieldsParams, 'fromDate' | 'toDate' | 'version'> {
   clients: IClientViewModel[];
-  fromDate: string;
-  toDate: string;
 }
 
 const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '0h');
@@ -40,6 +46,7 @@ export class BillingReportModalView extends BaseModalView<IGetViewParams> {
     clients,
     fromDate,
     toDate,
+    version,
     errorMessage,
   }: IGetViewParams): AnyBlock[] {
     return [
@@ -55,28 +62,12 @@ export class BillingReportModalView extends BaseModalView<IGetViewParams> {
         })),
       }),
       ...(clients.length
-        ? [
-            {
-              type: 'input',
-              block_id: 'from_date_block',
-              label: { type: 'plain_text', text: 'From' },
-              element: {
-                type: 'datepicker',
-                action_id: 'fromDate',
-                initial_date: fromDate,
-              },
-            } as AnyBlock,
-            {
-              type: 'input',
-              block_id: 'to_date_block',
-              label: { type: 'plain_text', text: 'To' },
-              element: {
-                type: 'datepicker',
-                action_id: 'toDate',
-                initial_date: toDate,
-              },
-            } as AnyBlock,
-          ]
+        ? periodFields({
+            fromDate,
+            toDate,
+            version,
+            presets: DATED_PERIOD_PRESETS,
+          })
         : []),
       ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
     ];

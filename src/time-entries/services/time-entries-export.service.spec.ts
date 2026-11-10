@@ -5,7 +5,6 @@ import { IProjectRates } from 'src/projects/types/project-user-rate.types';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeEntriesExportService } from 'src/time-entries/services/time-entries-export.service';
-import { TimeEntriesScopeService } from 'src/time-entries/services/time-entries-scope.service';
 import { TimeReportService } from 'src/time-entries/services/time-report.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { IUserViewModel } from 'src/users/types/user.interface';
@@ -60,12 +59,11 @@ describe('TimeEntriesExportService', () => {
     projectRatesService = { findRates: jest.fn(async () => rates) };
     service = new TimeEntriesExportService(
       {
-        findEntries: jest.fn(async () => ({
+        findFilteredEntries: jest.fn(async () => ({
           scope: { kind: 'workspace' },
           entries,
+          applied: {},
         })),
-      } as unknown as TimeEntriesScopeService,
-      {
         clientsByProject: jest.fn(
           async () =>
             new Map([

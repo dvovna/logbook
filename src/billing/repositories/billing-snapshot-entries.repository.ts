@@ -5,6 +5,7 @@ import { SqlRow } from '@common/types/sql-database.types';
 import { toCents } from '@common/utils/money.utils';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import {
+  IOpenPeriod,
   ISnapshotEntryStats,
   ISnapshotLine,
   ISnapshotLineInsert,
@@ -181,15 +182,16 @@ export class BillingSnapshotEntriesRepository extends BaseRepository<
     }));
   }
 
-  // Each client's approved billable time that is in no snapshot, with its
-  // amount at today's rates: entry by entry, as a snapshot would bill it (the
+  // Each client's approved billable time of the period (no date is no limit)
+  // that is in no snapshot, with its amount at today's rates: entry by entry, as a snapshot would bill it (the
   // person's own rate on the project, else the project's). Time on projects
   // without a client is left out: there is no one to bill.
   public async unbilledByClient(
     slackTeamId: string,
+    { fromDate, toDate }: IOpenPeriod = {},
   ): Promise<IUnbilledClientTime[]> {
     const workspaceId = this.requireWorkspace(slackTeamId);
-    const rows = await this.db
+    let query = this.db
       .selectFrom('time_entries as te')
       .innerJoin('projects as p', 'p.id', 'te.project_id')
       .leftJoin('project_user_rates as r', (join) =>
@@ -211,7 +213,17 @@ export class BillingSnapshotEntriesRepository extends BaseRepository<
               .whereRef('bse.time_entry_id', '=', 'te.id'),
           ),
         ),
-      )
+      );
+
+    if (fromDate) {
+      query = query.where('te.work_date', '>=', fromDate);
+    }
+
+    if (toDate) {
+      query = query.where('te.work_date', '<=', toDate);
+    }
+
+    const rows = await query
       .select([
         'p.client_id',
         sql<number>`sum(te.minutes)::int`.as('minutes'),

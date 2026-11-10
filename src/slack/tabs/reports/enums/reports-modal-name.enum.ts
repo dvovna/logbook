@@ -1,6 +1,7 @@
 export enum ReportsModalName {
   BillingReport = 'BillingReport',
   TimeReport = 'TimeReport',
+  Uninvoiced = 'Uninvoiced',
   // Confirms locking a billing report's approved time in a snapshot.
   LockSnapshot = 'LockSnapshot',
 }

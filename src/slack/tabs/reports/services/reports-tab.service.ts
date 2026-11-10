@@ -33,16 +33,26 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { BillingSnapshotsService } from 'src/billing/services/billing-snapshots.service';
 import { UninvoicedReportService } from 'src/billing/services/uninvoiced-report.service';
 import { canManageSnapshots } from 'src/billing/constants/snapshot-roles';
+import { UninvoicedReportModalView } from '@modules/slack/tabs/reports/views/uninvoiced-report-modal.view';
 
 export type IGetReportsTabViewParams = IPublishBaseParams<IReportsTabMetadata>;
 
+// A report form's period, as a quick period filled it
+// (ReportFormPresetHandler): new dates, under new block_ids.
+export interface IFormPeriod {
+  fromDate?: string;
+  toDate?: string;
+  version: string;
+}
+
+export type IReportFormParams = IOpenModalBaseParams & { period?: IFormPeriod };
+
 type ReportsModalViewResolversMap = {
   [ReportsModalName.BillingReport]: (
-    params: IOpenModalBaseParams,
+    params: IReportFormParams,
   ) => Promise<View>;
-  [ReportsModalName.TimeReport]: (
-    params: IOpenModalBaseParams,
-  ) => Promise<View>;
+  [ReportsModalName.TimeReport]: (params: IReportFormParams) => Promise<View>;
+  [ReportsModalName.Uninvoiced]: (params: IReportFormParams) => Promise<View>;
   // The Reports view's metadata, with the billing report on show.
   [ReportsModalName.LockSnapshot]: (
     params: IOpenModalBaseParams<string>,
@@ -62,6 +72,13 @@ export const billingReportOf = (
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// A dated form's period: the quick period's, else this month up to today.
+const datedPeriod = (period?: IFormPeriod) => ({
+  fromDate: period ? period.fromDate : `${today().slice(0, 8)}01`,
+  toDate: period ? period.toDate : today(),
+  version: period?.version,
+});
+
 @Injectable()
 export class ReportsTabService extends BaseTabService<ReportsModalViewResolversMap> {
   public constructor(
@@ -75,12 +92,15 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
     private readonly uninvoicedReportService: UninvoicedReportService,
     private readonly billingSnapshotsService: BillingSnapshotsService,
     private readonly confirmationModalView: ConfirmationModalView,
+    private readonly uninvoicedReportModalView: UninvoicedReportModalView,
   ) {
     super(TabId.Reports, {
       [ReportsModalName.BillingReport]: (params) =>
         this.getBillingReportModal(params),
       [ReportsModalName.TimeReport]: (params) =>
         this.getTimeReportModal(params),
+      [ReportsModalName.Uninvoiced]: (params) =>
+        this.getUninvoicedModal(params),
       [ReportsModalName.LockSnapshot]: (params) =>
         this.getLockSnapshotModal(params),
     });
@@ -104,7 +124,7 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
         timeReport ? this.getTimeReports(user, timeReport) : null,
         // As billing snapshots, Admin's and HR's.
         uninvoiced && canManageSnapshots(user.role)
-          ? this.uninvoicedReportService.getReport(user)
+          ? this.uninvoicedReportService.getReport(user, uninvoiced)
           : null,
       ]);
 
@@ -124,7 +144,12 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
 
   private async getTimeReports(
     user: IUserViewModel,
-    { kind, fromDate, toDate }: NonNullable<IReportsTabMetadata['timeReport']>,
+    {
+      kind,
+      fromDate,
+      toDate,
+      ...filters
+    }: NonNullable<IReportsTabMetadata['timeReport']>,
   ) {
     const groupBy = groupingOf(kind);
 
@@ -135,6 +160,7 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
             groupBy,
             fromDate,
             toDate,
+            filters,
           }),
           missingTime: null,
         }
@@ -152,7 +178,8 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
   private async getBillingReportModal({
     user,
     errorMessage,
-  }: IOpenModalBaseParams) {
+    period,
+  }: IReportFormParams) {
     const clients = await this.clientsService.findMany({
       slackTeamId: user.slack_team_id,
       includeArchived: true,
@@ -160,8 +187,20 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
 
     return this.billingReportModalView.getView({
       clients: clients.sort((a, b) => a.name.localeCompare(b.name)),
-      fromDate: `${today().slice(0, 8)}01`,
-      toDate: today(),
+      ...datedPeriod(period),
+      errorMessage,
+    });
+  }
+
+  // All time by default: no dates.
+  private async getUninvoicedModal({
+    errorMessage,
+    period,
+  }: IReportFormParams) {
+    return this.uninvoicedReportModalView.getView({
+      fromDate: period?.fromDate,
+      toDate: period?.toDate,
+      version: period?.version,
       errorMessage,
     });
   }
@@ -212,18 +251,30 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
 
   // Time by client, project, person or team for everyone; who hasn't
   // submitted for those who see other people's time. For the current month
-  // up to today by default.
+  // up to today by default. Those who see others' time may filter by client
+  // and person too; everyone by project.
   private async getTimeReportModal({
     user,
     errorMessage,
-  }: IOpenModalBaseParams) {
+    period,
+  }: IReportFormParams) {
+    const seesOthers = MANAGER_ROLES.includes(user.role);
+    const clients = seesOthers
+      ? await this.clientsService.findMany({
+          slackTeamId: user.slack_team_id,
+          includeArchived: true,
+        })
+      : [];
+
     return this.timeReportModalView.getView({
       kinds: Object.values(TimeReportKind).filter(
-        (kind) =>
-          kind !== TimeReportKind.Missing || MANAGER_ROLES.includes(user.role),
+        (kind) => kind !== TimeReportKind.Missing || seesOthers,
       ),
-      fromDate: `${today().slice(0, 8)}01`,
-      toDate: today(),
+      ...datedPeriod(period),
+      clients: clients
+        .map(({ id, name }) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      withPerson: seesOthers,
       errorMessage,
     });
   }

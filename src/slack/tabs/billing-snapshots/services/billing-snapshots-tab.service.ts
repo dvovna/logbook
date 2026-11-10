@@ -17,6 +17,7 @@ import {
   snapshotName,
 } from '@modules/slack/tabs/billing-snapshots/views/billing-snapshots-tab.view';
 import { BillingSnapshotsService } from 'src/billing/services/billing-snapshots.service';
+import ClientsService from '@modules/clients/services/clients.service';
 
 export interface ISnapshotModalParams extends IOpenModalBaseParams<string> {
   snapshotId: string;
@@ -36,6 +37,10 @@ const MODALS = {
     callbackId: ViewCallbackId.MarkBillingSnapshotInvoiced,
     title: 'Mark as invoiced',
   },
+  [BillingSnapshotsModalName.MarkNotInvoiced]: {
+    callbackId: ViewCallbackId.MarkBillingSnapshotNotInvoiced,
+    title: 'Mark as not invoiced',
+  },
   [BillingSnapshotsModalName.Unlock]: {
     callbackId: ViewCallbackId.UnlockBillingSnapshot,
     title: 'Unlock snapshot',
@@ -51,10 +56,13 @@ export class BillingSnapshotsTabService extends BaseTabService<
     private readonly billingSnapshotsTabView: BillingSnapshotsTabView,
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly billingSnapshotsService: BillingSnapshotsService,
+    private readonly clientsService: ClientsService,
   ) {
     super(TabId.BillingSnapshots, {
       [BillingSnapshotsModalName.MarkInvoiced]: (params) =>
         this.getMarkInvoicedModal(params),
+      [BillingSnapshotsModalName.MarkNotInvoiced]: (params) =>
+        this.getMarkNotInvoicedModal(params),
       [BillingSnapshotsModalName.Unlock]: (params) =>
         this.getUnlockModal(params),
     });
@@ -64,13 +72,27 @@ export class BillingSnapshotsTabService extends BaseTabService<
     user,
     metadata = {},
   }: IPublishBaseParams<IBillingSnapshotsTabMetadata>) {
-    const snapshots = await this.billingSnapshotsService.search(user, {
-      page: metadata.page,
-      pageSize: PAGE_SIZE,
-    });
+    const [snapshots, clients] = await Promise.all([
+      this.billingSnapshotsService.search(user, {
+        page: metadata.page,
+        pageSize: PAGE_SIZE,
+        clientId: metadata.filters?.clientId,
+      }),
+      this.clientsService.findMany({
+        slackTeamId: user.slack_team_id,
+        includeArchived: true,
+      }),
+    ]);
 
     return this.billingSnapshotsTabView.getView(
-      { userId: user.slack_id, userRole: user.role, snapshots },
+      {
+        userId: user.slack_id,
+        userRole: user.role,
+        snapshots,
+        clients: clients
+          .map(({ id, name }) => ({ id, name }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      },
       metadata,
     );
   }
@@ -109,6 +131,28 @@ export class BillingSnapshotsTabService extends BaseTabService<
         ...MODALS[BillingSnapshotsModalName.MarkInvoiced],
         confirmText: 'Mark invoiced',
         message: `The snapshot *${escapeMrkdwn(snapshotName(snapshot))}* (*${snapshotAmount(snapshot)}*) will be marked invoiced. It stays locked.`,
+        errorMessage,
+      },
+      { id: snapshot.id, pageMetadata },
+    );
+  }
+
+  private async getMarkNotInvoicedModal({
+    user,
+    snapshotId,
+    errorMessage,
+    pageMetadata,
+  }: ISnapshotModalParams) {
+    const snapshot = await this.billingSnapshotsService.findOne(
+      snapshotId,
+      user,
+    );
+
+    return this.confirmationModalView.getView(
+      {
+        ...MODALS[BillingSnapshotsModalName.MarkNotInvoiced],
+        confirmText: 'Mark not invoiced',
+        message: `The snapshot *${escapeMrkdwn(snapshotName(snapshot))}* will no longer be marked invoiced. It stays locked, and its time counts as uninvoiced again.`,
         errorMessage,
       },
       { id: snapshot.id, pageMetadata },

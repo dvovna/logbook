@@ -3,12 +3,16 @@ import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ReportsTabActionId } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
-import { TimeReportKind } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
+import {
+  TimeReportFilterId,
+  TimeReportKind,
+} from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
+import { PERIOD_PRESET_ACTION_ID } from '@modules/slack/tabs/reports/views/period-fields';
 import { NO_FILES_PERMISSION } from '@modules/slack/common/services/dm-file.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { findAction } from './support/block-kit';
+import { findAction, SlackJson } from './support/block-kit';
 import {
   actionIdsOf,
   noticeOf,
@@ -45,6 +49,7 @@ describe('Time reports', () => {
   let design: Tables<'teams'>;
   let website: Tables<'projects'>;
   let internal: Tables<'projects'>;
+  let acme: Tables<'clients'>;
 
   beforeAll(async () => {
     t = await createTestApp();
@@ -69,7 +74,7 @@ describe('Time reports', () => {
     design = await workspace.addTeam({ name: 'Design' });
     mia = await workspace.addUser({ name: 'Mia Member', team_id: backend.id });
     otto = await workspace.addUser({ name: 'Otto Other', team_id: design.id });
-    const acme = await workspace.addClient({ name: 'Acme' });
+    acme = await workspace.addClient({ name: 'Acme' });
     website = await workspace.addProject({
       name: 'Website',
       client_id: acme.id,
@@ -356,6 +361,197 @@ describe('Time reports', () => {
       );
       expect(kindsOf(await openForm(mia))).not.toContain(
         TimeReportKind.Missing,
+      );
+    });
+  });
+
+  describe('quick periods and filters', () => {
+    // The DM channel of a user, as Slack answers a message to their user ID.
+    const dmOf = (user: Tables<'users'>) => `D${user.slack_id.slice(1)}`;
+
+    // Sends the form with `values` and returns Reports.
+    const submit = async (
+      user: Tables<'users'>,
+      form: View,
+      values: Record<string, string>,
+    ) => {
+      const since = t.slackApi.mark();
+      const response = await t.slack
+        .submitView(workspace, user, form, values)
+        .expect(200);
+
+      expect(response.body).toEqual({ response_action: 'clear' });
+
+      return publishedHome(t, workspace, user, since);
+    };
+
+    beforeEach(async () => {
+      await logged(mia, website, { minutes: 120, description: 'API' });
+      await logged(mia, internal, { minutes: 60 });
+      await logged(otto, website, { minutes: 30 });
+      await logged(mia, website, { work_date: '2026-06-09', minutes: 15 });
+    });
+
+    it('fill the dates from a quick period, which the user may still change', async () => {
+      const form = await openForm(admin);
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .actOnView(workspace, admin, form, PERIOD_PRESET_ACTION_ID, 'last_week')
+        .expect(200);
+      await t.idle();
+
+      const filled = t.slackApi.updatedModal(workspace.token, { since });
+
+      expect((filled as { id?: string }).id).toBe((form as { id?: string }).id);
+      expect(
+        ['fromDate', 'toDate'].map(
+          (actionId) =>
+            findAction(filled.blocks, actionId).element.initial_date,
+        ),
+      ).toEqual(['2026-06-08', '2026-06-14']);
+
+      const reports = await submit(admin, filled, {
+        kind: TimeReportKind.Person,
+      });
+
+      expect(reportTexts(reports)[0]).toMatch(
+        /^\*Time by person\* · 8–14 Jun 2026 · Everyone's time\nLogged \*3h 45m\*/,
+      );
+    });
+
+    it('narrow the report and its CSV to a client and a person', async () => {
+      const form = await openForm(admin);
+      const reports = await submit(admin, form, {
+        kind: TimeReportKind.Project,
+        ...JUNE,
+        [TimeReportFilterId.Client]: acme.id,
+        [TimeReportFilterId.Person]: mia.id,
+      });
+
+      expect(reportTexts(reports)).toEqual([
+        "*Time by project* · 1–30 Jun 2026 · Everyone's time · Client: Acme · Person: Mia Member\nLogged *2h 15m* · billable *2h 15m* · approved *2h 15m* · amount *$225.00*",
+      ]);
+
+      const since = t.slackApi.mark();
+
+      await actOnTab(
+        t,
+        workspace,
+        admin,
+        reports,
+        ReportsTabActionId.ExportTimeReport,
+      );
+
+      expect(
+        t.slackApi
+          .postedMessages(workspace.token, admin.slack_id, { since })
+          .map(({ text }) => text),
+      ).toEqual([
+        "📄 Time report, 1–30 Jun 2026 (everyone's time, client Acme, person Mia Member): 2 entries, 2h 15m.",
+      ]);
+
+      const [file] = t.slackApi.uploadedFiles(workspace.token, dmOf(admin), {
+        since,
+      });
+
+      expect(
+        file.content
+          .replace(/^\uFEFF/, '')
+          .split('\r\n')
+          .filter(Boolean)
+          .map((line: string) => line.split(',').slice(0, 2).join(',')),
+      ).toEqual([
+        'Date,Person',
+        '2026-06-09,Mia Member',
+        '2026-06-10,Mia Member',
+      ]);
+    });
+
+    it('narrow a project for a member, and offer them no client or person', async () => {
+      const form = await openForm(mia);
+
+      expect(actionIdsOf(form)).toContain(TimeReportFilterId.Project);
+      expect(actionIdsOf(form)).not.toContain(TimeReportFilterId.Client);
+      expect(actionIdsOf(form)).not.toContain(TimeReportFilterId.Person);
+
+      const reports = await submit(mia, form, {
+        kind: TimeReportKind.Project,
+        ...JUNE,
+        [TimeReportFilterId.Project]: internal.id,
+      });
+
+      expect(reportTexts(reports)).toEqual([
+        '*Time by project* · 1–30 Jun 2026 · Your time · Project: Internal\nLogged *1h* · billable *0h* · approved *1h*',
+      ]);
+    });
+
+    it("keep a manager to their teams' time, whatever person they send", async () => {
+      const form = await openForm(manager);
+      const people = await t.slack
+        .suggest(workspace, manager, form, TimeReportFilterId.Person, '')
+        .expect(201);
+
+      // Their team's people and themselves; Otto is in Design.
+      expect(
+        people.body.options.map(
+          ({ text }: { text: { text: string } }) => text.text,
+        ),
+      ).toEqual(['Max Manager', 'Mia Member']);
+
+      const reports = await submit(manager, form, {
+        kind: TimeReportKind.Project,
+        ...JUNE,
+        [TimeReportFilterId.Person]: otto.id,
+      });
+
+      expect(reportTexts(reports)).toEqual([
+        "*Time by project* · 1–30 Jun 2026 · Your teams' time and yours · Person: Unknown person\nLogged *0h* · billable *0h* · approved *0h*",
+      ]);
+    });
+
+    it('offer a member no people to choose', async () => {
+      const form = await openForm(manager);
+      const people = await t.slack
+        .suggest(workspace, mia, form, TimeReportFilterId.Person, '')
+        .expect(201);
+
+      expect(people.body.options).toEqual([]);
+    });
+
+    it("match nothing for another workspace's client", async () => {
+      const other = await t.createWorkspace();
+      const theirs = await other.addClient({ name: 'Theirs' });
+      const form = await openForm(admin);
+      const reports = await submit(
+        admin,
+        {
+          ...form,
+          blocks: (form.blocks as unknown as SlackJson[]).map((block) =>
+            block.block_id === `${TimeReportFilterId.Client}_block`
+              ? {
+                  ...block,
+                  element: {
+                    ...(block.element as Record<string, unknown>),
+                    options: [
+                      {
+                        text: { type: 'plain_text', text: 'Theirs' },
+                        value: theirs.id,
+                      },
+                    ],
+                  },
+                }
+              : block,
+          ) as unknown as View['blocks'],
+        },
+        {
+          kind: TimeReportKind.Project,
+          [TimeReportFilterId.Client]: theirs.id,
+        },
+      );
+
+      expect(reportTexts(reports)[0]).toMatch(
+        /· Client: Unknown client\nLogged \*0h\*/,
       );
     });
   });

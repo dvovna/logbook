@@ -312,6 +312,63 @@ describe('BillingSnapshotsService', () => {
     });
   });
 
+  describe('markNotInvoiced', () => {
+    it('takes the mark off an invoiced snapshot', async () => {
+      snapshotsRepository.findOne.mockResolvedValue({
+        id: 'snapshot-1',
+        invoiced_at: '2026-11-01T10:00:00.000000+00:00',
+      });
+      snapshotsRepository.unmarkInvoiced = jest.fn().mockResolvedValue(true);
+
+      await service.markNotInvoiced('snapshot-1', userWith(UserRole.HR));
+
+      expect(snapshotsRepository.unmarkInvoiced).toHaveBeenCalledWith(
+        SLACK_TEAM_ID,
+        'snapshot-1',
+      );
+    });
+
+    it("says when it isn't marked", async () => {
+      snapshotsRepository.findOne.mockResolvedValue({
+        id: 'snapshot-1',
+        invoiced_at: null,
+      });
+      snapshotsRepository.unmarkInvoiced = jest.fn().mockResolvedValue(false);
+
+      await expect(
+        service.markNotInvoiced('snapshot-1', userWith(UserRole.Admin)),
+      ).rejects.toThrow(
+        new ValidationError("This snapshot isn't marked invoiced."),
+      );
+    });
+
+    it('is not done by a manager', async () => {
+      await expect(
+        service.markNotInvoiced('snapshot-1', userWith(UserRole.Manager)),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  it("lists one client's snapshots of the workspace", async () => {
+    snapshotsRepository.search.mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 10,
+    });
+
+    await service.search(userWith(UserRole.HR), {
+      pageSize: 10,
+      clientId: 'acme',
+    });
+
+    expect(snapshotsRepository.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: { slack_team_id: SLACK_TEAM_ID, client_id: 'acme' },
+      }),
+    );
+  });
+
   describe('unlock', () => {
     it('deletes the snapshot, an invoiced one too', async () => {
       snapshotsRepository.findOne.mockResolvedValue({

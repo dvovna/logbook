@@ -17,19 +17,30 @@ import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import { BillingSnapshotsTabActionId } from '@modules/slack/tabs/billing-snapshots/enums/billing-snapshots-tab-action-id.enum';
 import { IBillingSnapshot } from 'src/billing/types/billing-snapshot.types';
+import { IOption } from '@common/types/option.interface';
+import { ALL_OPTION_VALUE } from '@modules/slack/common/views/data/all-option-value';
+import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
 export interface IBillingSnapshotsTabMetadata {
   page?: number;
+  // The client the list shows the snapshots of (withSelectFilter).
+  filters?: { clientId?: string };
 }
 
-// The list's page, as a form opened from it carries it (pageMetadata).
+// The list's page and filter, as a form opened from it carries them
+// (pageMetadata).
 export const parsePageMetadata = (
   pageMetadata?: string,
 ): IBillingSnapshotsTabMetadata => {
   try {
-    const { page } = JSON.parse(pageMetadata || '{}');
+    const { page, filters } = JSON.parse(pageMetadata || '{}');
 
-    return typeof page === 'number' ? { page } : {};
+    return {
+      ...(typeof page === 'number' ? { page } : {}),
+      ...(typeof filters?.clientId === 'string'
+        ? { filters: { clientId: filters.clientId } }
+        : {}),
+    };
   } catch {
     return {};
   }
@@ -37,7 +48,12 @@ export const parsePageMetadata = (
 
 interface IGetViewParams extends IBaseTabViewParams {
   snapshots: ISearchResult<IBillingSnapshot>;
+  // The clients to filter by.
+  clients: IOption[];
 }
+
+// A static select holds 100 options, one of them "All clients".
+const MAX_CLIENTS = 99;
 
 const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '0h');
 
@@ -72,10 +88,47 @@ export class BillingSnapshotsTabView extends BaseTabView<
     return `*${SCREENS[ScreenId.BillingSnapshots].title}*\nA client's approved time of a period, locked with its rates for an invoice. Nobody can change a snapshot's entries until an admin unlocks it.`;
   }
 
-  protected getContentBlocks({
-    snapshots,
-    userRole,
-  }: IGetViewParams): AnyBlock[] {
+  protected getContentBlocks(
+    { snapshots, clients, userRole }: IGetViewParams,
+    { filters }: IBillingSnapshotsTabMetadata,
+  ): AnyBlock[] {
+    return [
+      ...this.getFilterBlocks(clients, filters?.clientId),
+      ...this.getListBlocks(snapshots, userRole),
+    ];
+  }
+
+  private getFilterBlocks(clients: IOption[], clientId?: string): AnyBlock[] {
+    if (!clients.length) {
+      return [];
+    }
+
+    const options = [
+      { id: ALL_OPTION_VALUE, name: 'All clients' },
+      ...clients.slice(0, MAX_CLIENTS),
+    ].map(toPlainTextOption);
+
+    return [
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'static_select',
+            action_id: BillingSnapshotsTabActionId.FilterByClient,
+            placeholder: { type: 'plain_text', text: 'Client' },
+            options,
+            initial_option:
+              options.find(({ value }) => value === clientId) ?? options[0],
+          },
+        ],
+      } as AnyBlock,
+    ];
+  }
+
+  private getListBlocks(
+    snapshots: ISearchResult<IBillingSnapshot>,
+    userRole: UserRole,
+  ): AnyBlock[] {
     return PaginatedListView.getBlocks<IBillingSnapshot>({
       itemsData: snapshots,
       getItemBlocks: (snapshot) => this.getItemBlocks(snapshot, userRole),
@@ -96,14 +149,12 @@ export class BillingSnapshotsTabView extends BaseTabView<
     });
     const options = [
       option(BillingSnapshotsTabActionId.ExportSnapshot, 'Send CSV to my DMs'),
-      ...(snapshot.invoiced_at
-        ? []
-        : [
-            option(
-              BillingSnapshotsTabActionId.MarkInvoiced,
-              'Mark as invoiced',
-            ),
-          ]),
+      snapshot.invoiced_at
+        ? option(
+            BillingSnapshotsTabActionId.MarkNotInvoiced,
+            'Mark as not invoiced',
+          )
+        : option(BillingSnapshotsTabActionId.MarkInvoiced, 'Mark as invoiced'),
       ...(this.slackActionPermissionsService.can(
         userRole,
         BillingSnapshotsTabActionId.UnlockSnapshot,

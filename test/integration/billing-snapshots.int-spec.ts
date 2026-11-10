@@ -9,7 +9,9 @@ import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/en
 import { NO_FILES_PERMISSION } from '@modules/slack/common/services/dm-file.service';
 import { BILLED_ENTRY_MESSAGE } from 'src/time-entries/constants/billed-time-entries';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { PERIOD_PRESET_ACTION_ID } from '@modules/slack/tabs/reports/views/period-fields';
 import { createTestApp, ITestApp } from './support/test-app';
+import { findAction } from './support/block-kit';
 import { TestWorkspace } from './support/test-workspace';
 import {
   actionIdsOf,
@@ -18,6 +20,7 @@ import {
   noticeOf,
   sectionTexts,
   tableRows,
+  titlesOf,
 } from './support/tab-readers';
 import {
   actOnTab,
@@ -215,6 +218,29 @@ describe('Billing snapshots', () => {
     type: 'button',
     action_id: actionId,
   });
+
+  // Chooses a quick period in a report form: the form the app puts in its
+  // place (views.update).
+  const choosePreset = async (
+    user: Tables<'users'>,
+    form: View,
+    preset: string,
+  ) => {
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .actOnView(workspace, user, form, PERIOD_PRESET_ACTION_ID, preset)
+      .expect(200);
+    await t.idle();
+
+    return t.slackApi.updatedModal(workspace.token, { since });
+  };
+
+  // The initial dates of a form's From and To.
+  const datesOf = (form: View) =>
+    ['fromDate', 'toDate'].map(
+      (actionId) => findAction(form.blocks, actionId).element.initial_date,
+    );
 
   const openedModals = (since: number) =>
     t.slackApi.callsWith(workspace.token, 'views.open', { since });
@@ -578,7 +604,7 @@ describe('Billing snapshots', () => {
         fields: expect.objectContaining({
           Status: '✅ Invoiced 17 Jun 2026 by Hana HR',
         }),
-        menuLabels: ['Send CSV to my DMs'],
+        menuLabels: ['Send CSV to my DMs', 'Mark as not invoiced'],
       });
 
       // The same form again.
@@ -587,6 +613,104 @@ describe('Billing snapshots', () => {
       expect(modalError(again.response.body.view)).toBe(
         'This snapshot is already marked invoiced.',
       );
+    });
+
+    it('lets HR take the invoiced mark off again', async () => {
+      await submit(
+        hr,
+        await openMenuModal(hr, BillingSnapshotsTabActionId.MarkInvoiced),
+      );
+
+      const form = await openMenuModal(
+        hr,
+        BillingSnapshotsTabActionId.MarkNotInvoiced,
+      );
+
+      expect(sectionTexts(form)).toEqual([
+        'The snapshot *Acme · 1–30 Jun 2026* will no longer be marked invoiced. It stays locked, and its time counts as uninvoiced again.',
+      ]);
+
+      const { tab } = await submit(hr, form);
+
+      expect(noticeOf(tab!)).toBe(
+        '↩️ Acme · 1–30 Jun 2026 is no longer marked invoiced.',
+      );
+      expect(listItems(tab!)[0]).toMatchObject({
+        fields: expect.objectContaining({
+          Status: '🔒 Locked, not invoiced yet',
+        }),
+        menuLabels: ['Send CSV to my DMs', 'Mark as invoiced'],
+      });
+      expect(await snapshotRows()).toEqual([
+        expect.objectContaining({ invoiced_at: null, invoiced_by: null }),
+      ]);
+
+      const again = await submit(hr, form);
+
+      expect(modalError(again.response.body.view)).toBe(
+        "This snapshot isn't marked invoiced.",
+      );
+    });
+
+    it('filters the list by client', async () => {
+      const globex = await workspace.addClient({ name: 'Globex' });
+      const other = await t.createWorkspace();
+      const theirs = await other.addClient({ name: 'Theirs' });
+
+      await t.db
+        .insertInto('billing_snapshots')
+        .values({
+          slack_team_id: workspace.id,
+          client_id: globex.id,
+          period_start: '2026-05-01',
+          period_end: '2026-05-31',
+          currency: 'USD',
+          total_minutes: 60,
+          billable_minutes: 60,
+          total_amount: 100,
+          created_at: '2026-06-01T09:00:00Z',
+        })
+        .execute();
+
+      const all = await openSnapshots();
+
+      expect(titlesOf(all)).toEqual([
+        'Acme · 1–30 Jun 2026',
+        'Globex · 1–31 May 2026',
+      ]);
+
+      const globexOnly = await actOnTab(
+        t,
+        workspace,
+        admin,
+        all,
+        BillingSnapshotsTabActionId.FilterByClient,
+        globex.id,
+      );
+
+      expect(titlesOf(globexOnly)).toEqual(['Globex · 1–31 May 2026']);
+
+      // Another workspace's client, as a client could send it.
+      await forge(admin, globexOnly, {
+        type: 'static_select',
+        action_id: BillingSnapshotsTabActionId.FilterByClient,
+        selected_option: option(theirs.id),
+      });
+
+      expect(
+        titlesOf(t.slackApi.homeView(workspace.token, admin.slack_id)),
+      ).toEqual([]);
+
+      const again = await actOnTab(
+        t,
+        workspace,
+        admin,
+        globexOnly,
+        BillingSnapshotsTabActionId.FilterByClient,
+        'all',
+      );
+
+      expect(titlesOf(again)).toHaveLength(2);
     });
 
     it('lets an admin unlock a snapshot, which frees its entries', async () => {
@@ -670,6 +794,7 @@ describe('Billing snapshots', () => {
       for (const action of [
         BillingSnapshotsTabActionId.ExportSnapshot,
         BillingSnapshotsTabActionId.MarkInvoiced,
+        BillingSnapshotsTabActionId.MarkNotInvoiced,
         BillingSnapshotsTabActionId.UnlockSnapshot,
       ]) {
         await forge(
@@ -804,14 +929,25 @@ describe('Billing snapshots', () => {
   });
 
   describe('uninvoiced report', () => {
-    const showUninvoiced = async (user = admin) =>
-      actOnTab(
+    // Opens the form from Reports, sends it with `period` (no dates: all
+    // time) and returns Reports.
+    const showUninvoiced = async (
+      user = admin,
+      period: { fromDate?: string; toDate?: string } = {},
+    ) => {
+      const form = await openModalFrom(
         t,
         workspace,
         user,
         await openAppHomeTab(t, workspace, user, REPORTS_TAB),
         ReportsTabActionId.Uninvoiced,
       );
+      const since = t.slackApi.mark();
+
+      await t.slack.submitView(workspace, user, form, period).expect(200);
+
+      return publishedHome(t, workspace, user, since);
+    };
 
     const reportTexts = (view: View) =>
       sectionTexts(view).filter((text) => text.startsWith('*Uninvoiced time*'));
@@ -843,7 +979,7 @@ describe('Billing snapshots', () => {
       const reports = await showUninvoiced(hr);
 
       expect(reportTexts(reports)).toEqual([
-        "*Uninvoiced time* · Approved billable time that isn't invoiced yet\n" +
+        "*Uninvoiced time* · All time · Approved billable time that isn't invoiced yet\n" +
           "Not in a snapshot: *4h 15m*, *$275.00* at today's rates\n" +
           'In snapshots not marked invoiced: *2h*, *$225.00*\n' +
           '_No rate: 30m of billable time, not in the amounts_',
@@ -896,7 +1032,7 @@ describe('Billing snapshots', () => {
       const reports = await showUninvoiced();
 
       expect(sectionTexts(reports)).toContain(
-        "*Uninvoiced time* · Approved billable time that isn't invoiced yet\nNot in a snapshot: *0h*, *$0.00* at today's rates\nIn snapshots not marked invoiced: *0h*, *$0.00*",
+        "*Uninvoiced time* · All time · Approved billable time that isn't invoiced yet\nNot in a snapshot: *0h*, *$0.00* at today's rates\nIn snapshots not marked invoiced: *0h*, *$0.00*",
       );
       expect(tableRows(reports)).toEqual([]);
     });
@@ -922,7 +1058,7 @@ describe('Billing snapshots', () => {
           {
             ...reports,
             private_metadata: JSON.stringify({
-              uninvoiced: true,
+              uninvoiced: {},
               timeReport: { kind: 'project', ...JUNE },
             }),
           },
@@ -936,7 +1072,91 @@ describe('Billing snapshots', () => {
         // The export re-rendered Reports, without the uninvoiced report.
         expect(published.length).toBeGreaterThan(0);
         expect(published.flatMap(reportTexts)).toEqual([]);
+        expect(openedModals(since)).toEqual([]);
       }
+
+      // The form an admin got, sent as a manager's.
+      const form = await openModalFrom(
+        t,
+        workspace,
+        admin,
+        await openAppHomeTab(t, workspace, admin, REPORTS_TAB),
+        ReportsTabActionId.Uninvoiced,
+      );
+      const response = await t.slack
+        .submitView(workspace, manager, form, {})
+        .expect(200);
+
+      expect(response.body.response_action).toBe('update');
+    });
+
+    it('covers a period, with a quick period or dates', async () => {
+      await approved(mia, website, { work_date: '2026-05-04', minutes: 30 });
+      await lock(admin, { fromDate: '2026-06-01', toDate: '2026-06-10' });
+
+      // May: the 29th's hour and the 4th's 30m, nothing locked.
+      const may = await showUninvoiced(admin, {
+        fromDate: '2026-05-01',
+        toDate: '2026-05-31',
+      });
+
+      expect(reportTexts(may)).toEqual([
+        "*Uninvoiced time* · 1–31 May 2026 · Approved billable time that isn't invoiced yet\n" +
+          "Not in a snapshot: *1h 30m*, *$150.00* at today's rates\n" +
+          'In snapshots not marked invoiced: *0h*, *$0.00*',
+      ]);
+      expect(tableRows(may)[1]).toEqual([
+        'Acme',
+        '1h 30m',
+        '$150.00',
+        '4 May 2026',
+        '0h',
+        '$0.00',
+      ]);
+
+      // From June: the snapshot's 2h; open-ended, so "Since".
+      const june = await showUninvoiced(admin, { fromDate: '2026-06-01' });
+
+      expect(reportTexts(june)[0]).toMatch(
+        /^\*Uninvoiced time\* · Since 1 Jun 2026 · .*\nNot in a snapshot: \*0h\*, \*\$0\.00\* .*\nIn snapshots not marked invoiced: \*2h\*, \*\$225\.00\*$/,
+      );
+
+      // A quick period fills the dates; All time empties them.
+      const form = await openModalFrom(
+        t,
+        workspace,
+        admin,
+        await openAppHomeTab(t, workspace, admin, REPORTS_TAB),
+        ReportsTabActionId.Uninvoiced,
+      );
+      const lastMonth = await choosePreset(admin, form, 'last_month');
+
+      expect(datesOf(lastMonth)).toEqual(['2026-05-01', '2026-05-31']);
+
+      const allTime = await choosePreset(admin, lastMonth, 'all_time');
+
+      expect(datesOf(allTime)).toEqual([undefined, undefined]);
+    });
+
+    it('refuses an end before the start', async () => {
+      const form = await openModalFrom(
+        t,
+        workspace,
+        admin,
+        await openAppHomeTab(t, workspace, admin, REPORTS_TAB),
+        ReportsTabActionId.Uninvoiced,
+      );
+      const response = await t.slack
+        .submitView(workspace, admin, form, {
+          fromDate: '2026-06-10',
+          toDate: '2026-06-01',
+        })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        response_action: 'errors',
+        errors: { to_date_block: 'End date must not be before the start date' },
+      });
     });
   });
 });

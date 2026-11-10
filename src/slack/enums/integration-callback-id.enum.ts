@@ -75,10 +75,12 @@ export enum ViewCallbackId {
   // time reports
   TimeReportFormSubmit = 'time_report_form_submit',
 
-  // billing snapshots
+  // billing snapshots and the uninvoiced report
+  UninvoicedReportFormSubmit = 'uninvoiced_report_form_submit',
   BillingSnapshotsTabView = 'billing_snapshots_tab_view',
   CreateBillingSnapshot = 'create_billing_snapshot',
   MarkBillingSnapshotInvoiced = 'mark_billing_snapshot_invoiced',
+  MarkBillingSnapshotNotInvoiced = 'mark_billing_snapshot_not_invoiced',
   UnlockBillingSnapshot = 'unlock_billing_snapshot',
 
   // clients

@@ -43,6 +43,7 @@ import { TimeEntriesExportService } from 'src/time-entries/services/time-entries
     TimeEntriesListQuery,
     TimeReportService,
     TimeEntriesExportService,
+    TimeEntriesScopeService,
   ],
 })
 export class TimeEntriesModule {}

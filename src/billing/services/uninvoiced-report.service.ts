@@ -5,6 +5,8 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { assertCanManageSnapshots } from 'src/billing/constants/snapshot-roles';
 import { BillingSnapshotsRepository } from 'src/billing/repositories/billing-snapshots.repository';
 import { BillingSnapshotEntriesRepository } from 'src/billing/repositories/billing-snapshot-entries.repository';
+import { IOpenPeriod } from 'src/billing/types/billing-snapshot.types';
+import { assertOpenPeriod } from 'src/time-entries/utils/report-period';
 
 // A client's approved billable time that isn't invoiced yet.
 export interface IUninvoicedRow {
@@ -22,7 +24,10 @@ export interface IUninvoicedRow {
   snapshotCount: number;
 }
 
-export interface IUninvoicedReport {
+// No date is no limit: both empty is all time.
+export type IUninvoicedPeriod = IOpenPeriod;
+
+export interface IUninvoicedReport extends IUninvoicedPeriod {
   currency: string;
   // Most time not in a snapshot first.
   rows: IUninvoicedRow[];
@@ -40,10 +45,10 @@ const emptyRow = (clientName: string): IUninvoicedRow => ({
   snapshotCount: 0,
 });
 
-// What hasn't been invoiced, per client, over all time: approved billable
-// time in no billing snapshot yet (at today's rates, entry by entry, as a
-// snapshot would bill it), and the time of the snapshots that aren't marked
-// invoiced. Admin and HR only.
+// What hasn't been invoiced, per client, in a period (all time by default):
+// approved billable time in no billing snapshot yet (at today's rates, entry
+// by entry, as a snapshot would bill it), and the time in snapshots that
+// aren't marked invoiced. Admin and HR only.
 @Injectable()
 export class UninvoicedReportService {
   public constructor(
@@ -53,13 +58,21 @@ export class UninvoicedReportService {
     private readonly slackTeamsService: SlackTeamsService,
   ) {}
 
-  public async getReport(user: IUserViewModel): Promise<IUninvoicedReport> {
+  public async getReport(
+    user: IUserViewModel,
+    { fromDate, toDate }: IUninvoicedPeriod = {},
+  ): Promise<IUninvoicedReport> {
     assertCanManageSnapshots(user);
+    assertOpenPeriod(fromDate, toDate);
 
+    const period = {
+      ...(fromDate ? { fromDate } : {}),
+      ...(toDate ? { toDate } : {}),
+    };
     const slackTeamId = user.slack_team_id;
     const [unbilled, notInvoiced, clients, currency] = await Promise.all([
-      this.entriesRepository.unbilledByClient(slackTeamId),
-      this.snapshotsRepository.notInvoicedByClient(slackTeamId),
+      this.entriesRepository.unbilledByClient(slackTeamId, period),
+      this.snapshotsRepository.notInvoicedByClient(slackTeamId, period),
       this.clientsService.findMany({ slackTeamId, includeArchived: true }),
       this.slackTeamsService.getCurrency(slackTeamId),
     ]);
@@ -101,6 +114,7 @@ export class UninvoicedReportService {
       sorted.reduce((total, row) => total + valueOf(row), 0);
 
     return {
+      ...period,
       currency,
       rows: sorted,
       total: {

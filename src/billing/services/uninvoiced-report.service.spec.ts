@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { ValidationError } from '@common/errors/validation.error';
 import UserRole from '@common/enums/user-role.enum';
 import ClientsService from '@modules/clients/services/clients.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
@@ -67,7 +68,7 @@ describe('UninvoicedReportService', () => {
 
     const report = await service.getReport(userWith(UserRole.HR));
 
-    expect(unbilledByClient).toHaveBeenCalledWith('slack-team-1');
+    expect(unbilledByClient).toHaveBeenCalledWith('slack-team-1', {});
     expect(report).toEqual({
       currency: 'USD',
       rows: [
@@ -111,6 +112,33 @@ describe('UninvoicedReportService', () => {
         snapshotCount: 3,
       },
     });
+  });
+
+  it('narrows both parts to the period, open on either side', async () => {
+    unbilledByClient.mockResolvedValue([]);
+    notInvoicedByClient.mockResolvedValue([]);
+
+    const report = await service.getReport(userWith(UserRole.Admin), {
+      fromDate: '2026-06-01',
+    });
+
+    expect(unbilledByClient).toHaveBeenCalledWith('slack-team-1', {
+      fromDate: '2026-06-01',
+    });
+    expect(notInvoicedByClient).toHaveBeenCalledWith('slack-team-1', {
+      fromDate: '2026-06-01',
+    });
+    expect(report).toMatchObject({ fromDate: '2026-06-01', rows: [] });
+  });
+
+  it.each([
+    [{ fromDate: '2026-06-10', toDate: '2026-06-01' }],
+    [{ toDate: '2026-02-30' }],
+  ])('refuses the period %j', async (period) => {
+    await expect(
+      service.getReport(userWith(UserRole.Admin), period),
+    ).rejects.toThrow(ValidationError);
+    expect(unbilledByClient).not.toHaveBeenCalled();
   });
 
   it.each([UserRole.Manager, UserRole.Member])(

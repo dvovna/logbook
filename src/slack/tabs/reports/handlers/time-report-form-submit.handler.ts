@@ -19,6 +19,7 @@ import { assertReportPeriod } from 'src/time-entries/utils/report-period';
 
 // Everyone who sees Reports makes time reports; the services keep each of
 // them to the time they may see.
+import { TimeReportFilterId } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.TimeReportFormSubmit,
@@ -40,10 +41,15 @@ export class TimeReportFormSubmitHandler extends BaseModalFormSubmitHandler<
   // The form closes, and Reports shows the report, with a table a modal
   // cannot have.
   protected async onSubmit(
-    { kind, fromDate, toDate }: ITimeReportFormViewData,
+    data: ITimeReportFormViewData,
     _meta: object,
     user: IUserViewModel,
   ): Promise<void> {
+    const { kind, fromDate, toDate } = data;
+    const clientId = data[TimeReportFilterId.Client]?.value;
+    const projectId = data[TimeReportFilterId.Project]?.value;
+    const userId = data[TimeReportFilterId.Person]?.value;
+
     assertReportPeriod(fromDate, toDate);
 
     this.tabNavigationService.navigate<{
@@ -51,7 +57,16 @@ export class TimeReportFormSubmitHandler extends BaseModalFormSubmitHandler<
       metadata: IReportsTabMetadata;
     }>(TabId.Reports, {
       user,
-      metadata: { timeReport: { kind: kind.value, fromDate, toDate } },
+      metadata: {
+        timeReport: {
+          kind: kind.value,
+          fromDate,
+          toDate,
+          ...(clientId ? { clientId } : {}),
+          ...(projectId ? { projectId } : {}),
+          ...(userId ? { userId } : {}),
+        },
+      },
     });
   }
 

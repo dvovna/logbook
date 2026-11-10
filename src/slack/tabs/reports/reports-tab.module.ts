@@ -13,6 +13,14 @@ import TimeReportModalViewValuesParser from '@modules/slack/tabs/reports/parsers
 import { TimeReportModalView } from '@modules/slack/tabs/reports/views/time-report-modal.view';
 import { TimeReportExportService } from '@modules/slack/tabs/reports/services/time-report-export.service';
 import { CreateBillingSnapshotFormSubmitHandler } from '@modules/slack/tabs/reports/handlers/create-billing-snapshot-form-submit.handler';
+import { UninvoicedReportFormSubmitHandler } from '@modules/slack/tabs/reports/handlers/uninvoiced-report-form-submit.handler';
+import UninvoicedReportModalViewValuesParser from '@modules/slack/tabs/reports/parsers/uninvoiced-report-modal-view-values.parser';
+import { UninvoicedReportModalView } from '@modules/slack/tabs/reports/views/uninvoiced-report-modal.view';
+import {
+  BillingReportPresetHandler,
+  TimeReportPresetHandler,
+  UninvoicedReportPresetHandler,
+} from '@modules/slack/tabs/reports/handlers/report-form-preset.handler';
 import { BillingModule } from 'src/billing/billing.module';
 
 @Module({
@@ -29,6 +37,12 @@ import { BillingModule } from 'src/billing/billing.module';
     TimeReportModalView,
     TimeReportExportService,
     CreateBillingSnapshotFormSubmitHandler,
+    UninvoicedReportFormSubmitHandler,
+    UninvoicedReportModalViewValuesParser,
+    UninvoicedReportModalView,
+    TimeReportPresetHandler,
+    BillingReportPresetHandler,
+    UninvoicedReportPresetHandler,
   ],
   exports: [ReportsTabService],
 })

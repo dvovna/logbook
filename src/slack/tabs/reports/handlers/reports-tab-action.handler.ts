@@ -92,17 +92,17 @@ export default class ReportsTabActionHandler extends BaseTabActionHandler {
     );
   };
 
-  // In place of any other report: it has no form.
   private handleUninvoiced = async (
-    _payload: ISlackInteractionPayload,
+    payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
     assertCanManageSnapshots(user);
 
-    await this.reportsTabService.publish({
-      user,
-      metadata: { uninvoiced: true },
-    });
+    await this.reportsTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      ReportsModalName.Uninvoiced,
+      { user },
+    );
   };
 
   private handleTimeReport = async (

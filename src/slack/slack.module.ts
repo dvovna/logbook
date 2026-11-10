@@ -44,8 +44,10 @@ import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-track
 import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module';
 import { BillingSnapshotsTabModule } from '@modules/slack/tabs/billing-snapshots/billing-snapshots-tab.module';
 
+import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 @Module({
   imports: [
+    TimeEntriesModule,
     DiscoveryModule,
     UsersModule,
     ApiClientsModule,

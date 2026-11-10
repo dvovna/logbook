@@ -23,6 +23,8 @@ import { UserOptionsService } from '@modules/slack/services/option-services/user
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
+import { TimeReportFilterId } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
+import { MANAGER_ROLES } from '@common/constants/role-groups';
 @Controller('api/slack/options')
 @UseFilters(SlackUserAccessFilter)
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)
@@ -67,6 +69,27 @@ export class SlackOptionsController {
               includeArchived: true,
             })
           : this.projectOptionsService.searchUserProjects(params);
+      }
+      // The time report's filters: projects for anyone (a member's own
+      // ones), people for those who see others' time (a manager's teams).
+      // The report keeps to the viewer's scope whatever they choose.
+      case TimeReportFilterId.Project: {
+        const params = { query: payload.value, user: request.user! };
+
+        return MANAGER_ROLES.includes(request.user!.role)
+          ? this.projectOptionsService.searchProjects({
+              ...params,
+              includeArchived: true,
+            })
+          : this.projectOptionsService.searchUserProjects(params);
+      }
+      case TimeReportFilterId.Person: {
+        return MANAGER_ROLES.includes(request.user!.role)
+          ? this.userOptionsService.searchPeopleInScope({
+              query: payload.value,
+              user: request.user!,
+            })
+          : { options: [] };
       }
       case ProjectsTabViewActionId.FindProjectByName: {
         return this.projectOptionsService.searchProjects({

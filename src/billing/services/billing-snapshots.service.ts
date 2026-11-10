@@ -125,15 +125,23 @@ export class BillingSnapshotsService {
     });
   }
 
-  // The workspace's snapshots, newest first.
+  // The workspace's snapshots, a client's only if `clientId` is given,
+  // newest first.
   public async search(
     user: IUserViewModel,
-    { page, pageSize }: { page?: number; pageSize: number },
+    {
+      page,
+      pageSize,
+      clientId,
+    }: { page?: number; pageSize: number; clientId?: string },
   ): Promise<ISearchResult<IBillingSnapshot>> {
     assertCanManageSnapshots(user);
 
     const result = await this.snapshotsRepository.search({
-      filters: { slack_team_id: user.slack_team_id },
+      filters: {
+        slack_team_id: user.slack_team_id,
+        ...(clientId ? { client_id: clientId } : {}),
+      },
       page,
       pageSize,
       orderBy: ['created_at:desc'],
@@ -177,6 +185,23 @@ export class BillingSnapshotsService {
           ? 'This snapshot is already marked invoiced.'
           : NO_SUCH_SNAPSHOT,
       );
+    }
+
+    return this.findOne(id, user);
+  }
+
+  // Takes the invoiced mark off, e.g. one set by mistake; Admin and HR, as
+  // marking. The snapshot stays locked.
+  public async markNotInvoiced(
+    id: string,
+    user: IUserViewModel,
+  ): Promise<IBillingSnapshot> {
+    await this.findOne(id, user);
+
+    if (
+      !(await this.snapshotsRepository.unmarkInvoiced(user.slack_team_id, id))
+    ) {
+      throw new ValidationError("This snapshot isn't marked invoiced.");
     }
 
     return this.findOne(id, user);

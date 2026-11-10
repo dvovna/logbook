@@ -14,8 +14,10 @@ import {
   IBillingTotal,
 } from 'src/time-entries/services/billing-report.service';
 import {
+  IAppliedFilters,
   IMissingTimeReport,
   ITimeReport,
+  ITimeReportFilters,
   ITimeReportRow,
   TimeReportGrouping,
 } from 'src/time-entries/services/time-report.service';
@@ -36,15 +38,23 @@ import {
   tableBlock,
 } from '@modules/slack/tabs/reports/views/report-table';
 import { formatDate } from '@common/utils/date.utils';
-import { IUninvoicedReport } from 'src/billing/services/uninvoiced-report.service';
+import {
+  IUninvoicedPeriod,
+  IUninvoicedReport,
+} from 'src/billing/services/uninvoiced-report.service';
 
 export interface IReportsTabMetadata {
   // The billing report on show, from its form.
   report?: { clientId: string; fromDate: string; toDate: string };
-  // The time report on show, from its form; one report shows at a time.
-  timeReport?: { kind: TimeReportKind; fromDate: string; toDate: string };
-  // The uninvoiced report is on show (it has no form: it covers all time).
-  uninvoiced?: boolean;
+  // The time report on show, with its filters, from its form; one report
+  // shows at a time.
+  timeReport?: {
+    kind: TimeReportKind;
+    fromDate: string;
+    toDate: string;
+  } & ITimeReportFilters;
+  // The uninvoiced report on show, from its form: no date is no limit.
+  uninvoiced?: IUninvoicedPeriod;
 }
 
 interface IGetViewParams extends IBaseTabViewParams {
@@ -75,6 +85,25 @@ const SCOPE_NOTES: Record<TimeScopeKind, string> = {
   teams: "Your teams' time and yours",
   own: 'Your time',
 };
+
+// "Client: Acme", "Project: Website", "Person: Mia": what a report was
+// narrowed to.
+const filterNotes = ({ client, project, person }: IAppliedFilters) =>
+  [
+    client && `Client: ${escapeMrkdwn(client)}`,
+    project && `Project: ${escapeMrkdwn(project)}`,
+    person && `Person: ${escapeMrkdwn(person)}`,
+  ].filter((note): note is string => !!note);
+
+// "All time", "1–30 Jun 2026", "Since 1 Jun 2026", "Up to 30 Jun 2026".
+const openPeriodText = ({ fromDate, toDate }: IUninvoicedPeriod) =>
+  fromDate && toDate
+    ? formatDateRange(fromDate, toDate)
+    : fromDate
+      ? `Since ${formatDate(fromDate)}`
+      : toDate
+        ? `Up to ${formatDate(toDate)}`
+        : 'All time';
 
 const context = (text: string): AnyBlock => ({
   type: 'context',
@@ -183,7 +212,12 @@ export class ReportsTabView extends BaseTabView<
       text: {
         type: 'mrkdwn',
         text: [
-          `*Time by ${GROUP_TITLES[report.groupBy].toLowerCase()}* · ${formatDateRange(report.fromDate, report.toDate)} · ${SCOPE_NOTES[report.scope]}`,
+          [
+            `*Time by ${GROUP_TITLES[report.groupBy].toLowerCase()}*`,
+            formatDateRange(report.fromDate, report.toDate),
+            SCOPE_NOTES[report.scope],
+            ...filterNotes(report.filters),
+          ].join(' · '),
           [
             `Logged *${hours(total.minutes)}*`,
             `billable *${hours(total.billableMinutes)}*`,
@@ -398,7 +432,7 @@ export class ReportsTabView extends BaseTabView<
       text: {
         type: 'mrkdwn',
         text: [
-          "*Uninvoiced time* · Approved billable time that isn't invoiced yet",
+          `*Uninvoiced time* · ${openPeriodText(report)} · Approved billable time that isn't invoiced yet`,
           `Not in a snapshot: *${hours(total.minutes)}*, *${money(total.amountCents)}* at today's rates`,
           `In snapshots not marked invoiced: *${hours(total.snapshotMinutes)}*, *${money(total.snapshotAmountCents)}*`,
           total.unratedMinutes &&
@@ -414,7 +448,7 @@ export class ReportsTabView extends BaseTabView<
         ...Divider.getBlocks(),
         summary,
         context(
-          '_Nothing to invoice: all approved billable time is invoiced._',
+          '_Nothing to invoice: all approved billable time of the period is invoiced._',
         ),
       ];
     }
