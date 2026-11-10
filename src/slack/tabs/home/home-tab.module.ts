@@ -17,6 +17,7 @@ import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-track
 import { CancelVacationRequestCommandSubmitHandler } from '@modules/slack/tabs/home/handlers/cancel-vacation-request-command-submit.handler';
 import CancelVacationRequestModalViewValuesParser from '@modules/slack/tabs/home/parsers/cancel-vacation-request-modal-view-values.parser';
 import { CancelVacationRequestSelectModalView } from '@modules/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
+import { RequesterNoticeMessageHandler } from '@modules/slack/tabs/home/handlers/requester-notice-message.handler';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CancelVacationRequestSelectModalView } from '@modules/slack/tabs/home/v
     CancelVacationRequestCommandSubmitHandler,
     CancelVacationRequestModalViewValuesParser,
     CancelVacationRequestSelectModalView,
+    RequesterNoticeMessageHandler,
   ],
   exports: [HomeTabService, CancelVacationRequestSelectModalView],
 })

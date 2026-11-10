@@ -8,7 +8,10 @@ import { JobsService } from '@common/jobs/jobs.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import pluralize from 'pluralize';
-import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import {
+  escapeMrkdwn,
+  quoteMrkdwn,
+} from '@modules/slack/common/utils/mrkdwn.utils';
 import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
@@ -43,9 +46,6 @@ interface IRequestJob {
 interface IRecipientJob extends IRequestJob {
   recipientSlackId: string;
 }
-
-// The approver's words as a quote, safe to put in mrkdwn.
-const quote = (text: string) => `>${escapeMrkdwn(text).replace(/\n/g, '\n>')}`;
 
 // Tells the requester how their request was decided and, when it was approved,
 // the team's approval_notification_recipients. One job per message, so a
@@ -204,7 +204,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
                 : '❌ *Your time off request was rejected*',
               this.getRequestDetails(request),
               ...(!approved && request.rejection_reason
-                ? [quote(request.rejection_reason)]
+                ? [quoteMrkdwn(request.rejection_reason)]
                 : []),
               commentLines,
             ]

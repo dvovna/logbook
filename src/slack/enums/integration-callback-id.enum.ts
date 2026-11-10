@@ -5,6 +5,8 @@ export enum ViewCallbackId {
 
   // workflow steps
   WorkflowStepMessage = 'workflow_step_message',
+  // The buttons of a DM to the requester about their pending request.
+  RequesterNoticeMessage = 'requester_notice_message',
   ApproveRequestStepMessage = 'approve_request_step_message',
   RejectRequestStepMessage = 'reject_request_step_message',
 

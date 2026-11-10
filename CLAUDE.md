@@ -196,7 +196,7 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - `ANY`: one approval completes the level.
    - `ALL`: the level waits until there are no pending steps.
    - A reject at any level ends the workflow.
-   - Comments re-render the messages of all pending steps.
+   - Comments re-render the messages of all pending steps, and the requester gets each one at once in a DM with View Details and Cancel buttons (`VacationRequestProgressNoticesService`, buttons in `RequesterNoticeMessageHandler`).
    - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in All requests (Approvals → All pending requests) (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.
 6. When the workflow finishes it emits `VacationWorkflowFinished`. `RequestWorkflowProcessingService` then sets the request status (a job) and publishes `vacation_request.decided`. On the Slack side, `VacationDecisionNotificationsService` (Vacation Requests tab module) notifies the requester and each of the team's `approval_notification_recipients`, one job per message.
 

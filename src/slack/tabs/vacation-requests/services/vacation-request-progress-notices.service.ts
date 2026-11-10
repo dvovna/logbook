@@ -23,10 +23,19 @@ import {
   IRequestWorkflowStepViewModel,
   WorkflowStepStatus,
 } from '@modules/request-workflows/types/request-workflow-step.interface';
-import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import {
+  escapeMrkdwn,
+  quoteMrkdwn,
+} from '@modules/slack/common/utils/mrkdwn.utils';
+import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
+import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
+import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { RequesterNoticeActionId } from '@modules/slack/tabs/vacation-requests/enums/requester-notice-action-id.enum';
 
 export const SENT_NOTICE_JOB = 'vacation-request-sent-notice';
 export const LEVEL_NOTICE_JOB = 'vacation-request-level-notice';
+export const COMMENT_NOTICE_JOB = 'vacation-request-comment-notice';
 
 interface ISentNoticeJob {
   requestId: string;
@@ -40,8 +49,14 @@ interface ILevelNoticeJob {
   level: number;
 }
 
+interface ICommentNoticeJob {
+  commentId: string;
+  slackTeamId: string;
+}
+
 // Keeps the requester posted while the request waits: who it went to (with
-// who else on the team is off then), and each level that approved it. The
+// who else on the team is off then), each level that approved it, and each
+// approver's comment, with buttons to see the request or cancel it. The
 // decision itself is VacationDecisionNotificationsService's. Each DM is a
 // job, retried when Slack fails.
 @Injectable()
@@ -51,6 +66,7 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly requestWorkflowStepsService: RequestWorkflowStepsService,
     private readonly timeOffContextService: TimeOffContextService,
+    private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly jobs: JobsService,
   ) {}
 
@@ -61,6 +77,19 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
     this.jobs.define<ILevelNoticeJob>(LEVEL_NOTICE_JOB, (job) =>
       this.notifyLevelCompleted(job),
     );
+    this.jobs.define<ICommentNoticeJob>(COMMENT_NOTICE_JOB, (job) =>
+      this.notifyCommented(job),
+    );
+  }
+
+  // An approver who asks something waits for an answer, so the requester
+  // hears of a comment when it is made, not only with the decision.
+  @OnEvent(WorkflowStepCommentEvent.Added)
+  public handleCommentAdded({ comment }: RequestWorkflowStepCommentAddedEvent) {
+    void this.jobs.run<ICommentNoticeJob>(COMMENT_NOTICE_JOB, {
+      commentId: comment.id,
+      slackTeamId: comment.slack_team_id,
+    });
   }
 
   @OnEvent(VacationRequestEvent.SentForApproval)
@@ -154,6 +183,65 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
     await this.post(
       request,
       `✅ Your vacation request (${this.datesOf(request)}): ${this.levelNameOf(completed)} done by ${this.mentions(approvedBy)}. Now waiting for ${this.levelNameOf(next)} from ${this.mentions(next.map(({ slack_user_id }) => slack_user_id))}.`,
+    );
+  }
+
+  private async notifyCommented({ commentId, slackTeamId }: ICommentNoticeJob) {
+    const comment = await this.requestWorkflowStepCommentsService.findOne({
+      id: commentId,
+      slackTeamId,
+    });
+    const request =
+      comment && (await this.findWaiting(comment.request_id, slackTeamId));
+
+    // Decided meanwhile: the decision's DM shows the comments.
+    if (
+      !comment ||
+      !request ||
+      comment.slack_user_id === request.user!.slack_id
+    ) {
+      return;
+    }
+
+    const dates = this.datesOf(request);
+    const text = `💬 <@${comment.slack_user_id}> commented on your vacation request (${dates}):\n${quoteMrkdwn(comment.comment)}`;
+
+    await this.communicationService.postMessage(
+      request.user!.slack_id,
+      {
+        text: `💬 A comment on your vacation request (${dates})`,
+        blocks: [
+          { type: 'section', text: { type: 'mrkdwn', text } },
+          {
+            type: 'context',
+            elements: [
+              {
+                type: 'mrkdwn',
+                text: 'The request is still pending. To change its dates, cancel it and request new ones.',
+              },
+            ],
+          },
+          {
+            type: 'actions',
+            block_id: ViewCallbackId.RequesterNoticeMessage,
+            elements: [
+              {
+                type: 'button',
+                text: { type: 'plain_text', text: '📋 View Details' },
+                action_id: RequesterNoticeActionId.ViewDetails,
+                value: `${RequesterNoticeActionId.ViewDetails}:${request.id}`,
+              },
+              {
+                type: 'button',
+                text: { type: 'plain_text', text: '❌ Cancel Request' },
+                action_id: RequesterNoticeActionId.CancelRequest,
+                value: `${RequesterNoticeActionId.CancelRequest}:${request.id}`,
+              },
+            ],
+          },
+        ],
+      },
+      request.slack_team_id,
     );
   }
 
