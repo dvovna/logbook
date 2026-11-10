@@ -11,7 +11,10 @@ import { formatDate, getDateOnly, weekLabel } from '@common/utils/date.utils';
 import { weekStartOf } from '@common/utils/period-presets';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
-import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import {
+  escapeMrkdwn,
+  quoteMrkdwn,
+} from '@modules/slack/common/utils/mrkdwn.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { getDisplayTime, sumMinutes } from '@common/utils/time.utils';
@@ -188,7 +191,7 @@ export class TimeEntryNotificationsService implements OnModuleInit {
     const client = entry.client ? ` (${escapeMrkdwn(entry.client.name)})` : '';
     const lines = [
       `:x: ${escapeMrkdwn(reviewer.name)} rejected your time entry: *${project}*${client}, ${workDate}, ${getDisplayTime(entry.minutes)}.`,
-      ...(reason ? [`>${escapeMrkdwn(reason).replace(/\n/g, '\n>')}`] : []),
+      ...(reason ? [quoteMrkdwn(reason)] : []),
       `Fix it under Home → ✏️ Edit Entries (week of ${week}) and submit it again.`,
     ];
 

@@ -151,18 +151,11 @@ export class VacationRequestsService implements IVacationRequestsService {
       });
     }
 
-    const userTeam = teamId
-      ? await this.teamsService.findOne({
-          id: teamId,
-          slackTeamId: user.slack_team_id,
-        })
-      : null;
-
-    const workingDays = await this.workingDaysCalculationService.calculate(
+    const workingDays = await this.countWorkingDays(
       startDate,
       endDate,
-      userTeam?.vacation_policy_id || null,
-      user.slack_team_id,
+      teamId,
+      user,
     );
 
     const calendarDays = getDaysBetweenDates(
@@ -287,7 +280,10 @@ export class VacationRequestsService implements IVacationRequestsService {
             })
           : null,
         hasDatesChanged
-          ? this.getOwnersUsage(chosenOwner ?? existingRequest.user_id, user)
+          ? Promise.resolve(
+              chosenOwner ??
+                this.getRequestOwner(existingRequest.user_id, user),
+            ).then((owner) => this.vacationRequestsValidator.getUsage(owner))
           : null,
       ]);
     const workingDays = settled(workingDaysResult);
@@ -640,18 +636,6 @@ export class VacationRequestsService implements IVacationRequestsService {
       endDate,
       team?.vacation_policy_id || null,
       user.slack_team_id,
-    );
-  }
-
-  // The balance of the request's person, loaded or by ID.
-  private async getOwnersUsage(
-    owner: IUserViewModel | string,
-    actor: IUserViewModel,
-  ) {
-    return this.vacationRequestsValidator.getUsage(
-      typeof owner === 'string'
-        ? await this.getRequestOwner(owner, actor)
-        : owner,
     );
   }
 

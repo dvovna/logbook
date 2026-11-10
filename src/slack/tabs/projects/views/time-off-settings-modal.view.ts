@@ -6,7 +6,10 @@ import BaseModalView, {
   IActionButtons,
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
-import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
+import {
+  MAX_SELECT_OPTIONS,
+  toPlainTextOption,
+} from '@modules/slack/common/utils/view.utils';
 import {
   VACATION_TYPE_LABELS,
   withIcon,
@@ -15,8 +18,7 @@ import IProjectViewModel from 'src/projects/types/project.types';
 import { ITimeOffSettings } from 'src/time-off-logging/types/time-off-settings.types';
 import { TIME_OFF_LEAVE_TYPES } from 'src/time-off-logging/constants/time-off-leave-types';
 
-// Slack's limits of a select's options and of an option's text.
-const MAX_OPTIONS = 100;
+// Slack's limit of an option's text.
 const MAX_OPTION_TEXT = 75;
 
 interface IGetViewParams extends IBaseModalViewParams {
@@ -55,7 +57,7 @@ export class TimeOffSettingsModalView extends BaseModalView<
     projects,
     errorMessage,
   }: IGetViewParams): AnyBlock[] {
-    const options = projects.slice(0, MAX_OPTIONS).map(({ id, name }) =>
+    const options = projects.slice(0, MAX_SELECT_OPTIONS).map(({ id, name }) =>
       toPlainTextOption({
         id,
         name: truncate(name, { length: MAX_OPTION_TEXT }),

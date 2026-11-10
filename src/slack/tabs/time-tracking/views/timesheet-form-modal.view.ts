@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AnyBlock, PlainTextOption } from '@slack/web-api';
+import { AnyBlock } from '@slack/web-api';
 import { getDisplayTime } from '@common/utils/time.utils';
 import BaseModalView, {
   IActionButtons,
@@ -7,7 +7,10 @@ import BaseModalView, {
 } from '@modules/slack/common/views/base-modal.view';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
-import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
+import {
+  MAX_SELECT_OPTIONS,
+  toPlainTextOption,
+} from '@modules/slack/common/utils/view.utils';
 import { timesheetCellLockLabel } from '@modules/slack/common/views/data/labels';
 import { versionedBlockId } from '@modules/slack/services/slack-view-values.parser';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
@@ -36,8 +39,6 @@ const SHOW_WEEKEND_BLOCK_ID = 'timesheet_show_weekend';
 const SHOW_WEEKEND_OPTION = 'show';
 const DAY_BLOCK_ID = 'timesheet_day';
 export const COMMENT_BLOCK_ID = 'timesheet_comment';
-// What Slack takes in a static select.
-const MAX_SELECT_OPTIONS = 100;
 
 // Kept in the modal between its updates (rows added, the weekend shown) and
 // until it is saved. The cells' values stay out: 70 of them don't fit into
@@ -61,11 +62,6 @@ interface ITimesheetFormViewParams extends IBaseModalViewParams<ViewCallbackId.T
   // The projects the user may log time on, for "Add a project".
   projects: IUserProject[];
 }
-
-const plainOption = (text: string, value: string): PlainTextOption => ({
-  text: { type: 'plain_text', text },
-  value,
-});
 
 // Fill in the week: an input for every day of every row project, hours in
 // each, saved at once. Fill in the day (`mode: 'day'`): the same rows with
@@ -142,10 +138,10 @@ export class TimesheetFormModalView extends BaseModalView<
         type: 'checkboxes',
         action_id: TimesheetFormActionId.SubmitWeek,
         options: [
-          plainOption(
-            "Submit the week's time for approval",
-            SUBMIT_WEEK_OPTION,
-          ),
+          toPlainTextOption({
+            id: SUBMIT_WEEK_OPTION,
+            name: "Submit the week's time for approval",
+          }),
         ],
       },
     };
@@ -298,7 +294,10 @@ export class TimesheetFormModalView extends BaseModalView<
   }
 
   private getShowWeekendBlock(showWeekend: boolean): AnyBlock {
-    const option = plainOption('Show Saturday and Sunday', SHOW_WEEKEND_OPTION);
+    const option = toPlainTextOption({
+      id: SHOW_WEEKEND_OPTION,
+      name: 'Show Saturday and Sunday',
+    });
 
     return {
       type: 'input',

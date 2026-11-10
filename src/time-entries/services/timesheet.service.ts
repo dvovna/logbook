@@ -83,7 +83,11 @@ interface ICellChange {
 const isNotCancelled = (entry: ITimeEntryViewModel) =>
   entry.status !== TimeEntryStatus.Cancelled;
 
-const byClientAndName = (a: IProjectInfo, b: IProjectInfo) =>
+// Projects without a client last.
+const byClientAndName = (
+  a: { clientName: string | null; name: string },
+  b: { clientName: string | null; name: string },
+) =>
   Number(!a.clientName) - Number(!b.clientName) ||
   (a.clientName ?? '').localeCompare(b.clientName ?? '') ||
   a.name.localeCompare(b.name);
@@ -340,12 +344,7 @@ export class TimesheetService {
         clientId: project.client_id ?? '',
         clientName: (project.client_id && project.client_name) || '',
       }))
-      .sort(
-        (a, b) =>
-          Number(!a.clientName) - Number(!b.clientName) ||
-          a.clientName.localeCompare(b.clientName) ||
-          a.name.localeCompare(b.name),
-      );
+      .sort(byClientAndName);
   }
 
   // What each cell does, checked against what it holds now (`week`, read
