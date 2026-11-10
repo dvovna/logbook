@@ -1,21 +1,9 @@
 import { ValidationError } from '@common/errors/validation.error';
+import { DAY_MS, isIsoDate } from '@common/utils/date.utils';
 
 // A time report or export covers a year at most, so that one request reads a
 // bounded number of entries.
 export const MAX_REPORT_DAYS = 366;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// "2026-11-03", and a day that exists (not "2026-02-30").
-const isIsoDate = (date: unknown): date is string => {
-  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return false;
-  }
-
-  const time = Date.parse(`${date}T00:00:00Z`);
-
-  return !Number.isNaN(time) && new Date(time).toISOString().startsWith(date);
-};
 
 // Days from `fromDate` to `toDate`, both counted.
 export const daysInPeriod = (fromDate: string, toDate: string) =>

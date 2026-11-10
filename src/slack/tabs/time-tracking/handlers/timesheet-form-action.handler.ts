@@ -7,6 +7,7 @@ import type {
 import { ALL_ROLES } from '@common/constants/role-groups';
 import { runInBackground } from '@common/utils/run-in-background';
 import { slackErrorOf } from 'src/api-clients/third-party/slack-api.client';
+import { isIsoDate } from '@common/utils/date.utils';
 import { weekStartOf } from '@common/utils/period-presets';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
@@ -113,12 +114,7 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
     const { selected_date: date } = payload.actions[0] as DatepickerAction;
     const metadata = parseMetadata<TimesheetFormMetadata>(payload);
 
-    if (
-      metadata.mode !== 'day' ||
-      !date ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-      Number.isNaN(Date.parse(`${date}T00:00:00Z`))
-    ) {
+    if (metadata.mode !== 'day' || !isIsoDate(date)) {
       return;
     }
 

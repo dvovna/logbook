@@ -1,3 +1,5 @@
+import { DAY_MS, getDateOnly } from '@common/utils/date.utils';
+
 // The quick periods of the report forms. Choosing one fills the form's dates,
 // which the user can still change.
 export enum PeriodPreset {
@@ -34,10 +36,6 @@ export interface IPeriod {
   toDate: string;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-const isoDate = (date: Date) => date.toISOString().slice(0, 10);
-
 const utcDate = (year: number, month: number, day: number) =>
   new Date(Date.UTC(year, month, day));
 
@@ -54,32 +52,35 @@ export const presetPeriod = (
   const day = today.getUTCDate();
   const monday = utcDate(year, month, day - ((today.getUTCDay() + 6) % 7));
   const quarter = Math.floor(month / 3) * 3;
-  const todayDate = isoDate(utcDate(year, month, day));
+  const todayDate = getDateOnly(utcDate(year, month, day));
 
   switch (preset) {
     case PeriodPreset.ThisWeek:
-      return { fromDate: isoDate(monday), toDate: todayDate };
+      return { fromDate: getDateOnly(monday), toDate: todayDate };
     case PeriodPreset.LastWeek:
       return {
-        fromDate: isoDate(new Date(monday.getTime() - 7 * DAY_MS)),
-        toDate: isoDate(new Date(monday.getTime() - DAY_MS)),
+        fromDate: getDateOnly(new Date(monday.getTime() - 7 * DAY_MS)),
+        toDate: getDateOnly(new Date(monday.getTime() - DAY_MS)),
       };
     case PeriodPreset.ThisMonth:
-      return { fromDate: isoDate(utcDate(year, month, 1)), toDate: todayDate };
+      return {
+        fromDate: getDateOnly(utcDate(year, month, 1)),
+        toDate: todayDate,
+      };
     case PeriodPreset.LastMonth:
       return {
-        fromDate: isoDate(utcDate(year, month - 1, 1)),
-        toDate: isoDate(utcDate(year, month, 0)),
+        fromDate: getDateOnly(utcDate(year, month - 1, 1)),
+        toDate: getDateOnly(utcDate(year, month, 0)),
       };
     case PeriodPreset.ThisQuarter:
       return {
-        fromDate: isoDate(utcDate(year, quarter, 1)),
+        fromDate: getDateOnly(utcDate(year, quarter, 1)),
         toDate: todayDate,
       };
     case PeriodPreset.LastQuarter:
       return {
-        fromDate: isoDate(utcDate(year, quarter - 3, 1)),
-        toDate: isoDate(utcDate(year, quarter, 0)),
+        fromDate: getDateOnly(utcDate(year, quarter - 3, 1)),
+        toDate: getDateOnly(utcDate(year, quarter, 0)),
       };
     case PeriodPreset.AllTime:
       return null;
@@ -90,17 +91,24 @@ export const presetPeriod = (
 export const weekStartOf = (date: string): string =>
   presetPeriod(PeriodPreset.ThisWeek, new Date(`${date}T00:00:00Z`))!.fromDate;
 
+// Today, 'YYYY-MM-DD' (UTC, as the app runs).
+export const todayIso = (): string => getDateOnly(new Date());
+
+// The Monday of the week of `now` (UTC), this week's by default.
+export const currentWeekStart = (now: Date = new Date()): string =>
+  weekStartOf(getDateOnly(now));
+
 // The seven days of the week that starts on `weekStart`, Monday to Sunday.
 export const weekDays = (weekStart: string): string[] => {
   const start = new Date(`${weekStart}T00:00:00Z`).getTime();
 
   return Array.from({ length: 7 }, (_, index) =>
-    isoDate(new Date(start + index * DAY_MS)),
+    getDateOnly(new Date(start + index * DAY_MS)),
   );
 };
 
 // The Monday `weeks` weeks after (or, negative, before) `weekStart`.
 export const shiftWeek = (weekStart: string, weeks: number): string =>
-  isoDate(
+  getDateOnly(
     new Date(new Date(`${weekStart}T00:00:00Z`).getTime() + weeks * 7 * DAY_MS),
   );

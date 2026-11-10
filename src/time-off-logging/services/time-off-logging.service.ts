@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import { getDateOnly } from '@common/utils/date.utils';
+import { sumMinutes } from '@common/utils/time.utils';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
 import TeamsService from '@modules/teams/services/teams.service';
@@ -166,9 +167,7 @@ export class TimeOffLoggingService {
             ...own.map(({ work_date }) => getDateOnly(work_date)),
             ...free,
           ],
-          minutes:
-            own.reduce((sum, { minutes }) => sum + minutes, 0) +
-            free.length * offer.minutes,
+          minutes: sumMinutes(own) + free.length * offer.minutes,
           otherProjects: this.byProject(elsewhere),
         },
       };

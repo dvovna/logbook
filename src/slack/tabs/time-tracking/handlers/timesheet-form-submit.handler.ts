@@ -22,10 +22,8 @@ import {
   COMMENT_BLOCK_ID,
   TimesheetFormMetadata,
 } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
-import {
-  dayLabel,
-  weekLabel,
-} from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
+import { weekLabel } from '@common/utils/date.utils';
+import { dayLabel } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 import { ITimeEntriesTabMetaData } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
 import { ITimesheetSaveResult } from 'src/time-entries/types/timesheet.types';

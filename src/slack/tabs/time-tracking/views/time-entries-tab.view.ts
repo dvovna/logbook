@@ -5,7 +5,7 @@ import {
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
-import { formatDay } from '@common/utils/date.utils';
+import { formatDay, weekLabel } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock } from '@slack/web-api';
@@ -33,10 +33,7 @@ import { getDisplayTime } from '@common/utils/time.utils';
 import UserRole from '@common/enums/user-role.enum';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import pluralize from 'pluralize';
-import {
-  TimesheetTableView,
-  weekLabel,
-} from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
+import { TimesheetTableView } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 import {
   ITimesheetOpenBefore,
   ITimesheetWeek,

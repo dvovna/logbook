@@ -2,6 +2,7 @@ import {
   formatDate,
   formatDateList,
   formatDateRange,
+  isIsoDate,
 } from '@common/utils/date.utils';
 
 describe('formatDate', () => {
@@ -55,5 +56,15 @@ describe('formatDateList', () => {
     expect(formatDateList(['2026-12-31', '2027-01-01'])).toBe(
       '31 Dec 2026 – 1 Jan 2027',
     );
+  });
+});
+
+describe('isIsoDate', () => {
+  it('takes a real day only', () => {
+    expect(isIsoDate('2026-06-15')).toBe(true);
+    expect(isIsoDate('2026-02-31')).toBe(false);
+    expect(isIsoDate('2026-6-15')).toBe(false);
+    expect(isIsoDate('2026-06-15T00:00:00Z')).toBe(false);
+    expect(isIsoDate(undefined)).toBe(false);
   });
 });

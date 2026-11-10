@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { shiftWeek, weekDays, weekStartOf } from '@common/utils/period-presets';
 import { ValidationError } from '@common/errors/validation.error';
+import { sumMinutes } from '@common/utils/time.utils';
 import { TransactionService } from 'src/database/transaction.service';
 import {
   GetUserProjectsQuery,
@@ -29,7 +30,6 @@ import {
 } from 'src/time-entries/types/timesheet.types';
 import { timesheetLock } from 'src/time-entries/utils/timesheet-lock';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 // The week form offers the projects of the shown week and of the 4 before.
 const RECENT_WEEKS = 4;
 
@@ -128,11 +128,7 @@ export class TimesheetService {
     addedProjectIds: string[],
   ): Promise<{ week: ITimesheetWeek; projects: IUserProject[] }> {
     const days = weekDays(weekStart);
-    const recentFrom = new Date(
-      new Date(`${weekStart}T00:00:00Z`).getTime() - RECENT_WEEKS * 7 * DAY_MS,
-    )
-      .toISOString()
-      .slice(0, 10);
+    const recentFrom = shiftWeek(weekStart, -RECENT_WEEKS);
     const [found, projects] = await Promise.all([
       this.findEntries(user, recentFrom, days[6]),
       this.loadProjects(user),
@@ -398,9 +394,9 @@ export class TimesheetService {
 
       // The user's other time on the cell's project and day, cancelled
       // entries too, for the 24 hours a day.
-      const logged = week.entries
-        .filter((other) => onCell(other) && other.id !== entry?.id)
-        .reduce((sum, other) => sum + other.minutes, 0);
+      const logged = sumMinutes(
+        week.entries.filter((other) => onCell(other) && other.id !== entry?.id),
+      );
       const validation = this.timeEntriesValidationService;
 
       this.atCell(key, () => {
@@ -649,7 +645,7 @@ export class TimesheetService {
     projectLocked: boolean,
     billedIds: Set<string>,
   ): ITimesheetCell {
-    const minutes = entries.reduce((sum, entry) => sum + entry.minutes, 0);
+    const minutes = sumMinutes(entries);
     const [only] = entries.length === 1 ? entries : [];
     let lock: TimesheetCellLock | null = null;
 

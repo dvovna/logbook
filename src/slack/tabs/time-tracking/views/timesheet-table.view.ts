@@ -1,7 +1,7 @@
 import { AnyBlock } from '@slack/web-api';
 import pluralize from 'pluralize';
 import { getDisplayTime } from '@common/utils/time.utils';
-import { formatDate } from '@common/utils/date.utils';
+import { formatDayMonth, weekdayOf, weekLabel } from '@common/utils/date.utils';
 import {
   fitTableRows,
   moreLinesBlocks,
@@ -11,21 +11,16 @@ import { TIME_ENTRY_STATUS_LABELS } from '@modules/slack/common/views/data/label
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ITimesheetWeek } from 'src/time-entries/types/timesheet.types';
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // The index of Saturday in a week's days (Monday first).
 export const SATURDAY = 5;
 
 // 'Mon 15'
 export const dayHeading = (date: string) =>
-  `${WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]} ${Number(date.slice(8))}`;
+  `${weekdayOf(date)} ${Number(date.slice(8))}`;
 
 // 'Wed 17 Jun'
 export const dayLabel = (date: string) =>
-  `${WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]} ${weekLabel(date)}`;
-
-// The week of Monday 15 June 2026: '15 Jun'.
-export const weekLabel = (weekStart: string) =>
-  formatDate(weekStart).replace(/ \d{4}$/, '');
+  `${weekdayOf(date)} ${formatDayMonth(date)}`;
 
 // '–' for no time: it reads better than 0m, and Slack refuses an empty cell.
 const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '–');

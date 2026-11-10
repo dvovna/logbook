@@ -21,7 +21,7 @@ import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
-import { weekDays, weekStartOf } from '@common/utils/period-presets';
+import { currentWeekStart, weekDays } from '@common/utils/period-presets';
 import {
   TimesheetFormMetadata,
   TimesheetFormModalView,
@@ -87,8 +87,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     // logs filters by dates instead.
     const weekStart = seesAllEntries
       ? undefined
-      : (metadata.weekStart ??
-        weekStartOf(new Date().toISOString().slice(0, 10)));
+      : (metadata.weekStart ?? currentWeekStart());
     const days = weekStart ? weekDays(weekStart) : undefined;
     const filters = {
       projectId: metadata.filters?.project?.id,

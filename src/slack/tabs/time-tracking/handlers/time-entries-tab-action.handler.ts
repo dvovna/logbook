@@ -1,5 +1,11 @@
 import type { ButtonAction } from '@slack/bolt';
-import { weekDays, weekStartOf } from '@common/utils/period-presets';
+import { isIsoDate } from '@common/utils/date.utils';
+import {
+  currentWeekStart,
+  todayIso,
+  weekDays,
+  weekStartOf,
+} from '@common/utils/period-presets';
 import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
@@ -107,7 +113,7 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
   ) => {
     const { value } = payload.actions[0] as ButtonAction;
 
-    if (!value || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+    if (!isIsoDate(value)) {
       return;
     }
 
@@ -136,9 +142,7 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
         user,
         metadata: {
           mode: 'week',
-          weekStart: weekStartOf(
-            weekStart ?? new Date().toISOString().slice(0, 10),
-          ),
+          weekStart: weekStartOf(weekStart ?? todayIso()),
           addedProjectIds: [],
           showWeekend: false,
           pageMetadata: payload.view.private_metadata,
@@ -152,7 +156,7 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIso();
 
     await this.timeEntriesTabService.openModal(
       payload.trigger_id || user.slack_id,
@@ -193,10 +197,7 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
     const metadata = parseMetadata<ITimeEntriesTabMetaData>(payload);
     const days = entryId
       ? undefined
-      : weekDays(
-          metadata.weekStart ??
-            weekStartOf(new Date().toISOString().slice(0, 10)),
-        );
+      : weekDays(metadata.weekStart ?? currentWeekStart());
     let notice: string | undefined;
 
     try {

@@ -12,11 +12,11 @@ import { timesheetCellLockLabel } from '@modules/slack/common/views/data/labels'
 import { versionedBlockId } from '@modules/slack/services/slack-view-values.parser';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
 import { MAX_TIME_ENTRY_DESCRIPTION_LENGTH } from '@common/constants/text-limits';
+import { weekLabel } from '@common/utils/date.utils';
 import {
   dayHeading,
   dayLabel,
   SATURDAY,
-  weekLabel,
 } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 import { IUserProject } from 'src/projects/queries/get-user-projects.query';
 import {

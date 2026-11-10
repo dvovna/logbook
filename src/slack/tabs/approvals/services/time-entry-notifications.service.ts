@@ -7,9 +7,8 @@ import {
   TIME_ENTRIES_SUBMITTED,
   TimeEntriesSubmittedEvent,
 } from 'src/time-entries/events/time-entries.events';
-import { formatDate, getDateOnly } from '@common/utils/date.utils';
+import { formatDate, getDateOnly, weekLabel } from '@common/utils/date.utils';
 import { weekStartOf } from '@common/utils/period-presets';
-import { weekLabel } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';

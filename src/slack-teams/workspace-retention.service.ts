@@ -9,8 +9,8 @@ import { ConfigService } from '@nestjs/config';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { reportError } from '@common/errors/error-reporter';
+import { DAY_MS } from '@common/utils/date.utils';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const EVERY_MS = 6 * 60 * 60 * 1000;
 const FIRST_RUN_AFTER_MS = 60 * 1000;
 

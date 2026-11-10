@@ -6,9 +6,14 @@ import {
 } from '@nestjs/common';
 import pluralize from 'pluralize';
 import { JobsService } from '@common/jobs/jobs.service';
-import { formatDateRange, getDateOnly } from '@common/utils/date.utils';
+import {
+  formatDateRange,
+  getDateOnly,
+  weekLabel,
+} from '@common/utils/date.utils';
 import { getDisplayTime, sumMinutes } from '@common/utils/time.utils';
 import {
+  currentWeekStart,
   PeriodPreset,
   presetPeriod,
   weekStartOf,
@@ -22,7 +27,6 @@ import { TimeEntriesService } from 'src/time-entries/services/time-entries.servi
 import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
-import { weekLabel } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 
 export const REMIND_UNSUBMITTED_JOB = 'time-entries-remind-unsubmitted';
 
@@ -36,10 +40,6 @@ interface IRemindJob {
   // The Monday of the reminder's week: entries before it are reminded of.
   monday: string;
 }
-
-// The Monday of the week of `now` (weeks start on Monday, UTC).
-export const mondayOf = (now: Date): string =>
-  presetPeriod(PeriodPreset.ThisWeek, now)!.fromDate;
 
 // The last day of the week before the one of `monday`.
 const lastWeekEnd = (monday: string) =>
@@ -99,7 +99,7 @@ export class TimeEntryRemindersService
   // Every installed workspace, once the week's reminder is due. Returns how
   // many people it reminded.
   public async remindAll(now = new Date()): Promise<number> {
-    const monday = mondayOf(now);
+    const monday = currentWeekStart(now);
     const dueFrom = new Date(`${monday}T00:00:00Z`);
 
     dueFrom.setUTCHours(REMIND_FROM_HOUR_UTC);

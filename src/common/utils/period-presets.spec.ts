@@ -1,4 +1,8 @@
-import { PeriodPreset, presetPeriod } from '@common/utils/period-presets';
+import {
+  currentWeekStart,
+  PeriodPreset,
+  presetPeriod,
+} from '@common/utils/period-presets';
 
 describe('presetPeriod', () => {
   // A Wednesday.
@@ -43,5 +47,16 @@ describe('presetPeriod', () => {
 
   it('gives all time no dates', () => {
     expect(presetPeriod(PeriodPreset.AllTime, today)).toBeNull();
+  });
+});
+
+describe('currentWeekStart', () => {
+  it.each([
+    ['2026-06-17T12:00:00Z', '2026-06-15'],
+    ['2026-06-15T00:00:00Z', '2026-06-15'],
+    ['2026-06-21T23:59:00Z', '2026-06-15'],
+    ['2026-06-22T00:00:00Z', '2026-06-22'],
+  ])('puts %s in the week of %s', (now, monday) => {
+    expect(currentWeekStart(new Date(now))).toBe(monday);
   });
 });
