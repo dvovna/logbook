@@ -1,56 +1,6 @@
-import {
-  CompiledQuery,
-  DatabaseConnection,
-  Driver,
-  Kysely,
-  PostgresAdapter,
-  PostgresIntrospector,
-  PostgresQueryCompiler,
-  QueryResult,
-} from 'kysely';
 import { SqlRepository } from '@common/repositories/sql.repository';
-import { SqlDatabase, SqlRow } from '@common/types/sql-database.types';
-import { DatabaseService } from 'src/database/database.service';
-
-// A Kysely that records the SQL of every query and answers them in turn,
-// without a database.
-const recordingDatabase = (answers: Record<string, unknown>[][] = []) => {
-  const queries: CompiledQuery[] = [];
-  const connection: DatabaseConnection = {
-    executeQuery: <R>(query: CompiledQuery): Promise<QueryResult<R>> => {
-      queries.push(query);
-
-      return Promise.resolve({ rows: (answers.shift() ?? []) as R[] });
-    },
-    streamQuery: () => {
-      throw new Error('not supported');
-    },
-  };
-  const driver: Driver = {
-    init: () => Promise.resolve(),
-    acquireConnection: () => Promise.resolve(connection),
-    beginTransaction: () => Promise.resolve(),
-    commitTransaction: () => Promise.resolve(),
-    rollbackTransaction: () => Promise.resolve(),
-    releaseConnection: () => Promise.resolve(),
-    destroy: () => Promise.resolve(),
-  };
-  const db = new Kysely<SqlDatabase>({
-    dialect: {
-      createAdapter: () => new PostgresAdapter(),
-      createDriver: () => driver,
-      createIntrospector: (kysely) => new PostgresIntrospector(kysely),
-      createQueryCompiler: () => new PostgresQueryCompiler(),
-    },
-  });
-
-  return {
-    database: { db } as unknown as DatabaseService,
-    queries,
-    sqlOf: (index: number) => queries[index].sql,
-    parametersOf: (index: number) => queries[index].parameters,
-  };
-};
+import { SqlRow } from '@common/types/sql-database.types';
+import { recordingDatabase } from 'src/database/testing/recording-database';
 
 class ClientsRepository extends SqlRepository<'clients', SqlRow<'clients'>> {
   protected readonly tableName = 'clients';

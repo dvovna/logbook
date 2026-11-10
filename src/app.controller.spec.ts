@@ -1,17 +1,10 @@
 import { Logger } from '@nestjs/common';
 import { Response } from 'express';
 import { AppController, HEALTH_TIMEOUT_MS } from 'src/app.controller';
-import { SupabaseService } from 'src/database/supabase.service';
 import { DatabaseService } from 'src/database/database.service';
 
-const controllerAnswering = (
-  rpc: () => Promise<unknown>,
-  ping: () => Promise<void> = () => Promise.resolve(),
-) =>
-  new AppController(
-    { getClient: () => ({ rpc }) } as unknown as SupabaseService,
-    { ping } as unknown as DatabaseService,
-  );
+const controllerAnswering = (ping: () => Promise<void>) =>
+  new AppController({ ping } as unknown as DatabaseService);
 
 const response = () => {
   const res = { status: jest.fn(), json: jest.fn() };
@@ -33,9 +26,9 @@ describe('GET /health', () => {
   it('answers 200 while the database answers', async () => {
     const res = response();
 
-    await controllerAnswering(() =>
-      Promise.resolve({ data: [], error: null }),
-    ).getHealth(res as unknown as Response);
+    await controllerAnswering(() => Promise.resolve()).getHealth(
+      res as unknown as Response,
+    );
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ status: 'ok' });
@@ -45,27 +38,13 @@ describe('GET /health', () => {
     const res = response();
 
     await controllerAnswering(() =>
-      Promise.resolve({ data: null, error: { message: 'connection refused' } }),
+      Promise.reject(new Error('too many clients')),
     ).getHealth(res as unknown as Response);
 
     expect(res.status).toHaveBeenCalledWith(503);
     expect(res.json).toHaveBeenCalledWith({ status: 'unavailable' });
     expect(Logger.prototype.warn).toHaveBeenCalledWith(
-      'Health check: the database: connection refused',
-    );
-  });
-
-  it('answers 503 when its own connections to the database fail', async () => {
-    const res = response();
-
-    await controllerAnswering(
-      () => Promise.resolve({ data: [], error: null }),
-      () => Promise.reject(new Error('too many clients')),
-    ).getHealth(res as unknown as Response);
-
-    expect(res.status).toHaveBeenCalledWith(503);
-    expect(Logger.prototype.warn).toHaveBeenCalledWith(
-      'Health check: the database connection: too many clients',
+      'Health check: the database: too many clients',
     );
   });
 

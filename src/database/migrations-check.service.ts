@@ -1,8 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { SupabaseService } from 'src/database/supabase.service';
-import { RpcFunctionName } from '@common/enums/rpc-function-name';
+import { sql } from 'kysely';
+import { DatabaseService } from 'src/database/database.service';
 
 // The app ships `supabase/migrations` (the Docker image copies it). From
 // src/database or dist/database it is two levels up.
@@ -13,10 +13,6 @@ export const MIGRATIONS_DIR = join(
   'supabase',
   'migrations',
 );
-
-// The migration that adds applied_migrations(): a database without the
-// function lacks at least this one.
-export const APPLIED_MIGRATIONS_VERSION = '20261107150000';
 
 export const readShippedMigrations = (dir = MIGRATIONS_DIR): string[] =>
   readdirSync(dir)
@@ -38,7 +34,7 @@ export const findMissingMigrations = (shipped: string[], applied: string[]) => {
 export class MigrationsCheckService implements OnModuleInit {
   private readonly logger = new Logger(MigrationsCheckService.name);
 
-  public constructor(private readonly supabase: SupabaseService) {}
+  public constructor(private readonly database: DatabaseService) {}
 
   public async onModuleInit() {
     let shipped: string[];
@@ -55,7 +51,7 @@ export class MigrationsCheckService implements OnModuleInit {
 
     const applied = await this.readAppliedMigrations();
 
-    if (applied === 'unknown') {
+    if (!applied) {
       this.logger.warn(
         'The database has no migration history; not checking it for missing migrations',
       );
@@ -63,10 +59,7 @@ export class MigrationsCheckService implements OnModuleInit {
       return;
     }
 
-    const missing =
-      applied === 'none-known'
-        ? shipped.filter((version) => version >= APPLIED_MIGRATIONS_VERSION)
-        : findMissingMigrations(shipped, applied);
+    const missing = findMissingMigrations(shipped, applied);
 
     if (missing.length === 0) {
       return;
@@ -74,7 +67,7 @@ export class MigrationsCheckService implements OnModuleInit {
 
     const message =
       `The database lacks ${missing.length} migration(s) this version needs: ` +
-      `${missing.join(', ')}${applied === 'none-known' ? ' and possibly older ones' : ''}. ` +
+      `${missing.join(', ')}. ` +
       'Apply them with `pnpm supabase db push --remote "<connection string>"` ' +
       '(locally `pnpm supabase migration up`), then start the app again.';
 
@@ -82,26 +75,29 @@ export class MigrationsCheckService implements OnModuleInit {
     throw new Error(message);
   }
 
-  // The applied versions; 'none-known' when the database is older than
-  // applied_migrations() itself, 'unknown' when it has no migration history.
-  private async readAppliedMigrations(): Promise<
-    string[] | 'none-known' | 'unknown'
-  > {
-    const { data, error } = await this.supabase
-      .getClient()
-      .rpc(RpcFunctionName.AppliedMigrations);
+  // The versions the Supabase CLI recorded, or null when the database has no
+  // such history (e.g. the schema was applied by hand).
+  private async readAppliedMigrations(): Promise<string[] | null> {
+    const db = this.database.db;
 
-    if (error) {
-      // PostgREST: no such function in the schema cache.
-      if (error.code === 'PGRST202') {
-        return 'none-known';
+    try {
+      const { rows: history } = await sql<{ present: boolean }>`
+        select to_regclass('supabase_migrations.schema_migrations') is not null as present
+      `.execute(db);
+
+      if (!history[0]?.present) {
+        return null;
       }
 
+      const { rows } = await sql<{ version: string }>`
+        select version from supabase_migrations.schema_migrations
+      `.execute(db);
+
+      return rows.map(({ version }) => version);
+    } catch (error) {
       throw new Error(
-        `Failed to read the applied migrations: ${error.message}`,
+        `Failed to read the applied migrations: ${(error as Error).message}`,
       );
     }
-
-    return data ?? 'unknown';
   }
 }
