@@ -92,8 +92,8 @@ describe('The week on My time', () => {
 
     expect(tableRows(myTime)).toEqual([
       ['Project', 'Mon 15', 'Tue 16', 'Wed 17', 'Thu 18', 'Fri 19', 'Total'],
-      ['Website · Acme', '2h', '', '1h 30m', '', '', '3h 30m'],
-      ['Total', '2h', '', '1h 30m', '', '', '3h 30m'],
+      ['Website · Acme', '2h', '–', '1h 30m', '–', '–', '3h 30m'],
+      ['Total', '2h', '–', '1h 30m', '–', '–', '3h 30m'],
     ]);
     expect(timesheetStatusOf(myTime)).toBe(
       '🕒 Week of 15 Jun · 3h 30m · 📝 1 draft · 📤 1 submitted',
@@ -449,9 +449,9 @@ describe('Fill in the week', () => {
     expect(noticeOf(myTime)).toBe('✅ Saved. Week of 15 Jun: 26h.');
     expect(tableRows(myTime)).toEqual([
       ['Project', 'Mon 15', 'Tue 16', 'Wed 17', 'Thu 18', 'Fri 19', 'Total'],
-      ['Mobile · Acme', '2h', '4h', '3h', '2h', '', '11h'],
-      ['Website · Acme', '6h', '4h', '5h', '', '', '15h'],
-      ['Total', '8h', '8h', '8h', '2h', '', '26h'],
+      ['Mobile · Acme', '2h', '4h', '3h', '2h', '–', '11h'],
+      ['Website · Acme', '6h', '4h', '5h', '–', '–', '15h'],
+      ['Total', '8h', '8h', '8h', '2h', '–', '26h'],
     ]);
     expect(await entriesOf()).toEqual([
       'Mobile 2026-06-10 60 draft',

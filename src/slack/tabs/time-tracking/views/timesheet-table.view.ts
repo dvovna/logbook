@@ -27,8 +27,8 @@ export const dayLabel = (date: string) =>
 export const weekLabel = (weekStart: string) =>
   formatDate(weekStart).replace(/ \d{4}$/, '');
 
-// '' for no time: an empty cell reads better than 0m.
-const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '');
+// '–' for no time: it reads better than 0m, and Slack refuses an empty cell.
+const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '–');
 
 export class TimesheetTableView {
   // The week's status line and its table of projects by day. Saturday and
