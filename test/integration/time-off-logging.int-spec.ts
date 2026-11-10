@@ -17,7 +17,7 @@ import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { actionIdsOf, buttonText, noticeOf } from './support/tab-readers';
 import { textOf } from './support/block-kit';
-import { workWeek } from './support/dates';
+import { addDays, workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 import {
   openAppHomeTab,
@@ -667,6 +667,51 @@ describe('Time off logging', () => {
         expect.stringContaining('✅ 40h logged to Vacations Paid.'),
       ]);
       expect(JSON.stringify(updates)).not.toContain('Skipped');
+    });
+
+    it('logs nothing and says so when every day has hand-logged time', async () => {
+      const project = await mapProject('Vacations Paid');
+      await approvedThroughWorkflow();
+      const [offer] = offersTo(requester);
+      const { start } = workWeek(2);
+
+      for (let day = 0; day < 5; day++) {
+        await workspace.addTimeEntry(requester, project, {
+          work_date: addDays(start, day),
+          minutes: 120,
+        });
+      }
+
+      await t.slack
+        .actOnMessage(workspace, requester, offer, OFFER)
+        .expect(200);
+      await t.idle();
+
+      expect(await entriesOf(requester)).toHaveLength(5);
+      const [update] = t.slackApi.messageUpdates(workspace.token, offer);
+      expect(textOf(update)).toContain(
+        'Nothing was logged: those days already have time on Vacations Paid.',
+      );
+      expect(textOf(update)).not.toContain('logged to');
+      expect(textOf(update)).not.toContain('40h');
+    });
+
+    it('tells the requester when an unexpected error stops it', async () => {
+      await mapProject('Vacations Paid');
+      await approvedThroughWorkflow();
+      const [offer] = offersTo(requester);
+      t.slackApi.failNext('chat.update', 1, 'service_unavailable');
+
+      await t.slack
+        .actOnMessage(workspace, requester, offer, OFFER)
+        .expect(200);
+      await t.idle();
+
+      expect(
+        t.slackApi
+          .ephemeralMessages(workspace.token, requester.slack_id)
+          .map(({ text }) => text),
+      ).toEqual(["Couldn't log your time off, please try again."]);
     });
 
     it('tells the requester when the project was archived after the DM', async () => {

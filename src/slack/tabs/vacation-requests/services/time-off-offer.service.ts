@@ -27,6 +27,7 @@ import {
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import {
   ITimeOffOffer,
+  ITimeOffResult,
   TimeOffLoggingService,
 } from 'src/time-off-logging/services/time-off-logging.service';
 
@@ -176,13 +177,13 @@ export class TimeOffOfferService implements OnModuleInit {
 
     runInBackground(this.logger, 'log time off as time', async () => {
       try {
-        const { offer, logged, skipped } = await this.timeOffLoggingService.log(
+        const { offer, linked } = await this.timeOffLoggingService.log(
           user,
           requestId,
         );
 
         if (message.channel && message.ts) {
-          await this.showResult(user, message, offer, logged, skipped);
+          await this.showResult(user, message, offer, linked);
         }
       } catch (error) {
         // What changed since the DM (the project archived, the request
@@ -240,27 +241,24 @@ export class TimeOffOfferService implements OnModuleInit {
       blocks = [],
     }: { channel?: string; ts?: string; blocks?: AnyBlock[] },
     offer: ITimeOffOffer,
-    logged: string[],
-    skipped: string[],
+    linked: ITimeOffResult['linked'],
   ) {
     const project = escapeMrkdwn(offer.projectName);
-    // Two clicks at once: the second finds every day taken by the first.
-    // Both then say the same, so whichever update lands last is true.
-    const allTaken = !logged.length && skipped.length === offer.dates.length;
-    const lines = [
-      allTaken
-        ? `✅ ${getDisplayTime(skipped.length * offer.minutes)} logged to ${project}.`
-        : logged.length
-          ? `✅ ${getDisplayTime(logged.length * offer.minutes)} logged to ${project}.`
-          : `Nothing new to log to ${project}.`,
-      ...(skipped.length && !allTaken
-        ? [
-            `Skipped, already have time on ${project}: ${skipped
-              .map((date) => formatDateRange(date, date))
-              .join(', ')}.`,
-          ]
-        : []),
-    ];
+    // What is stored for the request, so every click (the first, a second at
+    // once, a late one) writes the same true text.
+    const skipped = offer.dates.filter((date) => !linked.dates.includes(date));
+    const lines = linked.minutes
+      ? [
+          `✅ ${getDisplayTime(linked.minutes)} logged to ${project}.`,
+          ...(skipped.length
+            ? [
+                `Skipped, already have time on ${project}: ${skipped
+                  .map((date) => formatDateRange(date, date))
+                  .join(', ')}.`,
+              ]
+            : []),
+        ]
+      : [`Nothing was logged: those days already have time on ${project}.`];
     const result: KnownBlock = {
       type: 'section',
       text: { type: 'mrkdwn', text: lines.join('\n') },

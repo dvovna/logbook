@@ -25,6 +25,16 @@ export interface ITimeOffOffer {
   dates: string[];
 }
 
+export interface ITimeOffResult {
+  offer: ITimeOffOffer;
+  // The days this run wrote.
+  logged: string[];
+  // The days that already had time on the project, whoever logged it.
+  skipped: string[];
+  // What is stored for this request after the run, however it got there.
+  linked: { dates: string[]; minutes: number };
+}
+
 interface ITimeOffPlan {
   offer: ITimeOffOffer;
   // The requester's team now.
@@ -71,7 +81,7 @@ export class TimeOffLoggingService {
   public async log(
     user: IUserViewModel,
     requestId: string,
-  ): Promise<{ offer: ITimeOffOffer; logged: string[]; skipped: string[] }> {
+  ): Promise<ITimeOffResult> {
     const slackTeamId = user.slack_team_id;
 
     return this.transactions.transaction(async () => {
@@ -91,7 +101,7 @@ export class TimeOffLoggingService {
       }
 
       const { offer, teamId } = plan;
-      const logged = await this.timeEntriesService.findMany({
+      const existing = await this.timeEntriesService.findMany({
         userId: user.id,
         projectId: offer.projectId,
         dateFrom: offer.dates[0],
@@ -99,7 +109,10 @@ export class TimeOffLoggingService {
         slackTeamId,
       });
       const taken = new Set(
-        logged.map(({ work_date }) => getDateOnly(work_date)),
+        existing.map(({ work_date }) => getDateOnly(work_date)),
+      );
+      const own = existing.filter(
+        ({ vacation_request_id }) => vacation_request_id === request.id,
       );
       const free = offer.dates.filter((date) => !taken.has(date));
 
@@ -119,6 +132,15 @@ export class TimeOffLoggingService {
         offer,
         logged: free,
         skipped: offer.dates.filter((date) => taken.has(date)),
+        linked: {
+          dates: [
+            ...own.map(({ work_date }) => getDateOnly(work_date)),
+            ...free,
+          ],
+          minutes:
+            own.reduce((sum, { minutes }) => sum + minutes, 0) +
+            free.length * offer.minutes,
+        },
       };
     });
   }
