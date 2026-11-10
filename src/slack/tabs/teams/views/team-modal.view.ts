@@ -234,10 +234,11 @@ export class TeamModalView extends BaseModalView<
       (policy) => policy.value === selectedPolicyId,
     );
 
+    // Required, with "No Policy" as a choice: an optional field would add
+    // Slack's own "Clear selection", which means the same.
     return {
       type: 'input',
       block_id: 'policy_block',
-      optional: true,
       element: {
         type: 'static_select',
         action_id: 'policy',
