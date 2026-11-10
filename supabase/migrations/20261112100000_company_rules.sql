@@ -27,6 +27,14 @@ comment on table public.rule_sets is
 create unique index if not exists rule_sets_one_default
     on public.rule_sets (slack_team_id) where is_default;
 
+-- The unique index above leaves out non-default sets, so the foreign key to
+-- the workspace needs its own.
+create index if not exists rule_sets_slack_team_idx
+    on public.rule_sets (slack_team_id);
+
+create index if not exists rule_sets_updated_by_idx
+    on public.rule_sets (updated_by) where updated_by is not null;
+
 create index if not exists rule_sets_vacation_policy_idx
     on public.rule_sets (vacation_policy_id);
 
