@@ -11,6 +11,7 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ValidationError } from '@common/errors/validation.error';
+import { MAX_TIME_ENTRY_DESCRIPTION_LENGTH } from '@common/constants/text-limits';
 
 const MAX_MINUTES_PER_DAY = 24 * 60; // 1440
 
@@ -30,10 +31,12 @@ export class TimeEntriesValidationService {
       workDate: Date;
       minutes: number;
       status: TimeEntryStatus;
+      description?: string | null;
     },
     actor: IUserViewModel,
   ) {
     this.validateMinutes(params.minutes);
+    this.validateDescription(params.description);
     this.validateCreatePermissions(params.userId, actor);
     this.validateStatusOnCreate(params.status, actor);
 
@@ -54,10 +57,12 @@ export class TimeEntriesValidationService {
       workDate?: Date;
       minutes?: number;
       status?: TimeEntryStatus;
+      description?: string | null;
     },
     actor: IUserViewModel,
   ) {
     this.validateEditPermissions(existing, actor);
+    this.validateDescription(update.description);
 
     if (update.minutes !== undefined) {
       this.validateMinutes(update.minutes);
@@ -117,6 +122,15 @@ export class TimeEntriesValidationService {
     }
   }
 
+  private validateDescription(description: string | null | undefined) {
+    if (description && description.length > MAX_TIME_ENTRY_DESCRIPTION_LENGTH) {
+      throw new ValidationError(
+        `Description must be at most ${MAX_TIME_ENTRY_DESCRIPTION_LENGTH} characters`,
+        'description',
+      );
+    }
+  }
+
   private validateCreatePermissions(
     targetUserId: string,
     actor: IUserViewModel,
@@ -148,6 +162,15 @@ export class TimeEntriesValidationService {
   ) {
     if (status === TimeEntryStatus.Approved && !this.isAdmin(actor)) {
       throw new ForbiddenException('Only admins can create approved entries');
+    }
+
+    // The owner logs a draft or submits it; the other statuses are decisions.
+    if (
+      status !== TimeEntryStatus.Draft &&
+      status !== TimeEntryStatus.Submitted &&
+      !this.isAdmin(actor)
+    ) {
+      throw new ForbiddenException(`Only admins can create ${status} entries`);
     }
   }
 

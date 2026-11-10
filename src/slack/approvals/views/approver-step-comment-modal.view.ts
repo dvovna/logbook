@@ -4,7 +4,7 @@ import BaseModalView, {
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
 import { AnyBlock } from '@slack/web-api';
-import { MAX_COMMENT_LENGTH } from '@modules/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
+import { MAX_COMMENT_LENGTH } from '@common/constants/text-limits';
 
 export interface IApproverStepCommentModalViewMetadata {
   stepId: string;

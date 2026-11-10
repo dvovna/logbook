@@ -8,7 +8,7 @@ import { STATUS_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/opti
 import UserRole from '@common/enums/user-role.enum';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
-import { MAX_COMMENT_LENGTH } from '@modules/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
+import { MAX_COMMENT_LENGTH } from '@common/constants/text-limits';
 import { AnyBlock } from '@slack/web-api';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';

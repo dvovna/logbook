@@ -3,8 +3,8 @@ import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
 import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
+import { MAX_TIME_ENTRY_DESCRIPTION_LENGTH } from '@common/constants/text-limits';
 
-export const MAX_DESCRIPTION_LENGTH = 200;
 const MAX_HOURS = 24;
 
 // The client and billability come from the project, so the form has no
@@ -13,8 +13,8 @@ export const timeEntryFormSchema = z.object({
   description: z
     .string()
     .max(
-      MAX_DESCRIPTION_LENGTH,
-      `Description must be at most ${MAX_DESCRIPTION_LENGTH} characters`,
+      MAX_TIME_ENTRY_DESCRIPTION_LENGTH,
+      `Description must be at most ${MAX_TIME_ENTRY_DESCRIPTION_LENGTH} characters`,
     )
     .optional(),
   projectId: z

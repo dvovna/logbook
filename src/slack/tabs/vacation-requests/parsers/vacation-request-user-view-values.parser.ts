@@ -4,8 +4,7 @@ import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 import VacationType from '@common/enums/vacation-type.enum';
 import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
-
-export const MAX_COMMENT_LENGTH = 200;
+import { MAX_COMMENT_LENGTH } from '@common/constants/text-limits';
 
 export const userVacationRequestSchema = z
   .object({

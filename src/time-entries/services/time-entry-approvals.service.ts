@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
 import { ValidationError } from '@common/errors/validation.error';
+import { MAX_REJECTION_REASON_LENGTH } from '@common/constants/text-limits';
 import { RepositoryFilter } from '@common/repositories/repository.types';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import TeamsService from '@modules/teams/services/teams.service';
@@ -65,6 +66,13 @@ export class TimeEntryApprovalsService {
     id: string,
     reason?: string,
   ): Promise<ITimeEntryViewModel> {
+    if (reason && reason.trim().length > MAX_REJECTION_REASON_LENGTH) {
+      throw new ValidationError(
+        `Reason must be at most ${MAX_REJECTION_REASON_LENGTH} characters`,
+        'reason',
+      );
+    }
+
     const [entry] = await this.decide(
       user,
       TimeEntryStatus.Rejected,

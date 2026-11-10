@@ -136,10 +136,12 @@ describe('VacationRequestsService', () => {
       });
     });
 
-    it('skips the check for a request created as rejected', async () => {
+    it('skips the check for a request HR records as rejected', async () => {
+      usersService.findOneWithValidation.mockResolvedValue(requester);
+
       await service.create(
         { ...createParams, status: VacationRequestStatus.Rejected },
-        requester,
+        { ...requester, id: 'hr-1', role: UserRole.HR },
       );
 
       expect(validator.validateNoOverlap).not.toHaveBeenCalled();
@@ -249,6 +251,119 @@ describe('VacationRequestsService', () => {
         VacationType.AnnualLeave,
         requester,
       );
+    });
+  });
+
+  // Rules the Slack forms check too, here for every other way in.
+  describe('what a request may say', () => {
+    const ownRequest = {
+      userId: requester.id,
+      teamId: null,
+      startDate: new Date('2026-02-02'),
+      endDate: new Date('2026-02-06'),
+      type: VacationType.AnnualLeave,
+      status: VacationRequestStatus.Pending,
+    };
+
+    const createError = async (
+      params: Partial<typeof ownRequest> & { userComment?: string | null },
+      actor: IUserViewModel = requester,
+    ) => {
+      const error: unknown = await service
+        .create({ ...ownRequest, ...params }, actor)
+        .then(() => null)
+        .catch((caught: unknown) => caught);
+
+      expect(repository.create).not.toHaveBeenCalled();
+
+      return error;
+    };
+
+    it('refuses an end date before the start', async () => {
+      const error = await createError({
+        startDate: new Date('2026-02-06'),
+        endDate: new Date('2026-02-02'),
+      });
+
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error).toMatchObject({ field: 'dates' });
+    });
+
+    it('refuses a type that is not a leave type', async () => {
+      const error = await createError({ type: 'holiday' as VacationType });
+
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error).toMatchObject({ field: 'type' });
+    });
+
+    it('refuses a comment over 200 characters', async () => {
+      const error = await createError({ userComment: 'x'.repeat(201) });
+
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error).toMatchObject({ field: 'comment' });
+    });
+
+    it('asks for a comment with the type Other', async () => {
+      const error = await createError({
+        type: VacationType.Other,
+        userComment: '   ',
+      });
+
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error).toMatchObject({ field: 'comment' });
+    });
+
+    it('lets a member request only for themselves', async () => {
+      const error = await createError({ userId: 'someone-else' });
+
+      expect(error).toBeInstanceOf(ForbiddenException);
+    });
+
+    it('lets a member create only a pending request', async () => {
+      const error = await createError({
+        status: VacationRequestStatus.Approved,
+      });
+
+      expect(error).toBeInstanceOf(ForbiddenException);
+    });
+
+    it('lets HR create an approved request for someone else', async () => {
+      const hr = { ...requester, id: 'hr-1', role: UserRole.HR };
+      usersService.findOneWithValidation.mockResolvedValue(requester);
+
+      await service.create(
+        { ...ownRequest, status: VacationRequestStatus.Approved },
+        hr,
+      );
+
+      expect(repository.create).toHaveBeenCalled();
+    });
+
+    it('refuses an edit that puts the end before the start', async () => {
+      repository.findOne.mockResolvedValue(buildRequest());
+
+      const error: unknown = await service
+        .update(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          { endDate: new Date('2026-02-01') },
+          requester,
+        )
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error).toMatchObject({ field: 'dates' });
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('cancels a request whose old comment would not pass today', async () => {
+      repository.findOne.mockResolvedValue(
+        buildRequest({ type: VacationType.Other, user_comment: null }),
+      );
+      repository.update.mockResolvedValue(buildRequest());
+
+      await service.cancel('request-1', requester);
+
+      expect(repository.update).toHaveBeenCalled();
     });
   });
 

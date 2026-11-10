@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
 import { RequestWorkflowStepsService } from 'src/request-workflows/services/request-workflow-steps.service';
@@ -408,6 +409,15 @@ describe('RequestWorkflowService', () => {
       expect(stepsService.claimUnprocessed).not.toHaveBeenCalled();
       expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
+
+    it('is only for HR and admins', async () => {
+      stepsService.findMany.mockResolvedValue([buildStep({ id: 'step-1' })]);
+
+      await expect(
+        service.approveCurrentLevel(REQUEST_ID, approver),
+      ).rejects.toThrow(ForbiddenException);
+      expect(stepsService.decide).not.toHaveBeenCalled();
+    });
   });
 
   describe('rejectStep', () => {
@@ -445,6 +455,37 @@ describe('RequestWorkflowService', () => {
       await service.rejectStep(step.id, approver, '  Release week  ');
 
       expect(getFinishedEvent().workflow.rejectionReason).toBe('Release week');
+    });
+
+    // The database keeps at most 300; a longer one would fail the job that
+    // finishes the request and leave it pending with its steps rejected.
+    it('refuses a reason over 300 characters', async () => {
+      const step = buildStep({ step_level: 1 });
+      stepsService.findOneWithValidation.mockResolvedValue(step);
+
+      const error: unknown = await service
+        .rejectStep(step.id, approver, 'x'.repeat(301))
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error).toMatchObject({ field: 'reason' });
+      expect(stepsService.decide).not.toHaveBeenCalled();
+    });
+
+    it('refuses HR rejecting their own request', async () => {
+      const hr = {
+        ...approver,
+        id: snapshot.user_id,
+        slack_id: 'U_HR',
+        role: UserRole.HR,
+      };
+      const step = buildStep({ step_level: 1 });
+      stepsService.findOneWithValidation.mockResolvedValue(step);
+
+      await expect(service.rejectStep(step.id, hr)).rejects.toThrow(
+        ValidationError,
+      );
+      expect(stepsService.decide).not.toHaveBeenCalled();
     });
   });
 

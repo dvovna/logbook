@@ -2,9 +2,7 @@ import { z } from 'zod';
 import { Injectable } from '@nestjs/common';
 import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
 import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
-
-// Also the length the database allows (rejection_reason).
-export const MAX_REJECTION_REASON_LENGTH = 300;
+import { MAX_REJECTION_REASON_LENGTH } from '@common/constants/text-limits';
 
 const rejectReasonSchema = z.object({
   reason: z

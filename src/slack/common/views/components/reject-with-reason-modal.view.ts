@@ -5,7 +5,7 @@ import BaseModalView, {
   IActionButtons,
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
-import { MAX_REJECTION_REASON_LENGTH } from '@modules/slack/common/parsers/reject-reason-modal-view-values.parser';
+import { MAX_REJECTION_REASON_LENGTH } from '@common/constants/text-limits';
 
 interface IGetViewParams extends IBaseModalViewParams {
   callbackId: ViewCallbackId;

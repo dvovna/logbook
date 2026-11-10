@@ -7,9 +7,9 @@ import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import {
   FORM_FIELDS_CONFIG,
   IVacationRequestUserFormViewData,
-  MAX_COMMENT_LENGTH,
 } from '@modules/slack/tabs/vacation-requests/parsers/vacation-request-user-view-values.parser';
 import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
+import { MAX_COMMENT_LENGTH } from '@common/constants/text-limits';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 
 export const adminVacationRequestSchema = z

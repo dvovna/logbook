@@ -27,6 +27,13 @@ import {
   VacationRequestUpdatedEvent,
 } from '@modules/vacation-requests/events/vacation-request.events';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { isPeopleAdmin } from '@modules/users/utils/people-admin-roles';
+import {
+  assertCommentForOther,
+  assertCommentLength,
+  assertDatesInOrder,
+  assertVacationType,
+} from '@modules/vacation-requests/utils/vacation-request-input.utils';
 
 interface ICreateParams {
   userId: string;
@@ -97,6 +104,12 @@ export class VacationRequestsService implements IVacationRequestsService {
 
   public async create(createParams: ICreateParams, user: IUserViewModel) {
     const { userId, teamId, startDate, endDate, type } = createParams;
+
+    this.assertCanCreate(createParams, user);
+    assertDatesInOrder(startDate, endDate);
+    assertVacationType(type);
+    assertCommentLength(createParams.userComment);
+    assertCommentForOther(type, createParams.userComment);
 
     await this.vacationRequestsValidator.validateRequestLimits(
       userId,
@@ -196,6 +209,25 @@ export class VacationRequestsService implements IVacationRequestsService {
       userId,
       teamId,
     } = updateParams;
+
+    // Only what changes is checked: a cancel must work on a request whose
+    // old comment wouldn't pass today.
+    if (updateParams.startDate || updateParams.endDate) {
+      assertDatesInOrder(startDate, endDate);
+    }
+
+    if (updateParams.type !== undefined) {
+      assertVacationType(type);
+    }
+
+    assertCommentLength(userComment);
+
+    if (updateParams.type !== undefined || userComment !== undefined) {
+      assertCommentForOther(
+        type,
+        userComment !== undefined ? userComment : existingRequest.user_comment,
+      );
+    }
 
     const workingDays = await this.workingDaysCalculationService.calculate(
       startDate,
@@ -471,6 +503,30 @@ export class VacationRequestsService implements IVacationRequestsService {
           }
         : {}),
     };
+  }
+
+  // People request time off for themselves, and their request waits for
+  // approval. Only HR and admins make one for someone else or with another
+  // status (the admin form, e.g. to record time off already agreed).
+  private assertCanCreate(
+    { userId, status }: ICreateParams,
+    actor: IUserViewModel,
+  ) {
+    if (isPeopleAdmin(actor.role)) {
+      return;
+    }
+
+    if (userId !== actor.id) {
+      throw new ForbiddenException(
+        'You can request time off only for yourself',
+      );
+    }
+
+    if (status !== VacationRequestStatus.Pending) {
+      throw new ForbiddenException(
+        'Only HR and admins can create a request that is not pending',
+      );
+    }
   }
 
   // Whose vacation it is: the acting user, unless HR or an admin acts for

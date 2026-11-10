@@ -27,6 +27,7 @@ import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workf
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
 import { ValidationError } from '@common/errors/validation.error';
+import { MAX_REJECTION_REASON_LENGTH } from '@common/constants/text-limits';
 import { TransactionService } from 'src/database/transaction.service';
 
 export interface ICreateWorkflowLevelParams {
@@ -213,6 +214,12 @@ export class RequestWorkflowService {
   // level is approved.
   public approveCurrentLevel(requestId: string, approvedBy: IUserViewModel) {
     return this.transactions.transaction(async () => {
+      if (!isPeopleAdmin(approvedBy.role)) {
+        throw new ForbiddenException(
+          'Only HR and admins can approve for the approvers.',
+        );
+      }
+
       await this.lockRequest(requestId);
 
       const [currentStep] = await this.findCurrentLevelSteps(
@@ -255,6 +262,13 @@ export class RequestWorkflowService {
     reason?: string,
   ) {
     return this.transactions.transaction(async () => {
+      if (reason && reason.trim().length > MAX_REJECTION_REASON_LENGTH) {
+        throw new ValidationError(
+          `Reason must be at most ${MAX_REJECTION_REASON_LENGTH} characters`,
+          'reason',
+        );
+      }
+
       const step = await this.requestWorkflowStepsService.findOneWithValidation(
         {
           id: stepId,
@@ -268,6 +282,8 @@ export class RequestWorkflowService {
       if (this.isStepDecided(step)) {
         return;
       }
+
+      this.assertNotOwnRequest(step, rejectedBy, 'reject');
 
       // One rejection rejects the level, and with it the request.
       const rejectedSteps = await this.requestWorkflowStepsService.decide(
@@ -352,9 +368,12 @@ export class RequestWorkflowService {
   public assertNotOwnRequest(
     step: IRequestWorkflowStepViewModel,
     user: IUserViewModel,
+    action: 'approve' | 'reject' = 'approve',
   ) {
     if (step.step_data.snapshot.user_id === user.id) {
-      throw new ValidationError("You can't approve your own vacation request.");
+      throw new ValidationError(
+        `You can't ${action} your own vacation request.`,
+      );
     }
   }
 

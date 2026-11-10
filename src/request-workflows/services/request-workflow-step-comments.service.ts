@@ -5,6 +5,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
 import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
 import { ValidationError } from '@common/errors/validation.error';
+import { MAX_COMMENT_LENGTH } from '@common/constants/text-limits';
 
 interface ICreateParams {
   requestId: string;
@@ -36,6 +37,20 @@ export class RequestWorkflowStepCommentsService {
   ) {}
 
   public async create(commentData: ICreateParams) {
+    const text = commentData.comment.trim();
+
+    // Blank counts as missing: the database refuses a comment of spaces.
+    if (!text) {
+      throw new ValidationError('Comment is required', 'comment');
+    }
+
+    if (text.length > MAX_COMMENT_LENGTH) {
+      throw new ValidationError(
+        `Comment must be at most ${MAX_COMMENT_LENGTH} characters`,
+        'comment',
+      );
+    }
+
     const stepCommentsTotal =
       await this.requestWorkflowStepCommentsRepository.count({
         request_id: commentData.requestId,
@@ -54,7 +69,7 @@ export class RequestWorkflowStepCommentsService {
       step_id: commentData.stepId,
       step_level: commentData.stepLevel,
       created_by: commentData.createdBy,
-      comment: commentData.comment,
+      comment: text,
     });
 
     this.eventEmitter.emit(
