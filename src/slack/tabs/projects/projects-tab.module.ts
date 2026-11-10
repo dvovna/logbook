@@ -22,8 +22,14 @@ import { CurrencyModalView } from '@modules/slack/tabs/projects/views/currency-m
 import CurrencyModalViewValuesParser from '@modules/slack/tabs/projects/parsers/currency-modal-view-values.parser';
 import { CurrencyFormSubmitHandler } from '@modules/slack/tabs/projects/handlers/currency-form-submit.handler';
 
+import { TimeOffLoggingModule } from 'src/time-off-logging/time-off-logging.module';
+import { TimeOffSettingsModalView } from '@modules/slack/tabs/projects/views/time-off-settings-modal.view';
+import TimeOffSettingsModalViewValuesParser from '@modules/slack/tabs/projects/parsers/time-off-settings-modal-view-values.parser';
+import { TimeOffSettingsFormSubmitHandler } from '@modules/slack/tabs/projects/handlers/time-off-settings-form-submit.handler';
+
 @Module({
   imports: [
+    TimeOffLoggingModule,
     ProjectsModule,
     TeamsModule,
     UsersModule,
@@ -45,6 +51,9 @@ import { CurrencyFormSubmitHandler } from '@modules/slack/tabs/projects/handlers
     CurrencyModalView,
     CurrencyModalViewValuesParser,
     CurrencyFormSubmitHandler,
+    TimeOffSettingsModalView,
+    TimeOffSettingsModalViewValuesParser,
+    TimeOffSettingsFormSubmitHandler,
     ProjectsTabService,
     ProjectsTabView,
     ProjectModalView,

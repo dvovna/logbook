@@ -25,6 +25,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { pinoHttpOptions } from '@common/logging/pino-http.options';
 import { ClientsModule } from '@modules/clients/clients.module';
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
+import { TimeOffLoggingModule } from 'src/time-off-logging/time-off-logging.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
     ClientsModule,
     RequestWorkflowsModule,
     TimeEntriesModule,
+    TimeOffLoggingModule,
   ],
   controllers: [AppController],
   providers: [BackgroundWorkShutdownService, EventTrackingService],

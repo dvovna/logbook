@@ -27,6 +27,7 @@ const slackTeam: ISlackTeamViewModel = {
   slack_id: 'T_ACME',
   created_at: '2026-01-01T00:00:00Z',
   currency: 'USD',
+  time_off_minutes_per_day: 480,
   uninstalled_at: null,
 };
 

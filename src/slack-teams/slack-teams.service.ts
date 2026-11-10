@@ -208,6 +208,21 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return code;
   }
 
+  // The minutes of a working day, a day of time off is logged as.
+  public async getTimeOffMinutesPerDay(id: string): Promise<number> {
+    return (await this.findOneWithValidation({ id })).time_off_minutes_per_day;
+  }
+
+  public async setTimeOffMinutesPerDay(
+    id: string,
+    minutes: number,
+  ): Promise<void> {
+    await this.slackTeamsRepository.update(
+      { id },
+      { time_off_minutes_per_day: minutes },
+    );
+  }
+
   public async findOne(findParams: IFindParams) {
     return await this.slackTeamsRepository.findOne(
       this.getFilterQuery(findParams),

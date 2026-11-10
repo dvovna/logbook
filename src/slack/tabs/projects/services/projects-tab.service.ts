@@ -31,6 +31,8 @@ import {
   canSeeRates,
 } from 'src/projects/constants/rate-roles';
 import { PersonRateModalView } from '@modules/slack/tabs/projects/views/person-rate-modal.view';
+import { TimeOffSettingsModalView } from '@modules/slack/tabs/projects/views/time-off-settings-modal.view';
+import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
 import { CurrencyModalView } from '@modules/slack/tabs/projects/views/currency-modal.view';
 
 interface IProjectModalViewParams extends IOpenModalBaseParams<string> {
@@ -44,6 +46,7 @@ export enum ProjectsTabModalName {
   ManageProjectAssignments = 'ManageProjectAssignments',
   ManagePersonRates = 'ManagePersonRates',
   ChangeCurrency = 'ChangeCurrency',
+  TimeOffSettings = 'TimeOffSettings',
 }
 
 interface IGetProjectsTabViewParams extends IPublishBaseParams {
@@ -69,6 +72,9 @@ type ProjectsTabModalViewResolversMapType = {
   [ProjectsTabModalName.ChangeCurrency]: (
     params: IOpenModalBaseParams<string>,
   ) => Promise<View>;
+  [ProjectsTabModalName.TimeOffSettings]: (
+    params: IOpenModalBaseParams<string>,
+  ) => Promise<View>;
 };
 
 @Injectable()
@@ -86,6 +92,8 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     private readonly projectAssignmentsModalView: ProjectAssignmentsModalView,
     private readonly personRateModalView: PersonRateModalView,
     private readonly currencyModalView: CurrencyModalView,
+    private readonly timeOffSettingsModalView: TimeOffSettingsModalView,
+    private readonly timeOffSettingsService: TimeOffSettingsService,
     private readonly projectsTabView: ProjectsTabView,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
@@ -102,6 +110,8 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         this.getManagePersonRatesModalView(params),
       [ProjectsTabModalName.ChangeCurrency]: (params) =>
         this.getChangeCurrencyModalView(params),
+      [ProjectsTabModalName.TimeOffSettings]: (params) =>
+        this.getTimeOffSettingsModalView(params),
     });
   }
 
@@ -320,6 +330,26 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         currency: await this.slackTeamsService.getCurrency(user.slack_team_id),
         errorMessage,
       },
+      { pageMetadata },
+    );
+  }
+
+  private async getTimeOffSettingsModalView({
+    user,
+    errorMessage,
+    pageMetadata,
+  }: IOpenModalBaseParams<string>) {
+    if (user.role !== UserRole.Admin) {
+      throw new ForbiddenException('Only an admin sets what time off is.');
+    }
+
+    const [settings, projects] = await Promise.all([
+      this.timeOffSettingsService.get(user.slack_team_id),
+      this.projectsService.findMany({ slackTeamId: user.slack_team_id }),
+    ]);
+
+    return this.timeOffSettingsModalView.getView(
+      { settings, projects, errorMessage },
       { pageMetadata },
     );
   }

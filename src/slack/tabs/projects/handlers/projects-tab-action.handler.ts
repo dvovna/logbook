@@ -50,6 +50,7 @@ export default class ProjectsTabActionHandler extends BaseTabActionHandler {
     this.actionMap = {
       [ProjectsTabViewActionId.AddProject]: this.handleAddProject,
       [ProjectsTabViewActionId.ChangeCurrency]: this.handleChangeCurrency,
+      [ProjectsTabViewActionId.TimeOffSettings]: this.handleTimeOffSettings,
       [ProjectsTabViewActionId.ManageProjectMenu]: withMenuAction<
         ProjectsTabViewActionId,
         [IUserViewModel]
@@ -103,6 +104,18 @@ export default class ProjectsTabActionHandler extends BaseTabActionHandler {
     await this.projectsTabService.openModal(
       payload.trigger_id || user.slack_id,
       ProjectsTabModalName.ChangeCurrency,
+      { user, pageMetadata: payload.view.private_metadata },
+    );
+  };
+
+  // An admin's: the modal refuses anyone else.
+  private handleTimeOffSettings = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    await this.projectsTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      ProjectsTabModalName.TimeOffSettings,
       { user, pageMetadata: payload.view.private_metadata },
     );
   };

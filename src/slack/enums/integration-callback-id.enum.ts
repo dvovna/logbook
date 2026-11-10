@@ -59,6 +59,7 @@ export enum ViewCallbackId {
   ProjectAssignmentsFormSubmit = 'project_assignments_form_submit',
   PersonRateFormSubmit = 'person_rate_form_submit',
   CurrencyFormSubmit = 'currency_form_submit',
+  TimeOffSettingsForm = 'time_off_settings_form',
 
   // time-entries
   UserTimeEntry = 'user_time_entry',

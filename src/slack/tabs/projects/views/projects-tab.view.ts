@@ -118,6 +118,15 @@ export class ProjectsTabView extends BaseTabView<
       blocks.push(this.getCurrencyBlock(currency, userRole));
     }
 
+    if (
+      this.slackActionPermissionsService.can(
+        userRole,
+        ProjectsTabViewActionId.TimeOffSettings,
+      )
+    ) {
+      blocks.push(this.getTimeOffBlock());
+    }
+
     blocks.push(...this.getFiltersBlocks(filters));
     blocks.push(
       IncludeArchivedButtonView.getView({
@@ -159,6 +168,22 @@ export class ProjectsTabView extends BaseTabView<
     blocks.push(...listBlocks);
 
     return blocks;
+  }
+
+  // An admin's button to choose the projects that time off is logged on.
+  private getTimeOffBlock(): AnyBlock {
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: 'Approved time off can be logged as time on a project of its leave type.',
+      },
+      accessory: {
+        type: 'button',
+        text: { type: 'plain_text', text: '🌴 Time off projects' },
+        action_id: ProjectsTabViewActionId.TimeOffSettings,
+      },
+    };
   }
 
   // "Rates and amounts are in USD", and for an admin the button to change it.
