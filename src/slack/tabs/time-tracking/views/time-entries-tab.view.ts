@@ -2,7 +2,6 @@ import {
   TIME_ENTRY_STATUS_LABELS,
   withIcon,
 } from '@modules/slack/common/views/data/labels';
-import pluralize from 'pluralize';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
@@ -33,6 +32,10 @@ import { TIME_ENTRIES_TAB_PAGE_SIZE } from '@modules/slack/tabs/time-tracking/se
 import { getDisplayTime } from '@common/utils/time.utils';
 import UserRole from '@common/enums/user-role.enum';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
+import { TimesheetTableView } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
+import { ITimesheetWeek } from 'src/time-entries/types/timesheet.types';
+import { splitIntoRows } from '@modules/slack/common/views/components/actions-rows';
+import { shiftWeek } from '@common/utils/period-presets';
 import { isOpenTimeEntry } from 'src/time-entries/constants/open-time-entry-statuses';
 
 interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
@@ -41,8 +44,8 @@ interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
   canFilterByUser: boolean;
   // The viewer's users.id: their own entries have more actions.
   viewerId: string;
-  // The viewer's drafts and rejected entries, on their own list.
-  openEntriesCount: number;
+  // The shown week of the viewer's own time (My time); Time logs has none.
+  week?: ITimesheetWeek;
   // The minutes of each day on the page, over all its entries.
   dayTotals: Record<string, number>;
   // The entries on the page that are in a billing snapshot: locked.
@@ -54,6 +57,8 @@ export interface ITimeEntriesTabMetaData {
   filters?: ITimeEntriesListFilters;
   // Opened from Home → Edit Entries: the viewer's entries even for Admin/HR.
   ownEntriesOnly?: boolean;
+  // My time: the Monday of the shown week, today's week when it is left out.
+  weekStart?: string;
 }
 
 @Injectable()
@@ -90,7 +95,7 @@ export class TimeEntriesTabView extends BaseTabView<
       canFilterByUser,
       viewerId,
       userRole,
-      openEntriesCount,
+      week,
       dayTotals,
       billedIds,
     }: IGetTimeEntriesViewParams,
@@ -98,24 +103,14 @@ export class TimeEntriesTabView extends BaseTabView<
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
-    if (openEntriesCount > 0) {
-      blocks.push({
-        type: 'actions',
-        elements: [
-          {
-            type: 'button',
-            text: {
-              type: 'plain_text',
-              text: `📤 Submit ${pluralize('entry', openEntriesCount, true)}`,
-            },
-            style: 'primary',
-            action_id: TimeEntriesTabViewActionId.SubmitDrafts,
-          },
-        ],
-      });
+    if (week) {
+      blocks.push(
+        ...TimesheetTableView.getBlocks(week),
+        ...this.getWeekButtons(week),
+      );
     }
 
-    blocks.push(...this.getFiltersBlocks(canFilterByUser, filters));
+    blocks.push(...this.getFiltersBlocks(canFilterByUser, !week, filters));
 
     // Grouped by day: a day's line comes before its first entry.
     let day: string | undefined;
@@ -153,6 +148,46 @@ export class TimeEntriesTabView extends BaseTabView<
     blocks.push(...listBlocks);
 
     return blocks;
+  }
+
+  // The week's navigation and its submit button (the drafts and rejected
+  // entries of the shown week).
+  private getWeekButtons(week: ITimesheetWeek): AnyBlock[] {
+    const toSubmit =
+      week.statusCounts[TimeEntryStatus.Draft] +
+      week.statusCounts[TimeEntryStatus.Rejected];
+    const elements = [
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: '⬅️ Previous week' },
+        action_id: TimeEntriesTabViewActionId.PreviousWeek,
+        value: shiftWeek(week.weekStart, -1),
+      },
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: 'Next week ➡️' },
+        action_id: TimeEntriesTabViewActionId.NextWeek,
+        value: shiftWeek(week.weekStart, 1),
+      },
+      ...(toSubmit > 0
+        ? [
+            {
+              type: 'button',
+              text: {
+                type: 'plain_text',
+                text: `📤 Submit week (${toSubmit})`,
+              },
+              style: 'primary',
+              action_id: TimeEntriesTabViewActionId.SubmitWeek,
+            },
+          ]
+        : []),
+    ];
+
+    return splitIntoRows(elements).map((row) => ({
+      type: 'actions',
+      elements: row,
+    })) as AnyBlock[];
   }
 
   private getDayBlocks(workDate: string, minutes = 0): AnyBlock[] {
@@ -244,8 +279,10 @@ export class TimeEntriesTabView extends BaseTabView<
     }));
   }
 
+  // My time shows a week, which its buttons choose: no From and To.
   private getFiltersBlocks(
     canFilterByUser: boolean,
+    withDates: boolean,
     filters?: ITimeEntriesListFilters,
   ) {
     const filtersConfig: IFiltersConfig[] = [
@@ -267,18 +304,22 @@ export class TimeEntriesTabView extends BaseTabView<
         minQueryLength: 2,
         initialOption: filters?.project,
       },
-      {
-        type: 'datepicker',
-        actionId: TimeEntriesTabViewActionId.FilterByFromDate,
-        placeholder: 'From Date',
-        initialValue: filters?.fromDate || undefined,
-      },
-      {
-        type: 'datepicker',
-        actionId: TimeEntriesTabViewActionId.FilterByToDate,
-        placeholder: 'To Date',
-        initialValue: filters?.toDate || undefined,
-      },
+      ...(withDates
+        ? [
+            {
+              type: 'datepicker',
+              actionId: TimeEntriesTabViewActionId.FilterByFromDate,
+              placeholder: 'From Date',
+              initialValue: filters?.fromDate || undefined,
+            } as const,
+            {
+              type: 'datepicker',
+              actionId: TimeEntriesTabViewActionId.FilterByToDate,
+              placeholder: 'To Date',
+              initialValue: filters?.toDate || undefined,
+            } as const,
+          ]
+        : []),
     ];
 
     return FiltersBlockBuilder.build({

@@ -98,3 +98,9 @@ export const weekDays = (weekStart: string): string[] => {
     isoDate(new Date(start + index * DAY_MS)),
   );
 };
+
+// The Monday `weeks` weeks after (or, negative, before) `weekStart`.
+export const shiftWeek = (weekStart: string, weeks: number): string =>
+  isoDate(
+    new Date(new Date(`${weekStart}T00:00:00Z`).getTime() + weeks * 7 * DAY_MS),
+  );

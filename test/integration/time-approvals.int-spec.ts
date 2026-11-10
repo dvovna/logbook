@@ -298,7 +298,7 @@ describe('Time approvals', () => {
     });
 
     it('rejects an entry and tells its owner why', async () => {
-      const entry = await submitted(member, { work_date: '2026-11-02' });
+      const entry = await submitted(member, { work_date: '2026-06-16' });
       const reject = await openModalFrom(
         t,
         workspace,
@@ -325,7 +325,7 @@ describe('Time approvals', () => {
       );
       expect(posted?.text).toBe(
         [
-          `:x: ${manager.name} rejected your time entry: *Website* (Acme), 2 Nov 2026, 1h.`,
+          `:x: ${manager.name} rejected your time entry: *Website* (Acme), 16 Jun 2026, 1h.`,
           '>Wrong project',
           'Fix it under Home → ✏️ Edit Entries and submit it again.',
         ].join('\n'),

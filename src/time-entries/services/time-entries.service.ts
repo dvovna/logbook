@@ -225,7 +225,18 @@ export class TimeEntriesService {
   // Sends the user's own entry `id`, or all their drafts and rejected entries,
   // for approval.
   public async submit(
-    { id, slackTeamId }: { id?: string; slackTeamId: string },
+    {
+      id,
+      slackTeamId,
+      dateFrom,
+      dateTo,
+    }: {
+      id?: string;
+      slackTeamId: string;
+      // Only the entries worked between these days (a week).
+      dateFrom?: string;
+      dateTo?: string;
+    },
     user: IUserViewModel,
   ): Promise<ITimeEntryViewModel[]> {
     if (id) {
@@ -247,6 +258,8 @@ export class TimeEntriesService {
         id,
         userId: user.id,
         slackTeamId,
+        dateFrom,
+        dateTo,
         statuses: OPEN_TIME_ENTRY_STATUSES,
       }),
       {

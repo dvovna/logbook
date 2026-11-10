@@ -763,7 +763,12 @@ describe('Time entries', () => {
     });
 
     it('shows an admin only their own entries under Edit Entries, on every page', async () => {
-      await addWorkOfElevenDays();
+      // Eleven entries of the shown week, one more than a page.
+      for (let entry = 0; entry < 11; entry += 1) {
+        await workspace.addTimeEntry(admin, website, {
+          description: `Entry ${entry}`,
+        });
+      }
       await workspace.addTimeEntry(member, website, { description: 'Kickoff' });
 
       const firstPage = await openAppHomeTab(
@@ -782,7 +787,7 @@ describe('Time entries', () => {
         firstPage,
         TimeEntriesTabViewActionId.PaginationNext,
       );
-      expect(descriptionsOf(secondPage)).toEqual(['Day 10']);
+      expect(descriptionsOf(secondPage)).toEqual(['Entry 0']);
     });
   });
 
@@ -906,23 +911,23 @@ describe('Time entries', () => {
         member,
         MY_ENTRIES_TAB,
       );
-      expect(
-        buttonText(myEntries, TimeEntriesTabViewActionId.SubmitDrafts),
-      ).toBe('📤 Submit 2 entries');
+      expect(buttonText(myEntries, TimeEntriesTabViewActionId.SubmitWeek)).toBe(
+        '📤 Submit week (2)',
+      );
 
       const updated = await actOnTab(
         t,
         workspace,
         member,
         myEntries,
-        TimeEntriesTabViewActionId.SubmitDrafts,
+        TimeEntriesTabViewActionId.SubmitWeek,
       );
 
       expect(await statusOf(draft)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(rejected)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(approved)).toBe(TimeEntryStatus.Approved);
       expect(actionIdsOf(updated)).not.toContain(
-        TimeEntriesTabViewActionId.SubmitDrafts,
+        TimeEntriesTabViewActionId.SubmitWeek,
       );
       expect(statusesOf(updated).sort()).toEqual([
         '✅ Approved',
@@ -952,8 +957,8 @@ describe('Time entries', () => {
 
       expect(await statusOf(first)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(second)).toBe(TimeEntryStatus.Draft);
-      expect(buttonText(updated, TimeEntriesTabViewActionId.SubmitDrafts)).toBe(
-        '📤 Submit 1 entry',
+      expect(buttonText(updated, TimeEntriesTabViewActionId.SubmitWeek)).toBe(
+        '📤 Submit week (1)',
       );
     });
 

@@ -20,7 +20,8 @@ import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/service
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
-import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
+import { TimesheetService } from 'src/time-entries/services/timesheet.service';
+import { weekDays, weekStartOf } from '@common/utils/period-presets';
 
 interface ITimeEntryModalViewParams extends IOpenModalBaseParams<string> {
   entryId: string;
@@ -50,6 +51,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     private readonly timeEntriesTabView: TimeEntriesTabView,
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesService: TimeEntriesService,
+    private readonly timesheetService: TimesheetService,
   ) {
     super(TabId.TimeEntries, {
       [TimeEntriesTabModalName.CreateTimeEntry]: (params) =>
@@ -67,26 +69,26 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
   }: IGetTimeEntriesTabViewParams) {
     const seesAllEntries =
       isTimeEntriesAdmin(user.role) && !metadata.ownEntriesOnly;
+    // My time is a week: its table, and the list of that week's entries. Time
+    // logs filters by dates instead.
+    const weekStart = seesAllEntries
+      ? undefined
+      : (metadata.weekStart ??
+        weekStartOf(new Date().toISOString().slice(0, 10)));
+    const days = weekStart ? weekDays(weekStart) : undefined;
     const filters = {
       projectId: metadata.filters?.project?.id,
       userId: seesAllEntries ? metadata.filters?.user?.id : user.id,
-      fromDate: metadata?.filters?.fromDate,
-      toDate: metadata?.filters?.toDate,
+      fromDate: days ? days[0] : metadata?.filters?.fromDate,
+      toDate: days ? days[6] : metadata?.filters?.toDate,
     };
-    const [timeEntriesListData, openEntriesCount] = await Promise.all([
+    const [timeEntriesListData, week] = await Promise.all([
       this.timeEntriesTabDataService.getTimeEntriesTabData({
         slackTeamId: user.slack_team_id,
         page: metadata.page,
         filters,
       }),
-      // What the viewer can still submit, offered on their own list only.
-      seesAllEntries
-        ? 0
-        : this.timeEntriesService.count({
-            userId: user.id,
-            slackTeamId: user.slack_team_id,
-            statuses: OPEN_TIME_ENTRY_STATUSES,
-          }),
+      weekStart ? this.timesheetService.getWeek(user, weekStart) : undefined,
     ]);
 
     const [dayTotals, billedIds] = await Promise.all([
@@ -110,11 +112,11 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
         dayTotals,
         canFilterByUser: seesAllEntries,
         viewerId: user.id,
-        openEntriesCount,
+        week,
         timeEntriesListData,
         billedIds,
       },
-      metadata,
+      { ...metadata, weekStart },
     );
   }
 

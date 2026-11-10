@@ -156,3 +156,10 @@ export const buttonText = (view: View, actionId: string): string | undefined =>
       (element: SlackJson) =>
         element.type === 'button' && element.action_id === actionId,
     )?.text.text;
+
+// The status line of My time's week: "🕒 Week of 15 Jun · 3h 30m · 📝 1 draft".
+export const timesheetStatusOf = (view: View): string | undefined =>
+  blocksOf(view)
+    .filter((block) => block.type === 'context')
+    .map((block) => block.elements[0]?.text as string)
+    .find((text) => text?.startsWith('🕒 Week of'));
