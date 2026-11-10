@@ -1,21 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import {
-  ISqlRelation,
-  SqlRepository,
-} from '@common/repositories/sql.repository';
+  IRelation,
+  BaseRepository,
+} from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 
 @Injectable()
-export class VacationRequestsRepository extends SqlRepository<
+export class VacationRequestsRepository extends BaseRepository<
   'vacation_requests',
   IVacationRequestViewModel
 > {
   protected readonly tableName = 'vacation_requests';
 
-  protected relations: Record<string, ISqlRelation> = {
+  protected relations: Record<string, IRelation> = {
     user: {
       table: 'users',
       foreignKey: 'user_id',

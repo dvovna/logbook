@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import IClientViewModel from '@modules/clients/types/client.interface';
 
 @Injectable()
-export class ClientsRepository extends SqlRepository<
+export class ClientsRepository extends BaseRepository<
   'clients',
   IClientViewModel
 > {

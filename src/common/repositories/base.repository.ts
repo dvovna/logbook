@@ -44,7 +44,7 @@ type AnySelect = SelectQueryBuilder<AnyDatabase, string, AnyRow>;
 
 // A many-to-one relation, embedded in each row as an object (or null) under
 // its key, as PostgREST's `alias:fk_column ( columns )` does.
-export interface ISqlRelation {
+export interface IRelation {
   table: SqlTableName;
   foreignKey: string;
   columns: string[];
@@ -71,18 +71,18 @@ const ARRAY_OPERATORS = new Set<FilterOperator>(['cs', 'cd', 'ov']);
 // `%`, `_` and `\` in a search term are text, not LIKE wildcards.
 export const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
-// BaseRepository's public interface over a direct Postgres connection
-// (DatabaseService), with the same workspace checks. Unlike PostgREST, a
-// query returns every row it matches, and inside TransactionService.transaction()
-// every method takes part in the transaction.
+// The generic methods of every repository, over the app's Postgres connection
+// (DatabaseService), with the workspace checks. A query returns every row it
+// matches (PostgREST stopped at 1000), and inside
+// TransactionService.transaction() every method takes part in the transaction.
 @Injectable()
-export abstract class SqlRepository<
+export abstract class BaseRepository<
   Table extends SqlTableName,
   ViewModel,
 > implements IRepository<SqlInsert<Table>, SqlUpdate<Table>, ViewModel> {
   protected abstract readonly tableName: Table;
 
-  protected relations: Record<string, ISqlRelation> | null = null;
+  protected relations: Record<string, IRelation> | null = null;
 
   protected readonly defaultPageLimit = 10;
 

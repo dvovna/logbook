@@ -1,8 +1,7 @@
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 
-// What both repository implementations share: the filters the services build,
-// the workspace checks, and the public methods. BaseRepository runs them over
-// PostgREST, SqlRepository over a direct Postgres connection.
+// The filters the services build, the workspace checks, and the public
+// methods of a repository (BaseRepository).
 
 type FilterSimpleValue = string | number | boolean | null | string[] | number[];
 

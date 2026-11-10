@@ -17,8 +17,8 @@ export const SESSION_SETTINGS = [
   "set idle_in_transaction_session_timeout = '30s'",
 ];
 
-// The app's own connections to Postgres (DATABASE_URL), for the repositories
-// that moved off PostgREST. pg-boss keeps a pool of its own. Services don't
+// The app's own connections to Postgres (DATABASE_URL), for the repositories.
+// pg-boss keeps a pool of its own. Services don't
 // use this: they group repository calls with TransactionService.
 @Injectable()
 export class DatabaseService implements OnApplicationShutdown {

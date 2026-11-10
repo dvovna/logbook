@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import { sql } from 'kysely';
 import { Json } from '@common/types/database.types';
@@ -9,7 +9,7 @@ import {
 } from '@modules/request-workflows/types/request-workflow-step.interface';
 
 @Injectable()
-export class RequestWorkflowStepsRepository extends SqlRepository<
+export class RequestWorkflowStepsRepository extends BaseRepository<
   'request_workflow_steps',
   IRequestWorkflowStepViewModel
 > {

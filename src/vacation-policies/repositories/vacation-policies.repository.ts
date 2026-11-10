@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
 
 @Injectable()
-export default class VacationPoliciesRepository extends SqlRepository<
+export default class VacationPoliciesRepository extends BaseRepository<
   'vacation_policies',
   IVacationPolicyViewModel
 > {

@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import {
-  ISqlRelation,
-  SqlRepository,
-} from '@common/repositories/sql.repository';
+  IRelation,
+  BaseRepository,
+} from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 
 @Injectable()
-export class TimeEntriesRepository extends SqlRepository<
+export class TimeEntriesRepository extends BaseRepository<
   'time_entries',
   ITimeEntryViewModel
 > {
   protected readonly tableName = 'time_entries';
 
-  protected relations: Record<string, ISqlRelation> = {
+  protected relations: Record<string, IRelation> = {
     user: {
       table: 'users',
       foreignKey: 'user_id',

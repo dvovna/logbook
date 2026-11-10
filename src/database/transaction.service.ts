@@ -22,8 +22,8 @@ export class TransactionService {
   }
 
   // Runs `work` in one transaction: it commits when `work` resolves and rolls
-  // back when it throws. Every SqlRepository call inside `work` takes part;
-  // PostgREST calls never do. A transaction() inside another one joins it.
+  // back when it throws. Every repository call inside `work` takes part, and
+  // a transaction() inside another one joins it.
   // No Slack calls inside: they would hold the connection and the locks.
   public async transaction<T>(work: () => Promise<T>): Promise<T> {
     if (this.inTransaction) {

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import UserRole from '@common/enums/user-role.enum';
 import ISlackTeamViewModel from '@modules/slack-teams/types/slack-team.interface';
@@ -25,7 +25,7 @@ export interface ICreateWorkspaceRow {
 }
 
 @Injectable()
-export class SlackTeamsRepository extends SqlRepository<
+export class SlackTeamsRepository extends BaseRepository<
   'slack_teams',
   ISlackTeamViewModel
 > {

@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import IHolidayViewModel from '@modules/holidays/types/holiday.interface';
 
 @Injectable()
-export class HolidaysRepository extends SqlRepository<
+export class HolidaysRepository extends BaseRepository<
   'holidays',
   IHolidayViewModel
 > {

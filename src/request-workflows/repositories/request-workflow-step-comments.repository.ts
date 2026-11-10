@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 @Injectable()
-export class RequestWorkflowStepCommentsRepository extends SqlRepository<
+export class RequestWorkflowStepCommentsRepository extends BaseRepository<
   'request_workflow_step_comments',
   IWorkflowStepCommentViewModel
 > {

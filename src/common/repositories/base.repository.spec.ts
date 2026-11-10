@@ -1,8 +1,8 @@
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import { recordingDatabase } from 'src/database/testing/recording-database';
 
-class ClientsRepository extends SqlRepository<'clients', SqlRow<'clients'>> {
+class ClientsRepository extends BaseRepository<'clients', SqlRow<'clients'>> {
   protected readonly tableName = 'clients';
   protected searchableColumns = ['name', 'description'];
   protected mapToViewModel = (row: SqlRow<'clients'>) => row;
@@ -15,7 +15,7 @@ class ClientsRepository extends SqlRepository<'clients', SqlRow<'clients'>> {
   }
 }
 
-class TeamsRepository extends SqlRepository<'teams', SqlRow<'teams'>> {
+class TeamsRepository extends BaseRepository<'teams', SqlRow<'teams'>> {
   protected readonly tableName = 'teams';
   protected relations = {
     vacation_policy: {
@@ -27,7 +27,7 @@ class TeamsRepository extends SqlRepository<'teams', SqlRow<'teams'>> {
   protected mapToViewModel = (row: SqlRow<'teams'>) => row;
 }
 
-class WorkspacesRepository extends SqlRepository<
+class WorkspacesRepository extends BaseRepository<
   'slack_teams',
   SqlRow<'slack_teams'>
 > {
@@ -36,7 +36,7 @@ class WorkspacesRepository extends SqlRepository<
   protected mapToViewModel = (row: SqlRow<'slack_teams'>) => row;
 }
 
-describe('SqlRepository', () => {
+describe('BaseRepository', () => {
   const workspace = { slack_team_id: 'w1' };
 
   describe("a workspace's table", () => {

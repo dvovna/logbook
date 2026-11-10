@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import {
-  ISqlRelation,
-  SqlRepository,
-} from '@common/repositories/sql.repository';
+  IRelation,
+  BaseRepository,
+} from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 
 @Injectable()
-export class TeamsRepository extends SqlRepository<'teams', ITeamViewModel> {
+export class TeamsRepository extends BaseRepository<'teams', ITeamViewModel> {
   protected readonly tableName = 'teams';
 
-  protected relations: Record<string, ISqlRelation> = {
+  protected relations: Record<string, IRelation> = {
     vacation_policy: {
       table: 'vacation_policies',
       foreignKey: 'vacation_policy_id',

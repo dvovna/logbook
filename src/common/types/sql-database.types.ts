@@ -12,8 +12,8 @@ interface ISupabaseTable {
 // One table in Kysely's terms, taken from the types `pnpm db:types` generates:
 // a column reads as its Row type, is written as its Insert and Update types,
 // and is optional on insert where Supabase made it optional (it has a default
-// or takes null). So both data layers read one generated file, which CI checks
-// against the migrations.
+// or takes null). So the repositories are typed by the generated file, which
+// CI checks against the migrations.
 type KyselyTable<Table extends ISupabaseTable> = {
   [Column in keyof Table['Row']]: ColumnType<
     Table['Row'][Column],

@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import IProjectViewModel from 'src/projects/types/project.types';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 
 @Injectable()
-export class ProjectsRepository extends SqlRepository<
+export class ProjectsRepository extends BaseRepository<
   'projects',
   IProjectViewModel
 > {

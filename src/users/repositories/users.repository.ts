@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 
 @Injectable()
-export class UsersRepository extends SqlRepository<'users', IUserViewModel> {
+export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
   protected readonly tableName = 'users';
 
   protected searchableColumns = ['name', 'email'];

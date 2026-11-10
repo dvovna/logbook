@@ -2,7 +2,7 @@ import { sql } from 'kysely';
 import UserRole from '@common/enums/user-role.enum';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import { JobsService } from '@common/jobs/jobs.service';
-import { SqlRepository } from '@common/repositories/sql.repository';
+import { BaseRepository } from '@common/repositories/base.repository';
 import { Tables } from '@common/types/database.types';
 import { SqlRow } from '@common/types/sql-database.types';
 import { ClientsRepository } from '@modules/clients/repositories/clients.repository';
@@ -19,7 +19,7 @@ type TeamWithPolicy = Tables<'teams'> & {
   vacation_policy: { id: string; name: string } | null;
 };
 
-class SqlTeams extends SqlRepository<'teams', TeamWithPolicy> {
+class TeamsRepository extends BaseRepository<'teams', TeamWithPolicy> {
   protected readonly tableName = 'teams';
   protected relations = {
     vacation_policy: {
@@ -33,7 +33,7 @@ class SqlTeams extends SqlRepository<'teams', TeamWithPolicy> {
 
 // The app's connection to Postgres (DatabaseService): the values it reads,
 // its session settings, transactions, and jobs saved with the data.
-describe('The direct Postgres connection', () => {
+describe('The database connection', () => {
   let t: ITestApp;
   let workspace: TestWorkspace;
   let database: DatabaseService;
@@ -85,7 +85,7 @@ describe('The direct Postgres connection', () => {
     await workspace.addTeam({ vacation_policy_id: policy.id });
     await workspace.addTeam();
 
-    const teams = await new SqlTeams(database).findMany({
+    const teams = await new TeamsRepository(database).findMany({
       slack_team_id: workspace.id,
     });
 
