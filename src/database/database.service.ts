@@ -1,4 +1,4 @@
-import { Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CompiledQuery, Kysely, PostgresDialect, sql } from 'kysely';
 import { Pool } from 'pg';
@@ -7,21 +7,30 @@ import { SqlDatabase } from '@common/types/sql-database.types';
 import { POSTGREST_COMPATIBLE_TYPES } from 'src/database/pg-type-parsers';
 import { currentTransaction } from 'src/database/transaction-scope';
 
-// Set on every connection of the pool:
+// Set on every connection of the pool, in one statement (a round trip each
+// would cost a new connection two more):
 // - timestamps come back in UTC, as PostgREST gives them on Supabase;
 // - a stuck query, or a transaction someone forgot to end, can't hold one of
 //   the few connections Supabase's session pooler allows.
-export const SESSION_SETTINGS = [
-  "set time zone 'UTC'",
-  "set statement_timeout = '10s'",
-  "set idle_in_transaction_session_timeout = '30s'",
-];
+export const SESSION_SETUP =
+  "select set_config('TimeZone', 'UTC', false), " +
+  "set_config('statement_timeout', '10s', false), " +
+  "set_config('idle_in_transaction_session_timeout', '30s', false)";
+
+// A new connection takes several round trips (TCP, TLS, authentication,
+// SESSION_SETUP): most of a second when the database is in another region.
+// The pool keeps an idle one this long (pg's default is 10 seconds), so that
+// someone clicking through Slack reuses it. Under the idle timeouts of the
+// load balancers on the way (AWS's is 350 seconds).
+export const IDLE_CONNECTION_MS = 60_000;
 
 // The app's own connections to Postgres (DATABASE_URL), for the repositories.
 // pg-boss keeps a pool of its own. Services don't
 // use this: they group repository calls with TransactionService.
 @Injectable()
 export class DatabaseService implements OnApplicationShutdown {
+  private readonly logger = new Logger(DatabaseService.name);
+
   private readonly root: Kysely<SqlDatabase>;
 
   public constructor(config: ConfigService) {
@@ -32,15 +41,22 @@ export class DatabaseService implements OnApplicationShutdown {
       max: config.get<number>(EnvironmentVariable.DatabasePoolSize) ?? 5,
       application_name: 'logbook',
       types: POSTGREST_COMPATIBLE_TYPES,
+      idleTimeoutMillis: IDLE_CONNECTION_MS,
+      keepAlive: true,
     });
+
+    // An idle connection the server or the network closed: the pool drops
+    // it and opens another when needed. Without a listener the error would
+    // stop the process.
+    pool.on('error', (error) =>
+      this.logger.warn(`Idle database connection closed: ${error.message}`),
+    );
 
     this.root = new Kysely<SqlDatabase>({
       dialect: new PostgresDialect({
         pool,
         onCreateConnection: async (connection) => {
-          for (const setting of SESSION_SETTINGS) {
-            await connection.executeQuery(CompiledQuery.raw(setting));
-          }
+          await connection.executeQuery(CompiledQuery.raw(SESSION_SETUP));
         },
       }),
     });
