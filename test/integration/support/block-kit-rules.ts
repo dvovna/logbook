@@ -291,6 +291,12 @@ const tableProblems = (block: SlackJson, at: string): Problems => {
 
       if (cell.type === 'raw_text') {
         problems.push(...unknownKeys(cell, ['type', 'text'], cellAt));
+
+        // Slack answers invalid_arguments ("must be more than 0 characters").
+        if (!String(cell.text ?? '').length) {
+          problems.push(`${cellAt}.text: must not be empty`);
+        }
+
         characters += String(cell.text ?? '').length;
       } else if (cell.type === 'rich_text') {
         problems.push(...unknownKeys(cell, ['type', 'elements'], cellAt));

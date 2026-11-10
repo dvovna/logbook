@@ -8,7 +8,10 @@ import { JobsService } from '@common/jobs/jobs.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import pluralize from 'pluralize';
-import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import {
+  escapeMrkdwn,
+  quoteMrkdwn,
+} from '@modules/slack/common/utils/mrkdwn.utils';
 import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
@@ -21,6 +24,11 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
+import {
+  ITimeOffOffer,
+  TimeOffLoggingService,
+} from 'src/time-off-logging/services/time-off-logging.service';
+import { TimeOffOfferService } from '@modules/slack/tabs/vacation-requests/services/time-off-offer.service';
 import { UsersService } from '@modules/users/services/users.service';
 
 export enum DecisionNotificationJob {
@@ -39,9 +47,6 @@ interface IRecipientJob extends IRequestJob {
   recipientSlackId: string;
 }
 
-// The approver's words as a quote, safe to put in mrkdwn.
-const quote = (text: string) => `>${escapeMrkdwn(text).replace(/\n/g, '\n>')}`;
-
 // Tells the requester how their request was decided and, when it was approved,
 // the team's approval_notification_recipients. One job per message, so a
 // retry sends only the messages that failed.
@@ -58,6 +63,8 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly usersService: UsersService,
     private readonly jobs: JobsService,
+    private readonly timeOffLoggingService: TimeOffLoggingService,
+    private readonly timeOffOfferService: TimeOffOfferService,
   ) {}
 
   public onModuleInit() {
@@ -100,7 +107,25 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
       includeInactive: true,
     });
 
-    await this.notifyUser(decided.request, decidedBy, decided.comments);
+    const offer = await this.offerOf(decided.request);
+
+    await this.notifyUser(decided.request, decidedBy, decided.comments, offer);
+  }
+
+  // An approved time off carries the button to log it as time. The decision
+  // never waits for the offer: when it fails, the message goes without it.
+  private async offerOf(
+    request: IVacationRequestViewModel,
+  ): Promise<ITimeOffOffer | null> {
+    try {
+      return await this.timeOffLoggingService.offerFor(request);
+    } catch (error) {
+      this.logger.warn(
+        `No offer to log time off ${request.id} as time: ${(error as Error).message}`,
+      );
+
+      return null;
+    }
   }
 
   private async notifyRecipients(job: IRequestJob) {
@@ -157,6 +182,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     request: IVacationRequestViewModel,
     decidedBy: IUserViewModel,
     comments: IWorkflowStepCommentViewModel[],
+    offer: ITimeOffOffer | null = null,
   ): SlackMessagePayloadInterface {
     const approved = request.status === VacationRequestStatus.Approved;
     const type = vacationTypeLabel(request.type);
@@ -178,7 +204,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
                 : '❌ *Your time off request was rejected*',
               this.getRequestDetails(request),
               ...(!approved && request.rejection_reason
-                ? [quote(request.rejection_reason)]
+                ? [quoteMrkdwn(request.rejection_reason)]
                 : []),
               commentLines,
             ]
@@ -195,6 +221,9 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
             },
           ],
         } as KnownBlock,
+        ...(offer
+          ? (this.timeOffOfferService.getBlocks(offer) as KnownBlock[])
+          : []),
       ],
     };
   }
@@ -203,10 +232,11 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     request: IVacationRequestViewModel,
     decidedBy: IUserViewModel,
     comments: IWorkflowStepCommentViewModel[] = [],
+    offer: ITimeOffOffer | null = null,
   ) {
     await this.communicationService.postMessage(
       request.user!.slack_id,
-      this.getUserNotificationMessage(request, decidedBy, comments),
+      this.getUserNotificationMessage(request, decidedBy, comments, offer),
       request.slack_team_id,
     );
   }

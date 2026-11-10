@@ -1,11 +1,19 @@
 import { Injectable } from '@nestjs/common';
+import { ExpressionBuilder, sql } from 'kysely';
 import {
   IRelation,
   BaseRepository,
 } from '@common/repositories/base.repository';
-import { SqlRow } from '@common/types/sql-database.types';
+import {
+  SqlDatabase,
+  SqlRow,
+  SqlUpdate,
+} from '@common/types/sql-database.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
+
+const dateOf = ({ work_date }: { work_date: string }) => work_date;
 
 @Injectable()
 export class TimeEntriesRepository extends BaseRepository<
@@ -80,6 +88,7 @@ export class TimeEntriesRepository extends BaseRepository<
       billable: row.billable,
       status: row.status as TimeEntryStatus,
       project_id: row.project_id,
+      vacation_request_id: row.vacation_request_id,
       created_at: row.created_at,
       updated_at: row.updated_at,
       created_by: row.created_by,
@@ -103,6 +112,173 @@ export class TimeEntriesRepository extends BaseRepository<
       .orderBy('work_date', 'desc')
       .orderBy('created_at', 'desc')
       .execute();
+  }
+
+  // Not deleted, cancelled ones included; without the relations, in
+  // findMany's order.
+  public async findOfUserWithBilled(
+    slackTeamId: string,
+    {
+      userId,
+      dateFrom,
+      dateTo,
+    }: { userId: string; dateFrom: string; dateTo: string },
+  ): Promise<{ entries: ITimeEntryViewModel[]; billedIds: Set<string> }> {
+    const rows = await this.selectInWorkspace(slackTeamId)
+      .selectAll()
+      .select((eb) =>
+        eb
+          .exists(
+            eb
+              .selectFrom('billing_snapshot_entries')
+              .select('billing_snapshot_entries.time_entry_id')
+              .where('billing_snapshot_entries.slack_team_id', '=', slackTeamId)
+              .whereRef(
+                'billing_snapshot_entries.time_entry_id',
+                '=',
+                'time_entries.id',
+              ),
+          )
+          .as('billed'),
+      )
+      .where('user_id', '=', userId)
+      .where('deleted_at', 'is', null)
+      .where('work_date', '>=', dateFrom)
+      .where('work_date', '<=', dateTo)
+      .orderBy('created_at', 'desc')
+      .orderBy('id')
+      .execute();
+
+    return {
+      entries: rows.map((row) => this.toViewModel(row)),
+      billedIds: new Set(rows.filter((row) => row.billed).map(({ id }) => id)),
+    };
+  }
+
+  // With the day of the oldest one, null when none.
+  public async countOpenUpTo(
+    slackTeamId: string,
+    userId: string,
+    dateTo: string,
+  ): Promise<{ count: number; oldest: string | null }> {
+    const { count, oldest } = await this.selectInWorkspace(slackTeamId)
+      .select((eb) => [
+        eb.fn.countAll<string>().as('count'),
+        eb.fn.min('work_date').as('oldest'),
+      ])
+      .where('user_id', '=', userId)
+      .where('status', 'in', OPEN_TIME_ENTRY_STATUSES)
+      .where('deleted_at', 'is', null)
+      .where('work_date', '<=', dateTo)
+      .executeTakeFirstOrThrow();
+
+    return { count: Number(count), oldest };
+  }
+
+  // Gives each entry of `minutesById` its minutes, and all of them
+  // `changes`, in one statement, but only those still not deleted and, with
+  // `statuses`, in one of them. Returns the IDs it changed.
+  public async setMinutes(
+    slackTeamId: string,
+    minutesById: Map<string, number>,
+    changes: SqlUpdate<'time_entries'>,
+    statuses?: TimeEntryStatus[],
+  ): Promise<string[]> {
+    if (!minutesById.size) {
+      return [];
+    }
+
+    const minutes = sql<number>`case ${sql.join(
+      [...minutesById].map(
+        ([id, value]) => sql`when id = ${id} then ${value}::integer`,
+      ),
+      sql` `,
+    )} end`;
+    const rows = await this.updateInWorkspace(slackTeamId)
+      .set({ ...changes, minutes })
+      .where('id', 'in', [...minutesById.keys()])
+      .where('deleted_at', 'is', null)
+      .$if(!!statuses, (query) => query.where('status', 'in', statuses!))
+      .returning('id')
+      .execute();
+
+    return rows.map(({ id }) => id);
+  }
+
+  // Deletes the entries logged from a vacation (keeping them as history) but
+  // those a billing snapshot holds, in one statement. Returns what it
+  // deleted, and the days of the kept ones.
+  public async deleteVacationTime(
+    slackTeamId: string,
+    vacationRequestId: string,
+    deletedBy: string,
+  ): Promise<{
+    deleted: {
+      work_date: string;
+      minutes: number;
+      project_id: string;
+      user_id: string;
+    }[];
+    billedDates: string[];
+  }> {
+    const ofVacation = this.selectInWorkspace(slackTeamId)
+      .where('vacation_request_id', '=', vacationRequestId)
+      .where('deleted_at', 'is', null);
+    const billed = (eb: ExpressionBuilder<SqlDatabase, 'time_entries'>) =>
+      eb.exists(
+        eb
+          .selectFrom('billing_snapshot_entries')
+          .select('billing_snapshot_entries.time_entry_id')
+          .where('billing_snapshot_entries.slack_team_id', '=', slackTeamId)
+          .whereRef(
+            'billing_snapshot_entries.time_entry_id',
+            '=',
+            'time_entries.id',
+          ),
+      );
+    const rows = await this.db
+      .with('deleted', (db) =>
+        db
+          .updateTable('time_entries')
+          .set({ deleted_at: new Date().toISOString(), deleted_by: deletedBy })
+          .where('slack_team_id', '=', slackTeamId)
+          .where('vacation_request_id', '=', vacationRequestId)
+          .where('deleted_at', 'is', null)
+          .where((eb) => eb.not(billed(eb)))
+          .returning(['work_date', 'minutes', 'project_id', 'user_id']),
+      )
+      .selectFrom('deleted')
+      .select([
+        sql<boolean>`false`.as('billed'),
+        'work_date',
+        'minutes',
+        'project_id',
+        'user_id',
+      ])
+      .unionAll(
+        ofVacation
+          .where(billed)
+          .select([
+            sql<boolean>`true`.as('billed'),
+            'work_date',
+            'minutes',
+            'project_id',
+            'user_id',
+          ]),
+      )
+      .execute();
+
+    return {
+      deleted: rows
+        .filter((row) => !row.billed)
+        .map(({ work_date, minutes, project_id, user_id }) => ({
+          work_date,
+          minutes,
+          project_id,
+          user_id,
+        })),
+      billedDates: rows.filter((row) => row.billed).map(dateOf),
+    };
   }
 
   // Which of the entries are in a billing snapshot, and so can't change

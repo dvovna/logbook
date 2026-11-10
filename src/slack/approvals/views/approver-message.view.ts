@@ -3,7 +3,10 @@ import {
   vacationTypeLabel,
 } from '@modules/slack/common/views/data/labels';
 import { formatDateRange } from '@common/utils/date.utils';
-import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import {
+  escapeMrkdwn,
+  quoteMrkdwn,
+} from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import {
@@ -40,6 +43,9 @@ export class ApproverMessageView {
       }
       case WorkflowStepStatus.Cancelled: {
         return this.getCanceledMessage(params);
+      }
+      case WorkflowStepStatus.Deleted: {
+        return this.getDeletedMessage(params);
       }
     }
   }
@@ -117,6 +123,8 @@ ${this.getRequestDetails(step, comments)}`,
   }
 
   private static getRejectedMessage({ step, comments }: IGetMessageParams) {
+    const reason = step.step_data.rejection_reason;
+
     return {
       text: '❌ Vacation request rejected',
       blocks: [
@@ -124,7 +132,7 @@ ${this.getRequestDetails(step, comments)}`,
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `❌ Rejected by <@${step.step_data.decided_by_slack_id}>
+            text: `❌ Rejected by <@${step.step_data.decided_by_slack_id}>${reason ? `\n${quoteMrkdwn(reason)}` : ''}
 
 ${this.getRequestDetails(step, comments)}`,
           },
@@ -148,6 +156,23 @@ ${this.getRequestDetails(step, comments)}`,
           text: {
             type: 'mrkdwn',
             text: `❌ Canceled by <@${canceledBy}>
+
+${this.getRequestDetails(step, comments)}`,
+          },
+        },
+      ],
+    };
+  }
+
+  private static getDeletedMessage({ step, comments }: IGetMessageParams) {
+    return {
+      text: '🗑️ Vacation request deleted',
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `🗑️ Deleted by <@${step.step_data.decided_by_slack_id}>
 
 ${this.getRequestDetails(step, comments)}`,
           },

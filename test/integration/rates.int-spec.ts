@@ -215,7 +215,7 @@ describe('Rates', () => {
         '_Nobody has a rate of their own on this project yet._',
       ]);
       const suggestions = await t.slack
-        .suggest(workspace, finance, modal, Person, 'ada')
+        .suggest(workspace, finance, modal, Person, 'lovelace')
         .expect(acknowledged);
       expect(suggestions.body.options).toEqual([
         { text: { type: 'plain_text', text: 'Ada Lovelace' }, value: ada.id },

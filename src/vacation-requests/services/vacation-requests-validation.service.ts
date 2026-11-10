@@ -3,7 +3,10 @@ import { Injectable } from '@nestjs/common';
 import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ConfigService } from '@nestjs/config';
-import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
+import {
+  IVacationPeriodUsageData,
+  VacationsUsageService,
+} from '@modules/vacation-requests/services/vacation-usage.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import { ValidationError } from '@common/errors/validation.error';
@@ -95,10 +98,28 @@ export class VacationRequestsValidationService {
     vacationType: VacationType,
     user: IUserViewModel,
   ) {
-    const { calendarDays, workingDays } = daysRequest;
+    this.checkDaysRequested(
+      daysRequest,
+      vacationType,
+      await this.getUsage(user),
+    );
+  }
 
-    const usageData =
-      await this.userVacationsUsageService.getCurrentVacationPeriodUsage(user);
+  // validateDaysRequested in two steps, for a caller that reads the balance
+  // while it counts the working days: the read, then the check.
+  public getUsage(user: IUserViewModel): Promise<IVacationPeriodUsageData> {
+    return this.userVacationsUsageService.getCurrentVacationPeriodUsage(user);
+  }
+
+  public checkDaysRequested(
+    daysRequest: {
+      calendarDays: number;
+      workingDays: number;
+    },
+    vacationType: VacationType,
+    usageData: IVacationPeriodUsageData,
+  ) {
+    const { calendarDays, workingDays } = daysRequest;
 
     if (!usageData || !usageData.limits) {
       return;

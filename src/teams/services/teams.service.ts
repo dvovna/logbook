@@ -207,7 +207,8 @@ export default class TeamsService implements ITeamsService {
       ...(updateParams.description
         ? { description: updateParams.description }
         : {}),
-      ...(updateParams.vacationPolicyId
+      // null takes the policy away ("No Policy").
+      ...(updateParams.vacationPolicyId !== undefined
         ? { vacation_policy_id: updateParams.vacationPolicyId }
         : {}),
       ...(updateParams.managerApprovers !== undefined

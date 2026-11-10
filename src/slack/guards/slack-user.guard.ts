@@ -8,7 +8,6 @@ import { SlackUserAccessException } from '@common/errors/slack-user-access.excep
 import { Request } from 'express';
 import { UsersService } from '@modules/users/services/users.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import {
   getRequestWorkspaceSlackId,
   ISlackRequestWorkspace,
@@ -22,10 +21,7 @@ interface ISlackRequest extends Request {
 export class SlackUserGuard implements CanActivate {
   private readonly logger = new Logger(SlackUserGuard.name);
 
-  public constructor(
-    private readonly usersService: UsersService,
-    private readonly slackTeamsService: SlackTeamsService,
-  ) {}
+  public constructor(private readonly usersService: UsersService) {}
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<ISlackRequest>();
@@ -42,17 +38,21 @@ export class SlackUserGuard implements CanActivate {
       return true;
     }
 
-    const workspace = await this.findWorkspace(body);
-    const user = workspace
-      ? await this.usersService.findBySlackId(slackUserId, workspace.id)
-      : null;
+    const { workspaceId, user } = await this.findWorkspaceUser(
+      slackUserId,
+      body,
+    );
 
     if (!user) {
       this.logger.log('SlackUserGuard: User not found for slack_id', {
         slackUserId,
       });
 
-      throw new SlackUserAccessException('unknown', slackUserId, workspace?.id);
+      throw new SlackUserAccessException(
+        'unknown',
+        slackUserId,
+        workspaceId ?? undefined,
+      );
     }
 
     req.user = user;
@@ -62,11 +62,17 @@ export class SlackUserGuard implements CanActivate {
 
   // The same Slack user ID can exist in several workspaces, so the user is
   // looked up in the workspace the request comes from.
-  private async findWorkspace(body: ISlackRequestWorkspace) {
+  private async findWorkspaceUser(
+    slackUserId: string,
+    body: ISlackRequestWorkspace,
+  ) {
     const workspaceSlackId = getRequestWorkspaceSlackId(body);
 
     return workspaceSlackId
-      ? await this.slackTeamsService.findOne({ slackId: workspaceSlackId })
-      : null;
+      ? this.usersService.findInWorkspaceBySlackIds(
+          workspaceSlackId,
+          slackUserId,
+        )
+      : { workspaceId: null, user: null };
   }
 }

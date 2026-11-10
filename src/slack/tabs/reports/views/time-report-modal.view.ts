@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { DATED_PERIOD_PRESETS } from '@common/utils/period-presets';
 import { IOption } from '@common/types/option.interface';
+import { MAX_SELECT_OPTIONS } from '@modules/slack/common/utils/view.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
   IActionButtons,
@@ -28,9 +29,6 @@ interface IGetViewParams
   // Whether the viewer sees other people's time, so may filter by person.
   withPerson: boolean;
 }
-
-// A static select holds 100 options.
-const MAX_OPTIONS = 100;
 
 const externalSelect = (
   actionId: TimeReportFilterId,
@@ -99,7 +97,7 @@ export class TimeReportModalView extends BaseModalView<IGetViewParams> {
             actionId: TimeReportFilterId.Client,
             label: 'Client',
             placeholder: 'Any client',
-            options: clients.slice(0, MAX_OPTIONS),
+            options: clients.slice(0, MAX_SELECT_OPTIONS),
             optional: true,
           })
         : []),

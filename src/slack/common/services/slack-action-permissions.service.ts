@@ -63,6 +63,7 @@ export class SlackActionPermissionsService {
     ],
     [ProjectsTabViewActionId.ManagePersonRates]: [...RATE_ROLES],
     [ProjectsTabViewActionId.ChangeCurrency]: [UserRole.Admin],
+    [ProjectsTabViewActionId.TimeOffSettings]: [UserRole.Admin],
     // Admin and Finance make billing snapshots; only an admin unlocks one.
     [BillingSnapshotsTabActionId.UnlockSnapshot]: [...UNLOCK_SNAPSHOT_ROLES],
   } as const;

@@ -14,17 +14,30 @@ import {
   TimeEntriesTabView,
 } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
-import { TimeEntriesTabDataService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab-data.service';
+import {
+  TimeEntriesTabDataService,
+  totalsByDay,
+} from '@modules/slack/tabs/time-tracking/services/time-entries-tab-data.service';
 import { View } from '@slack/types/dist/views';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
-import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
+import { TimesheetService } from 'src/time-entries/services/timesheet.service';
+import { currentWeekStart, weekDays } from '@common/utils/period-presets';
+import { IUserProject } from 'src/projects/queries/get-user-projects.query';
+import {
+  TimesheetFormMetadata,
+  TimesheetFormModalView,
+} from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 
 interface ITimeEntryModalViewParams extends IOpenModalBaseParams<string> {
   entryId: string;
 }
+
+export type ITimesheetFormModalParams = IOpenModalBaseParams & {
+  metadata: TimesheetFormMetadata;
+};
 
 type TimeEntriesTabModalViewResolversMap = {
   [TimeEntriesTabModalName.CreateTimeEntry]: (
@@ -35,6 +48,9 @@ type TimeEntriesTabModalViewResolversMap = {
   ) => Promise<View>;
   [TimeEntriesTabModalName.DeleteEntry]: (
     params: ITimeEntryModalViewParams,
+  ) => Promise<View>;
+  [TimeEntriesTabModalName.FillWeek]: (
+    params: ITimesheetFormModalParams,
   ) => Promise<View>;
 };
 
@@ -50,6 +66,8 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     private readonly timeEntriesTabView: TimeEntriesTabView,
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesService: TimeEntriesService,
+    private readonly timesheetService: TimesheetService,
+    private readonly timesheetFormModalView: TimesheetFormModalView,
   ) {
     super(TabId.TimeEntries, {
       [TimeEntriesTabModalName.CreateTimeEntry]: (params) =>
@@ -58,6 +76,8 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
         this.getUpdateTimeEntryModal(params),
       [TimeEntriesTabModalName.DeleteEntry]: (params) =>
         this.getDeleteTimeEntryModal(params),
+      [TimeEntriesTabModalName.FillWeek]: async (params) =>
+        (await this.getTimesheetForm(params)).view,
     });
   }
 
@@ -67,41 +87,55 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
   }: IGetTimeEntriesTabViewParams) {
     const seesAllEntries =
       isTimeEntriesAdmin(user.role) && !metadata.ownEntriesOnly;
+    // My time is a week: its table, and the list of that week's entries. Time
+    // logs filters by dates instead.
+    const weekStart = seesAllEntries
+      ? undefined
+      : (metadata.weekStart ?? currentWeekStart());
+    const days = weekStart ? weekDays(weekStart) : undefined;
     const filters = {
       projectId: metadata.filters?.project?.id,
       userId: seesAllEntries ? metadata.filters?.user?.id : user.id,
-      fromDate: metadata?.filters?.fromDate,
-      toDate: metadata?.filters?.toDate,
+      fromDate: days ? days[0] : metadata?.filters?.fromDate,
+      toDate: days ? days[6] : metadata?.filters?.toDate,
     };
-    const [timeEntriesListData, openEntriesCount] = await Promise.all([
+    const [timeEntriesListData, shownWeek, openBefore] = await Promise.all([
       this.timeEntriesTabDataService.getTimeEntriesTabData({
         slackTeamId: user.slack_team_id,
         page: metadata.page,
         filters,
       }),
-      // What the viewer can still submit, offered on their own list only.
-      seesAllEntries
-        ? 0
-        : this.timeEntriesService.count({
-            userId: user.id,
+      weekStart ? this.timesheetService.getWeek(user, weekStart) : undefined,
+      weekStart
+        ? this.timesheetService.findOpenBefore(user, weekStart)
+        : undefined,
+    ]);
+    const listDays = [
+      ...new Set(timeEntriesListData.items.map((item) => item.work_date)),
+    ];
+    // My time's list holds the week's entries, which getWeek has read.
+    const [dayTotals, billedIds] = shownWeek
+      ? [
+          totalsByDay(
+            listDays,
+            shownWeek.entries.filter(
+              (entry) =>
+                !filters.projectId || entry.project_id === filters.projectId,
+            ),
+          ),
+          shownWeek.billedIds,
+        ]
+      : await Promise.all([
+          this.timeEntriesTabDataService.getDayTotals({
             slackTeamId: user.slack_team_id,
-            statuses: OPEN_TIME_ENTRY_STATUSES,
+            days: listDays,
+            filters,
           }),
-    ]);
-
-    const [dayTotals, billedIds] = await Promise.all([
-      this.timeEntriesTabDataService.getDayTotals({
-        slackTeamId: user.slack_team_id,
-        days: [
-          ...new Set(timeEntriesListData.items.map((item) => item.work_date)),
-        ],
-        filters,
-      }),
-      this.timeEntriesService.findBilledIds(
-        user.slack_team_id,
-        timeEntriesListData.items.map(({ id }) => id),
-      ),
-    ]);
+          this.timeEntriesService.findBilledIds(
+            user.slack_team_id,
+            timeEntriesListData.items.map(({ id }) => id),
+          ),
+        ]);
 
     return this.timeEntriesTabView.getView(
       {
@@ -110,11 +144,12 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
         dayTotals,
         canFilterByUser: seesAllEntries,
         viewerId: user.id,
-        openEntriesCount,
+        week: shownWeek?.week,
+        openBefore,
         timeEntriesListData,
         billedIds,
       },
-      metadata,
+      { ...metadata, weekStart },
     );
   }
 
@@ -142,6 +177,31 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
       timeEntryId: entryId,
       pageMetadata,
     });
+  }
+
+  // The day form's rows are those of its week. The viewer's own time,
+  // whatever their role.
+  public async getTimesheetForm({
+    user,
+    errorMessage,
+    metadata,
+  }: ITimesheetFormModalParams): Promise<{
+    view: View;
+    projects: IUserProject[];
+  }> {
+    const { week, projects } = await this.timesheetService.getForm(
+      user,
+      metadata.weekStart,
+      metadata.addedProjectIds,
+    );
+
+    return {
+      view: this.timesheetFormModalView.getView(
+        { mode: metadata.mode, week, projects, errorMessage },
+        metadata,
+      ),
+      projects,
+    };
   }
 
   // Says which entry goes. The ID comes from the client: only Admin and HR

@@ -7,10 +7,16 @@ export enum TimeEntriesTabViewActionId {
   EditTimeEntry = 'edit_time_entry',
   DeleteTimeEntry = 'delete_time_entry',
   SubmitTimeEntry = 'submit_time_entry',
-  SubmitDrafts = 'submit_time_entry_drafts',
   FilterByUser = 'filter_by_user',
   FilterByProject = 'filter_by_project',
   FilterByFromDate = 'filter_by_from_date',
   FilterByToDate = 'filter_by_to_date',
   ResetFilters = 'reset_filters',
+  PreviousWeek = 'timesheet_previous_week',
+  NextWeek = 'timesheet_next_week',
+  FillWeek = 'timesheet_fill_week',
+  FillDay = 'timesheet_fill_day',
+  SubmitWeek = 'timesheet_submit_week',
+  // Goes to the oldest week with drafts or rejected entries before the shown one.
+  EarlierOpenWeek = 'timesheet_earlier_open_week',
 }

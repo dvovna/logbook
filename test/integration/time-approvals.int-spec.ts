@@ -6,14 +6,17 @@ import { ApprovalsTabActionId } from '@modules/slack/tabs/approvals/enums/approv
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import {
+  actionIdsOf,
   buttonText,
   listItems,
   modalError,
   sectionTexts,
   noticeOf,
+  timesheetStatusOf,
 } from './support/tab-readers';
 import { addDays } from './support/dates';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
+import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import {
   actOnTab,
   openAppHomeTab,
@@ -297,8 +300,10 @@ describe('Time approvals', () => {
       );
     });
 
+    // Today is Wednesday 2026-06-17: the entry is from last week, which My
+    // time doesn't show at first.
     it('rejects an entry and tells its owner why', async () => {
-      const entry = await submitted(member, { work_date: '2026-11-02' });
+      const entry = await submitted(member, { work_date: '2026-06-10' });
       const reject = await openModalFrom(
         t,
         workspace,
@@ -325,23 +330,50 @@ describe('Time approvals', () => {
       );
       expect(posted?.text).toBe(
         [
-          `:x: ${manager.name} rejected your time entry: *Website* (Acme), 2 Nov 2026, 1h.`,
+          `:x: ${manager.name} rejected your time entry: *Website* (Acme), 10 Jun 2026, 1h.`,
           '>Wrong project',
-          'Fix it under Home → ✏️ Edit Entries and submit it again.',
+          'Fix it under Home → ✏️ Edit Entries (week of 8 Jun) and submit it again.',
         ].join('\n'),
       );
       expect(
         sectionTexts(await publishedHome(t, workspace, manager, since)),
       ).toContain('_No time entries wait for you._');
 
-      // The owner sees why in their list, until they send it again.
+      // The owner finds it from this week, and sees why in their list,
+      // until they send it again.
       const myEntries = await openAppHomeTab(t, workspace, member, [
         HomeTabActionId.EditTimeEntries,
       ]);
-      expect(listItems(myEntries)[0].fields).toMatchObject({
-        Status: '❌ Rejected',
-        Reason: 'Wrong project',
-      });
+      expect(listItems(myEntries)).toEqual([]);
+      expect(sectionTexts(myEntries)).toContain(
+        '📝 1 open entry in earlier weeks',
+      );
+      expect(
+        buttonText(myEntries, TimeEntriesTabViewActionId.EarlierOpenWeek),
+      ).toBe('Go to week of 8 Jun');
+
+      const lastWeek = await actOnTab(
+        t,
+        workspace,
+        member,
+        myEntries,
+        TimeEntriesTabViewActionId.EarlierOpenWeek,
+      );
+      expect(timesheetStatusOf(lastWeek)).toBe(
+        '🕒 Week of 8 Jun · 1h · ❌ 1 rejected',
+      );
+      expect(listItems(lastWeek)).toEqual([
+        expect.objectContaining({
+          title: 'Website',
+          fields: expect.objectContaining({
+            Status: '❌ Rejected',
+            Reason: 'Wrong project',
+          }),
+        }),
+      ]);
+      expect(actionIdsOf(lastWeek)).not.toContain(
+        TimeEntriesTabViewActionId.EarlierOpenWeek,
+      );
 
       await actOnTab(
         t,

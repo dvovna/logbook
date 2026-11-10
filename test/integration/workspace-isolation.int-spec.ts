@@ -274,7 +274,8 @@ describe('Workspace isolation', () => {
       expect(await search('zz,role.eq.admin,name.ilike.zz')).toEqual([]);
       expect(await search('ada)')).toEqual([]);
       expect(await search('"ada"')).toEqual([]);
-      expect(await search('ada')).toEqual([a.ada.id]);
+      // Not 'ada': a test user's email is its random hex Slack ID.
+      expect(await search('lovelace')).toEqual([a.ada.id]);
     });
 
     it('offers only its own projects when logging time', async () => {

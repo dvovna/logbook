@@ -1,8 +1,11 @@
 import {
   labelOptions,
   PROJECT_STATUS_LABELS,
+  vacationTypeLabel,
   withIcon,
 } from '@modules/slack/common/views/data/labels';
+import { getDisplayTime } from '@common/utils/time.utils';
+import { ITimeOffSetup } from 'src/time-off-logging/types/time-off-settings.types';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import {
   ListItem,
@@ -55,6 +58,8 @@ interface IGetProjectsViewParams extends IBaseTabViewParams {
   // for anyone else.
   rates: Map<string, IProjectRates> | null;
   currency: string | null;
+  // What time off is logged as, for whoever may set it; null for anyone else.
+  timeOff: ITimeOffSetup | null;
 }
 
 // People's own rates shown on a project.
@@ -109,6 +114,7 @@ export class ProjectsTabView extends BaseTabView<
       peopleByProject,
       rates,
       currency,
+      timeOff,
     }: IGetProjectsViewParams,
     { filters, includeArchived, page }: IProjectsTabMetaData,
   ): AnyBlock[] {
@@ -116,6 +122,16 @@ export class ProjectsTabView extends BaseTabView<
 
     if (currency) {
       blocks.push(this.getCurrencyBlock(currency, userRole));
+    }
+
+    if (
+      timeOff &&
+      this.slackActionPermissionsService.can(
+        userRole,
+        ProjectsTabViewActionId.TimeOffSettings,
+      )
+    ) {
+      blocks.push(this.getTimeOffBlock(timeOff));
     }
 
     blocks.push(...this.getFiltersBlocks(filters));
@@ -159,6 +175,36 @@ export class ProjectsTabView extends BaseTabView<
     blocks.push(...listBlocks);
 
     return blocks;
+  }
+
+  // An admin's button to choose the projects that time off is logged on, and
+  // what is set: 'Annual leave → Vacations · Sick leave → Sick · 8h a day'.
+  private getTimeOffBlock({
+    minutesPerDay,
+    projects,
+  }: ITimeOffSetup): AnyBlock {
+    const setup = projects.length
+      ? [
+          ...projects.map(
+            ({ type, projectName }) =>
+              `${vacationTypeLabel(type)} → ${escapeMrkdwn(projectName)}`,
+          ),
+          `${getDisplayTime(minutesPerDay)} a day`,
+        ].join(' · ')
+      : 'No leave type has a project yet.';
+
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `Approved time off can be logged as time on a project of its leave type.\n${setup}`,
+      },
+      accessory: {
+        type: 'button',
+        text: { type: 'plain_text', text: '🌴 Time off projects' },
+        action_id: ProjectsTabViewActionId.TimeOffSettings,
+      },
+    };
   }
 
   // "Rates and amounts are in USD", and for an admin the button to change it.

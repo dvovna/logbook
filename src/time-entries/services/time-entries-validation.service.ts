@@ -19,6 +19,24 @@ const MAX_MINUTES_PER_DAY = 24 * 60; // 1440
 const PAST_TENSE = { edit: 'edited', delete: 'deleted' };
 const MINUTES_STEP = 15;
 
+interface ICreateCheckParams {
+  userId: string;
+  projectId: string;
+  workDate: Date;
+  minutes: number;
+  status: TimeEntryStatus;
+  description?: string | null;
+}
+
+interface IUpdateCheckParams {
+  userId?: string;
+  projectId?: string;
+  workDate?: Date;
+  minutes?: number;
+  status?: TimeEntryStatus;
+  description?: string | null;
+}
+
 @Injectable()
 export class TimeEntriesValidationService {
   public constructor(
@@ -26,20 +44,10 @@ export class TimeEntriesValidationService {
   ) {}
 
   public async validateCreate(
-    params: {
-      userId: string;
-      projectId: string;
-      workDate: Date;
-      minutes: number;
-      status: TimeEntryStatus;
-      description?: string | null;
-    },
+    params: ICreateCheckParams,
     actor: IUserViewModel,
   ) {
-    this.validateMinutes(params.minutes);
-    this.validateDescription(params.description);
-    this.validateCreatePermissions(params.userId, actor);
-    this.validateStatusOnCreate(params.status, actor);
+    this.checkCreate(params, actor);
 
     await this.validateTotalDailyTime(
       params.userId,
@@ -52,27 +60,12 @@ export class TimeEntriesValidationService {
 
   public async validateUpdate(
     existing: ITimeEntryViewModel,
-    update: {
-      userId?: string;
-      projectId?: string;
-      workDate?: Date;
-      minutes?: number;
-      status?: TimeEntryStatus;
-      description?: string | null;
-    },
+    update: IUpdateCheckParams,
     actor: IUserViewModel,
   ) {
     this.validateEditPermissions(existing, actor);
     await this.validateNotBilled(existing);
-    this.validateDescription(update.description);
-
-    if (update.minutes !== undefined) {
-      this.validateMinutes(update.minutes);
-    }
-
-    if (update.status !== undefined) {
-      this.validateStatusTransition(existing.status, update.status, actor);
-    }
+    this.checkUpdateValues(existing, update, actor);
 
     const targetUserId = update.userId ?? existing.user_id;
     const targetProjectId = update.projectId ?? existing.project_id;
@@ -105,6 +98,65 @@ export class TimeEntriesValidationService {
     await this.validateNotBilled(existing);
   }
 
+  // The checks below are those of validateCreate, validateUpdate and
+  // validateDelete without their reads, for a caller that has read what they
+  // need for many entries at once (the week form): whether an entry is
+  // billed, and the time on its project and day (checkDailyTotal).
+
+  public checkCreate(params: ICreateCheckParams, actor: IUserViewModel) {
+    this.validateMinutes(params.minutes);
+    this.validateDescription(params.description);
+    this.validateCreatePermissions(params.userId, actor);
+    this.validateStatusOnCreate(params.status, actor);
+  }
+
+  public checkUpdate(
+    existing: ITimeEntryViewModel,
+    update: IUpdateCheckParams,
+    actor: IUserViewModel,
+    billed: boolean,
+  ) {
+    this.validateEditPermissions(existing, actor);
+    this.refuseBilled(billed);
+    this.checkUpdateValues(existing, update, actor);
+  }
+
+  public checkDelete(
+    existing: ITimeEntryViewModel,
+    actor: IUserViewModel,
+    billed: boolean,
+  ) {
+    this.validateEditPermissions(existing, actor, 'delete');
+    this.refuseBilled(billed);
+  }
+
+  // `loggedMinutes`: the time the user has on the entry's project and day
+  // without the entry itself, deleted entries left out.
+  public checkDailyTotal(loggedMinutes: number, minutes: number) {
+    if (loggedMinutes + minutes > MAX_MINUTES_PER_DAY) {
+      throw new ValidationError(
+        'Total logged time for this project and date cannot exceed 24 hours',
+        'minutes',
+      );
+    }
+  }
+
+  private checkUpdateValues(
+    existing: ITimeEntryViewModel,
+    update: IUpdateCheckParams,
+    actor: IUserViewModel,
+  ) {
+    this.validateDescription(update.description);
+
+    if (update.minutes !== undefined) {
+      this.validateMinutes(update.minutes);
+    }
+
+    if (update.status !== undefined) {
+      this.validateStatusTransition(existing.status, update.status, actor);
+    }
+  }
+
   // Whoever asks, Admin included: an admin unlocks the snapshot first.
   private async validateNotBilled(entry: ITimeEntryViewModel) {
     const billed = await this.timeEntriesRepository.findBilledIds(
@@ -112,7 +164,11 @@ export class TimeEntriesValidationService {
       [entry.id],
     );
 
-    if (billed.has(entry.id)) {
+    this.refuseBilled(billed.has(entry.id));
+  }
+
+  private refuseBilled(billed: boolean) {
+    if (billed) {
       throw new ValidationError(BILLED_ENTRY_MESSAGE);
     }
   }
@@ -230,12 +286,7 @@ export class TimeEntriesValidationService {
       .filter((log) => log.id !== excludeId)
       .reduce((sum, log) => sum + (log.minutes || 0), 0);
 
-    if (totalMinutes + newLogDurationMinutes > MAX_MINUTES_PER_DAY) {
-      throw new ValidationError(
-        'Total logged time for this project and date cannot exceed 24 hours',
-        'minutes',
-      );
-    }
+    this.checkDailyTotal(totalMinutes, newLogDurationMinutes);
   }
 
   private isAdmin(user: IUserViewModel): boolean {

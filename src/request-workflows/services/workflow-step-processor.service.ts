@@ -7,15 +7,24 @@ import {
 } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
 export enum WorkflowStepJob {
   Ask = 'workflow-step-ask',
   RefreshMessage = 'workflow-step-refresh-message',
+  CloseDeletedMessage = 'workflow-step-close-deleted-message',
 }
 
 interface IStepJob {
   stepId: string;
   slackTeamId: string;
+}
+
+// The step and its request's comments as they were when the request was
+// deleted: the rows go with the request, so there is nothing to load.
+interface IDeletedStepJob {
+  step: IRequestWorkflowStepViewModel;
+  comments: IWorkflowStepCommentViewModel[];
 }
 
 // What a workflow step means outside the database: asking its approver, and
@@ -37,6 +46,10 @@ export class WorkflowStepProcessorService implements OnModuleInit {
     this.jobs.define<IStepJob>(WorkflowStepJob.RefreshMessage, (job) =>
       this.refreshMessage(job),
     );
+    this.jobs.define<IDeletedStepJob>(
+      WorkflowStepJob.CloseDeletedMessage,
+      (job) => this.closeDeletedMessage(job),
+    );
   }
 
   public processSteps(steps: IRequestWorkflowStepViewModel[]) {
@@ -45,6 +58,23 @@ export class WorkflowStepProcessorService implements OnModuleInit {
 
   public updateStepMessages(steps: IRequestWorkflowStepViewModel[]) {
     return this.enqueueForEach(WorkflowStepJob.RefreshMessage, steps);
+  }
+
+  // Like updateStepMessages, for the steps of a request that is being
+  // deleted: each job carries its step, so that it works (and is retried)
+  // after the step's row is gone. Steps never asked have no message.
+  public async updateDeletedStepMessages(
+    steps: IRequestWorkflowStepViewModel[],
+    comments: IWorkflowStepCommentViewModel[],
+  ) {
+    const asked = steps.filter(({ slack_message_ts }) => slack_message_ts);
+
+    for (const step of asked) {
+      await this.jobs.enqueue<IDeletedStepJob>(
+        WorkflowStepJob.CloseDeletedMessage,
+        { step, comments },
+      );
+    }
   }
 
   // Once per step: an approval lists the approved step with its level too.
@@ -97,6 +127,10 @@ export class WorkflowStepProcessorService implements OnModuleInit {
       step,
       await this.commentsOf(step),
     );
+  }
+
+  private async closeDeletedMessage({ step, comments }: IDeletedStepJob) {
+    await this.getHandler(step.step_type).updateMessage(step, comments);
   }
 
   private commentsOf(step: IRequestWorkflowStepViewModel) {

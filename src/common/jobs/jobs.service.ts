@@ -10,7 +10,10 @@ import { ConfigService } from '@nestjs/config';
 import PgBoss from 'pg-boss';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import delay from '@common/utils/delay';
-import { trackInBackground } from '@common/utils/run-in-background';
+import {
+  startInBackground,
+  trackInBackground,
+} from '@common/utils/run-in-background';
 import { TransactionService } from 'src/database/transaction.service';
 
 export interface IJobsOptions {
@@ -129,10 +132,7 @@ export class JobsService
   ): Promise<void> {
     const handler = this.handlerOf(name);
 
-    const firstRun = this.runNow(name, handler, payload);
-    trackInBackground(firstRun);
-
-    return firstRun;
+    return startInBackground(() => this.runNow(name, handler, payload));
   }
 
   // Inside a transaction (TransactionService), saves the job in it, so that

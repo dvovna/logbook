@@ -5,6 +5,7 @@ interface ISlackTeamViewModel {
   created_at: string | null;
   // ISO 4217 code of the currency that rates and amounts are in.
   currency: string;
+  time_off_minutes_per_day: number;
   // Set while the app is uninstalled: the data waits for a reinstall.
   uninstalled_at: string | null;
 }

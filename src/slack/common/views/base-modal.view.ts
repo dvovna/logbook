@@ -20,7 +20,7 @@ export interface IBaseViewService<
   Metadata = Record<string, unknown>,
 > {
   getView(viewParams: ViewParams, metadata: Metadata): View;
-  getSuccessView(message: string): View;
+  getErrorView(title: string, errorMessage: string): View;
   getGeneralErrorBlock(errorMessage: string): AnyBlock;
 }
 
@@ -59,26 +59,14 @@ export default abstract class BaseModalView<
     };
   }
 
-  public getSuccessView(message: string): View {
+  // Only what went wrong, for a form that can't be shown again (e.g. the user
+  // may not see what it is about). A form that succeeds closes instead.
+  public getErrorView(title: string, errorMessage: string): View {
     return {
       type: 'modal',
-      title: {
-        type: 'plain_text',
-        text: 'Success',
-      },
-      close: {
-        type: 'plain_text',
-        text: 'Close',
-      },
-      blocks: [
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: message,
-          },
-        },
-      ],
+      title: { type: 'plain_text', text: title },
+      close: { type: 'plain_text', text: 'Close' },
+      blocks: [this.getGeneralErrorBlock(errorMessage)],
     };
   }
 

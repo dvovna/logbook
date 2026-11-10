@@ -19,6 +19,8 @@ import {
   TabId,
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
+import { IVacationHistoryTabMetadata } from '@modules/slack/tabs/vacation-requests/views/vacation-history-tab.view';
+import { jsonParse } from '@common/utils/json-parse';
 
 @Injectable()
 @SlackHandler({
@@ -37,27 +39,37 @@ export class UserVacationRequestHandler extends BaseModalFormSubmitHandler<
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly tabNavigationService: TabNavigationService,
-    private readonly vacationRequestModalViewService: VacationRequestFormModalView,
     private readonly vacationRequestModalView: VacationRequestFormModalView,
     vacationRequestUserViewValuesParser: VacationRequestUserViewValuesParser,
   ) {
     super(vacationRequestUserViewValuesParser);
   }
 
+  // Opened from Time off (it carries that tab's metadata) the form goes back
+  // there. Opened from Home or with `/vacations request` it goes to Home,
+  // which lists the pending request; the requester's DM about who decides it
+  // confirms it outside App Home.
   protected successResponse(
     _request: IVacationRequestViewModel,
     user: IUserViewModel,
     metadata: IVacationRequestModalViewMetadata,
   ) {
-    this.tabNavigationService.navigate(TabId.Home, {
-      user,
-    });
+    const notice = '✅ Vacation request created.';
 
-    return SlackViewResponseFactory.update(
-      this.vacationRequestModalViewService.getSuccessView(
-        `✅ Vacation Request was ${metadata.id ? 'updated' : 'created'} successfully!`,
-      ),
-    );
+    if (metadata.pageMetadata) {
+      this.tabNavigationService.navigate(TabId.TimeOff, {
+        user,
+        metadata: {
+          ...jsonParse<IVacationHistoryTabMetadata>(metadata.pageMetadata),
+          page: 1,
+        },
+        notice,
+      });
+    } else {
+      this.tabNavigationService.navigate(TabId.Home, { user, notice });
+    }
+
+    return SlackViewResponseFactory.success();
   }
 
   protected onSubmit(
@@ -83,12 +95,20 @@ export class UserVacationRequestHandler extends BaseModalFormSubmitHandler<
     );
   }
 
-  protected errorResponse(errorMessage: string) {
+  // Keeps the metadata, so the form still goes back to its tab.
+  protected errorResponse(
+    errorMessage: string,
+    _data: IVacationRequestUserFormViewData,
+    metadata: IVacationRequestModalViewMetadata,
+  ) {
     return SlackViewResponseFactory.update(
-      this.vacationRequestModalView.getView({
-        errorMessage,
-        callbackId: ViewCallbackId.UserVacationRequest,
-      }),
+      this.vacationRequestModalView.getView(
+        {
+          errorMessage,
+          callbackId: ViewCallbackId.UserVacationRequest,
+        },
+        metadata,
+      ),
     );
   }
 }

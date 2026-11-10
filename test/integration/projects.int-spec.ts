@@ -232,7 +232,7 @@ describe('Projects', () => {
       );
 
       const suggestions = await t.slack
-        .suggest(workspace, admin, modal, ProjectUsers, 'ada')
+        .suggest(workspace, admin, modal, ProjectUsers, 'lovelace')
         .expect(acknowledged);
       expect(suggestions.body.options).toEqual([
         { text: { type: 'plain_text', text: 'Ada Lovelace' }, value: ada.id },
@@ -313,7 +313,7 @@ describe('Projects', () => {
         project,
       );
       const suggestions = await t.slack
-        .suggest(workspace, admin, modal, ProjectUsers, 'ada')
+        .suggest(workspace, admin, modal, ProjectUsers, 'lovelace')
         .expect(acknowledged);
 
       expect(

@@ -27,6 +27,7 @@ const slackTeam: ISlackTeamViewModel = {
   slack_id: 'T_ACME',
   created_at: '2026-01-01T00:00:00Z',
   currency: 'USD',
+  time_off_minutes_per_day: 480,
   uninstalled_at: null,
 };
 
@@ -143,7 +144,6 @@ describe('SlackEventsService', () => {
       });
       expect(usersService.upsert).toHaveBeenCalledWith({
         slackId: 'U_NEW',
-        teamId: null,
         role: UserRole.Member,
         email: 'new.user@example.com',
         name: 'New User',
@@ -192,7 +192,6 @@ describe('SlackEventsService', () => {
 
       expect(usersService.upsert).toHaveBeenCalledWith({
         slackId: 'U_NEW',
-        teamId: 'team-1',
         role: UserRole.HR,
         email: 'new.user@example.com',
         name: 'New User',

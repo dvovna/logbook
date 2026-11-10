@@ -44,6 +44,8 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
     requestId: string;
     status: string;
     decidedBySlackId: string;
+    // Kept with the steps, so every approver's message shows it.
+    rejectionReason?: string;
     stepId?: string;
     stepLevel?: number;
   }): Promise<IRequestWorkflowStepViewModel[]> {
@@ -54,7 +56,11 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
           'status', ${params.status}::text,
           'decided_at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
           'decided_by_slack_id', ${params.decidedBySlackId}::text
-        )`,
+        ) || ${
+          params.rejectionReason
+            ? sql`jsonb_build_object('rejection_reason', ${params.rejectionReason}::text)`
+            : sql`'{}'::jsonb`
+        }`,
         completed_at: sql<string>`now()`,
         updated_at: sql<string>`now()`,
       })

@@ -4,6 +4,7 @@ export enum ProjectsTabViewActionId {
   ManageProjectAssignments = 'manage_project_assignments',
   ManagePersonRates = 'manage_person_rates',
   ChangeCurrency = 'change_currency',
+  TimeOffSettings = 'time_off_settings',
 
   ArchiveProject = 'archive_project',
   ManageProjectMenu = 'manage_project_menu',

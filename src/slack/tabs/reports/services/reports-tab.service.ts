@@ -25,6 +25,7 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { OTHERS_TIME_ROLES } from '@common/constants/role-groups';
 import { ValidationError } from '@common/errors/validation.error';
 import { formatDateRange } from '@common/utils/date.utils';
+import { todayIso } from '@common/utils/period-presets';
 import { formatMoney } from '@common/utils/money.utils';
 import { getDisplayTime } from '@common/utils/time.utils';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
@@ -70,12 +71,10 @@ export const billingReportOf = (
   }
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
-
 // A dated form's period: the quick period's, else this month up to today.
 const datedPeriod = (period?: IFormPeriod) => ({
-  fromDate: period ? period.fromDate : `${today().slice(0, 8)}01`,
-  toDate: period ? period.toDate : today(),
+  fromDate: period ? period.fromDate : `${todayIso().slice(0, 8)}01`,
+  toDate: period ? period.toDate : todayIso(),
   version: period?.version,
 });
 

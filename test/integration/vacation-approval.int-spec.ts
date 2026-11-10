@@ -11,7 +11,12 @@ import { TestWorkspace } from './support/test-workspace';
 import { workWeek } from './support/dates';
 import { formatDateRange } from '@common/utils/date.utils';
 import { textOf } from './support/block-kit';
-import { listItems, sectionTexts, noticeOf } from './support/tab-readers';
+import {
+  listItems,
+  modalError,
+  sectionTexts,
+  noticeOf,
+} from './support/tab-readers';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
 import {
@@ -166,6 +171,12 @@ describe('Vacation request approval', () => {
     expect(textOf(notice)).toContain('>Release week &lt;!channel&gt;');
     expect(textOf(notice)).toContain(`Rejected by <@${manager.slack_id}>`);
 
+    // The approver's own message keeps the reason too.
+    const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+    expect(textOf(update)).toContain(
+      `❌ Rejected by <@${manager.slack_id}>\\n>Release week &lt;!channel&gt;`,
+    );
+
     // The requester finds the reason in the history and in Details.
     const history = await openAppHomeTab(t, workspace, member, [
       NavigationActionId.TimeOff,
@@ -184,6 +195,35 @@ describe('Vacation request approval', () => {
     expect(sectionTexts(details)).toContain(
       '❌ *Rejection reason:*\nRelease week &lt;!channel&gt;',
     );
+  });
+
+  it('says only what went wrong when someone else sends the Reject form', async () => {
+    const team = await workspace.addTeam({
+      manager_approvers: [manager.slack_id],
+    });
+    await addMember(team);
+    const otherManager = await workspace.addUser({ role: UserRole.Manager });
+    const request = await requestVacation(t, workspace, member, workWeek(2));
+    const approval = await approvalMessageTo(t, workspace, manager);
+    const since = t.slackApi.mark();
+    await click(manager, approval, ApproverMessageActionId.Reject);
+    await t.idle();
+    const form = t.slackApi.openedModal(workspace.token, { since });
+
+    const response = await t.slack
+      .submitView(workspace, otherManager, form, { reason: 'No' })
+      .expect(200);
+
+    // Not the form again: it would name the requester.
+    expect(response.body.response_action).toBe('update');
+    const { view } = response.body;
+    expect(view.title.text).toBe('Reject Request');
+    expect(view.submit).toBeUndefined();
+    expect(modalError(view)).toBe('This approval is assigned to someone else.');
+    expect(sectionTexts(view)).toEqual([
+      ':warning: This approval is assigned to someone else.',
+    ]);
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
   });
 
   it('waits for every approver when the rule is ALL', async () => {

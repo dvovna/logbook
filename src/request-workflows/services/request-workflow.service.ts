@@ -145,6 +145,34 @@ export class RequestWorkflowService {
     });
   }
 
+  // Like cancel, for a request that is about to be deleted: call it in the
+  // transaction that deletes the request. Its steps and comments go with it
+  // (ON DELETE CASCADE), so the jobs that close the approvers' messages carry
+  // them, and start only once the delete has committed.
+  public closeBeforeDelete(requestId: string, deletedBy: IUserViewModel) {
+    return this.transactions.transaction(async () => {
+      await this.lockRequest(requestId);
+
+      const closedSteps = await this.requestWorkflowStepsService.decide(
+        { requestId, slackTeamId: deletedBy.slack_team_id },
+        RequestWorkflowStatus.Deleted,
+        deletedBy,
+      );
+      // For the messages of the closed steps; a decided request has none.
+      const comments = closedSteps.length
+        ? await this.requestWorkflowStepCommentsService.findMany({
+            requestId,
+            slackTeamId: deletedBy.slack_team_id,
+          })
+        : [];
+
+      await this.workflowStepProcessorService.updateDeletedStepMessages(
+        closedSteps,
+        comments,
+      );
+    });
+  }
+
   // Each decision below is one transaction: the statement that closes the
   // steps it decides, and the jobs that ask the next level, refresh the
   // messages or finish the request. A failure leaves the step open and the
@@ -297,6 +325,7 @@ export class RequestWorkflowService {
         },
         RequestWorkflowStatus.Rejected,
         rejectedBy,
+        reason?.trim() || undefined,
       );
 
       await this.workflowStepProcessorService.updateStepMessages(rejectedSteps);

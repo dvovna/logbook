@@ -3,6 +3,8 @@ import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { NO_POLICY_VALUE } from '@modules/slack/tabs/teams/views/team-modal.view';
+import { View } from '@slack/types/dist/views';
 import { PolicyTabViewActionId } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -284,6 +286,42 @@ describe('Vacation policies and teams', () => {
         manager_approvers: [],
         manager_approvers_rule: ApprovalRule.Any,
       });
+    });
+
+    // "No Policy" is the one way to have none: the field is required, so
+    // Slack adds no "Clear selection" that would mean the same.
+    it('takes a policy away with No Policy', async () => {
+      const policy = await workspace.addVacationPolicy({ name: 'Berlin' });
+      const team = await workspace.addTeam({ vacation_policy_id: policy.id });
+      const policyBlockOf = (view: View) =>
+        view.blocks.find(({ block_id }) => block_id === 'policy_block') as {
+          optional?: boolean;
+          element: { initial_option?: { value: string } };
+        };
+
+      const newTeamForm = await openModal(
+        TEAMS_TAB,
+        TeamsTabViewActionId.AddTeam,
+      );
+      expect(policyBlockOf(newTeamForm).optional).toBeUndefined();
+      expect(policyBlockOf(newTeamForm).element.initial_option?.value).toBe(
+        NO_POLICY_VALUE,
+      );
+
+      const form = await openModal(
+        TEAMS_TAB,
+        TeamsTabViewActionId.ManageTeamMenu,
+        `${TeamsTabViewActionId.EditTeam}:${team.id}`,
+      );
+      expect(policyBlockOf(form).element.initial_option?.value).toBe(policy.id);
+
+      await t.slack
+        .submitView(workspace, admin, form, { policy: NO_POLICY_VALUE })
+        .expect(200);
+
+      expect((await workspace.row('teams', team.id)).vacation_policy_id).toBe(
+        null,
+      );
     });
 
     it('refuses a second team with the same name', async () => {

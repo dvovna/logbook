@@ -115,13 +115,23 @@ describe('Time entries', () => {
 
   it('opens the same Log Time form with /log as the button on Home', async () => {
     for (const user of [member, admin]) {
-      // Each modal Slack opens has an ID of its own.
-      const { id: _commandViewId, ...fromCommand } = (await openWithLogCommand(
-        user,
-      )) as View & { id?: string };
-      const { id: _homeViewId, ...fromHome } = (await openLogTimeModal(
-        user,
-      )) as View & { id?: string };
+      // Each modal Slack opens has an ID and a version (hash) of its own.
+      const {
+        id: _commandViewId,
+        hash: _commandHash,
+        ...fromCommand
+      } = (await openWithLogCommand(user)) as View & {
+        id?: string;
+        hash?: string;
+      };
+      const {
+        id: _homeViewId,
+        hash: _homeHash,
+        ...fromHome
+      } = (await openLogTimeModal(user)) as View & {
+        id?: string;
+        hash?: string;
+      };
 
       expect(fromCommand).toEqual(fromHome);
     }
@@ -368,6 +378,7 @@ describe('Time entries', () => {
       expect(actionIdsOf(after)).not.toContain(
         HomeTabActionId.SubmitTimeEntries,
       );
+      expect(noticeOf(after)).toBe('✅ 2 time entries (2h) sent for approval.');
     });
   });
 
@@ -523,6 +534,38 @@ describe('Time entries', () => {
         '*Wed, 17 Jun 2026* · 2h 45m',
         '*Tue, 16 Jun 2026* · 1h',
       ]);
+    });
+
+    it("counts a canceled entry in its day's total, over the filtered project only", async () => {
+      const mobile = await workspace.addProject({ name: 'Mobile' });
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-17',
+        minutes: 60,
+      });
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-17',
+        minutes: 30,
+        status: TimeEntryStatus.Cancelled,
+      });
+      await workspace.addTimeEntry(member, mobile, {
+        work_date: '2026-06-17',
+        minutes: 120,
+      });
+
+      const myTime = await openAppHomeTab(t, workspace, member, [
+        NavigationActionId.MyTime,
+      ]);
+      expect(dayLines(myTime)).toEqual(['*Wed, 17 Jun 2026* · 3h 30m']);
+
+      const filtered = await actOnTab(
+        t,
+        workspace,
+        member,
+        myTime,
+        TimeEntriesTabViewActionId.FilterByProject,
+        website.id,
+      );
+      expect(dayLines(filtered)).toEqual(['*Wed, 17 Jun 2026* · 1h 30m']);
     });
 
     it('shows a member only their own entries, without admin navigation', async () => {
@@ -763,7 +806,12 @@ describe('Time entries', () => {
     });
 
     it('shows an admin only their own entries under Edit Entries, on every page', async () => {
-      await addWorkOfElevenDays();
+      // Eleven entries of the shown week, one more than a page.
+      for (let entry = 0; entry < 11; entry += 1) {
+        await workspace.addTimeEntry(admin, website, {
+          description: `Entry ${entry}`,
+        });
+      }
       await workspace.addTimeEntry(member, website, { description: 'Kickoff' });
 
       const firstPage = await openAppHomeTab(
@@ -782,7 +830,7 @@ describe('Time entries', () => {
         firstPage,
         TimeEntriesTabViewActionId.PaginationNext,
       );
-      expect(descriptionsOf(secondPage)).toEqual(['Day 10']);
+      expect(descriptionsOf(secondPage)).toEqual(['Entry 0']);
     });
   });
 
@@ -906,29 +954,32 @@ describe('Time entries', () => {
         member,
         MY_ENTRIES_TAB,
       );
-      expect(
-        buttonText(myEntries, TimeEntriesTabViewActionId.SubmitDrafts),
-      ).toBe('📤 Submit 2 entries');
+      expect(buttonText(myEntries, TimeEntriesTabViewActionId.SubmitWeek)).toBe(
+        '📤 Submit week (2)',
+      );
 
       const updated = await actOnTab(
         t,
         workspace,
         member,
         myEntries,
-        TimeEntriesTabViewActionId.SubmitDrafts,
+        TimeEntriesTabViewActionId.SubmitWeek,
       );
 
       expect(await statusOf(draft)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(rejected)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(approved)).toBe(TimeEntryStatus.Approved);
       expect(actionIdsOf(updated)).not.toContain(
-        TimeEntriesTabViewActionId.SubmitDrafts,
+        TimeEntriesTabViewActionId.SubmitWeek,
       );
       expect(statusesOf(updated).sort()).toEqual([
         '✅ Approved',
         '📤 Submitted',
         '📤 Submitted',
       ]);
+      expect(noticeOf(updated)).toBe(
+        '✅ 2 time entries (2h) sent for approval.',
+      );
     });
 
     it('submits one entry from its menu', async () => {
@@ -952,9 +1003,10 @@ describe('Time entries', () => {
 
       expect(await statusOf(first)).toBe(TimeEntryStatus.Submitted);
       expect(await statusOf(second)).toBe(TimeEntryStatus.Draft);
-      expect(buttonText(updated, TimeEntriesTabViewActionId.SubmitDrafts)).toBe(
-        '📤 Submit 1 entry',
+      expect(buttonText(updated, TimeEntriesTabViewActionId.SubmitWeek)).toBe(
+        '📤 Submit week (1)',
       );
+      expect(noticeOf(updated)).toBe('✅ 1 time entry (1h) sent for approval.');
     });
 
     it('takes away the menu of a submitted entry from its owner', async () => {
@@ -1217,7 +1269,7 @@ describe('Time entries', () => {
       ).toEqual([
         [
           ':alarm_clock: You have *2 time entries* (3h) from 10–11 Jun 2026 not submitted yet.',
-          '1 of them was rejected: fix it under Home → ✏️ Edit Entries.',
+          '1 of them was rejected: fix it under Home → ✏️ Edit Entries (week of 8 Jun).',
           'Your approvers see time only once you submit it: Home → 📤 Submit for Approval.',
         ].join('\n'),
       ]);

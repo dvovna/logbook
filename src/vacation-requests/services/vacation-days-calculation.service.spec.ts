@@ -105,4 +105,18 @@ describe('VacationDaysCalculationService', () => {
 
     expect(days).toBe(5);
   });
+
+  it('lists the working dates without weekends and enabled holidays', async () => {
+    holidaysService.findMany.mockResolvedValue([{ date: '2026-06-22' }]);
+
+    // Fri 2026-06-19 .. Tue 2026-06-23, Monday a holiday
+    const dates = await service.workingDates(
+      new Date('2026-06-19'),
+      new Date('2026-06-23'),
+      POLICY_ID,
+      SLACK_TEAM_ID,
+    );
+
+    expect(dates).toEqual(['2026-06-19', '2026-06-23']);
+  });
 });

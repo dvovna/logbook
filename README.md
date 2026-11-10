@@ -13,7 +13,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - Request annual leave, sick leave, bonus days, unpaid leave and other time off from the App Home or with `/vacations request`.
 - Overlapping dates are refused. You can cancel a pending request with `/vacations cancel`, and see your balance with `/vacations usage`.
 - Two-level approval: the team's managers first, then HR. Each level is approved by any one approver or by all of them.
-- Approvers get a Slack message with Approve / Reject / Comment buttons. They can also decide in the App Home's Approvals inbox, which holds time off and time entries waiting for them. A rejection can say why, and the requester sees the reason.
+- Approvers get a Slack message with Approve / Reject / Comment buttons. They can also decide in the App Home's Approvals inbox, which holds time off and time entries waiting for them. A rejection can say why, and the requester and the approvers' messages show the reason. The requester hears of an approver's comment when it is made.
 - When an approver is away, HR or an admin can approve the waiting level for them, so the request moves on instead of getting stuck.
 - When nobody on the team can approve a request (no team, no approvers, or the requester is the only one), it goes to HR, or to the admins when there is no HR. Nobody approves their own request.
 - The requester and the team's notification recipients are told about the decision.
@@ -34,6 +34,8 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - Clients, projects with team and user assignments, and billable flags.
 - Hourly rates: a project's rate, and a person's own rate on a project that replaces it. One currency per workspace, which an admin sets. Only admins and HR see rates and amounts.
 - Time entries in 15-minute steps, logged from the App Home or with `/log` as drafts, and then submitted for approval.
+- My time shows the week as a table of projects by day, with previous and next week and "Submit week". One form fills in a week, or a day with a comment, across your projects.
+- Time off as time: admins map each leave type to a project and set the hours of a working day; an approved request then offers to log its working days as approved time on that project.
 - The team's managers, HR or an admin approve or reject submitted time; a rejection tells the owner why.
 - Time reports for a period, by client, project, person or team: hours, billable and approved time, and for admins and HR the amounts. Admins and HR see everyone's time, managers their teams' and their own, everyone else their own. A quick period (this or last week, month, quarter) fills the dates, and the report and its CSV can be narrowed to a client, a project or a person.
 - "Who hasn't submitted": the people a manager, HR or an admin sees who logged nothing in a period, or still have drafts or rejected time in it.
@@ -54,7 +56,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 ## Self-hosting
 
 You need:
-- the source of the release you run, for its database migrations: `git clone --branch v0.1.0 https://github.com/dvovna/logbook && cd logbook && pnpm install` (with pnpm 10, `npm install -g pnpm@10`; the steps below run the Supabase CLI pinned in it);
+- the source of the release you run, for its database migrations: `git clone --branch v0.2.0 https://github.com/dvovna/logbook && cd logbook && pnpm install` (with pnpm 10, `npm install -g pnpm@10`; the steps below run the Supabase CLI pinned in it);
 - a Supabase project. The free plan runs the bot, but it keeps no backups and Supabase pauses it after a week of little activity (see [Run](#4-run)). For a company's real data, take a paid plan or back the database up yourself, e.g. with `pg_dump` over the session pooler connection string;
 - a host that runs Docker or Node 26, reachable from Slack over HTTPS;
 - permission to create a Slack app in your workspace.
@@ -98,10 +100,10 @@ The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` li
 
 ### 4. Run
 
-The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.1.0`), its minor line (`0.1`) and `latest`:
+The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.2.0`), its minor line (`0.2`) and `latest`:
 
 ```bash
-docker run -d --name logbook --restart always --env-file .env -p 3000:10000 ghcr.io/dvovna/logbook:0.1
+docker run -d --name logbook --restart always --env-file .env -p 3000:10000 ghcr.io/dvovna/logbook:0.2
 ```
 
 Or with the compose file, which runs the same image (`LOGBOOK_VERSION` picks the tag, `latest` by default):
@@ -215,8 +217,11 @@ pnpm slack:event src/commands/slack-events/team-join.json --team T0123ABCD
 ```bash
 pnpm test          # unit tests
 pnpm test:int      # integration tests, need the local Supabase stack
+pnpm test:cov:all  # both, with their coverage merged into coverage/index.html
 npx tsc --noEmit
 ```
+
+Coverage means little for one suite alone: unit tests leave the Slack UI out, and integration tests replace the Slack and Nager.Date clients with fakes. `pnpm test:cov:all` (`jest.coverage.config.ts`) runs both as Jest projects in one run and reports what they cover together; it needs the local stack like `pnpm test:int`.
 
 `test/integration` runs the whole app against the local Supabase stack, with the real `AppModule` and the request pipeline from `main.ts`. Only the Slack Web API is replaced: `SlackApiClient` is swapped for a fake that records every call. The tests:
 - send signed Slack requests to the real routes: events, slash commands, interactions, external select options and the OAuth redirect;
@@ -224,6 +229,7 @@ npx tsc --noEmit
 - check the database and the calls the app made to Slack;
 - fail on anything Slack would refuse: a view or message it would not accept, errors for fields a modal does not have, or an answer later than Slack's 3 seconds.
 - fail on what Slack accepts but shows otherwise than meant: more than five buttons in a row (Slack folds the rest into "+ N more"), a ⋯ menu with one option, two dividers in a row, Markdown in `mrkdwn` text or formatting in `plain_text`. A look at the real Slack that finds something like this adds a rule to `support/block-kit-display-rules.ts`.
+- fail when an action people wait on (the week and day forms, My time, an edit of time off) takes more round trips one after another to the database before its answer than `round-trips.int-spec.ts` allows (or a few statements more than today). Far from its database (a laptop and Supabase in another region) a round trip costs about 100 ms.
 
 Each test starts on a fixed date (Wednesday 2026-06-17), waits for the work the app does after answering Slack with `await t.idle()` instead of polling, and reads tabs through `support/tab-readers.ts` (list items, sections, buttons) rather than searching their JSON.
 
@@ -235,6 +241,7 @@ Rules for the integration tests:
 ```bash
 pnpm test:int test/integration/vacation-approval.int-spec.ts   # one file
 LOG_LEVEL=debug pnpm test:int                                  # with the app's logs
+SQL_LATENCY_MS=100 pnpm test:int test/integration/timesheet.int-spec.ts   # every query 100 ms later, as far from the database
 ```
 
 A bug a test has found but nobody has fixed yet stays in the suite as `it.failing`, with a `BUG:` comment that points at the code. Such a test passes while the bug is there and fails once it is fixed; then make it a plain `it`.

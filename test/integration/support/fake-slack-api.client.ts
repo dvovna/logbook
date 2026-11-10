@@ -105,7 +105,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   private readonly oauthGrants = new Map<string, IFakeOauthGrant>();
   private readonly failures = new Map<
     string,
-    { times: number; error: string }
+    { times: number; error: string; channel?: string }
   >();
   // Files uploaded but not necessarily shared yet, by file ID.
   private readonly uploads = new Map<
@@ -113,6 +113,8 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     { filename: string; content: string }
   >();
   private messageCount = 0;
+  // The version of each open modal, by view ID, as Slack keeps it.
+  private readonly viewHashes = new Map<string, string>();
 
   // --- test setup -----------------------------------------------------------
 
@@ -146,6 +148,17 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     error = 'service_unavailable',
   ) {
     this.failures.set(method, { times, error });
+  }
+
+  // As failNext, for the messages to one channel or user only: an action
+  // often sends several messages at once, in no fixed order.
+  public failNextTo(
+    channel: string,
+    method: FailingMethod = 'chat.postMessage',
+    times = 1,
+    error = 'service_unavailable',
+  ) {
+    this.failures.set(method, { times, error, channel });
   }
 
   // The current position in the call log, for `since`.
@@ -187,7 +200,11 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       throw new Error('No modal was opened');
     }
 
-    return { ...open.params.view, id: open.result?.view?.id };
+    return {
+      ...open.params.view,
+      id: open.result?.view?.id,
+      hash: open.result?.view?.hash,
+    };
   }
 
   // The modal the app last replaced with views.update, with its ID.
@@ -198,7 +215,11 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       throw new Error('No modal was updated');
     }
 
-    return { ...update.params.view, id: update.params.view_id };
+    return {
+      ...update.params.view,
+      id: update.params.view_id,
+      hash: update.result?.view?.hash,
+    };
   }
 
   public postedMessages(
@@ -258,7 +279,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   public async postMessage({ accessToken, ...params }) {
-    this.failIfAsked('chat.postMessage');
+    this.failIfAsked('chat.postMessage', params.channel);
     this.refuseInvalid('chat.postMessage', messageProblems(params));
     reportDisplayProblems('chat.postMessage', messageDisplayProblems(params));
     // Like Slack: a message to a user ID goes to the DM channel with them.
@@ -273,7 +294,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   public async updateMessage({ accessToken, ...params }) {
-    this.failIfAsked('chat.update');
+    this.failIfAsked('chat.update', params.channel);
     this.refuseInvalid('chat.update', messageProblems(params));
     reportDisplayProblems('chat.update', messageDisplayProblems(params));
     this.record('chat.update', params, accessToken);
@@ -290,7 +311,9 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       `views.open ${args.view.callback_id ?? ''}`,
       viewDisplayProblems(args.view),
     );
-    const result = { ok: true, view: { id: this.nextViewId(), ...args.view } };
+    const id = this.nextViewId();
+    const hash = this.nextViewHash(id);
+    const result = { ok: true, view: { id, hash, ...args.view } };
 
     this.record('views.open', args, accessToken, result);
 
@@ -298,12 +321,26 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   // Like Slack, it needs the ID of the open view (the interaction's
-  // view.id), and checks the view as views.open does.
+  // view.id), checks the view as views.open does, and refuses an update with
+  // a `hash` that is no longer the view's (hash_conflict, not recorded).
   public async updateView(
     args: ViewsUpdateArguments,
     accessToken: string,
   ): Promise<SlackResponse> {
-    const { view_id: viewId } = args as { view_id?: string };
+    const { view_id: viewId, hash } = args as {
+      view_id?: string;
+      hash?: string;
+    };
+
+    if (hash && viewId && this.viewHashes.get(viewId) !== hash) {
+      throw Object.assign(
+        new Error('An API error occurred: hash_conflict (views.update)'),
+        {
+          code: 'slack_webapi_platform_error',
+          data: { ok: false, error: 'hash_conflict' },
+        },
+      );
+    }
 
     this.refuseInvalid('views.update', [
       ...(viewId ? [] : ['no view_id']),
@@ -313,9 +350,18 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       `views.update ${args.view.callback_id ?? ''}`,
       viewDisplayProblems(args.view),
     );
-    this.record('views.update', args, accessToken);
+    const result = {
+      ok: true,
+      view: {
+        id: viewId,
+        hash: viewId && this.nextViewHash(viewId),
+        ...args.view,
+      },
+    };
 
-    return { ok: true, view: { id: viewId, ...args.view } };
+    this.record('views.update', args, accessToken, result);
+
+    return result;
   }
 
   public async publishView(
@@ -430,10 +476,14 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
 
   // Thrown as @slack/web-api throws a platform error, with the code in
   // `data.error` (slackErrorOf).
-  private failIfAsked(method: string) {
+  private failIfAsked(method: string, channel?: string) {
     const failure = this.failures.get(method);
 
-    if (failure && failure.times > 0) {
+    if (
+      failure &&
+      failure.times > 0 &&
+      (!failure.channel || failure.channel === channel)
+    ) {
       this.failures.set(method, { ...failure, times: failure.times - 1 });
 
       throw Object.assign(
@@ -557,6 +607,14 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     this.messageCount += 1;
 
     return `${Math.floor(Date.now() / 1000)}.${String(this.messageCount).padStart(6, '0')}`;
+  }
+
+  private nextViewHash(viewId: string) {
+    const hash = `${Date.now()}.${randomUUID().slice(0, 8)}`;
+
+    this.viewHashes.set(viewId, hash);
+
+    return hash;
   }
 
   private nextViewId() {

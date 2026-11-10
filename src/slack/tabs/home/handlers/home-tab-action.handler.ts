@@ -17,6 +17,7 @@ import {
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
+import { submittedNotice } from '@modules/slack/tabs/time-tracking/utils/submitted-notice.utils';
 
 @Injectable()
 @SlackHandler({
@@ -76,12 +77,15 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
     _payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
-    await this.timeEntriesService.submit(
+    const submitted = await this.timeEntriesService.submit(
       { slackTeamId: user.slack_team_id },
       user,
     );
 
-    this.tabNavigationService.navigate(TabId.Home, { user });
+    this.tabNavigationService.navigate(TabId.Home, {
+      user,
+      notice: submittedNotice(submitted),
+    });
   };
 
   private handleViewTimeEntries = (

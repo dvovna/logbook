@@ -7,3 +7,7 @@ export const escapeMrkdwn = (text: string | null | undefined) =>
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+
+// Someone's words as a quote, every line of it, safe to put in mrkdwn.
+export const quoteMrkdwn = (text: string) =>
+  `>${escapeMrkdwn(text).replace(/\n/g, '\n>')}`;

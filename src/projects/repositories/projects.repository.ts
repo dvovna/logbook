@@ -13,6 +13,36 @@ export class ProjectsRepository extends BaseRepository<
 
   protected searchableColumns = ['name'];
 
+  // Archived projects too, and their client's name, archived or not.
+  public findAllWithClientNames(slackTeamId: string): Promise<
+    {
+      id: string;
+      name: string;
+      client_id: string | null;
+      client_name: string | null;
+      billable: boolean;
+      archived_at: string | null;
+    }[]
+  > {
+    return this.selectInWorkspace(slackTeamId)
+      .leftJoin('clients', (join) =>
+        join
+          .onRef('clients.id', '=', 'projects.client_id')
+          .on('clients.slack_team_id', '=', slackTeamId),
+      )
+      .select([
+        'projects.id',
+        'projects.name',
+        'projects.client_id',
+        'clients.name as client_name',
+        'projects.billable',
+        'projects.archived_at',
+      ])
+      .orderBy('projects.created_at', 'desc')
+      .orderBy('projects.id')
+      .execute();
+  }
+
   protected mapToViewModel = (row: SqlRow<'projects'>) => {
     return {
       id: row.id,

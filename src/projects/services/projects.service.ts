@@ -86,6 +86,10 @@ export default class ProjectsService implements IProjectsService {
     return this.projectsRepository.findMany(this.getFindQuery(params));
   }
 
+  public findAllWithClientNames(slackTeamId: string) {
+    return this.projectsRepository.findAllWithClientNames(slackTeamId);
+  }
+
   public async findOne(params: IFindParams) {
     return this.projectsRepository.findOne(this.getFindQuery(params));
   }

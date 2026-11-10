@@ -98,7 +98,7 @@ describe('RequestWorkflowService', () => {
     jest.Mock
   >;
   let processorService: Record<
-    'processSteps' | 'updateStepMessages',
+    'processSteps' | 'updateStepMessages' | 'updateDeletedStepMessages',
     jest.Mock
   >;
   let commentsService: { findMany: jest.Mock };
@@ -131,6 +131,7 @@ describe('RequestWorkflowService', () => {
     processorService = {
       processSteps: jest.fn(),
       updateStepMessages: jest.fn(),
+      updateDeletedStepMessages: jest.fn(),
     };
     commentsService = { findMany: jest.fn().mockResolvedValue(comments) };
     eventEmitter = { emitAsync: jest.fn().mockResolvedValue([]) };
@@ -438,12 +439,14 @@ describe('RequestWorkflowService', () => {
       stepsService.findOneWithValidation.mockResolvedValue(step);
       stepsService.decide.mockResolvedValue(rejectedSteps);
 
-      await service.rejectStep(step.id, approver);
+      await service.rejectStep(step.id, approver, '  Release week ');
 
+      // The reason goes with the steps, for the approvers' messages.
       expect(stepsService.decide).toHaveBeenCalledWith(
         { requestId: REQUEST_ID, stepLevel: 1, slackTeamId: SLACK_TEAM_ID },
         'rejected',
         approver,
+        'Release week',
       );
       expect(processorService.updateStepMessages).toHaveBeenCalledWith(
         rejectedSteps,
@@ -455,6 +458,7 @@ describe('RequestWorkflowService', () => {
         slackTeamId: SLACK_TEAM_ID,
         approvedBy: approver.id,
         reviewComments: comments,
+        rejectionReason: 'Release week',
       });
     });
 
@@ -578,6 +582,59 @@ describe('RequestWorkflowService', () => {
       await service.cancel(REQUEST_ID, requester);
 
       expect(processorService.updateStepMessages).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('closeBeforeDelete', () => {
+    const admin = { ...approver, id: 'admin-1', slack_id: 'U_ADMIN' };
+
+    it('marks every open step as deleted and closes their messages from what it read', async () => {
+      const openSteps = [
+        buildStep({ id: 'step-1' }),
+        buildStep({ id: 'step-2', step_level: 2 }),
+      ];
+      stepsService.decide.mockResolvedValue(openSteps);
+
+      await service.closeBeforeDelete(REQUEST_ID, admin);
+
+      expect(stepsService.decide).toHaveBeenCalledWith(
+        { requestId: REQUEST_ID, slackTeamId: SLACK_TEAM_ID },
+        RequestWorkflowStatus.Deleted,
+        admin,
+      );
+      expect(commentsService.findMany).toHaveBeenCalledWith({
+        requestId: REQUEST_ID,
+        slackTeamId: SLACK_TEAM_ID,
+      });
+      expect(processorService.updateDeletedStepMessages).toHaveBeenCalledWith(
+        openSteps,
+        comments,
+      );
+      expect(processorService.updateStepMessages).not.toHaveBeenCalled();
+      expect(processorService.processSteps).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+    });
+
+    // The jobs are saved with the closed steps, and start once the delete
+    // that the caller runs in the same transaction has committed.
+    it('closes the steps and saves the jobs in one transaction', async () => {
+      const calls: string[] = [];
+      const record = (call: string) => () => {
+        calls.push(`${call}, in a transaction: ${inTransaction}`);
+
+        return Promise.resolve([buildStep()]);
+      };
+      stepsService.decide.mockImplementation(record('decide'));
+      processorService.updateDeletedStepMessages.mockImplementation(
+        record('save the jobs'),
+      );
+
+      await service.closeBeforeDelete(REQUEST_ID, admin);
+
+      expect(calls).toEqual([
+        'decide, in a transaction: true',
+        'save the jobs, in a transaction: true',
+      ]);
     });
   });
 });

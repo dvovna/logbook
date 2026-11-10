@@ -1,7 +1,18 @@
+import type { ButtonAction } from '@slack/bolt';
+import { isIsoDate } from '@common/utils/date.utils';
+import {
+  currentWeekStart,
+  todayIso,
+  weekDays,
+  weekStartOf,
+} from '@common/utils/period-presets';
 import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
-import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import {
+  ISlackBlockActionPayload,
+  ISlackInteractionPayload,
+} from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 import { ValidationError } from '@common/errors/validation.error';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
@@ -22,6 +33,7 @@ import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/service
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { ITimeEntriesTabMetaData } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
+import { submittedNotice } from '@modules/slack/tabs/time-tracking/utils/submitted-notice.utils';
 
 @Injectable()
 @SlackHandler({
@@ -45,8 +57,13 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
 
     this.actionMap = {
       [TimeEntriesTabViewActionId.AddTimeEntry]: this.handleAddEntry,
-      [TimeEntriesTabViewActionId.SubmitDrafts]: (payload, user) =>
+      [TimeEntriesTabViewActionId.SubmitWeek]: (payload, user) =>
         this.submit(payload, user),
+      [TimeEntriesTabViewActionId.PreviousWeek]: this.handleWeekChange,
+      [TimeEntriesTabViewActionId.NextWeek]: this.handleWeekChange,
+      [TimeEntriesTabViewActionId.EarlierOpenWeek]: this.handleWeekChange,
+      [TimeEntriesTabViewActionId.FillWeek]: this.handleFillWeek,
+      [TimeEntriesTabViewActionId.FillDay]: this.handleFillDay,
       [TimeEntriesTabViewActionId.ManageTimeEntryMenu]: withMenuAction<
         TimeEntriesTabViewActionId,
         [IUserViewModel]
@@ -78,11 +95,82 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
   private updateTab = async (
     metadata: ITimeEntriesTabMetaData,
     user: IUserViewModel,
+    notice?: string,
   ) => {
     await this.timeEntriesTabService.publish({
       user,
       metadata,
+      notice,
     });
+  };
+
+  // The button's value comes from the client: it has to be a date, and is
+  // turned into its week's Monday.
+  private handleWeekChange = async (
+    payload: ISlackBlockActionPayload,
+    user: IUserViewModel,
+  ) => {
+    const { value } = payload.actions[0] as ButtonAction;
+
+    if (!isIsoDate(value)) {
+      return;
+    }
+
+    await this.updateTab(
+      {
+        ...parseMetadata<ITimeEntriesTabMetaData>(payload),
+        weekStart: weekStartOf(value),
+        page: 1,
+      },
+      user,
+    );
+  };
+
+  // The viewer's own time. The tab's metadata goes along, to show it again
+  // after saving.
+  private handleFillWeek = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    const { weekStart } = parseMetadata<ITimeEntriesTabMetaData>(payload);
+
+    await this.timeEntriesTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      TimeEntriesTabModalName.FillWeek,
+      {
+        user,
+        metadata: {
+          mode: 'week',
+          weekStart: weekStartOf(weekStart ?? todayIso()),
+          addedProjectIds: [],
+          showWeekend: false,
+          pageMetadata: payload.view.private_metadata,
+        },
+      },
+    );
+  };
+
+  private handleFillDay = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    const today = todayIso();
+
+    await this.timeEntriesTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      TimeEntriesTabModalName.FillWeek,
+      {
+        user,
+        metadata: {
+          mode: 'day',
+          weekStart: weekStartOf(today),
+          date: today,
+          addedProjectIds: [],
+          showWeekend: false,
+          pageMetadata: payload.view.private_metadata,
+        },
+      },
+    );
   };
 
   private handleAddEntry = async (
@@ -96,18 +184,29 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
     );
   };
 
-  // Sends the user's entry `entryId`, or all their drafts, for approval and
-  // shows the result. An entry already submitted in the meantime just shows
-  // up as such.
+  // An entry submitted in the meantime just shows up as such.
   private submit = async (
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
     entryId?: string,
   ) => {
+    const metadata = parseMetadata<ITimeEntriesTabMetaData>(payload);
+    const days = entryId
+      ? undefined
+      : weekDays(metadata.weekStart ?? currentWeekStart());
+    let notice: string | undefined;
+
     try {
-      await this.timeEntriesService.submit(
-        { id: entryId, slackTeamId: user.slack_team_id },
-        user,
+      notice = submittedNotice(
+        await this.timeEntriesService.submit(
+          {
+            id: entryId,
+            slackTeamId: user.slack_team_id,
+            dateFrom: days?.[0],
+            dateTo: days?.[6],
+          },
+          user,
+        ),
       );
     } catch (error) {
       if (!(
@@ -119,7 +218,7 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
       this.logger.warn(`Time entry not submitted: ${error.message}`);
     }
 
-    await this.updateTab(parseMetadata<ITimeEntriesTabMetaData>(payload), user);
+    await this.updateTab(metadata, user, notice);
   };
 
   private handleManageTimeEntryMenuAction = async (

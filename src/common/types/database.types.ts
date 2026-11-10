@@ -667,6 +667,7 @@ export type Database = {
           slack_refresh_token: string | null;
           slack_token: string | null;
           slack_token_expires_at: string | null;
+          time_off_minutes_per_day: number;
           time_reminder_week: string | null;
           uninstalled_at: string | null;
         };
@@ -680,6 +681,7 @@ export type Database = {
           slack_refresh_token?: string | null;
           slack_token?: string | null;
           slack_token_expires_at?: string | null;
+          time_off_minutes_per_day?: number;
           time_reminder_week?: string | null;
           uninstalled_at?: string | null;
         };
@@ -692,6 +694,7 @@ export type Database = {
           slack_refresh_token?: string | null;
           slack_token?: string | null;
           slack_token_expires_at?: string | null;
+          time_off_minutes_per_day?: number;
           time_reminder_week?: string | null;
           uninstalled_at?: string | null;
         };
@@ -797,6 +800,7 @@ export type Database = {
           updated_at: string;
           updated_by: string;
           user_id: string;
+          vacation_request_id: string | null;
           work_date: string;
         };
         ComputedFields: never;
@@ -818,6 +822,7 @@ export type Database = {
           updated_at?: string;
           updated_by: string;
           user_id: string;
+          vacation_request_id?: string | null;
           work_date: string;
         };
         Update: {
@@ -838,6 +843,7 @@ export type Database = {
           updated_at?: string;
           updated_by?: string;
           user_id?: string;
+          vacation_request_id?: string | null;
           work_date?: string;
         };
         Relationships: [
@@ -895,6 +901,47 @@ export type Database = {
             columns: ['user_id'];
             isOneToOne: false;
             referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'time_entries_vacation_request_id_fkey';
+            columns: ['vacation_request_id'];
+            isOneToOne: false;
+            referencedRelation: 'vacation_requests';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      time_off_projects: {
+        Row: {
+          project_id: string;
+          slack_team_id: string;
+          vacation_type: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          project_id: string;
+          slack_team_id: string;
+          vacation_type: string;
+        };
+        Update: {
+          project_id?: string;
+          slack_team_id?: string;
+          vacation_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'time_off_projects_project_id_fkey';
+            columns: ['project_id'];
+            isOneToOne: false;
+            referencedRelation: 'projects';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'time_off_projects_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
             referencedColumns: ['id'];
           },
         ];

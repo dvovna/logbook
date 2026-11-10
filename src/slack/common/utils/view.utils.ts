@@ -6,6 +6,9 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import type { ButtonAction } from '@slack/bolt';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 
+// What Slack takes in a static select.
+export const MAX_SELECT_OPTIONS = 100;
+
 export const toPlainTextOption = <OptionType extends IOption = IOption>({
   id,
   name,

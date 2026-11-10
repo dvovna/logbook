@@ -494,6 +494,7 @@ describe('Access control', () => {
       'id',
       'name',
       'slack_id',
+      'time_off_minutes_per_day',
       'uninstalled_at',
     ]);
     expect(

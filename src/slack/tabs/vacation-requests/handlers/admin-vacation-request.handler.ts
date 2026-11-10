@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import {
+  IVacationRequestChange,
+  VacationRequestsService,
+} from '@modules/vacation-requests/services/vacation-requests.service';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -14,13 +17,13 @@ import {
 } from '@modules/slack/tabs/vacation-requests/views/vacation-request-form-modal.view';
 import { IVacationRequestsTabMetadata } from '@modules/slack/tabs/vacation-requests/views/vacation-requests-tab.view';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
-import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import {
   TabId,
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
 import { UsersService } from '@modules/users/services/users.service';
 import UserRole from '@common/enums/user-role.enum';
+import { withBilledDays } from '@modules/slack/tabs/vacation-requests/views/billed-days-notice';
 
 @Injectable()
 @SlackHandler({
@@ -31,7 +34,7 @@ import UserRole from '@common/enums/user-role.enum';
 export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
   IVacationRequestModalViewMetadata,
   IVacationRequestAdminFormViewData,
-  IVacationRequestViewModel
+  IVacationRequestChange
 > {
   // Overlaps and balance concern the period: shown under its end.
   protected readonly errorFields = { dates: 'end_date' as const };
@@ -47,7 +50,7 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
   }
 
   protected successResponse(
-    _request: IVacationRequestViewModel,
+    { billedDates }: IVacationRequestChange,
     user: IUserViewModel,
     metadata: IVacationRequestModalViewMetadata,
   ) {
@@ -59,7 +62,11 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
       user,
       page: 1,
       metadata: pageMetadata,
-      notice: `✅ Vacation request ${metadata.id ? 'updated' : 'created'}.`,
+      // Who changed the vacation hears which days' logged time stayed.
+      notice: withBilledDays(
+        `✅ Vacation request ${metadata.id ? 'updated' : 'created'}.`,
+        billedDates,
+      ),
     });
 
     return SlackViewResponseFactory.success();
@@ -80,13 +87,13 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
   private async create(
     data: IVacationRequestAdminFormViewData,
     user: IUserViewModel,
-  ): Promise<IVacationRequestViewModel> {
+  ): Promise<IVacationRequestChange> {
     const selectedUser = await this.usersService.findOneWithValidation({
       id: data.user.value,
       slackTeamId: user.slack_team_id,
     });
 
-    return this.vacationRequestsService.create(
+    const request = await this.vacationRequestsService.create(
       {
         teamId: selectedUser.team_id,
         userId: data.user.value,
@@ -98,25 +105,23 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
       },
       user,
     );
+
+    return { request, billedDates: [] };
   }
 
-  private async update(
+  // The request goes to the chosen user's team, as on create; the service
+  // reads the user beside the request.
+  private update(
     id: string,
     data: IVacationRequestAdminFormViewData,
     user: IUserViewModel,
-  ): Promise<IVacationRequestViewModel> {
-    const selectedUser = await this.usersService.findOneWithValidation({
-      id: data.user.value,
-      slackTeamId: user.slack_team_id,
-    });
-
+  ): Promise<IVacationRequestChange> {
     return this.vacationRequestsService.update(
       {
         id,
         slackTeamId: user.slack_team_id,
       },
       {
-        teamId: selectedUser?.team_id,
         userId: data.user.value,
         type: data.type_option.value,
         status: data.status.value,

@@ -132,12 +132,14 @@ export class RequestWorkflowStepsService {
     },
     status: RequestWorkflowStatus,
     decidedBy: IUserViewModel,
+    rejectionReason?: string,
   ) {
     return this.requestWorkflowStepsRepository.decide({
       slackTeamId,
       requestId,
       status,
       decidedBySlackId: decidedBy.slack_id,
+      rejectionReason,
       stepId,
       stepLevel,
     });

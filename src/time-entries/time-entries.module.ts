@@ -14,6 +14,7 @@ import { UsersModule } from '@modules/users/users.module';
 import { TimeEntriesScopeService } from 'src/time-entries/services/time-entries-scope.service';
 import { TimeReportService } from 'src/time-entries/services/time-report.service';
 import { TimeEntriesExportService } from 'src/time-entries/services/time-entries-export.service';
+import { TimesheetService } from 'src/time-entries/services/timesheet.service';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { TimeEntriesExportService } from 'src/time-entries/services/time-entries
     TimeEntriesScopeService,
     TimeReportService,
     TimeEntriesExportService,
+    TimesheetService,
   ],
   exports: [
     TimeEntriesSummaryService,
@@ -44,6 +46,7 @@ import { TimeEntriesExportService } from 'src/time-entries/services/time-entries
     TimeReportService,
     TimeEntriesExportService,
     TimeEntriesScopeService,
+    TimesheetService,
   ],
 })
 export class TimeEntriesModule {}

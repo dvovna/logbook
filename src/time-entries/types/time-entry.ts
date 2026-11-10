@@ -12,6 +12,7 @@ export interface ITimeEntryViewModel {
   status: TimeEntryStatus;
   description?: string | null;
   rejection_reason?: string | null;
+  vacation_request_id: string | null;
   slack_team_id: string;
   created_at: string;
   updated_at: string;

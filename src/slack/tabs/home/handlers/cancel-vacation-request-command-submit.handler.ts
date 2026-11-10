@@ -41,12 +41,16 @@ export class CancelVacationRequestCommandSubmitHandler extends BaseModalFormSubm
     await this.vacationRequestsService.cancel(data.request.value, user);
   }
 
+  // `/vacations cancel` has no tab to go back to: the form closes, and Home,
+  // which lists pending requests, shows the request gone, as after Cancel
+  // there.
   protected successResponse(_result, user: IUserViewModel): ViewResponseAction {
-    this.homeTabService.publish({ user });
+    this.homeTabService.publish({
+      user,
+      notice: '✅ Vacation request canceled.',
+    });
 
-    return SlackViewResponseFactory.update(
-      this.modalView.getSuccessView('✅ Vacation Request has been canceled.'),
-    );
+    return SlackViewResponseFactory.success();
   }
 
   protected async errorResponse(

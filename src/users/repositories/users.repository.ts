@@ -10,6 +10,32 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
 
   protected searchableColumns = ['name', 'email'];
 
+  // The workspace whose Slack ID is `workspaceSlackId` and its user whose
+  // Slack ID is `userSlackId`, in one statement: what every Slack request
+  // looks up first. workspaceId is null without such a workspace, user
+  // without such a user in it.
+  public async findInWorkspaceBySlackIds(
+    workspaceSlackId: string,
+    userSlackId: string,
+  ): Promise<{ workspaceId: string | null; user: IUserViewModel | null }> {
+    const row = await this.db
+      .selectFrom('slack_teams')
+      .leftJoin('users', (join) =>
+        join
+          .onRef('users.slack_team_id', '=', 'slack_teams.id')
+          .on('users.slack_id', '=', userSlackId),
+      )
+      .selectAll('users')
+      .select('slack_teams.id as workspace_id')
+      .where('slack_teams.slack_id', '=', workspaceSlackId)
+      .executeTakeFirst();
+
+    return {
+      workspaceId: row?.workspace_id ?? null,
+      user: row?.id ? this.toViewModel(row) : null,
+    };
+  }
+
   // Active members per team ID.
   public async getUsersCountByTeam(
     slackTeamId: string,

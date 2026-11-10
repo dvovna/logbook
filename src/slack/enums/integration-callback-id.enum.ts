@@ -5,6 +5,8 @@ export enum ViewCallbackId {
 
   // workflow steps
   WorkflowStepMessage = 'workflow_step_message',
+  // The buttons of a DM to the requester about their pending request.
+  RequesterNoticeMessage = 'requester_notice_message',
   ApproveRequestStepMessage = 'approve_request_step_message',
   RejectRequestStepMessage = 'reject_request_step_message',
 
@@ -40,6 +42,7 @@ export enum ViewCallbackId {
   DeleteVacationRequest = 'delete_vacation_request',
   ApproveVacationRequestOnBehalf = 'approve_vacation_request_on_behalf',
   ViewVacationRequestDetails = 'view_vacation_request_details',
+  TimeOffLoggingOffer = 'time_off_logging_offer',
 
   // approver-step-comments
   ApproverMessageCommentFormSubmit = 'approver_message_comment_form_submit',
@@ -59,10 +62,12 @@ export enum ViewCallbackId {
   ProjectAssignmentsFormSubmit = 'project_assignments_form_submit',
   PersonRateFormSubmit = 'person_rate_form_submit',
   CurrencyFormSubmit = 'currency_form_submit',
+  TimeOffSettingsForm = 'time_off_settings_form',
 
   // time-entries
   UserTimeEntry = 'user_time_entry',
   AdminTimeEntry = 'admin_time_entry',
+  TimesheetForm = 'timesheet_form',
 
   // approvals
   ApprovalsTabView = 'approvals_tab_view',

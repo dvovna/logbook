@@ -99,7 +99,10 @@ export class RejectRequestStepFormSubmitHandler extends BaseModalFormSubmitHandl
     } catch {
       // The user may not see the request at all: say what went wrong only.
       return SlackViewResponseFactory.update(
-        this.rejectWithReasonModalView.getSuccessView(`⚠️ ${errorMessage}`),
+        this.rejectWithReasonModalView.getErrorView(
+          'Reject Request',
+          errorMessage,
+        ),
       );
     }
   }

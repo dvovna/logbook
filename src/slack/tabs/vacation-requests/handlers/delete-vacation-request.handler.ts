@@ -5,16 +5,24 @@ import { IVacationRequestsTabMetadata } from '@modules/slack/tabs/vacation-reque
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
 } from '@modules/slack/common/views/components/confirmation-modal.view';
-import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import {
+  IVacationRequestChange,
+  VacationRequestsService,
+} from '@modules/vacation-requests/services/vacation-requests.service';
 import {
   VacationRequestsTabModalName,
   VacationRequestsTabService,
 } from '@modules/slack/tabs/vacation-requests/services/vacation-requests-tab.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
 import { jsonParse } from '@common/utils/json-parse';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import UserRole from '@common/enums/user-role.enum';
+import { withBilledDays } from '@modules/slack/tabs/vacation-requests/views/billed-days-notice';
 
 @Injectable()
 @SlackHandler({
@@ -22,17 +30,22 @@ import UserRole from '@common/enums/user-role.enum';
   type: 'view_submission',
   allowedRoles: [UserRole.Admin],
 })
-export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
+export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<
+  IConfirmationModalViewMetadata,
+  object,
+  IVacationRequestChange
+> {
   public constructor(
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly vacationRequestsTabService: VacationRequestsTabService,
+    private readonly tabNavigationService: TabNavigationService,
   ) {
     super();
   }
 
   protected successResponse(
-    _result: void,
+    { billedDates }: IVacationRequestChange,
     user: IUserViewModel,
     metadata: IConfirmationModalViewMetadata,
   ) {
@@ -40,24 +53,25 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<ICo
       metadata.pageMetadata || '{}',
     );
 
-    this.vacationRequestsTabService.publish({
+    this.tabNavigationService.navigate(TabId.VacationRequests, {
       user,
       metadata: {
         ...pageMetadata,
         page: 1,
       },
-      notice: '✅ Vacation request deleted.',
+      // Who deleted it hears which days' logged time stayed.
+      notice: withBilledDays('✅ Vacation request deleted.', billedDates),
     });
 
     return SlackViewResponseFactory.success();
   }
 
-  protected async onSubmit(
+  protected onSubmit(
     _data: never,
     metadata: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ) {
-    await this.vacationRequestsService.delete(
+    return this.vacationRequestsService.delete(
       {
         id: metadata.id,
         slackTeamId: user.slack_team_id,

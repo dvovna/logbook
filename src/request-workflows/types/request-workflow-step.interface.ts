@@ -10,6 +10,8 @@ export enum WorkflowStepStatus {
   Approved = 'approved',
   Rejected = 'rejected',
   Cancelled = 'canceled',
+  // Only until the request's row is deleted, which takes its steps along.
+  Deleted = 'deleted',
 }
 
 export interface IRequestSnapshotData {
@@ -47,6 +49,7 @@ export interface IApproverStepData {
   level_name?: string;
   decided_at?: string | null;
   decided_by_slack_id?: string | null;
+  rejection_reason?: string | null;
 }
 
 export interface IRequestWorkflowStepViewModel {
