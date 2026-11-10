@@ -6,8 +6,9 @@ import { reportError } from '@common/errors/error-reporter';
 const pending = new Set<Promise<unknown>>();
 
 // Set inside the work startInBackground() starts, and in whatever it awaits:
-// nobody waits for that work before answering. The integration tests use it
-// to count the queries on the way to an answer apart from those after it.
+// nobody waits for that work before answering. Only the integration tests'
+// statement counter (test/integration/support/sql-log.ts) reads it, to tell
+// the queries on the way to an answer from those after it.
 const backgroundWork = new AsyncLocalStorage<true>();
 
 export const isBackgroundWork = () => backgroundWork.getStore() === true;

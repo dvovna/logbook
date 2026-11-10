@@ -229,7 +229,7 @@ Coverage means little for one suite alone: unit tests leave the Slack UI out, an
 - check the database and the calls the app made to Slack;
 - fail on anything Slack would refuse: a view or message it would not accept, errors for fields a modal does not have, or an answer later than Slack's 3 seconds.
 - fail on what Slack accepts but shows otherwise than meant: more than five buttons in a row (Slack folds the rest into "+ N more"), a ⋯ menu with one option, two dividers in a row, Markdown in `mrkdwn` text or formatting in `plain_text`. A look at the real Slack that finds something like this adds a rule to `support/block-kit-display-rules.ts`.
-- fail when an action people wait on (the week and day forms, My time, an edit of time off) sends more statements, or more round trips one after another, to the database before its answer than `round-trips.int-spec.ts` allows. Far from its database (a laptop and Supabase in another region) a round trip costs about 100 ms.
+- fail when an action people wait on (the week and day forms, My time, an edit of time off) takes more round trips one after another to the database before its answer than `round-trips.int-spec.ts` allows (or a few statements more than today). Far from its database (a laptop and Supabase in another region) a round trip costs about 100 ms.
 
 Each test starts on a fixed date (Wednesday 2026-06-17), waits for the work the app does after answering Slack with `await t.idle()` instead of polling, and reads tabs through `support/tab-readers.ts` (list items, sections, buttons) rather than searching their JSON.
 
