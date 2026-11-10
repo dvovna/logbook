@@ -648,6 +648,51 @@ describe('Time off logging', () => {
       ).toEqual(['This time off is no longer approved.']);
     });
 
+    it('keeps a true message when the button is clicked twice at once', async () => {
+      await mapProject('Vacations Paid');
+      await approvedThroughWorkflow();
+      const [offer] = offersTo(requester);
+
+      await Promise.all([
+        t.slack.actOnMessage(workspace, requester, offer, OFFER).expect(200),
+        t.slack.actOnMessage(workspace, requester, offer, OFFER).expect(200),
+      ]);
+      await t.idle();
+
+      expect(await entriesOf(requester)).toHaveLength(5);
+      const updates = t.slackApi.messageUpdates(workspace.token, offer);
+      expect(updates).toHaveLength(2);
+      expect(updates.map((update) => textOf(update))).toEqual([
+        expect.stringContaining('✅ 40h logged to Vacations Paid.'),
+        expect.stringContaining('✅ 40h logged to Vacations Paid.'),
+      ]);
+      expect(JSON.stringify(updates)).not.toContain('Skipped');
+    });
+
+    it('tells the requester when the project was archived after the DM', async () => {
+      const project = await mapProject('Vacations Paid');
+      await approvedThroughWorkflow();
+      const [offer] = offersTo(requester);
+      await t.db
+        .updateTable('projects')
+        .set({ archived_at: new Date().toISOString() })
+        .where('id', '=', project.id)
+        .execute();
+
+      await t.slack
+        .actOnMessage(workspace, requester, offer, OFFER)
+        .expect(200);
+      await t.idle();
+
+      expect(await workspace.rows('time_entries')).toEqual([]);
+      expect(t.slackApi.messageUpdates(workspace.token, offer)).toEqual([]);
+      expect(
+        t.slackApi
+          .ephemeralMessages(workspace.token, requester.slack_id)
+          .map(({ text }) => text),
+      ).toEqual(['This time off has no project to log on.']);
+    });
+
     it('escapes the project name', async () => {
       // The display rules refuse '<!here>' even in a plain_text label, where
       // it is harmless, so the name has other markup.

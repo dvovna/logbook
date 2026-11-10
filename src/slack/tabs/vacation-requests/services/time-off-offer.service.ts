@@ -175,13 +175,41 @@ export class TimeOffOfferService implements OnModuleInit {
     }
 
     runInBackground(this.logger, 'log time off as time', async () => {
-      const { offer, logged, skipped } = await this.timeOffLoggingService.log(
-        user,
-        requestId,
-      );
+      try {
+        const { offer, logged, skipped } = await this.timeOffLoggingService.log(
+          user,
+          requestId,
+        );
 
-      if (message.channel && message.ts) {
-        await this.showResult(user, message, offer, logged, skipped);
+        if (message.channel && message.ts) {
+          await this.showResult(user, message, offer, logged, skipped);
+        }
+      } catch (error) {
+        // What changed since the DM (the project archived, the request
+        // canceled) is told to the clicker. Anything else is told generally
+        // and rethrown, so it is logged and reported.
+        if (
+          error instanceof ValidationError ||
+          error instanceof NotFoundException
+        ) {
+          await this.tell(user, message.channel, error.message);
+
+          return;
+        }
+
+        if (error instanceof ForbiddenException) {
+          this.logger.warn(`Time off not logged: ${error.message}`);
+
+          return;
+        }
+
+        await this.tell(
+          user,
+          message.channel,
+          "Couldn't log your time off, please try again.",
+        ).catch(() => undefined);
+
+        throw error;
       }
     });
   }
@@ -216,11 +244,16 @@ export class TimeOffOfferService implements OnModuleInit {
     skipped: string[],
   ) {
     const project = escapeMrkdwn(offer.projectName);
+    // Two clicks at once: the second finds every day taken by the first.
+    // Both then say the same, so whichever update lands last is true.
+    const allTaken = !logged.length && skipped.length === offer.dates.length;
     const lines = [
-      logged.length
-        ? `✅ ${getDisplayTime(logged.length * offer.minutes)} logged to ${project}.`
-        : `Nothing new to log to ${project}.`,
-      ...(skipped.length
+      allTaken
+        ? `✅ ${getDisplayTime(skipped.length * offer.minutes)} logged to ${project}.`
+        : logged.length
+          ? `✅ ${getDisplayTime(logged.length * offer.minutes)} logged to ${project}.`
+          : `Nothing new to log to ${project}.`,
+      ...(skipped.length && !allTaken
         ? [
             `Skipped, already have time on ${project}: ${skipped
               .map((date) => formatDateRange(date, date))
