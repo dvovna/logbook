@@ -49,7 +49,7 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
       // The report is Admin's and HR's.
       report && isTimeEntriesAdmin(user.role)
         ? this.billingReportService.getClientReport({
-            slackTeamId: user.slack_team_id,
+            user,
             ...report,
           })
         : null,

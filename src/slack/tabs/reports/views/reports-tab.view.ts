@@ -9,7 +9,11 @@ import { getDisplayTime } from '@common/utils/time.utils';
 import { formatDateRange } from '@common/utils/date.utils';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { IWorkspaceTimeSummary } from 'src/time-entries/services/time-entries-summary.service';
-import { IBillingReport } from 'src/time-entries/services/billing-report.service';
+import {
+  IBillingReport,
+  IBillingTotal,
+} from 'src/time-entries/services/billing-report.service';
+import { formatHourlyRate, formatMoney } from '@common/utils/money.utils';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ReportsTabActionId } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
 import { Divider } from '@modules/slack/common/views/components/separator';
@@ -29,8 +33,15 @@ interface IGetViewParams extends IBaseTabViewParams {
   billingReport: IBillingReport | null;
 }
 
-// A table holds 100 rows: the header and 99 lines.
-const TABLE_LINES = 99;
+// A table holds 100 rows (the header, the lines and the total) and 10000
+// characters in its cells.
+const MAX_TABLE_LINES = 98;
+const MAX_TABLE_CHARACTERS = 10000;
+
+// Lines of a "By project" or "By person" list.
+const MAX_TOTALS = 40;
+
+const NONE = '–';
 
 const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '0h');
 
@@ -91,19 +102,25 @@ export class ReportsTabView extends BaseTabView<
     ];
   }
 
-  // Approved time of a client's projects: a table by project, and who
-  // worked on them.
+  // Approved time of a client's projects: a table of who worked on which
+  // project at what rate, with the total, then the same by project and by
+  // person.
   private getBillingReportBlocks(report: IBillingReport): AnyBlock[] {
+    const money = (cents: number) => formatMoney(cents, report.currency);
     const summary: AnyBlock = {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text:
-          `*Billing report: ${escapeMrkdwn(report.clientName)}* · ${formatDateRange(report.fromDate, report.toDate)}\n` +
-          `Approved: *${hours(report.approvedMinutes)}*, billable *${hours(report.billableMinutes)}*` +
-          (report.unapprovedMinutes
-            ? `\n_Not approved yet: ${hours(report.unapprovedMinutes)}_`
-            : ''),
+        text: [
+          `*Billing report: ${escapeMrkdwn(report.clientName)}* · ${formatDateRange(report.fromDate, report.toDate)}`,
+          `Approved: *${hours(report.approvedMinutes)}*, billable *${hours(report.billableMinutes)}* · Amount: *${money(report.amount)}*`,
+          report.unratedMinutes &&
+            `_No rate: ${hours(report.unratedMinutes)} of billable time, not in the amount_`,
+          report.unapprovedMinutes &&
+            `_Not approved yet: ${hours(report.unapprovedMinutes)}_`,
+        ]
+          .filter(Boolean)
+          .join('\n'),
       },
     };
 
@@ -123,8 +140,7 @@ export class ReportsTabView extends BaseTabView<
       ];
     }
 
-    const projects = report.byProject.slice(0, TABLE_LINES);
-    const left = report.byProject.length - projects.length;
+    const { rows, left } = this.getBillingTableRows(report);
 
     return [
       ...Divider.getBlocks(),
@@ -133,40 +149,108 @@ export class ReportsTabView extends BaseTabView<
         type: 'table',
         column_settings: [
           { is_wrapped: true },
+          { is_wrapped: true },
+          { align: 'right' },
+          { align: 'right' },
           { align: 'right' },
           { align: 'right' },
         ],
-        rows: [
-          [cell('Project'), cell('Hours'), cell('Billable')],
-          ...projects.map(({ name, minutes, billableMinutes }) => [
-            cell(name),
-            cell(hours(minutes)),
-            cell(hours(billableMinutes)),
-          ]),
-        ],
+        rows: rows.map((row) => row.map(cell)),
       } as unknown as AnyBlock,
       ...(left
         ? [
             {
               type: 'context',
               elements: [
-                { type: 'mrkdwn', text: `_and ${left} more projects_` },
+                {
+                  type: 'mrkdwn',
+                  text: `_and ${left} more lines, in the total_`,
+                },
               ],
             } as AnyBlock,
           ]
         : []),
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*By person*\n${report.byPerson
-            .map(
-              ({ name, minutes }) =>
-                `• ${escapeMrkdwn(name)} — ${hours(minutes)}`,
-            )
-            .join('\n')}`,
-        },
-      },
+      this.getTotalsBlock('By project', report.byProject, money),
+      this.getTotalsBlock('By person', report.byPerson, money),
     ];
+  }
+
+  // The header, as many lines as the table holds, and the total of all of
+  // them.
+  private getBillingTableRows(report: IBillingReport) {
+    const money = (cents: number) => formatMoney(cents, report.currency);
+    const header = ['Project', 'Person', 'Hours', 'Billable', 'Rate', 'Amount'];
+    const total = [
+      'Total',
+      NONE,
+      hours(report.approvedMinutes),
+      hours(report.billableMinutes),
+      NONE,
+      money(report.amount),
+    ];
+    const lengthOf = (row: string[]) =>
+      row.reduce((sum, text) => sum + text.length, 0);
+    const rows = [header];
+    let characters = lengthOf(header) + lengthOf(total);
+
+    for (const line of report.lines) {
+      const row = [
+        line.projectName,
+        line.personName,
+        hours(line.minutes),
+        hours(line.billableMinutes),
+        line.hourlyRate === null
+          ? NONE
+          : formatHourlyRate(line.hourlyRate, report.currency),
+        line.amount === null ? NONE : money(line.amount),
+      ];
+
+      if (
+        rows.length > MAX_TABLE_LINES ||
+        characters + lengthOf(row) > MAX_TABLE_CHARACTERS
+      ) {
+        break;
+      }
+
+      rows.push(row);
+      characters += lengthOf(row);
+    }
+
+    return {
+      rows: [...rows, total],
+      left: report.lines.length - (rows.length - 1),
+    };
+  }
+
+  // "• Website — 3h 15m · $390.00 · 1h with no rate", most time first.
+  private getTotalsBlock(
+    title: string,
+    totals: IBillingTotal[],
+    money: (cents: number) => string,
+  ): AnyBlock {
+    const lines = totals
+      .slice(0, MAX_TOTALS)
+      .map(({ name, minutes, amount, unratedMinutes }) =>
+        [
+          `• ${escapeMrkdwn(name)} — ${hours(minutes)}`,
+          amount && money(amount),
+          unratedMinutes && `${hours(unratedMinutes)} with no rate`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      );
+    const left = totals.length - lines.length;
+
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: [
+          `*${title}*`,
+          ...lines,
+          ...(left ? [`_and ${left} more_`] : []),
+        ].join('\n'),
+      },
+    };
   }
 }

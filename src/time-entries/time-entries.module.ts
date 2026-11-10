@@ -9,9 +9,10 @@ import { ProjectsModule } from 'src/projects/projects.module';
 import { TeamsModule } from '@modules/teams/teams.module';
 import { ClientsModule } from '@modules/clients/clients.module';
 import { BillingReportService } from 'src/time-entries/services/billing-report.service';
+import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
 
 @Module({
-  imports: [ProjectsModule, TeamsModule, ClientsModule],
+  imports: [ProjectsModule, TeamsModule, ClientsModule, SlackTeamsModule],
   providers: [
     TimeEntriesRepository,
     TimeEntriesService,

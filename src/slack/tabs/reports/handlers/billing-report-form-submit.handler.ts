@@ -48,7 +48,7 @@ export class BillingReportFormSubmitHandler extends BaseModalFormSubmitHandler<
     user: IUserViewModel,
   ): Promise<IBillingReport> {
     const report = await this.billingReportService.getClientReport({
-      slackTeamId: user.slack_team_id,
+      user,
       clientId: data.clientId.value,
       fromDate: data.fromDate,
       toDate: data.toDate,
