@@ -25,6 +25,10 @@ export interface ISqlCount {
 export interface ISqlLog {
   // The position in the log now, for count() and statements().
   mark(): number;
+  // Makes every statement come back `ms` later, as from a database far away,
+  // for the rest of the test file: round trips then show clearly in the
+  // timings. 0 turns it off.
+  setLatency(ms: number): void;
   // What was sent after `since`: on the way to the answer (`answer`), and in
   // all, background work included (`all`). Call it after t.idle().
   count(since: number): { answer: ISqlCount; all: ISqlCount };
@@ -35,8 +39,9 @@ const log: ISqlStatement[] = [];
 let installed = false;
 
 // SQL_LATENCY_MS=100 makes every statement come back that much later, as on
-// a laptop talking to a database in another region. Off by default.
-const latencyMs = Number(process.env.SQL_LATENCY_MS ?? 0);
+// a laptop talking to a database in another region, and so does
+// setLatency(). Off by default.
+let latencyMs = Number(process.env.SQL_LATENCY_MS ?? 0);
 
 // What every new connection runs first (DatabaseService): it depends on how
 // warm the pool is, not on the action.
@@ -163,6 +168,9 @@ export const createSqlLog = (): ISqlLog => {
 
   return {
     mark: () => log.length,
+    setLatency: (ms) => {
+      latencyMs = ms;
+    },
     statements: (since) => log.slice(since),
     count: (since) => {
       const statements = log.slice(since);
