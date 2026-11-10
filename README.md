@@ -229,6 +229,7 @@ Coverage means little for one suite alone: unit tests leave the Slack UI out, an
 - check the database and the calls the app made to Slack;
 - fail on anything Slack would refuse: a view or message it would not accept, errors for fields a modal does not have, or an answer later than Slack's 3 seconds.
 - fail on what Slack accepts but shows otherwise than meant: more than five buttons in a row (Slack folds the rest into "+ N more"), a ⋯ menu with one option, two dividers in a row, Markdown in `mrkdwn` text or formatting in `plain_text`. A look at the real Slack that finds something like this adds a rule to `support/block-kit-display-rules.ts`.
+- fail when an action people wait on (the week and day forms, My time, an edit of time off) sends more statements, or more round trips one after another, to the database before its answer than `round-trips.int-spec.ts` allows. Far from its database (a laptop and Supabase in another region) a round trip costs about 100 ms.
 
 Each test starts on a fixed date (Wednesday 2026-06-17), waits for the work the app does after answering Slack with `await t.idle()` instead of polling, and reads tabs through `support/tab-readers.ts` (list items, sections, buttons) rather than searching their JSON.
 
@@ -240,6 +241,7 @@ Rules for the integration tests:
 ```bash
 pnpm test:int test/integration/vacation-approval.int-spec.ts   # one file
 LOG_LEVEL=debug pnpm test:int                                  # with the app's logs
+SQL_LATENCY_MS=100 pnpm test:int test/integration/timesheet.int-spec.ts   # every query 100 ms later, as far from the database
 ```
 
 A bug a test has found but nobody has fixed yet stays in the suite as `it.failing`, with a `BUG:` comment that points at the code. Such a test passes while the bug is there and fails once it is fixed; then make it a plain `it`.
