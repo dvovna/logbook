@@ -85,3 +85,16 @@ export const presetPeriod = (
       return null;
   }
 };
+
+// The Monday of the week that holds `date` (YYYY-MM-DD, UTC).
+export const weekStartOf = (date: string): string =>
+  presetPeriod(PeriodPreset.ThisWeek, new Date(`${date}T00:00:00Z`))!.fromDate;
+
+// The seven days of the week that starts on `weekStart`, Monday to Sunday.
+export const weekDays = (weekStart: string): string[] => {
+  const start = new Date(`${weekStart}T00:00:00Z`).getTime();
+
+  return Array.from({ length: 7 }, (_, index) =>
+    isoDate(new Date(start + index * DAY_MS)),
+  );
+};
