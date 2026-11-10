@@ -28,6 +28,7 @@ import {
   MAX_TIMESHEET_ROWS,
   TimesheetCellLock,
 } from 'src/time-entries/types/timesheet.types';
+import { timesheetLock } from 'src/time-entries/utils/timesheet-lock';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // The week form offers the projects of the shown week and of the 4 before.
@@ -42,6 +43,10 @@ const LOCK_MESSAGES: Record<TimesheetCellLock, string> = {
   billed: BILLED_ENTRY_MESSAGE,
   project: 'This project is not available.',
 };
+
+// The day form's comment when no cell changed: there is no entry to put it on.
+const COMMENT_WITHOUT_CHANGES_MESSAGE =
+  'The comment goes on the entries whose hours you add or change: nothing changed.';
 
 interface IProjectInfo {
   id: string;
@@ -115,7 +120,8 @@ export class TimesheetService {
     const weekEntries = recent.filter((entry) => entry.work_date >= days[0]);
     // Which rows stay when there are too many: the projects with time in the
     // shown week, so that the form shows all of it, then the added ones,
-    // then the others.
+    // then the others. An older project the user may no longer log on
+    // (archived, or no longer theirs) has nothing to show: no row.
     const ranks = new Map<string, number>();
     const rank = (projectId: string, value: number) => {
       if (!ranks.has(projectId)) {
@@ -127,7 +133,9 @@ export class TimesheetService {
     addedProjectIds
       .filter((id) => allowedIds.has(id))
       .forEach((id) => rank(id, 1));
-    recent.forEach((entry) => rank(entry.project_id, 2));
+    recent
+      .filter((entry) => allowedIds.has(entry.project_id))
+      .forEach((entry) => rank(entry.project_id, 2));
 
     return this.buildWeek(user, weekStart, weekEntries, ranks, {
       allowed,
@@ -167,9 +175,10 @@ export class TimesheetService {
   // a ValidationError at it (its cellKey). A number creates a draft or
   // changes the cell's entry (a rejected one becomes a draft again), null
   // deletes the entry.
-  // `comment` is the description of what is created or changed;
-  // `submitWeekStart` submits that week's drafts and rejected entries after
-  // saving.
+  // `comment` is the description of what is created or changed: with no
+  // cell changed it would go nowhere, and saving refuses it at the field
+  // `comment`. `submitWeekStart` submits that week's drafts and rejected
+  // entries after saving.
   public async saveCells(
     user: IUserViewModel,
     inputs: ITimesheetCellInput[],
@@ -196,10 +205,15 @@ export class TimesheetService {
       (input) => input.minutes !== input.shownMinutes,
     );
 
+    if (comment && !touched.length) {
+      throw new ValidationError(COMMENT_WITHOUT_CHANGES_MESSAGE, 'comment');
+    }
+
     return this.transactions.transaction(async () => {
-      // Two saves of one person's time (a second click on Save) take turns,
-      // and the second sees what the first wrote.
-      await this.transactions.lock(`timesheet:${user.id}`);
+      // Two saves of one person's time (a second click on Save), or a save
+      // and the logging of their time off, take turns, and the second sees
+      // what the first wrote.
+      await this.transactions.lock(timesheetLock(user.id));
 
       const changes = await this.checkCells(user, touched, comment);
       const result = await this.writeCells(user, changes, comment);

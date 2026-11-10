@@ -242,6 +242,30 @@ describe('TimesheetService', () => {
     ]);
   });
 
+  it('leaves out older projects the user may no longer log on', async () => {
+    projects = [
+      project('web'),
+      project('old', { archived_at: '2026-06-01T00:00:00Z' }),
+      project('gone'),
+      project('closed', { archived_at: '2026-06-01T00:00:00Z' }),
+    ];
+    // 'gone' was the user's once; 'closed' has time in the shown week.
+    entries = [
+      entry('e-web', 'web', 60, { work_date: '2026-06-03' }),
+      entry('e-old', 'old', 60, { work_date: '2026-06-03' }),
+      entry('e-gone', 'gone', 60, { work_date: '2026-06-03' }),
+      entry('e-closed', 'closed', 60),
+    ];
+
+    const week = await service.getFormRows(userWith(UserRole.Member), WEEK, []);
+
+    expect(week.rows.map((row) => row.projectId)).toEqual(['closed', 'web']);
+    expect(week.rows[0].cells[2]).toMatchObject({
+      minutes: 60,
+      lock: 'project',
+    });
+  });
+
   it('keeps a project from 4 weeks before the shown one', async () => {
     entries = [entry('e', 'web', 60, { work_date: '2026-05-18' })];
 
@@ -297,11 +321,13 @@ describe('TimesheetService.saveCells', () => {
     'validateCreate' | 'validateUpdate' | 'validateDelete',
     jest.Mock
   >;
+  let lock: jest.Mock;
   let service: TimesheetService;
   const member = userWith(UserRole.Member);
 
   beforeEach(() => {
     entries = [];
+    lock = jest.fn(async () => undefined);
     writes = {
       insert: jest.fn(async (params) => {
         const created = entry(
@@ -348,7 +374,7 @@ describe('TimesheetService.saveCells', () => {
       validation as unknown as TimeEntriesValidationService,
       {
         transaction: async <T>(work: () => Promise<T>) => work(),
-        lock: jest.fn(async () => undefined),
+        lock,
       } as unknown as TransactionService,
     );
   });
@@ -406,6 +432,36 @@ describe('TimesheetService.saveCells', () => {
         [MONDAY]: 0,
       }),
     });
+  });
+
+  it('refuses a comment when no cell changed, and writes nothing', async () => {
+    entries = [entry('d', 'web', 60)];
+
+    await expect(
+      service.saveCells(
+        member,
+        [
+          { projectId: 'web', date: WEDNESDAY, minutes: 60, shownMinutes: 60 },
+          { projectId: 'web', date: MONDAY, minutes: null, shownMinutes: null },
+        ],
+        { comment: 'Sprint review' },
+      ),
+    ).rejects.toMatchObject({
+      message:
+        'The comment goes on the entries whose hours you add or change: nothing changed.',
+      field: 'comment',
+    });
+    expect(writes.insert).not.toHaveBeenCalled();
+    expect(writes.writeUpdate).not.toHaveBeenCalled();
+    expect(writes.writeDelete).not.toHaveBeenCalled();
+  });
+
+  it("saves under the lock of the user's time", async () => {
+    await service.saveCells(member, [
+      { projectId: 'web', date: MONDAY, minutes: 60, shownMinutes: null },
+    ]);
+
+    expect(lock).toHaveBeenCalledWith('timesheet:me');
   });
 
   it('refuses a cell whose entry was submitted between the check and the write', async () => {

@@ -7,6 +7,7 @@ import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { cellKey } from 'src/time-entries/types/timesheet.types';
+import { COMMENT_BLOCK_ID } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import {
@@ -445,7 +446,7 @@ describe('Fill in the week', () => {
 
     const myTime = await publishedHome(t, workspace, member, since);
 
-    expect(noticeOf(myTime)).toBe('✅ 26h saved for the week of 15 Jun.');
+    expect(noticeOf(myTime)).toBe('✅ Saved. Week of 15 Jun: 26h.');
     expect(tableRows(myTime)).toEqual([
       ['Project', 'Mon 15', 'Tue 16', 'Wed 17', 'Thu 18', 'Fri 19', 'Total'],
       ['Mobile · Acme', '2h', '4h', '3h', '2h', '', '11h'],
@@ -826,6 +827,31 @@ describe('Fill in the week', () => {
     ]);
   });
 
+  it('leaves out older projects the member may no longer log on', async () => {
+    const retired = await workspace.addProject({
+      name: 'Retired',
+      client_id: acme.id,
+    });
+    await workspace.assignToProject(retired, { teams: [design] });
+    await t.db
+      .updateTable('projects')
+      .set({ archived_at: new Date().toISOString() })
+      .where('id', '=', retired.id)
+      .execute();
+    // Never assigned to the member's team.
+    const elsewhere = await workspace.addProject({
+      name: 'Elsewhere',
+      client_id: acme.id,
+    });
+    await entry(retired, LAST_WEEK);
+    await entry(elsewhere, LAST_WEEK);
+    await entry(website, LAST_WEEK);
+
+    expect(timesheetFormRows(await openForm())).toEqual([
+      { project: 'Website · Acme', cells: [...EMPTY_WEEK, 'Fri 19 []'] },
+    ]);
+  });
+
   it('submits the week too when asked', async () => {
     await entry(website, LAST_WEEK);
     await entry(website, TUE);
@@ -869,7 +895,7 @@ describe('Fill in the week', () => {
     ]);
     expect(await workspace.row('time_entries', members.id)).toEqual(members);
     expect(noticeOf(await publishedHome(t, workspace, hr, since))).toBe(
-      '✅ 3h saved for the week of 15 Jun.',
+      '✅ Saved. Week of 15 Jun: 3h.',
     );
   });
 });
@@ -973,7 +999,7 @@ describe('Fill in today', () => {
       'Website 2026-06-17 300 draft Sprint review',
     ]);
     expect(noticeOf(await publishedHome(t, workspace, member, since))).toBe(
-      '✅ 8h saved for Wed 17 Jun.',
+      '✅ Saved. Wed 17 Jun: 8h.',
     );
   });
 
@@ -1021,6 +1047,72 @@ describe('Fill in today', () => {
       { project: 'Mobile · Acme', cells: ['Wed 17 []'] },
       { project: 'Website · Acme', cells: ['Wed 17 [5]'] },
     ]);
+  });
+
+  it('refuses a comment when no hours changed', async () => {
+    const draft = await entry(website, WED, { description: 'Design' });
+
+    const answer = await submit(await openForm(), {
+      [TimesheetFormActionId.Comment]: 'Review',
+    });
+
+    expect(answer.body).toEqual({
+      response_action: 'errors',
+      errors: {
+        [COMMENT_BLOCK_ID]:
+          'The comment goes on the entries whose hours you add or change: nothing changed.',
+      },
+    });
+    expect(await entriesOf()).toEqual(['Website 2026-06-17 60 draft Design']);
+    expect(await workspace.row('time_entries', draft.id)).toEqual(draft);
+  });
+
+  it("goes back to My time on the saved day's week", async () => {
+    await entry(website, LAST_WEEK);
+    // Opened from last week, the form is still today's.
+    const lastWeek = await actOnTab(
+      t,
+      workspace,
+      member,
+      await openAppHomeTab(t, workspace, member, MY_TIME),
+      TimeEntriesTabViewActionId.PreviousWeek,
+    );
+    let since = t.slackApi.mark();
+
+    await submit(
+      await openModalFrom(
+        t,
+        workspace,
+        member,
+        lastWeek,
+        TimeEntriesTabViewActionId.FillDay,
+      ),
+      { [cellKey(website.id, WED)]: '5' },
+    );
+
+    let myTime = await publishedHome(t, workspace, member, since);
+
+    expect(noticeOf(myTime)).toBe('✅ Saved. Wed 17 Jun: 5h.');
+    expect(timesheetStatusOf(myTime)).toBe(
+      '🕒 Week of 15 Jun · 5h · 📝 1 draft',
+    );
+
+    // Another day chosen in the form: that day's week.
+    const changed = await actOnForm(
+      await openForm(),
+      TimesheetFormActionId.Day,
+      '2026-06-09',
+    );
+    since = t.slackApi.mark();
+
+    await submit(changed, { [cellKey(website.id, '2026-06-09')]: '2' });
+
+    myTime = await publishedHome(t, workspace, member, since);
+
+    expect(noticeOf(myTime)).toBe('✅ Saved. Tue 9 Jun: 2h.');
+    expect(timesheetStatusOf(myTime)).toBe(
+      '🕒 Week of 8 Jun · 3h · 📝 2 drafts',
+    );
   });
 
   it("keeps an entry's description when the comment is left empty", async () => {

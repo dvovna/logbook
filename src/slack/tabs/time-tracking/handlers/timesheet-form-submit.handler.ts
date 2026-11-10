@@ -18,7 +18,10 @@ import {
 } from '@modules/slack/tabs/time-tracking/parsers/timesheet-form.parser';
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
-import { TimesheetFormMetadata } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
+import {
+  COMMENT_BLOCK_ID,
+  TimesheetFormMetadata,
+} from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 import {
   dayLabel,
   weekLabel,
@@ -53,16 +56,19 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
     return parseTimesheetForm(payload.view);
   }
 
-  // An error about a cell shows at its input. A cell the form has no input
-  // for came from the client: its error shows in the modal.
+  // An error about a cell shows at its input, one about the comment at the
+  // comment. A cell the form has no input for came from the client: its
+  // error shows in the modal.
   protected blockIdOfField(
     field: string,
     payload: ISlackViewSubmissionPayload,
   ): string | null {
+    const blockId = field === 'comment' ? COMMENT_BLOCK_ID : field;
+
     return (payload.view.blocks ?? []).some(
-      (block) => block.type === 'input' && block.block_id === field,
+      (block) => block.type === 'input' && block.block_id === blockId,
     )
-      ? field
+      ? blockId
       : null;
   }
 
@@ -78,34 +84,44 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
         ? cell.date === metadata.date
         : weekDays(metadata.weekStart).includes(cell.date),
     );
+    // Only the day form has a comment.
+    const dayComment = isDay ? comment : undefined;
 
-    if (!inputs.length && !submitWeek) {
+    if (!inputs.length && !submitWeek && !dayComment) {
       return null;
     }
 
     return this.timesheetService.saveCells(user, inputs, {
-      comment: isDay ? comment : undefined,
+      comment: dayComment,
       submitWeekStart: submitWeek ? metadata.weekStart : undefined,
     });
   }
 
+  // My time on the form's week: the day form's day may be in another week
+  // than the one My time showed, and the notice is about that day.
   protected successResponse(
     result: ITimesheetSaveResult | null,
     user: IUserViewModel,
     metadata: TimesheetFormMetadata,
   ) {
+    const page: ITimeEntriesTabMetaData = metadata.pageMetadata
+      ? (JSON.parse(metadata.pageMetadata) as ITimeEntriesTabMetaData)
+      : { ownEntriesOnly: true };
+
     this.tabNavigationService.navigate(TabId.TimeEntries, {
       user,
-      metadata: metadata.pageMetadata
-        ? (JSON.parse(metadata.pageMetadata) as ITimeEntriesTabMetaData)
-        : { ownEntriesOnly: true, weekStart: metadata.weekStart },
+      metadata:
+        page.weekStart === metadata.weekStart
+          ? page
+          : { ...page, weekStart: metadata.weekStart, page: 1 },
       notice: result ? this.noticeOf(result, metadata) : undefined,
     });
 
     return SlackViewResponseFactory.success();
   }
 
-  // '✅ 26h saved for the week of 15 Jun.', '✅ 8h saved for Wed 17 Jun.'
+  // What the week or the day holds after saving: '✅ Saved. Week of 15 Jun:
+  // 26h.', '✅ Saved. Wed 17 Jun: 8h.'
   private noticeOf(
     result: ITimesheetSaveResult,
     { mode, date, weekStart }: TimesheetFormMetadata,
@@ -113,8 +129,8 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
     const day = mode === 'day' && date;
     const minutes = day ? (result.minutesByDate[date] ?? 0) : result.minutes;
 
-    return `✅ ${minutes ? getDisplayTime(minutes) : '0h'} saved for ${
-      day ? dayLabel(date) : `the week of ${weekLabel(weekStart)}`
+    return `✅ Saved. ${day ? dayLabel(date) : `Week of ${weekLabel(weekStart)}`}: ${
+      minutes ? getDisplayTime(minutes) : '0h'
     }.`;
   }
 
