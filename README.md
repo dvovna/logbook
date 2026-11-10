@@ -34,6 +34,8 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - Clients, projects with team and user assignments, and billable flags.
 - Hourly rates: a project's rate, and a person's own rate on a project that replaces it. One currency per workspace, which an admin sets. Only admins and HR see rates and amounts.
 - Time entries in 15-minute steps, logged from the App Home or with `/log` as drafts, and then submitted for approval.
+- My time shows the week as a table of projects by day, with previous and next week and "Submit week". One form fills in a week, or a day with a comment, across your projects.
+- Time off as time: admins map each leave type to a project and set the hours of a working day; an approved request then offers to log its working days as approved time on that project.
 - The team's managers, HR or an admin approve or reject submitted time; a rejection tells the owner why.
 - Time reports for a period, by client, project, person or team: hours, billable and approved time, and for admins and HR the amounts. Admins and HR see everyone's time, managers their teams' and their own, everyone else their own. A quick period (this or last week, month, quarter) fills the dates, and the report and its CSV can be narrowed to a client, a project or a person.
 - "Who hasn't submitted": the people a manager, HR or an admin sees who logged nothing in a period, or still have drafts or rejected time in it.
