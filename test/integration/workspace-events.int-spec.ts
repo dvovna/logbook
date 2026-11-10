@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 import { WorkspaceRetentionService } from '@modules/slack-teams/workspace-retention.service';
 import * as request from 'supertest';
 import UserRole from '@common/enums/user-role.enum';
@@ -85,6 +86,38 @@ describe('Slack events', () => {
       team_id: null,
     });
     expect(user?.contract_start_date).not.toBeNull();
+  });
+
+  // An app's bot joins the workspace when the app is installed.
+  it('leaves out bots and accounts without an email that join', async () => {
+    const failed = jest.spyOn(Logger.prototype, 'error');
+    const bot = slackId('U');
+    const noEmail = slackId('U');
+
+    for (const user of [
+      {
+        ...slackMember(workspace, { id: bot, name: 'Some app', email: '' }),
+        is_bot: true,
+        profile: {},
+      },
+      {
+        ...slackMember(workspace, { id: noEmail, name: 'Guest', email: '' }),
+        profile: {},
+      },
+    ]) {
+      await t.slack
+        .event(workspace, { type: 'team_join', user })
+        .expect(acknowledged);
+    }
+
+    await t.idle();
+    const ids = (await workspace.rows('users')).map(({ slack_id }) => slack_id);
+
+    expect(ids).not.toContain(bot);
+    expect(ids).not.toContain(noEmail);
+    // No job failed, so none waits to be retried.
+    expect(failed).not.toHaveBeenCalled();
+    failed.mockRestore();
   });
 
   it('adds a member who is already in another workspace', async () => {

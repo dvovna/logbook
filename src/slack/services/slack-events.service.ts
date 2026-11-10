@@ -1,3 +1,4 @@
+import { isPersonWithEmail } from '@modules/slack-communication/services/slack-users.service';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
 import UserRole from '@common/enums/user-role.enum';
@@ -278,6 +279,21 @@ export default class SlackEventsService implements OnModuleInit {
         isActive: user.is_active,
         slackTeamId: user.slack_team_id,
       });
+
+      return;
+    }
+
+    // An app's bot joins when the app is installed, and has no email: as
+    // the member import does, leave out bots and accounts without an email
+    // instead of failing (and retrying for hours) on the missing email.
+    if (!isPersonWithEmail(event.user)) {
+      this.logger.log(
+        'Ignoring a join of a bot or an account without an email',
+        {
+          slackId: event.user.id,
+          isBot: event.user.is_bot,
+        },
+      );
 
       return;
     }

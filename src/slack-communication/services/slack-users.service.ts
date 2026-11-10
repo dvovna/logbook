@@ -29,6 +29,14 @@ type IUserProfileResponseData = WebAPICallResult & {
 const GET_USERS_LIMIT = 100;
 const SLACK_BOT_ID = 'USLACKBOT';
 
+// A Slack account the app keeps as a user: a person with an email, not a bot
+// or Slackbot. The member import and team_join both go by it.
+export const isPersonWithEmail = (member: {
+  id: string;
+  is_bot?: boolean;
+  profile?: { email?: string };
+}) => !member.is_bot && member.id !== SLACK_BOT_ID && !!member.profile?.email;
+
 @Injectable()
 export default class SlackUsersService {
   private readonly logger = new Logger(SlackUsersService.name);
@@ -95,12 +103,6 @@ export default class SlackUsersService {
       }
     } while (cursor);
 
-    return allUsers.filter(
-      (user) =>
-        !user.deleted &&
-        !user.is_bot &&
-        !!user.profile?.email &&
-        user.id !== SLACK_BOT_ID,
-    );
+    return allUsers.filter((user) => !user.deleted && isPersonWithEmail(user));
   }
 }
