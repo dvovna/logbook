@@ -20,6 +20,7 @@ import {
   timesheetStatusOf,
 } from './support/tab-readers';
 import { travelTo } from './support/clock';
+import { acknowledged } from './support/slack-test-client';
 import {
   actOnTab,
   openAppHomeTab,
@@ -599,6 +600,47 @@ describe('Fill in the week', () => {
 
     expect(asShown.body).toEqual({ response_action: 'clear' });
     expect(await workspace.row('time_entries', draft.id)).toEqual(submitted);
+  });
+
+  it('refuses a cell someone logged time in after the form opened', async () => {
+    await entry(website, LAST_WEEK);
+    const form = await openForm();
+    const key = cellKey(website.id, WED);
+
+    expect(timesheetFormRows(form)[0].cells[2]).toBe('Wed 17 []');
+
+    // Then 2h on Wednesday with /log.
+    const since = t.slackApi.mark();
+    await t.slack
+      .command('/api/slack/log', workspace, member)
+      .expect(acknowledged);
+    await t.idle();
+    await t.slack
+      .submitView(
+        workspace,
+        member,
+        t.slackApi.openedModal(workspace.token, { since }),
+        { projectId: website.id, workDate: WED, hours: '2' },
+      )
+      .expect(200);
+    const [logged] = (await workspace.rows('time_entries')).filter(
+      (row) => row.work_date === WED,
+    );
+    expect(logged.minutes).toBe(120);
+
+    const answer = await submit(form, { [key]: '3' });
+
+    expect(answer.body).toEqual({
+      response_action: 'errors',
+      errors: {
+        [key]: 'This time changed after the form opened: open the form again.',
+      },
+    });
+    expect(await workspace.row('time_entries', logged.id)).toEqual(logged);
+    expect(await entriesOf()).toEqual([
+      'Website 2026-06-08 60 draft',
+      'Website 2026-06-17 120 draft',
+    ]);
   });
 
   it('adds a project and shows the weekend', async () => {

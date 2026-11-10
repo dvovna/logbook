@@ -27,6 +27,7 @@ import {
   BILLED_ENTRY_MESSAGE,
   isBilledEntryError,
 } from 'src/time-entries/constants/billed-time-entries';
+import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-changed.error';
 
 interface ICreateParams {
   userId: string;
@@ -47,6 +48,24 @@ interface IUpdateParams {
   minutes?: number;
   description?: string | null;
   status?: TimeEntryStatus;
+}
+
+// What an entry takes from its project.
+interface IEntryProject {
+  id: string;
+  client_id: string | null;
+  billable: boolean;
+}
+
+interface IWriteOptions {
+  // Write only while the entry is a draft or rejected: the owner's rule, and
+  // the timesheet's for everyone. Admin and HR otherwise change any entry.
+  openOnly?: boolean;
+}
+
+interface IUpdateWriteOptions extends IWriteOptions {
+  // The new project, when the changes move the entry to one.
+  project?: IEntryProject;
 }
 
 interface IFindParams {
@@ -87,30 +106,38 @@ export class TimeEntriesService {
 
     await this.timeEntriesValidationService.validateCreate(createParams, user);
 
-    const now = new Date().toISOString();
-
-    const record = {
-      user_id: createParams.userId,
-      project_id: project.id,
-      client_id: project.client_id,
-      work_date: createParams.workDate.toISOString(),
-      minutes: createParams.minutes,
-      description: createParams.description || null,
-      billable: project.billable,
-      status: createParams.status,
-      team_id: createParams.teamId,
-      slack_team_id: user.slack_team_id,
-      created_at: now,
-      updated_at: now,
-      created_by: user.id,
-      updated_by: user.id,
-    };
-
-    const created = await this.timeEntriesRepository.create(record);
+    const created = await this.insert(createParams, project, user);
 
     this.announceSubmitted([created], user);
 
     return created;
+  }
+
+  // Writes a new entry the caller has checked (create(), the timesheet). It
+  // takes its client and billability from its project.
+  public insert(
+    params: ICreateParams,
+    project: IEntryProject,
+    actor: IUserViewModel,
+  ): Promise<ITimeEntryViewModel> {
+    const now = new Date().toISOString();
+
+    return this.timeEntriesRepository.create({
+      user_id: params.userId,
+      project_id: project.id,
+      client_id: project.client_id,
+      work_date: params.workDate.toISOString(),
+      minutes: params.minutes,
+      description: params.description || null,
+      billable: project.billable,
+      status: params.status,
+      team_id: params.teamId,
+      slack_team_id: actor.slack_team_id,
+      created_at: now,
+      updated_at: now,
+      created_by: actor.id,
+      updated_by: actor.id,
+    });
   }
 
   public async update(
@@ -138,49 +165,14 @@ export class TimeEntriesService {
       user,
     );
 
-    const updated = await this.refusingBilled(() =>
-      this.timeEntriesRepository.update(
-        {
-          id,
-          slack_team_id: slackTeamId,
-        },
-        {
-          ...(updateParams.userId !== undefined
-            ? { user_id: updateParams.userId }
-            : {}),
-          ...(updateParams.teamId !== undefined
-            ? { team_id: updateParams.teamId }
-            : {}),
-          ...(project
-            ? {
-                project_id: project.id,
-                client_id: project.client_id,
-                billable: project.billable,
-              }
-            : {}),
-          ...(updateParams.workDate !== undefined
-            ? {
-                work_date: updateParams.workDate.toISOString(),
-              }
-            : {}),
-          ...(updateParams.minutes !== undefined
-            ? { minutes: updateParams.minutes }
-            : {}),
-          ...(updateParams.description !== undefined
-            ? { description: updateParams.description }
-            : {}),
-          ...(updateParams.status !== undefined
-            ? { status: updateParams.status }
-            : {}),
-          // A changed entry is no longer the one that was rejected.
-          ...(updateParams.status !== undefined &&
-          updateParams.status !== TimeEntryStatus.Rejected
-            ? { rejection_reason: null }
-            : {}),
-          updated_at: new Date().toISOString(),
-          updated_by: user.id,
-        },
-      ),
+    const updated = await this.answeringAsTheCheck(
+      () => this.writeUpdate(existingEntry, updateParams, user, { project }),
+      async () =>
+        this.timeEntriesValidationService.validateUpdate(
+          await this.findOneWithValidation({ id, slackTeamId }),
+          updateParams,
+          user,
+        ),
     );
 
     if (existingEntry.status !== TimeEntryStatus.Submitted) {
@@ -188,6 +180,83 @@ export class TimeEntriesService {
     }
 
     return updated;
+  }
+
+  // Writes `changes` to `entry`, which the caller read and checked, unless it
+  // changed since: deleted, or no longer a draft or rejected when only such
+  // an entry may change (`openOnly`, by default the owner's rule). Throws
+  // TimeEntryChangedError then, and the billed message when a billing
+  // snapshot took the entry.
+  public async writeUpdate(
+    entry: ITimeEntryViewModel,
+    changes: IUpdateParams,
+    actor: IUserViewModel,
+    {
+      project,
+      openOnly = !isTimeEntriesAdmin(actor.role),
+    }: IUpdateWriteOptions = {},
+  ): Promise<ITimeEntryViewModel> {
+    const [updated] = await this.refusingBilled(() =>
+      this.timeEntriesRepository.updateMany(
+        this.unchangedSinceCheck(entry, openOnly),
+        {
+          ...(changes.userId !== undefined ? { user_id: changes.userId } : {}),
+          ...(changes.teamId !== undefined ? { team_id: changes.teamId } : {}),
+          ...(project
+            ? {
+                project_id: project.id,
+                client_id: project.client_id,
+                billable: project.billable,
+              }
+            : {}),
+          ...(changes.workDate !== undefined
+            ? { work_date: changes.workDate.toISOString() }
+            : {}),
+          ...(changes.minutes !== undefined
+            ? { minutes: changes.minutes }
+            : {}),
+          ...(changes.description !== undefined
+            ? { description: changes.description }
+            : {}),
+          ...(changes.status !== undefined ? { status: changes.status } : {}),
+          // A changed entry is no longer the one that was rejected.
+          ...(changes.status !== undefined &&
+          changes.status !== TimeEntryStatus.Rejected
+            ? { rejection_reason: null }
+            : {}),
+          updated_at: new Date().toISOString(),
+          updated_by: actor.id,
+        },
+      ),
+    );
+
+    if (!updated) {
+      throw new TimeEntryChangedError();
+    }
+
+    return updated;
+  }
+
+  // Deletes `entry` (keeping it as history), which the caller read and
+  // checked, unless it changed since, as writeUpdate.
+  public async writeDelete(
+    entry: ITimeEntryViewModel,
+    actor: IUserViewModel,
+    { openOnly = !isTimeEntriesAdmin(actor.role) }: IWriteOptions = {},
+  ): Promise<void> {
+    const [deleted] = await this.refusingBilled(() =>
+      this.timeEntriesRepository.updateMany(
+        this.unchangedSinceCheck(entry, openOnly),
+        {
+          deleted_at: new Date().toISOString(),
+          deleted_by: actor.id,
+        },
+      ),
+    );
+
+    if (!deleted) {
+      throw new TimeEntryChangedError();
+    }
   }
 
   public findOne(params: IFindParams): Promise<ITimeEntryViewModel | null> {
@@ -314,17 +383,50 @@ export class TimeEntriesService {
 
     await this.timeEntriesValidationService.validateDelete(entry, user);
 
-    await this.refusingBilled(() =>
-      this.timeEntriesRepository.update(
-        { id: entry.id, slack_team_id: entry.slack_team_id },
-        {
-          deleted_at: new Date().toISOString(),
-          deleted_by: user.id,
-        },
-      ),
+    await this.answeringAsTheCheck(
+      () => this.writeDelete(entry, user),
+      async () =>
+        this.timeEntriesValidationService.validateDelete(
+          await this.findOneWithValidation(params),
+          user,
+        ),
     );
 
     return entry;
+  }
+
+  // The entry as the caller checked it: not deleted, and still a draft or
+  // rejected when `openOnly`.
+  private unchangedSinceCheck(
+    entry: ITimeEntryViewModel,
+    openOnly: boolean,
+  ): RepositoryFilter {
+    return {
+      id: entry.id,
+      slack_team_id: entry.slack_team_id,
+      deleted_at: { operator: 'is', value: null },
+      ...(openOnly
+        ? { status: { operator: 'in', value: OPEN_TIME_ENTRY_STATUSES } }
+        : {}),
+    };
+  }
+
+  // A write refused because the entry changed after its check answers as
+  // the check does now ("Submitted time entries cannot be edited", not found
+  // once deleted).
+  private async answeringAsTheCheck<T>(
+    write: () => Promise<T>,
+    check: () => Promise<unknown>,
+  ): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      if (error instanceof TimeEntryChangedError) {
+        await check();
+      }
+
+      throw error;
+    }
   }
 
   // A snapshot can take the entry between the check and the write; the

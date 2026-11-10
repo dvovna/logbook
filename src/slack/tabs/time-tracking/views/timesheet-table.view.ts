@@ -2,7 +2,11 @@ import { AnyBlock } from '@slack/web-api';
 import pluralize from 'pluralize';
 import { getDisplayTime } from '@common/utils/time.utils';
 import { formatDate } from '@common/utils/date.utils';
-import { tableBlock } from '@modules/slack/tabs/reports/views/report-table';
+import {
+  fitTableRows,
+  moreLinesBlocks,
+  tableBlock,
+} from '@modules/slack/tabs/reports/views/report-table';
 import { TIME_ENTRY_STATUS_LABELS } from '@modules/slack/common/views/data/labels';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ITimesheetWeek } from 'src/time-entries/types/timesheet.types';
@@ -81,12 +85,16 @@ export class TimesheetTableView {
       ...shown.map((index) => hours(week.dayTotals[index])),
       hours(week.total),
     ];
+    // Every project of the week; past what a table holds, the rest only in
+    // the totals.
+    const fitted = fitTableRows(header, rows, [totals]);
 
     return [
-      tableBlock(
-        [header, ...rows, totals],
-        ['left', ...header.slice(1).map((): 'right' => 'right')],
-      ),
+      tableBlock(fitted.rows, [
+        'left',
+        ...header.slice(1).map((): 'right' => 'right'),
+      ]),
+      ...moreLinesBlocks(fitted.left, ', in the total'),
     ];
   }
 }

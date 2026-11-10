@@ -11,13 +11,9 @@ import {
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
-import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
-import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
-import {
-  BILLED_ENTRY_MESSAGE,
-  isBilledEntryError,
-} from 'src/time-entries/constants/billed-time-entries';
+import { BILLED_ENTRY_MESSAGE } from 'src/time-entries/constants/billed-time-entries';
+import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-changed.error';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import {
@@ -75,12 +71,12 @@ export class TimesheetService {
     private readonly projectsService: ProjectsService,
     private readonly clientsService: ClientsService,
     private readonly getUserProjectsQuery: GetUserProjectsQuery,
-    private readonly timeEntriesRepository: TimeEntriesRepository,
     private readonly timeEntriesValidationService: TimeEntriesValidationService,
     private readonly transactions: TransactionService,
   ) {}
 
-  // The week's table: a row for each project the user logged time on.
+  // The week's table: a row for each project the user logged time on, however
+  // many there are (only the forms have MAX_TIMESHEET_ROWS).
   public async getWeek(
     user: IUserViewModel,
     weekStart: string,
@@ -131,17 +127,21 @@ export class TimesheetService {
       .forEach((id) => rank(id, 1));
     recent.forEach((entry) => rank(entry.project_id, 2));
 
-    return this.buildWeek(user, weekStart, weekEntries, ranks, allowed);
+    return this.buildWeek(user, weekStart, weekEntries, ranks, {
+      allowed,
+      maxRows: MAX_TIMESHEET_ROWS,
+    });
   }
 
   // Saves what a form typed into the user's cells, all or nothing. A cell
   // still showing what the form showed is left alone, whatever it holds now:
   // a form opened before a change doesn't undo it. Every other cell is
-  // checked against what it holds now (one draft or rejected entry of the
-  // user or none, on a project they may log on, at most 24 hours) before
-  // anything is written; the first that fails throws a ValidationError at
-  // it (its cellKey). A number creates a draft or changes the cell's entry
-  // (a rejected one becomes a draft again), null deletes the entry.
+  // checked against what it holds now (still what the form showed; one draft
+  // or rejected entry of the user or none, on a project they may log on, at
+  // most 24 hours) before anything is written; the first that fails throws
+  // a ValidationError at it (its cellKey). A number creates a draft or
+  // changes the cell's entry (a rejected one becomes a draft again), null
+  // deletes the entry.
   // `comment` is the description of what is created or changed;
   // `submitWeekStart` submits that week's drafts and rejected entries after
   // saving.
@@ -271,15 +271,21 @@ export class TimesheetService {
           entry.project_id === input.projectId &&
           entry.work_date === input.date,
       );
-      const { lock } = this.buildCell(
+      const cell = this.buildCell(
         input.date,
         cellEntries,
         !project || project.archived || !allowedIds.has(project.id),
         billedIds,
       );
 
-      if (lock) {
-        throw new ValidationError(LOCK_MESSAGES[lock], key);
+      if (cell.lock) {
+        throw new ValidationError(LOCK_MESSAGES[cell.lock], key);
+      }
+
+      // Time logged or changed elsewhere since the form opened: what was
+      // typed would replace it unseen.
+      if ((cell.minutes || null) !== input.shownMinutes) {
+        throw new TimeEntryChangedError(key);
       }
 
       const [entry] = cellEntries;
@@ -292,14 +298,7 @@ export class TimesheetService {
       await this.atCell(key, () => {
         if (!entry) {
           return this.timeEntriesValidationService.validateCreate(
-            {
-              userId: user.id,
-              projectId: input.projectId,
-              workDate: new Date(`${input.date}T00:00:00Z`),
-              minutes: input.minutes!,
-              status: TimeEntryStatus.Draft,
-              description: comment,
-            },
+            this.newEntry(user, input, comment),
             user,
           );
         }
@@ -308,11 +307,7 @@ export class TimesheetService {
           ? this.timeEntriesValidationService.validateDelete(entry, user)
           : this.timeEntriesValidationService.validateUpdate(
               entry,
-              {
-                minutes: input.minutes,
-                status: TimeEntryStatus.Draft,
-                ...(comment ? { description: comment } : {}),
-              },
+              this.entryChanges(input.minutes, comment),
               user,
             );
       });
@@ -323,74 +318,76 @@ export class TimesheetService {
     return changes;
   }
 
+  // Writes what checkCells found, through TimeEntriesService's writes. A
+  // change or deletion happens only while the entry is still a draft or
+  // rejected, for every role: one submitted after the check is refused.
   private async writeCells(
     user: IUserViewModel,
     changes: ICellChange[],
     comment?: string,
   ): Promise<Omit<ITimesheetSaveResult, 'minutes'>> {
     const result = { created: 0, updated: 0, deleted: 0 };
-    const now = new Date().toISOString();
+    const openOnly = { openOnly: true };
 
     for (const { key, input, project, entry } of changes) {
       if (!entry) {
         await this.atCell(key, () =>
-          this.timeEntriesRepository.create({
-            user_id: user.id,
-            project_id: project.id,
-            client_id: project.clientId,
-            work_date: input.date,
-            minutes: input.minutes!,
-            description: comment || null,
-            billable: project.billable,
-            status: TimeEntryStatus.Draft,
-            team_id: user.team_id,
-            slack_team_id: user.slack_team_id,
-            created_at: now,
-            updated_at: now,
-            created_by: user.id,
-            updated_by: user.id,
-          }),
+          this.timeEntriesService.insert(
+            this.newEntry(user, input, comment),
+            {
+              id: project.id,
+              client_id: project.clientId,
+              billable: project.billable,
+            },
+            user,
+          ),
         );
         result.created += 1;
-
-        continue;
-      }
-
-      // Only while it is still the user's draft or rejected entry: one
-      // submitted after the check stays as it is.
-      const written = await this.atCell(key, () =>
-        this.timeEntriesRepository.updateMany(
-          {
-            id: entry.id,
-            user_id: user.id,
-            slack_team_id: user.slack_team_id,
-            deleted_at: { operator: 'is', value: null },
-            status: { operator: 'in', value: OPEN_TIME_ENTRY_STATUSES },
-          },
-          input.minutes === null
-            ? { deleted_at: now, deleted_by: user.id }
-            : {
-                minutes: input.minutes,
-                status: TimeEntryStatus.Draft,
-                rejection_reason: null,
-                ...(comment ? { description: comment } : {}),
-                updated_at: now,
-                updated_by: user.id,
-              },
-        ),
-      );
-
-      if (written.length !== 1) {
-        throw new ValidationError(
-          'This time changed after the form opened: open the form again.',
-          key,
+      } else if (input.minutes === null) {
+        await this.atCell(key, () =>
+          this.timeEntriesService.writeDelete(entry, user, openOnly),
         );
+        result.deleted += 1;
+      } else {
+        await this.atCell(key, () =>
+          this.timeEntriesService.writeUpdate(
+            entry,
+            this.entryChanges(input.minutes!, comment),
+            user,
+            openOnly,
+          ),
+        );
+        result.updated += 1;
       }
-
-      result[input.minutes === null ? 'deleted' : 'updated'] += 1;
     }
 
     return result;
+  }
+
+  // The user's draft a cell creates.
+  private newEntry(
+    user: IUserViewModel,
+    input: ITimesheetCellInput,
+    comment?: string,
+  ) {
+    return {
+      userId: user.id,
+      teamId: user.team_id,
+      projectId: input.projectId,
+      workDate: new Date(`${input.date}T00:00:00Z`),
+      minutes: input.minutes!,
+      description: comment,
+      status: TimeEntryStatus.Draft,
+    };
+  }
+
+  // What a cell changes in its entry: a rejected one is a draft again.
+  private entryChanges(minutes: number, comment?: string) {
+    return {
+      minutes,
+      status: TimeEntryStatus.Draft,
+      ...(comment ? { description: comment } : {}),
+    };
   }
 
   // Runs a check or a write of the cell `key`: what it refuses is an error at
@@ -399,12 +396,6 @@ export class TimesheetService {
     try {
       return await work();
     } catch (error) {
-      // A billing snapshot took the entry after the check
-      // (time_entries_keep_billed).
-      if (isBilledEntryError(error)) {
-        throw new ValidationError(BILLED_ENTRY_MESSAGE, key);
-      }
-
       if (
         error instanceof ValidationError ||
         error instanceof ForbiddenException
@@ -442,14 +433,14 @@ export class TimesheetService {
   }
 
   // `entries` are the week's; `ranks` the projects of the rows, the lower
-  // the rank the sooner a project gets one of the MAX_TIMESHEET_ROWS rows.
-  // `allowed` is passed when the caller has it.
+  // the rank the sooner a project gets one of `maxRows` rows (all of them
+  // without it). `allowed` is passed when the caller has it.
   private async buildWeek(
     user: IUserViewModel,
     weekStart: string,
     entries: ITimeEntryViewModel[],
     ranks: Map<string, number>,
-    allowed?: IUserProject[],
+    { allowed, maxRows }: { allowed?: IUserProject[]; maxRows?: number } = {},
   ): Promise<ITimesheetWeek> {
     const days = weekDays(weekStart);
     const [projects, allowedProjects, billedIds] = await Promise.all([
@@ -468,7 +459,7 @@ export class TimesheetService {
       .sort(
         (a, b) => ranks.get(a.id)! - ranks.get(b.id)! || byClientAndName(a, b),
       )
-      .slice(0, MAX_TIMESHEET_ROWS)
+      .slice(0, maxRows)
       .sort(byClientAndName)
       .map((project): ITimesheetRow => {
         const projectLocked = project.archived || !allowedIds.has(project.id);

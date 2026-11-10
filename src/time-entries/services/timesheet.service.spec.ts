@@ -7,9 +7,9 @@ import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
-import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { cellKey } from 'src/time-entries/types/timesheet.types';
+import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-changed.error';
 import { TransactionService } from 'src/database/transaction.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 
@@ -79,7 +79,6 @@ describe('TimesheetService', () => {
       {
         execute: jest.fn(async () => userProjects),
       } as unknown as GetUserProjectsQuery,
-      {} as TimeEntriesRepository,
       {} as TimeEntriesValidationService,
       {} as TransactionService,
     );
@@ -152,6 +151,17 @@ describe('TimesheetService', () => {
     expect(week.total).toBe(120);
     expect(week.dayTotals).toEqual([0, 0, 120, 0, 0, 0, 0]);
     expect(week.statusCounts[TimeEntryStatus.Draft]).toBe(1);
+  });
+
+  it("shows every project of the week in the table, past the form's 10", async () => {
+    const ids = Array.from({ length: 12 }, (_, i) => `p${i}`);
+    projects = ids.map((id) => project(id));
+    entries = ids.map((id) => entry(`e-${id}`, id, 60));
+
+    const week = await service.getWeek(userWith(UserRole.Member), WEEK);
+
+    expect(week.rows).toHaveLength(12);
+    expect(week.total).toBe(12 * 60);
   });
 
   it('offers recent projects and added ones, at most 10', async () => {
@@ -256,7 +266,7 @@ describe('TimesheetService', () => {
 
 describe('TimesheetService.saveCells', () => {
   let entries: ITimeEntryViewModel[];
-  let repository: { create: jest.Mock; updateMany: jest.Mock };
+  let writes: Record<'insert' | 'writeUpdate' | 'writeDelete', jest.Mock>;
   let validation: Record<
     'validateCreate' | 'validateUpdate' | 'validateDelete',
     jest.Mock
@@ -266,20 +276,21 @@ describe('TimesheetService.saveCells', () => {
 
   beforeEach(() => {
     entries = [];
-    repository = {
-      create: jest.fn(async (record) => {
+    writes = {
+      insert: jest.fn(async (params) => {
         const created = entry(
           `new-${entries.length}`,
-          record.project_id,
-          record.minutes,
-          { work_date: record.work_date },
+          params.projectId,
+          params.minutes,
+          { work_date: params.workDate.toISOString().slice(0, 10) },
         );
 
         entries.push(created);
 
         return created;
       }),
-      updateMany: jest.fn(async () => [{}]),
+      writeUpdate: jest.fn(async (item) => item),
+      writeDelete: jest.fn(async () => undefined),
     };
     validation = {
       validateCreate: jest.fn(async () => undefined),
@@ -295,6 +306,7 @@ describe('TimesheetService.saveCells', () => {
         ),
         findBilledIds: jest.fn(async () => new Set()),
         submit: jest.fn(async () => []),
+        ...writes,
       } as unknown as TimeEntriesService,
       {
         findMany: jest.fn(async () => [project('web')]),
@@ -307,7 +319,6 @@ describe('TimesheetService.saveCells', () => {
           { id: 'web', name: 'Project web', clientName: '' },
         ]),
       } as unknown as GetUserProjectsQuery,
-      repository as unknown as TimeEntriesRepository,
       validation as unknown as TimeEntriesValidationService,
       {
         transaction: async <T>(work: () => Promise<T>) => work(),
@@ -329,8 +340,9 @@ describe('TimesheetService.saveCells', () => {
       message: 'Submitted time entries cannot be edited',
       field: cellKey('web', WEDNESDAY),
     });
-    expect(repository.create).not.toHaveBeenCalled();
-    expect(repository.updateMany).not.toHaveBeenCalled();
+    expect(writes.insert).not.toHaveBeenCalled();
+    expect(writes.writeUpdate).not.toHaveBeenCalled();
+    expect(writes.writeDelete).not.toHaveBeenCalled();
   });
 
   it('skips untouched cells', async () => {
@@ -343,24 +355,47 @@ describe('TimesheetService.saveCells', () => {
       { projectId: 'web', date: TUESDAY, minutes: 90, shownMinutes: null },
     ]);
 
-    expect(repository.create).toHaveBeenCalledTimes(1);
-    expect(repository.create).toHaveBeenCalledWith(
+    expect(writes.insert).toHaveBeenCalledTimes(1);
+    expect(writes.insert).toHaveBeenCalledWith(
       expect.objectContaining({
-        user_id: 'me',
-        project_id: 'web',
-        work_date: TUESDAY,
+        userId: 'me',
+        projectId: 'web',
+        workDate: new Date(`${TUESDAY}T00:00:00Z`),
         minutes: 90,
         status: TimeEntryStatus.Draft,
       }),
+      { id: 'web', client_id: null, billable: true },
+      member,
     );
     expect(validation.validateCreate).toHaveBeenCalledTimes(1);
-    expect(repository.updateMany).not.toHaveBeenCalled();
+    expect(writes.writeUpdate).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 1,
       updated: 0,
       deleted: 0,
       minutes: 150,
     });
+  });
+
+  it('refuses a cell whose entry was submitted between the check and the write', async () => {
+    entries = [entry('d', 'web', 60)];
+    writes.writeUpdate.mockRejectedValue(new TimeEntryChangedError());
+
+    await expect(
+      service.saveCells(member, [
+        { projectId: 'web', date: WEDNESDAY, minutes: 120, shownMinutes: 60 },
+      ]),
+    ).rejects.toMatchObject({
+      message: 'This time changed after the form opened: open the form again.',
+      field: cellKey('web', WEDNESDAY),
+    });
+    // Only while it is still a draft or rejected, whatever the role.
+    expect(writes.writeUpdate).toHaveBeenCalledWith(
+      entries[0],
+      { minutes: 120, status: TimeEntryStatus.Draft },
+      member,
+      { openOnly: true },
+    );
   });
 });
 
