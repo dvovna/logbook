@@ -34,6 +34,13 @@ export interface ITimesheetWeek {
   statusCounts: Record<TimeEntryStatus, number>;
 }
 
+// The drafts and rejected entries of a user dated before a shown week.
+export interface ITimesheetOpenBefore {
+  count: number;
+  // The Monday of the oldest one's week.
+  weekStart: string;
+}
+
 // The most project rows the week form offers.
 export const MAX_TIMESHEET_ROWS = 10;
 

@@ -96,13 +96,16 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
       fromDate: days ? days[0] : metadata?.filters?.fromDate,
       toDate: days ? days[6] : metadata?.filters?.toDate,
     };
-    const [timeEntriesListData, week] = await Promise.all([
+    const [timeEntriesListData, week, openBefore] = await Promise.all([
       this.timeEntriesTabDataService.getTimeEntriesTabData({
         slackTeamId: user.slack_team_id,
         page: metadata.page,
         filters,
       }),
       weekStart ? this.timesheetService.getWeek(user, weekStart) : undefined,
+      weekStart
+        ? this.timesheetService.findOpenBefore(user, weekStart)
+        : undefined,
     ]);
 
     const [dayTotals, billedIds] = await Promise.all([
@@ -127,6 +130,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
         canFilterByUser: seesAllEntries,
         viewerId: user.id,
         week,
+        openBefore,
         timeEntriesListData,
         billedIds,
       },

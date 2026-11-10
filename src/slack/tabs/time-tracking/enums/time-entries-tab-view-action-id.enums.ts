@@ -17,4 +17,6 @@ export enum TimeEntriesTabViewActionId {
   FillWeek = 'timesheet_fill_week',
   FillDay = 'timesheet_fill_day',
   SubmitWeek = 'timesheet_submit_week',
+  // Goes to the oldest week with drafts or rejected entries before the shown one.
+  EarlierOpenWeek = 'timesheet_earlier_open_week',
 }

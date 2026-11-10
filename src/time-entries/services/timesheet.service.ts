@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import ClientsService from '@modules/clients/services/clients.service';
-import { weekDays, weekStartOf } from '@common/utils/period-presets';
+import { shiftWeek, weekDays, weekStartOf } from '@common/utils/period-presets';
 import { ValidationError } from '@common/errors/validation.error';
 import { TransactionService } from 'src/database/transaction.service';
 import {
@@ -13,6 +13,7 @@ import { TimeEntriesService } from 'src/time-entries/services/time-entries.servi
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { BILLED_ENTRY_MESSAGE } from 'src/time-entries/constants/billed-time-entries';
+import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-changed.error';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
@@ -20,6 +21,7 @@ import {
   cellKey,
   ITimesheetCell,
   ITimesheetCellInput,
+  ITimesheetOpenBefore,
   ITimesheetRow,
   ITimesheetSaveResult,
   ITimesheetWeek,
@@ -131,6 +133,29 @@ export class TimesheetService {
       allowed,
       maxRows: MAX_TIMESHEET_ROWS,
     });
+  }
+
+  // The user's drafts and rejected entries dated before the week of
+  // `weekStart`, which that week doesn't show: how many, and the Monday of the
+  // oldest one's week. Null when there are none.
+  public async findOpenBefore(
+    user: IUserViewModel,
+    weekStart: string,
+  ): Promise<ITimesheetOpenBefore | null> {
+    const entries = await this.timeEntriesService.findMany({
+      userId: user.id,
+      slackTeamId: user.slack_team_id,
+      statuses: OPEN_TIME_ENTRY_STATUSES,
+      dateTo: weekDays(shiftWeek(weekStart, -1))[6],
+    });
+
+    if (!entries.length) {
+      return null;
+    }
+
+    const [oldest] = entries.map((entry) => entry.work_date).sort();
+
+    return { count: entries.length, weekStart: weekStartOf(oldest) };
   }
 
   // Saves what a form typed into the user's cells, all or nothing. A cell

@@ -1222,7 +1222,7 @@ describe('Time entries', () => {
       ).toEqual([
         [
           ':alarm_clock: You have *2 time entries* (3h) from 10–11 Jun 2026 not submitted yet.',
-          '1 of them was rejected: fix it under Home → ✏️ Edit Entries.',
+          '1 of them was rejected: fix it under Home → ✏️ Edit Entries (week of 8 Jun).',
           'Your approvers see time only once you submit it: Home → 📤 Submit for Approval.',
         ].join('\n'),
       ]);

@@ -15,6 +15,7 @@ import {
   listItems,
   modalError,
   noticeOf,
+  sectionTexts,
   tableRows,
   timesheetFormRows,
   timesheetStatusOf,
@@ -141,6 +142,43 @@ describe('The week on My time', () => {
     const back = await act(previous, TimeEntriesTabViewActionId.NextWeek);
 
     expect(tableRows(back)[0].slice(0, 2)).toEqual(['Project', 'Mon 15']);
+  });
+
+  it('points to the drafts and rejected entries of earlier weeks', async () => {
+    await entry('2026-06-10', { description: 'Last week' });
+    await entry('2026-06-03', {
+      status: TimeEntryStatus.Rejected,
+      description: 'Rejected',
+    });
+    // Neither time sent for approval nor this week's draft counts.
+    await entry('2026-06-02', {
+      status: TimeEntryStatus.Submitted,
+      description: 'Sent',
+    });
+    await entry('2026-06-16', { description: 'This week' });
+
+    const myTime = await openMyTime();
+
+    expect(sectionTexts(myTime)).toContain(
+      '📝 2 open entries in earlier weeks',
+    );
+    expect(buttonText(myTime, TimeEntriesTabViewActionId.EarlierOpenWeek)).toBe(
+      'Go to week of 1 Jun',
+    );
+
+    const oldest = await act(
+      myTime,
+      TimeEntriesTabViewActionId.EarlierOpenWeek,
+    );
+
+    expect(timesheetStatusOf(oldest)).toBe(
+      '🕒 Week of 1 Jun · 2h · 📤 1 submitted · ❌ 1 rejected',
+    );
+    expect(dates(oldest)).toEqual(['Rejected', 'Sent']);
+    // Nothing open before that week.
+    expect(actionIdsOf(oldest)).not.toContain(
+      TimeEntriesTabViewActionId.EarlierOpenWeek,
+    );
   });
 
   it('shows a week across the new year', async () => {

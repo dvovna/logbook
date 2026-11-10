@@ -54,6 +54,7 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
         this.submit(payload, user),
       [TimeEntriesTabViewActionId.PreviousWeek]: this.handleWeekChange,
       [TimeEntriesTabViewActionId.NextWeek]: this.handleWeekChange,
+      [TimeEntriesTabViewActionId.EarlierOpenWeek]: this.handleWeekChange,
       [TimeEntriesTabViewActionId.FillWeek]: this.handleFillWeek,
       [TimeEntriesTabViewActionId.FillDay]: this.handleFillDay,
       [TimeEntriesTabViewActionId.ManageTimeEntryMenu]: withMenuAction<
@@ -94,8 +95,9 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
     });
   };
 
-  // The button's value is the Monday it goes to; it comes from the client, so
-  // it has to be a date, and is turned into its week's Monday.
+  // Previous week, Next week, and the oldest week with open entries before
+  // the shown one. The button's value is the Monday it goes to; it comes from
+  // the client, so it has to be a date, and is turned into its week's Monday.
   private handleWeekChange = async (
     payload: ISlackBlockActionPayload,
     user: IUserViewModel,

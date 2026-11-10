@@ -6,9 +6,13 @@ import {
 } from '@nestjs/common';
 import pluralize from 'pluralize';
 import { JobsService } from '@common/jobs/jobs.service';
-import { formatDateRange } from '@common/utils/date.utils';
+import { formatDateRange, getDateOnly } from '@common/utils/date.utils';
 import { getDisplayTime, sumMinutes } from '@common/utils/time.utils';
-import { PeriodPreset, presetPeriod } from '@common/utils/period-presets';
+import {
+  PeriodPreset,
+  presetPeriod,
+  weekStartOf,
+} from '@common/utils/period-presets';
 import { runPeriodically } from '@common/utils/periodic.utils';
 import { TransactionService } from 'src/database/transaction.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
@@ -17,6 +21,8 @@ import SlackCommunicationService from '@modules/slack-communication/services/sla
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
+import { weekLabel } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 
 export const REMIND_UNSUBMITTED_JOB = 'time-entries-remind-unsubmitted';
 
@@ -38,6 +44,18 @@ export const mondayOf = (now: Date): string =>
 // The last day of the week before the one of `monday`.
 const lastWeekEnd = (monday: string) =>
   presetPeriod(PeriodPreset.LastWeek, new Date(`${monday}T00:00:00Z`))!.toDate;
+
+// Where on My time, which shows a week, the entries are: 'week of 8 Jun', or
+// 'from the week of 1 Jun' when they are in several.
+export const weeksOf = (entries: Pick<ITimeEntryViewModel, 'work_date'>[]) => {
+  const weeks = [
+    ...new Set(
+      entries.map(({ work_date }) => weekStartOf(getDateOnly(work_date))),
+    ),
+  ].sort();
+
+  return `${weeks.length > 1 ? 'from the ' : ''}week of ${weekLabel(weeks[0])}`;
+};
 
 // Once a week, from Monday 09:00 UTC, reminds everyone who still has drafts
 // or rejected entries from before that week: time reaches the approvers only
@@ -151,17 +169,17 @@ export class TimeEntryRemindersService
     const minutes = sumMinutes(entries);
     const rejected = entries.filter(
       ({ status }) => status === TimeEntryStatus.Rejected,
-    ).length;
+    );
 
     await this.slackCommunicationService.postMessage(
       user.slack_id,
       {
         text: [
           `:alarm_clock: You have *${pluralize('time entry', entries.length, true)}* (${getDisplayTime(minutes)}) from ${formatDateRange(dates[0], dates[dates.length - 1])} not submitted yet.`,
-          rejected === 1 &&
-            '1 of them was rejected: fix it under Home → ✏️ Edit Entries.',
-          rejected > 1 &&
-            `${rejected} of them were rejected: fix them under Home → ✏️ Edit Entries.`,
+          rejected.length === 1 &&
+            `1 of them was rejected: fix it under Home → ✏️ Edit Entries (${weeksOf(rejected)}).`,
+          rejected.length > 1 &&
+            `${rejected.length} of them were rejected: fix them under Home → ✏️ Edit Entries (${weeksOf(rejected)}).`,
           'Your approvers see time only once you submit it: Home → 📤 Submit for Approval.',
         ]
           .filter(Boolean)

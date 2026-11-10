@@ -7,7 +7,9 @@ import {
   TIME_ENTRIES_SUBMITTED,
   TimeEntriesSubmittedEvent,
 } from 'src/time-entries/events/time-entries.events';
-import { formatDate } from '@common/utils/date.utils';
+import { formatDate, getDateOnly } from '@common/utils/date.utils';
+import { weekStartOf } from '@common/utils/period-presets';
+import { weekLabel } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
@@ -92,7 +94,7 @@ export class TimeEntryNotificationsService implements OnModuleInit {
   }
 
   // Tells the owner which entry was rejected, by whom and why, and where to
-  // fix it.
+  // fix it: My time shows a week, so the message names the entry's.
   // A job: when Slack fails the message is retried, not lost.
   public notifyRejected(
     entry: ITimeEntryViewModel,
@@ -182,12 +184,13 @@ export class TimeEntryNotificationsService implements OnModuleInit {
     }
 
     const workDate = formatDate(entry.work_date);
+    const week = weekLabel(weekStartOf(getDateOnly(entry.work_date)));
     const project = escapeMrkdwn(entry.project?.name ?? 'a project');
     const client = entry.client ? ` (${escapeMrkdwn(entry.client.name)})` : '';
     const lines = [
       `:x: ${escapeMrkdwn(reviewer.name)} rejected your time entry: *${project}*${client}, ${workDate}, ${getDisplayTime(entry.minutes)}.`,
       ...(reason ? [`>${escapeMrkdwn(reason).replace(/\n/g, '\n>')}`] : []),
-      'Fix it under Home → ✏️ Edit Entries and submit it again.',
+      `Fix it under Home → ✏️ Edit Entries (week of ${week}) and submit it again.`,
     ];
 
     await this.slackCommunicationService.postMessage(

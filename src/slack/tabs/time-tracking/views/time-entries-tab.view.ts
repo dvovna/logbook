@@ -32,8 +32,15 @@ import { TIME_ENTRIES_TAB_PAGE_SIZE } from '@modules/slack/tabs/time-tracking/se
 import { getDisplayTime } from '@common/utils/time.utils';
 import UserRole from '@common/enums/user-role.enum';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
-import { TimesheetTableView } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
-import { ITimesheetWeek } from 'src/time-entries/types/timesheet.types';
+import pluralize from 'pluralize';
+import {
+  TimesheetTableView,
+  weekLabel,
+} from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
+import {
+  ITimesheetOpenBefore,
+  ITimesheetWeek,
+} from 'src/time-entries/types/timesheet.types';
 import { splitIntoRows } from '@modules/slack/common/views/components/actions-rows';
 import { shiftWeek } from '@common/utils/period-presets';
 import { isOpenTimeEntry } from 'src/time-entries/constants/open-time-entry-statuses';
@@ -46,6 +53,8 @@ interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
   viewerId: string;
   // The shown week of the viewer's own time (My time); Time logs has none.
   week?: ITimesheetWeek;
+  // The viewer's drafts and rejected entries before the shown week.
+  openBefore?: ITimesheetOpenBefore | null;
   // The minutes of each day on the page, over all its entries.
   dayTotals: Record<string, number>;
   // The entries on the page that are in a billing snapshot: locked.
@@ -96,6 +105,7 @@ export class TimeEntriesTabView extends BaseTabView<
       viewerId,
       userRole,
       week,
+      openBefore,
       dayTotals,
       billedIds,
     }: IGetTimeEntriesViewParams,
@@ -106,6 +116,7 @@ export class TimeEntriesTabView extends BaseTabView<
     if (week) {
       blocks.push(
         ...TimesheetTableView.getBlocks(week),
+        ...this.getOpenBeforeBlocks(openBefore),
         ...this.getWeekButtons(week),
       );
     }
@@ -148,6 +159,36 @@ export class TimeEntriesTabView extends BaseTabView<
     blocks.push(...listBlocks);
 
     return blocks;
+  }
+
+  // Drafts and rejected entries of earlier weeks, which the shown week hides:
+  // the rejection DM and the Monday reminder send people to fix them. The
+  // button goes to the oldest week that holds one.
+  private getOpenBeforeBlocks(
+    openBefore?: ITimesheetOpenBefore | null,
+  ): AnyBlock[] {
+    if (!openBefore) {
+      return [];
+    }
+
+    return [
+      {
+        type: 'section',
+        text: {
+          type: 'plain_text',
+          text: `📝 ${pluralize('open entry', openBefore.count, true)} in earlier weeks`,
+        },
+        accessory: {
+          type: 'button',
+          text: {
+            type: 'plain_text',
+            text: `Go to week of ${weekLabel(openBefore.weekStart)}`,
+          },
+          action_id: TimeEntriesTabViewActionId.EarlierOpenWeek,
+          value: openBefore.weekStart,
+        },
+      },
+    ];
   }
 
   // The week's navigation, its form and its submit button (the drafts and

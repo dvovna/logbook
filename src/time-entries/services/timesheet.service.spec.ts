@@ -251,6 +251,32 @@ describe('TimesheetService', () => {
     expect(week.total).toBe(0);
   });
 
+  it('counts the open entries of earlier weeks and finds the oldest week', async () => {
+    findMany.mockResolvedValue([
+      entry('a', 'web', 60, { work_date: '2026-06-10' }),
+      entry('b', 'web', 60, {
+        work_date: '2026-06-03',
+        status: TimeEntryStatus.Rejected,
+      }),
+    ]);
+
+    expect(
+      await service.findOpenBefore(userWith(UserRole.Member), WEEK),
+    ).toEqual({ count: 2, weekStart: '2026-06-01' });
+    expect(findMany).toHaveBeenCalledWith({
+      userId: 'me',
+      slackTeamId: 'team-1',
+      statuses: [TimeEntryStatus.Draft, TimeEntryStatus.Rejected],
+      dateTo: '2026-06-14',
+    });
+
+    findMany.mockResolvedValue([]);
+
+    expect(
+      await service.findOpenBefore(userWith(UserRole.Member), WEEK),
+    ).toBeNull();
+  });
+
   it('lets Admin and HR add any active project', async () => {
     projects = [project('web'), project('free', { client_id: 'acme' })];
 
