@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
@@ -792,6 +793,48 @@ describe('Fill in the week', () => {
     expect(timesheetFormRows(full).flatMap(({ cells }) => cells)).toHaveLength(
       70,
     );
+  });
+
+  it('leaves a rebuild out when a later click changed the form first', async () => {
+    const internal = await workspace.addProject({ name: 'Internal' });
+    await workspace.assignToProject(internal, { teams: [design] });
+    await entry(website, LAST_WEEK);
+    const form = await openForm();
+    const added = await actOnForm(
+      form,
+      TimesheetFormActionId.AddProject,
+      mobile.id,
+    );
+    const errors = jest.spyOn(Logger.prototype, 'error');
+    const since = t.slackApi.mark();
+
+    try {
+      // A second click in the form as it was before the first one's rebuild.
+      await t.slack
+        .actOnView(
+          workspace,
+          member,
+          form,
+          TimesheetFormActionId.AddProject,
+          internal.id,
+        )
+        .expect(200);
+      await t.idle();
+
+      // Slack refused it (hash_conflict): the form stays as the first click
+      // made it, and nothing is logged as an error.
+      expect(
+        t.slackApi.callsWith(workspace.token, 'views.update', { since }),
+      ).toEqual([]);
+      expect(errors).not.toHaveBeenCalled();
+    } finally {
+      errors.mockRestore();
+    }
+
+    expect(timesheetFormRows(added).map(({ project }) => project)).toEqual([
+      'Mobile · Acme',
+      'Website · Acme',
+    ]);
   });
 
   it('keeps old and archived projects read-only', async () => {

@@ -74,11 +74,18 @@ export default class SlackCommunicationService {
   }
 
   // A modal the user has open, by the view ID its interaction carries.
-  public async updateView(viewId: string, view: View, teamId: string) {
+  // With `hash` (the interaction's view.hash), Slack refuses the update
+  // (hash_conflict) when the view changed since that interaction.
+  public async updateView(
+    viewId: string,
+    view: View,
+    teamId: string,
+    hash?: string,
+  ) {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 
     return this.slackApiClient.updateView(
-      { view_id: viewId, view },
+      { view_id: viewId, view, ...(hash ? { hash } : {}) },
       accessToken,
     );
   }

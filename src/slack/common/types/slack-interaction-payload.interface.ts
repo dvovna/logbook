@@ -10,6 +10,9 @@ export interface ISlackUser {
 export interface ISlackView {
   // The view Slack shows: what views.update replaces.
   id?: string;
+  // Its version: views.update with it fails (hash_conflict) once the view
+  // changed since.
+  hash?: string;
   team_id: string;
   callback_id: ViewCallbackId;
   private_metadata: string;

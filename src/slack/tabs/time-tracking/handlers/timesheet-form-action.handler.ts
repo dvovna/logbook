@@ -6,6 +6,7 @@ import type {
 } from '@slack/bolt/dist/types/actions/block-action';
 import { ALL_ROLES } from '@common/constants/role-groups';
 import { runInBackground } from '@common/utils/run-in-background';
+import { slackErrorOf } from 'src/api-clients/third-party/slack-api.client';
 import { weekStartOf } from '@common/utils/period-presets';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
@@ -137,13 +138,28 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
       return;
     }
 
-    await this.slackCommunicationService.updateView(
-      payload.view.id,
-      await this.timeEntriesTabService.getModalView(
-        TimeEntriesTabModalName.FillWeek,
-        { user, metadata },
-      ),
-      user.slack_team_id,
+    const form = await this.timeEntriesTabService.getModalView(
+      TimeEntriesTabModalName.FillWeek,
+      { user, metadata },
     );
+
+    try {
+      // The form as this click saw it: after two quick clicks, the later
+      // click's form may be up first, and this older one must not replace it.
+      await this.slackCommunicationService.updateView(
+        payload.view.id,
+        form,
+        user.slack_team_id,
+        payload.view.hash,
+      );
+    } catch (error) {
+      if (slackErrorOf(error) !== 'hash_conflict') {
+        throw error;
+      }
+
+      this.logger.warn(
+        `Week form ${payload.view.id} changed since the click: not rebuilt`,
+      );
+    }
   }
 }

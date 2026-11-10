@@ -231,6 +231,7 @@ describe('Round trips to the database before the answer', () => {
     const internal = await workspace.addProject({ name: 'Internal' });
     await workspace.assignToProject(internal, { teams: [design] });
     const form = await openForm('open the week form');
+    const since = t.slackApi.mark();
 
     await actOnForm(
       'add a project to the form',
@@ -240,7 +241,7 @@ describe('Round trips to the database before the answer', () => {
     );
     await actOnForm(
       'show the weekend in the form',
-      form,
+      t.slackApi.updatedModal(workspace.token, { since }),
       TimesheetFormActionId.ShowWeekend,
       'show',
     );
