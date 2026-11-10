@@ -64,11 +64,16 @@ describe('VacationRequestsService', () => {
     jest.Mock
   >;
   let validator: Record<
-    'validateRequestLimits' | 'validateNoOverlap' | 'validateDaysRequested',
+    | 'validateRequestLimits'
+    | 'validateNoOverlap'
+    | 'validateDaysRequested'
+    | 'getUsage'
+    | 'checkDaysRequested',
     jest.Mock
   >;
   let eventEmitter: { emit: jest.Mock };
   let usersService: { findOneWithValidation: jest.Mock };
+  let teamsService: { findOneWithValidation: jest.Mock };
   let timeEntriesService: { deleteVacationTime: jest.Mock };
   let workflowService: { closeBeforeDelete: jest.Mock };
   let service: VacationRequestsService;
@@ -100,9 +105,16 @@ describe('VacationRequestsService', () => {
       validateRequestLimits: jest.fn(),
       validateNoOverlap: jest.fn(),
       validateDaysRequested: jest.fn(),
+      getUsage: jest.fn(),
+      checkDaysRequested: jest.fn(),
     };
     eventEmitter = { emit: jest.fn() };
     usersService = { findOneWithValidation: jest.fn() };
+    teamsService = {
+      findOneWithValidation: jest
+        .fn()
+        .mockResolvedValue({ vacation_policy_id: null }),
+    };
     timeEntriesService = {
       deleteVacationTime: jest
         .fn()
@@ -116,7 +128,7 @@ describe('VacationRequestsService', () => {
       {
         calculate: jest.fn().mockResolvedValue(5),
       } as unknown as VacationDaysCalculationService,
-      {} as TeamsService,
+      teamsService as unknown as TeamsService,
       eventEmitter as unknown as EventEmitter2,
       usersService as unknown as UsersService,
       transactions as unknown as TransactionService,
@@ -232,16 +244,47 @@ describe('VacationRequestsService', () => {
       repository.findOne.mockResolvedValue(buildRequest());
       repository.update.mockResolvedValue(buildRequest());
 
+      const usage = { limits: null };
+      validator.getUsage.mockResolvedValue(usage);
+
       await service.update(
         { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
         { endDate: new Date('2026-02-09') },
         admin,
       );
 
-      expect(validator.validateDaysRequested).toHaveBeenCalledWith(
+      // An edit reads the balance beside the working days, then checks it.
+      expect(validator.getUsage).toHaveBeenCalledWith(requester);
+      expect(validator.checkDaysRequested).toHaveBeenCalledWith(
         expect.anything(),
         VacationType.AnnualLeave,
-        requester,
+        usage,
+      );
+    });
+
+    it("puts an edited request in its person's team", async () => {
+      const colleague = { ...requester, id: 'user-2', team_id: 'team-2' };
+      usersService.findOneWithValidation.mockResolvedValue(colleague);
+      repository.findOne.mockResolvedValue(buildRequest());
+      repository.update.mockResolvedValue(buildRequest());
+
+      await service.update(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { userId: 'user-2', inOwnersTeam: true },
+        admin,
+      );
+
+      expect(usersService.findOneWithValidation).toHaveBeenCalledWith({
+        id: 'user-2',
+        slackTeamId: SLACK_TEAM_ID,
+      });
+      expect(teamsService.findOneWithValidation).toHaveBeenCalledWith({
+        id: 'team-2',
+        slackTeamId: SLACK_TEAM_ID,
+      });
+      expect(repository.update).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ user_id: 'user-2', team_id: 'team-2' }),
       );
     });
 

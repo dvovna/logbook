@@ -109,23 +109,20 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
     return { request, billedDates: [] };
   }
 
-  private async update(
+  // The request goes to the chosen user's team, as on create; the service
+  // reads the user beside the request.
+  private update(
     id: string,
     data: IVacationRequestAdminFormViewData,
     user: IUserViewModel,
   ): Promise<IVacationRequestChange> {
-    const selectedUser = await this.usersService.findOneWithValidation({
-      id: data.user.value,
-      slackTeamId: user.slack_team_id,
-    });
-
     return this.vacationRequestsService.update(
       {
         id,
         slackTeamId: user.slack_team_id,
       },
       {
-        teamId: selectedUser?.team_id,
+        inOwnersTeam: true,
         userId: data.user.value,
         type: data.type_option.value,
         status: data.status.value,

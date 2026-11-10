@@ -53,6 +53,8 @@ interface ICreateParams {
 
 interface IUpdateParams {
   teamId?: string | null;
+  // The request goes to the team of its person (userId), instead of teamId.
+  inOwnersTeam?: boolean;
   startDate?: Date;
   endDate?: Date;
   type?: VacationType;
@@ -76,6 +78,15 @@ interface IFindParams {
 }
 
 type ISearchRequestsParams = ISearchParams<IFindParams>;
+
+// The value of a read started beside others, or its error.
+const settled = <T>(result: PromiseSettledResult<T>): T => {
+  if (result.status === 'rejected') {
+    throw result.reason;
+  }
+
+  return result.value;
+};
 
 // A request after an edit or a deletion that removed the time logged from it.
 export interface IVacationRequestChange {
@@ -200,23 +211,20 @@ export class VacationRequestsService implements IVacationRequestsService {
   // An edit that changes what the request's logged time was made of
   // (changesLoggedTime) removes that time in the same transaction, but for
   // billed days.
+  // What the checks read is read at once where it can be (the request and
+  // its person, then their team, the overlaps and the balance, then the
+  // team's holidays), and checked in the order below.
   public async update(
     { id, slackTeamId }: IFindParams,
     updateParams: IUpdateParams,
     user: IUserViewModel,
   ): Promise<IVacationRequestChange> {
-    const existingRequest = await this.findOneWithValidation({
-      id,
-      slackTeamId,
-    });
-
-    const userTeamId = updateParams.teamId || existingRequest.team?.id;
-    const userTeam = userTeamId
-      ? await this.teamsService.findOneWithValidation({
-          id: updateParams.teamId || existingRequest.team?.id,
-          slackTeamId: user.slack_team_id,
-        })
-      : null;
+    const [existingRequest, chosenOwner] = await Promise.all([
+      this.findOneWithValidation({ id, slackTeamId }),
+      updateParams.userId !== undefined
+        ? this.getRequestOwner(updateParams.userId, user)
+        : null,
+    ]);
 
     const {
       startDate = new Date(existingRequest.start_date),
@@ -225,8 +233,12 @@ export class VacationRequestsService implements IVacationRequestsService {
       userComment,
       status,
       userId,
-      teamId,
     } = updateParams;
+    // HR's and the admin's form: the request goes to its person's team.
+    const teamId =
+      updateParams.inOwnersTeam && chosenOwner
+        ? chosenOwner.team_id
+        : updateParams.teamId;
 
     // Only what changes is checked: a cancel must work on a request whose
     // old comment wouldn't pass today.
@@ -247,13 +259,6 @@ export class VacationRequestsService implements IVacationRequestsService {
       );
     }
 
-    const workingDays = await this.workingDaysCalculationService.calculate(
-      startDate,
-      endDate,
-      userTeam?.vacation_policy_id || null,
-      user.slack_team_id,
-    );
-
     const calendarDays = getDaysBetweenDates(startDate, endDate);
     const hasDatesChanged =
       (updateParams.startDate &&
@@ -266,28 +271,34 @@ export class VacationRequestsService implements IVacationRequestsService {
       status !== undefined && status !== existingRequest.status;
     const isUserChanged =
       userId !== undefined && userId !== existingRequest.user_id;
+    const userTeamId = teamId || existingRequest.team?.id;
 
-    if (
-      ACTIVE_REQUEST_STATUSES.includes(finalStatus) &&
-      (hasDatesChanged || isStatusChanged || isUserChanged)
-    ) {
-      await this.vacationRequestsValidator.validateNoOverlap({
-        userId: userId ?? existingRequest.user_id,
-        slackTeamId: user.slack_team_id,
-        startDate,
-        endDate,
-        excludeRequestId: existingRequest.id,
-      });
-    }
+    const [workingDaysResult, overlapResult, usageResult] =
+      await Promise.allSettled([
+        this.countWorkingDays(startDate, endDate, userTeamId, user),
+        ACTIVE_REQUEST_STATUSES.includes(finalStatus) &&
+        (hasDatesChanged || isStatusChanged || isUserChanged)
+          ? this.vacationRequestsValidator.validateNoOverlap({
+              userId: userId ?? existingRequest.user_id,
+              slackTeamId: user.slack_team_id,
+              startDate,
+              endDate,
+              excludeRequestId: existingRequest.id,
+            })
+          : null,
+        hasDatesChanged
+          ? this.getOwnersUsage(chosenOwner ?? existingRequest.user_id, user)
+          : null,
+      ]);
+    const workingDays = settled(workingDaysResult);
+
+    settled(overlapResult);
 
     if (hasDatesChanged) {
-      await this.vacationRequestsValidator.validateDaysRequested(
-        {
-          calendarDays,
-          workingDays,
-        },
+      this.vacationRequestsValidator.checkDaysRequested(
+        { calendarDays, workingDays },
         type,
-        await this.getRequestOwner(userId ?? existingRequest.user_id, user),
+        settled(usageResult)!,
       );
     }
 
@@ -600,6 +611,40 @@ export class VacationRequestsService implements IVacationRequestsService {
         'Only HR and admins can create a request that is not pending',
       );
     }
+  }
+
+  // The working days of the period under the holidays of the team's policy.
+  private async countWorkingDays(
+    startDate: Date,
+    endDate: Date,
+    teamId: string | null | undefined,
+    user: IUserViewModel,
+  ) {
+    const team = teamId
+      ? await this.teamsService.findOneWithValidation({
+          id: teamId,
+          slackTeamId: user.slack_team_id,
+        })
+      : null;
+
+    return this.workingDaysCalculationService.calculate(
+      startDate,
+      endDate,
+      team?.vacation_policy_id || null,
+      user.slack_team_id,
+    );
+  }
+
+  // The balance of the request's person, loaded or by ID.
+  private async getOwnersUsage(
+    owner: IUserViewModel | string,
+    actor: IUserViewModel,
+  ) {
+    return this.vacationRequestsValidator.getUsage(
+      typeof owner === 'string'
+        ? await this.getRequestOwner(owner, actor)
+        : owner,
+    );
   }
 
   // Whose vacation it is: the acting user, unless HR or an admin acts for

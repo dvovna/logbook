@@ -45,13 +45,14 @@ export class VacationsUsageService implements IVacationsUsageService {
       user.contract_start_date,
     );
 
-    const periodUsage = await this.vacationPeriodUsageService.getPeriodUsage(
-      user,
-      periodStart,
-      periodEnd,
-    );
-
-    const limits = await this.getVacationPeriodLimits(user);
+    const [periodUsage, limits] = await Promise.all([
+      this.vacationPeriodUsageService.getPeriodUsage(
+        user,
+        periodStart,
+        periodEnd,
+      ),
+      this.getVacationPeriodLimits(user),
+    ]);
 
     const {
       carryoverDays = 0,
