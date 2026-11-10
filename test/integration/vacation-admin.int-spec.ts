@@ -1,4 +1,4 @@
-import { actionIdsOf, noticeOf } from './support/tab-readers';
+import { actionIdsOf, modalError, noticeOf } from './support/tab-readers';
 import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -241,6 +241,62 @@ describe('Requests HR and admins manage for someone else', () => {
       const updates = t.slackApi.messageUpdates(workspace.token, approval);
       expect(updates).toHaveLength(1);
       expect(textOf(updates[0])).toContain(`Deleted by <@${admin.slack_id}>`);
+    });
+
+    it("does not delete another workspace's request named in a forged menu value", async () => {
+      const other = await t.createWorkspace();
+      const otherMember = await other.addUser();
+      const otherRequest = await requestVacation(
+        t,
+        other,
+        otherMember,
+        workWeek(2),
+      );
+
+      // Menu choices come from the client, so a choice can name any id: here a
+      // request the admin's list does not have.
+      const tab = await openAppHomeTab(t, workspace, admin, [
+        NavigationActionId.TimeOff,
+        NavigationActionId.AllRequests,
+      ]);
+      const since = t.slackApi.mark();
+      const value = `${VacationRequestsTabViewActionId.DeleteRequest}:${otherRequest.id}`;
+      await t.slack
+        .interaction({
+          type: 'block_actions',
+          team: { id: workspace.slackId },
+          user: { id: admin.slack_id, team_id: workspace.slackId },
+          trigger_id: 'trigger-forged',
+          container: { type: 'view' },
+          view: { team_id: workspace.slackId, ...tab },
+          actions: [
+            {
+              type: 'overflow',
+              action_id: VacationRequestsTabViewActionId.ManageRequestMenu,
+              block_id: 'forged',
+              action_ts: '1',
+              selected_option: {
+                text: { type: 'plain_text', text: value },
+                value,
+              },
+            },
+          ],
+        })
+        .expect(200);
+      await t.idle();
+      const form = t.slackApi.openedModal(workspace.token, { since });
+
+      const response = await t.slack
+        .submitView(workspace, admin, form, {})
+        .expect(200);
+
+      expect(response.body.response_action).toBe('update');
+      expect(modalError(response.body.view)).toBe(
+        'An error occurred while deleting. Please try again later.',
+      );
+      expect(
+        (await other.row('vacation_requests', otherRequest.id)).status,
+      ).toBe(VacationRequestStatus.Pending);
     });
   });
 });

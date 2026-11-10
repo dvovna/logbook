@@ -5,7 +5,10 @@ import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
 
 const SECRET = 'test-signing-secret';
 
-const contextOf = (headers: Record<string, unknown>, rawBody = 'token=x') =>
+const contextOf = (
+  headers: Record<string, unknown>,
+  rawBody: string | Buffer | null = 'token=x',
+) =>
   ({
     switchToHttp: () => ({ getRequest: () => ({ headers, rawBody }) }),
   }) as unknown as ExecutionContext;
@@ -80,5 +83,100 @@ describe('SlackSignatureGuard', () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it('accepts a raw body kept as a Buffer', () => {
+    const ts = timestamp();
+
+    expect(
+      guard.canActivate(
+        contextOf(
+          {
+            'x-slack-signature': sign(ts, 'token=x'),
+            'x-slack-request-timestamp': ts,
+          },
+          Buffer.from('token=x'),
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('refuses a signature taken over another timestamp', () => {
+    const ts = timestamp();
+
+    expect(
+      guard.canActivate(
+        contextOf({
+          'x-slack-signature': sign(String(Number(ts) - 1), 'token=x'),
+          'x-slack-request-timestamp': ts,
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    ['the signature', 'x-slack-signature'],
+    ['the timestamp', 'x-slack-request-timestamp'],
+  ])('refuses a request without %s', (_, header) => {
+    const ts = timestamp();
+    const headers: Record<string, unknown> = {
+      'x-slack-signature': sign(ts, 'token=x'),
+      'x-slack-request-timestamp': ts,
+    };
+    delete headers[header];
+
+    expect(guard.canActivate(contextOf(headers))).toBe(false);
+  });
+
+  it('refuses a request without a raw body', () => {
+    const ts = timestamp();
+
+    expect(
+      guard.canActivate(
+        contextOf(
+          {
+            'x-slack-signature': sign(ts, ''),
+            'x-slack-request-timestamp': ts,
+          },
+          null,
+        ),
+      ),
+    ).toBe(false);
+  });
+
+  describe('the five minutes against replays', () => {
+    const NOW_SECONDS = 1_781_654_400;
+
+    beforeEach(() => {
+      jest.spyOn(Date, 'now').mockReturnValue(NOW_SECONDS * 1000);
+    });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    const signedAt = (ts: string) =>
+      contextOf({
+        'x-slack-signature': sign(ts, 'token=x'),
+        'x-slack-request-timestamp': ts,
+      });
+
+    it.each([300, -300])('accept a timestamp %i seconds off', (offset) => {
+      expect(guard.canActivate(signedAt(String(NOW_SECONDS - offset)))).toBe(
+        true,
+      );
+    });
+
+    // Negative offsets are timestamps in the future.
+    it.each([301, -301, 24 * 60 * 60])(
+      'refuse a timestamp %i seconds off',
+      (offset) => {
+        expect(guard.canActivate(signedAt(String(NOW_SECONDS - offset)))).toBe(
+          false,
+        );
+      },
+    );
+
+    it('refuse a timestamp that is not a number', () => {
+      expect(guard.canActivate(signedAt('yesterday'))).toBe(false);
+    });
   });
 });

@@ -21,6 +21,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:int": "jest --config jest.integration.config.ts",
+    "test:cov:all": "jest --config jest.coverage.config.ts --coverage",
     "db:init": "supabase db reset",
     "db:types": "supabase gen types --schema public > src/common/types/database.types.ts && prettier --write --log-level warn src/common/types/database.types.ts",
     "slack:event": "node --env-file=.env -r ts-node/register src/commands/send-slack-event.ts"
