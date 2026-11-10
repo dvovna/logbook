@@ -368,6 +368,7 @@ describe('Time entries', () => {
       expect(actionIdsOf(after)).not.toContain(
         HomeTabActionId.SubmitTimeEntries,
       );
+      expect(noticeOf(after)).toBe('✅ 2 time entries (2h) sent for approval.');
     });
   });
 
@@ -934,6 +935,9 @@ describe('Time entries', () => {
         '📤 Submitted',
         '📤 Submitted',
       ]);
+      expect(noticeOf(updated)).toBe(
+        '✅ 2 time entries (2h) sent for approval.',
+      );
     });
 
     it('submits one entry from its menu', async () => {
@@ -960,6 +964,7 @@ describe('Time entries', () => {
       expect(buttonText(updated, TimeEntriesTabViewActionId.SubmitWeek)).toBe(
         '📤 Submit week (1)',
       );
+      expect(noticeOf(updated)).toBe('✅ 1 time entry (1h) sent for approval.');
     });
 
     it('takes away the menu of a submitted entry from its owner', async () => {

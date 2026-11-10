@@ -27,6 +27,7 @@ import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/service
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { ITimeEntriesTabMetaData } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
+import { submittedNotice } from '@modules/slack/tabs/time-tracking/utils/submitted-notice.utils';
 
 @Injectable()
 @SlackHandler({
@@ -88,10 +89,12 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
   private updateTab = async (
     metadata: ITimeEntriesTabMetaData,
     user: IUserViewModel,
+    notice?: string,
   ) => {
     await this.timeEntriesTabService.publish({
       user,
       metadata,
+      notice,
     });
   };
 
@@ -194,16 +197,19 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
           metadata.weekStart ??
             weekStartOf(new Date().toISOString().slice(0, 10)),
         );
+    let notice: string | undefined;
 
     try {
-      await this.timeEntriesService.submit(
-        {
-          id: entryId,
-          slackTeamId: user.slack_team_id,
-          dateFrom: days?.[0],
-          dateTo: days?.[6],
-        },
-        user,
+      notice = submittedNotice(
+        await this.timeEntriesService.submit(
+          {
+            id: entryId,
+            slackTeamId: user.slack_team_id,
+            dateFrom: days?.[0],
+            dateTo: days?.[6],
+          },
+          user,
+        ),
       );
     } catch (error) {
       if (!(
@@ -215,7 +221,7 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
       this.logger.warn(`Time entry not submitted: ${error.message}`);
     }
 
-    await this.updateTab(metadata, user);
+    await this.updateTab(metadata, user, notice);
   };
 
   private handleManageTimeEntryMenuAction = async (
