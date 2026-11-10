@@ -657,6 +657,71 @@ export type Database = {
           },
         ];
       };
+      rule_sets: {
+        Row: {
+          approval_notification_recipients: string[];
+          created_at: string;
+          hr_approvers: string[];
+          hr_approvers_rule: string;
+          id: string;
+          is_default: boolean;
+          name: string | null;
+          slack_team_id: string;
+          updated_at: string;
+          updated_by: string | null;
+          vacation_policy_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          approval_notification_recipients?: string[];
+          created_at?: string;
+          hr_approvers?: string[];
+          hr_approvers_rule?: string;
+          id?: string;
+          is_default?: boolean;
+          name?: string | null;
+          slack_team_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          vacation_policy_id?: string | null;
+        };
+        Update: {
+          approval_notification_recipients?: string[];
+          created_at?: string;
+          hr_approvers?: string[];
+          hr_approvers_rule?: string;
+          id?: string;
+          is_default?: boolean;
+          name?: string | null;
+          slack_team_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          vacation_policy_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'rule_sets_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'rule_sets_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'rule_sets_vacation_policy_id_fkey';
+            columns: ['vacation_policy_id'];
+            isOneToOne: false;
+            referencedRelation: 'vacation_policies';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       slack_teams: {
         Row: {
           created_at: string;
@@ -712,6 +777,7 @@ export type Database = {
           manager_approvers: string[] | null;
           manager_approvers_rule: string;
           name: string;
+          rule_set_id: string | null;
           slack_team_id: string;
           updated_at: string;
           updated_by: string | null;
@@ -729,6 +795,7 @@ export type Database = {
           manager_approvers?: string[] | null;
           manager_approvers_rule?: string;
           name: string;
+          rule_set_id?: string | null;
           slack_team_id: string;
           updated_at?: string;
           updated_by?: string | null;
@@ -745,6 +812,7 @@ export type Database = {
           manager_approvers?: string[] | null;
           manager_approvers_rule?: string;
           name?: string;
+          rule_set_id?: string | null;
           slack_team_id?: string;
           updated_at?: string;
           updated_by?: string | null;
@@ -756,6 +824,13 @@ export type Database = {
             columns: ['created_by'];
             isOneToOne: false;
             referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'teams_rule_set_id_fkey';
+            columns: ['rule_set_id'];
+            isOneToOne: false;
+            referencedRelation: 'rule_sets';
             referencedColumns: ['id'];
           },
           {

@@ -30,6 +30,7 @@ export class TeamsRepository extends BaseRepository<'teams', ITeamViewModel> {
       description: extendedRow.description || '',
       slack_team_id: extendedRow.slack_team_id,
       vacation_policy_id: extendedRow.vacation_policy_id,
+      rule_set_id: extendedRow.rule_set_id,
       vacation_policy: extendedRow.vacation_policy,
       manager_approvers: extendedRow.manager_approvers,
       hr_approvers: extendedRow.hr_approvers,

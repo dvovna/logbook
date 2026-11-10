@@ -5,6 +5,7 @@ interface ITeamViewModel {
   name: string;
   description: string;
   vacation_policy_id: string | null;
+  rule_set_id: string | null;
   vacation_policy: { id: string; name: string } | null;
   manager_approvers: string[] | null;
   hr_approvers: string[] | null;
