@@ -58,4 +58,6 @@ export interface ITimesheetSaveResult {
   deleted: number;
   // The user's time in the inputs' week after saving.
   minutes: number;
+  // The same for each day of that week (all seven, by date).
+  minutesByDate: Record<string, number>;
 }

@@ -55,6 +55,7 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
       [TimeEntriesTabViewActionId.PreviousWeek]: this.handleWeekChange,
       [TimeEntriesTabViewActionId.NextWeek]: this.handleWeekChange,
       [TimeEntriesTabViewActionId.FillWeek]: this.handleFillWeek,
+      [TimeEntriesTabViewActionId.FillDay]: this.handleFillDay,
       [TimeEntriesTabViewActionId.ManageTimeEntryMenu]: withMenuAction<
         TimeEntriesTabViewActionId,
         [IUserViewModel]
@@ -133,6 +134,30 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
           weekStart: weekStartOf(
             weekStart ?? new Date().toISOString().slice(0, 10),
           ),
+          addedProjectIds: [],
+          showWeekend: false,
+          pageMetadata: payload.view.private_metadata,
+        },
+      },
+    );
+  };
+
+  // Fill in today: the day form for today, the viewer's own time.
+  private handleFillDay = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    const today = new Date().toISOString().slice(0, 10);
+
+    await this.timeEntriesTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      TimeEntriesTabModalName.FillWeek,
+      {
+        user,
+        metadata: {
+          mode: 'day',
+          weekStart: weekStartOf(today),
+          date: today,
           addedProjectIds: [],
           showWeekend: false,
           pageMetadata: payload.view.private_metadata,

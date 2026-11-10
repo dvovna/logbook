@@ -194,7 +194,9 @@ export class TimesheetService {
 
       return {
         ...result,
-        minutes: weekStart ? await this.weekMinutes(user, weekStart) : 0,
+        ...(weekStart
+          ? await this.weekMinutes(user, weekStart)
+          : { minutes: 0, minutesByDate: {} }),
       };
     });
   }
@@ -325,7 +327,7 @@ export class TimesheetService {
     user: IUserViewModel,
     changes: ICellChange[],
     comment?: string,
-  ): Promise<Omit<ITimesheetSaveResult, 'minutes'>> {
+  ): Promise<Omit<ITimesheetSaveResult, 'minutes' | 'minutesByDate'>> {
     const result = { created: 0, updated: 0, deleted: 0 };
     const openOnly = { openOnly: true };
 
@@ -407,11 +409,22 @@ export class TimesheetService {
     }
   }
 
+  // The user's time in a week, in all and for each of its days.
   private async weekMinutes(user: IUserViewModel, weekStart: string) {
     const days = weekDays(weekStart);
     const entries = await this.findEntries(user, days[0], days[6]);
+    const minutesByDate: Record<string, number> = Object.fromEntries(
+      days.map((day) => [day, 0]),
+    );
 
-    return entries.reduce((sum, entry) => sum + entry.minutes, 0);
+    for (const entry of entries) {
+      minutesByDate[entry.work_date] += entry.minutes;
+    }
+
+    return {
+      minutes: entries.reduce((sum, entry) => sum + entry.minutes, 0),
+      minutesByDate,
+    };
   }
 
   // The user's entries between two days, cancelled ones left out.

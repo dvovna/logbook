@@ -835,3 +835,196 @@ describe('Fill in the week', () => {
     );
   });
 });
+
+describe('Fill in today', () => {
+  const [WED, THU] = ['2026-06-17', '2026-06-18'];
+  const LAST_WEEK = '2026-06-08';
+
+  let t: ITestApp;
+  let workspace: TestWorkspace;
+  let member: Tables<'users'>;
+  let website: Tables<'projects'>;
+  let mobile: Tables<'projects'>;
+
+  beforeAll(async () => {
+    t = await createTestApp();
+  });
+
+  afterAll(() => t.close());
+
+  beforeEach(async () => {
+    workspace = await t.createWorkspace();
+    const design = await workspace.addTeam({ name: 'Design' });
+    member = await workspace.addUser({ team_id: design.id, name: 'Mia' });
+    const acme = await workspace.addClient({ name: 'Acme' });
+    website = await workspace.addProject({
+      name: 'Website',
+      client_id: acme.id,
+    });
+    mobile = await workspace.addProject({ name: 'Mobile', client_id: acme.id });
+    await workspace.assignToProject(website, { teams: [design] });
+    await workspace.assignToProject(mobile, { teams: [design] });
+  });
+
+  const entry = (
+    project: Tables<'projects'>,
+    work_date: string,
+    fields: Partial<Tables<'time_entries'>> = {},
+  ) =>
+    workspace.addTimeEntry(member, project, {
+      work_date,
+      minutes: 60,
+      ...fields,
+    });
+
+  const openForm = async (action = TimeEntriesTabViewActionId.FillDay) =>
+    openModalFrom(
+      t,
+      workspace,
+      member,
+      await openAppHomeTab(t, workspace, member, MY_TIME),
+      action,
+    );
+
+  const submit = (
+    form: View,
+    values: Record<string, string | undefined> = {},
+  ) => t.slack.submitView(workspace, member, form, values).expect(200);
+
+  const actOnForm = async (form: View, actionId: string, value?: string) => {
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .actOnView(workspace, member, form, actionId, value)
+      .expect(200);
+    await t.idle();
+
+    return t.slackApi.updatedModal(workspace.token, { since });
+  };
+
+  const entriesOf = async () =>
+    (await workspace.rows('time_entries'))
+      .filter((row) => !row.deleted_at)
+      .map((row) =>
+        `${row.project_id === website.id ? 'Website' : 'Mobile'} ${row.work_date} ${row.minutes} ${row.status} ${row.description ?? ''}`.trim(),
+      )
+      .sort();
+
+  it('fills a day at once', async () => {
+    await entry(website, LAST_WEEK);
+    await entry(mobile, LAST_WEEK);
+    const form = await openForm();
+
+    expect(timesheetFormRows(form)).toEqual([
+      { project: 'Mobile · Acme', cells: ['Wed 17 []'] },
+      { project: 'Website · Acme', cells: ['Wed 17 []'] },
+    ]);
+
+    const since = t.slackApi.mark();
+    const answer = await submit(form, {
+      [cellKey(website.id, WED)]: '5',
+      [cellKey(mobile.id, WED)]: '3',
+      [TimesheetFormActionId.Comment]: 'Sprint review',
+    });
+
+    expect(answer.body).toEqual({ response_action: 'clear' });
+    expect(await entriesOf()).toEqual([
+      'Mobile 2026-06-08 60 draft',
+      'Mobile 2026-06-17 180 draft Sprint review',
+      'Website 2026-06-08 60 draft',
+      'Website 2026-06-17 300 draft Sprint review',
+    ]);
+    expect(noticeOf(await publishedHome(t, workspace, member, since))).toBe(
+      '✅ 8h saved for Wed 17 Jun.',
+    );
+  });
+
+  it('changes the day in the form', async () => {
+    await entry(website, LAST_WEEK);
+    await entry(website, THU, { minutes: 180 });
+
+    const changed = await actOnForm(
+      await openForm(),
+      TimesheetFormActionId.Day,
+      THU,
+    );
+
+    expect(timesheetFormRows(changed)).toEqual([
+      { project: 'Website · Acme', cells: ['Thu 18 [3]'] },
+    ]);
+
+    await submit(changed, { [cellKey(website.id, THU)]: '4' });
+
+    expect(await entriesOf()).toEqual([
+      'Website 2026-06-08 60 draft',
+      'Website 2026-06-18 240 draft',
+    ]);
+  });
+
+  it('shows what the week form saved', async () => {
+    await entry(website, LAST_WEEK);
+    await submit(await openForm(TimeEntriesTabViewActionId.FillWeek), {
+      [cellKey(website.id, WED)]: '5',
+    });
+
+    const form = await openForm();
+
+    expect(timesheetFormRows(form)).toEqual([
+      { project: 'Website · Acme', cells: ['Wed 17 [5]'] },
+    ]);
+
+    const added = await actOnForm(
+      form,
+      TimesheetFormActionId.AddProject,
+      mobile.id,
+    );
+
+    expect(timesheetFormRows(added)).toEqual([
+      { project: 'Mobile · Acme', cells: ['Wed 17 []'] },
+      { project: 'Website · Acme', cells: ['Wed 17 [5]'] },
+    ]);
+  });
+
+  it("keeps an entry's description when the comment is left empty", async () => {
+    const draft = await entry(website, WED, { description: 'Design' });
+    const form = await openForm();
+
+    await submit(form, { [cellKey(website.id, WED)]: '2' });
+
+    expect(await workspace.row('time_entries', draft.id)).toMatchObject({
+      minutes: 120,
+      description: 'Design',
+    });
+
+    await submit(await openForm(), {
+      [cellKey(website.id, WED)]: '3',
+      [TimesheetFormActionId.Comment]: 'Review',
+    });
+
+    expect(await workspace.row('time_entries', draft.id)).toMatchObject({
+      minutes: 180,
+      description: 'Review',
+    });
+  });
+
+  it('escapes the comment where it shows', async () => {
+    await entry(website, LAST_WEEK);
+    const since = t.slackApi.mark();
+
+    await submit(await openForm(), {
+      [cellKey(website.id, WED)]: '1',
+      [TimesheetFormActionId.Comment]: '<!channel>',
+    });
+
+    expect(await entriesOf()).toContain(
+      'Website 2026-06-17 60 draft <!channel>',
+    );
+
+    const myTime = JSON.stringify(
+      await publishedHome(t, workspace, member, since),
+    );
+
+    expect(myTime).toContain('&lt;!channel&gt;');
+    expect(myTime).not.toContain('<!channel>');
+  });
+});

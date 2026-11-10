@@ -174,6 +174,11 @@ export class TimeEntriesTabView extends BaseTabView<
         text: { type: 'plain_text', text: '✏️ Fill in the week' },
         action_id: TimeEntriesTabViewActionId.FillWeek,
       },
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: '✏️ Fill in today' },
+        action_id: TimeEntriesTabViewActionId.FillDay,
+      },
       ...(toSubmit > 0
         ? [
             {

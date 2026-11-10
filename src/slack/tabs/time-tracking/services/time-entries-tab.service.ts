@@ -160,7 +160,8 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     });
   }
 
-  // Fill in the week: the viewer's own time, whatever their role.
+  // Fill in the week or the day (`metadata.mode`; the day's rows are those of
+  // its week): the viewer's own time, whatever their role.
   private async getTimesheetFormModal({
     user,
     errorMessage,
@@ -176,7 +177,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     ]);
 
     return this.timesheetFormModalView.getView(
-      { week, projects, errorMessage },
+      { mode: metadata.mode, week, projects, errorMessage },
       metadata,
     );
   }

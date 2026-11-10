@@ -374,6 +374,11 @@ describe('TimesheetService.saveCells', () => {
       updated: 0,
       deleted: 0,
       minutes: 150,
+      minutesByDate: expect.objectContaining({
+        [TUESDAY]: 90,
+        [WEDNESDAY]: 60,
+        [MONDAY]: 0,
+      }),
     });
   });
 

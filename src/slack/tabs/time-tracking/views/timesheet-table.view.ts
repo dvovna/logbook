@@ -19,6 +19,10 @@ export const SATURDAY = 5;
 export const dayHeading = (date: string) =>
   `${WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]} ${Number(date.slice(8))}`;
 
+// 'Wed 17 Jun'
+export const dayLabel = (date: string) =>
+  `${WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]} ${weekLabel(date)}`;
+
 // The week of Monday 15 June 2026: '15 Jun'.
 export const weekLabel = (weekStart: string) =>
   formatDate(weekStart).replace(/ \d{4}$/, '');

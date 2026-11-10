@@ -11,8 +11,10 @@ import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { timesheetCellLockLabel } from '@modules/slack/common/views/data/labels';
 import { versionedBlockId } from '@modules/slack/services/slack-view-values.parser';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
+import { MAX_TIME_ENTRY_DESCRIPTION_LENGTH } from '@common/constants/text-limits';
 import {
   dayHeading,
+  dayLabel,
   SATURDAY,
   weekLabel,
 } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
@@ -32,6 +34,8 @@ export const SUBMIT_WEEK_OPTION = 'submit';
 const ADD_PROJECT_BLOCK_ID = 'timesheet_add_project';
 const SHOW_WEEKEND_BLOCK_ID = 'timesheet_show_weekend';
 const SHOW_WEEKEND_OPTION = 'show';
+const DAY_BLOCK_ID = 'timesheet_day';
+export const COMMENT_BLOCK_ID = 'timesheet_comment';
 // What Slack takes in a static select.
 const MAX_SELECT_OPTIONS = 100;
 
@@ -52,6 +56,7 @@ export type TimesheetFormMetadata = {
 };
 
 interface ITimesheetFormViewParams extends IBaseModalViewParams<ViewCallbackId.TimesheetForm> {
+  mode: TimesheetFormMetadata['mode'];
   week: ITimesheetWeek;
   // The projects the user may log time on, for "Add a project".
   projects: IUserProject[];
@@ -63,9 +68,10 @@ const plainOption = (text: string, value: string): PlainTextOption => ({
 });
 
 // Fill in the week: an input for every day of every row project, hours in
-// each, saved at once. A cell that can't be changed here (several entries,
-// submitted, approved, billed, or a project closed for logging) shows as
-// text.
+// each, saved at once. Fill in the day (`mode: 'day'`): the same rows with
+// one input each for a chosen day, and a comment for what is saved. A cell
+// that can't be changed here (several entries, submitted, approved, billed,
+// or a project closed for logging) shows as text.
 @Injectable()
 export class TimesheetFormModalView extends BaseModalView<
   ITimesheetFormViewParams,
@@ -73,8 +79,8 @@ export class TimesheetFormModalView extends BaseModalView<
 > {
   protected defaultCallbackId = ViewCallbackId.TimesheetForm;
 
-  protected getTitleText(): string {
-    return 'Fill in the week';
+  protected getTitleText({ mode }: ITimesheetFormViewParams): string {
+    return mode === 'day' ? 'Fill in the day' : 'Fill in the week';
   }
 
   // "Save": entries go to the approvers only once they are submitted.
@@ -87,53 +93,106 @@ export class TimesheetFormModalView extends BaseModalView<
 
   protected getViewBlocks(
     { week, projects, errorMessage }: ITimesheetFormViewParams,
-    { addedProjectIds, showWeekend }: TimesheetFormMetadata,
+    { mode, date, addedProjectIds, showWeekend }: TimesheetFormMetadata,
   ): AnyBlock[] {
-    // Saturday and Sunday when asked for, or when they hold time.
-    const shownDays = [...week.days.keys()].filter(
-      (index) => index < SATURDAY || showWeekend || week.dayTotals[index] > 0,
+    const day = mode === 'day' && date ? date : null;
+    // The chosen day; else Saturday and Sunday when asked for, or when they
+    // hold time.
+    const shownDays = [...week.days.keys()].filter((index) =>
+      day
+        ? week.days[index] === day
+        : index < SATURDAY || showWeekend || week.dayTotals[index] > 0,
     );
     const rowIds = new Set(week.rows.map((row) => row.projectId));
     const addable = projects.filter((project) => !rowIds.has(project.id));
 
     return [
       ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
+      ...(day ? [this.getDayBlock(day), this.getCommentBlock()] : []),
       {
         type: 'context',
         elements: [
           {
             type: 'plain_text',
-            text: `Week of ${weekLabel(week.weekStart)} · hours a day, e.g. 1.5 · empty or 0 for no time`,
+            text: `${day ? dayLabel(day) : `Week of ${weekLabel(week.weekStart)}`} · hours${day ? '' : ' a day'}, e.g. 1.5 · empty or 0 for no time`,
           },
         ],
       },
       ...(week.rows.length
-        ? week.rows.flatMap((row) => this.getRowBlocks(row, shownDays))
+        ? week.rows.flatMap((row) =>
+            this.getRowBlocks(row, shownDays, day ? 'that day' : 'this week'),
+          )
         : [this.getNoRowsBlock(addable.length > 0)]),
       ...(week.rows.length < MAX_TIMESHEET_ROWS && addable.length
         ? [this.getAddProjectBlock(addable, addedProjectIds.length)]
         : []),
-      this.getShowWeekendBlock(showWeekend),
-      {
-        type: 'input',
-        block_id: SUBMIT_WEEK_BLOCK_ID,
-        optional: true,
-        label: { type: 'plain_text', text: 'Approval' },
-        element: {
-          type: 'checkboxes',
-          action_id: TimesheetFormActionId.SubmitWeek,
-          options: [
-            plainOption(
-              "Submit the week's time for approval",
-              SUBMIT_WEEK_OPTION,
-            ),
-          ],
-        },
-      },
+      ...(day
+        ? []
+        : [this.getShowWeekendBlock(showWeekend), this.getSubmitWeekBlock()]),
     ];
   }
 
-  private getRowBlocks(row: ITimesheetRow, shownDays: number[]): AnyBlock[] {
+  private getSubmitWeekBlock(): AnyBlock {
+    return {
+      type: 'input',
+      block_id: SUBMIT_WEEK_BLOCK_ID,
+      optional: true,
+      label: { type: 'plain_text', text: 'Approval' },
+      element: {
+        type: 'checkboxes',
+        action_id: TimesheetFormActionId.SubmitWeek,
+        options: [
+          plainOption(
+            "Submit the week's time for approval",
+            SUBMIT_WEEK_OPTION,
+          ),
+        ],
+      },
+    };
+  }
+
+  // The day of the day form: choosing another rebuilds the form (the cells'
+  // block_ids hold the date, so the new day's inputs start from its hours).
+  private getDayBlock(date: string): AnyBlock {
+    return {
+      type: 'input',
+      block_id: DAY_BLOCK_ID,
+      dispatch_action: true,
+      label: { type: 'plain_text', text: 'Day' },
+      element: {
+        type: 'datepicker',
+        action_id: TimesheetFormActionId.Day,
+        initial_date: date,
+      },
+    };
+  }
+
+  // Goes on every entry the form creates or changes; empty leaves the
+  // description of an existing entry as it is.
+  private getCommentBlock(): AnyBlock {
+    return {
+      type: 'input',
+      block_id: COMMENT_BLOCK_ID,
+      optional: true,
+      label: { type: 'plain_text', text: 'Comment' },
+      hint: {
+        type: 'plain_text',
+        text: 'Added to every entry saved here. Leave it empty to keep the descriptions as they are.',
+      },
+      element: {
+        type: 'plain_text_input',
+        action_id: TimesheetFormActionId.Comment,
+        multiline: true,
+        max_length: MAX_TIME_ENTRY_DESCRIPTION_LENGTH,
+      },
+    };
+  }
+
+  private getRowBlocks(
+    row: ITimesheetRow,
+    shownDays: number[],
+    period: string,
+  ): AnyBlock[] {
     const cells = shownDays
       .map((index) => row.cells[index])
       // A day of a closed project without time has nothing to show.
@@ -161,7 +220,7 @@ export class TimesheetFormModalView extends BaseModalView<
         ? cells
         : [
             this.getContextBlock(
-              `No time this week · ${timesheetCellLockLabel('project', 0)}`,
+              `No time ${period} · ${timesheetCellLockLabel('project', 0)}`,
             ),
           ]),
     ];

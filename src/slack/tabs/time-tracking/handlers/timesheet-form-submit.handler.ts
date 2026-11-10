@@ -19,7 +19,10 @@ import {
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
 import { TimesheetFormMetadata } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
-import { weekLabel } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
+import {
+  dayLabel,
+  weekLabel,
+} from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 import { ITimeEntriesTabMetaData } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
 import { ITimesheetSaveResult } from 'src/time-entries/types/timesheet.types';
@@ -64,19 +67,24 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
   }
 
   protected async onSubmit(
-    { cells, submitWeek }: ITimesheetFormData,
+    { cells, submitWeek, comment }: ITimesheetFormData,
     metadata: TimesheetFormMetadata,
     user: IUserViewModel,
   ) {
-    const days = weekDays(metadata.weekStart);
-    // The form's week only: a cell of another day came from the client.
-    const inputs = cells.filter((cell) => days.includes(cell.date));
+    const isDay = metadata.mode === 'day';
+    // The form's week, or its day: a cell of another day came from the client.
+    const inputs = cells.filter((cell) =>
+      isDay
+        ? cell.date === metadata.date
+        : weekDays(metadata.weekStart).includes(cell.date),
+    );
 
     if (!inputs.length && !submitWeek) {
       return null;
     }
 
     return this.timesheetService.saveCells(user, inputs, {
+      comment: isDay ? comment : undefined,
       submitWeekStart: submitWeek ? metadata.weekStart : undefined,
     });
   }
@@ -91,13 +99,23 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
       metadata: metadata.pageMetadata
         ? (JSON.parse(metadata.pageMetadata) as ITimeEntriesTabMetaData)
         : { ownEntriesOnly: true, weekStart: metadata.weekStart },
-      // '✅ 26h saved for the week of 15 Jun.'
-      notice: result
-        ? `✅ ${result.minutes ? getDisplayTime(result.minutes) : '0h'} saved for the week of ${weekLabel(metadata.weekStart)}.`
-        : undefined,
+      notice: result ? this.noticeOf(result, metadata) : undefined,
     });
 
     return SlackViewResponseFactory.success();
+  }
+
+  // '✅ 26h saved for the week of 15 Jun.', '✅ 8h saved for Wed 17 Jun.'
+  private noticeOf(
+    result: ITimesheetSaveResult,
+    { mode, date, weekStart }: TimesheetFormMetadata,
+  ) {
+    const day = mode === 'day' && date;
+    const minutes = day ? (result.minutesByDate[date] ?? 0) : result.minutes;
+
+    return `✅ ${minutes ? getDisplayTime(minutes) : '0h'} saved for ${
+      day ? dayLabel(date) : `the week of ${weekLabel(weekStart)}`
+    }.`;
   }
 
   protected async errorResponse(

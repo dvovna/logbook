@@ -1,10 +1,17 @@
 import type { InputBlock } from '@slack/web-api';
 import { ISlackView } from '@modules/slack/common/types/slack-interaction-payload.interface';
-import { getSelectedOptions } from '@modules/slack/common/utils/parsing-utils';
+import {
+  getSelectedOptions,
+  getValue,
+} from '@modules/slack/common/utils/parsing-utils';
 import { IViewParseResult } from '@modules/slack/services/slack-view-values.parser';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
 import { hoursSchema } from '@modules/slack/tabs/time-tracking/parsers/user-time-entry-modal-view-values.parser';
-import { SUBMIT_WEEK_BLOCK_ID } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
+import {
+  COMMENT_BLOCK_ID,
+  SUBMIT_WEEK_BLOCK_ID,
+} from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
+import { MAX_TIME_ENTRY_DESCRIPTION_LENGTH } from '@common/constants/text-limits';
 import { ITimesheetCellInput } from 'src/time-entries/types/timesheet.types';
 
 export interface ITimesheetFormData {
@@ -12,6 +19,8 @@ export interface ITimesheetFormData {
   cells: ITimesheetCellInput[];
   // Submit the week's drafts and rejected entries after saving.
   submitWeek: boolean;
+  // The day form's comment; undefined when empty or not in the form.
+  comment?: string;
 }
 
 // cellKey(projectId, date): a project's UUID and a day.
@@ -90,6 +99,17 @@ export const parseTimesheetForm = (
     });
   }
 
+  const comment = getValue(
+    values,
+    COMMENT_BLOCK_ID,
+    TimesheetFormActionId.Comment,
+  ).trim();
+
+  if (comment.length > MAX_TIME_ENTRY_DESCRIPTION_LENGTH) {
+    errors[COMMENT_BLOCK_ID] =
+      `Comment must be at most ${MAX_TIME_ENTRY_DESCRIPTION_LENGTH} characters`;
+  }
+
   if (Object.keys(errors).length) {
     return { errors };
   }
@@ -97,6 +117,7 @@ export const parseTimesheetForm = (
   return {
     data: {
       cells,
+      comment: comment || undefined,
       submitWeek:
         getSelectedOptions(
           values,

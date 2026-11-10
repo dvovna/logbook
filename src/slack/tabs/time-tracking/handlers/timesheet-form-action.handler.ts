@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type {
   CheckboxesAction,
+  DatepickerAction,
   StaticSelectAction,
 } from '@slack/bolt/dist/types/actions/block-action';
 import { ALL_ROLES } from '@common/constants/role-groups';
+import { weekStartOf } from '@common/utils/period-presets';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import {
@@ -21,7 +23,8 @@ import { TimesheetFormMetadata } from '@modules/slack/tabs/time-tracking/views/t
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
 import { MAX_TIMESHEET_ROWS } from 'src/time-entries/types/timesheet.types';
 
-// Adding a row or showing the weekend rebuilds the open form (views.update).
+// Adding a row, showing the weekend or choosing another day rebuilds the open
+// form (views.update).
 // Its cells keep their block_ids, so Slack keeps what was typed in them.
 @Injectable()
 @SlackHandler({
@@ -35,6 +38,8 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
       this.addProject(payload, user),
     [TimesheetFormActionId.ShowWeekend]: (payload, user) =>
       this.showWeekend(payload, user),
+    [TimesheetFormActionId.Day]: (payload, user) =>
+      this.changeDay(payload, user),
   };
 
   public constructor(
@@ -81,6 +86,30 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
     await this.updateForm(payload, user, {
       ...parseMetadata<TimesheetFormMetadata>(payload),
       showWeekend: !!selected_options?.length,
+    });
+  }
+
+  // The date comes from the client: a real day, or nothing changes.
+  private async changeDay(
+    payload: ISlackBlockActionPayload,
+    user: IUserViewModel,
+  ) {
+    const { selected_date: date } = payload.actions[0] as DatepickerAction;
+    const metadata = parseMetadata<TimesheetFormMetadata>(payload);
+
+    if (
+      metadata.mode !== 'day' ||
+      !date ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+      Number.isNaN(Date.parse(`${date}T00:00:00Z`))
+    ) {
+      return;
+    }
+
+    await this.updateForm(payload, user, {
+      ...metadata,
+      date,
+      weekStart: weekStartOf(date),
     });
   }
 
