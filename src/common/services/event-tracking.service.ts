@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { trackInBackground } from '@common/utils/run-in-background';
+import { startInBackground } from '@common/utils/run-in-background';
 import { TransactionService } from 'src/database/transaction.service';
 
 // EventEmitter2.emit starts the listeners (@OnEvent, tab navigation) and
@@ -38,7 +38,7 @@ export class EventTrackingService implements OnModuleInit {
       if (transactions.inTransaction) {
         transactions.afterCommit(handle);
       } else {
-        trackInBackground(handle());
+        startInBackground(handle);
       }
 
       return eventEmitter.listeners(event).length > 0;

@@ -20,6 +20,7 @@ import { NagerDateClient } from 'src/holidays/clients/nager-date.client';
 import { SlackTestClient } from './slack-test-client';
 import { TestDatabase, TestWorkspace } from './test-workspace';
 import { assertLocalUrl } from './local-url';
+import { createSqlLog, ISqlLog } from './sql-log';
 
 export interface ITestApp {
   app: INestApplication;
@@ -31,6 +32,8 @@ export interface ITestApp {
   slack: SlackTestClient;
   // The app's pool, outside any transaction of the app.
   db: TestDatabase;
+  // Every statement sent to Postgres, to count the round trips of an action.
+  sql: ISqlLog;
   // Resolves once the app has finished the work it does after answering
   // Slack (event handlers, EventEmitter listeners, tab updates).
   idle(): Promise<void>;
@@ -45,6 +48,7 @@ export interface ITestApp {
 // stack. Only the outside services are replaced: Slack and Nager.Date.
 export const createTestApp = async (): Promise<ITestApp> => {
   const slackApi = new FakeSlackApiClient();
+  const sqlLog = createSqlLog();
   const nager = new FakeNagerDateClient();
   // Each app has its own job tables: test files run in parallel, and other
   // checkouts may run their tests against the same database.
@@ -87,6 +91,7 @@ export const createTestApp = async (): Promise<ITestApp> => {
     nager,
     slack: new SlackTestClient(app.getHttpServer()),
     db,
+    sql: sqlLog,
     idle: whenBackgroundWorkIsDone,
     retryJobs: async () => {
       await app.get(JobsService).runDueJobs({ includeNotDue: true });

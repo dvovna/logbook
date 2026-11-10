@@ -1,8 +1,16 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { Logger } from '@nestjs/common';
 import { reportError } from '@common/errors/error-reporter';
 
 // Background work started and not finished yet.
 const pending = new Set<Promise<unknown>>();
+
+// Set inside the work startInBackground() starts, and in whatever it awaits:
+// nobody waits for that work before answering. The integration tests use it
+// to count the queries on the way to an answer apart from those after it.
+const backgroundWork = new AsyncLocalStorage<true>();
+
+export const isBackgroundWork = () => backgroundWork.getStore() === true;
 
 // Slack waits 3 seconds for the answer to an interaction, then shows it as
 // failed. Work that can take longer (several queries and Slack calls) runs
@@ -13,12 +21,22 @@ export const runInBackground = (
   description: string,
   task: () => Promise<unknown>,
 ) => {
-  trackInBackground(
+  startInBackground(() =>
     task().catch((error: Error) => {
       logger.error(`Failed to ${description}: ${error.message}`, error.stack);
       reportError(error, { task: description });
     }),
   );
+};
+
+// Starts `task`, which handles its own errors, as background work and
+// returns its promise.
+export const startInBackground = <T>(task: () => Promise<T>): Promise<T> => {
+  const work = backgroundWork.run(true, task);
+
+  trackInBackground(work);
+
+  return work;
 };
 
 // Counts a promise that handles its own errors as background work.
