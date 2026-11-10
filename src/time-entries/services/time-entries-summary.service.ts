@@ -2,9 +2,9 @@ import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-e
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import ProjectsService from 'src/projects/services/projects.service';
-import TeamsService from '@modules/teams/services/teams.service';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
+import { TimeEntriesScopeService } from 'src/time-entries/services/time-entries-scope.service';
 
 export interface IUserTimeSummary {
   todayMinutes: number;
@@ -43,7 +43,7 @@ export class TimeEntriesSummaryService {
   public constructor(
     private readonly timeEntriesService: TimeEntriesService,
     private readonly projectsService: ProjectsService,
-    private readonly teamsService: TeamsService,
+    private readonly scopeService: TimeEntriesScopeService,
   ) {}
 
   public async getUserSummary(
@@ -86,21 +86,16 @@ export class TimeEntriesSummaryService {
     };
   }
 
-  // This week's time of the teams `user` manages: the whole workspace for
-  // Admin and HR, a manager's teams for a manager.
+  // This week's time `user` sees in reports (TimeEntriesScopeService): the
+  // whole workspace for Admin and HR, a manager's teams and own time, else
+  // their own.
   public async getWeekSummary(
     user: IUserViewModel,
     now = new Date(),
   ): Promise<IWorkspaceTimeSummary> {
-    const slackTeamId = user.slack_team_id;
-    const teamIds = await this.teamsService.findManagedTeamIds(user);
-    const [weekEntries, projects] = await Promise.all([
-      this.timeEntriesService.findMany({
-        slackTeamId,
-        ...(teamIds ? { teamIds } : {}),
-        ...weekOf(now),
-      }),
-      this.projectsService.findMany({ slackTeamId }),
+    const [{ entries: weekEntries }, projects] = await Promise.all([
+      this.scopeService.findEntries(user, weekOf(now)),
+      this.projectsService.findMany({ slackTeamId: user.slack_team_id }),
     ]);
 
     return {

@@ -10,9 +10,19 @@ import { TeamsModule } from '@modules/teams/teams.module';
 import { ClientsModule } from '@modules/clients/clients.module';
 import { BillingReportService } from 'src/time-entries/services/billing-report.service';
 import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
+import { UsersModule } from '@modules/users/users.module';
+import { TimeEntriesScopeService } from 'src/time-entries/services/time-entries-scope.service';
+import { TimeReportService } from 'src/time-entries/services/time-report.service';
+import { TimeEntriesExportService } from 'src/time-entries/services/time-entries-export.service';
 
 @Module({
-  imports: [ProjectsModule, TeamsModule, ClientsModule, SlackTeamsModule],
+  imports: [
+    ProjectsModule,
+    TeamsModule,
+    ClientsModule,
+    SlackTeamsModule,
+    UsersModule,
+  ],
   providers: [
     TimeEntriesRepository,
     TimeEntriesService,
@@ -21,6 +31,9 @@ import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
     TimeEntriesSummaryService,
     BillingReportService,
     TimeEntriesListQuery,
+    TimeEntriesScopeService,
+    TimeReportService,
+    TimeEntriesExportService,
   ],
   exports: [
     TimeEntriesSummaryService,
@@ -28,6 +41,8 @@ import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
     TimeEntriesService,
     TimeEntryApprovalsService,
     TimeEntriesListQuery,
+    TimeReportService,
+    TimeEntriesExportService,
   ],
 })
 export class TimeEntriesModule {}

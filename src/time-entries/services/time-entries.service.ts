@@ -43,6 +43,8 @@ interface IUpdateParams {
 interface IFindParams {
   id?: string;
   userId?: string;
+  // The entries of these people; an empty list matches none.
+  userIds?: string[];
   billable?: boolean;
   projectId?: string;
   projectIds?: string[];
@@ -291,6 +293,9 @@ export class TimeEntriesService {
       deleted_at: { operator: 'is', value: null },
       ...(params.id ? { id: params.id } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
+      ...(params.userIds
+        ? { user_id: { operator: 'in', value: params.userIds } }
+        : {}),
       ...(params.projectId ? { project_id: params.projectId } : {}),
       ...(params.billable !== undefined ? { billable: params.billable } : {}),
       ...(params.projectIds?.length
