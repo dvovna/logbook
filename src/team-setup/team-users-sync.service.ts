@@ -8,6 +8,11 @@ interface ISyncUsersParams {
   slackTeamId: string;
 }
 
+// Imports the workspace's Slack members: after an install, and after a
+// reinstall that restores an uninstalled workspace. It adds only the members
+// Logbook doesn't have yet, so it is safe to run again: the users it has
+// keep their role, team and status, and their profile changes come with
+// user_change.
 @Injectable()
 export class TeamUsersSyncService {
   private readonly logger = new Logger(TeamUsersSyncService.name);
@@ -21,15 +26,25 @@ export class TeamUsersSyncService {
     userSlackIdsToIgnore = [],
     slackTeamId,
   }: ISyncUsersParams) {
-    const allUsers = await this.slackUsersService.getExistingUsers(slackTeamId);
+    const [members, users] = await Promise.all([
+      this.slackUsersService.getExistingUsers(slackTeamId),
+      this.usersService.findMany({ slackTeamId, includeInactive: true }),
+    ]);
 
-    if (allUsers.length === 0) {
+    if (members.length === 0) {
       this.logger.warn(`No users found for team ${slackTeamId}`);
       return;
     }
 
-    const usersToCreate = allUsers
-      .filter(({ id: slackId }) => !userSlackIdsToIgnore.includes(slackId))
+    const knownSlackIds = new Set(users.map(({ slack_id }) => slack_id));
+    // Two users of a workspace can't share an email
+    // (users_slack_team_id_email_key): a member whose email a user already
+    // has, e.g. under an older Slack account, is left out.
+    const knownEmails = new Set(users.map(({ email }) => email.toLowerCase()));
+
+    const usersToCreate = members
+      .filter(({ id }) => !userSlackIdsToIgnore.includes(id))
+      .filter(({ id }) => !knownSlackIds.has(id))
       .map(({ id, email, real_name, profile }) => ({
         slackId: id,
         teamId: null,
@@ -37,12 +52,13 @@ export class TeamUsersSyncService {
         email: profile.email || email,
         name: real_name || 'Unknown User',
         role: UserRole.Member,
-      }));
+      }))
+      .filter(({ email }) => !knownEmails.has(email.toLowerCase()));
 
     await this.usersService.bulkCreate(usersToCreate);
 
     this.logger.log(
-      `Imported ${allUsers.length} users for team ${slackTeamId}`,
+      `Imported ${usersToCreate.length} new of ${members.length} members for team ${slackTeamId}`,
     );
   }
 }

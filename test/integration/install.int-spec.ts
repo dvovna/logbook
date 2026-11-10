@@ -286,6 +286,26 @@ describe('Installing the app (OAuth redirect)', () => {
     it('restores an uninstalled workspace with its data and syncs its members', async () => {
       const { teamId, installer, slackTeam } = await installOnce();
       const workspace = { slackId: teamId };
+      // A member Logbook already has, made a manager there: the sync adds
+      // the newcomer next to them and leaves them as they are.
+      const teammate = slackId('U');
+      t.slackApi.addUser({
+        id: teammate,
+        teamId,
+        name: 'Tom Teammate',
+        email: `tom-${teamId}@acme.test`,
+      });
+      await t.db
+        .insertInto('users')
+        .values({
+          slack_team_id: slackTeam.id,
+          slack_id: teammate,
+          name: 'Tom Teammate',
+          email: `tom-${teamId}@acme.test`,
+          role: UserRole.Manager,
+        })
+        .execute();
+      const failed = jest.spyOn(Logger.prototype, 'error');
 
       await t.slack
         .event(workspace, { type: 'app_uninstalled' })
@@ -325,9 +345,14 @@ describe('Installing the app (OAuth redirect)', () => {
       expect(users).toEqual(
         expect.arrayContaining([
           { slack_id: installer, role: UserRole.Admin },
+          { slack_id: teammate, role: UserRole.Manager },
           { slack_id: newcomer, role: UserRole.Member },
         ]),
       );
+      expect(users).toHaveLength(3);
+      // The import didn't fail on the users it already had.
+      expect(failed).not.toHaveBeenCalled();
+      failed.mockRestore();
     });
 
     it('lets two workspaces with the same name install', async () => {
