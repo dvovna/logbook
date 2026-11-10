@@ -66,14 +66,15 @@ export class ProjectAssignmentsService implements IProjectAssignmentsService {
 
     const link = { slack_team_id: slackTeamId, project_id: projectId };
 
+    // A pair is the table's primary key, and the client may send an ID twice.
     await this.transactions.transaction(async () => {
       await this.projectTeamsRepository.deleteMany(link);
       await this.projectTeamsRepository.createMany(
-        teamIds.map((team_id) => ({ ...link, team_id })),
+        [...new Set(teamIds)].map((team_id) => ({ ...link, team_id })),
       );
       await this.projectUsersRepository.deleteMany(link);
       await this.projectUsersRepository.createMany(
-        userIds.map((user_id) => ({ ...link, user_id })),
+        [...new Set(userIds)].map((user_id) => ({ ...link, user_id })),
       );
     });
   }

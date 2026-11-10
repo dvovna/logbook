@@ -82,6 +82,22 @@ export class TransactionService {
     );
   }
 
+  // Lets every statement of the current transaction run up to `seconds`
+  // instead of the pool's 10 s (SESSION_SETTINGS), for background work that
+  // is big by nature, such as deleting a workspace with all its data. Ends
+  // with the transaction.
+  public async allowLongStatements(seconds: number) {
+    if (!this.inTransaction) {
+      throw new Error(
+        'allowLongStatements outside a transaction changes nothing',
+      );
+    }
+
+    await sql`select set_config('statement_timeout', ${`${seconds}s`}, true)`.execute(
+      this.database.db,
+    );
+  }
+
   // Runs another library's SQL (pg-boss's `db` option) on the current
   // transaction, or the pool.
   public sqlExecutor() {

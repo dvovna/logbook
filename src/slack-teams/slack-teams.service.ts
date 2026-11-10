@@ -14,6 +14,10 @@ import { RepositoryFilter } from '@common/repositories/repository.types';
 import { TokenCipherService } from '@modules/slack-teams/token-cipher.service';
 import { TransactionService } from 'src/database/transaction.service';
 
+// How long deleting one workspace may take. 500k time entries take about
+// 3 s on a local database.
+const WORKSPACE_DELETE_TIMEOUT_SECONDS = 300;
+
 // A bot token as Slack issues it. A rotating one expires and comes with a
 // refresh token; one from before rotation has neither.
 export interface IBotTokens {
@@ -96,7 +100,7 @@ export class SlackTeamsService implements OnApplicationBootstrap {
   }
 
   // The token goes; the data waits for a reinstall until
-  // deleteUninstalledBefore takes it.
+  // WorkspaceRetentionService deletes it.
   public async markUninstalled(id: string) {
     await this.slackTeamsRepository.update(
       { id },
@@ -123,11 +127,43 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return this.slackTeamsRepository.claimReminderWeek(id, monday);
   }
 
-  // Deletes the workspaces uninstalled before `cutoff`, with all their data
-  // (every table cascades from slack_teams). Returns how many.
-  public deleteUninstalledBefore(cutoff: Date): Promise<number> {
-    return this.slackTeamsRepository.deleteMany({
+  // The workspaces uninstalled before `cutoff`: their data is due to go.
+  public async findUninstalledBefore(cutoff: Date): Promise<string[]> {
+    const workspaces = await this.slackTeamsRepository.findMany({
       uninstalled_at: { operator: 'lt', value: cutoff.toISOString() },
+    });
+
+    return workspaces.map(({ id }) => id);
+  }
+
+  // Deletes a workspace with all its data (every table cascades from
+  // slack_teams), in a transaction of its own. With `uninstalledBefore`,
+  // only while it is still uninstalled since before then: one installed
+  // again meanwhile stays. Years of a big workspace's time take longer than
+  // the pool's statement timeout, hence its own. Returns whether it deleted
+  // the workspace.
+  public deleteWorkspace(
+    id: string,
+    uninstalledBefore?: Date,
+  ): Promise<boolean> {
+    return this.transactions.transaction(async () => {
+      await this.transactions.allowLongStatements(
+        WORKSPACE_DELETE_TIMEOUT_SECONDS,
+      );
+
+      const deleted = await this.slackTeamsRepository.deleteMany({
+        id,
+        ...(uninstalledBefore
+          ? {
+              uninstalled_at: {
+                operator: 'lt',
+                value: uninstalledBefore.toISOString(),
+              },
+            }
+          : {}),
+      });
+
+      return deleted > 0;
     });
   }
 
@@ -239,12 +275,6 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     }
 
     return team;
-  }
-
-  public async delete(findParams: IFindParams) {
-    return await this.slackTeamsRepository.deleteMany(
-      this.getFilterQuery(findParams),
-    );
   }
 
   private getFilterQuery(findParams: IFindParams): RepositoryFilter {
