@@ -78,9 +78,7 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 
 | Variable | Value |
 | --- | --- |
-| `SUPABASE_URL` | Project URL (Project Settings → API) |
-| `SUPABASE_SERVICE_ROLE_KEY` | The `service_role` key. It bypasses row-level security, so keep it on the server only. |
-| `DATABASE_URL` | The session pooler connection string from step 1 (port 5432, not 6543). The app reads and writes part of its data over it without PostgREST (see [`docs/direct-postgres-plan.md`](docs/direct-postgres-plan.md)), and the job queue, which retries Slack messages and workflow steps that failed, keeps its own `pgboss` schema there. |
+| `DATABASE_URL` | The session pooler connection string from step 1 (port 5432, not 6543). The app reads and writes all its data over it, and the job queue, which retries Slack messages and workflow steps that failed, keeps its own `pgboss` schema there. The app doesn't use the Supabase API or its keys. |
 | `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` | Slack app → Basic Information |
 | `SLACK_SIGN_IN_SECRET` | Slack app → Basic Information → Signing Secret |
 | `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
@@ -118,7 +116,7 @@ Put the app behind HTTPS (a reverse proxy, or a platform such as Render or Fly.i
 
 `GET /health` answers 200 while the app reaches its database and 503 when it can't; point your platform's health check at it. The Docker image already uses it.
 
-On Supabase's free plan the health check also keeps the project awake. Supabase pauses a free project after 7 days of little activity. A quiet week, such as the New Year holidays, is enough, and then the bot stops answering until someone restores the project in the Supabase dashboard. Every `/health` call queries the database through the Supabase API, which counts as activity. So make sure something calls it regularly: the image's `HEALTHCHECK` does it every 30 seconds under Docker, but some platforms ignore it and need their own health check pointed at `/health`.
+On Supabase's free plan the health check also keeps the project awake. Supabase pauses a free project after 7 days of little activity. A quiet week, such as the New Year holidays, is enough, and then the bot stops answering until someone restores the project in the Supabase dashboard. Every `/health` call runs a query on the database, and Supabase counts database activity. So make sure something calls it regularly: the image's `HEALTHCHECK` does it every 30 seconds under Docker, but some platforms ignore it and need their own health check pointed at `/health`.
 
 ### 5. Install
 
@@ -141,7 +139,7 @@ Read the version's section in [CHANGELOG.md](CHANGELOG.md) first: it says when a
 
 ### Checking the database is closed
 
-The app reaches the database only with the service role key. The `anon` and `authenticated` roles of the Supabase API get no access to its tables and functions. After changing the schema outside the migrations (for example in Studio), check that this still holds; every query should return no rows:
+The app reaches the database only through `DATABASE_URL`. The `anon` and `authenticated` roles of the Supabase API get no access to its tables and functions. After changing the schema outside the migrations (for example in Studio), check that this still holds; every query should return no rows:
 
 ```sql
 select relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -164,7 +162,7 @@ pnpm start:dev     # watch mode
 
 ### Local database
 
-The app reads and writes through the Supabase API, so a plain Postgres is not enough. `supabase/config.toml` starts a local stack with only Postgres, the API and Studio enabled:
+The app needs only Postgres, but the migrations grant to and revoke from Supabase's roles, so it runs on the Supabase stack. `supabase/config.toml` starts a local one with Postgres, the API and Studio enabled:
 
 ```bash
 pnpm supabase start
@@ -173,8 +171,6 @@ pnpm supabase start
 On the first start the migrations from `supabase/migrations` create the schema. `pnpm db:init` (`supabase db reset`) drops the local database and applies them again, for example after pulling new migrations.
 
 In `.env`:
-- set `SUPABASE_URL` to `API_URL` from `pnpm supabase status -o env`;
-- set `SUPABASE_SERVICE_ROLE_KEY` to `SERVICE_ROLE_KEY` from the same output;
 - set `SLACK_TOKEN_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`;
 - set `DATABASE_URL` to `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
@@ -224,7 +220,7 @@ Each test starts on a fixed date (Wednesday 2026-06-17), waits for the work the 
 
 Rules for the integration tests:
 - Start the local stack first. If the local database is missing a migration, the run stops and says how to apply it.
-- The tests take their Supabase URLs and keys from `supabase status`, never from `.env`, and refuse to run against anything but localhost.
+- The tests take the database URL from `supabase status`, never from `.env`, and refuse to run against anything but localhost.
 - Each test creates its own workspace (a `slack_teams` row with a random `T…` ID) and deletes it at the end. The foreign keys cascade, so nothing is left behind and your local data is not touched.
 
 ```bash

@@ -19,9 +19,8 @@ Security fixes go into the next release, cut from `development`, and its image. 
 
 ## Notes for people who self-host
 
-- `SUPABASE_SERVICE_ROLE_KEY` bypasses row-level security. Keep it on the server, and never expose the Supabase project to clients with it.
+- `DATABASE_URL` is a full Postgres connection that bypasses row-level security. Keep it on the server. The app doesn't use the Supabase API or its keys, and the tables and functions are closed to the API's `anon` and `authenticated` roles.
 - Every Slack request is verified with the signing secret, so keep `SLACK_SIGN_IN_SECRET` secret too.
 - Bot tokens of installed workspaces are stored in the `slack_teams` table, encrypted with `SLACK_TOKEN_ENCRYPTION_KEY`, together with the refresh tokens of rotating ones. With token rotation on (the manifest's default), a bot token expires after 12 hours. Keep the key apart from database backups: with both, the tokens can be read. Without the key the app can't use them, and every workspace has to install the app again.
-- `DATABASE_URL`, if set, is a full Postgres connection. Treat it like the service role key.
 - With public distribution on, any Slack workspace that has your install link can install the app on your server. Leave it off unless you mean to serve other workspaces, or list the ones you serve in `ALLOWED_SLACK_TEAM_IDS`.
 - When a workspace uninstalls the app, its token is removed at once and its data (people, absences, time entries) is kept for `UNINSTALLED_DATA_RETENTION_DAYS` (30 by default), then deleted. Set it to 0 to delete the data at once, and say in your privacy notice which you chose.

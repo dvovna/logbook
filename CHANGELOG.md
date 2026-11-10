@@ -26,7 +26,8 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - Docker image for amd64 and arm64 on GitHub Container Registry, a health check at `/health`, and a startup check that the database has every migration.
 - Bot tokens encrypted at rest and rotated every 12 hours (Slack token rotation).
 - An uninstalled workspace's data is kept for 30 days, so that installing again restores it, then deleted (`UNINSTALLED_DATA_RETENTION_DAYS`).
-- Optional job queue on Postgres that retries Slack messages and workflow steps, and optional error reports to Sentry with no personal data.
+- Needs only a Postgres connection (`DATABASE_URL`, on Supabase the session pooler), no Supabase API keys. Changes that belong together, with the jobs that follow them, are saved in one transaction.
+- A job queue on Postgres that retries Slack messages and workflow steps, and optional error reports to Sentry with no personal data.
 - CSV imports of vacation history and team membership.
 
 [0.1.0]: https://github.com/dvovna/logbook/releases/tag/v0.1.0

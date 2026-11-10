@@ -1,7 +1,7 @@
 # Data access over a direct Postgres connection
 
-Status: proposal with a working prototype, for a decision before Time & Billing
-stage 3 (billing snapshots, dvovna/logbook#12).
+Status: stages 0–4 done. The app reaches its data only through
+`DATABASE_URL`; stage 5 (plain Postgres for self-hosting) is optional.
 
 ## Summary
 
@@ -41,8 +41,8 @@ direct connection from its first line.
     named arguments, `JSON.stringify` for jsonb. Stage 3 rewrites the write
     functions.
   - Still on PostgREST: `/health`, `MigrationsCheckService` and
-    `BaseRepository` itself (kept for `repository.int-spec.ts`). They go in
-    stage 4.
+    `BaseRepository` itself (kept for `repository.int-spec.ts`). Stage 4
+    removed them.
 - **Stage 3 (write functions to TypeScript): done in code.**
   - Delete-then-insert writes (`replace_user_vacations`,
     `replace_country_holidays`, `assign_project_assignments`, and
@@ -64,7 +64,28 @@ direct connection from its first line.
   - The functions are no longer called but stay in the database. A migration
     in a later release drops them, so that rolling back to an older image
     still works.
-- **Stage 4: not started.**
+- **Stage 4 (remove PostgREST): done in code.**
+  - `SupabaseService`, the PostgREST `BaseRepository`, `quoteFilterValue`
+    and `@supabase/supabase-js` are gone, and `SqlRepository` is now
+    `BaseRepository` (`base.repository.ts`). `SupabaseFilter` is gone too;
+    services build `RepositoryFilter`s.
+  - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are no longer read. An
+    environment that still sets them starts as before.
+  - `MigrationsCheckService` reads `supabase_migrations.schema_migrations`
+    over the pool, so it no longer needs `applied_migrations()`, and a
+    database older than that function is checked in full. `/health` checks
+    only the pool.
+  - Integration fixtures (`TestWorkspace`, `t.db`) use the app's pool through
+    Kysely, and `global-setup` takes only the database URL from
+    `supabase status`. The parity tests against PostgREST became tests of the
+    formats the view models expect, and `direct-postgres.int-spec.ts` is now
+    `database.int-spec.ts`.
+  - Unit specs of SQL use `recordingDatabase`
+    (`src/database/testing/recording-database.ts`), which is left out of the
+    build.
+  - `applied_migrations()` stays in the database with the old write
+    functions, for an older image that still calls it; one migration drops
+    them all in a later release.
 
 ## Why
 
