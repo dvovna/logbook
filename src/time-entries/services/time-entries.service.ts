@@ -94,12 +94,12 @@ interface IFindParams {
 
 type ISearchTimeEntriesParams = ISearchParams<IFindParams>;
 
-// What deleteVacationTime removed: how many entries, their time and
-// projects, and the days whose time stays because it is billed.
+// What deleteVacationTime removed: how many entries, whose they were (the
+// person who logged them, normally one) with their time and projects, and
+// the days whose time stays because it is billed.
 export interface IRemovedVacationTime {
   deleted: number;
-  minutes: number;
-  projectIds: string[];
+  owners: { userId: string; minutes: number; projectIds: string[] }[];
   billedDates: string[];
 }
 
@@ -437,10 +437,20 @@ export class TimeEntriesService {
       ),
     );
 
+    const owners = new Map<string, { minutes: number; projectIds: string[] }>();
+
+    for (const { user_id, minutes, project_id } of deleted) {
+      const owner = owners.get(user_id) ?? { minutes: 0, projectIds: [] };
+
+      owners.set(user_id, {
+        minutes: owner.minutes + minutes,
+        projectIds: [...new Set([...owner.projectIds, project_id])],
+      });
+    }
+
     return {
       deleted: deleted.length,
-      minutes: deleted.reduce((sum, { minutes }) => sum + minutes, 0),
-      projectIds: [...new Set(deleted.map(({ project_id }) => project_id))],
+      owners: [...owners].map(([userId, owner]) => ({ userId, ...owner })),
       billedDates: [...new Set(billedDates.map(getDateOnly))].sort(),
     };
   }

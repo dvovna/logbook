@@ -53,16 +53,29 @@ interface IOfferJob {
   removalOnly?: boolean;
 }
 
-// What the requester hears of their removed time: the time off as it was
-// when the time was logged, and what went. The request may be gone when the
-// job runs, so the job carries it.
+// What happened to the time off that removed its logged time.
+type TimeOffChange =
+  'changed' | 'rejected' | 'canceled' | 'pending' | 'deleted' | 'moved';
+
+// How the removal DM says it: 'Your annual leave 15–19 Jun 2026 was rejected'.
+const CHANGE_WORDS: Record<TimeOffChange, string> = {
+  changed: 'changed',
+  rejected: 'was rejected',
+  canceled: 'was canceled',
+  pending: 'waits for approval again',
+  deleted: 'was deleted',
+  moved: 'was moved to someone else',
+};
+
+// What a person hears of their removed time: the time off as it was when the
+// time was logged, what happened to it, and what went. The request may be
+// gone when the job runs, so the job carries it.
 interface IRemovedTimeNotice {
   userId: string;
   type: VacationType;
   startDate: string;
   endDate: string;
-  // Deleted rather than changed.
-  deleted: boolean;
+  change: TimeOffChange;
   minutes: number;
   projectIds: string[];
   billedDates: string[];
@@ -124,8 +137,9 @@ export class TimeOffOfferService implements OnModuleInit {
   // An edit that approved the request, or changed the person, days or type
   // of an approved one (which removed its logged time). The workflow's own
   // approval carries no `previous`: its decision DM holds the button.
-  // Time the edit removed is told to whose it was: in the offer's DM when the
-  // request is still theirs and approved, in a DM of its own otherwise.
+  // Time the edit removed is told to whose it was (who logged it): in the
+  // offer's DM when the request is still theirs and approved, in a DM of its
+  // own otherwise; a new person gets the offer in a DM of their own.
   @OnEvent(VacationRequestEvent.Updated)
   public handleUpdated({
     request,
@@ -136,34 +150,36 @@ export class TimeOffOfferService implements OnModuleInit {
       !!previous &&
       request.status === VacationRequestStatus.Approved &&
       changesLoggedTime(previous, request);
-    const removed =
-      previous && removedTime?.deleted
-        ? this.removedNotice(previous, removedTime, false)
-        : undefined;
-    const together = offers && removed?.userId === request.user_id;
+    let offered = false;
 
-    if (removed && !together) {
-      this.offerLater(request.id, request.slack_team_id, {
-        removed,
-        removalOnly: true,
-      });
-    }
+    for (const owner of previous && removedTime ? removedTime.owners : []) {
+      const removed = this.removedNotice(
+        previous!,
+        removedTime!,
+        owner,
+        this.changeOf(request, owner.userId),
+      );
+      const together = offers && owner.userId === request.user_id;
 
-    if (offers) {
       this.offerLater(
         request.id,
         request.slack_team_id,
-        together ? { removed } : {},
+        together ? { removed } : { removed, removalOnly: true },
       );
+      offered ||= together;
+    }
+
+    if (offers && !offered) {
+      this.offerLater(request.id, request.slack_team_id);
     }
   }
 
-  // A deletion that removed logged time: the requester hears what went.
+  // A deletion that removed logged time: whose time it was hears what went.
   @OnEvent(VacationRequestEvent.Deleted)
   public handleDeleted({ request, removedTime }: VacationRequestUpdatedEvent) {
-    if (removedTime?.deleted) {
+    for (const owner of removedTime?.owners ?? []) {
       this.offerLater(request.id, request.slack_team_id, {
-        removed: this.removedNotice(request, removedTime, true),
+        removed: this.removedNotice(request, removedTime!, owner, 'deleted'),
         removalOnly: true,
       });
     }
@@ -317,27 +333,51 @@ export class TimeOffOfferService implements OnModuleInit {
     });
   }
 
-  // `request` as its time was logged: before the edit, or as deleted.
+  // `request` as its time was logged (before the edit, or as deleted), and
+  // what `owner` had logged of it.
   private removedNotice(
     request: IVacationRequestViewModel,
-    { minutes, projectIds, billedDates }: IRemovedVacationTime,
-    deleted: boolean,
+    { billedDates }: IRemovedVacationTime,
+    { userId, minutes, projectIds }: IRemovedVacationTime['owners'][number],
+    change: TimeOffChange,
   ): IRemovedTimeNotice {
     return {
-      userId: request.user_id,
+      userId,
       type: request.type,
       startDate: request.start_date,
       endDate: request.end_date,
-      deleted,
+      change,
       minutes,
       projectIds,
       billedDates,
     };
   }
 
-  // 'Your annual leave 16–20 Nov 2026 changed: the 40h logged on Vacations
-  // were removed.', and the billed days that stay, for whose time it was.
-  // Null when they were deactivated since.
+  // What an edit did to the time off of `ownerId`, as the edited `request`
+  // shows it.
+  private changeOf(
+    request: IVacationRequestViewModel,
+    ownerId: string,
+  ): TimeOffChange {
+    if (request.user_id !== ownerId) {
+      return 'moved';
+    }
+
+    switch (request.status) {
+      case VacationRequestStatus.Rejected:
+        return 'rejected';
+      case VacationRequestStatus.Canceled:
+        return 'canceled';
+      case VacationRequestStatus.Pending:
+        return 'pending';
+      default:
+        return 'changed';
+    }
+  }
+
+  // 'Your annual leave 16–20 Nov 2026 was rejected: the 40h logged on
+  // Vacations were removed.', with the billed days that stay, for whose time
+  // it was. Null when they were deactivated since.
   private async removalOf(
     removed: IRemovedTimeNotice,
     slackTeamId: string,
@@ -369,7 +409,7 @@ export class TimeOffOfferService implements OnModuleInit {
     return {
       to: user.slack_id,
       text: withBilledDays(
-        `Your ${what} ${removed.deleted ? 'was deleted' : 'changed'}: the ${getDisplayTime(removed.minutes)} logged on ${onProjects} were removed.`,
+        `Your ${what} ${CHANGE_WORDS[removed.change]}: the ${getDisplayTime(removed.minutes)} logged on ${onProjects} were removed.`,
         removed.billedDates,
       ),
     };

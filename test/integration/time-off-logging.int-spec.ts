@@ -1090,7 +1090,7 @@ describe('Time off logging', () => {
       expect(dmsSince(since)).toEqual([
         {
           sections: [
-            `Your ${THIS_WEEK_TEXT} changed: the 40h logged on Vacations were removed.`,
+            `Your ${THIS_WEEK_TEXT} was rejected: the 40h logged on Vacations were removed.`,
           ],
           button: undefined,
         },
@@ -1149,7 +1149,7 @@ describe('Time off logging', () => {
       expect(dmsSince(since)).toEqual([
         {
           sections: [
-            `Your ${THIS_WEEK_TEXT} changed: the 40h logged on Vacations were removed.`,
+            `Your ${THIS_WEEK_TEXT} was moved to someone else: the 40h logged on Vacations were removed.`,
           ],
           button: undefined,
         },

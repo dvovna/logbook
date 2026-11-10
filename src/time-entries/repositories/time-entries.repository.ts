@@ -190,7 +190,12 @@ export class TimeEntriesRepository extends BaseRepository<
     vacationRequestId: string,
     deletedBy: string,
   ): Promise<{
-    deleted: { work_date: string; minutes: number; project_id: string }[];
+    deleted: {
+      work_date: string;
+      minutes: number;
+      project_id: string;
+      user_id: string;
+    }[];
     billedDates: string[];
   }> {
     const ofVacation = this.selectInWorkspace(slackTeamId)
@@ -209,7 +214,7 @@ export class TimeEntriesRepository extends BaseRepository<
           .where('vacation_request_id', '=', vacationRequestId)
           .where('deleted_at', 'is', null)
           .where('id', 'not in', billed)
-          .returning(['work_date', 'minutes', 'project_id']),
+          .returning(['work_date', 'minutes', 'project_id', 'user_id']),
       )
       .selectFrom('deleted')
       .select([
@@ -217,6 +222,7 @@ export class TimeEntriesRepository extends BaseRepository<
         'work_date',
         'minutes',
         'project_id',
+        'user_id',
       ])
       .unionAll(
         ofVacation
@@ -226,6 +232,7 @@ export class TimeEntriesRepository extends BaseRepository<
             'work_date',
             'minutes',
             'project_id',
+            'user_id',
           ]),
       )
       .execute();
@@ -233,10 +240,11 @@ export class TimeEntriesRepository extends BaseRepository<
     return {
       deleted: rows
         .filter((row) => !row.billed)
-        .map(({ work_date, minutes, project_id }) => ({
+        .map(({ work_date, minutes, project_id, user_id }) => ({
           work_date,
           minutes,
           project_id,
+          user_id,
         })),
       billedDates: rows.filter((row) => row.billed).map(dateOf),
     };
