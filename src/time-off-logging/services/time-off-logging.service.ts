@@ -37,9 +37,6 @@ export interface ITimeOffResult {
   offer: ITimeOffOffer;
   // The days this run wrote.
   logged: string[];
-  // The days that already had time on the project, whoever logged it, or
-  // time of this request on another project.
-  skipped: string[];
   // What is stored for this request after the run, however it got there: on
   // the project, and within its days on other projects (billed time of the
   // leave type it had before, which stayed when HR changed the type).
@@ -161,7 +158,6 @@ export class TimeOffLoggingService {
       return {
         offer,
         logged: free,
-        skipped: offer.dates.filter((date) => taken.has(date)),
         linked: {
           dates: [
             ...own.map(({ work_date }) => getDateOnly(work_date)),

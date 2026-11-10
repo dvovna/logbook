@@ -9,8 +9,6 @@ export type TimesheetCellLock =
 export interface ITimesheetCell {
   date: string;
   minutes: number;
-  // The cell's entry; null when it has none or several.
-  entryId: string | null;
   // How many entries the cell sums up.
   entryCount: number;
   lock: TimesheetCellLock | null;
@@ -60,9 +58,6 @@ export interface ITimesheetCellInput {
 }
 
 export interface ITimesheetSaveResult {
-  created: number;
-  updated: number;
-  deleted: number;
   // The user's time in the inputs' week after saving.
   minutes: number;
   // The same for each day of that week (all seven, by date).

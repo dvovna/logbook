@@ -107,7 +107,6 @@ describe('TimesheetService', () => {
     expect(await wednesdayCell()).toEqual({
       date: WEDNESDAY,
       minutes: 90,
-      entryId: null,
       entryCount: 2,
       lock: 'several',
     });
@@ -142,7 +141,6 @@ describe('TimesheetService', () => {
     expect(await lockOf(entry('d', 'web', 60))).toEqual({
       date: WEDNESDAY,
       minutes: 60,
-      entryId: 'd',
       entryCount: 1,
       lock: null,
     });
@@ -430,9 +428,6 @@ describe('TimesheetService.saveCells', () => {
     expect(validation.checkCreate).toHaveBeenCalledTimes(1);
     expect(writes.writeMinutes).not.toHaveBeenCalled();
     expect(result).toEqual({
-      created: 1,
-      updated: 0,
-      deleted: 0,
       minutes: 150,
       minutesByDate: expect.objectContaining({
         [TUESDAY]: 90,
@@ -472,12 +467,7 @@ describe('TimesheetService.saveCells', () => {
     expect(writes.writeDeletes).toHaveBeenCalledWith([entries[2]], member, {
       openOnly: true,
     });
-    expect(result).toMatchObject({
-      created: 1,
-      updated: 2,
-      deleted: 1,
-      minutes: 195,
-    });
+    expect(result).toMatchObject({ minutes: 195 });
   });
 
   it('refuses a comment when no cell changed, and writes nothing', async () => {

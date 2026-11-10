@@ -160,10 +160,7 @@ describe('TimeOffLoggingService', () => {
       description: 'Annual leave',
       slackTeamId: SLACK_TEAM_ID,
     });
-    expect(result).toMatchObject({
-      logged: ['2026-06-23'],
-      skipped: ['2026-06-19'],
-    });
+    expect(result).toMatchObject({ logged: ['2026-06-23'] });
   });
 
   it('writes nothing when every day has time', async () => {
@@ -196,7 +193,6 @@ describe('TimeOffLoggingService', () => {
 
     expect(result).toMatchObject({
       logged: ['2026-06-23'],
-      skipped: ['2026-06-19'],
       linked: {
         dates: ['2026-06-23'],
         minutes: 480,

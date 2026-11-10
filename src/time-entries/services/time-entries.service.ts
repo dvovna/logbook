@@ -130,7 +130,7 @@ export class TimeEntriesService {
 
   // Writes a new entry the caller has checked (create()). It takes its
   // client and billability from its project.
-  public insert(
+  private insert(
     params: ICreateParams,
     project: IEntryProject,
     actor: IEntryActor,
@@ -369,19 +369,9 @@ export class TimeEntriesService {
   public async writeDelete(
     entry: ITimeEntryViewModel,
     actor: IUserViewModel,
-    { openOnly = !isTimeEntriesAdmin(actor.role) }: IWriteOptions = {},
+    options: IWriteOptions = {},
   ): Promise<void> {
-    const [deleted] = await this.refusingBilled(() =>
-      this.timeEntriesRepository.updateMany(
-        this.unchangedSinceCheck(entry, openOnly),
-        {
-          deleted_at: new Date().toISOString(),
-          deleted_by: actor.id,
-        },
-      ),
-    );
-
-    if (!deleted) {
+    if ((await this.writeDeletes([entry], actor, options)).length) {
       throw new TimeEntryChangedError();
     }
   }

@@ -261,7 +261,7 @@ export class TimesheetService {
       const changes = projects
         ? this.checkCells(user, touched, week, projects, comment)
         : [];
-      const result = await this.writeCells(user, changes, comment);
+      await this.writeCells(user, changes, comment);
 
       if (submitWeekStart) {
         const submitDays = weekDays(submitWeekStart);
@@ -276,12 +276,9 @@ export class TimesheetService {
         );
       }
 
-      return {
-        ...result,
-        ...(weekStart
-          ? this.weekMinutes(days, week.entries, changes)
-          : { minutes: 0, minutesByDate: {} }),
-      };
+      return weekStart
+        ? this.weekMinutes(days, week.entries, changes)
+        : { minutes: 0, minutesByDate: {} };
     });
   }
 
@@ -431,7 +428,7 @@ export class TimesheetService {
     user: IUserViewModel,
     changes: ICellChange[],
     comment?: string,
-  ): Promise<Omit<ITimesheetSaveResult, 'minutes' | 'minutesByDate'>> {
+  ): Promise<void> {
     const created = changes.filter(({ entry }) => !entry);
     const updated = changes.filter(
       ({ entry, input }) => entry && input.minutes !== null,
@@ -482,12 +479,6 @@ export class TimesheetService {
     if (changed) {
       throw new TimeEntryChangedError(changed.key);
     }
-
-    return {
-      created: created.length,
-      updated: updated.length,
-      deleted: deleted.length,
-    };
   }
 
   // The user's draft a cell creates.
@@ -663,7 +654,6 @@ export class TimesheetService {
     return {
       date,
       minutes,
-      entryId: only?.id ?? null,
       entryCount: entries.length,
       lock,
     };

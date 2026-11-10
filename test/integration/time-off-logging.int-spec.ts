@@ -386,7 +386,6 @@ describe('Time off logging', () => {
 
       expect(result.logged).toEqual(['2026-06-19', '2026-06-23']);
       expect(result.logged).toHaveLength(request.working_days);
-      expect(result.skipped).toEqual([]);
       expect(
         entries.map((entry) => [
           entry.work_date.slice(0, 10),
@@ -446,7 +445,6 @@ describe('Time off logging', () => {
       );
 
       expect(result.logged).toEqual(['2026-06-23']);
-      expect(result.skipped).toEqual(['2026-06-19']);
       expect(await entriesOf(requester)).toHaveLength(2);
     });
 
@@ -458,7 +456,6 @@ describe('Time off logging', () => {
       const again = await logging().log(user, request.id);
 
       expect(again.logged).toEqual([]);
-      expect(again.skipped).toEqual(['2026-06-19', '2026-06-23']);
       expect(await entriesOf(requester)).toHaveLength(2);
     });
 

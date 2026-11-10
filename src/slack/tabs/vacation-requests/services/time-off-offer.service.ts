@@ -150,26 +150,36 @@ export class TimeOffOfferService implements OnModuleInit {
       !!previous &&
       request.status === VacationRequestStatus.Approved &&
       changesLoggedTime(previous, request);
-    let offered = false;
 
-    for (const owner of previous && removedTime ? removedTime.owners : []) {
+    if (!previous || !removedTime) {
+      if (offers) {
+        this.offerLater(request.id, request.slack_team_id);
+      }
+
+      return;
+    }
+
+    for (const owner of removedTime.owners) {
       const removed = this.removedNotice(
-        previous!,
-        removedTime!,
+        previous,
+        removedTime,
         owner,
         this.changeOf(request, owner.userId),
       );
-      const together = offers && owner.userId === request.user_id;
 
       this.offerLater(
         request.id,
         request.slack_team_id,
-        together ? { removed } : { removed, removalOnly: true },
+        offers && owner.userId === request.user_id
+          ? { removed }
+          : { removed, removalOnly: true },
       );
-      offered ||= together;
     }
 
-    if (offers && !offered) {
+    if (
+      offers &&
+      !removedTime.owners.some(({ userId }) => userId === request.user_id)
+    ) {
       this.offerLater(request.id, request.slack_team_id);
     }
   }
@@ -263,18 +273,7 @@ export class TimeOffOfferService implements OnModuleInit {
     try {
       await this.timeOffLoggingService.assertCanLog(user, requestId);
     } catch (error) {
-      if (
-        error instanceof ValidationError ||
-        error instanceof NotFoundException
-      ) {
-        await this.tell(user, message.channel, (error as Error).message);
-
-        return;
-      }
-
-      if (error instanceof ForbiddenException) {
-        this.logger.warn(`Time off not logged: ${error.message}`);
-
+      if (await this.refuse(error, user, message.channel)) {
         return;
       }
 
@@ -295,18 +294,7 @@ export class TimeOffOfferService implements OnModuleInit {
         // What changed since the DM (the project archived, the request
         // canceled) is told to the clicker. Anything else is told generally
         // and rethrown, so it is logged and reported.
-        if (
-          error instanceof ValidationError ||
-          error instanceof NotFoundException
-        ) {
-          await this.tell(user, message.channel, error.message);
-
-          return;
-        }
-
-        if (error instanceof ForbiddenException) {
-          this.logger.warn(`Time off not logged: ${error.message}`);
-
+        if (await this.refuse(error, user, message.channel)) {
           return;
         }
 
@@ -319,6 +307,31 @@ export class TimeOffOfferService implements OnModuleInit {
         throw error;
       }
     });
+  }
+
+  // A click refused for what the clicker can know (told to them) or for
+  // being someone else's (dropped with a warning). False for any other error.
+  private async refuse(
+    error: unknown,
+    user: IUserViewModel,
+    channel: string | undefined,
+  ): Promise<boolean> {
+    if (
+      error instanceof ValidationError ||
+      error instanceof NotFoundException
+    ) {
+      await this.tell(user, channel, error.message);
+
+      return true;
+    }
+
+    if (error instanceof ForbiddenException) {
+      this.logger.warn(`Time off not logged: ${error.message}`);
+
+      return true;
+    }
+
+    return false;
   }
 
   private offerLater(
