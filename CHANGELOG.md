@@ -18,6 +18,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - Approval by the team's managers, HR or an admin; a rejection tells the owner why.
 - Time reports by client, project, person or team, each role seeing its own scope, "who hasn't submitted", and a CSV of the entries sent in a DM (needs the `files:write` scope).
 - A billing report of approved time per client and period.
+- Billing snapshots: a client's approved time of a period, locked with its rates and amounts, sent as a CSV in a DM and marked invoiced; an admin can unlock one. An uninvoiced report per client.
 
 ### App Home
 - Navigation by task: Home, My time, Time off, Approvals, People, Reports and Settings, each shown to the roles that may use it.

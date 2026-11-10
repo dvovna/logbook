@@ -39,6 +39,8 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - "Who hasn't submitted": the people a manager, HR or an admin sees who logged nothing in a period, or still have drafts or rejected time in it.
 - A CSV of a time report's entries, sent to you as a file in a DM: date, person, email, team, client, project, description, hours, billable, status, and for admins and HR the rate and the amount (comma-separated UTF-8).
 - A billing report per client and period, from approved time: each person's hours on each project with the rate and the amount, the totals by project and by person, and the amount in all. Billable time without a rate has no amount and is counted apart.
+- Billing snapshots: admins and HR lock a billing report's approved time with today's rates, for an invoice you make elsewhere (Logbook makes no invoices). Nobody can change the time in a snapshot. A snapshot's CSV is sent to you in a DM (date, person, email, team, project, description, hours, billable, rate, amount, currency), and you mark it invoiced. An admin can unlock a snapshot to correct its time, which deletes it.
+- An uninvoiced report per client: approved billable time in no snapshot, with its amount at today's rates, and the time of snapshots not marked invoiced yet.
 - Admins and HR see everyone's time logs.
 
 ## How it works
@@ -244,7 +246,7 @@ CI runs the type check, lint, unit and integration tests on every pull request, 
 - Slack only; there is no Microsoft Teams support.
 - No calendar sync (Google, Outlook) yet.
 - Caches are in memory, so run a single instance.
-- Time & Billing is in beta. Reports use the rates as they are now, and changing the currency doesn't convert the rates. There is no "uninvoiced" report yet: it comes with billing snapshots, which mark time as invoiced.
+- Time & Billing is in beta. Reports use the rates as they are now (only billing snapshots keep the rates they were made with), and changing the currency doesn't convert the rates. Logbook doesn't make invoices: a billing snapshot's CSV goes into your accounting tool.
 
 ## Contributing
 
