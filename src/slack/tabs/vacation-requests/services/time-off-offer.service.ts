@@ -9,6 +9,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { AnyBlock } from '@slack/web-api';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import VacationType from '@common/enums/vacation-type.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import { JobsService } from '@common/jobs/jobs.service';
 import { formatDateList, formatDateRange } from '@common/utils/date.utils';
@@ -19,6 +20,11 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { vacationTypeLabel } from '@modules/slack/common/views/data/labels';
 import { IUserViewModel } from '@modules/users/types/user.interface';
+import { UsersService } from '@modules/users/services/users.service';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import { withBilledDays } from '@modules/slack/tabs/vacation-requests/views/billed-days-notice';
+import ProjectsService from 'src/projects/services/projects.service';
+import { IRemovedVacationTime } from 'src/time-entries/services/time-entries.service';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import {
   VacationRequestCreatedEvent,
@@ -39,6 +45,27 @@ export const TIME_OFF_OFFER_JOB = 'time-off-offer-send';
 interface IOfferJob {
   requestId: string;
   slackTeamId: string;
+  // The time an edit or a deletion removed from the request, told in the
+  // same DM before the offer.
+  removed?: IRemovedTimeNotice;
+  // Only the removal: the request is gone, holds no offer, or the offer goes
+  // to someone else (its person changed).
+  removalOnly?: boolean;
+}
+
+// What the requester hears of their removed time: the time off as it was
+// when the time was logged, and what went. The request may be gone when the
+// job runs, so the job carries it.
+interface IRemovedTimeNotice {
+  userId: string;
+  type: VacationType;
+  startDate: string;
+  endDate: string;
+  // Deleted rather than changed.
+  deleted: boolean;
+  minutes: number;
+  projectIds: string[];
+  billedDates: string[];
 }
 
 // Offers the requester to log an approved time off as time on the project of
@@ -52,11 +79,13 @@ export class TimeOffOfferService implements OnModuleInit {
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly communicationService: SlackCommunicationService,
     private readonly jobs: JobsService,
+    private readonly usersService: UsersService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   public onModuleInit() {
     this.jobs.define<IOfferJob>(TIME_OFF_OFFER_JOB, (job) =>
-      this.sendOffer(job.requestId, job.slackTeamId),
+      this.sendOffer(job),
     );
   }
 
@@ -95,47 +124,111 @@ export class TimeOffOfferService implements OnModuleInit {
   // An edit that approved the request, or changed the person, days or type
   // of an approved one (which removed its logged time). The workflow's own
   // approval carries no `previous`: its decision DM holds the button.
+  // Time the edit removed is told to whose it was: in the offer's DM when the
+  // request is still theirs and approved, in a DM of its own otherwise.
   @OnEvent(VacationRequestEvent.Updated)
-  public handleUpdated({ request, previous }: VacationRequestUpdatedEvent) {
-    if (
-      previous &&
+  public handleUpdated({
+    request,
+    previous,
+    removedTime,
+  }: VacationRequestUpdatedEvent) {
+    const offers =
+      !!previous &&
       request.status === VacationRequestStatus.Approved &&
-      changesLoggedTime(previous, request)
-    ) {
-      this.offerLater(request.id, request.slack_team_id);
+      changesLoggedTime(previous, request);
+    const removed =
+      previous && removedTime?.deleted
+        ? this.removedNotice(previous, removedTime, false)
+        : undefined;
+    const together = offers && removed?.userId === request.user_id;
+
+    if (removed && !together) {
+      this.offerLater(request.id, request.slack_team_id, {
+        removed,
+        removalOnly: true,
+      });
+    }
+
+    if (offers) {
+      this.offerLater(
+        request.id,
+        request.slack_team_id,
+        together ? { removed } : {},
+      );
     }
   }
 
-  // The offer DM, as a job; sends nothing when the request no longer has an
-  // offer (a retry after a change).
-  public async sendOffer(requestId: string, slackTeamId: string) {
-    const request = await this.vacationRequestsService.findOne({
-      id: requestId,
-      slackTeamId,
-    });
+  // A deletion that removed logged time: the requester hears what went.
+  @OnEvent(VacationRequestEvent.Deleted)
+  public handleDeleted({ request, removedTime }: VacationRequestUpdatedEvent) {
+    if (removedTime?.deleted) {
+      this.offerLater(request.id, request.slack_team_id, {
+        removed: this.removedNotice(request, removedTime, true),
+        removalOnly: true,
+      });
+    }
+  }
+
+  // The offer DM, as a job, with the removed time first when there is some;
+  // sends nothing when the request no longer has an offer (a retry after a
+  // change) and there is no removal to tell.
+  public async sendOffer({
+    requestId,
+    slackTeamId,
+    removed,
+    removalOnly,
+  }: IOfferJob) {
+    const request = removalOnly
+      ? null
+      : await this.vacationRequestsService.findOne({
+          id: requestId,
+          slackTeamId,
+        });
     const offer =
       request && (await this.timeOffLoggingService.offerFor(request));
+    const removal = removed && (await this.removalOf(removed, slackTeamId));
+    // The removal goes to whose time it was, the offer to whose request it
+    // is: in one DM only when that is one person.
+    const offerTo =
+      request && offer && (!removal || request.user_id === removed!.userId)
+        ? request.user!.slack_id
+        : null;
 
-    if (!request || !offer) {
+    if (!offerTo && !removal) {
       return;
     }
 
-    const project = escapeMrkdwn(offer.projectName);
-    const text = `Log your ${vacationTypeLabel(request.type)} on ${project} as time?`;
+    const project = offer ? escapeMrkdwn(offer.projectName) : '';
+    const offerBlocks: KnownBlock[] =
+      offerTo && request
+        ? [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `*${vacationTypeLabel(request.type)}* · ${formatDateRange(request.start_date, request.end_date)}\nLog it as time on *${project}*?`,
+              },
+            },
+            ...(this.getBlocks(offer!) as KnownBlock[]),
+          ]
+        : [];
 
     await this.communicationService.postMessage(
-      request.user!.slack_id,
+      removal ? removal.to : offerTo!,
       {
-        text,
+        text: removal
+          ? removal.text
+          : `Log your ${vacationTypeLabel(request!.type)} on ${project} as time?`,
         blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `*${vacationTypeLabel(request.type)}* · ${formatDateRange(request.start_date, request.end_date)}\nLog it as time on *${project}*?`,
-            },
-          },
-          ...(this.getBlocks(offer) as KnownBlock[]),
+          ...(removal
+            ? [
+                {
+                  type: 'section',
+                  text: { type: 'mrkdwn', text: removal.text },
+                } as KnownBlock,
+              ]
+            : []),
+          ...offerBlocks,
         ],
       },
       slackTeamId,
@@ -212,8 +305,74 @@ export class TimeOffOfferService implements OnModuleInit {
     });
   }
 
-  private offerLater(requestId: string, slackTeamId: string) {
-    this.jobs.run<IOfferJob>(TIME_OFF_OFFER_JOB, { requestId, slackTeamId });
+  private offerLater(
+    requestId: string,
+    slackTeamId: string,
+    removal: Pick<IOfferJob, 'removed' | 'removalOnly'> = {},
+  ) {
+    this.jobs.run<IOfferJob>(TIME_OFF_OFFER_JOB, {
+      requestId,
+      slackTeamId,
+      ...removal,
+    });
+  }
+
+  // `request` as its time was logged: before the edit, or as deleted.
+  private removedNotice(
+    request: IVacationRequestViewModel,
+    { minutes, projectIds, billedDates }: IRemovedVacationTime,
+    deleted: boolean,
+  ): IRemovedTimeNotice {
+    return {
+      userId: request.user_id,
+      type: request.type,
+      startDate: request.start_date,
+      endDate: request.end_date,
+      deleted,
+      minutes,
+      projectIds,
+      billedDates,
+    };
+  }
+
+  // 'Your annual leave 16–20 Nov 2026 changed: the 40h logged on Vacations
+  // were removed.', and the billed days that stay, for whose time it was.
+  // Null when they were deactivated since.
+  private async removalOf(
+    removed: IRemovedTimeNotice,
+    slackTeamId: string,
+  ): Promise<{ to: string; text: string } | null> {
+    const [user, projects] = await Promise.all([
+      this.usersService.findOne({
+        id: removed.userId,
+        slackTeamId,
+        includeInactive: true,
+      }),
+      this.projectsService.findMany({
+        ids: removed.projectIds,
+        slackTeamId,
+        includeArchived: true,
+      }),
+    ]);
+
+    if (!user?.is_active) {
+      return null;
+    }
+
+    const names = projects.map(({ name }) => escapeMrkdwn(name)).sort();
+    const onProjects =
+      names.length > 1
+        ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+        : (names[0] ?? 'its project');
+    const what = `${vacationTypeLabel(removed.type).toLowerCase()} ${formatDateRange(removed.startDate, removed.endDate)}`;
+
+    return {
+      to: user.slack_id,
+      text: withBilledDays(
+        `Your ${what} ${removed.deleted ? 'was deleted' : 'changed'}: the ${getDisplayTime(removed.minutes)} logged on ${onProjects} were removed.`,
+        removed.billedDates,
+      ),
+    };
   }
 
   private async tell(

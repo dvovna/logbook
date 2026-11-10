@@ -512,6 +512,13 @@ describe('VacationRequestsService', () => {
           request: { ...approved, ...changed },
           billedDates: ['2026-02-04'],
         });
+        // Whose time it was hears what went.
+        expect(eventEmitter.emit).toHaveBeenCalledWith(
+          VacationRequestEvent.Updated,
+          expect.objectContaining({
+            removedTime: { deleted: 3, billedDates: ['2026-02-04'] },
+          }),
+        );
       },
     );
 

@@ -930,6 +930,25 @@ describe('Time off logging', () => {
         .postedMessages(workspace.token, user.slack_id)
         .filter((message) => buttonText(message as unknown as View, OFFER));
 
+    // The DMs the requester got after the mark `since`: their sections, and
+    // the offer's button if it has one.
+    const dmsSince = (since: number) =>
+      t.slackApi
+        .postedMessages(workspace.token, requester.slack_id, { since })
+        .map((message) => ({
+          sections: sectionTexts(message as unknown as View),
+          button: buttonText(message as unknown as View, OFFER),
+        }));
+
+    const THIS_WEEK_TEXT = `annual leave ${formatDateRange(THIS_WEEK.start, THIS_WEEK.end)}`;
+    const NEXT_WEEK_TEXT = `annual leave ${formatDateRange(NEXT_WEEK.start, NEXT_WEEK.end)}`;
+    const offerSection = (
+      week: { start: string; end: string },
+      project = 'Vacations',
+      type = 'Annual leave',
+    ) =>
+      `*${type}* · ${formatDateRange(week.start, week.end)}\nLog it as time on *${project}*?`;
+
     const requestsTab = (user: Tables<'users'>) =>
       openAppHomeTab(t, workspace, user, [
         NavigationActionId.TimeOff,
@@ -1021,6 +1040,7 @@ describe('Time off logging', () => {
 
     it('removes the logged time when HR changes the dates, and offers again', async () => {
       const request = await loggedVacation();
+      const since = t.slackApi.mark();
 
       expect(
         await editAsHr(request, {
@@ -1047,17 +1067,37 @@ describe('Time off logging', () => {
       expect(buttonText(offers[0] as unknown as View, OFFER)).toBe(
         'Log 40h to Vacations',
       );
+      // One DM: what went, then the offer for the new days.
+      expect(dmsSince(since)).toEqual([
+        {
+          sections: [
+            `Your ${THIS_WEEK_TEXT} changed: the 40h logged on Vacations were removed.`,
+            offerSection(NEXT_WEEK),
+          ],
+          button: 'Log 40h to Vacations',
+        },
+      ]);
     });
 
     it('removes it when HR rejects or deletes the vacation, without a new offer', async () => {
       const rejected = await loggedVacation(THIS_WEEK);
+      let since = t.slackApi.mark();
 
       expect(
         await editAsHr(rejected, { status: VacationRequestStatus.Rejected }),
       ).toBe('✅ Vacation request updated.');
       expect(await liveEntries()).toEqual([]);
+      expect(dmsSince(since)).toEqual([
+        {
+          sections: [
+            `Your ${THIS_WEEK_TEXT} changed: the 40h logged on Vacations were removed.`,
+          ],
+          button: undefined,
+        },
+      ]);
 
       const deleted = await loggedVacation(NEXT_WEEK);
+      since = t.slackApi.mark();
 
       expect(await deleteAsAdmin(deleted)).toBe('✅ Vacation request deleted.');
       expect(await liveEntries()).toEqual([]);
@@ -1065,6 +1105,60 @@ describe('Time off logging', () => {
         (await workspace.rows('vacation_requests')).map(({ id }) => id),
       ).toEqual([rejected.id]);
       expect(offersTo(requester)).toEqual([]);
+      expect(dmsSince(since)).toEqual([
+        {
+          sections: [
+            `Your ${NEXT_WEEK_TEXT} was deleted: the 40h logged on Vacations were removed.`,
+          ],
+          button: undefined,
+        },
+      ]);
+    });
+
+    it('offers again without a removal line when nothing was logged', async () => {
+      const request = await workspace.addVacationRequest(requester, {
+        start_date: THIS_WEEK.start,
+        end_date: THIS_WEEK.end,
+        days: 5,
+        working_days: 5,
+      });
+      const since = t.slackApi.mark();
+
+      await editAsHr(request, {
+        start_date: NEXT_WEEK.start,
+        end_date: NEXT_WEEK.end,
+      });
+
+      expect(dmsSince(since)).toEqual([
+        {
+          sections: [offerSection(NEXT_WEEK)],
+          button: 'Log 40h to Vacations',
+        },
+      ]);
+    });
+
+    it('tells the person whose time went, and offers it to the new one', async () => {
+      const request = await loggedVacation();
+      const other = await workspace.addUser({ name: 'Olga Other' });
+      const since = t.slackApi.mark();
+
+      await editAsHr(request, {
+        [VacationRequestsTabViewActionId.UserField]: other.id,
+      });
+
+      expect(dmsSince(since)).toEqual([
+        {
+          sections: [
+            `Your ${THIS_WEEK_TEXT} changed: the 40h logged on Vacations were removed.`,
+          ],
+          button: undefined,
+        },
+      ]);
+      expect(
+        t.slackApi
+          .postedMessages(workspace.token, other.slack_id, { since })
+          .map((message) => buttonText(message as unknown as View, OFFER)),
+      ).toEqual(['Log 40h to Vacations']);
     });
 
     it('keeps billed days and says so', async () => {
@@ -1073,6 +1167,7 @@ describe('Time off logging', () => {
         ['2026-06-17', '2026-06-18'].includes(work_date.slice(0, 10)),
       );
       await lockInSnapshot(billed);
+      let since = t.slackApi.mark();
 
       expect(
         await editAsHr(request, {
@@ -1090,6 +1185,10 @@ describe('Time off logging', () => {
         ]),
       ).toEqual(billed.map(({ id }) => [id, request.id]));
       expect(offersTo(requester)).toHaveLength(1);
+      expect(dmsSince(since).map(({ sections }) => sections[0])).toEqual([
+        `Your ${THIS_WEEK_TEXT} changed: the 24h logged on Vacations were removed. 2 days stay logged: they are billed (17–18 Jun).`,
+      ]);
+      since = t.slackApi.mark();
 
       // Deleting the vacation keeps them too, without the link.
       expect(await deleteAsAdmin(request)).toBe(
@@ -1101,6 +1200,8 @@ describe('Time off logging', () => {
           vacation_request_id,
         ]),
       ).toEqual(billed.map(({ id }) => [id, null]));
+      // Nothing more went: nothing to tell.
+      expect(dmsSince(since)).toEqual([]);
     });
 
     it('keeps the hours and drops the link on a CSV import', async () => {

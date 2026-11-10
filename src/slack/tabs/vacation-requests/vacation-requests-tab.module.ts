@@ -16,6 +16,7 @@ import { VacationRequestsTabView } from '@modules/slack/tabs/vacation-requests/v
 import VacationRequestAdminViewValuesParser from '@modules/slack/tabs/vacation-requests/parsers/vacation-request-admin-view-values.parser';
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import { TimeOffLoggingModule } from 'src/time-off-logging/time-off-logging.module';
+import { ProjectsModule } from 'src/projects/projects.module';
 import { TimeOffOfferService } from '@modules/slack/tabs/vacation-requests/services/time-off-offer.service';
 import { TimeOffOfferHandler } from '@modules/slack/tabs/vacation-requests/handlers/time-off-offer.handler';
 import { UsersModule } from '@modules/users/users.module';
@@ -36,6 +37,7 @@ import { VacationRequestModalService } from '@modules/slack/tabs/vacation-reques
     SlackCommonModule,
     UsersModule,
     TimeOffLoggingModule,
+    ProjectsModule,
   ],
   providers: [
     VacationDecisionNotificationsService,

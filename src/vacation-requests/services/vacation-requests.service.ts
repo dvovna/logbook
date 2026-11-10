@@ -336,23 +336,31 @@ export class VacationRequestsService implements IVacationRequestsService {
           updated_at: new Date().toISOString(),
         },
       );
-      const { billedDates } = changesLoggedTime(previous, request)
+      const removedTime = changesLoggedTime(previous, request)
         ? await this.timeEntriesService.deleteVacationTime(
             request.id,
             slackTeamId,
             user,
           )
-        : { billedDates: [] };
+        : undefined;
 
-      return { request, previous, billedDates };
+      return { request, previous, removedTime };
     });
 
     this.eventEmitter.emit(
       VacationRequestEvent.Updated,
-      new VacationRequestUpdatedEvent(change.request, user, change.previous),
+      new VacationRequestUpdatedEvent(
+        change.request,
+        user,
+        change.previous,
+        change.removedTime,
+      ),
     );
 
-    return { request: change.request, billedDates: change.billedDates };
+    return {
+      request: change.request,
+      billedDates: change.removedTime?.billedDates ?? [],
+    };
   }
 
   public async cancel(requestId: string, user: IUserViewModel) {
@@ -426,7 +434,7 @@ export class VacationRequestsService implements IVacationRequestsService {
   ): Promise<IVacationRequestChange> {
     const request = await this.findOneWithValidation(findParams);
 
-    const { billedDates } = await this.transactions.transaction(async () => {
+    const removedTime = await this.transactions.transaction(async () => {
       await this.transactions.lock(vacationTimeLock(request.id));
 
       // Before the request goes: deleting it unlinks its entries.
@@ -450,10 +458,10 @@ export class VacationRequestsService implements IVacationRequestsService {
 
     this.eventEmitter.emit(
       VacationRequestEvent.Deleted,
-      new VacationRequestUpdatedEvent(request, user),
+      new VacationRequestUpdatedEvent(request, user, undefined, removedTime),
     );
 
-    return { request, billedDates };
+    return { request, billedDates: removedTime.billedDates };
   }
 
   // Sets the outcome of the approval workflow if the request still waits for

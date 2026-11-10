@@ -2,6 +2,7 @@ import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vaca
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import UserRole from '@common/enums/user-role.enum';
+import { IRemovedVacationTime } from 'src/time-entries/services/time-entries.service';
 
 export class VacationRequestCreatedEvent {
   public constructor(
@@ -13,10 +14,13 @@ export class VacationRequestCreatedEvent {
 export class VacationRequestUpdatedEvent {
   // `previous` is the request as it was before an edit. The workflow's
   // outcome (`finishPending`) passes none: it has a decision event of its own.
+  // `removedTime`: the time logged from the request that the edit or the
+  // deletion removed (TimeEntriesService.deleteVacationTime), if it did.
   public constructor(
     public readonly request: IVacationRequestViewModel,
     public readonly user: IUserViewModel,
     public readonly previous?: IVacationRequestViewModel,
+    public readonly removedTime?: IRemovedVacationTime,
   ) {}
 }
 
