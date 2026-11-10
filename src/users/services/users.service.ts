@@ -76,23 +76,23 @@ export class UsersService implements IUsersService {
     });
   }
 
+  // Never writes the team: a user read before the upsert could carry a team
+  // that an admin has changed since. A new user is in no team.
   public async upsert({
     email,
     name,
     role,
     isActive,
     slackId,
-    teamId,
     slackTeamId,
     contractStartDate,
-  }: ICreateUserParams) {
+  }: Omit<ICreateUserParams, 'teamId'>) {
     return await this.userRepository.upsert(
       {
         email,
         name,
         role,
         is_active: isActive,
-        team_id: teamId,
         slack_team_id: slackTeamId,
         slack_id: slackId,
         // Left out when not given, so an upsert keeps the existing date.
@@ -266,10 +266,15 @@ export class UsersService implements IUsersService {
     return {
       ...(params.name ? { name: params.name } : {}),
       ...(params.email ? { email: params.email } : {}),
-      ...(params.teamId ? { team_id: params.teamId } : {}),
+      // null takes the user out of their team.
+      ...(params.teamId !== undefined ? { team_id: params.teamId } : {}),
       ...(params.role ? { role: params.role } : {}),
-      ...(params.contractStartDate
-        ? { contract_start_date: params.contractStartDate.toISOString() }
+      // null clears the date.
+      ...(params.contractStartDate !== undefined
+        ? {
+            contract_start_date:
+              params.contractStartDate?.toISOString() ?? null,
+          }
         : {}),
       ...(params.carryoverDays !== undefined
         ? { carryover_days: params.carryoverDays }

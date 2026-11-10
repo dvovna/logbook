@@ -244,7 +244,6 @@ export default class SlackEventsService implements OnModuleInit {
 
     await this.usersService.upsert({
       slackId: event.user.id,
-      teamId: user.team_id || null,
       role: user.role,
       email: event.user.profile.email!,
       name: event.user.real_name || user.name,
@@ -272,7 +271,6 @@ export default class SlackEventsService implements OnModuleInit {
 
       await this.usersService.upsert({
         slackId: user.slack_id,
-        teamId: user.team_id || null,
         role: user.role,
         email: event.user.profile.email || user.email,
         name: event.user.real_name || user.name,
@@ -311,7 +309,6 @@ export default class SlackEventsService implements OnModuleInit {
 
     await this.usersService.upsert({
       slackId: event.user.id,
-      teamId: null,
       role:
         event.user.is_admin || event.user.is_owner
           ? UserRole.Admin
