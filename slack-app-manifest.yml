@@ -1,0 +1,65 @@
+# Slack app manifest. Create the app at https://api.slack.com/apps
+# ("Create New App" -> "From a manifest") after replacing every APP_DOMAIN with
+# the public domain the bot runs on, e.g.:
+#   sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml
+# For local development use your ngrok domain and a separate app (an app has
+# one set of request URLs), e.g. named "Logbook (dev)".
+display_information:
+  name: Logbook
+  description: "Your team's hours and time off: vacation requests, approvals and time tracking"
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: logbook
+    always_online: true
+  slash_commands:
+    - command: /vacations
+      url: https://APP_DOMAIN/api/slack/vacations
+      description: Request and manage vacations
+      usage_hint: "request | usage | cancel"
+      should_escape: false
+    - command: /log
+      url: https://APP_DOMAIN/api/slack/log
+      description: Log time
+      should_escape: false
+    - command: /upload-vacations
+      url: https://APP_DOMAIN/api/slack/admin/user-vacations-upload
+      description: Upload a CSV with vacation history (admins)
+      should_escape: false
+    - command: /user-team-mapping
+      url: https://APP_DOMAIN/api/slack/admin/user-team-mapping-upload
+      description: Upload a CSV that assigns users to teams (admins)
+      should_escape: false
+oauth_config:
+  redirect_urls:
+    - https://APP_DOMAIN/api/slack/oauth/redirect
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - files:read
+      # Time report CSVs sent in DMs. Workspaces that installed the app
+      # before have to install it again.
+      - files:write
+      - users:read
+      - users:read.email
+settings:
+  event_subscriptions:
+    request_url: https://APP_DOMAIN/api/slack/events
+    bot_events:
+      - app_home_opened
+      - app_uninstalled
+      - file_shared
+      - team_join
+      - user_change
+  interactivity:
+    is_enabled: true
+    request_url: https://APP_DOMAIN/api/slack/interactions
+    message_menu_options_url: https://APP_DOMAIN/api/slack/options
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  # Bot tokens expire after 12 hours; the app refreshes them.
+  token_rotation_enabled: true

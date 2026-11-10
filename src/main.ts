@@ -1,8 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
+import { configureApp } from './app.setup';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
+
+  configureApp(app);
+  // SIGTERM on a deploy closes the app through its shutdown hooks, which
+  // finish the background work first (BackgroundWorkShutdownService).
+  app.enableShutdownHooks();
+
+  const port = process.env[EnvironmentVariable.Port] || 3000;
+
+  await app.listen(port);
 }
 bootstrap();

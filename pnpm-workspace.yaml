@@ -1,0 +1,8 @@
+# Versions forced on dependencies of dependencies.
+overrides:
+  multer: ^2.5.0
+
+# Install scripts that may not run.
+allowBuilds:
+  '@parcel/watcher': false
+  '@swc/core': false

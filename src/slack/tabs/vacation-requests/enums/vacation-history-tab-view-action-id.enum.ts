@@ -1,0 +1,11 @@
+export enum VacationHistoryTabViewActionId {
+  RequestTimeOff = 'request_time_off',
+  ManageRequestMenu = 'manage_request_menu',
+  ViewDetails = 'vacation_view_details',
+  PaginationPrev = 'requests_pagination_prev',
+  PaginationNext = 'requests_pagination_next',
+  FilterRequestsByYear = 'filter_requests_by_year',
+  FilterRequestsByType = 'filter_requests_by_type',
+  FilterRequestsByStatus = 'filter_requests_by_status',
+  ResetFilters = 'reset_vacation_history_filters',
+}

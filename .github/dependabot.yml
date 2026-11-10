@@ -1,0 +1,46 @@
+# Weekly dependency updates as pull requests into development. Minor and patch
+# updates come grouped, so there are a few PRs a week rather than dozens;
+# majors come one by one, since they may need code changes (NestJS is the
+# exception: all its packages come in one PR). Security updates
+# for known vulnerabilities are opened as soon as an advisory appears.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: development
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # NestJS packages only work at matching versions, so they move together,
+      # majors included (a group listed first wins).
+      nestjs:
+        patterns: ['@nestjs/*', 'nestjs-pino']
+        update-types: [major, minor, patch]
+      # The Supabase CLI runs the local stack and writes database.types.ts, so
+      # a new version comes on its own: CI then starts the stack and checks the
+      # types with it, and a PR that breaks either is easy to tell apart.
+      supabase-cli:
+        patterns: ['supabase']
+        update-types: [major, minor, patch]
+      production:
+        dependency-type: production
+        update-types: [minor, patch]
+      development:
+        dependency-type: development
+        update-types: [minor, patch]
+    commit-message:
+      prefix: Update
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: development
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: Update

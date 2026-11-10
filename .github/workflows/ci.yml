@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [development, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# The jobs only read the code; pull requests from forks get no write access.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node 26 ships without corepack. The action installs the pnpm version
+      # `packageManager` in package.json names and caches the pnpm store.
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc # same major as the Dockerfile
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: pnpm test --ci
+
+      - name: Build
+        run: pnpm build
+
+      # ESLint also reports code Prettier would format differently.
+      - name: Lint
+        run: npx eslint src test
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - run: pnpm install --frozen-lockfile
+
+      # A fresh local stack from supabase/config.toml, with supabase/migrations
+      # applied. The tests only need Postgres and the REST API behind Kong.
+      - name: Start Supabase
+        run: pnpm supabase start -x studio,postgres-meta
+
+      # The committed types must be what the migrations produce.
+      - name: Database types match the migrations
+        run: |
+          pnpm db:types
+          if ! git diff --exit-code -- src/common/types/database.types.ts; then
+            echo "::error file=src/common/types/database.types.ts::Differs from what supabase/migrations produce. Run pnpm db:init, then pnpm db:types, and commit the file."
+            exit 1
+          fi
+
+      - name: Integration tests
+        run: pnpm test:int --ci

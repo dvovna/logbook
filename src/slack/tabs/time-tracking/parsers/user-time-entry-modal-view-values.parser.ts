@@ -1,0 +1,82 @@
+import { z } from 'zod';
+import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
+import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
+import { Injectable } from '@nestjs/common';
+import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
+import { MAX_TIME_ENTRY_DESCRIPTION_LENGTH } from '@common/constants/text-limits';
+
+const MAX_HOURS = 24;
+
+// The client and billability come from the project, so the form has no
+// fields for them.
+export const timeEntryFormSchema = z.object({
+  description: z
+    .string()
+    .max(
+      MAX_TIME_ENTRY_DESCRIPTION_LENGTH,
+      `Description must be at most ${MAX_TIME_ENTRY_DESCRIPTION_LENGTH} characters`,
+    )
+    .optional(),
+  projectId: z
+    .object({
+      value: z.string().min(1, 'Project is required'),
+      text: z.string(),
+    })
+    .required(),
+  // "1,5" as well as "1.5".
+  hours: z
+    .string()
+    .transform((val) => val.trim().replace(',', '.'))
+    .refine(
+      (val) => {
+        const num = Number(val);
+
+        return !isNaN(num) && num > 0 && num <= MAX_HOURS;
+      },
+      {
+        message: `Hours must be a number between 0 and ${MAX_HOURS}`,
+      },
+    )
+    // Next to the field rather than as a general error after saving. Not a
+    // number at all is the check above's to report.
+    .refine((val) => isNaN(Number(val)) || Number.isInteger(Number(val) * 4), {
+      message: 'Use 15-minute steps: 0.25, 0.5, 0.75, 1…',
+    })
+    .transform((val) => Number(val)),
+  workDate: z.string().refine((dateStr) => !isNaN(Date.parse(dateStr)), {
+    message: 'Invalid date format',
+  }),
+});
+
+export interface ITimeEntryFormViewData {
+  description?: string;
+  projectId: ISelectedOption;
+  hours: number;
+  workDate: string;
+}
+
+export const TIME_ENTRY_FORM_FIELDS_CONFIG = {
+  projectId: {
+    blockId: 'project_block',
+    type: ViewFieldType.Select,
+  },
+  description: {
+    blockId: 'comment_block',
+    type: ViewFieldType.Text,
+  },
+  hours: {
+    blockId: 'hours_block',
+    type: ViewFieldType.Text,
+  },
+  workDate: {
+    blockId: 'date_block',
+    type: ViewFieldType.Date,
+  },
+};
+
+@Injectable()
+export default class UserTimeEntryModalViewValuesParser extends BaseValuesParser<ITimeEntryFormViewData> {
+  public constructor() {
+    super(timeEntryFormSchema, TIME_ENTRY_FORM_FIELDS_CONFIG);
+  }
+}

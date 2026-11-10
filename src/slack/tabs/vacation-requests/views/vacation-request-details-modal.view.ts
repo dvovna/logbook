@@ -1,0 +1,215 @@
+import {
+  STEP_STATUS_LABELS,
+  VACATION_STATUS_LABELS,
+  VACATION_TYPE_LABELS,
+  withIcon,
+  vacationTypeLabel,
+} from '@modules/slack/common/views/data/labels';
+import { formatDateRange } from '@common/utils/date.utils';
+import { Injectable } from '@nestjs/common';
+import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import BaseModalView, {
+  IActionButtons,
+  IBaseModalViewParams,
+} from '@modules/slack/common/views/base-modal.view';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { AnyBlock } from '@slack/web-api';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import {
+  IRequestWorkflowStepViewModel,
+  WorkflowStepStatus,
+} from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+
+interface IGetParams extends IBaseModalViewParams {
+  request: IVacationRequestViewModel;
+  steps: IRequestWorkflowStepViewModel[];
+  reviewComments: IWorkflowStepCommentViewModel[];
+}
+
+@Injectable()
+export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
+  protected defaultCallbackId = ViewCallbackId.ViewVacationRequestDetails;
+
+  protected getTitleText() {
+    return 'Vacation Request Details';
+  }
+
+  protected getActionButtons(): IActionButtons {
+    return {
+      close: { type: 'plain_text', text: 'Close' },
+    };
+  }
+
+  protected getViewBlocks({
+    request,
+    steps,
+    reviewComments,
+  }: IGetParams): AnyBlock[] {
+    const blocks: AnyBlock[] = [
+      {
+        type: 'section',
+        fields: [
+          {
+            type: 'mrkdwn',
+            text: `*Requester:* ${escapeMrkdwn(request.user!.name)} (<@${request.user!.slack_id}>)`,
+          },
+        ],
+      },
+      {
+        type: 'section',
+        fields: [
+          {
+            type: 'mrkdwn',
+            text: `📅 *Dates:*\n${formatDateRange(request.start_date, request.end_date)}`,
+          },
+          {
+            type: 'mrkdwn',
+            text: `🏖️ *Type:*\n${vacationTypeLabel(request.type)}`,
+          },
+          {
+            type: 'mrkdwn',
+            text: `📊 *Days:*\n${request.days} (${request.working_days} working)`,
+          },
+          {
+            type: 'mrkdwn',
+            text: `📌 *Status:*\n${withIcon(VACATION_STATUS_LABELS[request.status])}`,
+          },
+        ],
+      },
+    ];
+
+    if (request.user_comment) {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `💬 *User comment:*\n${escapeMrkdwn(request.user_comment)}`,
+        },
+      });
+    }
+
+    if (request.rejection_reason) {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `❌ *Rejection reason:*\n${escapeMrkdwn(request.rejection_reason)}`,
+        },
+      });
+    }
+
+    blocks.push({ type: 'divider' });
+
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*🕒 Approval Timeline:*',
+      },
+    });
+
+    const commentsByStep = this.getGroupedCommentsByStep(reviewComments);
+    const groupedStepsByLevel = this.getGroupedStepsByLevel(steps);
+
+    const sortedLevels = this.getSortedLevels(Object.keys(groupedStepsByLevel));
+
+    sortedLevels.forEach((level) => {
+      const steps = groupedStepsByLevel[level];
+
+      // Named by who decides; workflows from before names had only numbers.
+      const name = steps[0]?.step_data.level_name ?? `Step ${level}`;
+      const lines: string[] = [`*${name}*`];
+
+      steps.forEach((step) => {
+        const stepComments = commentsByStep[step.id] || [];
+
+        const stepSummary = this.getStepSummary(step, stepComments);
+
+        stepSummary.forEach((summaryLine) => {
+          lines.push(`    ${summaryLine}`);
+        });
+      });
+
+      blocks.push({
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: lines.join('\n') }],
+      });
+    });
+
+    if (steps.length === 0) {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: '_No approval steps defined._' },
+      });
+    }
+
+    if (reviewComments.length === 0) {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: '_No approver comments yet._' },
+      });
+    }
+
+    return blocks;
+  }
+
+  private getStepSummary(
+    step: IRequestWorkflowStepViewModel,
+    stepComments: IWorkflowStepCommentViewModel[],
+  ) {
+    const status =
+      STEP_STATUS_LABELS[step.step_data.status] ??
+      STEP_STATUS_LABELS[WorkflowStepStatus.Pending];
+
+    const decidedBy = step.step_data.decided_by_slack_id
+      ? `<@${step.step_data.decided_by_slack_id}>`
+      : `<@${step.slack_user_id}>`;
+
+    const lines: string[] = [
+      `${status.icon} *${status.label}* by ${decidedBy}`,
+    ];
+
+    if (stepComments.length > 0) {
+      stepComments.forEach((c) => {
+        lines.push(`• ${escapeMrkdwn(c.comment)} (by <@${c.slack_user_id}>)`);
+      });
+    }
+
+    return lines;
+  }
+
+  private getGroupedCommentsByStep(comments: IWorkflowStepCommentViewModel[]) {
+    return comments.reduce(
+      (acc, comment) => {
+        if (!acc[comment.step_id]) {
+          acc[comment.step_id] = [];
+        }
+
+        acc[comment.step_id].push(comment);
+
+        return acc;
+      },
+      {} as Record<string, IWorkflowStepCommentViewModel[]>,
+    );
+  }
+
+  private getGroupedStepsByLevel(steps: IRequestWorkflowStepViewModel[]) {
+    return steps.reduce(
+      (acc, step) => {
+        if (!acc[step.step_level]) {
+          acc[step.step_level] = [];
+        }
+
+        acc[step.step_level].push(step);
+
+        return acc;
+      },
+      {} as Record<number, IRequestWorkflowStepViewModel[]>,
+    );
+  }
+
+  private getSortedLevels(levels: string[]) {
+    return levels.map((level) => parseInt(level, 10)).sort((a, b) => a - b);
+  }
+}

@@ -1,0 +1,16 @@
+export enum TimeEntriesTabViewActionId {
+  SelectUser = 'select_user',
+  AddTimeEntry = 'add_time_entry',
+  PaginationPrev = 'time_entries_pagination_prev',
+  PaginationNext = 'time_entries_pagination_next',
+  ManageTimeEntryMenu = 'manage_time_entry_menu',
+  EditTimeEntry = 'edit_time_entry',
+  DeleteTimeEntry = 'delete_time_entry',
+  SubmitTimeEntry = 'submit_time_entry',
+  SubmitDrafts = 'submit_time_entry_drafts',
+  FilterByUser = 'filter_by_user',
+  FilterByProject = 'filter_by_project',
+  FilterByFromDate = 'filter_by_from_date',
+  FilterByToDate = 'filter_by_to_date',
+  ResetFilters = 'reset_filters',
+}

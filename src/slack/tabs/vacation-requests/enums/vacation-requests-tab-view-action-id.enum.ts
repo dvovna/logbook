@@ -1,0 +1,17 @@
+export enum VacationRequestsTabViewActionId {
+  PaginationPrev = 'requests_pagination_prev',
+  PaginationNext = 'requests_pagination_next',
+  ManageRequestMenu = 'manage_request_menu',
+  UserField = 'user',
+  CreateRequest = 'create_request',
+  ViewDetails = 'view_details',
+  EditRequest = 'edit_request',
+  DeleteRequest = 'delete_request',
+  ApproveOnBehalf = 'approve_on_behalf',
+  FilterRequestsByUser = 'filter_requests_by_user',
+  FilterRequestsByTeam = 'filter_requests_by_team',
+  FilterRequestsByYear = 'filter_requests_by_year',
+  FilterRequestsByType = 'filter_requests_by_type',
+  FilterRequestsByStatus = 'filter_requests_by_status',
+  ResetFilters = 'reset_filters',
+}

@@ -1,0 +1,13 @@
+services:
+  logbook:
+    # The published image; `docker compose up --build` builds this checkout.
+    image: ghcr.io/dvovna/logbook:${LOGBOOK_VERSION:-latest}
+    build: .
+    container_name: logbook
+    restart: always
+    env_file: .env
+    # The image defaults to 10000; keep the app and the published port in sync.
+    environment:
+      PORT: ${PORT:-3000}
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
