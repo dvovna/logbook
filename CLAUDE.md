@@ -231,7 +231,7 @@ Domain modules `clients`, `projects`, `time-entries`, `billing` (snapshots, the 
 - starting a vacation workflow, asking approvers, updating their messages, finishing the request;
 - telling people of the decision, the requester's DMs about where the request went and each approved level, and the DM about a rejected time entry;
 - the Slack events `file_shared` (CSV imports), `team_join`, `user_change` and `app_uninstalled` (`SlackEventsService`);
-- importing the workspace's members after an install (`TeamSetupWorkflowService`).
+- importing the workspace's members after an install (`TeamSetupWorkflowService`), and once a day for every installed workspace (`MemberSyncScheduleService`, ten minutes after the start and then every 24 hours): Slack gives up on an event the app didn't answer, e.g. a `team_join` during a restart, and the daily import brings that person in. The import only adds the members Logbook doesn't have (`TeamUsersSyncService`), so it is safe to run again.
 
 Slash command replies stay in memory (`runInBackground`): a reply hours later is no use, and `trigger_id` lives 3 seconds.
 - A service defines its jobs in `onModuleInit` (`jobs.define(name, handler)`) and starts one with `jobs.run(name, payload)`. Callers needn't wait; the returned promise resolves when the first run is over (it never rejects), for a caller that re-renders a tab after it.

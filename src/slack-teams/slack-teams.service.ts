@@ -109,6 +109,15 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     });
   }
 
+  // The workspaces the app is installed in now: not uninstalled.
+  public async findInstalledIds(): Promise<string[]> {
+    const workspaces = await this.slackTeamsRepository.findMany({
+      uninstalled_at: null,
+    });
+
+    return workspaces.map(({ id }) => id);
+  }
+
   // Deletes the workspaces uninstalled before `cutoff`, with all their data
   // (every table cascades from slack_teams). Returns how many.
   public deleteUninstalledBefore(cutoff: Date): Promise<number> {

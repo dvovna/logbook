@@ -39,9 +39,9 @@ export const WELCOME_TEXT = [
   'Until that is done, Home shows a checklist.',
 ].join('\n');
 
-interface ISyncUsersJob {
+export interface ISyncUsersJob {
   slackTeamId: string;
-  userSlackIdsToIgnore: string[];
+  userSlackIdsToIgnore?: string[];
 }
 
 @Injectable()

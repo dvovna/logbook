@@ -1,3 +1,4 @@
+import { MemberSyncScheduleService } from '@modules/team-setup/member-sync-schedule.service';
 import { WELCOME_TEXT } from '@modules/team-setup/team-setup-workflow.service';
 import { Logger } from '@nestjs/common';
 import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
@@ -353,6 +354,49 @@ describe('Installing the app (OAuth redirect)', () => {
       // The import didn't fail on the users it already had.
       expect(failed).not.toHaveBeenCalled();
       failed.mockRestore();
+    });
+
+    // Slack gives up on an event the app didn't answer, e.g. a team_join
+    // while it restarted: the daily sync brings that person in.
+    it('brings in, once a day, a member whose join never arrived', async () => {
+      const { teamId, slackTeam } = await installOnce();
+      const gone = await installOnce('Gone');
+      await t.slack
+        .event({ slackId: gone.teamId }, { type: 'app_uninstalled' })
+        .expect(acknowledged);
+      await t.idle();
+
+      const missed = slackId('U');
+      t.slackApi.addUser({
+        id: missed,
+        teamId,
+        name: 'Mia Missed',
+        email: `mia-${teamId}@acme.test`,
+      });
+
+      const workspaces = t.app.get(SlackTeamsService);
+      const installed = await workspaces.findInstalledIds();
+      expect(installed).toContain(slackTeam.id);
+      expect(installed).not.toContain(gone.slackTeam.id);
+
+      // Other test files' workspaces share the database: sync only this one.
+      jest
+        .spyOn(workspaces, 'findInstalledIds')
+        .mockResolvedValue([slackTeam.id]);
+      expect(await t.app.get(MemberSyncScheduleService).syncAll()).toBe(1);
+      await t.idle();
+
+      expect(
+        await t.db
+          .selectFrom('users')
+          .select(['name', 'role', 'is_active'])
+          .where('slack_team_id', '=', slackTeam.id)
+          .where('slack_id', '=', missed)
+          .execute(),
+      ).toEqual([
+        { name: 'Mia Missed', role: UserRole.Member, is_active: true },
+      ]);
+      jest.restoreAllMocks();
     });
 
     it('lets two workspaces with the same name install', async () => {

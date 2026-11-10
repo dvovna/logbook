@@ -6,6 +6,7 @@ import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-poli
 import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
 import { TeamUsersSyncService } from '@modules/team-setup/team-users-sync.service';
 import { TeamsModule } from '@modules/teams/teams.module';
+import { MemberSyncScheduleService } from '@modules/team-setup/member-sync-schedule.service';
 
 @Module({
   imports: [
@@ -15,7 +16,11 @@ import { TeamsModule } from '@modules/teams/teams.module';
     SlackCommunicationModule,
     TeamsModule,
   ],
-  providers: [TeamSetupWorkflowService, TeamUsersSyncService],
+  providers: [
+    TeamSetupWorkflowService,
+    TeamUsersSyncService,
+    MemberSyncScheduleService,
+  ],
   exports: [TeamSetupWorkflowService],
 })
 export class TeamSetupModule {}
