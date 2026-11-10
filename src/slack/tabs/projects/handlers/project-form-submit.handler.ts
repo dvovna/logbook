@@ -89,6 +89,7 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
             : data.clientId?.value,
         billable: data.billable?.value === 'true',
         status: data.status.value,
+        hourlyRate: data.hourlyRate,
       },
       user,
     );
@@ -113,6 +114,7 @@ export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
         description: data.description,
         billable: data.billable?.value === 'true',
         status: data.status.value,
+        hourlyRate: data.hourlyRate,
       },
       user,
     );

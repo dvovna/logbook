@@ -39,7 +39,8 @@ export class SlackActionPermissionsService {
       UserRole.HR,
     ],
     // Managers see clients and projects; only Admin and HR change them, but a
-    // manager may assign people to a project and archive it.
+    // manager may assign people to a project and archive it. Rates are Admin's
+    // and HR's, the currency an admin's.
     [ClientsTabViewActionId.AddClient]: [UserRole.Admin, UserRole.HR],
     [ClientsTabViewActionId.ManageClientMenu]: [UserRole.Admin, UserRole.HR],
     [ProjectsTabViewActionId.AddProject]: [UserRole.Admin, UserRole.HR],
@@ -54,6 +55,8 @@ export class SlackActionPermissionsService {
       UserRole.HR,
       UserRole.Manager,
     ],
+    [ProjectsTabViewActionId.ManagePersonRates]: [UserRole.Admin, UserRole.HR],
+    [ProjectsTabViewActionId.ChangeCurrency]: [UserRole.Admin],
   } as const;
 
   public can(

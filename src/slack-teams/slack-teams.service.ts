@@ -1,9 +1,14 @@
 import {
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
   OnApplicationBootstrap,
 } from '@nestjs/common';
+import UserRole from '@common/enums/user-role.enum';
+import { ValidationError } from '@common/errors/validation.error';
+import { isCurrencyCode } from '@common/utils/money.utils';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackTeamsRepository } from '@modules/slack-teams/slack-teams.repository';
 import { RepositoryFilter } from '@common/repositories/repository.types';
 import { TokenCipherService } from '@modules/slack-teams/token-cipher.service';
@@ -155,6 +160,38 @@ export class SlackTeamsService implements OnApplicationBootstrap {
         : null,
       slack_token_expires_at: expiresAt ? expiresAt.toISOString() : null,
     };
+  }
+
+  // The currency of the workspace's rates and amounts.
+  public async getCurrency(id: string): Promise<string> {
+    return (await this.findOneWithValidation({ id })).currency;
+  }
+
+  // An admin sets their workspace's currency, as an ISO 4217 code. The rates
+  // keep their numbers: they are not converted.
+  public async setCurrency(
+    currency: string,
+    user: IUserViewModel,
+  ): Promise<string> {
+    if (user.role !== UserRole.Admin) {
+      throw new ForbiddenException('Only an admin sets the currency.');
+    }
+
+    const code = currency.trim().toUpperCase();
+
+    if (!isCurrencyCode(code)) {
+      throw new ValidationError(
+        'Enter a currency code such as USD, EUR or GBP.',
+        'currency',
+      );
+    }
+
+    await this.slackTeamsRepository.update(
+      { id: user.slack_team_id },
+      { currency: code },
+    );
+
+    return code;
   }
 
   public async findOne(findParams: IFindParams) {

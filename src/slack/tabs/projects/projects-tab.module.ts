@@ -14,6 +14,13 @@ import { ProjectAssignmentsModalView } from '@modules/slack/tabs/projects/views/
 import { UsersModule } from '@modules/users/users.module';
 import ProjectAssignmentsModalViewValuesParser from '@modules/slack/tabs/projects/parsers/project-assignments-modal-view-values.parser';
 import { ProjectAssignmentsFormSubmitHandler } from '@modules/slack/tabs/projects/handlers/project-assignments-form-submit.handler';
+import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
+import { PersonRateModalView } from '@modules/slack/tabs/projects/views/person-rate-modal.view';
+import PersonRateModalViewValuesParser from '@modules/slack/tabs/projects/parsers/person-rate-modal-view-values.parser';
+import { PersonRateFormSubmitHandler } from '@modules/slack/tabs/projects/handlers/person-rate-form-submit.handler';
+import { CurrencyModalView } from '@modules/slack/tabs/projects/views/currency-modal.view';
+import CurrencyModalViewValuesParser from '@modules/slack/tabs/projects/parsers/currency-modal-view-values.parser';
+import { CurrencyFormSubmitHandler } from '@modules/slack/tabs/projects/handlers/currency-form-submit.handler';
 
 @Module({
   imports: [
@@ -21,6 +28,7 @@ import { ProjectAssignmentsFormSubmitHandler } from '@modules/slack/tabs/project
     TeamsModule,
     UsersModule,
     ClientsModule,
+    SlackTeamsModule,
     SlackCommonModule,
   ],
   providers: [
@@ -31,6 +39,12 @@ import { ProjectAssignmentsFormSubmitHandler } from '@modules/slack/tabs/project
     ProjectsTabActionHandler,
     ChangeProjectStatusFormSubmitHandler,
     ProjectAssignmentsFormSubmitHandler,
+    PersonRateModalView,
+    PersonRateModalViewValuesParser,
+    PersonRateFormSubmitHandler,
+    CurrencyModalView,
+    CurrencyModalViewValuesParser,
+    CurrencyFormSubmitHandler,
     ProjectsTabService,
     ProjectsTabView,
     ProjectModalView,

@@ -33,6 +33,8 @@ import { PROJECT_STATUS_OPTIONS } from '@modules/slack/tabs/projects/data/projec
 import { BILLABLE_PLAIN_TEXT_OPTIONS } from '@modules/slack/tabs/projects/data/billable-options';
 import { IncludeArchivedButtonView } from '@modules/slack/common/views/components/include-archvied-button.view';
 import UserRole from '@common/enums/user-role.enum';
+import { formatHourlyRate } from '@common/utils/money.utils';
+import { IProjectRates } from 'src/projects/types/project-user-rate.types';
 
 export interface IProjectTabFilters {
   project?: IOption;
@@ -46,7 +48,14 @@ interface IGetProjectsViewParams extends IBaseTabViewParams {
   projectsListData: IProjectsListData;
   // Names of the people assigned to each listed project.
   peopleByProject: Record<string, string[]>;
+  // Rates by project and the workspace's currency, for Admin and HR; null
+  // for anyone else.
+  rates: Map<string, IProjectRates> | null;
+  currency: string | null;
 }
+
+// People's own rates shown on a project.
+const SHOWN_PERSON_RATES = 5;
 
 export interface IProjectsTabMetaData {
   page?: number;
@@ -91,10 +100,20 @@ export class ProjectsTabView extends BaseTabView<
   }
 
   protected getContentBlocks(
-    { projectsListData, userRole, peopleByProject }: IGetProjectsViewParams,
+    {
+      projectsListData,
+      userRole,
+      peopleByProject,
+      rates,
+      currency,
+    }: IGetProjectsViewParams,
     { filters, includeArchived, page }: IProjectsTabMetaData,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
+
+    if (currency) {
+      blocks.push(this.getCurrencyBlock(currency, userRole));
+    }
 
     blocks.push(...this.getFiltersBlocks(filters));
     blocks.push(
@@ -116,6 +135,9 @@ export class ProjectsTabView extends BaseTabView<
           item,
           userRole,
           peopleByProject[item.id] ?? [],
+          rates && currency
+            ? this.getRateDetails(rates.get(item.id), currency)
+            : [],
         ),
       prevPageActionId: ProjectsTabViewActionId.PaginationPrev,
       nextPageActionId: ProjectsTabViewActionId.PaginationNext,
@@ -136,10 +158,65 @@ export class ProjectsTabView extends BaseTabView<
     return blocks;
   }
 
+  // "Rates and amounts are in USD", and for an admin the button to change it.
+  private getCurrencyBlock(currency: string, userRole: UserRole): AnyBlock {
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `Rates and amounts are in *${currency}*.`,
+      },
+      ...(this.slackActionPermissionsService.can(
+        userRole,
+        ProjectsTabViewActionId.ChangeCurrency,
+      )
+        ? {
+            accessory: {
+              type: 'button',
+              text: { type: 'plain_text', text: 'Change currency' },
+              action_id: ProjectsTabViewActionId.ChangeCurrency,
+            },
+          }
+        : {}),
+    };
+  }
+
+  // The project's rate and the people's own rates on it.
+  private getRateDetails(
+    projectRates: IProjectRates | undefined,
+    currency: string,
+  ): string[] {
+    const hourlyRate = projectRates?.hourlyRate ?? null;
+    const personRates = projectRates?.personRates ?? [];
+    const shown = personRates
+      .slice(0, SHOWN_PERSON_RATES)
+      .map(
+        ({ name, hourlyRate: rate }) =>
+          `${escapeMrkdwn(name)} ${formatHourlyRate(rate, currency)}`,
+      );
+    const left = personRates.length - shown.length;
+
+    return [
+      detail(
+        'Rate',
+        hourlyRate === null ? 'none' : formatHourlyRate(hourlyRate, currency),
+      )!,
+      ...(shown.length
+        ? [
+            detail(
+              'Own rates',
+              shown.join(', ') + (left ? ` and ${left} more` : ''),
+            )!,
+          ]
+        : []),
+    ];
+  }
+
   private getProjectListItemBlocks(
     project: IProjectListItem,
     userRole: UserRole,
     people: string[],
+    rateDetails: string[],
   ): AnyBlock[] {
     const menuOptions = this.getProjectMenuOptions(project, userRole);
 
@@ -152,6 +229,7 @@ export class ProjectsTabView extends BaseTabView<
         ),
         detail('Status', capitalize(project.status)),
         detail('Billable', project.billable ? 'Yes' : 'No'),
+        ...rateDetails,
         detail(
           'Teams',
           project.teams?.length ? listNames(project.teams) : 'none',
@@ -190,6 +268,10 @@ export class ProjectsTabView extends BaseTabView<
           {
             id: ProjectsTabViewActionId.ManageProjectAssignments,
             name: 'Manage Assignments',
+          },
+          {
+            id: ProjectsTabViewActionId.ManagePersonRates,
+            name: 'Person Rates',
           },
           {
             id: ProjectsTabViewActionId.ArchiveProject,

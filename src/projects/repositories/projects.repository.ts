@@ -19,6 +19,7 @@ export class ProjectsRepository extends BaseRepository<
       name: row.name,
       status: row.status as ProjectStatus,
       billable: row.billable,
+      hourly_rate: row.hourly_rate ?? null,
       description: row.description || '',
       slack_team_id: row.slack_team_id,
       client_id: row.client_id || null,

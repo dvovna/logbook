@@ -169,6 +169,24 @@ export class TestWorkspace implements ISlackWorkspace {
     }
   }
 
+  // The user's own hourly rate on the project.
+  public async addPersonRate(
+    project: Tables<'projects'>,
+    user: Tables<'users'>,
+    hourlyRate: number,
+  ): Promise<Tables<'project_user_rates'>> {
+    return this.db
+      .insertInto('project_user_rates')
+      .values({
+        slack_team_id: this.id,
+        project_id: project.id,
+        user_id: user.id,
+        hourly_rate: hourlyRate,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+  }
+
   // An hour of today's work by `user` on `project`, unless `fields` says otherwise.
   public async addTimeEntry(
     user: Tables<'users'>,

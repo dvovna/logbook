@@ -2,6 +2,8 @@ export enum ProjectsTabViewActionId {
   AddProject = 'add_project',
   EditProject = 'edit_project',
   ManageProjectAssignments = 'manage_project_assignments',
+  ManagePersonRates = 'manage_person_rates',
+  ChangeCurrency = 'change_currency',
 
   ArchiveProject = 'archive_project',
   ManageProjectMenu = 'manage_project_menu',

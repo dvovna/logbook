@@ -310,6 +310,76 @@ export type Database = {
           },
         ];
       };
+      project_user_rates: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          hourly_rate: number;
+          project_id: string;
+          slack_team_id: string;
+          updated_at: string;
+          updated_by: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          hourly_rate: number;
+          project_id: string;
+          slack_team_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          hourly_rate?: number;
+          project_id?: string;
+          slack_team_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'project_user_rates_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'project_user_rates_project_id_fkey';
+            columns: ['project_id'];
+            isOneToOne: false;
+            referencedRelation: 'projects';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'project_user_rates_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'project_user_rates_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'project_user_rates_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       project_users: {
         Row: {
           project_id: string;
@@ -360,6 +430,7 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           description: string | null;
+          hourly_rate: number | null;
           id: string;
           name: string;
           slack_team_id: string;
@@ -376,6 +447,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
+          hourly_rate?: number | null;
           id?: string;
           name: string;
           slack_team_id: string;
@@ -391,6 +463,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
+          hourly_rate?: number | null;
           id?: string;
           name?: string;
           slack_team_id?: string;
@@ -569,6 +642,7 @@ export type Database = {
       slack_teams: {
         Row: {
           created_at: string;
+          currency: string;
           id: string;
           name: string;
           slack_id: string;
@@ -580,6 +654,7 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           created_at?: string;
+          currency?: string;
           id?: string;
           name: string;
           slack_id: string;
@@ -590,6 +665,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          currency?: string;
           id?: string;
           name?: string;
           slack_id?: string;

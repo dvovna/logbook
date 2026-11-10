@@ -11,6 +11,10 @@ import { ProjectsRepository } from 'src/projects/repositories/projects.repositor
 import IProjectViewModel from 'src/projects/types/project.types';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import CatchDuplicatedRecord from '@common/decorators/catch-duplicated-record';
+import {
+  assertCanSeeRates,
+  assertValidHourlyRate,
+} from 'src/projects/constants/rate-roles';
 
 interface ICreateProjectParams {
   name: string;
@@ -19,10 +23,13 @@ interface ICreateProjectParams {
   description?: string;
   slackTeamId: string;
   clientId?: string | null;
+  // Admin and HR only; null or left out: no rate.
+  hourlyRate?: number | null;
 }
 
 interface IFindParams {
   id?: string;
+  ids?: string[];
   name?: string;
   slackTeamId: string;
   clientId?: string;
@@ -35,6 +42,8 @@ interface IUpdateParams {
   description?: string;
   billable?: boolean;
   status?: ProjectStatus;
+  // Admin and HR only; null clears it.
+  hourlyRate?: number | null;
   archivedAt?: string | null;
   archivedBy?: string | null;
 }
@@ -124,6 +133,7 @@ export default class ProjectsService implements IProjectsService {
       createParams.clientId,
       createParams.slackTeamId,
     );
+    this.assertCanSetRate(createParams.hourlyRate, user);
 
     const createdAt = new Date().toISOString();
 
@@ -134,6 +144,7 @@ export default class ProjectsService implements IProjectsService {
       status: createParams.status,
       slack_team_id: createParams.slackTeamId,
       client_id: createParams.clientId || null,
+      hourly_rate: createParams.hourlyRate ?? null,
       created_at: createdAt,
       updated_at: createdAt,
       created_by: user.id,
@@ -152,6 +163,7 @@ export default class ProjectsService implements IProjectsService {
       updateParams.clientId,
       findParams.slackTeamId,
     );
+    this.assertCanSetRate(updateParams.hourlyRate, user);
 
     return this.projectsRepository.update(this.getFindQuery(findParams), {
       ...(updateParams.name ? { name: updateParams.name } : {}),
@@ -165,6 +177,9 @@ export default class ProjectsService implements IProjectsService {
       ...(updateParams.status ? { status: updateParams.status } : {}),
       ...(updateParams.billable !== undefined
         ? { billable: updateParams.billable }
+        : {}),
+      ...(updateParams.hourlyRate !== undefined
+        ? { hourly_rate: updateParams.hourlyRate }
         : {}),
       ...(updateParams.archivedAt !== undefined
         ? { archived_at: updateParams.archivedAt }
@@ -208,6 +223,19 @@ export default class ProjectsService implements IProjectsService {
     return this.projectsRepository.count(this.getFindQuery(params));
   }
 
+  // A rate is Admin's and HR's to set, whatever handler passes it on.
+  private assertCanSetRate(
+    hourlyRate: number | null | undefined,
+    user: IUserViewModel,
+  ) {
+    if (hourlyRate === undefined) {
+      return;
+    }
+
+    assertCanSeeRates(user);
+    assertValidHourlyRate(hourlyRate);
+  }
+
   // The client ID comes from the form, so it has to be one of the workspace's
   // clients (an archived one too: a project may keep it).
   private async assertClientInWorkspace(
@@ -234,6 +262,7 @@ export default class ProjectsService implements IProjectsService {
   private getFindQuery(params: IFindParams): RepositoryFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
+      ...(params.ids ? { id: { operator: 'in', value: params.ids } } : {}),
       ...(params.name ? { name: params.name } : {}),
       ...(params.slackTeamId ? { slack_team_id: params.slackTeamId } : {}),
       ...(params.clientId ? { client_id: params.clientId } : {}),

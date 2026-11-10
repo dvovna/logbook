@@ -1,5 +1,5 @@
 import { PROJECTS_TAB_PAGE_SIZE } from '@modules/slack/tabs/projects/views/projects-tab.view';
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import BaseTabService, {
   IOpenModalBaseParams,
@@ -23,6 +23,15 @@ import { UsersService } from '@modules/users/services/users.service';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 import { IOption } from '@common/types/option.interface';
+import UserRole from '@common/enums/user-role.enum';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
+import { ProjectRatesService } from 'src/projects/services/project-rates.service';
+import {
+  assertCanSeeRates,
+  canSeeRates,
+} from 'src/projects/constants/rate-roles';
+import { PersonRateModalView } from '@modules/slack/tabs/projects/views/person-rate-modal.view';
+import { CurrencyModalView } from '@modules/slack/tabs/projects/views/currency-modal.view';
 
 interface IProjectModalViewParams extends IOpenModalBaseParams<string> {
   projectId: string;
@@ -33,6 +42,8 @@ export enum ProjectsTabModalName {
   UpdateProject = 'UpdateProject',
   ChangeProjectStatus = 'ChangeProjectStatus',
   ManageProjectAssignments = 'ManageProjectAssignments',
+  ManagePersonRates = 'ManagePersonRates',
+  ChangeCurrency = 'ChangeCurrency',
 }
 
 interface IGetProjectsTabViewParams extends IPublishBaseParams {
@@ -52,6 +63,12 @@ type ProjectsTabModalViewResolversMapType = {
   [ProjectsTabModalName.ManageProjectAssignments]: (
     params: IProjectModalViewParams,
   ) => Promise<View>;
+  [ProjectsTabModalName.ManagePersonRates]: (
+    params: IProjectModalViewParams,
+  ) => Promise<View>;
+  [ProjectsTabModalName.ChangeCurrency]: (
+    params: IOpenModalBaseParams<string>,
+  ) => Promise<View>;
 };
 
 @Injectable()
@@ -62,9 +79,13 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     private readonly usersService: UsersService,
     private readonly clientsService: ClientsService,
     private readonly projectAssignmentsService: ProjectAssignmentsService,
+    private readonly projectRatesService: ProjectRatesService,
+    private readonly slackTeamsService: SlackTeamsService,
     private readonly projectsListQuery: ProjectsListQuery,
     private readonly projectModalView: ProjectModalView,
     private readonly projectAssignmentsModalView: ProjectAssignmentsModalView,
+    private readonly personRateModalView: PersonRateModalView,
+    private readonly currencyModalView: CurrencyModalView,
     private readonly projectsTabView: ProjectsTabView,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
@@ -77,6 +98,10 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         this.getChangeProjectStatusModalView(params),
       [ProjectsTabModalName.ManageProjectAssignments]: (params) =>
         this.getManageProjectAssignmentsModalView(params),
+      [ProjectsTabModalName.ManagePersonRates]: (params) =>
+        this.getManagePersonRatesModalView(params),
+      [ProjectsTabModalName.ChangeCurrency]: (params) =>
+        this.getChangeCurrencyModalView(params),
     });
   }
 
@@ -94,11 +119,20 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
       includeArchived: metadata?.includeArchived,
     });
 
-    const peopleByProject =
-      await this.projectAssignmentsService.findPeopleByProject(
-        projectsListData.items.map(({ id }) => id),
+    const projectIds = projectsListData.items.map(({ id }) => id);
+    // Rates and the currency are Admin's and HR's.
+    const [peopleByProject, rates, currency] = await Promise.all([
+      this.projectAssignmentsService.findPeopleByProject(
+        projectIds,
         user.slack_team_id,
-      );
+      ),
+      canSeeRates(user.role)
+        ? this.projectRatesService.findRates(projectIds, user)
+        : null,
+      canSeeRates(user.role)
+        ? this.slackTeamsService.getCurrency(user.slack_team_id)
+        : null,
+    ]);
 
     return await this.projectsTabView.getView(
       {
@@ -106,23 +140,31 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         userRole: user.role,
         projectsListData,
         peopleByProject,
+        rates,
+        currency,
       },
       metadata,
     );
   }
 
+  // The project form has the project's rate: for Admin and HR only.
   private async getCreateProjectModalView({
     errorMessage,
     pageMetadata,
     user,
   }: IOpenModalBaseParams<string>) {
-    const clients = await this.clientsService.findMany({
-      slackTeamId: user.slack_team_id,
-      includeArchived: false,
-    });
+    assertCanSeeRates(user);
+
+    const [clients, currency] = await Promise.all([
+      this.clientsService.findMany({
+        slackTeamId: user.slack_team_id,
+        includeArchived: false,
+      }),
+      this.slackTeamsService.getCurrency(user.slack_team_id),
+    ]);
 
     return this.projectModalView.getView(
-      { errorMessage, clients },
+      { errorMessage, clients, currency },
       { pageMetadata },
     );
   }
@@ -133,7 +175,9 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     pageMetadata,
     errorMessage,
   }: IProjectModalViewParams) {
-    const [project, clients] = await Promise.all([
+    assertCanSeeRates(user);
+
+    const [project, clients, currency] = await Promise.all([
       this.projectsService.findOneWithValidation({
         id: projectId,
         slackTeamId: user.slack_team_id,
@@ -142,6 +186,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
       this.clientsService.findMany({
         slackTeamId: user.slack_team_id,
       }),
+      this.slackTeamsService.getCurrency(user.slack_team_id),
     ]);
 
     const selectedClient = clients.find(
@@ -165,6 +210,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
       {
         initialData: project,
         clients,
+        currency,
         errorMessage,
       },
       { id: project.id, pageMetadata },
@@ -233,6 +279,48 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         id: project.id,
         pageMetadata,
       },
+    );
+  }
+
+  private async getManagePersonRatesModalView({
+    projectId,
+    user,
+    errorMessage,
+    pageMetadata,
+  }: IProjectModalViewParams) {
+    assertCanSeeRates(user);
+
+    const [project, personRates, currency] = await Promise.all([
+      this.projectsService.findOneWithValidation({
+        id: projectId,
+        slackTeamId: user.slack_team_id,
+        includeArchived: true,
+      }),
+      this.projectRatesService.findPersonRates(projectId, user),
+      this.slackTeamsService.getCurrency(user.slack_team_id),
+    ]);
+
+    return this.personRateModalView.getView(
+      { project, personRates, currency, errorMessage },
+      { id: project.id, pageMetadata },
+    );
+  }
+
+  private async getChangeCurrencyModalView({
+    user,
+    errorMessage,
+    pageMetadata,
+  }: IOpenModalBaseParams<string>) {
+    if (user.role !== UserRole.Admin) {
+      throw new ForbiddenException('Only an admin sets the currency.');
+    }
+
+    return this.currencyModalView.getView(
+      {
+        currency: await this.slackTeamsService.getCurrency(user.slack_team_id),
+        errorMessage,
+      },
+      { pageMetadata },
     );
   }
 }

@@ -4,6 +4,8 @@ interface IProjectViewModel {
   id: string;
   name: string;
   billable: boolean;
+  // In the workspace's currency; null when not set. Admin and HR only.
+  hourly_rate: number | null;
   status: ProjectStatus;
   description?: string;
   slack_team_id: string;

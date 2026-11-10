@@ -49,6 +49,7 @@ export default class ProjectsTabActionHandler extends BaseTabActionHandler {
 
     this.actionMap = {
       [ProjectsTabViewActionId.AddProject]: this.handleAddProject,
+      [ProjectsTabViewActionId.ChangeCurrency]: this.handleChangeCurrency,
       [ProjectsTabViewActionId.ManageProjectMenu]: withMenuAction<
         ProjectsTabViewActionId,
         [IUserViewModel]
@@ -90,6 +91,18 @@ export default class ProjectsTabActionHandler extends BaseTabActionHandler {
     await this.projectsTabService.openModal(
       payload.trigger_id || user.slack_id,
       ProjectsTabModalName.CreateProject,
+      { user, pageMetadata: payload.view.private_metadata },
+    );
+  };
+
+  // An admin's: the modal refuses anyone else.
+  private handleChangeCurrency = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    await this.projectsTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      ProjectsTabModalName.ChangeCurrency,
       { user, pageMetadata: payload.view.private_metadata },
     );
   };
@@ -138,6 +151,16 @@ export default class ProjectsTabActionHandler extends BaseTabActionHandler {
         await this.projectsTabService.openModal(
           payload.trigger_id || user.slack_id,
           ProjectsTabModalName.ManageProjectAssignments,
+          { user, projectId, pageMetadata: payload.view.private_metadata },
+        );
+
+        break;
+      }
+      // Admin's and HR's: the modal refuses anyone else.
+      case ProjectsTabViewActionId.ManagePersonRates: {
+        await this.projectsTabService.openModal(
+          payload.trigger_id || user.slack_id,
+          ProjectsTabModalName.ManagePersonRates,
           { user, projectId, pageMetadata: payload.view.private_metadata },
         );
 

@@ -4,6 +4,7 @@ import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
+import { hourlyRateSchema } from '@modules/slack/tabs/projects/parsers/hourly-rate.schema';
 
 export const MAX_DESCRIPTION_LENGTH = 200;
 export const MAX_PROJECT_NAME_LENGTH = 50;
@@ -35,6 +36,7 @@ export const projectFormSchema = z.object({
     value: z.enum(['true', 'false']),
     text: z.string(),
   }),
+  hourlyRate: hourlyRateSchema,
 });
 
 export interface IProjectFormViewData {
@@ -43,6 +45,8 @@ export interface IProjectFormViewData {
   clientId?: ISelectedOption;
   status: ISelectedOption<ProjectStatus>;
   billable?: ISelectedOption<'true' | 'false'>;
+  // Null: no rate.
+  hourlyRate: number | null;
 }
 
 @Injectable()
@@ -68,6 +72,10 @@ export default class ProjectModalViewValuesParser extends BaseValuesParser<IProj
       billable: {
         blockId: 'billable_block',
         type: ViewFieldType.RadioButtons,
+      },
+      hourlyRate: {
+        blockId: 'hourly_rate_block',
+        type: ViewFieldType.Text,
       },
     });
   }

@@ -338,6 +338,7 @@ describe('Access control', () => {
 
     expect(Object.keys(team!).sort()).toEqual([
       'created_at',
+      'currency',
       'id',
       'name',
       'slack_id',

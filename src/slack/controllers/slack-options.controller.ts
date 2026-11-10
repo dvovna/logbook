@@ -16,6 +16,7 @@ import { SlackActiveUserGuard } from '@modules/slack/guards/slack-active-user.gu
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { ProjectAssignmentModalViewActionId } from '@modules/slack/tabs/projects/enums/project-assignments-modal-action-id.enum';
+import { PersonRateModalActionId } from '@modules/slack/tabs/projects/enums/person-rate-modal-action-id.enum';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { ProjectOptionsService } from '@modules/slack/services/option-services/project-options.service';
 import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
@@ -40,7 +41,9 @@ export class SlackOptionsController {
       case UsersTabViewActionId.FilterUsersByUser:
       case TimeEntriesTabViewActionId.SelectUser:
       case TimeEntriesTabViewActionId.FilterByUser:
-      case VacationRequestsTabViewActionId.FilterRequestsByUser: {
+      case VacationRequestsTabViewActionId.FilterRequestsByUser:
+      case PersonRateModalActionId.Person: {
+        // Inactive people too: their past time may still need a rate.
         return this.userOptionsService.searchUsers({
           query: payload.value,
           user: request.user!,

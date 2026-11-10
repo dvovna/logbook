@@ -10,10 +10,13 @@ import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { ProjectStatusDisplayNameMap } from 'src/projects/static/project-status-display-name.map';
 import IProjectViewModel from 'src/projects/types/project.types';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
+import { hourlyRateElement } from '@modules/slack/tabs/projects/parsers/hourly-rate.schema';
 
 interface IGetViewParams extends IBaseModalViewParams {
   initialData?: IProjectViewModel | null;
   clients: IClientViewModel[];
+  // The workspace's, for the rate's label.
+  currency: string;
 }
 
 export interface IProjectModalViewMetadata {
@@ -42,6 +45,7 @@ export class ProjectModalView extends BaseModalView<
   public getViewBlocks({
     initialData,
     clients,
+    currency,
     errorMessage,
   }: IGetViewParams): AnyBlock[] {
     const clientOptions = clients.map<PlainTextOption>((client) =>
@@ -108,6 +112,17 @@ export class ProjectModalView extends BaseModalView<
           },
         },
       },
+      {
+        type: 'input',
+        block_id: 'hourly_rate_block',
+        optional: true,
+        label: { type: 'plain_text', text: `Hourly rate (${currency})` },
+        element: hourlyRateElement('hourlyRate', initialData?.hourly_rate),
+        hint: {
+          type: 'plain_text',
+          text: "What an hour of billable time costs the client. A person's own rate (Person Rates in the project's menu) replaces it. Empty: no rate, so no amount.",
+        },
+      } as AnyBlock,
       {
         type: 'input',
         block_id: 'status_block',
