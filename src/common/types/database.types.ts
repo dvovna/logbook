@@ -9,115 +9,133 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      billing_report_entries: {
+      billing_snapshot_entries: {
         Row: {
-          report_id: string;
+          amount: number | null;
+          billable: boolean;
+          hourly_rate: number | null;
+          minutes: number;
           slack_team_id: string;
+          snapshot_id: string;
           time_entry_id: string;
         };
         ComputedFields: never;
         Insert: {
-          report_id: string;
+          amount?: number | null;
+          billable: boolean;
+          hourly_rate?: number | null;
+          minutes: number;
           slack_team_id: string;
+          snapshot_id: string;
           time_entry_id: string;
         };
         Update: {
-          report_id?: string;
+          amount?: number | null;
+          billable?: boolean;
+          hourly_rate?: number | null;
+          minutes?: number;
           slack_team_id?: string;
+          snapshot_id?: string;
           time_entry_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: 'billing_report_entries_report_id_fkey';
-            columns: ['report_id'];
-            isOneToOne: false;
-            referencedRelation: 'billing_reports';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'billing_report_entries_slack_team_id_fkey';
+            foreignKeyName: 'billing_snapshot_entries_slack_team_id_fkey';
             columns: ['slack_team_id'];
             isOneToOne: false;
             referencedRelation: 'slack_teams';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'billing_report_entries_time_entry_id_fkey';
-            columns: ['time_entry_id'];
+            foreignKeyName: 'billing_snapshot_entries_snapshot_id_fkey';
+            columns: ['snapshot_id'];
             isOneToOne: false;
+            referencedRelation: 'billing_snapshots';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'billing_snapshot_entries_time_entry_id_fkey';
+            columns: ['time_entry_id'];
+            isOneToOne: true;
             referencedRelation: 'time_entries';
             referencedColumns: ['id'];
           },
         ];
       };
-      billing_reports: {
+      billing_snapshots: {
         Row: {
+          billable_minutes: number;
           client_id: string;
           created_at: string;
-          created_by: string;
+          created_by: string | null;
+          currency: string;
           id: string;
-          is_locked: boolean;
+          invoiced_at: string | null;
+          invoiced_by: string | null;
           period_end: string;
           period_start: string;
           slack_team_id: string;
-          team_id: string;
-          total_amount: number | null;
+          total_amount: number;
           total_minutes: number;
         };
         ComputedFields: never;
         Insert: {
+          billable_minutes: number;
           client_id: string;
           created_at?: string;
-          created_by: string;
+          created_by?: string | null;
+          currency: string;
           id?: string;
-          is_locked?: boolean;
+          invoiced_at?: string | null;
+          invoiced_by?: string | null;
           period_end: string;
           period_start: string;
           slack_team_id: string;
-          team_id: string;
-          total_amount?: number | null;
+          total_amount: number;
           total_minutes: number;
         };
         Update: {
+          billable_minutes?: number;
           client_id?: string;
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
+          currency?: string;
           id?: string;
-          is_locked?: boolean;
+          invoiced_at?: string | null;
+          invoiced_by?: string | null;
           period_end?: string;
           period_start?: string;
           slack_team_id?: string;
-          team_id?: string;
-          total_amount?: number | null;
+          total_amount?: number;
           total_minutes?: number;
         };
         Relationships: [
           {
-            foreignKeyName: 'billing_reports_client_id_fkey';
+            foreignKeyName: 'billing_snapshots_client_id_fkey';
             columns: ['client_id'];
             isOneToOne: false;
             referencedRelation: 'clients';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'billing_reports_created_by_fkey';
+            foreignKeyName: 'billing_snapshots_created_by_fkey';
             columns: ['created_by'];
             isOneToOne: false;
             referencedRelation: 'users';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'billing_reports_slack_team_id_fkey';
-            columns: ['slack_team_id'];
+            foreignKeyName: 'billing_snapshots_invoiced_by_fkey';
+            columns: ['invoiced_by'];
             isOneToOne: false;
-            referencedRelation: 'slack_teams';
+            referencedRelation: 'users';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'billing_reports_team_id_fkey';
-            columns: ['team_id'];
+            foreignKeyName: 'billing_snapshots_slack_team_id_fkey';
+            columns: ['slack_team_id'];
             isOneToOne: false;
-            referencedRelation: 'teams';
+            referencedRelation: 'slack_teams';
             referencedColumns: ['id'];
           },
         ];
