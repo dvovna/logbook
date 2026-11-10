@@ -221,6 +221,7 @@ npx tsc --noEmit
 - fill modals from the view the app actually opened;
 - check the database and the calls the app made to Slack;
 - fail on anything Slack would refuse: a view or message it would not accept, errors for fields a modal does not have, or an answer later than Slack's 3 seconds.
+- fail on what Slack accepts but shows otherwise than meant: more than five buttons in a row (Slack folds the rest into "+ N more"), a ⋯ menu with one option, two dividers in a row, Markdown in `mrkdwn` text or formatting in `plain_text`. A look at the real Slack that finds something like this adds a rule to `support/block-kit-display-rules.ts`.
 
 Each test starts on a fixed date (Wednesday 2026-06-17), waits for the work the app does after answering Slack with `await t.idle()` instead of polling, and reads tabs through `support/tab-readers.ts` (list items, sections, buttons) rather than searching their JSON.
 

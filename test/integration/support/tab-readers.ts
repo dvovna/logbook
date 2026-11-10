@@ -11,7 +11,8 @@ export interface IListItem {
   title: string;
   // The "Key: value" lines, e.g. { Client: 'Acme', Status: 'Draft' }.
   fields: Record<string, string>;
-  // What the item's menu offers: the action of each option, e.g.
+  // What the item's menu offers (or the one button that stands for a menu
+  // with one option): the action of each option, e.g.
   // ['edit_time_entry', 'delete_time_entry'].
   menu: string[];
   // Their labels, e.g. ['Edit', 'Delete'].
@@ -55,7 +56,11 @@ export const listItems = (view: View): IListItem[] => {
     const { title, fields } = parseFields(
       block.fields.map((field: SlackJson) => field.text),
     );
-    const menuOptions: SlackJson[] = block.accessory?.options ?? [];
+    // A menu with one option shows as a button: still the item's menu.
+    const menuOptions: SlackJson[] =
+      block.accessory?.type === 'button'
+        ? [block.accessory]
+        : (block.accessory?.options ?? []);
     const menuValues: string[] = menuOptions.map((option) => option.value);
     const next = blocks[i + 1];
     const buttons: SlackJson[] =

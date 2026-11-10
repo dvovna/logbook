@@ -1,3 +1,4 @@
+import { splitIntoRows } from '@modules/slack/common/views/components/actions-rows';
 import { AnyBlock, Button } from '@slack/web-api';
 import UserRole from '@common/enums/user-role.enum';
 import {
@@ -18,10 +19,6 @@ export const HEADER_BLOCK_IDS = {
   settings: 'settings_navigation',
   back: 'back_navigation',
 };
-
-// Slack shows five buttons of an actions block and folds the rest into
-// "+ N more", which hid Reports and Settings. More than five make two rows.
-export const MAX_BUTTONS_IN_A_ROW = 5;
 
 export interface IScreenHeaderParams {
   screenId: ScreenId;
@@ -54,26 +51,14 @@ export class ScreenHeader {
     const navigation = this.getNavigationButtons(root, inSettings, role, {
       approvalsCount,
     });
-    const firstRow =
-      navigation.length > MAX_BUTTONS_IN_A_ROW
-        ? Math.ceil(navigation.length / 2)
-        : navigation.length;
-    const blocks: AnyBlock[] = [
-      {
-        type: 'actions',
-        block_id: HEADER_BLOCK_IDS.navigation,
-        elements: navigation.slice(0, firstRow),
-      },
-      ...(navigation.length > firstRow
-        ? [
-            {
-              type: 'actions',
-              block_id: HEADER_BLOCK_IDS.navigationMore,
-              elements: navigation.slice(firstRow),
-            } as AnyBlock,
-          ]
-        : []),
-    ];
+    // At most two rows: the navigation has seven buttons at most.
+    const blocks: AnyBlock[] = splitIntoRows(navigation).map((elements, i) => ({
+      type: 'actions',
+      block_id: i
+        ? HEADER_BLOCK_IDS.navigationMore
+        : HEADER_BLOCK_IDS.navigation,
+      elements,
+    }));
 
     if (inSettings) {
       blocks.push({

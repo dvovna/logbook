@@ -12,6 +12,8 @@ afterEach(() => {
   const violations = takeSlackViolations();
 
   if (violations.length) {
-    throw new Error(`Slack would have refused:\n${violations.join('\n')}`);
+    throw new Error(
+      `Slack would have refused or shown wrongly:\n${violations.join('\n')}`,
+    );
   }
 });

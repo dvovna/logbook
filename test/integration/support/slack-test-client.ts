@@ -9,7 +9,11 @@ import {
   suggestionsProblems,
   viewProblems,
 } from './block-kit-rules';
-import { reportSlackViolation } from './slack-violations';
+import {
+  reportDisplayProblems,
+  reportSlackViolation,
+} from './slack-violations';
+import { viewDisplayProblems } from './block-kit-display-rules';
 import { IPostedMessage } from './fake-slack-api.client';
 
 export interface ISlackActor {
@@ -103,12 +107,18 @@ export class SlackTestClient {
       '/api/slack/interactions',
       new URLSearchParams({ payload: JSON.stringify(payload) }).toString(),
       'application/x-www-form-urlencoded',
-    ).expect((response) =>
+    ).expect((response) => {
       reportSlackViolation(
         `answer to ${payload.type}`,
         answerProblems(payload, response.body),
-      ),
-    );
+      );
+      reportDisplayProblems(
+        `answer to ${payload.type}`,
+        ['update', 'push'].includes(response.body?.response_action)
+          ? viewDisplayProblems(response.body.view)
+          : [],
+      );
+    });
   }
 
   // A click or a choice in an App Home tab or a modal.

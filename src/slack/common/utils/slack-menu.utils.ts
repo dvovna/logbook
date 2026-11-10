@@ -1,4 +1,4 @@
-import type { OverflowAction } from '@slack/bolt';
+import type { ButtonAction, OverflowAction } from '@slack/bolt';
 import {
   ISlackBlockActionPayload,
   ISlackInteractionPayload,
@@ -18,7 +18,12 @@ export function withMenuAction<
   logger: Logger,
 ) {
   return async (payload: ISlackBlockActionPayload, ...args: Arguments) => {
-    const value = (payload.actions[0] as OverflowAction).selected_option?.value;
+    // A menu with one option is shown as a button (ListItem).
+    const action = payload.actions[0] as OverflowAction | ButtonAction;
+    const value =
+      'selected_option' in action
+        ? action.selected_option?.value
+        : action.value;
 
     if (!value) {
       logger.warn('MenuAction triggered without selected_option');

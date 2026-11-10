@@ -3,6 +3,7 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { AnyBlock } from '@slack/web-api';
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import UserRole from '@common/enums/user-role.enum';
+import { Divider } from '@modules/slack/common/views/components/separator';
 
 const TAB_TYPE = 'home';
 
@@ -36,10 +37,10 @@ export abstract class BaseTabView<
     params: GetParams,
     metadata?: Metadata,
   ): Promise<AnyBlock[]> {
-    return [
+    return Divider.withoutRepeated([
       ...this.getTitleBlocks(params),
       ...(await this.getContentBlocks(params, metadata)),
-    ];
+    ]);
   }
 
   protected getTitleBlocks(params: GetParams): AnyBlock[] {

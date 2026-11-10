@@ -1,5 +1,6 @@
 import { AnyBlock } from '@slack/web-api';
 import { Divider } from '@modules/slack/common/views/components/separator';
+import { splitIntoRows } from '@modules/slack/common/views/components/actions-rows';
 import { IOption } from '@common/types/option.interface';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 
@@ -114,10 +115,11 @@ export class FiltersBlockBuilder {
       });
     }
 
-    blocks.push({
-      type: 'actions',
-      elements,
-    } as AnyBlock);
+    blocks.push(
+      ...splitIntoRows(elements).map(
+        (row) => ({ type: 'actions', elements: row }) as AnyBlock,
+      ),
+    );
 
     if (separator) {
       blocks.push(...Divider.getBlocks());

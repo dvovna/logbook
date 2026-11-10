@@ -12,7 +12,14 @@ import {
   uploadUrlProblems,
   viewProblems,
 } from './block-kit-rules';
-import { reportSlackViolation } from './slack-violations';
+import {
+  messageDisplayProblems,
+  viewDisplayProblems,
+} from './block-kit-display-rules';
+import {
+  reportDisplayProblems,
+  reportSlackViolation,
+} from './slack-violations';
 
 export interface ISlackApiCall {
   // Slack Web API method, e.g. `chat.postMessage` or `views.publish`.
@@ -233,12 +240,14 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
 
   public async postEphemeral({ accessToken, ...params }) {
     this.refuseInvalid('chat.postEphemeral', messageProblems(params));
+    reportDisplayProblems('chat.postEphemeral', messageDisplayProblems(params));
     this.record('chat.postEphemeral', params, accessToken);
   }
 
   public async postMessage({ accessToken, ...params }) {
     this.failIfAsked('chat.postMessage');
     this.refuseInvalid('chat.postMessage', messageProblems(params));
+    reportDisplayProblems('chat.postMessage', messageDisplayProblems(params));
     // Like Slack: a message to a user ID goes to the DM channel with them.
     const channel = params.channel.startsWith('U')
       ? `D${params.channel.slice(1)}`
@@ -253,6 +262,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   public async updateMessage({ accessToken, ...params }) {
     this.failIfAsked('chat.update');
     this.refuseInvalid('chat.update', messageProblems(params));
+    reportDisplayProblems('chat.update', messageDisplayProblems(params));
     this.record('chat.update', params, accessToken);
 
     return { ok: true, channel: params.channel, ts: params.ts };
@@ -263,6 +273,10 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     accessToken: string,
   ): Promise<SlackResponse> {
     this.refuseInvalid('views.open', viewProblems(args.view));
+    reportDisplayProblems(
+      `views.open ${args.view.callback_id ?? ''}`,
+      viewDisplayProblems(args.view),
+    );
     this.record('views.open', args, accessToken);
 
     return { ok: true, view: { id: this.nextViewId(), ...args.view } };
@@ -273,6 +287,10 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     accessToken: string,
   ): Promise<SlackResponse> {
     this.refuseInvalid('views.publish', viewProblems(args.view));
+    reportDisplayProblems(
+      `views.publish ${args.view.callback_id ?? ''}`,
+      viewDisplayProblems(args.view),
+    );
     this.record('views.publish', args, accessToken);
 
     return { ok: true, view: { id: this.nextViewId(), ...args.view } };
