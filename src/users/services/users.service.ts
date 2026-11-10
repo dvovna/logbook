@@ -207,8 +207,6 @@ export class UsersService implements IUsersService {
     return user;
   }
 
-  // A Slack user ID is unique only within a workspace: on Enterprise Grid the
-  // same person has the same ID in every workspace of the organization.
   // The user of a Slack request: by the Slack IDs of its workspace and of its
   // user, with the workspace's ID, in one query.
   public findInWorkspaceBySlackIds(
@@ -221,6 +219,8 @@ export class UsersService implements IUsersService {
     );
   }
 
+  // A Slack user ID is unique only within a workspace: on Enterprise Grid the
+  // same person has the same ID in every workspace of the organization.
   public async findBySlackId(slackId: string, slackTeamId: string) {
     return await this.userRepository.findOne({
       slack_id: slackId,
