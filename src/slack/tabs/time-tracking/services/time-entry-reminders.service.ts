@@ -4,7 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import * as pluralize from 'pluralize';
+import pluralize from 'pluralize';
 import { JobsService } from '@common/jobs/jobs.service';
 import { formatDateRange } from '@common/utils/date.utils';
 import { getDisplayTime } from '@common/utils/time.utils';

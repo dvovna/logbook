@@ -1,6 +1,6 @@
 import { OnEvent } from '@nestjs/event-emitter';
 import { groupBy } from 'lodash';
-import * as pluralize from 'pluralize';
+import pluralize from 'pluralize';
 import { personLabel } from '@modules/slack/common/views/data/labels';
 import { TimeEntryApprovalsService } from 'src/time-entries/services/time-entry-approvals.service';
 import {
