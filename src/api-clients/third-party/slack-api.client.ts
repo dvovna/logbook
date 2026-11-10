@@ -271,7 +271,10 @@ export default class SlackApiClient {
   ) {
     const client = this.getClient(accessToken);
 
-    const result = await client.apiCall(method, params);
+    const result: WebAPICallResult & { error?: string } = await client.apiCall(
+      method,
+      params,
+    );
 
     if (!result.ok) {
       throw new Error(result.error || 'Slack API call failed');

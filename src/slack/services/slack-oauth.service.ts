@@ -65,22 +65,16 @@ export default class SlackOauthService {
       EnvironmentVariable.SlackRedirectUri,
     )!;
 
-    const result =
-      await this.slackApiClient.makeCall<IOauthCompleteResponseData>(
-        'oauth.v2.access',
-        {
-          code,
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: redirectUri,
-        },
-      );
-
-    if (!result.ok) {
-      throw new Error(result.error || 'Slack OAuth failed');
-    }
-
-    return result;
+    // makeCall throws when Slack answers ok: false.
+    return this.slackApiClient.makeCall<IOauthCompleteResponseData>(
+      'oauth.v2.access',
+      {
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+      },
+    );
   }
 
   // ALLOWED_SLACK_TEAM_IDS limits the workspaces that may install the app on
