@@ -32,9 +32,10 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 
 **Time & Billing (beta)**
 - Clients, projects with team and user assignments, and billable flags.
+- Hourly rates: a project's rate, and a person's own rate on a project that replaces it. One currency per workspace, which an admin sets. Only admins and HR see rates and amounts.
 - Time entries in 15-minute steps, logged from the App Home or with `/log` as drafts, and then submitted for approval.
 - The team's managers, HR or an admin approve or reject submitted time; a rejection tells the owner why.
-- A billing report per client and period, from approved time.
+- A billing report per client and period, from approved time: each person's hours on each project with the rate and the amount, the totals by project and by person, and the amount in all. Billable time without a rate has no amount and is counted apart.
 - Admins and HR see everyone's time logs.
 
 ## How it works
@@ -237,7 +238,7 @@ CI runs the type check, lint, unit and integration tests on every pull request, 
 - Slack only; there is no Microsoft Teams support.
 - No calendar sync (Google, Outlook) yet.
 - Caches are in memory, so run a single instance.
-- Time & Billing is in beta.
+- Time & Billing is in beta. Billing reports use the rates as they are now, and changing the currency doesn't convert the rates.
 
 ## Contributing
 
