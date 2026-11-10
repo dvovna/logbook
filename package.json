@@ -59,7 +59,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
-    "@eslint/js": "^9.39.1",
+    "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
@@ -78,7 +78,7 @@
     "@types/validator": "^13.15.10",
     "@typescript-eslint/eslint-plugin": "^8.72.1",
     "@typescript-eslint/parser": "^8.72.1",
-    "eslint": "^9.18.0",
+    "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-check-file": "^3.3.2",

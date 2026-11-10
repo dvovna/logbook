@@ -95,8 +95,11 @@ export class MigrationsCheckService implements OnModuleInit {
 
       return rows.map(({ version }) => version);
     } catch (error) {
-      throw new Error(
-        `Failed to read the applied migrations: ${(error as Error).message}`,
+      throw Object.assign(
+        new Error(
+          `Failed to read the applied migrations: ${(error as Error).message}`,
+        ),
+        { cause: error },
       );
     }
   }
