@@ -7,6 +7,8 @@ export interface ISlackUser {
 }
 
 export interface ISlackView {
+  // The view Slack shows: what views.update replaces.
+  id?: string;
   team_id: string;
   callback_id: ViewCallbackId;
   private_metadata: string;

@@ -3,6 +3,7 @@ import { View } from '@slack/types/dist/views';
 import {
   ViewsOpenArguments,
   ViewsPublishArguments,
+  ViewsUpdateArguments,
 } from '@slack/web-api/dist/types/request/views';
 import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
 import { SlackJson } from './block-kit';
@@ -177,7 +178,8 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     return publish.params.view;
   }
 
-  // The modal last opened in the workspace.
+  // The modal last opened in the workspace, with the ID Slack gave it (an
+  // interaction in it carries the ID).
   public openedModal(token: string, options?: ISince): View {
     const open = this.callsWith(token, 'views.open', options).pop();
 
@@ -185,7 +187,18 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       throw new Error('No modal was opened');
     }
 
-    return open.params.view;
+    return { ...open.params.view, id: open.result?.view?.id };
+  }
+
+  // The modal the app last replaced with views.update, with its ID.
+  public updatedModal(token: string, options?: ISince): View {
+    const update = this.callsWith(token, 'views.update', options).pop();
+
+    if (!update) {
+      throw new Error('No modal was updated');
+    }
+
+    return { ...update.params.view, id: update.params.view_id };
   }
 
   public postedMessages(
@@ -277,9 +290,32 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       `views.open ${args.view.callback_id ?? ''}`,
       viewDisplayProblems(args.view),
     );
-    this.record('views.open', args, accessToken);
+    const result = { ok: true, view: { id: this.nextViewId(), ...args.view } };
 
-    return { ok: true, view: { id: this.nextViewId(), ...args.view } };
+    this.record('views.open', args, accessToken, result);
+
+    return result;
+  }
+
+  // Like Slack, it needs the ID of the open view (the interaction's
+  // view.id), and checks the view as views.open does.
+  public async updateView(
+    args: ViewsUpdateArguments,
+    accessToken: string,
+  ): Promise<SlackResponse> {
+    const { view_id: viewId } = args as { view_id?: string };
+
+    this.refuseInvalid('views.update', [
+      ...(viewId ? [] : ['no view_id']),
+      ...viewProblems(args.view),
+    ]);
+    reportDisplayProblems(
+      `views.update ${args.view.callback_id ?? ''}`,
+      viewDisplayProblems(args.view),
+    );
+    this.record('views.update', args, accessToken);
+
+    return { ok: true, view: { id: viewId, ...args.view } };
   }
 
   public async publishView(

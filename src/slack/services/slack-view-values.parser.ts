@@ -22,6 +22,19 @@ export type IFieldsConfig<ViewData> = {
   [field in keyof ViewData & string]: IFieldConfig;
 };
 
+// The block a field sits in: its configured block_id, or that id with a
+// `:version` after it. A form gives a field a new block_id to change what it
+// shows (views.update keeps what a field with the same block_id holds), e.g.
+// the dates a period preset fills in.
+export const versionedBlockId = (blockId: string, version: string) =>
+  `${blockId}:${version}`;
+
+const blockIdIn = (values: IViewStateValues, blockId: string) =>
+  blockId in values
+    ? blockId
+    : (Object.keys(values).find((id) => id.startsWith(`${blockId}:`)) ??
+      blockId);
+
 export default class SlackViewValuesParser<ViewData extends object> {
   public constructor(
     private schema: ZodType<ViewData>,
@@ -44,7 +57,7 @@ export default class SlackViewValuesParser<ViewData extends object> {
       return { data: parsedData };
     } catch (zodError) {
       if (zodError instanceof ZodError) {
-        const errors = this.formatZodError(zodError);
+        const errors = this.formatZodError(zodError, values);
 
         return { errors };
       }
@@ -53,10 +66,15 @@ export default class SlackViewValuesParser<ViewData extends object> {
     }
   }
 
-  private formatZodError(zodError: ZodError): Record<string, string> {
+  private formatZodError(
+    zodError: ZodError,
+    values: IViewStateValues,
+  ): Record<string, string> {
     return zodError.issues.reduce<Record<string, string>>((result, issue) => {
       const field = issue.path[0] as string;
-      const blockId = this.fieldsConfig[field].blockId;
+      const blockId =
+        this.fieldsConfig[field].blockId &&
+        blockIdIn(values, this.fieldsConfig[field].blockId);
 
       if (blockId) {
         result[blockId] = issue.message;
@@ -75,7 +93,7 @@ export default class SlackViewValuesParser<ViewData extends object> {
           ...result,
           [field]: getValueByType(values, config.type, {
             actionId: field,
-            blockId: config.blockId,
+            blockId: blockIdIn(values, config.blockId),
           }),
         };
       },

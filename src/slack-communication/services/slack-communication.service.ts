@@ -73,6 +73,16 @@ export default class SlackCommunicationService {
     );
   }
 
+  // A modal the user has open, by the view ID its interaction carries.
+  public async updateView(viewId: string, view: View, teamId: string) {
+    const accessToken = await this.accessTokenService.getAccessToken(teamId);
+
+    return this.slackApiClient.updateView(
+      { view_id: viewId, view },
+      accessToken,
+    );
+  }
+
   public async publishView(view: ViewsPublishArguments, slackTeamId: string) {
     const accessToken =
       await this.accessTokenService.getAccessToken(slackTeamId);

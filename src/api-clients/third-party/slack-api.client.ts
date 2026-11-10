@@ -4,6 +4,7 @@ import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import {
   ViewsOpenArguments,
   ViewsPublishArguments,
+  ViewsUpdateArguments,
 } from '@slack/web-api/dist/types/request/views';
 
 interface ISendMessageParams {
@@ -140,6 +141,22 @@ export default class SlackApiClient {
 
     if (!result.ok) {
       throw new Error(result.error || 'Failed to open view');
+    }
+
+    return result;
+  }
+
+  // Replaces an open modal, e.g. a form whose fields a choice in it filled.
+  public async updateView(
+    viewUpdateArguments: ViewsUpdateArguments,
+    accessToken: string,
+  ) {
+    const client = this.getClient(accessToken);
+
+    const result = await client.views.update(viewUpdateArguments);
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to update view');
     }
 
     return result;
