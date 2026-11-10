@@ -2,7 +2,7 @@ import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vaca
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import UserRole from '@common/enums/user-role.enum';
-import { IRemovedVacationTime } from 'src/time-entries/services/time-entries.service';
+import { IRemovedVacationTime } from 'src/time-entries/types/removed-vacation-time.types';
 
 export class VacationRequestCreatedEvent {
   public constructor(

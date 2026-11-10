@@ -7,7 +7,7 @@ import { TimeEntriesService } from 'src/time-entries/services/time-entries.servi
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
-import { cellKey } from 'src/time-entries/types/timesheet.types';
+import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
 import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-changed.error';
 import { TransactionService } from 'src/database/transaction.service';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';

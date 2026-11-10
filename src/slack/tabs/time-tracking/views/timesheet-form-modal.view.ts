@@ -23,12 +23,12 @@ import {
 } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 import { IUserProject } from 'src/projects/queries/get-user-projects.query';
 import {
-  cellKey,
   ITimesheetCell,
   ITimesheetRow,
   ITimesheetWeek,
-  MAX_TIMESHEET_ROWS,
 } from 'src/time-entries/types/timesheet.types';
+import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/max-timesheet-rows';
+import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
 
 // The section that starts a project's row: `${TIMESHEET_ROW_BLOCK_ID}:<project id>`.
 export const TIMESHEET_ROW_BLOCK_ID = 'timesheet_row';

@@ -83,7 +83,7 @@ export class TransactionService {
   }
 
   // Lets every statement of the current transaction run up to `seconds`
-  // instead of the pool's 10 s (SESSION_SETTINGS), for background work that
+  // instead of the pool's 10 s (SESSION_SETUP), for background work that
   // is big by nature, such as deleting a workspace with all its data. Ends
   // with the transaction.
   public async allowLongStatements(seconds: number) {

@@ -46,13 +46,6 @@ export interface ITimesheetOpenBefore {
   weekStart: string;
 }
 
-export const MAX_TIMESHEET_ROWS = 10;
-
-// A cell of a project and a day: the block_id and action_id of its input in
-// the forms, and the field of an error about it.
-export const cellKey = (projectId: string, date: string) =>
-  `${projectId}_${date}`;
-
 export interface ITimesheetCellInput {
   projectId: string;
   date: string;

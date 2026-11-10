@@ -24,7 +24,7 @@ import { UsersService } from '@modules/users/services/users.service';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { withBilledDays } from '@modules/slack/tabs/vacation-requests/views/billed-days-notice';
 import ProjectsService from 'src/projects/services/projects.service';
-import { IRemovedVacationTime } from 'src/time-entries/services/time-entries.service';
+import { IRemovedVacationTime } from 'src/time-entries/types/removed-vacation-time.types';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import {
   VacationRequestCreatedEvent,

@@ -1,4 +1,4 @@
-import { weeksOf } from '@modules/slack/tabs/time-tracking/services/time-entry-reminders.service';
+import { weeksOf } from '@modules/slack/tabs/time-tracking/utils/weeks-of.utils';
 
 describe('weeksOf', () => {
   it('names the week of entries in one week', () => {

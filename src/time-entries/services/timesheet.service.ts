@@ -17,7 +17,6 @@ import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-change
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import {
-  cellKey,
   ITimesheetCell,
   ITimesheetCellInput,
   ITimesheetOpenBefore,
@@ -25,9 +24,10 @@ import {
   ITimesheetSaveResult,
   ITimesheetWeek,
   ITimesheetWeekWithEntries,
-  MAX_TIMESHEET_ROWS,
   TimesheetCellLock,
 } from 'src/time-entries/types/timesheet.types';
+import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/max-timesheet-rows';
+import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
 import { timesheetLock } from 'src/time-entries/utils/timesheet-lock';
 
 // The week form offers the projects of the shown week and of the 4 before.

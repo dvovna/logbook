@@ -11,6 +11,7 @@ const pending = new Set<Promise<unknown>>();
 // the queries on the way to an answer from those after it.
 const backgroundWork = new AsyncLocalStorage<true>();
 
+// Read only by the integration tests' statement counter (test/integration/support/sql-log.ts).
 export const isBackgroundWork = () => backgroundWork.getStore() === true;
 
 // Slack waits 3 seconds for the answer to an interaction, then shows it as

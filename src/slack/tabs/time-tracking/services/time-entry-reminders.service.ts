@@ -23,6 +23,7 @@ import { TransactionService } from 'src/database/transaction.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
+import { weeksOf } from '@modules/slack/tabs/time-tracking/utils/weeks-of.utils';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
@@ -44,18 +45,6 @@ interface IRemindJob {
 // The last day of the week before the one of `monday`.
 const lastWeekEnd = (monday: string) =>
   presetPeriod(PeriodPreset.LastWeek, new Date(`${monday}T00:00:00Z`))!.toDate;
-
-// Where on My time, which shows a week, the entries are: 'week of 8 Jun', or
-// 'from the week of 1 Jun' when they are in several.
-export const weeksOf = (entries: Pick<ITimeEntryViewModel, 'work_date'>[]) => {
-  const weeks = [
-    ...new Set(
-      entries.map(({ work_date }) => weekStartOf(getDateOnly(work_date))),
-    ),
-  ].sort();
-
-  return `${weeks.length > 1 ? 'from the ' : ''}week of ${weekLabel(weeks[0])}`;
-};
 
 // Once a week, from Monday 09:00 UTC, reminds everyone who still has drafts
 // or rejected entries from before that week: time reaches the approvers only

@@ -18,6 +18,7 @@ import { RepositoryFilter } from '@common/repositories/repository.types';
 import ProjectsService from 'src/projects/services/projects.service';
 import { GetUserProjectsQuery } from 'src/projects/queries/get-user-projects.query';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
+import { IRemovedVacationTime } from 'src/time-entries/types/removed-vacation-time.types';
 import { ValidationError } from '@common/errors/validation.error';
 import {
   isOpenTimeEntry,
@@ -91,15 +92,6 @@ interface IFindParams {
 }
 
 type ISearchTimeEntriesParams = ISearchParams<IFindParams>;
-
-// What deleteVacationTime removed: how many entries, whose they were (the
-// person who logged them, normally one) with their time and projects, and
-// the days whose time stays because it is billed.
-export interface IRemovedVacationTime {
-  deleted: number;
-  owners: { userId: string; minutes: number; projectIds: string[] }[];
-  billedDates: string[];
-}
 
 @Injectable()
 export class TimeEntriesService {
@@ -181,7 +173,7 @@ export class TimeEntriesService {
     });
 
     if (!project) {
-      throw new NotFoundException('Project not found');
+      throw new ValidationError('Project not found');
     }
 
     const created = await this.timeEntriesRepository.createMany(
