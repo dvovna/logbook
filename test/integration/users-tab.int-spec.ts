@@ -4,6 +4,7 @@ import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
+import { NO_TEAM_VALUE } from '@modules/slack/tabs/users/views/edit-user-modal.view';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import {
@@ -218,6 +219,22 @@ describe('Users tab', () => {
         team_id: ops.id,
         contract_start_date: '2024-03-01',
       });
+    });
+
+    it('takes a user out of their team with "No team"', async () => {
+      const form = await fromMenu(UsersTabViewActionId.EditUser, ada);
+
+      const since = t.slackApi.mark();
+      await t.slack
+        .submitView(workspace, admin, form, { team_id: NO_TEAM_VALUE })
+        .expect(200);
+
+      expect((await workspace.row('users', ada.id)).team_id).toBeNull();
+      expect(
+        listItems(await publishedHome(t, workspace, admin, since)).find(
+          ({ title }) => title === titleOf(ada),
+        )?.fields,
+      ).toEqual({ Role: 'Member' });
     });
 
     it("refuses more carryover than the team's policy allows", async () => {

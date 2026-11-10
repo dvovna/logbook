@@ -144,7 +144,6 @@ describe('SlackEventsService', () => {
       });
       expect(usersService.upsert).toHaveBeenCalledWith({
         slackId: 'U_NEW',
-        teamId: null,
         role: UserRole.Member,
         email: 'new.user@example.com',
         name: 'New User',
@@ -193,7 +192,6 @@ describe('SlackEventsService', () => {
 
       expect(usersService.upsert).toHaveBeenCalledWith({
         slackId: 'U_NEW',
-        teamId: 'team-1',
         role: UserRole.HR,
         email: 'new.user@example.com',
         name: 'New User',

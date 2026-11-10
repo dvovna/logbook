@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { WorkspaceRetentionService } from '@modules/slack-teams/workspace-retention.service';
 import request from 'supertest';
 import UserRole from '@common/enums/user-role.enum';
+import { UsersService } from '@modules/users/services/users.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId, TestWorkspace } from './support/test-workspace';
 import { acknowledged } from './support/slack-test-client';
@@ -226,6 +227,56 @@ describe('Slack events', () => {
       contract_start_date: '2024-03-01',
     });
   });
+
+  it.each(['user_change', 'team_join'])(
+    'keeps a team an admin sets while a %s is handled',
+    async (type) => {
+      const design = await workspace.addTeam({ name: 'Design' });
+      const ops = await workspace.addTeam({ name: 'Ops' });
+      const member = await workspace.addUser({ team_id: design.id });
+      const usersService = t.app.get(UsersService);
+      const findOne = usersService.findOne.bind(usersService);
+      // An admin moves the member to Ops right after the event's job has read
+      // them.
+      const read = jest
+        .spyOn(usersService, 'findOne')
+        .mockImplementation(async (params) => {
+          const user = await findOne(params);
+
+          if (params.id === member.id) {
+            read.mockRestore();
+            await t.db
+              .updateTable('users')
+              .set({ team_id: ops.id })
+              .where('id', '=', member.id)
+              .execute();
+          }
+
+          return user;
+        });
+
+      try {
+        await t.slack
+          .event(workspace, {
+            type,
+            user: slackMember(workspace, {
+              id: member.slack_id,
+              name: 'New Name',
+              email: member.email,
+            }),
+          })
+          .expect(acknowledged);
+        await t.idle();
+      } finally {
+        read.mockRestore();
+      }
+
+      expect(await workspace.row('users', member.id)).toMatchObject({
+        name: 'New Name',
+        team_id: ops.id,
+      });
+    },
+  );
 
   it('adds a joining member to the workspace the event comes from', async () => {
     const otherWorkspace = await t.createWorkspace();
