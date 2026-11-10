@@ -1,4 +1,5 @@
 import { writeFileSync } from 'node:fs';
+import { sql } from 'kysely';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -36,27 +37,35 @@ const LAST_WEEK = '2026-06-08';
 // and one after another show apart in the timings.
 const LATENCY_MS = 5;
 
-// What each action may send at most before its answer: statements, and
-// round trips one after another. Where the app runs far from its database
-// (the dev bot on a laptop, Supabase in us-east-1), a round trip costs about
-// 100 ms, and Slack gives up on an answer after 3 seconds.
-const LIMITS: Record<string, ISqlCount> = {
-  'open the week form': { statements: 4, roundTrips: 2 },
-  'open the day form': { statements: 4, roundTrips: 2 },
-  'save a week of 2 projects × 5 days': { statements: 8, roundTrips: 7 },
-  'change and clear 2 × 5 cells': { statements: 9, roundTrips: 8 },
-  'save the day form': { statements: 8, roundTrips: 7 },
-  'add a project to the form': { statements: 1, roundTrips: 1 },
-  'show the weekend in the form': { statements: 1, roundTrips: 1 },
-  'change the day in the form': { statements: 1, roundTrips: 1 },
-  'open My time': { statements: 1, roundTrips: 1 },
-  'go to the previous week on My time': { statements: 8, roundTrips: 3 },
-  "change a logged vacation's dates": { statements: 15, roundTrips: 10 },
-  "change a vacation's comment": { statements: 10, roundTrips: 9 },
-  'delete a logged vacation': { statements: 9, roundTrips: 9 },
-  'log time off from the offer': { statements: 2, roundTrips: 2 },
-  'save the time off settings': { statements: 7, roundTrips: 7 },
-};
+// The app's pool (DATABASE_POOL_SIZE's default).
+const POOL_SIZE = 5;
+
+// The most round trips one after another each action may take before its
+// answer: what people wait for. Where the app runs far from its database (the
+// dev bot on a laptop, Supabase in us-east-1), a round trip costs about
+// 100 ms, and Slack gives up on an answer after 3 seconds. Its statements
+// may be STATEMENTS_HEADROOM more than today's, so that a read added beside
+// another one doesn't fail here; the report keeps the exact counts.
+const ROUND_TRIPS: Record<string, { roundTrips: number; statements: number }> =
+  {
+    'open the week form': { roundTrips: 2, statements: 4 },
+    'open the day form': { roundTrips: 2, statements: 4 },
+    'save a week of 2 projects × 5 days': { roundTrips: 6, statements: 8 },
+    'change and clear 2 × 5 cells': { roundTrips: 7, statements: 9 },
+    'save the day form': { roundTrips: 6, statements: 8 },
+    'add a project to the form': { roundTrips: 1, statements: 1 },
+    'show the weekend in the form': { roundTrips: 1, statements: 1 },
+    'change the day in the form': { roundTrips: 1, statements: 1 },
+    'open My time': { roundTrips: 1, statements: 1 },
+    'go to the previous week on My time': { roundTrips: 3, statements: 8 },
+    "change a logged vacation's dates": { roundTrips: 10, statements: 15 },
+    "change a vacation's comment": { roundTrips: 9, statements: 10 },
+    'delete a logged vacation': { roundTrips: 9, statements: 9 },
+    'log time off from the offer': { roundTrips: 2, statements: 2 },
+    'save the time off settings': { roundTrips: 7, statements: 7 },
+  };
+
+const STATEMENTS_HEADROOM = 3;
 
 // What the actions sent, for ROUND_TRIPS_REPORT.
 const measured: Record<string, { answer: ISqlCount; all: ISqlCount }> = {};
@@ -115,16 +124,25 @@ describe('Round trips to the database before the answer', () => {
   });
 
   // Runs `action` (one request to the app) and checks what it sent before
-  // the answer against LIMITS[name]. Returns what `action` returned.
+  // the answer against ROUND_TRIPS[name]. Returns what `action` returned.
   const measure = async <T>(name: string, action: () => Promise<T>) => {
     await t.idle();
+    // Every connection of the pool open, as on a server in use: opening one
+    // takes round trips the log doesn't see, and would vary with the order
+    // of the tests.
+    await Promise.all(
+      Array.from({ length: POOL_SIZE }, () => sql`select 1`.execute(t.db)),
+    );
     const since = t.sql.mark();
 
     const result = await action();
     await t.idle();
 
     const count = t.sql.count(since);
-    const limit = LIMITS[name];
+    const limit = {
+      ...ROUND_TRIPS[name],
+      statements: ROUND_TRIPS[name].statements + STATEMENTS_HEADROOM,
+    };
 
     measured[name] = count;
 
