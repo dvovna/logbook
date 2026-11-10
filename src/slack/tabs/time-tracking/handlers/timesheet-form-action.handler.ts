@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
   CheckboxesAction,
   DatepickerAction,
   StaticSelectAction,
 } from '@slack/bolt/dist/types/actions/block-action';
 import { ALL_ROLES } from '@common/constants/role-groups';
+import { runInBackground } from '@common/utils/run-in-background';
 import { weekStartOf } from '@common/utils/period-presets';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
@@ -26,6 +27,8 @@ import { MAX_TIMESHEET_ROWS } from 'src/time-entries/types/timesheet.types';
 // Adding a row, showing the weekend or choosing another day rebuilds the open
 // form (views.update).
 // Its cells keep their block_ids, so Slack keeps what was typed in them.
+// Slack needs nothing in the answer to a click: the app answers at once and
+// rebuilds the form after it.
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.TimesheetForm,
@@ -33,13 +36,21 @@ import { MAX_TIMESHEET_ROWS } from 'src/time-entries/types/timesheet.types';
   allowedRoles: ALL_ROLES,
 })
 export class TimesheetFormActionHandler extends BaseActionHandler {
+  private readonly logger = new Logger(TimesheetFormActionHandler.name);
+
   protected actionMap: ActionMapType = {
     [TimesheetFormActionId.AddProject]: (payload, user) =>
-      this.addProject(payload, user),
+      this.afterAnswer('add a project to', () =>
+        this.addProject(payload, user),
+      ),
     [TimesheetFormActionId.ShowWeekend]: (payload, user) =>
-      this.showWeekend(payload, user),
+      this.afterAnswer('show the weekend in', () =>
+        this.showWeekend(payload, user),
+      ),
     [TimesheetFormActionId.Day]: (payload, user) =>
-      this.changeDay(payload, user),
+      this.afterAnswer('change the day of', () =>
+        this.changeDay(payload, user),
+      ),
   };
 
   public constructor(
@@ -48,6 +59,10 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {
     super();
+  }
+
+  private afterAnswer(what: string, work: () => Promise<void>) {
+    runInBackground(this.logger, `${what} the week form`, work);
   }
 
   // The project comes from the client: only one the user may log time on.
