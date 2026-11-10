@@ -115,13 +115,23 @@ describe('Time entries', () => {
 
   it('opens the same Log Time form with /log as the button on Home', async () => {
     for (const user of [member, admin]) {
-      // Each modal Slack opens has an ID of its own.
-      const { id: _commandViewId, ...fromCommand } = (await openWithLogCommand(
-        user,
-      )) as View & { id?: string };
-      const { id: _homeViewId, ...fromHome } = (await openLogTimeModal(
-        user,
-      )) as View & { id?: string };
+      // Each modal Slack opens has an ID and a version (hash) of its own.
+      const {
+        id: _commandViewId,
+        hash: _commandHash,
+        ...fromCommand
+      } = (await openWithLogCommand(user)) as View & {
+        id?: string;
+        hash?: string;
+      };
+      const {
+        id: _homeViewId,
+        hash: _homeHash,
+        ...fromHome
+      } = (await openLogTimeModal(user)) as View & {
+        id?: string;
+        hash?: string;
+      };
 
       expect(fromCommand).toEqual(fromHome);
     }
