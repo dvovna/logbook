@@ -105,7 +105,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   private readonly oauthGrants = new Map<string, IFakeOauthGrant>();
   private readonly failures = new Map<
     string,
-    { times: number; error: string }
+    { times: number; error: string; channel?: string }
   >();
   // Files uploaded but not necessarily shared yet, by file ID.
   private readonly uploads = new Map<
@@ -148,6 +148,17 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     error = 'service_unavailable',
   ) {
     this.failures.set(method, { times, error });
+  }
+
+  // As failNext, for the messages to one channel or user only: an action
+  // often sends several messages at once, in no fixed order.
+  public failNextTo(
+    channel: string,
+    method: FailingMethod = 'chat.postMessage',
+    times = 1,
+    error = 'service_unavailable',
+  ) {
+    this.failures.set(method, { times, error, channel });
   }
 
   // The current position in the call log, for `since`.
@@ -268,7 +279,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   public async postMessage({ accessToken, ...params }) {
-    this.failIfAsked('chat.postMessage');
+    this.failIfAsked('chat.postMessage', params.channel);
     this.refuseInvalid('chat.postMessage', messageProblems(params));
     reportDisplayProblems('chat.postMessage', messageDisplayProblems(params));
     // Like Slack: a message to a user ID goes to the DM channel with them.
@@ -283,7 +294,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   }
 
   public async updateMessage({ accessToken, ...params }) {
-    this.failIfAsked('chat.update');
+    this.failIfAsked('chat.update', params.channel);
     this.refuseInvalid('chat.update', messageProblems(params));
     reportDisplayProblems('chat.update', messageDisplayProblems(params));
     this.record('chat.update', params, accessToken);
@@ -465,10 +476,14 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
 
   // Thrown as @slack/web-api throws a platform error, with the code in
   // `data.error` (slackErrorOf).
-  private failIfAsked(method: string) {
+  private failIfAsked(method: string, channel?: string) {
     const failure = this.failures.get(method);
 
-    if (failure && failure.times > 0) {
+    if (
+      failure &&
+      failure.times > 0 &&
+      (!failure.channel || failure.channel === channel)
+    ) {
       this.failures.set(method, { ...failure, times: failure.times - 1 });
 
       throw Object.assign(

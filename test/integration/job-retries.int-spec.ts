@@ -68,7 +68,8 @@ describe('Jobs when Slack fails', () => {
   };
 
   it('asks an approver again when the message failed', async () => {
-    t.slackApi.failNext('chat.postMessage');
+    // The requester's own DM goes out at the same time, in no fixed order.
+    t.slackApi.failNextTo(manager.slack_id);
 
     const request = await requestVacation(t, workspace, member, workWeek(2));
     await t.idle();
@@ -109,7 +110,7 @@ describe('Jobs when Slack fails', () => {
     await approve(manager, await approvalMessageTo(t, workspace, manager));
     const toHr = await approvalMessageTo(t, workspace, hr);
 
-    t.slackApi.failNext('chat.postMessage');
+    t.slackApi.failNextTo(member.slack_id);
     await approve(hr, toHr);
 
     expect((await workspace.row('vacation_requests', request.id)).status).toBe(
