@@ -271,8 +271,12 @@ export class UsersService implements IUsersService {
       // null takes the user out of their team.
       ...(params.teamId !== undefined ? { team_id: params.teamId } : {}),
       ...(params.role ? { role: params.role } : {}),
-      ...(params.contractStartDate
-        ? { contract_start_date: params.contractStartDate.toISOString() }
+      // null clears the date.
+      ...(params.contractStartDate !== undefined
+        ? {
+            contract_start_date:
+              params.contractStartDate?.toISOString() ?? null,
+          }
         : {}),
       ...(params.carryoverDays !== undefined
         ? { carryover_days: params.carryoverDays }

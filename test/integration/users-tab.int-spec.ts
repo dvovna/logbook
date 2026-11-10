@@ -237,6 +237,29 @@ describe('Users tab', () => {
       ).toEqual({ Role: 'Member' });
     });
 
+    it("clears a user's contract start", async () => {
+      await t.db
+        .updateTable('users')
+        .set({ contract_start_date: '2024-03-01' })
+        .where('id', '=', ada.id)
+        .execute();
+      const form = await fromMenu(UsersTabViewActionId.EditUser, ada);
+
+      const since = t.slackApi.mark();
+      await t.slack
+        .submitView(workspace, admin, form, { contract_start_date: undefined })
+        .expect(200);
+
+      expect(
+        (await workspace.row('users', ada.id)).contract_start_date,
+      ).toBeNull();
+      expect(
+        listItems(await publishedHome(t, workspace, admin, since)).find(
+          ({ title }) => title === titleOf(ada),
+        )?.fields,
+      ).toEqual({ Role: 'Member', Team: 'Design' });
+    });
+
     it("refuses more carryover than the team's policy allows", async () => {
       await t.db
         .updateTable('vacation_policies')
