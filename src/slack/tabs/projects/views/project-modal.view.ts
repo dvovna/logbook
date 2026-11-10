@@ -1,3 +1,8 @@
+import {
+  labelOptions,
+  PROJECT_STATUS_LABELS,
+  withIcon,
+} from '@modules/slack/common/views/data/labels';
 import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
@@ -7,7 +12,6 @@ import { AnyBlock, PlainTextOption } from '@slack/web-api';
 import { MAX_DESCRIPTION_LENGTH } from '@modules/slack/tabs/projects/parsers/project-modal-view-values.parser';
 import IClientViewModel from '@modules/clients/types/client.interface';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
-import { ProjectStatusDisplayNameMap } from 'src/projects/static/project-status-display-name.map';
 import IProjectViewModel from 'src/projects/types/project.types';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { hourlyRateElement } from '@modules/slack/tabs/projects/parsers/hourly-rate.schema';
@@ -133,17 +137,14 @@ export class ProjectModalView extends BaseModalView<
         element: {
           type: 'static_select',
           action_id: 'status',
-          options: Object.values(ProjectStatus).map((status) =>
-            toPlainTextOption({
-              id: status,
-              name: ProjectStatusDisplayNameMap[status],
-            }),
-          ),
+          options: labelOptions(PROJECT_STATUS_LABELS).map(toPlainTextOption),
           initial_option: toPlainTextOption({
             id: initialData?.status || ProjectStatus.Active,
-            name: initialData?.status
-              ? ProjectStatusDisplayNameMap[initialData.status]
-              : ProjectStatusDisplayNameMap[ProjectStatus.Active],
+            name: withIcon(
+              PROJECT_STATUS_LABELS[
+                initialData?.status || ProjectStatus.Active
+              ],
+            ),
           }),
         },
       },

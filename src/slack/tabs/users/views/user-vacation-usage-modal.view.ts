@@ -1,3 +1,4 @@
+import { balanceTitle } from '@modules/slack/common/views/data/labels';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
@@ -10,8 +11,6 @@ import { AnyBlock } from '@slack/web-api';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
-import { getVacationTypeIcon } from '@common/utils/get-vacation-type-icon';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 
 interface IGetParams extends IBaseModalViewParams {
   user: IUserViewModel;
@@ -121,7 +120,7 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*📅 Annual Leave*\n\n${usedText}\n${availableText}`,
+        text: `*${balanceTitle(VacationType.AnnualLeave)}*\n\n${usedText}\n${availableText}`,
       },
     } as AnyBlock;
   }
@@ -138,7 +137,7 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*🎁 Bonus Days*\n\nUsed: *${used}* days\n${
+        text: `*${balanceTitle(VacationType.BonusDay)}*\n\nUsed: *${used}* days\n${
           limits
             ? `Available: *${available}* / Limit: *${limit}* days`
             : NO_LIMIT_TEXT
@@ -148,14 +147,11 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
   }
 
   private buildSimpleLeaveBlock(type: VacationType, used: number) {
-    const emoji = getVacationTypeIcon(type);
-    const title = VACATION_TYPE_DISPLAY_NAME_MAP[type];
-
     return {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${emoji} ${title}*\nUsed: *${used}* days`,
+        text: `*${balanceTitle(type)}*\nUsed: *${used}* days`,
       },
     } as AnyBlock;
   }

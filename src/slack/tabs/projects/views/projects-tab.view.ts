@@ -1,3 +1,8 @@
+import {
+  labelOptions,
+  PROJECT_STATUS_LABELS,
+  withIcon,
+} from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import {
   ListItem,
@@ -24,12 +29,10 @@ import { Divider } from '@modules/slack/common/views/components/separator';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { IProjectsListData } from 'src/projects/types/projects-list.types';
 import { IProjectListItem } from 'src/projects/types/project-list-item.types';
-import capitalize from '@common/utils/capitalize';
 import {
   FiltersBlockBuilder,
   IFiltersConfig,
 } from '@modules/slack/common/views/builders/filters-block.builder';
-import { PROJECT_STATUS_OPTIONS } from '@modules/slack/tabs/projects/data/project-status-options';
 import { BILLABLE_PLAIN_TEXT_OPTIONS } from '@modules/slack/tabs/projects/data/billable-options';
 import { IncludeArchivedButtonView } from '@modules/slack/common/views/components/include-archvied-button.view';
 import UserRole from '@common/enums/user-role.enum';
@@ -227,7 +230,7 @@ export class ProjectsTabView extends BaseTabView<
           'Client',
           project.client_name && escapeMrkdwn(project.client_name),
         ),
-        detail('Status', capitalize(project.status)),
+        detail('Status', withIcon(PROJECT_STATUS_LABELS[project.status])),
         detail('Billable', project.billable ? 'Yes' : 'No'),
         ...rateDetails,
         detail(
@@ -300,7 +303,7 @@ export class ProjectsTabView extends BaseTabView<
         type: 'static_select',
         actionId: ProjectsTabViewActionId.FilterByStatus,
         placeholder: 'Status',
-        options: PROJECT_STATUS_OPTIONS,
+        options: labelOptions(PROJECT_STATUS_LABELS),
         initialValue: filters?.status,
       },
       {

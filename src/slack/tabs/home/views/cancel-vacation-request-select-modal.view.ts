@@ -1,3 +1,4 @@
+import { VACATION_TYPE_LABELS } from '@modules/slack/common/views/data/labels';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
@@ -6,7 +7,6 @@ import BaseModalView, {
   IBaseModalViewParams,
 } from 'src/slack/common/views/base-modal.view';
 import { ViewCallbackId } from 'src/slack/enums/integration-callback-id.enum';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from 'src/slack/common/views/data/vacation-type-display-name';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 
 export const CANCEL_REQUEST_BLOCK_ID = 'request_block';
@@ -61,7 +61,7 @@ export class CancelVacationRequestSelectModalView extends BaseModalView<ICancelV
   }
 
   private getRequestLabel(request: IVacationRequestViewModel) {
-    const type = VACATION_TYPE_DISPLAY_NAME_MAP[request.type] ?? 'Unknown';
+    const type = VACATION_TYPE_LABELS[request.type]?.label ?? 'Unknown';
 
     return `${formatDateRange(request.start_date, request.end_date)} · ${type} · ${request.days} days`;
   }

@@ -43,7 +43,7 @@ describe('Vacation balance under a policy', () => {
   const usageOnHome = async () =>
     sectionTexts(await openAppHomeTab(t, workspace, member)).filter(
       (text) =>
-        text.startsWith('Annual leave') || text.startsWith('Bonus Days'),
+        text.startsWith('Annual leave') || text.startsWith('Bonus days'),
     );
 
   const request = (type = VacationType.AnnualLeave, week = workWeek(1)) =>
@@ -83,7 +83,7 @@ describe('Vacation balance under a policy', () => {
 
       expect(await usageOnHome()).toEqual([
         'Annual leave: *16 available* / 20 total (*7* used, *5* working, +*3* carryover)',
-        'Bonus Days: *1 available* / 2 total (*1* used)',
+        'Bonus days: *1 available* / 2 total (*1* used)',
       ]);
     });
 

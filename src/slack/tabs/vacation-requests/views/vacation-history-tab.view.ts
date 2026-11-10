@@ -1,18 +1,20 @@
+import {
+  labelOptions,
+  personLabel,
+  VACATION_STATUS_LABELS,
+  VACATION_TYPE_LABELS,
+  withIcon,
+} from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
-import capitalize from '@common/utils/capitalize';
-import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
-import { STATUS_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ISearchResult } from '@common/types/pagination.types';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
-import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
 import VacationType from '@common/enums/vacation-type.enum';
 import {
   BaseTabView,
@@ -86,7 +88,7 @@ export class VacationHistoryTabView extends BaseTabView<
   private getUpcomingBlocks(upcoming: IVacationRequestViewModel[]): AnyBlock[] {
     const lines = upcoming.map(
       (request) =>
-        `• *${escapeMrkdwn(request.user?.name || request.user?.email)}* · ${formatDateRange(request.start_date, request.end_date)}`,
+        `• *${escapeMrkdwn(personLabel(request.user ?? {}))}* · ${formatDateRange(request.start_date, request.end_date)}`,
     );
 
     return [
@@ -116,10 +118,10 @@ export class VacationHistoryTabView extends BaseTabView<
 
     // The user's own requests: what and when, and how it was decided.
     return ListItem.getBlocks({
-      title: VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type],
+      title: VACATION_TYPE_LABELS[vacationRequest.type].label,
       details: [
         `${dates} · Days: ${vacationRequest.days} (${vacationRequest.working_days} working)`,
-        `Status: ${getVacationStatusEmoji(vacationRequest.status)} ${capitalize(vacationRequest.status)}`,
+        `Status: ${withIcon(VACATION_STATUS_LABELS[vacationRequest.status])}`,
         vacationRequest.rejection_reason &&
           `Reason: ${escapeMrkdwn(vacationRequest.rejection_reason.replace(/\s+/g, ' '))}`,
       ],
@@ -162,7 +164,7 @@ export class VacationHistoryTabView extends BaseTabView<
         type: 'static_select',
         actionId: VacationHistoryTabViewActionId.FilterRequestsByType,
         placeholder: 'Vacation Type',
-        options: VACATION_TYPE_OPTIONS,
+        options: labelOptions(VACATION_TYPE_LABELS),
         initialValue: filters?.type,
       },
       {
@@ -176,7 +178,7 @@ export class VacationHistoryTabView extends BaseTabView<
         type: 'static_select',
         actionId: VacationHistoryTabViewActionId.FilterRequestsByStatus,
         placeholder: 'Status',
-        options: STATUS_OPTIONS,
+        options: labelOptions(VACATION_STATUS_LABELS),
         initialValue: filters?.status,
       },
     ];

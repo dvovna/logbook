@@ -200,7 +200,7 @@ describe('Time approvals', () => {
         HomeTabActionId.EditTimeEntries,
       ]);
       expect(listItems(myEntries)[0].fields).toMatchObject({
-        Status: 'Rejected',
+        Status: '❌ Rejected',
         Reason: 'Wrong project',
       });
 

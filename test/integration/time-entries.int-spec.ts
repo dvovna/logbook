@@ -529,7 +529,7 @@ describe('Time entries', () => {
           fields: expect.objectContaining({
             Client: 'Acme',
             Time: '1h 30m',
-            Status: 'Draft',
+            Status: '📝 Draft',
             Description: 'Kickoff',
           }),
         }),
@@ -900,9 +900,9 @@ describe('Time entries', () => {
         TimeEntriesTabViewActionId.SubmitDrafts,
       );
       expect(statusesOf(updated).sort()).toEqual([
-        'Approved',
-        'Submitted',
-        'Submitted',
+        '✅ Approved',
+        '📤 Submitted',
+        '📤 Submitted',
       ]);
     });
 
@@ -946,7 +946,7 @@ describe('Time entries', () => {
 
       expect(listItems(myEntries)).toEqual([
         expect.objectContaining({
-          fields: expect.objectContaining({ Status: 'Submitted' }),
+          fields: expect.objectContaining({ Status: '📤 Submitted' }),
           menu: [],
         }),
       ]);

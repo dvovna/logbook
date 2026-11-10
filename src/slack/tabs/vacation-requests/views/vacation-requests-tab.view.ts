@@ -1,3 +1,10 @@
+import {
+  labelOptions,
+  personLabel,
+  VACATION_STATUS_LABELS,
+  VACATION_TYPE_LABELS,
+  withIcon,
+} from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { formatDateRange } from '@common/utils/date.utils';
@@ -9,10 +16,6 @@ import ITeamViewModel from '@modules/teams/types/team.interface';
 import { ISearchResult } from '@common/types/pagination.types';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
-import { STATUS_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
-import capitalize from '@common/utils/capitalize';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
-import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
 import VacationType from '@common/enums/vacation-type.enum';
 import {
   BaseTabView,
@@ -22,7 +25,6 @@ import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { PaginatedListView } from '@modules/slack/common/views/components/paginated-list.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import UserRole from '@common/enums/user-role.enum';
-import { getVacationStatusEmoji } from '@modules/slack/tabs/vacation-requests/utils/vacation-status-icon';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import {
   FiltersBlockBuilder,
@@ -103,20 +105,18 @@ export class VacationRequestsTabView extends BaseTabView<
     vacationRequest: IVacationRequestViewModel,
     userRole: UserRole,
   ): AnyBlock[] => {
-    const statusEmoji = getVacationStatusEmoji(vacationRequest.status);
-
     const dates = formatDateRange(
       vacationRequest.start_date,
       vacationRequest.end_date,
     );
 
     return ListItem.getBlocks({
-      title: vacationRequest.user?.name || 'Unknown',
+      title: personLabel(vacationRequest.user ?? {}),
       details: [
-        `${VACATION_TYPE_DISPLAY_NAME_MAP[vacationRequest.type]} · ${dates}`,
+        `${VACATION_TYPE_LABELS[vacationRequest.type].label} · ${dates}`,
         [
           `Days: ${vacationRequest.days} (${vacationRequest.working_days} working)`,
-          `Status: ${statusEmoji} ${capitalize(vacationRequest.status)}`,
+          `Status: ${withIcon(VACATION_STATUS_LABELS[vacationRequest.status])}`,
           vacationRequest.team &&
             `Team: ${escapeMrkdwn(vacationRequest.team.name)}`,
         ]
@@ -218,7 +218,7 @@ export class VacationRequestsTabView extends BaseTabView<
         type: 'static_select',
         actionId: VacationRequestsTabViewActionId.FilterRequestsByType,
         placeholder: 'Filter by Type',
-        options: VACATION_TYPE_OPTIONS,
+        options: labelOptions(VACATION_TYPE_LABELS),
         initialValue: filters?.type,
       },
       {
@@ -239,7 +239,7 @@ export class VacationRequestsTabView extends BaseTabView<
         type: 'static_select',
         actionId: VacationRequestsTabViewActionId.FilterRequestsByStatus,
         placeholder: 'Filter by Status',
-        options: STATUS_OPTIONS,
+        options: labelOptions(VACATION_STATUS_LABELS),
         initialValue: filters?.status,
       },
     ];

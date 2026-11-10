@@ -61,7 +61,7 @@ describe('Vacation screens', () => {
     );
 
     expect(details).toContain(formatDateRange(week.start, week.end));
-    expect(details).toContain('Annual Leave');
+    expect(details).toContain('Annual leave');
     expect(details).toContain('5 (5 working)');
     expect(details).toContain('Pending');
     expect(details).toContain('Family trip');
@@ -89,12 +89,12 @@ describe('Vacation screens', () => {
     expect(listItems(history)).toEqual([
       expect.objectContaining({
         id: rejected.id,
-        title: 'Annual Leave',
+        title: 'Annual leave',
         fields: { Status: '❌ Rejected', Days: '1 (1 working)' },
       }),
       expect.objectContaining({
         id: approved.id,
-        title: 'Annual Leave',
+        title: 'Annual leave',
         fields: { Status: '✅ Approved', Days: '5 (5 working)' },
         menu: [VacationHistoryTabViewActionId.ViewDetails],
       }),

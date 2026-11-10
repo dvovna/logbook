@@ -274,8 +274,8 @@ describe('Users tab', () => {
 
     expect(sectionTexts(usage)).toEqual(
       expect.arrayContaining([
-        '*📅 Annual Leave*\n\nUsed: *5* days\nAvailable: *15* / Limit: *20* days',
-        expect.stringMatching(/Sick Leave\*\nUsed: \*2\* days$/),
+        '*🏖️ Annual leave*\n\nUsed: *5* days\nAvailable: *15* / Limit: *20* days',
+        expect.stringMatching(/Sick leave\*\nUsed: \*2\* days$/),
       ]),
     );
   });

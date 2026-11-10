@@ -1,10 +1,13 @@
+import {
+  labelOptions,
+  VACATION_STATUS_LABELS,
+  VACATION_TYPE_LABELS,
+} from '@modules/slack/common/views/data/labels';
 import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
-import { VACATION_TYPE_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-type.options';
-import { STATUS_OPTIONS } from '@modules/slack/tabs/vacation-requests/views/options/vacation-status.options';
 import UserRole from '@common/enums/user-role.enum';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
@@ -93,7 +96,7 @@ export class VacationRequestFormModalView extends BaseModalView<
         actionId: 'type_option',
         label: 'Type',
         placeholder: 'Select a type',
-        options: VACATION_TYPE_OPTIONS,
+        options: labelOptions(VACATION_TYPE_LABELS),
         initialValue: initialData?.type ?? VacationType.AnnualLeave,
       }),
       {
@@ -142,7 +145,7 @@ export class VacationRequestFormModalView extends BaseModalView<
         actionId: 'status',
         label: 'Vacation Status',
         placeholder: 'Select vacation status',
-        options: STATUS_OPTIONS,
+        options: labelOptions(VACATION_STATUS_LABELS),
         initialValue: data?.status,
       }),
     ];

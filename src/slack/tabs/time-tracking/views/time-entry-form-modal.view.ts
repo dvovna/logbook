@@ -1,3 +1,7 @@
+import {
+  labelOptions,
+  TIME_ENTRY_STATUS_LABELS,
+} from '@modules/slack/common/views/data/labels';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import BaseModalView, {
@@ -7,7 +11,6 @@ import BaseModalView, {
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
-import { TIME_LOG_STATUS_OPTIONS } from '@modules/slack/tabs/time-tracking/data/time-log-status.options';
 import { IOption } from '@common/types/option.interface';
 import { SlackStaticSelectView } from '@modules/slack/common/views/components/slack-static-select.view';
 import { getDateOnly } from '@common/utils/date.utils';
@@ -179,7 +182,7 @@ export class TimeEntryFormModalView extends BaseModalView<
         actionId: 'status',
         label: 'Status',
         placeholder: 'Select status',
-        options: TIME_LOG_STATUS_OPTIONS,
+        options: labelOptions(TIME_ENTRY_STATUS_LABELS),
         initialValue: data?.status || TimeEntryStatus.Draft,
       }),
     ];

@@ -1,3 +1,7 @@
+import {
+  TIME_ENTRY_STATUS_LABELS,
+  withIcon,
+} from '@modules/slack/common/views/data/labels';
 import * as pluralize from 'pluralize';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
@@ -27,7 +31,6 @@ import {
 } from 'src/time-entries/types/time-entries-list.types';
 import { TIME_ENTRIES_TAB_PAGE_SIZE } from '@modules/slack/tabs/time-tracking/services/time-entries-tab-data.service';
 import { getDisplayTime } from '@common/utils/time.utils';
-import { TIME_ENTRY_STATUS_DISPLAY_NAME } from '@modules/slack/tabs/time-tracking/data/time-log-status.options';
 import UserRole from '@common/enums/user-role.enum';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { isOpenTimeEntry } from 'src/time-entries/constants/open-time-entry-statuses';
@@ -195,7 +198,7 @@ export class TimeEntriesTabView extends BaseTabView<
         showsEveryone
           ? project
           : entry.client_name && `Client: ${escapeMrkdwn(entry.client_name)}`,
-        `Time: ${getDisplayTime(entry.minutes)} · Status: ${TIME_ENTRY_STATUS_DISPLAY_NAME[entry.status]}`,
+        `Time: ${getDisplayTime(entry.minutes)} · Status: ${withIcon(TIME_ENTRY_STATUS_LABELS[entry.status])}`,
         entry.description &&
           `Description: ${escapeMrkdwn(truncate(entry.description, { length: 80 }))}`,
         isBilled && 'Billing: 🔒 In a billing snapshot',

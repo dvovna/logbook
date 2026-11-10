@@ -1,3 +1,4 @@
+import { VACATION_TYPE_LABELS } from '@modules/slack/common/views/data/labels';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
@@ -6,7 +7,6 @@ import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
 import * as pluralize from 'pluralize';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
 import TeamsService from '@modules/teams/services/teams.service';
@@ -156,7 +156,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     comments: IWorkflowStepCommentViewModel[],
   ): SlackMessagePayloadInterface {
     const approved = request.status === VacationRequestStatus.Approved;
-    const type = VACATION_TYPE_DISPLAY_NAME_MAP[request.type];
+    const type = VACATION_TYPE_LABELS[request.type].label;
     const dates = formatDateRange(request.start_date, request.end_date);
     const commentLines = getApproverCommentLines(comments).join('\n');
 
@@ -208,9 +208,9 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     );
   }
 
-  // '*Annual Leave* · 6–10 Jul 2026 (5 days, 5 working)'
+  // '*Annual leave* · 6–10 Jul 2026 (5 days, 5 working)'
   private getRequestDetails(request: IVacationRequestViewModel) {
-    return `*${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]}* · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)}, ${request.working_days} working)`;
+    return `*${VACATION_TYPE_LABELS[request.type].label}* · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)}, ${request.working_days} working)`;
   }
 
   private async recipientsOf(request: IVacationRequestViewModel) {

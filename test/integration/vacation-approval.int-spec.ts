@@ -145,7 +145,7 @@ describe('Vacation request approval', () => {
     expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
     const form = t.slackApi.openedModal(workspace.token, { since });
     expect(sectionTexts(form)).toEqual([
-      `*Max Member* · Annual Leave · ${formatDateRange(start, end)} (5 days)`,
+      `*Max Member* · Annual leave · ${formatDateRange(start, end)} (5 days)`,
     ]);
 
     const response = await t.slack
@@ -505,7 +505,7 @@ describe('Vacation request approval', () => {
         }),
       ]);
       expect(textOf(approvals)).toContain(
-        `Annual Leave · ${formatDateRange(start, end)} (5 days)`,
+        `Annual leave · ${formatDateRange(start, end)} (5 days)`,
       );
     });
 

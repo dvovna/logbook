@@ -1,3 +1,4 @@
+import { VACATION_TYPE_LABELS } from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { formatDateRange } from '@common/utils/date.utils';
@@ -6,7 +7,6 @@ import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import {
   BaseTabView,
   IBaseTabViewParams,
@@ -239,7 +239,10 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     // Without a team vacation policy nothing is limited: there is no balance
     // to show, only what was taken.
     if (!limits) {
-      return this.unlimitedLeaveBlock('Annual leave', usedDays);
+      return this.unlimitedLeaveBlock(
+        VACATION_TYPE_LABELS[VacationType.AnnualLeave].balance,
+        usedDays,
+      );
     }
 
     const details: string[] = [];
@@ -262,7 +265,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `Annual leave: *${usage.available ?? 0} available* / ${limits.vacationDays} total${detailsText}`,
+        text: `${VACATION_TYPE_LABELS[VacationType.AnnualLeave].balance}: *${usage.available ?? 0} available* / ${limits.vacationDays} total${detailsText}`,
       },
     } as AnyBlock;
   }
@@ -284,7 +287,10 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     const used = usage.used ?? 0;
 
     if (!limits) {
-      return this.unlimitedLeaveBlock('Bonus Days', used);
+      return this.unlimitedLeaveBlock(
+        VACATION_TYPE_LABELS[VacationType.BonusDay].balance,
+        used,
+      );
     }
 
     const detailsText = used > 0 ? ` (*${used}* used)` : '';
@@ -293,7 +299,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `Bonus Days: *${usage.available ?? 0} available* / ${limits.bonusDays} total${detailsText}`,
+        text: `${VACATION_TYPE_LABELS[VacationType.BonusDay].balance}: *${usage.available ?? 0} available* / ${limits.bonusDays} total${detailsText}`,
       },
     } as AnyBlock;
   }
@@ -349,7 +355,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         vacationsUsageInfo.usage[type as keyof typeof vacationsUsageInfo.usage];
 
       if (leave.used > 0) {
-        const title = VACATION_TYPE_DISPLAY_NAME_MAP[type];
+        const title = VACATION_TYPE_LABELS[type].balance;
 
         blocks.push({
           type: 'section',
@@ -369,7 +375,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${VACATION_TYPE_DISPLAY_NAME_MAP[vacation.type]}*\n${formatDateRange(vacation.start_date, vacation.end_date)} (${pluralize('day', vacation.days, true)})`,
+        text: `*${VACATION_TYPE_LABELS[vacation.type].label}*\n${formatDateRange(vacation.start_date, vacation.end_date)} (${pluralize('day', vacation.days, true)})`,
       },
       accessory: {
         type: 'overflow',

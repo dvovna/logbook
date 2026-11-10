@@ -1,3 +1,7 @@
+import {
+  personLabel,
+  VACATION_TYPE_LABELS,
+} from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { formatDate, formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
@@ -21,7 +25,6 @@ import {
 import { ISearchResult } from '@common/types/pagination.types';
 import { IRequestWorkflowStepViewModel } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 
@@ -128,9 +131,12 @@ export class ApprovalsTabView extends BaseTabView<
     const request = step.step_data.snapshot;
 
     return ListItem.getBlocks({
-      title: request.user_name || request.user_email,
+      title: personLabel({
+        name: request.user_name,
+        email: request.user_email,
+      }),
       details: [
-        `${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]} · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)})`,
+        `${VACATION_TYPE_LABELS[request.type].label} · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)})`,
       ],
       accessory: {
         type: 'overflow',

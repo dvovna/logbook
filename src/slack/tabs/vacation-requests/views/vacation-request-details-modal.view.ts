@@ -1,3 +1,9 @@
+import {
+  STEP_STATUS_LABELS,
+  VACATION_STATUS_LABELS,
+  VACATION_TYPE_LABELS,
+  withIcon,
+} from '@modules/slack/common/views/data/labels';
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
@@ -6,7 +12,6 @@ import BaseModalView, {
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import { VACATION_TYPE_DISPLAY_NAME_MAP } from '@modules/slack/common/views/data/vacation-type-display-name';
 import { AnyBlock } from '@slack/web-api';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import {
@@ -14,14 +19,6 @@ import {
   WorkflowStepStatus,
 } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
-import capitalize from '@common/utils/capitalize';
-
-const STEP_STATUS_EMOJI: Record<WorkflowStepStatus, string> = {
-  [WorkflowStepStatus.Pending]: '⏳',
-  [WorkflowStepStatus.Approved]: '✅',
-  [WorkflowStepStatus.Rejected]: '❌',
-  [WorkflowStepStatus.Cancelled]: '🚫',
-};
 
 interface IGetParams extends IBaseModalViewParams {
   request: IVacationRequestViewModel;
@@ -67,7 +64,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
           },
           {
             type: 'mrkdwn',
-            text: `🏖️ *Type:*\n${VACATION_TYPE_DISPLAY_NAME_MAP[request.type]}`,
+            text: `🏖️ *Type:*\n${VACATION_TYPE_LABELS[request.type].label}`,
           },
           {
             type: 'mrkdwn',
@@ -75,7 +72,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
           },
           {
             type: 'mrkdwn',
-            text: `📌 *Status:*\n${capitalize(request.status)}`,
+            text: `📌 *Status:*\n${withIcon(VACATION_STATUS_LABELS[request.status])}`,
           },
         ],
       },
@@ -160,14 +157,16 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
     step: IRequestWorkflowStepViewModel,
     stepComments: IWorkflowStepCommentViewModel[],
   ) {
-    const statusEmoji = STEP_STATUS_EMOJI[step.step_data.status] ?? '⏳';
+    const status =
+      STEP_STATUS_LABELS[step.step_data.status] ??
+      STEP_STATUS_LABELS[WorkflowStepStatus.Pending];
 
     const decidedBy = step.step_data.decided_by_slack_id
       ? `<@${step.step_data.decided_by_slack_id}>`
       : `<@${step.slack_user_id}>`;
 
     const lines: string[] = [
-      `${statusEmoji} *${capitalize(step.step_data.status)}* by ${decidedBy}`,
+      `${status.icon} *${status.label}* by ${decidedBy}`,
     ];
 
     if (stepComments.length > 0) {

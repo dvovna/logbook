@@ -7,7 +7,7 @@ import {
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import { getVacationTypeIcon } from '@common/utils/get-vacation-type-icon';
+import { balanceTitle } from '@modules/slack/common/views/data/labels';
 import VacationType from '@common/enums/vacation-type.enum';
 import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
@@ -122,23 +122,23 @@ export default class VacationCommandService {
       text: `
 📊 Your vacation usage for ${formatDateRange(periodStart, periodEnd)}:
 
-${getVacationTypeIcon(VacationType.AnnualLeave)} Annual Leave:
+${balanceTitle(VacationType.AnnualLeave)}:
    • Used: ${usage.annual_leave.used} days
    • Remaining: ${remaining(usage.annual_leave.available)}
    • Working days used: ${usage.annual_leave.working_days_used}
    • Working days remaining: ${remaining(usage.annual_leave.working_days_available)}
 
-${getVacationTypeIcon(VacationType.BonusDay)} Bonus Days:
+${balanceTitle(VacationType.BonusDay)}:
    • Used: ${usage.bonus_day.used} days
    • Remaining: ${remaining(usage.bonus_day.available)}
 
-${getVacationTypeIcon(VacationType.SickLeave)} Sick Leave:
+${balanceTitle(VacationType.SickLeave)}:
    • Used: ${usage.sick_leave.used} days
 
-${getVacationTypeIcon(VacationType.UnpaidLeave)}️ Unpaid Leave:
+${balanceTitle(VacationType.UnpaidLeave)}:
    • Used: ${usage.unpaid_leave.used} days
 
-${getVacationTypeIcon(VacationType.Other)} Other:
+${balanceTitle(VacationType.Other)}:
    • Used: ${usage.other.used} days
 `,
     };

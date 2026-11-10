@@ -129,7 +129,7 @@ describe('Projects', () => {
       );
       expect(website).toMatchObject({
         title: 'Website',
-        fields: { Client: 'Acme', Status: 'On-hold', Billable: 'No' },
+        fields: { Client: 'Acme', Status: '⏸️ On hold', Billable: 'No' },
       });
     });
 
