@@ -88,4 +88,28 @@ export class TimeEntriesRepository extends BaseRepository<
       deleted_by: row.deleted_by,
     };
   };
+
+  // Which of the entries are in a billing snapshot, and so can't change
+  // until an admin unlocks it.
+  public async findBilledIds(
+    slackTeamId: string,
+    ids: string[],
+  ): Promise<Set<string>> {
+    if (!slackTeamId) {
+      throw new Error('[time_entries] findBilledIds without a workspace ID');
+    }
+
+    if (!ids.length) {
+      return new Set();
+    }
+
+    const rows = await this.db
+      .selectFrom('billing_snapshot_entries')
+      .select('time_entry_id')
+      .where('slack_team_id', '=', slackTeamId)
+      .where('time_entry_id', 'in', ids)
+      .execute();
+
+    return new Set(rows.map(({ time_entry_id }) => time_entry_id));
+  }
 }

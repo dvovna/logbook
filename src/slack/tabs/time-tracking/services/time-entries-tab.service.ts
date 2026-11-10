@@ -89,13 +89,19 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
           }),
     ]);
 
-    const dayTotals = await this.timeEntriesTabDataService.getDayTotals({
-      slackTeamId: user.slack_team_id,
-      days: [
-        ...new Set(timeEntriesListData.items.map((item) => item.work_date)),
-      ],
-      filters,
-    });
+    const [dayTotals, billedIds] = await Promise.all([
+      this.timeEntriesTabDataService.getDayTotals({
+        slackTeamId: user.slack_team_id,
+        days: [
+          ...new Set(timeEntriesListData.items.map((item) => item.work_date)),
+        ],
+        filters,
+      }),
+      this.timeEntriesService.findBilledIds(
+        user.slack_team_id,
+        timeEntriesListData.items.map(({ id }) => id),
+      ),
+    ]);
 
     return this.timeEntriesTabView.getView(
       {
@@ -106,6 +112,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
         viewerId: user.id,
         openEntriesCount,
         timeEntriesListData,
+        billedIds,
       },
       metadata,
     );

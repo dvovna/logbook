@@ -44,6 +44,8 @@ export interface IBillingReport {
   billableMinutes: number;
   // Drafts, submitted and rejected entries: not billed until approved.
   unapprovedMinutes: number;
+  // Approved time already in billing snapshots; the rest can go into one.
+  snapshotMinutes: number;
   // In cents, of the billable time that has a rate.
   amount: number;
   unratedMinutes: number;
@@ -112,7 +114,8 @@ const totals = (
 
 // What to bill a client for a period: approved time on the client's
 // projects (archived ones included), by project and person, at today's
-// rates. A person's own rate on a project replaces the project's; billable
+// rates, and how much of it billing snapshots hold already (at the rates
+// they froze, which the report doesn't show). A person's own rate on a project replaces the project's; billable
 // time without either has no amount and is counted apart. Admin and HR only.
 @Injectable()
 export class BillingReportService {
@@ -167,6 +170,10 @@ export class BillingReportService {
     ]);
     const approved = entries.filter(
       ({ status }) => status === TimeEntryStatus.Approved,
+    );
+    const billed = await this.timeEntriesService.findBilledIds(
+      slackTeamId,
+      approved.map(({ id }) => id),
     );
     const projectNames = new Map(projects.map(({ id, name }) => [id, name]));
 
@@ -233,6 +240,7 @@ export class BillingReportService {
       unapprovedMinutes: sumMinutes(
         entries.filter(({ status }) => NOT_YET_APPROVED.includes(status)),
       ),
+      snapshotMinutes: sumMinutes(approved.filter(({ id }) => billed.has(id))),
       amount: sumOf(byProject, ({ amount }) => amount),
       unratedMinutes: sumOf(byProject, ({ unratedMinutes }) => unratedMinutes),
       lines: allLines

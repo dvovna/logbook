@@ -18,6 +18,10 @@ import {
   isOpenTimeEntry,
   OPEN_TIME_ENTRY_STATUSES,
 } from 'src/time-entries/constants/open-time-entry-statuses';
+import {
+  BILLED_ENTRY_MESSAGE,
+  isBilledEntryError,
+} from 'src/time-entries/constants/billed-time-entries';
 
 interface ICreateParams {
   userId: string;
@@ -122,47 +126,49 @@ export class TimeEntriesService {
       user,
     );
 
-    return await this.timeEntriesRepository.update(
-      {
-        id,
-        slack_team_id: slackTeamId,
-      },
-      {
-        ...(updateParams.userId !== undefined
-          ? { user_id: updateParams.userId }
-          : {}),
-        ...(updateParams.teamId !== undefined
-          ? { team_id: updateParams.teamId }
-          : {}),
-        ...(project
-          ? {
-              project_id: project.id,
-              client_id: project.client_id,
-              billable: project.billable,
-            }
-          : {}),
-        ...(updateParams.workDate !== undefined
-          ? {
-              work_date: updateParams.workDate.toISOString(),
-            }
-          : {}),
-        ...(updateParams.minutes !== undefined
-          ? { minutes: updateParams.minutes }
-          : {}),
-        ...(updateParams.description !== undefined
-          ? { description: updateParams.description }
-          : {}),
-        ...(updateParams.status !== undefined
-          ? { status: updateParams.status }
-          : {}),
-        // A changed entry is no longer the one that was rejected.
-        ...(updateParams.status !== undefined &&
-        updateParams.status !== TimeEntryStatus.Rejected
-          ? { rejection_reason: null }
-          : {}),
-        updated_at: new Date().toISOString(),
-        updated_by: user.id,
-      },
+    return this.refusingBilled(() =>
+      this.timeEntriesRepository.update(
+        {
+          id,
+          slack_team_id: slackTeamId,
+        },
+        {
+          ...(updateParams.userId !== undefined
+            ? { user_id: updateParams.userId }
+            : {}),
+          ...(updateParams.teamId !== undefined
+            ? { team_id: updateParams.teamId }
+            : {}),
+          ...(project
+            ? {
+                project_id: project.id,
+                client_id: project.client_id,
+                billable: project.billable,
+              }
+            : {}),
+          ...(updateParams.workDate !== undefined
+            ? {
+                work_date: updateParams.workDate.toISOString(),
+              }
+            : {}),
+          ...(updateParams.minutes !== undefined
+            ? { minutes: updateParams.minutes }
+            : {}),
+          ...(updateParams.description !== undefined
+            ? { description: updateParams.description }
+            : {}),
+          ...(updateParams.status !== undefined
+            ? { status: updateParams.status }
+            : {}),
+          // A changed entry is no longer the one that was rejected.
+          ...(updateParams.status !== undefined &&
+          updateParams.status !== TimeEntryStatus.Rejected
+            ? { rejection_reason: null }
+            : {}),
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        },
+      ),
     );
   }
 
@@ -234,6 +240,11 @@ export class TimeEntriesService {
     );
   }
 
+  // Which of the entries are in a billing snapshot (locked).
+  public findBilledIds(slackTeamId: string, ids: string[]) {
+    return this.timeEntriesRepository.findBilledIds(slackTeamId, ids);
+  }
+
   public count(params: IFindParams): Promise<number> {
     return this.timeEntriesRepository.count(this.getFindQuery(params));
   }
@@ -244,17 +255,33 @@ export class TimeEntriesService {
   ): Promise<ITimeEntryViewModel> {
     const entry = await this.findOneWithValidation(params);
 
-    this.timeEntriesValidationService.validateDelete(entry, user);
+    await this.timeEntriesValidationService.validateDelete(entry, user);
 
-    await this.timeEntriesRepository.update(
-      { id: entry.id, slack_team_id: entry.slack_team_id },
-      {
-        deleted_at: new Date().toISOString(),
-        deleted_by: user.id,
-      },
+    await this.refusingBilled(() =>
+      this.timeEntriesRepository.update(
+        { id: entry.id, slack_team_id: entry.slack_team_id },
+        {
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id,
+        },
+      ),
     );
 
     return entry;
+  }
+
+  // A snapshot can take the entry between the check and the write; the
+  // database then refuses the write (time_entries_keep_billed).
+  private async refusingBilled<T>(write: () => Promise<T>): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      if (isBilledEntryError(error)) {
+        throw new ValidationError(BILLED_ENTRY_MESSAGE);
+      }
+
+      throw error;
+    }
   }
 
   // An entry takes its client and billability from its project, which has to

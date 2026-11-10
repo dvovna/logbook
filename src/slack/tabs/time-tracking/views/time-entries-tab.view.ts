@@ -42,6 +42,8 @@ interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
   openEntriesCount: number;
   // The minutes of each day on the page, over all its entries.
   dayTotals: Record<string, number>;
+  // The entries on the page that are in a billing snapshot: locked.
+  billedIds: Set<string>;
 }
 
 export interface ITimeEntriesTabMetaData {
@@ -87,6 +89,7 @@ export class TimeEntriesTabView extends BaseTabView<
       userRole,
       openEntriesCount,
       dayTotals,
+      billedIds,
     }: IGetTimeEntriesViewParams,
     { filters, page }: ITimeEntriesTabMetaData,
   ): AnyBlock[] {
@@ -135,6 +138,7 @@ export class TimeEntriesTabView extends BaseTabView<
             viewerId,
             userRole,
             canFilterByUser,
+            billedIds.has(item.id),
           ),
         ];
       },
@@ -168,8 +172,14 @@ export class TimeEntriesTabView extends BaseTabView<
     viewerId: string,
     userRole: UserRole,
     showsEveryone: boolean,
+    isBilled: boolean,
   ): AnyBlock[] {
-    const menuOptions = this.getMenuOptions(entry, viewerId, userRole);
+    const menuOptions = this.getMenuOptions(
+      entry,
+      viewerId,
+      userRole,
+      isBilled,
+    );
     const project = [
       entry.project_name && `Project: ${escapeMrkdwn(entry.project_name)}`,
       entry.client_name && `Client: ${escapeMrkdwn(entry.client_name)}`,
@@ -188,6 +198,7 @@ export class TimeEntriesTabView extends BaseTabView<
         `Time: ${getDisplayTime(entry.minutes)} · Status: ${TIME_ENTRY_STATUS_DISPLAY_NAME[entry.status]}`,
         entry.description &&
           `Description: ${escapeMrkdwn(truncate(entry.description, { length: 80 }))}`,
+        isBilled && 'Billing: 🔒 In a billing snapshot',
         entry.status === TimeEntryStatus.Rejected &&
           entry.rejection_reason &&
           `Reason: ${escapeMrkdwn(truncate(entry.rejection_reason.replace(/\s+/g, ' '), { length: 120 }))}`,
@@ -203,14 +214,15 @@ export class TimeEntriesTabView extends BaseTabView<
   }
 
   // The owner changes and submits only drafts and rejected entries; Admin and
-  // HR change any entry.
+  // HR change any entry but one in a billing snapshot.
   private getMenuOptions(
     entry: ITimeEntryListItem,
     viewerId: string,
     userRole: UserRole,
+    isBilled: boolean,
   ) {
     const isOpen = isOpenTimeEntry(entry.status);
-    const canChange = isOpen || isTimeEntriesAdmin(userRole);
+    const canChange = !isBilled && (isOpen || isTimeEntriesAdmin(userRole));
     const items = [
       ...(canChange
         ? [{ id: TimeEntriesTabViewActionId.EditTimeEntry, name: 'Edit' }]

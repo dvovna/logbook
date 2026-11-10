@@ -12,6 +12,7 @@ import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entrie
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import { MAX_TIME_ENTRY_DESCRIPTION_LENGTH } from '@common/constants/text-limits';
+import { BILLED_ENTRY_MESSAGE } from 'src/time-entries/constants/billed-time-entries';
 
 const MAX_MINUTES_PER_DAY = 24 * 60; // 1440
 
@@ -62,6 +63,7 @@ export class TimeEntriesValidationService {
     actor: IUserViewModel,
   ) {
     this.validateEditPermissions(existing, actor);
+    await this.validateNotBilled(existing);
     this.validateDescription(update.description);
 
     if (update.minutes !== undefined) {
@@ -95,8 +97,24 @@ export class TimeEntriesValidationService {
     }
   }
 
-  public validateDelete(existing: ITimeEntryViewModel, actor: IUserViewModel) {
+  public async validateDelete(
+    existing: ITimeEntryViewModel,
+    actor: IUserViewModel,
+  ) {
     this.validateEditPermissions(existing, actor, 'delete');
+    await this.validateNotBilled(existing);
+  }
+
+  // Whoever asks, Admin included: an admin unlocks the snapshot first.
+  private async validateNotBilled(entry: ITimeEntryViewModel) {
+    const billed = await this.timeEntriesRepository.findBilledIds(
+      entry.slack_team_id,
+      [entry.id],
+    );
+
+    if (billed.has(entry.id)) {
+      throw new ValidationError(BILLED_ENTRY_MESSAGE);
+    }
   }
 
   private validateMinutes(minutes: number) {

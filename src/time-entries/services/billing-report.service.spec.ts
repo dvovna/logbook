@@ -36,12 +36,14 @@ const entry = (
 
 describe('BillingReportService', () => {
   let entries: ITimeEntryViewModel[];
+  let billed: Set<string>;
   let rates: Map<string, IProjectRates>;
   let projectRatesService: { findRates: jest.Mock };
   let service: BillingReportService;
 
   beforeEach(() => {
     entries = [];
+    billed = new Set();
     rates = new Map();
     projectRatesService = {
       findRates: jest.fn(async () => rates),
@@ -60,6 +62,7 @@ describe('BillingReportService', () => {
       projectRatesService as unknown as ProjectRatesService,
       {
         findMany: jest.fn(async () => entries),
+        findBilledIds: jest.fn(async () => billed),
       } as unknown as TimeEntriesService,
       {
         getCurrency: jest.fn().mockResolvedValue('USD'),
@@ -218,6 +221,22 @@ describe('BillingReportService', () => {
       unapprovedMinutes: 45,
       amount: 10000,
     });
+  });
+
+  it('counts the approved time that billing snapshots hold already', async () => {
+    entries.push(
+      entry('web', 'mia', 60, { id: 'in-snapshot' }),
+      entry('web', 'mia', 30, { id: 'not-yet' }),
+      entry('web', 'ann', 15, {
+        id: 'submitted',
+        status: TimeEntryStatus.Submitted,
+      }),
+    );
+    billed.add('in-snapshot');
+
+    const result = await report();
+
+    expect(result).toMatchObject({ approvedMinutes: 90, snapshotMinutes: 60 });
   });
 
   it.each([UserRole.Manager, UserRole.Member])(
