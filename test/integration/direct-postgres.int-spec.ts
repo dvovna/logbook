@@ -1,13 +1,7 @@
-import { sortBy } from 'lodash';
 import { sql } from 'kysely';
 import UserRole from '@common/enums/user-role.enum';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import { JobsService } from '@common/jobs/jobs.service';
-import {
-  BaseRepository,
-  TableName,
-  Tables as SupabaseTables,
-} from '@common/repositories/base.repository';
 import { SqlRepository } from '@common/repositories/sql.repository';
 import { Tables } from '@common/types/database.types';
 import { SqlRow } from '@common/types/sql-database.types';
@@ -17,7 +11,6 @@ import { NOTIFY_REJECTED_JOB } from '@modules/slack/tabs/approvals/services/time
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { DatabaseService } from 'src/database/database.service';
 import { TransactionService } from 'src/database/transaction.service';
-import { SupabaseService } from 'src/database/supabase.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -25,15 +18,6 @@ import { TestWorkspace } from './support/test-workspace';
 type TeamWithPolicy = Tables<'teams'> & {
   vacation_policy: { id: string; name: string } | null;
 };
-
-class PostgrestTeams extends BaseRepository<
-  SupabaseTables['teams'],
-  TeamWithPolicy
-> {
-  protected tableName: TableName = 'teams';
-  protected relations = { vacation_policy: 'vacation_policy_id ( id, name )' };
-  protected mapToViewModel = (row: Tables<'teams'>) => row as TeamWithPolicy;
-}
 
 class SqlTeams extends SqlRepository<'teams', TeamWithPolicy> {
   protected readonly tableName = 'teams';
@@ -47,8 +31,8 @@ class SqlTeams extends SqlRepository<'teams', TeamWithPolicy> {
   protected mapToViewModel = (row: SqlRow<'teams'>) => row as TeamWithPolicy;
 }
 
-// What the direct connection (DatabaseService) adds to PostgREST, and that
-// it reads the same data the same way.
+// The app's connection to Postgres (DatabaseService): the values it reads,
+// its session settings, transactions, and jobs saved with the data.
 describe('The direct Postgres connection', () => {
   let t: ITestApp;
   let workspace: TestWorkspace;
@@ -74,57 +58,41 @@ describe('The direct Postgres connection', () => {
     name,
   });
 
-  describe('reads rows as PostgREST does', () => {
-    it.each([
-      'clients',
-      'teams',
-      'users',
-      'vacation_policies',
-      'time_entries',
-    ] as const)('%s', async (table) => {
-      const policy = await workspace.addVacationPolicy();
-      const team = await workspace.addTeam({
-        vacation_policy_id: policy.id,
-        manager_approvers: ['U1', 'U2'],
-      });
-      const user = await workspace.addUser({
-        team_id: team.id,
-        contract_start_date: '2024-03-01',
-      });
-      const client = await workspace.addClient({
-        archived_at: '2026-06-17T10:11:12.345678+00:00',
-      });
-      const project = await workspace.addProject({ client_id: client.id });
-      await workspace.addTimeEntry(user, project, { work_date: '2026-06-15' });
-
-      const direct = await database.db
-        .selectFrom(table)
-        .selectAll()
-        .where('slack_team_id', '=', workspace.id)
-        .orderBy('id')
-        .execute();
-      const throughPostgrest = sortBy(await workspace.rows(table), 'id');
-
-      expect(direct).not.toEqual([]);
-      expect(direct).toEqual(throughPostgrest);
+  // The formats the view models were written for, as PostgREST returned them.
+  it('reads timestamps and dates as text and numbers as numbers', async () => {
+    const user = await workspace.addUser({ contract_start_date: '2024-03-01' });
+    const client = await workspace.addClient({
+      archived_at: '2026-06-17T10:11:12.345678+00:00',
     });
 
-    it('embeds relations as PostgREST does', async () => {
-      const policy = await workspace.addVacationPolicy({ name: 'Standard' });
-      await workspace.addTeam({ vacation_policy_id: policy.id });
-      await workspace.addTeam();
-      const filter = { slack_team_id: workspace.id };
-
-      const direct = await new SqlTeams(database).findMany(filter);
-
-      expect(direct.map((team) => team.vacation_policy)).toEqual([
-        null,
-        { id: policy.id, name: 'Standard' },
-      ]);
-      expect(direct).toEqual(
-        await new PostgrestTeams(t.app.get(SupabaseService)).findMany(filter),
-      );
+    expect(await workspace.row('clients', client.id)).toMatchObject({
+      archived_at: '2026-06-17T10:11:12.345678+00:00',
+      created_at: expect.stringMatching(
+        /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?\+00:00$/,
+      ),
     });
+    expect(await workspace.row('users', user.id)).toMatchObject({
+      contract_start_date: '2024-03-01',
+    });
+    const { rows } = await sql<Record<string, unknown>>`
+      select count(*) as count, 1.5::numeric as amount
+    `.execute(database.db);
+    expect(rows).toEqual([{ count: 1, amount: 1.5 }]);
+  });
+
+  it('embeds a many-to-one relation as an object, or null', async () => {
+    const policy = await workspace.addVacationPolicy({ name: 'Standard' });
+    await workspace.addTeam({ vacation_policy_id: policy.id });
+    await workspace.addTeam();
+
+    const teams = await new SqlTeams(database).findMany({
+      slack_team_id: workspace.id,
+    });
+
+    expect(teams.map((team) => team.vacation_policy)).toEqual([
+      null,
+      { id: policy.id, name: 'Standard' },
+    ]);
   });
 
   it('sets the time zone and the timeouts on its connections', async () => {

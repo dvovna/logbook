@@ -176,9 +176,10 @@ describe('Workspace isolation', () => {
         name: 'Olga Other',
       });
       await t.db
-        .from('teams')
-        .update({ manager_approvers: [designLead.slack_id] })
-        .eq('id', a.design.id);
+        .updateTable('teams')
+        .set({ manager_approvers: [designLead.slack_id] })
+        .where('id', '=', a.design.id)
+        .execute();
       await a.workspace.addTeam({ manager_approvers: [otherLead.slack_id] });
 
       const weekOf = async (manager: Tables<'users'>) =>

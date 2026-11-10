@@ -259,13 +259,11 @@ describe('Slack events', () => {
   };
 
   const workspaceRow = async () =>
-    (
-      await t.db
-        .from('slack_teams')
-        .select('slack_token, slack_refresh_token, uninstalled_at')
-        .eq('id', workspace.id)
-        .maybeSingle()
-    ).data;
+    (await t.db
+      .selectFrom('slack_teams')
+      .select(['slack_token', 'slack_refresh_token', 'uninstalled_at'])
+      .where('id', '=', workspace.id)
+      .executeTakeFirst()) ?? null;
 
   it('keeps the data of an uninstalled workspace, without its token', async () => {
     const team = await workspace.addTeam();
@@ -292,16 +290,18 @@ describe('Slack events', () => {
     const retention = t.app.get(WorkspaceRetentionService);
 
     await t.db
-      .from('slack_teams')
-      .update({ uninstalled_at: daysAgo(29) })
-      .eq('id', workspace.id);
+      .updateTable('slack_teams')
+      .set({ uninstalled_at: daysAgo(29) })
+      .where('id', '=', workspace.id)
+      .execute();
     await retention.deleteExpired();
     expect(await workspace.rows('teams')).toHaveLength(1);
 
     await t.db
-      .from('slack_teams')
-      .update({ uninstalled_at: daysAgo(31) })
-      .eq('id', workspace.id);
+      .updateTable('slack_teams')
+      .set({ uninstalled_at: daysAgo(31) })
+      .where('id', '=', workspace.id)
+      .execute();
     await retention.deleteExpired();
     expect(await workspaceRow()).toBeNull();
     expect(await workspace.rows('teams')).toEqual([]);

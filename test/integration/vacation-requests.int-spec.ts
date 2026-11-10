@@ -85,9 +85,10 @@ describe('/vacations', () => {
       const pending = await requestVacation(t, workspace, member, workWeek(2));
       const approved = await requestVacation(t, workspace, member, workWeek(4));
       await t.db
-        .from('vacation_requests')
-        .update({ status: VacationRequestStatus.Approved })
-        .eq('id', approved.id);
+        .updateTable('vacation_requests')
+        .set({ status: VacationRequestStatus.Approved })
+        .where('id', '=', approved.id)
+        .execute();
 
       const since = await command('cancel');
       await t.idle();
@@ -131,9 +132,10 @@ describe('/vacations', () => {
       const dates = workWeek(2);
       const first = await requestVacation(t, workspace, member, dates);
       await t.db
-        .from('vacation_requests')
-        .update({ status: VacationRequestStatus.Canceled })
-        .eq('id', first.id);
+        .updateTable('vacation_requests')
+        .set({ status: VacationRequestStatus.Canceled })
+        .where('id', '=', first.id)
+        .execute();
 
       const response = await submitVacationRequest(t, workspace, member, {
         start: addDays(dates.start, 1),
@@ -164,9 +166,10 @@ describe('/vacations', () => {
       // whatever the date.
       const today = new Date().toISOString().slice(0, 10);
       await t.db
-        .from('users')
-        .update({ contract_start_date: addDays(today, -30) })
-        .eq('id', member.id);
+        .updateTable('users')
+        .set({ contract_start_date: addDays(today, -30) })
+        .where('id', '=', member.id)
+        .execute();
       member = await workspace.row('users', member.id);
 
       // Pending requests count as used too.

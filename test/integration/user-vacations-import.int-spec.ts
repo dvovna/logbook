@@ -54,14 +54,17 @@ describe('user-vacations.csv', () => {
     admin = await workspace.addUser({ role: UserRole.Admin });
     const policy = await workspace.addVacationPolicy();
     const team = await workspace.addTeam({ vacation_policy_id: policy.id });
-    await t.db.from('holidays').insert({
-      slack_team_id: workspace.id,
-      vacation_policy_id: policy.id,
-      name: 'Holiday',
-      date: '2026-03-04',
-      year: 2026,
-      created_by: admin.id,
-    });
+    await t.db
+      .insertInto('holidays')
+      .values({
+        slack_team_id: workspace.id,
+        vacation_policy_id: policy.id,
+        name: 'Holiday',
+        date: '2026-03-04',
+        year: 2026,
+        created_by: admin.id,
+      })
+      .execute();
     ada = await workspace.addUser({
       email: 'ada@example.test',
       team_id: team.id,
@@ -192,9 +195,10 @@ describe('user-vacations.csv', () => {
 
   it('shows the imported vacations in the balance at once', async () => {
     await t.db
-      .from('users')
-      .update({ contract_start_date: '2025-09-01' })
-      .eq('id', ada.id);
+      .updateTable('users')
+      .set({ contract_start_date: '2025-09-01' })
+      .where('id', '=', ada.id)
+      .execute();
     const annualLeave = async () =>
       sectionTexts(await openAppHomeTab(t, workspace, ada)).filter((text) =>
         text.startsWith('Annual leave'),
@@ -334,7 +338,11 @@ describe('user-vacations.csv', () => {
     });
 
     it('ignores a file shared by a deactivated admin', async () => {
-      await t.db.from('users').update({ is_active: false }).eq('id', admin.id);
+      await t.db
+        .updateTable('users')
+        .set({ is_active: false })
+        .where('id', '=', admin.id)
+        .execute();
 
       const reply = await share(admin, 'user-vacations.csv', csv().join('\n'));
 

@@ -162,29 +162,32 @@ describe('Navigation', () => {
       end_date: '2026-07-06',
       status: 'pending',
     });
-    await t.db.from('request_workflow_steps').insert({
-      request_id: request.id,
-      slack_team_id: workspace.id,
-      step_type: 'approver',
-      step_level: 1,
-      slack_user_id: manager.slack_id,
-      processed_at: new Date().toISOString(),
-      step_data: {
-        status: 'pending',
-        snapshot: {
-          user_id: manager.id,
-          slack_user_id: manager.slack_id,
-          user_name: manager.name,
-          user_email: manager.email,
-          start_date: '2026-07-06',
-          end_date: '2026-07-06',
-          days: 1,
-          working_days: 1,
-          type: 'annual_leave',
-          comment: '',
+    await t.db
+      .insertInto('request_workflow_steps')
+      .values({
+        request_id: request.id,
+        slack_team_id: workspace.id,
+        step_type: 'approver',
+        step_level: 1,
+        slack_user_id: manager.slack_id,
+        processed_at: new Date().toISOString(),
+        step_data: {
+          status: 'pending',
+          snapshot: {
+            user_id: manager.id,
+            slack_user_id: manager.slack_id,
+            user_name: manager.name,
+            user_email: manager.email,
+            start_date: '2026-07-06',
+            end_date: '2026-07-06',
+            days: 1,
+            working_days: 1,
+            type: 'annual_leave',
+            comment: '',
+          },
         },
-      },
-    });
+      })
+      .execute();
 
     const home = await openAppHomeTab(t, workspace, manager);
     expect(buttonText(home, NavigationActionId.Approvals)).toBe('✅ Approvals');

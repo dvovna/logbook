@@ -1,67 +1,26 @@
 import { ClientsRepository } from '@modules/clients/repositories/clients.repository';
-import {
-  BaseRepository,
-  PAGE_SIZE,
-  TableName,
-  Tables as SupabaseTables,
-} from '@common/repositories/base.repository';
-import { IRepository } from '@common/repositories/repository.types';
-import {
-  Tables,
-  TablesInsert,
-  TablesUpdate,
-} from '@common/types/database.types';
-import IClientViewModel from '@modules/clients/types/client.interface';
-import { SupabaseService } from 'src/database/supabase.service';
 import { DatabaseService } from 'src/database/database.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 
-class PostgrestClientsRepository extends BaseRepository<
-  SupabaseTables['clients'],
-  IClientViewModel
-> {
-  protected tableName: TableName = 'clients';
-  protected searchableColumns = ['name'];
-  protected mapToViewModel = (row: Tables<'clients'>) => ({
-    ...row,
-    description: row.description || '',
-  });
-}
-
-class SqlClientsRepository extends ClientsRepository {
+class SearchableClientsRepository extends ClientsRepository {
   protected searchableColumns = ['name'];
 }
 
-type IClientsRepository = IRepository<
-  TablesInsert<'clients'>,
-  TablesUpdate<'clients'>,
-  IClientViewModel
->;
+// PostgREST returned at most 1000 rows per request and said nothing about the
+// rest; the repositories read and write every row a filter matches.
+const PAGE_SIZE = 1000;
 
-// Both repository implementations against the real database: BaseRepository
-// over PostgREST, which returns at most max_rows (1000) rows per request and
-// says nothing about the rest, and SqlRepository over the direct connection
-// (ClientsRepository). They must behave the same. Both search names here.
-describe.each([
-  [
-    'BaseRepository (PostgREST)',
-    (t: ITestApp): IClientsRepository =>
-      new PostgrestClientsRepository(t.app.get(SupabaseService)),
-  ],
-  [
-    'SqlRepository (direct connection)',
-    (t: ITestApp): IClientsRepository =>
-      new SqlClientsRepository(t.app.get(DatabaseService)),
-  ],
-])('%s', (_, repositoryOf) => {
+// The repositories' generic methods against the real database
+// (ClientsRepository, searching names here).
+describe('Repositories', () => {
   let t: ITestApp;
   let workspace: TestWorkspace;
-  let clients: IClientsRepository;
+  let clients: SearchableClientsRepository;
 
   beforeAll(async () => {
     t = await createTestApp();
-    clients = repositoryOf(t);
+    clients = new SearchableClientsRepository(t.app.get(DatabaseService));
   });
 
   afterAll(() => t.close());
@@ -73,18 +32,19 @@ describe.each([
   // All rows share one created_at, so only the id keeps pages apart.
   const addClients = async (count: number) => {
     const createdAt = new Date().toISOString();
-    const { error } = await t.db.from('clients').insert(
-      Array.from({ length: count }, (_, index) => ({
-        slack_team_id: workspace.id,
-        name: `Client ${String(index).padStart(4, '0')}`,
-        created_at: createdAt,
-      })),
-    );
-
-    expect(error).toBeNull();
+    await t.db
+      .insertInto('clients')
+      .values(
+        Array.from({ length: count }, (_, index) => ({
+          slack_team_id: workspace.id,
+          name: `Client ${String(index).padStart(4, '0')}`,
+          created_at: createdAt,
+        })),
+      )
+      .execute();
   };
 
-  it('finds more rows than PostgREST returns at once', async () => {
+  it('finds more rows than PostgREST returned at once', async () => {
     await addClients(PAGE_SIZE + 1);
 
     const found = await clients.findMany({ slack_team_id: workspace.id });
@@ -109,7 +69,7 @@ describe.each([
     expect(found[PAGE_SIZE].name).toBe(`Client ${PAGE_SIZE + 3}`);
   });
 
-  it('deletes more rows than PostgREST returns at once and counts them', async () => {
+  it('deletes more rows than PostgREST returned at once and counts them', async () => {
     await addClients(PAGE_SIZE + 1);
 
     await expect(

@@ -167,7 +167,11 @@ describe('Users tab', () => {
     });
 
     it('activates a user again from the list with inactive users', async () => {
-      await t.db.from('users').update({ is_active: false }).eq('id', ada.id);
+      await t.db
+        .updateTable('users')
+        .set({ is_active: false })
+        .where('id', '=', ada.id)
+        .execute();
       const withInactive = await actOnTab(
         t,
         workspace,
@@ -218,9 +222,10 @@ describe('Users tab', () => {
 
     it("refuses more carryover than the team's policy allows", async () => {
       await t.db
-        .from('vacation_policies')
-        .update({ carryover_days: 3 })
-        .eq('id', design.vacation_policy_id!);
+        .updateTable('vacation_policies')
+        .set({ carryover_days: 3 })
+        .where('id', '=', design.vacation_policy_id!)
+        .execute();
       const form = await fromMenu(UsersTabViewActionId.EditUser, ada);
 
       const response = await t.slack

@@ -134,14 +134,17 @@ describe('Vacation balance under a policy', () => {
       });
 
       // A holiday of the policy in the part that counts.
-      await t.db.from('holidays').insert({
-        slack_team_id: workspace.id,
-        vacation_policy_id: policy.id,
-        name: 'Holiday',
-        date: '2025-09-02',
-        year: 2025,
-        created_by: member.id,
-      });
+      await t.db
+        .insertInto('holidays')
+        .values({
+          slack_team_id: workspace.id,
+          vacation_policy_id: policy.id,
+          name: 'Holiday',
+          date: '2025-09-02',
+          year: 2025,
+          created_by: member.id,
+        })
+        .execute();
 
       expect(await usageOnHome()).toEqual([
         'Annual leave: *16 available* / 20 total (*4* used, *3* working)',
@@ -211,15 +214,18 @@ describe('Vacation balance under a policy', () => {
       const otherPolicy = await workspace.addVacationPolicy();
       const week = workWeek(1);
       const holiday = (date: string, fields = {}) =>
-        t.db.from('holidays').insert({
-          slack_team_id: workspace.id,
-          vacation_policy_id: policy.id,
-          name: 'Holiday',
-          date,
-          year: 2026,
-          created_by: member.id,
-          ...fields,
-        });
+        t.db
+          .insertInto('holidays')
+          .values({
+            slack_team_id: workspace.id,
+            vacation_policy_id: policy.id,
+            name: 'Holiday',
+            date,
+            year: 2026,
+            created_by: member.id,
+            ...fields,
+          })
+          .execute();
       // Tuesday counts as a holiday; Wednesday's is disabled, Thursday's
       // belongs to another policy.
       await holiday('2026-06-23');

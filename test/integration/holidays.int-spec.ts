@@ -53,8 +53,8 @@ describe('Holidays', () => {
 
   const addHoliday = (fields: Partial<Tables<'holidays'>> = {}) =>
     t.db
-      .from('holidays')
-      .insert({
+      .insertInto('holidays')
+      .values({
         slack_team_id: workspace.id,
         vacation_policy_id: policy.id,
         name: 'Founders Day',
@@ -64,9 +64,8 @@ describe('Holidays', () => {
         created_by: admin.id,
         ...fields,
       })
-      .select()
-      .single()
-      .then(({ data }) => data!);
+      .returningAll()
+      .executeTakeFirstOrThrow();
 
   const holidays = async () =>
     (await workspace.rows('holidays'))

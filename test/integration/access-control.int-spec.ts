@@ -270,9 +270,10 @@ describe('Access control', () => {
         hr_approvers: [hr.slack_id],
       });
       await t.db
-        .from('users')
-        .update({ team_id: team.id })
-        .eq('id', manager.id);
+        .updateTable('users')
+        .set({ team_id: team.id })
+        .where('id', '=', manager.id)
+        .execute();
       manager = await workspace.row('users', manager.id);
 
       const request = await requestVacation(t, workspace, manager, workWeek(2));
@@ -295,7 +296,11 @@ describe('Access control', () => {
       const team = await workspace.addTeam({
         manager_approvers: [manager.slack_id],
       });
-      await t.db.from('users').update({ team_id: team.id }).eq('id', hr.id);
+      await t.db
+        .updateTable('users')
+        .set({ team_id: team.id })
+        .where('id', '=', hr.id)
+        .execute();
       hr = await workspace.row('users', hr.id);
 
       const request = await requestVacation(t, workspace, hr, workWeek(2));
@@ -347,18 +352,19 @@ describe('Access control', () => {
     const stored = async () =>
       (
         await t.db
-          .from('slack_teams')
+          .selectFrom('slack_teams')
           .select('slack_token')
-          .eq('id', workspace.id)
-          .single()
-      ).data!.slack_token;
+          .where('id', '=', workspace.id)
+          .executeTakeFirstOrThrow()
+      ).slack_token;
     // TestWorkspace stores its token in plain text, as the app did before, but
     // a test app starting in another worker encrypts every plain-text token in
     // the database. So it is set back to plain text right before the read.
     await t.db
-      .from('slack_teams')
-      .update({ slack_token: workspace.token })
-      .eq('id', workspace.id);
+      .updateTable('slack_teams')
+      .set({ slack_token: workspace.token })
+      .where('id', '=', workspace.id)
+      .execute();
 
     expect(
       await t.app.get(SlackTeamsService).findAccessToken(workspace.id),

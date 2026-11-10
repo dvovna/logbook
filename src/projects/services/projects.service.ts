@@ -6,7 +6,7 @@ import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import ClientsService from '@modules/clients/services/clients.service';
 import { ValidationError } from '@common/errors/validation.error';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
 import { ProjectsRepository } from 'src/projects/repositories/projects.repository';
 import IProjectViewModel from 'src/projects/types/project.types';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
@@ -231,7 +231,7 @@ export default class ProjectsService implements IProjectsService {
     }
   }
 
-  private getFindQuery(params: IFindParams): SupabaseFilter {
+  private getFindQuery(params: IFindParams): RepositoryFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
       ...(params.name ? { name: params.name } : {}),

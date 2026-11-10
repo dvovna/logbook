@@ -5,7 +5,7 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { SlackTeamsRepository } from '@modules/slack-teams/slack-teams.repository';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
 import { TokenCipherService } from '@modules/slack-teams/token-cipher.service';
 import { TransactionService } from 'src/database/transaction.service';
 
@@ -181,7 +181,7 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     );
   }
 
-  private getFilterQuery(findParams: IFindParams): SupabaseFilter {
+  private getFilterQuery(findParams: IFindParams): RepositoryFilter {
     return {
       ...(findParams.id ? { id: findParams.id } : {}),
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),

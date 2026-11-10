@@ -10,7 +10,7 @@ import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vaca
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   VacationRequestsValidationService,
@@ -435,7 +435,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     });
   }
 
-  private getFindQuery(params: IFindParams): SupabaseFilter {
+  private getFindQuery(params: IFindParams): RepositoryFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),

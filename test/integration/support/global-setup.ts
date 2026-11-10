@@ -13,7 +13,7 @@ const MIGRATIONS_DIR = join(
   'migrations',
 );
 
-// Reads the URLs and keys of the running local stack from the Supabase CLI.
+// Reads the URLs of the running local stack from the Supabase CLI.
 const readLocalStackEnv = (): Record<string, string> => {
   let output: string;
 
@@ -68,16 +68,9 @@ const assertMigrationsApplied = async (dbUrl: string) => {
 };
 
 export default async function globalSetup() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const stack = readLocalStackEnv();
-
-    process.env.SUPABASE_URL = stack.API_URL;
-    process.env.SUPABASE_SERVICE_ROLE_KEY = stack.SERVICE_ROLE_KEY;
-    process.env.SUPABASE_DB_URL = stack.DB_URL;
-  }
+  process.env.SUPABASE_DB_URL ??= readLocalStackEnv().DB_URL;
 
   // The tests create and delete workspaces; never let them near a real project.
-  assertLocalUrl('SUPABASE_URL', process.env.SUPABASE_URL);
   assertLocalUrl('SUPABASE_DB_URL', process.env.SUPABASE_DB_URL);
 
   await assertMigrationsApplied(process.env.SUPABASE_DB_URL!);

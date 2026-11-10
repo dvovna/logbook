@@ -37,7 +37,6 @@
     "@sentry/node": "11.9.0",
     "@slack/types": "^3.3.0",
     "@slack/web-api": "^7.9.3",
-    "@supabase/supabase-js": "^2.119.0",
     "axios": "^1.11.0",
     "cache-manager": "^7.2.9",
     "csv-parse": "^7.0.3",

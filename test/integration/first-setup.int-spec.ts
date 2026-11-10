@@ -87,9 +87,10 @@ describe('First setup', () => {
       ]);
 
       await t.db
-        .from('users')
-        .update({ team_id: team.id })
-        .in('id', [admin.id, member.id]);
+        .updateTable('users')
+        .set({ team_id: team.id })
+        .where('id', 'in', [admin.id, member.id])
+        .execute();
 
       expect(await checklistOf(admin)).toEqual([]);
     });

@@ -51,9 +51,10 @@ describe('Time approvals', () => {
     });
     const ops = await workspace.addTeam({ name: 'Ops' });
     await t.db
-      .from('users')
-      .update({ team_id: design.id })
-      .eq('id', manager.id);
+      .updateTable('users')
+      .set({ team_id: design.id })
+      .where('id', '=', manager.id)
+      .execute();
     manager = { ...manager, team_id: design.id };
     member = await workspace.addUser({
       team_id: design.id,
@@ -262,9 +263,10 @@ describe('Time approvals', () => {
         entry.id,
       );
       await t.db
-        .from('time_entries')
-        .update({ status: TimeEntryStatus.Approved })
-        .eq('id', entry.id);
+        .updateTable('time_entries')
+        .set({ status: TimeEntryStatus.Approved })
+        .where('id', '=', entry.id)
+        .execute();
 
       const response = await t.slack
         .submitView(workspace, manager, reject)

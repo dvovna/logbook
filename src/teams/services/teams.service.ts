@@ -13,7 +13,7 @@ import ITeamViewModel from '@modules/teams/types/team.interface';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
 import { DuplicatedRecordError } from '@common/errors/duplicated-record.error';
 
 interface ICreateTeamParams {
@@ -251,7 +251,7 @@ export default class TeamsService implements ITeamsService {
     return this.teamsRepository.count(this.getFindQuery(params));
   }
 
-  private getFindQuery(params: IFindParams): SupabaseFilter {
+  private getFindQuery(params: IFindParams): RepositoryFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
       ...(params.name ? { name: params.name } : {}),

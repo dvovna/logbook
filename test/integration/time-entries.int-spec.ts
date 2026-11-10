@@ -440,25 +440,28 @@ describe('Time entries', () => {
 
     it('is enforced by the time_entries minutes check constraint', async () => {
       const insert = (minutes: number) =>
-        t.db.from('time_entries').insert({
-          slack_team_id: workspace.id,
-          user_id: admin.id,
-          project_id: website.id,
-          work_date: today(),
-          minutes,
-          created_by: admin.id,
-          updated_by: admin.id,
-        });
+        t.db
+          .insertInto('time_entries')
+          .values({
+            slack_team_id: workspace.id,
+            user_id: admin.id,
+            project_id: website.id,
+            work_date: today(),
+            minutes,
+            created_by: admin.id,
+            updated_by: admin.id,
+          })
+          .execute();
 
       for (const minutes of [-15, 0, 20, 24 * 60 + 15]) {
-        expect((await insert(minutes)).error).toMatchObject({
+        await expect(insert(minutes)).rejects.toMatchObject({
           code: '23514',
           message: expect.stringContaining('time_entries_minutes_check'),
         });
       }
 
       for (const minutes of [15, 24 * 60]) {
-        expect((await insert(minutes)).error).toBeNull();
+        await expect(insert(minutes)).resolves.toBeDefined();
       }
     });
   });
@@ -960,9 +963,10 @@ describe('Time entries', () => {
         `${TimeEntriesTabViewActionId.EditTimeEntry}:${entry.id}`,
       );
       await t.db
-        .from('time_entries')
-        .update({ status: TimeEntryStatus.Submitted })
-        .eq('id', entry.id);
+        .updateTable('time_entries')
+        .set({ status: TimeEntryStatus.Submitted })
+        .where('id', '=', entry.id)
+        .execute();
 
       const response = await t.slack
         .submitView(workspace, member, modal, { hours: '2' })

@@ -6,7 +6,7 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import { getDateOnly } from '@common/utils/date.utils';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 
@@ -238,7 +238,7 @@ export default class HolidaysService implements IHolidaysService {
         vacation_policy_id: params.vacationPolicyId,
       }),
       ...(params.excludeDisabled ? { is_disabled: false } : {}),
-    } as SupabaseFilter;
+    } as RepositoryFilter;
   }
 
   private async validateCustomHolidayLimit(

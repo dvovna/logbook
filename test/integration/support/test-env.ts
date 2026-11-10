@@ -1,5 +1,5 @@
 // Runs in every test worker before the test file is loaded, so it is in place
-// before AppModule validates the environment. The Supabase variables come from
+// before AppModule validates the environment. The database URL comes from
 // global-setup.ts; everything else is fixed here, so the developer's .env never
 // matters (process.env wins over .env in ConfigModule).
 export const TEST_SLACK_SIGNING_SECRET = 'integration-test-signing-secret';
@@ -26,18 +26,12 @@ const testEnv: Record<string, string> = {
 
 Object.assign(process.env, testEnv);
 
-// The job queue uses the local database too (global-setup checked it is local).
+// The local database (global-setup checked it is local).
 process.env.DATABASE_URL = process.env.SUPABASE_DB_URL;
 
 // App logs are noise in test output; `LOG_LEVEL=debug pnpm test:int` shows them.
 process.env.LOG_LEVEL ??= 'silent';
 
-for (const name of [
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'SUPABASE_DB_URL',
-]) {
-  if (!process.env[name]) {
-    throw new Error(`${name} is not set: global-setup.ts did not run`);
-  }
+if (!process.env.SUPABASE_DB_URL) {
+  throw new Error('SUPABASE_DB_URL is not set: global-setup.ts did not run');
 }

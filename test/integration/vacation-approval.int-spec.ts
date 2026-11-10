@@ -633,9 +633,10 @@ describe('Vacation request approval', () => {
         manager_approvers: [manager.slack_id],
       });
       await t.db
-        .from('users')
-        .update({ team_id: team.id })
-        .eq('id', manager.id);
+        .updateTable('users')
+        .set({ team_id: team.id })
+        .where('id', '=', manager.id)
+        .execute();
 
       await requestVacation(
         t,

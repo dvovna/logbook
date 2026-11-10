@@ -3,12 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
-import { SupabaseClient } from '@supabase/supabase-js';
 import { AppModule } from 'src/app.module';
 import { configureApp } from 'src/app.setup';
 import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
-import { SupabaseService } from 'src/database/supabase.service';
-import { Database } from '@common/types/database.types';
+import { DatabaseService } from 'src/database/database.service';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
 import {
@@ -20,7 +18,7 @@ import { FakeSlackApiClient } from './fake-slack-api.client';
 import { FakeNagerDateClient } from './fake-nager-date.client';
 import { NagerDateClient } from 'src/holidays/clients/nager-date.client';
 import { SlackTestClient } from './slack-test-client';
-import { TestWorkspace } from './test-workspace';
+import { TestDatabase, TestWorkspace } from './test-workspace';
 import { assertLocalUrl } from './local-url';
 
 export interface ITestApp {
@@ -31,7 +29,8 @@ export interface ITestApp {
   nager: FakeNagerDateClient;
   // Sends signed Slack requests to the app.
   slack: SlackTestClient;
-  db: SupabaseClient<Database>;
+  // The app's pool, outside any transaction of the app.
+  db: TestDatabase;
   // Resolves once the app has finished the work it does after answering
   // Slack (event handlers, EventEmitter listeners, tab updates).
   idle(): Promise<void>;
@@ -74,16 +73,12 @@ export const createTestApp = async (): Promise<ITestApp> => {
   await app.listen(0, '127.0.0.1');
 
   // Second line of defence after global-setup: what the app actually uses.
-  assertLocalUrl(
-    'SUPABASE_URL',
-    app.get(ConfigService).get(EnvironmentVariable.SupabaseUrl),
-  );
   const databaseUrl = app
     .get(ConfigService)
     .get<string>(EnvironmentVariable.DatabaseUrl);
   assertLocalUrl('DATABASE_URL', databaseUrl);
 
-  const db = app.get(SupabaseService).getClient();
+  const db = app.get(DatabaseService).db;
   const workspaces: TestWorkspace[] = [];
 
   return {

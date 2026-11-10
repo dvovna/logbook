@@ -1,6 +1,6 @@
 import { RequestWorkflowStepCommentsRepository } from '@modules/request-workflows/repositories/request-workflow-step-comments.repository';
 import { Injectable } from '@nestjs/common';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
 import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
@@ -78,7 +78,7 @@ export class RequestWorkflowStepCommentsService {
     );
   }
 
-  private getFindQuery(params: IFindParams): SupabaseFilter {
+  private getFindQuery(params: IFindParams): RepositoryFilter {
     return {
       ...(params.id && { id: params.id }),
       ...(params.stepId && { step_id: params.stepId }),

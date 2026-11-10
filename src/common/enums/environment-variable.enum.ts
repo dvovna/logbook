@@ -1,7 +1,5 @@
 enum EnvironmentVariable {
   Port = 'PORT',
-  SupabaseUrl = 'SUPABASE_URL',
-  SupabaseServiceRoleKey = 'SUPABASE_SERVICE_ROLE_KEY',
   DatabaseUrl = 'DATABASE_URL',
   DatabasePoolSize = 'DATABASE_POOL_SIZE',
   SlackClientId = 'SLACK_CLIENT_ID',

@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
 import { ValidationError } from '@common/errors/validation.error';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import TeamsService from '@modules/teams/services/teams.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
@@ -129,7 +129,7 @@ export class TimeEntryApprovalsService {
   private getPendingFilter(
     user: IUserViewModel,
     { teamIds }: IApprovalScope,
-  ): SupabaseFilter {
+  ): RepositoryFilter {
     return {
       slack_team_id: user.slack_team_id,
       status: TimeEntryStatus.Submitted,

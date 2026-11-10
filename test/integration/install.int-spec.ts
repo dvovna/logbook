@@ -20,18 +20,21 @@ describe('Installing the app (OAuth redirect)', () => {
 
   afterAll(async () => {
     // Not TestWorkspaces: the app created these rows itself.
-    await t.db.from('slack_teams').delete().in('slack_id', installedTeams);
+    if (installedTeams.length) {
+      await t.db
+        .deleteFrom('slack_teams')
+        .where('slack_id', 'in', installedTeams)
+        .execute();
+    }
     await t.close();
   });
 
   const workspaceRow = async (teamId: string) =>
-    (
-      await t.db
-        .from('slack_teams')
-        .select('*')
-        .eq('slack_id', teamId)
-        .maybeSingle()
-    ).data;
+    (await t.db
+      .selectFrom('slack_teams')
+      .selectAll()
+      .where('slack_id', '=', teamId)
+      .executeTakeFirst()) ?? null;
 
   // /api/slack/install: where it sends the browser and the state cookie it sets.
   const startInstall = async () => {
@@ -125,23 +128,26 @@ describe('Installing the app (OAuth redirect)', () => {
         ?.params,
     ).toMatchObject({ code: 'code-ok', client_id: TEST_SLACK_CLIENT_ID });
 
-    const { data: slackTeam } = await t.db
-      .from('slack_teams')
-      .select('*')
-      .eq('slack_id', teamId)
-      .single();
+    const slackTeam = await t.db
+      .selectFrom('slack_teams')
+      .selectAll()
+      .where('slack_id', '=', teamId)
+      .executeTakeFirstOrThrow();
 
     // The token is stored encrypted, and the app reads it back.
     expect(slackTeam).toMatchObject({ name: 'Acme' });
-    expect(slackTeam!.slack_token).toMatch(/^v1:/);
-    expect(slackTeam!.slack_token).not.toContain('xoxb');
+    expect(slackTeam.slack_token).toMatch(/^v1:/);
+    expect(slackTeam.slack_token).not.toContain('xoxb');
     expect(
-      await t.app.get(SlackTeamsService).findAccessToken(slackTeam!.id),
+      await t.app.get(SlackTeamsService).findAccessToken(slackTeam.id),
     ).toBe(`xoxb-${teamId}`);
 
-    const usersOf = async () =>
-      (await t.db.from('users').select('*').eq('slack_team_id', slackTeam!.id))
-        .data!;
+    const usersOf = () =>
+      t.db
+        .selectFrom('users')
+        .selectAll()
+        .where('slack_team_id', '=', slackTeam.id)
+        .execute();
 
     expect(await usersOf()).toEqual([
       expect.objectContaining({
@@ -193,25 +199,28 @@ describe('Installing the app (OAuth redirect)', () => {
       expect((await install(`first-${teamId}`)).status).toBe(302);
       await t.idle();
 
-      const { data } = await t.db
-        .from('slack_teams')
-        .select('*')
-        .eq('slack_id', teamId)
-        .single();
+      const slackTeam = await t.db
+        .selectFrom('slack_teams')
+        .selectAll()
+        .where('slack_id', '=', teamId)
+        .executeTakeFirstOrThrow();
 
-      return { teamId, installer, slackTeam: data! };
+      return { teamId, installer, slackTeam };
     };
 
     it('keeps the data and roles and uses the new token', async () => {
       const { teamId, installer, slackTeam } = await installOnce();
       const member = slackId('U');
-      await t.db.from('users').insert({
-        slack_id: member,
-        slack_team_id: slackTeam.id,
-        name: 'Max Member',
-        email: `max-${teamId}@acme.test`,
-        role: UserRole.Member,
-      });
+      await t.db
+        .insertInto('users')
+        .values({
+          slack_id: member,
+          slack_team_id: slackTeam.id,
+          name: 'Max Member',
+          email: `max-${teamId}@acme.test`,
+          role: UserRole.Member,
+        })
+        .execute();
       t.slackApi.addOauthGrant(`second-${teamId}`, {
         teamId,
         teamName: 'Acme Corp',
@@ -235,18 +244,20 @@ describe('Installing the app (OAuth redirect)', () => {
       expect((await install(`second-${teamId}`)).status).toBe(302);
       await t.idle();
 
-      const { data: teams } = await t.db
-        .from('slack_teams')
-        .select('*')
-        .eq('slack_id', teamId);
+      const teams = await t.db
+        .selectFrom('slack_teams')
+        .selectAll()
+        .where('slack_id', '=', teamId)
+        .execute();
       expect(teams).toEqual([
         expect.objectContaining({ id: slackTeam.id, name: 'Acme Corp' }),
       ]);
 
-      const { data: users } = await t.db
-        .from('users')
-        .select('slack_id, role')
-        .eq('slack_team_id', slackTeam.id);
+      const users = await t.db
+        .selectFrom('users')
+        .select(['slack_id', 'role'])
+        .where('slack_team_id', '=', slackTeam.id)
+        .execute();
       expect(users).toEqual(
         expect.arrayContaining([
           { slack_id: installer, role: UserRole.Admin },
@@ -306,10 +317,11 @@ describe('Installing the app (OAuth redirect)', () => {
         id: slackTeam.id,
         uninstalled_at: null,
       });
-      const { data: users } = await t.db
-        .from('users')
-        .select('slack_id, role')
-        .eq('slack_team_id', slackTeam.id);
+      const users = await t.db
+        .selectFrom('users')
+        .select(['slack_id', 'role'])
+        .where('slack_team_id', '=', slackTeam.id)
+        .execute();
       expect(users).toEqual(
         expect.arrayContaining([
           { slack_id: installer, role: UserRole.Admin },
@@ -385,11 +397,12 @@ describe('Installing the app (OAuth redirect)', () => {
       const before = await teams.findTokens(slackTeam.id);
       // A minute left: within the margin, so the next call refreshes.
       await t.db
-        .from('slack_teams')
-        .update({
+        .updateTable('slack_teams')
+        .set({
           slack_token_expires_at: new Date(Date.now() + 60_000).toISOString(),
         })
-        .eq('id', slackTeam.id);
+        .where('id', '=', slackTeam.id)
+        .execute();
       await tokens.forget(slackTeam.id);
       const since = t.slackApi.mark();
 
@@ -545,11 +558,7 @@ describe('Installing the app (OAuth redirect)', () => {
 
       expect(response.status).toBe(403);
       expect(response.text).toContain('does not accept installs');
-      const { data: rows } = await t.db
-        .from('slack_teams')
-        .select('id')
-        .eq('slack_id', teamId);
-      expect(rows).toEqual([]);
+      expect(await workspaceRow(teamId)).toBeNull();
       expect(
         t.slackApi.callsWith(`xoxb-${teamId}`, 'auth.revoke'),
       ).toHaveLength(1);

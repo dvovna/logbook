@@ -7,8 +7,8 @@ import { Json } from '@common/types/database.types';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   IQueryOptions,
-  SupabaseFilter,
-} from '@common/repositories/base.repository';
+  RepositoryFilter,
+} from '@common/repositories/repository.types';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
 import { ISearchParams } from '@common/types/pagination.types';
@@ -226,6 +226,6 @@ export class RequestWorkflowStepsService {
               : { operator: 'is', value: null },
           }
         : {}),
-    } as SupabaseFilter;
+    } as RepositoryFilter;
   }
 }

@@ -1,7 +1,6 @@
 # Versions forced on dependencies of dependencies.
 overrides:
   multer: ^2.5.0
-  ws: ^8.20.1
 
 # Install scripts that may not run.
 allowBuilds:

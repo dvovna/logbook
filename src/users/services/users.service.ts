@@ -4,7 +4,7 @@ import { TransactionService } from 'src/database/transaction.service';
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
 import { UserUpdateValidatorService } from '@modules/users/services/user-update-validator.service';
 
 interface ICreateUserParams {
@@ -216,7 +216,7 @@ export class UsersService implements IUsersService {
     });
   }
 
-  private getFindQuery(findParams: IFindParams): SupabaseFilter {
+  private getFindQuery(findParams: IFindParams): RepositoryFilter {
     return {
       slack_team_id: findParams.slackTeamId,
       ...(findParams.id ? { id: findParams.id } : {}),

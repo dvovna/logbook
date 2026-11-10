@@ -9,7 +9,7 @@ import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entrie
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
-import { SupabaseFilter } from '@common/repositories/base.repository';
+import { RepositoryFilter } from '@common/repositories/repository.types';
 import ProjectsService from 'src/projects/services/projects.service';
 import { GetUserProjectsQuery } from 'src/projects/queries/get-user-projects.query';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
@@ -286,7 +286,7 @@ export class TimeEntriesService {
   }
 
   // Deleted entries are kept, but only as history.
-  private getFindQuery(params: IFindParams): SupabaseFilter {
+  private getFindQuery(params: IFindParams): RepositoryFilter {
     return {
       deleted_at: { operator: 'is', value: null },
       ...(params.id ? { id: params.id } : {}),
