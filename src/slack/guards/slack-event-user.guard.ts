@@ -2,7 +2,6 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Request } from 'express';
 import { UsersService } from '@modules/users/services/users.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import {
   getRequestWorkspaceSlackId,
   ISlackRequestWorkspace,
@@ -14,10 +13,7 @@ interface ISlackRequest extends Request {
 
 @Injectable()
 export class SlackEventUserGuard implements CanActivate {
-  public constructor(
-    private readonly usersService: UsersService,
-    private readonly slackTeamsService: SlackTeamsService,
-  ) {}
+  public constructor(private readonly usersService: UsersService) {}
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<ISlackRequest>();
@@ -61,14 +57,16 @@ export class SlackEventUserGuard implements CanActivate {
     body: ISlackRequestWorkspace,
   ): Promise<IUserViewModel | null> {
     const workspaceSlackId = getRequestWorkspaceSlackId(body);
-    const workspace = workspaceSlackId
-      ? await this.slackTeamsService.findOne({ slackId: workspaceSlackId })
-      : null;
 
-    if (!workspace) {
+    if (!workspaceSlackId) {
       return null;
     }
 
-    return this.usersService.findBySlackId(slackUserId, workspace.id);
+    const { user } = await this.usersService.findInWorkspaceBySlackIds(
+      workspaceSlackId,
+      slackUserId,
+    );
+
+    return user;
   }
 }
