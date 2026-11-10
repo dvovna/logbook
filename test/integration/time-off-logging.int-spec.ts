@@ -774,6 +774,7 @@ describe('Time off logging', () => {
     let hr: Tables<'users'>;
     let requester: Tables<'users'>;
     let client: Tables<'clients'>;
+    let vacations: Tables<'projects'>;
 
     beforeEach(async () => {
       hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
@@ -782,7 +783,7 @@ describe('Time off logging', () => {
         email: 'max@example.test',
       });
       client = await workspace.addClient({ name: 'Internal' });
-      await mapProject('Vacations', 'annual_leave');
+      vacations = await mapProject('Vacations', 'annual_leave');
     });
 
     const mapProject = async (name: string, type: string) => {
@@ -1060,6 +1061,43 @@ describe('Time off logging', () => {
       expect(buttonText(offers[0] as unknown as View, OFFER)).toBe(
         'Log 40h to Sick Leave',
       );
+    });
+
+    it('logs the new type only on days without billed time of the old one', async () => {
+      const sick = await mapProject('Sick Leave', 'sick_leave');
+      const request = await loggedVacation();
+      const billed = (await liveEntries()).filter(({ work_date }) =>
+        ['2026-06-17', '2026-06-18'].includes(work_date.slice(0, 10)),
+      );
+      await lockInSnapshot(billed);
+      await editAsHr(request, { type_option: VacationType.SickLeave });
+      const [offer] = offersTo(requester);
+
+      await t.slack
+        .actOnMessage(workspace, requester, offer, OFFER)
+        .expect(200);
+      await t.idle();
+
+      expect(
+        (await liveEntries()).map(
+          ({ work_date, project_id, vacation_request_id }) => [
+            work_date.slice(0, 10),
+            project_id === vacations.id ? 'Vacations' : project_id,
+            vacation_request_id,
+          ],
+        ),
+      ).toEqual([
+        ['2026-06-15', sick.id, request.id],
+        ['2026-06-16', sick.id, request.id],
+        ['2026-06-17', 'Vacations', request.id],
+        ['2026-06-18', 'Vacations', request.id],
+        ['2026-06-19', sick.id, request.id],
+      ]);
+      const [update] = t.slackApi.messageUpdates(workspace.token, offer);
+      expect(textOf(update)).toContain(
+        `✅ 24h logged to Sick Leave.\\nAlready logged for this time off on Vacations: ${formatDateRange('2026-06-17', '2026-06-17')}, ${formatDateRange('2026-06-18', '2026-06-18')}.`,
+      );
+      expect(textOf(update)).not.toContain('Skipped');
     });
   });
 });

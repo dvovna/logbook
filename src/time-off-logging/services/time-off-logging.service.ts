@@ -11,6 +11,7 @@ import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vaca
 import { vacationTimeLock } from '@modules/vacation-requests/utils/vacation-time.utils';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
+import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TransactionService } from 'src/database/transaction.service';
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
 import { isTimeOffLeaveType } from 'src/time-off-logging/constants/time-off-leave-types';
@@ -30,10 +31,17 @@ export interface ITimeOffResult {
   offer: ITimeOffOffer;
   // The days this run wrote.
   logged: string[];
-  // The days that already had time on the project, whoever logged it.
+  // The days that already had time on the project, whoever logged it, or
+  // time of this request on another project.
   skipped: string[];
-  // What is stored for this request after the run, however it got there.
-  linked: { dates: string[]; minutes: number };
+  // What is stored for this request after the run, however it got there: on
+  // the project, and within its days on other projects (billed time of the
+  // leave type it had before, which stayed when HR changed the type).
+  linked: {
+    dates: string[];
+    minutes: number;
+    otherProjects: { projectName: string; dates: string[] }[];
+  };
 }
 
 interface ITimeOffPlan {
@@ -78,7 +86,8 @@ export class TimeOffLoggingService {
 
   // The requester's own time off only. A day that has any time of theirs on
   // the project is skipped, so a second run, or a second click at the same
-  // moment, writes nothing more.
+  // moment, writes nothing more; so is a day that has time of this request
+  // on another project, so a changed type never logs a day twice.
   public async log(
     user: IUserViewModel,
     requestId: string,
@@ -104,15 +113,23 @@ export class TimeOffLoggingService {
       const { offer, teamId } = plan;
       const existing = await this.timeEntriesService.findMany({
         userId: user.id,
-        projectId: offer.projectId,
         dateFrom: offer.dates[0],
         dateTo: offer.dates[offer.dates.length - 1],
         slackTeamId,
       });
-      const taken = new Set(
-        existing.map(({ work_date }) => getDateOnly(work_date)),
+      const onProject = existing.filter(
+        ({ project_id }) => project_id === offer.projectId,
       );
-      const own = existing.filter(
+      const elsewhere = existing.filter(
+        ({ project_id, vacation_request_id }) =>
+          vacation_request_id === request.id && project_id !== offer.projectId,
+      );
+      const taken = new Set(
+        [...onProject, ...elsewhere].map(({ work_date }) =>
+          getDateOnly(work_date),
+        ),
+      );
+      const own = onProject.filter(
         ({ vacation_request_id }) => vacation_request_id === request.id,
       );
       const free = offer.dates.filter((date) => !taken.has(date));
@@ -141,9 +158,26 @@ export class TimeOffLoggingService {
           minutes:
             own.reduce((sum, { minutes }) => sum + minutes, 0) +
             free.length * offer.minutes,
+          otherProjects: this.byProject(elsewhere),
         },
       };
     });
+  }
+
+  // The days of `entries` by the name of their project.
+  private byProject(entries: ITimeEntryViewModel[]) {
+    const days = new Map<string, string[]>();
+
+    for (const { project, work_date } of entries) {
+      const name = project?.name ?? 'another project';
+
+      days.set(name, [...(days.get(name) ?? []), getDateOnly(work_date)]);
+    }
+
+    return [...days].map(([projectName, dates]) => ({
+      projectName,
+      dates: dates.sort(),
+    }));
   }
 
   private assertLoggable(

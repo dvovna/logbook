@@ -124,11 +124,19 @@ describe('TimeOffLoggingService', () => {
   });
 
   it('logs the days with no time yet, under a lock of the request', async () => {
-    entries.findMany.mockResolvedValue([{ work_date: '2026-06-19T00:00:00Z' }]);
+    entries.findMany.mockResolvedValue([
+      { work_date: '2026-06-19T00:00:00Z', project_id: 'p1' },
+    ]);
 
     const result = await service.log(user, 'r1');
 
     expect(lock).toHaveBeenCalledWith('time-off:r1');
+    expect(entries.findMany).toHaveBeenCalledWith({
+      userId: 'u1',
+      dateFrom: '2026-06-19',
+      dateTo: '2026-06-23',
+      slackTeamId: SLACK_TEAM_ID,
+    });
     expect(entries.createForVacation).toHaveBeenCalledWith({
       userId: 'u1',
       teamId: 't1',
@@ -146,14 +154,41 @@ describe('TimeOffLoggingService', () => {
 
   it('writes nothing when every day has time', async () => {
     entries.findMany.mockResolvedValue([
-      { work_date: '2026-06-19' },
-      { work_date: '2026-06-23' },
+      { work_date: '2026-06-19', project_id: 'p1' },
+      { work_date: '2026-06-23', project_id: 'p1' },
     ]);
 
     const result = await service.log(user, 'r1');
 
     expect(entries.createForVacation).not.toHaveBeenCalled();
     expect(result.logged).toEqual([]);
+  });
+
+  // HR changed the type after a snapshot billed some of its days on the old
+  // type's project: those days keep that time and get no second entry.
+  it("skips a day with the request's time on another project", async () => {
+    entries.findMany.mockResolvedValue([
+      {
+        work_date: '2026-06-19',
+        project_id: 'p0',
+        project: { id: 'p0', name: 'Old leave' },
+        vacation_request_id: 'r1',
+      },
+      // Other work of theirs that day doesn't count.
+      { work_date: '2026-06-23', project_id: 'p9', vacation_request_id: null },
+    ]);
+
+    const result = await service.log(user, 'r1');
+
+    expect(result).toMatchObject({
+      logged: ['2026-06-23'],
+      skipped: ['2026-06-19'],
+      linked: {
+        dates: ['2026-06-23'],
+        minutes: 480,
+        otherProjects: [{ projectName: 'Old leave', dates: ['2026-06-19'] }],
+      },
+    });
   });
 
   it("refuses another person's time off", async () => {

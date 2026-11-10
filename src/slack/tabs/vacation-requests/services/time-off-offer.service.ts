@@ -241,21 +241,33 @@ export class TimeOffOfferService implements OnModuleInit {
     linked: ITimeOffResult['linked'],
   ) {
     const project = escapeMrkdwn(offer.projectName);
+    const days = (dates: string[]) =>
+      dates.map((date) => formatDateRange(date, date)).join(', ');
     // What is stored for the request, so every click (the first, a second at
-    // once, a late one) writes the same true text.
-    const skipped = offer.dates.filter((date) => !linked.dates.includes(date));
-    const lines = linked.minutes
-      ? [
-          `✅ ${getDisplayTime(linked.minutes)} logged to ${project}.`,
-          ...(skipped.length
-            ? [
-                `Skipped, already have time on ${project}: ${skipped
-                  .map((date) => formatDateRange(date, date))
-                  .join(', ')}.`,
-              ]
-            : []),
-        ]
-      : [`Nothing was logged: those days already have time on ${project}.`];
+    // once, a late one) writes the same true text. Days the request holds on
+    // another project (billed time of its type before HR changed it) are
+    // named apart from those with someone's time on this project.
+    const { otherProjects } = linked;
+    const skipped = offer.dates.filter(
+      (date) =>
+        !linked.dates.includes(date) &&
+        !otherProjects.some(({ dates }) => dates.includes(date)),
+    );
+    const lines =
+      linked.minutes || otherProjects.length
+        ? [
+            linked.minutes
+              ? `✅ ${getDisplayTime(linked.minutes)} logged to ${project}.`
+              : `Nothing was logged to ${project}.`,
+            ...otherProjects.map(
+              ({ projectName, dates }) =>
+                `Already logged for this time off on ${escapeMrkdwn(projectName)}: ${days(dates)}.`,
+            ),
+            ...(skipped.length
+              ? [`Skipped, already have time on ${project}: ${days(skipped)}.`]
+              : []),
+          ]
+        : [`Nothing was logged: those days already have time on ${project}.`];
     const result: KnownBlock = {
       type: 'section',
       text: { type: 'mrkdwn', text: lines.join('\n') },
