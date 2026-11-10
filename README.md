@@ -35,6 +35,9 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - Hourly rates: a project's rate, and a person's own rate on a project that replaces it. One currency per workspace, which an admin sets. Only admins and HR see rates and amounts.
 - Time entries in 15-minute steps, logged from the App Home or with `/log` as drafts, and then submitted for approval.
 - The team's managers, HR or an admin approve or reject submitted time; a rejection tells the owner why.
+- Time reports for a period, by client, project, person or team: hours, billable and approved time, and for admins and HR the amounts. Admins and HR see everyone's time, managers their teams' and their own, everyone else their own.
+- "Who hasn't submitted": the people a manager, HR or an admin sees who logged nothing in a period, or still have drafts or rejected time in it.
+- A CSV of a time report's entries, sent to you as a file in a DM: date, person, email, team, client, project, description, hours, billable, status, and for admins and HR the rate and the amount (comma-separated UTF-8).
 - A billing report per client and period, from approved time: each person's hours on each project with the rate and the amount, the totals by project and by person, and the amount in all. Billable time without a rate has no amount and is counted apart.
 - Admins and HR see everyone's time logs.
 
@@ -125,7 +128,9 @@ Open `https://<your-domain>/api/slack/install` in the browser and approve the ap
 
 Don't use "Install to Workspace" in the app settings, and don't use the sharable URL Slack generates. Both skip the `state`, so the bot refuses them and the workspace is never created. When you distribute the app, give out the `/api/slack/install` link.
 
-The person who installs the app becomes its admin. The other members are imported a few seconds later. Installing it again later (for example after an update adds scopes) only replaces the bot token: data and roles stay as they are. Uninstalling the app removes its bot token at once and keeps the workspace's data for `UNINSTALLED_DATA_RETENTION_DAYS` days (30 by default; 0 deletes it at once): installing again within that time restores everything, with the members who joined meanwhile. After it, the data is deleted for good. Then, in the App Home:
+The person who installs the app becomes its admin. The other members are imported a few seconds later. Installing it again later (for example after an update adds scopes) only replaces the bot token: data and roles stay as they are.
+
+The CSV export needs the `files:write` scope, which the manifest got after the first installs. If your Slack app was created from an older manifest, add `files:write` under "OAuth & Permissions" → "Bot Token Scopes" (or update the app from the current manifest), then install the app again in every workspace through `/api/slack/install`. Until a workspace does, the export answers with a DM that asks for it. Uninstalling the app removes its bot token at once and keeps the workspace's data for `UNINSTALLED_DATA_RETENTION_DAYS` days (30 by default; 0 deletes it at once): installing again within that time restores everything, with the members who joined meanwhile. After it, the data is deleted for good. Then, in the App Home:
 - create vacation policies and their holidays under Settings → Policies;
 - give approvers the Manager or HR role under People;
 - create teams, their members and approvers under Settings → Teams.
@@ -238,7 +243,7 @@ CI runs the type check, lint, unit and integration tests on every pull request, 
 - Slack only; there is no Microsoft Teams support.
 - No calendar sync (Google, Outlook) yet.
 - Caches are in memory, so run a single instance.
-- Time & Billing is in beta. Billing reports use the rates as they are now, and changing the currency doesn't convert the rates.
+- Time & Billing is in beta. Reports use the rates as they are now, and changing the currency doesn't convert the rates. There is no "uninvoiced" report yet: it comes with billing snapshots, which mark time as invoiced.
 
 ## Contributing
 

@@ -16,6 +16,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - Time in 15-minute steps, logged from the App Home or with `/log`, as drafts submitted for approval.
 - Clients and projects, assigned to teams and people, billable or not.
 - Approval by the team's managers, HR or an admin; a rejection tells the owner why.
+- Time reports by client, project, person or team, each role seeing its own scope, "who hasn't submitted", and a CSV of the entries sent in a DM (needs the `files:write` scope).
 - A billing report of approved time per client and period.
 
 ### App Home
