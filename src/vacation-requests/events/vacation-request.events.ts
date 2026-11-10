@@ -39,16 +39,17 @@ export class VacationRequestDecidedEvent {
   ) {}
 }
 
-// Nobody on the requester's team can approve the request: they are in no
-// team, or their team names no approvers besides them. It went to everyone
-// with `sentTo` (HR, else admins), or to nobody when that is null.
+// Nobody the requester's rules name can approve the request: their team, or
+// the company rules for someone in no team, name no approvers besides them.
+// It went to everyone with `sentTo` (HR, else admins), or to nobody when that
+// is null.
 export interface IApprovalFallback {
   inTeam: boolean;
   sentTo: UserRole.HR | UserRole.Admin | null;
 }
 
 // A pending request's approval workflow started. `fallback` is null when the
-// team's approvers have it.
+// approvers its rules name have it.
 export class VacationRequestSentForApprovalEvent {
   public constructor(
     public readonly request: IVacationRequestViewModel,

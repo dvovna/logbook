@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import getDaysBetweenDates from '@common/utils/get-days-between-dates';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -25,7 +25,7 @@ export interface IVacationDaysUsage {
 export class VacationPeriodUsageService {
   public constructor(
     private readonly vacationRequestsRepository: VacationRequestsRepository,
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
     private readonly vacationDaysCalculationService: VacationDaysCalculationService,
   ) {}
 
@@ -81,12 +81,11 @@ export class VacationPeriodUsageService {
       return vacation;
     }
 
-    const team = vacation.team_id
-      ? await this.teamsService.findOne({
-          id: vacation.team_id,
-          slackTeamId: vacation.slack_team_id,
-        })
-      : null;
+    // The holidays of the policy the request's team follows.
+    const { vacationPolicyId } = await this.teamRulesService.forTeam(
+      vacation.team_id,
+      vacation.slack_team_id,
+    );
 
     return {
       ...vacation,
@@ -94,7 +93,7 @@ export class VacationPeriodUsageService {
       working_days: await this.vacationDaysCalculationService.calculate(
         new Date(start),
         new Date(end),
-        team?.vacation_policy_id ?? null,
+        vacationPolicyId,
         vacation.slack_team_id,
       ),
     };

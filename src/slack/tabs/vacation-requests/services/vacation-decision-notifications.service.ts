@@ -15,7 +15,7 @@ import {
 import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { VacationRequestDecidedEvent } from '@modules/vacation-requests/events/vacation-request.events';
@@ -48,8 +48,8 @@ interface IRecipientJob extends IRequestJob {
 }
 
 // Tells the requester how their request was decided and, when it was approved,
-// the team's approval_notification_recipients. One job per message, so a
-// retry sends only the messages that failed.
+// the notification recipients of its team's rules (or of the company rules).
+// One job per message, so a retry sends only the messages that failed.
 @Injectable()
 export class VacationDecisionNotificationsService implements OnModuleInit {
   private readonly logger = new Logger(
@@ -57,7 +57,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
   );
 
   public constructor(
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
     private readonly communicationService: SlackCommunicationService,
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
@@ -246,21 +246,15 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     return `*${vacationTypeLabel(request.type)}* · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)}, ${request.working_days} working)`;
   }
 
+  // Read when the request is decided: a change to the rules since it was
+  // made counts. A request in no team has the company's recipients.
   private async recipientsOf(request: IVacationRequestViewModel) {
-    if (!request.team_id) {
-      this.logger.warn(
-        `Request ${request.id} has no team_id. Skipping approval notification.`,
-      );
+    const { notificationRecipients } = await this.teamRulesService.forTeam(
+      request.team_id,
+      request.slack_team_id,
+    );
 
-      return [];
-    }
-
-    const team = await this.teamsService.findOneWithValidation({
-      id: request.team_id,
-      slackTeamId: request.slack_team_id,
-    });
-
-    return team.approval_notification_recipients ?? [];
+    return notificationRecipients;
   }
 
   private getNotificationMessage(

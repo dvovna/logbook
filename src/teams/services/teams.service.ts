@@ -39,6 +39,9 @@ interface IFindParams {
   vacationPolicyId?: string;
   isPrimary?: boolean;
   managerApprovers?: string[];
+  // Only teams with their own rules: a team that follows the company rules
+  // may still hold values it had before, which nothing reads.
+  ownRulesOnly?: boolean;
 }
 
 interface IUpdateParams {
@@ -295,6 +298,7 @@ export default class TeamsService implements ITeamsService {
       ...(params.vacationPolicyId
         ? { vacation_policy_id: params.vacationPolicyId }
         : {}),
+      ...(params.ownRulesOnly ? { rule_set_id: null } : {}),
     };
   }
 }

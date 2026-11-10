@@ -15,6 +15,8 @@ import { ConfigService } from '@nestjs/config';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import HolidaysService from '@modules/holidays/services/holidays.service';
 import TeamsService from '@modules/teams/services/teams.service';
+import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
+import { ValidationError } from '@common/errors/validation.error';
 import EntityHasDependenciesError from '@common/errors/entity-has-dependencies.error';
 
 type IUpdateParams = {
@@ -71,6 +73,7 @@ export default class VacationPoliciesService implements IVacationPoliciesService
     private readonly teamsService: TeamsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly config: ConfigService,
+    private readonly companyRulesService: CompanyRulesService,
   ) {}
 
   public findOne(
@@ -180,9 +183,19 @@ export default class VacationPoliciesService implements IVacationPoliciesService
   public async delete(findParams: IFindParams) {
     const policy = await this.findOneWithValidation(findParams);
 
+    if (
+      await this.companyRulesService.usesPolicy(policy.id, policy.slack_team_id)
+    ) {
+      throw new ValidationError(
+        'The company rules use this policy. Choose another policy there first.',
+      );
+    }
+
+    // A team that follows the company rules doesn't use the policy it had.
     const teamsCount = await this.teamsService.count({
       slackTeamId: policy.slack_team_id,
       vacationPolicyId: policy.id,
+      ownRulesOnly: true,
     });
 
     if (teamsCount > 0) {

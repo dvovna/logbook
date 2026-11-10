@@ -17,7 +17,7 @@ interface IGetParams extends IBaseModalViewParams {
   usage: IVacationPeriodUsageData | null;
 }
 
-const NO_LIMIT_TEXT = 'No limit: the team has no vacation policy';
+const NO_LIMIT_TEXT = 'No limit: no vacation policy applies to this person';
 @Injectable()
 export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
   protected defaultCallbackId = ViewCallbackId.ViewUserVacationUsage;
@@ -99,7 +99,8 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
       usedText += ` (*${workingUsed}* working)`;
     }
 
-    // Without a team vacation policy nothing is limited.
+    // Without a vacation policy (the team's or the company rules') nothing is
+    // limited.
     let availableText = NO_LIMIT_TEXT;
 
     if (limits) {

@@ -290,7 +290,11 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
       return `📨 Your vacation request (${dates}) went to the workspace admins for approval: ${reason}.`;
     }
 
-    return `⚠️ Nobody can approve your vacation request (${dates}) yet: ${reason}, and nobody else has the HR or Admin role. It stays pending until an admin adds approvers to your team.`;
+    const until = inTeam
+      ? 'an admin adds approvers to your team'
+      : 'an admin puts you in a team or names approvers in the company rules';
+
+    return `⚠️ Nobody can approve your vacation request (${dates}) yet: ${reason}, and nobody else has the HR or Admin role. It stays pending until ${until}.`;
   }
 
   private getOverlapText(colleaguesOff: IColleagueOff[]) {

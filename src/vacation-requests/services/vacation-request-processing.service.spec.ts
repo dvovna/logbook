@@ -1,6 +1,8 @@
 import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import { VacationRequestProcessingService } from 'src/vacation-requests/services/vacation-request-processing.service';
-import TeamsService from 'src/teams/services/teams.service';
+import { TeamRulesService } from 'src/teams/services/team-rules.service';
+import { IEffectiveTeamRules } from 'src/teams/types/effective-team-rules.interface';
+import ITeamViewModel from 'src/teams/types/team.interface';
 import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
 import {
   VacationRequestCreatedEvent,
@@ -20,6 +22,21 @@ import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-
 import { TimeOffContextService } from 'src/vacation-requests/services/time-off-context.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
+
+// The rules of the requester's team, unless `fields` says otherwise.
+const rules = (
+  fields: Partial<IEffectiveTeamRules> = {},
+): IEffectiveTeamRules => ({
+  team: { id: 'team-1' } as ITeamViewModel,
+  followsCompanyRules: false,
+  managerApprovers: ['U_MANAGER'],
+  managerApproversRule: ApprovalRule.Any,
+  hrApprovers: [],
+  hrApproversRule: ApprovalRule.All,
+  notificationRecipients: [],
+  vacationPolicyId: null,
+  ...fields,
+});
 
 const buildRequest = (
   status: VacationRequestStatus,
@@ -64,7 +81,7 @@ const inlineJobs = () => {
 };
 
 describe('VacationRequestProcessingService', () => {
-  let teamsService: { findOne: jest.Mock };
+  let teamRules: { forTeam: jest.Mock };
   let workflowService: Record<'create' | 'cancel', jest.Mock>;
   let usersByRole: Partial<Record<UserRole, string[]>>;
   let eventEmitter: { emit: jest.Mock };
@@ -76,15 +93,7 @@ describe('VacationRequestProcessingService', () => {
   let service: VacationRequestProcessingService;
 
   beforeEach(() => {
-    teamsService = {
-      findOne: jest.fn().mockResolvedValue({
-        id: 'team-1',
-        manager_approvers: ['U_MANAGER'],
-        manager_approvers_rule: ApprovalRule.Any,
-        hr_approvers: [],
-        hr_approvers_rule: ApprovalRule.All,
-      }),
-    };
+    teamRules = { forTeam: jest.fn().mockResolvedValue(rules()) };
     workflowService = { create: jest.fn(), cancel: jest.fn() };
     usersByRole = {};
     usersService = {
@@ -110,7 +119,7 @@ describe('VacationRequestProcessingService', () => {
     jobs = inlineJobs();
 
     service = new VacationRequestProcessingService(
-      teamsService as unknown as TeamsService,
+      teamRules as unknown as TeamRulesService,
       workflowService as unknown as RequestWorkflowService,
       usersService as unknown as UsersService,
       eventEmitter as unknown as EventEmitter2,
@@ -177,6 +186,7 @@ describe('VacationRequestProcessingService', () => {
   it("tells the requester it went to their team's approvers", async () => {
     await onCreated(VacationRequestStatus.Pending);
 
+    expect(teamRules.forTeam).toHaveBeenCalledWith('team-1', SLACK_TEAM_ID);
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       VacationRequestEvent.SentForApproval,
       expect.objectContaining({ fallback: null }),
@@ -192,7 +202,7 @@ describe('VacationRequestProcessingService', () => {
     async (status) => {
       await onCreated(status);
 
-      expect(teamsService.findOne).not.toHaveBeenCalled();
+      expect(teamRules.forTeam).not.toHaveBeenCalled();
       expect(workflowService.create).not.toHaveBeenCalled();
     },
   );
@@ -218,6 +228,33 @@ describe('VacationRequestProcessingService', () => {
     expect(workflowService.create).not.toHaveBeenCalled();
   });
 
+  it('sends the request of someone in no team to the level 2 of the company rules', async () => {
+    teamRules.forTeam.mockResolvedValue(
+      rules({
+        team: null,
+        followsCompanyRules: true,
+        managerApprovers: [],
+        hrApprovers: ['U_HR_1', 'U_REQUESTER'],
+        hrApproversRule: ApprovalRule.All,
+      }),
+    );
+    usersByRole = { [UserRole.HR]: ['U_HR_2'] };
+
+    await onCreated(VacationRequestStatus.Pending);
+
+    expect(workflowService.create.mock.calls[0][0].levels).toEqual([
+      {
+        rule: ApprovalRule.All,
+        name: 'HR approval',
+        steps: [{ slackUserId: 'U_HR_1', stepType: 'approver' }],
+      },
+    ]);
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      VacationRequestEvent.SentForApproval,
+      expect.objectContaining({ fallback: null }),
+    );
+  });
+
   describe('when nobody on the team can approve it', () => {
     const levelsOf = () => workflowService.create.mock.calls[0][0].levels;
     const sentTo = () => {
@@ -239,13 +276,12 @@ describe('VacationRequestProcessingService', () => {
 
     beforeEach(() => {
       // The requester is the team's only approver.
-      teamsService.findOne.mockResolvedValue({
-        id: 'team-1',
-        manager_approvers: ['U_REQUESTER'],
-        manager_approvers_rule: ApprovalRule.All,
-        hr_approvers: [],
-        hr_approvers_rule: ApprovalRule.All,
-      });
+      teamRules.forTeam.mockResolvedValue(
+        rules({
+          managerApprovers: ['U_REQUESTER'],
+          managerApproversRule: ApprovalRule.All,
+        }),
+      );
     });
 
     it('sends it to anyone of HR, leaving out the requester', async () => {
@@ -270,7 +306,9 @@ describe('VacationRequestProcessingService', () => {
     });
 
     it('does the same for a requester in no team', async () => {
-      teamsService.findOne.mockResolvedValue(null);
+      teamRules.forTeam.mockResolvedValue(
+        rules({ team: null, followsCompanyRules: true, managerApprovers: [] }),
+      );
       usersByRole = { [UserRole.HR]: ['U_HR_1'] };
 
       await onCreated(VacationRequestStatus.Pending);

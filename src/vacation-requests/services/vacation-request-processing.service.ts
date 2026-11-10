@@ -15,7 +15,7 @@ import {
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { UsersService } from '@modules/users/services/users.service';
 import UserRole from '@common/enums/user-role.enum';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { WorkflowStepType } from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
   ICreateWorkflowLevelParams,
@@ -37,7 +37,7 @@ interface IStartWorkflowJob {
 @Injectable()
 export class VacationRequestProcessingService implements OnModuleInit {
   public constructor(
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
     private readonly requestWorkflowService: RequestWorkflowService,
     private readonly usersService: UsersService,
     private readonly eventEmitter: EventEmitter2,
@@ -80,12 +80,12 @@ export class VacationRequestProcessingService implements OnModuleInit {
       return;
     }
 
-    const team = request.team?.id
-      ? await this.teamsService.findOne({
-          id: request.team?.id,
-          slackTeamId: request.slack_team_id,
-        })
-      : null;
+    // The rules of the request's team, or the company rules: a team that
+    // follows them, and a person in no team, get the company's level 2.
+    const rules = await this.teamRulesService.forTeam(
+      request.team?.id,
+      request.slack_team_id,
+    );
 
     const workflow: ICreateWorkflowParams = {
       requestId: request.id,
@@ -108,25 +108,22 @@ export class VacationRequestProcessingService implements OnModuleInit {
 
     // Nobody approves their own request: a team lead who is one of the
     // team's approvers is left out of their own request's levels, and a
-    // level with no one left is skipped.
-    const notRequester = (approvers: string[] | null) =>
-      approvers?.filter((slackId) => slackId !== request.user!.slack_id) ??
-      null;
+    // level with no one left is skipped. A person in no team has no level 1.
+    const notRequester = (approvers: string[]) =>
+      approvers.filter((slackId) => slackId !== request.user!.slack_id);
 
-    const levels: ICreateWorkflowLevelParams[] = team
-      ? [
-          this.buildApproverLevel(
-            notRequester(team.manager_approvers),
-            team.manager_approvers_rule,
-            'Manager approval',
-          ),
-          this.buildApproverLevel(
-            notRequester(team.hr_approvers),
-            team.hr_approvers_rule,
-            'HR approval',
-          ),
-        ].filter((level): level is ICreateWorkflowLevelParams => level !== null)
-      : [];
+    const levels: ICreateWorkflowLevelParams[] = [
+      this.buildApproverLevel(
+        notRequester(rules.managerApprovers),
+        rules.managerApproversRule,
+        'Manager approval',
+      ),
+      this.buildApproverLevel(
+        notRequester(rules.hrApprovers),
+        rules.hrApproversRule,
+        'HR approval',
+      ),
+    ].filter((level): level is ICreateWorkflowLevelParams => level !== null);
 
     if (levels.length) {
       await this.requestWorkflowService.create({ ...workflow, levels });
@@ -139,9 +136,9 @@ export class VacationRequestProcessingService implements OnModuleInit {
       return;
     }
 
-    // Nobody on the team can approve it, so it would wait forever: it goes to
-    // HR instead, or to the admins when there is no HR, and the requester is
-    // told so.
+    // Nobody its rules name can approve it, so it would wait forever: it goes
+    // to HR instead, or to the admins when there is no HR, and the requester
+    // is told so.
     const fallback = await this.findFallbackApprovers(request);
 
     if (fallback) {
@@ -160,7 +157,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     this.eventEmitter.emit(
       VacationRequestEvent.SentForApproval,
       new VacationRequestSentForApprovalEvent(request, {
-        inTeam: Boolean(team),
+        inTeam: Boolean(rules.team),
         sentTo: fallback?.role ?? null,
       }),
     );

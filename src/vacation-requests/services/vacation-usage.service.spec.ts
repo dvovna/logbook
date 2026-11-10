@@ -1,6 +1,6 @@
 import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import { VacationPeriodUsageService } from 'src/vacation-requests/services/vacation-period-usage.service';
-import TeamsService from 'src/teams/services/teams.service';
+import { TeamRulesService } from 'src/teams/services/team-rules.service';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import UserRole from 'src/common/enums/user-role.enum';
@@ -26,7 +26,7 @@ const buildUser = (
 
 describe('VacationsUsageService', () => {
   let periodUsageService: { getPeriodUsage: jest.Mock };
-  let teamsService: { findOneWithValidation: jest.Mock };
+  let teamRules: { forTeam: jest.Mock };
   let policiesService: { findOne: jest.Mock };
   let service: VacationsUsageService;
 
@@ -43,15 +43,13 @@ describe('VacationsUsageService', () => {
         otherUsed: 0,
       }),
     };
-    teamsService = {
-      findOneWithValidation: jest
-        .fn()
-        .mockResolvedValue({ id: 'team-1', vacation_policy_id: null }),
+    teamRules = {
+      forTeam: jest.fn().mockResolvedValue({ vacationPolicyId: null }),
     };
     policiesService = { findOne: jest.fn() };
 
     service = new VacationsUsageService(
-      teamsService as unknown as TeamsService,
+      teamRules as unknown as TeamRulesService,
       periodUsageService as unknown as VacationPeriodUsageService,
       policiesService as unknown as VacationPoliciesService,
     );
@@ -73,17 +71,14 @@ describe('VacationsUsageService', () => {
     expect(result.usage.sick_leave.used).toBe(2);
   });
 
-  it('has no limits when the team has no vacation policy', async () => {
+  it('has no limits when no vacation policy applies', async () => {
     const result = await service.getCurrentVacationPeriodUsage(buildUser());
 
     expect(result.limits).toBeNull();
   });
 
-  it('takes limits from the team policy even without a contract start date', async () => {
-    teamsService.findOneWithValidation.mockResolvedValue({
-      id: 'team-1',
-      vacation_policy_id: 'policy-1',
-    });
+  it('takes limits from the policy the team follows even without a contract start date', async () => {
+    teamRules.forTeam.mockResolvedValue({ vacationPolicyId: 'policy-1' });
     policiesService.findOne.mockResolvedValue({
       vacation_days: 24,
       working_days: 20,
@@ -96,5 +91,10 @@ describe('VacationsUsageService', () => {
       expect.objectContaining({ vacationDays: 24, workingDays: 20 }),
     );
     expect(result.usage.annual_leave.available).toBe(19);
+    expect(teamRules.forTeam).toHaveBeenCalledWith('team-1', SLACK_TEAM_ID);
+    expect(policiesService.findOne).toHaveBeenCalledWith({
+      id: 'policy-1',
+      slackTeamId: SLACK_TEAM_ID,
+    });
   });
 });

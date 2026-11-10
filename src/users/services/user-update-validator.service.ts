@@ -3,6 +3,7 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import UserRole from '@common/enums/user-role.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
 
@@ -19,6 +20,7 @@ export class UserUpdateValidatorService {
   public constructor(
     private readonly usersRepository: UsersRepository,
     private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
     private readonly vacationPoliciesService: VacationPoliciesService,
   ) {}
 
@@ -79,28 +81,28 @@ export class UserUpdateValidatorService {
     userBeforeUpdate: IUserViewModel,
     params: IUpdateUserParams,
   ) {
-    // The policy of the team the user is in after the change.
+    // The policy of the team the user is in after the change, or of the
+    // company rules (a team that follows them, or no team).
     const teamId =
       params.teamId !== undefined ? params.teamId : userBeforeUpdate.team_id;
 
     if (
       !params.carryoverDays ||
-      params.carryoverDays === userBeforeUpdate.carryover_days ||
-      !teamId
+      params.carryoverDays === userBeforeUpdate.carryover_days
     ) {
       return;
     }
 
-    const team = await this.teamsService.findOne({
-      slackTeamId: userBeforeUpdate.slack_team_id,
-      id: teamId,
-    });
+    const { vacationPolicyId } = await this.teamRulesService.forTeam(
+      teamId,
+      userBeforeUpdate.slack_team_id,
+    );
 
-    if (!team?.vacation_policy_id) return;
+    if (!vacationPolicyId) return;
 
     const policy = await this.vacationPoliciesService.findOne({
       slackTeamId: userBeforeUpdate.slack_team_id,
-      id: team.vacation_policy_id,
+      id: vacationPolicyId,
     });
 
     if (!policy) return;

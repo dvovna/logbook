@@ -4,7 +4,7 @@ import VacationType from 'src/common/enums/vacation-type.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { TransactionService } from 'src/database/transaction.service';
 import ProjectsService from 'src/projects/services/projects.service';
-import TeamsService from 'src/teams/services/teams.service';
+import { TeamRulesService } from 'src/teams/services/team-rules.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { UsersService } from 'src/users/services/users.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
@@ -42,7 +42,7 @@ describe('TimeOffLoggingService', () => {
   let requests: { findOneWithValidation: jest.Mock };
   let projects: { findMany: jest.Mock };
   let users: { findOne: jest.Mock };
-  let teams: { findOne: jest.Mock };
+  let teamRules: { forTeam: jest.Mock };
   let days: { workingDates: jest.Mock };
   let entries: { findMany: jest.Mock; createForVacation: jest.Mock };
   let lock: jest.Mock;
@@ -62,8 +62,8 @@ describe('TimeOffLoggingService', () => {
       findMany: jest.fn().mockResolvedValue([{ id: 'p1', name: 'Vacations' }]),
     };
     users = { findOne: jest.fn().mockResolvedValue(user) };
-    teams = {
-      findOne: jest.fn().mockResolvedValue({ vacation_policy_id: 'v1' }),
+    teamRules = {
+      forTeam: jest.fn().mockResolvedValue({ vacationPolicyId: 'v1' }),
     };
     days = {
       workingDates: jest.fn().mockResolvedValue(['2026-06-19', '2026-06-23']),
@@ -79,7 +79,7 @@ describe('TimeOffLoggingService', () => {
       requests as unknown as VacationRequestsService,
       projects as unknown as ProjectsService,
       users as unknown as UsersService,
-      teams as unknown as TeamsService,
+      teamRules as unknown as TeamRulesService,
       days as unknown as VacationDaysCalculationService,
       entries as unknown as TimeEntriesService,
       {
@@ -89,9 +89,10 @@ describe('TimeOffLoggingService', () => {
     );
   });
 
-  it('counts the days by the requester team policy', async () => {
+  it('counts the days by the policy the requester team follows', async () => {
     await service.offerFor(request());
 
+    expect(teamRules.forTeam).toHaveBeenCalledWith('t1', SLACK_TEAM_ID);
     expect(days.workingDates).toHaveBeenCalledWith(
       new Date('2026-06-19'),
       new Date('2026-06-23'),

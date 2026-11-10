@@ -239,8 +239,8 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     const usedDays = usage.used ?? 0;
     const workingUsed = usage.working_days_used ?? 0;
 
-    // Without a team vacation policy nothing is limited: there is no balance
-    // to show, only what was taken.
+    // Without a vacation policy (the team's or the company rules') nothing is
+    // limited: there is no balance to show, only what was taken.
     if (!limits) {
       return this.unlimitedLeaveBlock(
         VACATION_TYPE_LABELS[VacationType.AnnualLeave].balance,
@@ -278,7 +278,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${title}: ${used > 0 ? `*${used}* used · ` : ''}no limit (your team has no vacation policy)`,
+        text: `${title}: ${used > 0 ? `*${used}* used · ` : ''}no limit (no vacation policy applies to you)`,
       },
     };
   }

@@ -5,7 +5,7 @@ import { getDateOnly } from '@common/utils/date.utils';
 import { sumMinutes } from '@common/utils/time.utils';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
@@ -60,7 +60,7 @@ export class TimeOffLoggingService {
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly projectsService: ProjectsService,
     private readonly usersService: UsersService,
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
     private readonly daysCalculationService: VacationDaysCalculationService,
     private readonly timeEntriesService: TimeEntriesService,
     private readonly transactions: TransactionService,
@@ -235,16 +235,15 @@ export class TimeOffLoggingService {
       return null;
     }
 
-    const team = requester.team_id
-      ? await this.teamsService.findOne({
-          id: requester.team_id,
-          slackTeamId,
-        })
-      : null;
+    // The holidays of the policy the requester's team follows.
+    const { vacationPolicyId } = await this.teamRulesService.forTeam(
+      requester.team_id,
+      slackTeamId,
+    );
     const dates = await this.daysCalculationService.workingDates(
       new Date(request.start_date),
       new Date(request.end_date),
-      team?.vacation_policy_id ?? null,
+      vacationPolicyId,
       slackTeamId,
     );
 

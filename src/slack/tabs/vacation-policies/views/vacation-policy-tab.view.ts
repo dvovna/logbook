@@ -22,7 +22,7 @@ import { ISearchResult } from '@common/types/pagination.types';
 
 interface IGetViewParams extends IBaseTabViewParams {
   policies: ISearchResult<IVacationPolicyViewModel>;
-  // The names of the teams that follow each policy.
+  // What follows each policy: "Company rules" and the names of the teams.
   teamsByPolicy: Record<string, string[]>;
 }
 

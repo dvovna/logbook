@@ -26,8 +26,11 @@ const team = (overrides: Partial<ITeamViewModel> = {}) =>
   }) as ITeamViewModel;
 
 describe('TeamRulesService', () => {
-  const setup = (found: ITeamViewModel | null) => {
-    const teamsRepository = { findOne: jest.fn().mockResolvedValue(found) };
+  const setup = (found: ITeamViewModel | null, all: ITeamViewModel[] = []) => {
+    const teamsRepository = {
+      findOne: jest.fn().mockResolvedValue(found),
+      findMany: jest.fn().mockResolvedValue(all),
+    };
     const ruleSetsRepository = {
       ensureDefault: jest.fn().mockResolvedValue(ruleSet),
     };
@@ -101,5 +104,44 @@ describe('TeamRulesService', () => {
     expect(rules.followsCompanyRules).toBe(true);
     expect(rules.managerApprovers).toEqual([]);
     expect(rules.hrApprovers).toEqual(['UHR']);
+  });
+
+  it('forAllTeams resolves each team of the workspace, reading the company rules once', async () => {
+    const following = team({ id: 'team-1' });
+    const own = team({ id: 'team-2', rule_set_id: null });
+    const { service, teamsRepository, ruleSetsRepository } = setup(null, [
+      following,
+      own,
+    ]);
+
+    const rules = await service.forAllTeams('ws-1');
+
+    expect(
+      rules.map(
+        ({ team, followsCompanyRules, hrApprovers, vacationPolicyId }) => ({
+          id: team?.id,
+          followsCompanyRules,
+          hrApprovers,
+          vacationPolicyId,
+        }),
+      ),
+    ).toEqual([
+      {
+        id: 'team-1',
+        followsCompanyRules: true,
+        hrApprovers: ['UHR'],
+        vacationPolicyId: 'policy-company',
+      },
+      {
+        id: 'team-2',
+        followsCompanyRules: false,
+        hrApprovers: ['UOWNHR'],
+        vacationPolicyId: 'policy-own',
+      },
+    ]);
+    expect(teamsRepository.findMany).toHaveBeenCalledWith({
+      slack_team_id: 'ws-1',
+    });
+    expect(ruleSetsRepository.ensureDefault).toHaveBeenCalledTimes(1);
   });
 });

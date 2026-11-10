@@ -1,5 +1,6 @@
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
+import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
 import { Injectable } from '@nestjs/common';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import { VacationPolicyModalView } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
@@ -32,6 +33,9 @@ interface IGetVacationPoliciesTabViewParams extends IPublishBaseParams {
 
 const DEFAULT_POLICIES_PAGE_SIZE = 10;
 
+// Listed with the teams that use a policy.
+const COMPANY_RULES_NAME = 'Company rules';
+
 type VacationPoliciesTabModalViewResolversMapType = {
   [VacationPoliciesTabModalName.CreatePolicy]: (
     params: IOpenModalBaseParams<string>,
@@ -51,7 +55,8 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly vacationPoliciesTabView: VacationPolicyTabView,
     private readonly confirmationModalView: ConfirmationModalView,
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
+    private readonly companyRulesService: CompanyRulesService,
   ) {
     super(TabId.VacationPolicies, {
       [VacationPoliciesTabModalName.CreatePolicy]: (params) =>
@@ -76,14 +81,19 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       orderBy: ['name:asc'],
     });
 
-    // Which teams follow each policy.
-    const teams = await this.teamsService.findMany({
-      slackTeamId: user.slack_team_id,
-    });
+    // What each policy applies to: the company rules, and each team by the
+    // policy it follows (its own, or the company rules').
+    const [companyRules, teamRules] = await Promise.all([
+      this.companyRulesService.get(user.slack_team_id),
+      this.teamRulesService.forAllTeams(user.slack_team_id),
+    ]);
     const teamsByPolicy: Record<string, string[]> = {};
-    for (const { name, vacation_policy_id } of teams) {
-      if (vacation_policy_id) {
-        (teamsByPolicy[vacation_policy_id] ??= []).push(name);
+    if (companyRules.vacation_policy_id) {
+      teamsByPolicy[companyRules.vacation_policy_id] = [COMPANY_RULES_NAME];
+    }
+    for (const { team, vacationPolicyId } of teamRules) {
+      if (team && vacationPolicyId) {
+        (teamsByPolicy[vacationPolicyId] ??= []).push(team.name);
       }
     }
 

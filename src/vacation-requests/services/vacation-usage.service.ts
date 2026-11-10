@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import { IVacationUsageByType } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import { getCurrentVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
 import { VacationPeriodUsageService } from '@modules/vacation-requests/services/vacation-period-usage.service';
@@ -31,13 +31,14 @@ interface IVacationsUsageService {
 @Injectable()
 export class VacationsUsageService implements IVacationsUsageService {
   public constructor(
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
     private readonly vacationPeriodUsageService: VacationPeriodUsageService,
     private readonly vacationPoliciesService: VacationPoliciesService,
   ) {}
 
-  // `limits` is null when the user's team has no vacation policy: usage is
-  // tracked, but nothing is enforced.
+  // `limits` is null when no vacation policy applies to the user (neither
+  // their team's nor the company rules'): usage is tracked, but nothing is
+  // enforced.
   public async getCurrentVacationPeriodUsage(
     user: IUserViewModel,
   ): Promise<IVacationPeriodUsageData> {
@@ -105,20 +106,20 @@ export class VacationsUsageService implements IVacationsUsageService {
     );
   }
 
+  // The policy of the user's team, or of the company rules for a team that
+  // follows them and for someone in no team.
   private async getVacationPolicyIfExists(user: IUserViewModel) {
-    const userTeam = user.team_id
-      ? await this.teamsService.findOneWithValidation({
-          id: user.team_id,
-          slackTeamId: user.slack_team_id,
-        })
-      : null;
+    const { vacationPolicyId } = await this.teamRulesService.forTeam(
+      user.team_id,
+      user.slack_team_id,
+    );
 
-    if (!userTeam || !userTeam.vacation_policy_id) {
+    if (!vacationPolicyId) {
       return null;
     }
 
     return this.vacationPoliciesService.findOne({
-      id: userTeam.vacation_policy_id,
+      id: vacationPolicyId,
       slackTeamId: user.slack_team_id,
     });
   }

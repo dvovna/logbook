@@ -4,7 +4,7 @@ import { VacationRequestsService } from 'src/vacation-requests/services/vacation
 import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
 import { VacationRequestsValidationService } from 'src/vacation-requests/services/vacation-requests-validation.service';
 import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
-import TeamsService from 'src/teams/services/teams.service';
+import { TeamRulesService } from 'src/teams/services/team-rules.service';
 import { UsersService } from 'src/users/services/users.service';
 import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
@@ -73,7 +73,7 @@ describe('VacationRequestsService', () => {
   >;
   let eventEmitter: { emit: jest.Mock };
   let usersService: { findOneWithValidation: jest.Mock };
-  let teamsService: { findOneWithValidation: jest.Mock };
+  let teamRules: { forTeam: jest.Mock };
   let timeEntriesService: { deleteVacationTime: jest.Mock };
   let workflowService: { closeBeforeDelete: jest.Mock };
   let service: VacationRequestsService;
@@ -110,10 +110,8 @@ describe('VacationRequestsService', () => {
     };
     eventEmitter = { emit: jest.fn() };
     usersService = { findOneWithValidation: jest.fn() };
-    teamsService = {
-      findOneWithValidation: jest
-        .fn()
-        .mockResolvedValue({ vacation_policy_id: null }),
+    teamRules = {
+      forTeam: jest.fn().mockResolvedValue({ vacationPolicyId: null }),
     };
     timeEntriesService = {
       deleteVacationTime: jest
@@ -128,7 +126,7 @@ describe('VacationRequestsService', () => {
       {
         calculate: jest.fn().mockResolvedValue(5),
       } as unknown as VacationDaysCalculationService,
-      teamsService as unknown as TeamsService,
+      teamRules as unknown as TeamRulesService,
       eventEmitter as unknown as EventEmitter2,
       usersService as unknown as UsersService,
       transactions as unknown as TransactionService,
@@ -278,10 +276,7 @@ describe('VacationRequestsService', () => {
         id: 'user-2',
         slackTeamId: SLACK_TEAM_ID,
       });
-      expect(teamsService.findOneWithValidation).toHaveBeenCalledWith({
-        id: 'team-2',
-        slackTeamId: SLACK_TEAM_ID,
-      });
+      expect(teamRules.forTeam).toHaveBeenCalledWith('team-2', SLACK_TEAM_ID);
       expect(repository.update).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ user_id: 'user-2', team_id: 'team-2' }),

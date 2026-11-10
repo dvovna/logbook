@@ -17,7 +17,7 @@ import {
   ACTIVE_REQUEST_STATUSES,
 } from '@modules/vacation-requests/services/vacation-requests-validation.service';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { UsersService } from '@modules/users/services/users.service';
 import { getDateOnly } from '@common/utils/date.utils';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
@@ -117,7 +117,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     private readonly vacationRequestsRepository: VacationRequestsRepository,
     private readonly vacationRequestsValidator: VacationRequestsValidationService,
     private readonly workingDaysCalculationService: VacationDaysCalculationService,
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
     private readonly eventEmitter: EventEmitter2,
     private readonly usersService: UsersService,
     private readonly transactions: TransactionService,
@@ -499,12 +499,10 @@ export class VacationRequestsService implements IVacationRequestsService {
     vacations: ICreateParams[],
     replacedBy: IUserViewModel,
   ) {
-    const userTeam = user.team_id
-      ? await this.teamsService.findOne({
-          id: user.team_id,
-          slackTeamId: replacedBy.slack_team_id,
-        })
-      : null;
+    const { vacationPolicyId } = await this.teamRulesService.forTeam(
+      user.team_id,
+      replacedBy.slack_team_id,
+    );
 
     const vacationRecords = await Promise.all(
       vacations.map(async (vacation) => ({
@@ -514,7 +512,7 @@ export class VacationRequestsService implements IVacationRequestsService {
         working_days: await this.workingDaysCalculationService.calculate(
           vacation.startDate,
           vacation.endDate,
-          userTeam?.vacation_policy_id || null,
+          vacationPolicyId,
           user.slack_team_id,
         ),
         type: vacation.type,
@@ -616,17 +614,15 @@ export class VacationRequestsService implements IVacationRequestsService {
     teamId: string | null | undefined,
     user: IUserViewModel,
   ) {
-    const team = teamId
-      ? await this.teamsService.findOneWithValidation({
-          id: teamId,
-          slackTeamId: user.slack_team_id,
-        })
-      : null;
+    const { vacationPolicyId } = await this.teamRulesService.forTeam(
+      teamId,
+      user.slack_team_id,
+    );
 
     return this.workingDaysCalculationService.calculate(
       startDate,
       endDate,
-      team?.vacation_policy_id || null,
+      vacationPolicyId,
       user.slack_team_id,
     );
   }

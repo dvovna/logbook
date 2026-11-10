@@ -9,7 +9,7 @@ import {
   VacationDecisionNotificationsService,
 } from 'src/slack/tabs/vacation-requests/services/vacation-decision-notifications.service';
 import { TimeOffOfferService } from 'src/slack/tabs/vacation-requests/services/time-off-offer.service';
-import TeamsService from 'src/teams/services/teams.service';
+import { TeamRulesService } from 'src/teams/services/team-rules.service';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
 import { UsersService } from 'src/users/services/users.service';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
@@ -49,7 +49,7 @@ describe('VacationDecisionNotificationsService', () => {
       .mockImplementation(() => undefined);
 
     new VacationDecisionNotificationsService(
-      {} as TeamsService,
+      {} as TeamRulesService,
       { postMessage } as unknown as SlackCommunicationService,
       {
         findOne: jest.fn().mockResolvedValue(approved),

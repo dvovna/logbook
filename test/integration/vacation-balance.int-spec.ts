@@ -87,7 +87,7 @@ describe('Vacation balance under a policy', () => {
       ]);
     });
 
-    it('says there is no limit when the team has no policy', async () => {
+    it('says there is no limit when no policy applies', async () => {
       member = await workspace.addUser({ role: UserRole.Member });
       await workspace.addVacationRequest(member, {
         start_date: '2026-03-02',
@@ -97,7 +97,7 @@ describe('Vacation balance under a policy', () => {
       });
 
       expect(await usageOnHome()).toEqual([
-        'Annual leave: *5* used · no limit (your team has no vacation policy)',
+        'Annual leave: *5* used · no limit (no vacation policy applies to you)',
       ]);
     });
 
