@@ -53,7 +53,7 @@ describe('Navigation', () => {
         await openAppHomeTab(t, workspace, member),
         HEADER_BLOCK_IDS.navigation,
       ),
-    ).toEqual(['[🏠 Home]', '🕒 My time', '🌴 Time off']);
+    ).toEqual(['[🏠 Home]', '🕒 My time', '🌴 Time off', '📊 Reports']);
     expect(
       rowOf(
         await openAppHomeTab(t, workspace, manager, [

@@ -78,11 +78,12 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     tabId: TabId.Users,
     actionId: NavigationActionId.People,
   },
-  // Managers see their teams' week; the billing report and everyone's time
-  // are for Admin and HR.
+  // Time reports for everyone, each of their own scope (a member's own time,
+  // a manager's teams); the billing report and everyone's time logs are for
+  // Admin and HR.
   [ScreenId.Reports]: {
     title: '📊 Reports',
-    roles: MANAGER_ROLES,
+    roles: ALL_ROLES,
     tabId: TabId.Reports,
     actionId: NavigationActionId.Reports,
   },

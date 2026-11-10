@@ -133,6 +133,7 @@ describe('BaseTabService', () => {
       NavigationActionId.Home,
       NavigationActionId.MyTime,
       NavigationActionId.TimeOff,
+      NavigationActionId.Reports,
     ]);
   });
 

@@ -72,6 +72,9 @@ export enum ViewCallbackId {
   // billing-reports
   BillingReportFormSubmit = 'billing_report_form_submit',
 
+  // time reports
+  TimeReportFormSubmit = 'time_report_form_submit',
+
   // clients
   ClientsTabView = 'clients_tab_view',
   ClientFormSubmit = 'client_form_submit',

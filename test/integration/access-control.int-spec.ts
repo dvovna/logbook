@@ -88,7 +88,6 @@ describe('Access control', () => {
       NavigationActionId.Clients,
       NavigationActionId.Projects,
       NavigationActionId.Approvals,
-      NavigationActionId.Reports,
       NavigationActionId.TimeLogs,
       NavigationActionId.Settings,
     ])('sends a member who asks for %s back to their Home', async (action) => {
@@ -120,6 +119,7 @@ describe('Access control', () => {
           NavigationActionId.Home,
           NavigationActionId.MyTime,
           NavigationActionId.TimeOff,
+          NavigationActionId.Reports,
         ],
       ],
       [
