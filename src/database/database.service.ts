@@ -42,7 +42,10 @@ export class DatabaseService implements OnApplicationShutdown {
       application_name: 'logbook',
       types: POSTGREST_COMPATIBLE_TYPES,
       idleTimeoutMillis: IDLE_CONNECTION_MS,
+      // TCP keepalive on an idle connection after 30 s (the OS waits 2
+      // hours): a network that dropped it shows before a query needs it.
       keepAlive: true,
+      keepAliveInitialDelayMillis: 30_000,
     });
 
     // An idle connection the server or the network closed: the pool drops
