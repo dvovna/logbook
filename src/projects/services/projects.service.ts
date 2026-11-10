@@ -86,6 +86,12 @@ export default class ProjectsService implements IProjectsService {
     return this.projectsRepository.findMany(this.getFindQuery(params));
   }
 
+  // Every project of the workspace, archived ones too, with its client's
+  // name: one query instead of the projects' and the clients'.
+  public findAllWithClientNames(slackTeamId: string) {
+    return this.projectsRepository.findAllWithClientNames(slackTeamId);
+  }
+
   public async findOne(params: IFindParams) {
     return this.projectsRepository.findOne(this.getFindQuery(params));
   }

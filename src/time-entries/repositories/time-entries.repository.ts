@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { sql } from 'kysely';
 import {
   IRelation,
   BaseRepository,
 } from '@common/repositories/base.repository';
-import { SqlRow } from '@common/types/sql-database.types';
+import { SqlRow, SqlUpdate } from '@common/types/sql-database.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 
@@ -104,6 +105,79 @@ export class TimeEntriesRepository extends BaseRepository<
       .orderBy('work_date', 'desc')
       .orderBy('created_at', 'desc')
       .execute();
+  }
+
+  // The user's entries between two days that aren't deleted, cancelled ones
+  // included, and which of them a billing snapshot holds, in one statement.
+  // Without the relations (user, team, client, project), in findMany's
+  // order.
+  public async findOfUserWithBilled(
+    slackTeamId: string,
+    {
+      userId,
+      dateFrom,
+      dateTo,
+    }: { userId: string; dateFrom: string; dateTo: string },
+  ): Promise<{ entries: ITimeEntryViewModel[]; billedIds: Set<string> }> {
+    const rows = await this.selectInWorkspace(slackTeamId)
+      .selectAll()
+      .select((eb) =>
+        eb
+          .exists(
+            eb
+              .selectFrom('billing_snapshot_entries')
+              .select('billing_snapshot_entries.time_entry_id')
+              .where('billing_snapshot_entries.slack_team_id', '=', slackTeamId)
+              .whereRef(
+                'billing_snapshot_entries.time_entry_id',
+                '=',
+                'time_entries.id',
+              ),
+          )
+          .as('billed'),
+      )
+      .where('user_id', '=', userId)
+      .where('deleted_at', 'is', null)
+      .where('work_date', '>=', dateFrom)
+      .where('work_date', '<=', dateTo)
+      .orderBy('created_at', 'desc')
+      .orderBy('id')
+      .execute();
+
+    return {
+      entries: rows.map((row) => this.toViewModel(row)),
+      billedIds: new Set(rows.filter((row) => row.billed).map(({ id }) => id)),
+    };
+  }
+
+  // Gives each entry of `minutesById` its minutes, and all of them
+  // `changes`, in one statement, but only those still not deleted and, with
+  // `statuses`, in one of them. Returns the IDs it changed.
+  public async setMinutes(
+    slackTeamId: string,
+    minutesById: Map<string, number>,
+    changes: SqlUpdate<'time_entries'>,
+    statuses?: TimeEntryStatus[],
+  ): Promise<string[]> {
+    if (!minutesById.size) {
+      return [];
+    }
+
+    const minutes = sql<number>`case ${sql.join(
+      [...minutesById].map(
+        ([id, value]) => sql`when id = ${id} then ${value}::integer`,
+      ),
+      sql` `,
+    )} end`;
+    const rows = await this.updateInWorkspace(slackTeamId)
+      .set({ ...changes, minutes })
+      .where('id', 'in', [...minutesById.keys()])
+      .where('deleted_at', 'is', null)
+      .$if(!!statuses, (query) => query.where('status', 'in', statuses!))
+      .returning('id')
+      .execute();
+
+    return rows.map(({ id }) => id);
   }
 
   // Which of the entries are in a billing snapshot, and so can't change

@@ -171,14 +171,11 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     errorMessage,
     metadata,
   }: ITimesheetFormModalParams) {
-    const [week, projects] = await Promise.all([
-      this.timesheetService.getFormRows(
-        user,
-        metadata.weekStart,
-        metadata.addedProjectIds,
-      ),
-      this.timesheetService.allowedProjects(user),
-    ]);
+    const { week, projects } = await this.timesheetService.getForm(
+      user,
+      metadata.weekStart,
+      metadata.addedProjectIds,
+    );
 
     return this.timesheetFormModalView.getView(
       { mode: metadata.mode, week, projects, errorMessage },

@@ -119,8 +119,8 @@ export class TimeEntriesService {
     return created;
   }
 
-  // Writes a new entry the caller has checked (create(), the timesheet). It
-  // takes its client and billability from its project.
+  // Writes a new entry the caller has checked (create()). It takes its
+  // client and billability from its project.
   public insert(
     params: ICreateParams,
     project: IEntryProject,
@@ -128,6 +128,17 @@ export class TimeEntriesService {
   ): Promise<ITimeEntryViewModel> {
     return this.timeEntriesRepository.create(
       this.newRow(params, project, actor),
+    );
+  }
+
+  // Writes new entries the caller has checked (the timesheet) in one insert,
+  // as insert() does one.
+  public insertMany(
+    entries: { params: ICreateParams; project: IEntryProject }[],
+    actor: IEntryActor,
+  ): Promise<ITimeEntryViewModel[]> {
+    return this.timeEntriesRepository.createMany(
+      entries.map(({ params, project }) => this.newRow(params, project, actor)),
     );
   }
 
@@ -274,8 +285,7 @@ export class TimeEntriesService {
       this.timeEntriesRepository.updateMany(
         this.unchangedSinceCheck(entry, openOnly),
         {
-          ...(changes.userId !== undefined ? { user_id: changes.userId } : {}),
-          ...(changes.teamId !== undefined ? { team_id: changes.teamId } : {}),
+          ...this.changedColumns(changes, actor),
           ...(project
             ? {
                 project_id: project.id,
@@ -283,23 +293,6 @@ export class TimeEntriesService {
                 billable: project.billable,
               }
             : {}),
-          ...(changes.workDate !== undefined
-            ? { work_date: changes.workDate.toISOString() }
-            : {}),
-          ...(changes.minutes !== undefined
-            ? { minutes: changes.minutes }
-            : {}),
-          ...(changes.description !== undefined
-            ? { description: changes.description }
-            : {}),
-          ...(changes.status !== undefined ? { status: changes.status } : {}),
-          // A changed entry is no longer the one that was rejected.
-          ...(changes.status !== undefined &&
-          changes.status !== TimeEntryStatus.Rejected
-            ? { rejection_reason: null }
-            : {}),
-          updated_at: new Date().toISOString(),
-          updated_by: actor.id,
         },
       ),
     );
@@ -309,6 +302,53 @@ export class TimeEntriesService {
     }
 
     return updated;
+  }
+
+  // Gives entries the caller read and checked their new minutes (by ID), and
+  // all of them `changes`, in one statement, as writeUpdate does one. Returns
+  // the IDs it left alone because the entry changed since: the caller throws
+  // and its transaction undoes the rest.
+  public async writeMinutes(
+    minutesById: Map<string, number>,
+    changes: Pick<IUpdateParams, 'description' | 'status'>,
+    actor: IUserViewModel,
+    { openOnly = !isTimeEntriesAdmin(actor.role) }: IWriteOptions = {},
+  ): Promise<string[]> {
+    const written = new Set(
+      await this.refusingBilled(() =>
+        this.timeEntriesRepository.setMinutes(
+          actor.slack_team_id,
+          minutesById,
+          this.changedColumns(changes, actor),
+          openOnly ? OPEN_TIME_ENTRY_STATUSES : undefined,
+        ),
+      ),
+    );
+
+    return [...minutesById.keys()].filter((id) => !written.has(id));
+  }
+
+  // The columns an update writes.
+  private changedColumns(changes: IUpdateParams, actor: IEntryActor) {
+    return {
+      ...(changes.userId !== undefined ? { user_id: changes.userId } : {}),
+      ...(changes.teamId !== undefined ? { team_id: changes.teamId } : {}),
+      ...(changes.workDate !== undefined
+        ? { work_date: changes.workDate.toISOString() }
+        : {}),
+      ...(changes.minutes !== undefined ? { minutes: changes.minutes } : {}),
+      ...(changes.description !== undefined
+        ? { description: changes.description }
+        : {}),
+      ...(changes.status !== undefined ? { status: changes.status } : {}),
+      // A changed entry is no longer the one that was rejected.
+      ...(changes.status !== undefined &&
+      changes.status !== TimeEntryStatus.Rejected
+        ? { rejection_reason: null }
+        : {}),
+      updated_at: new Date().toISOString(),
+      updated_by: actor.id,
+    };
   }
 
   // Deletes `entry` (keeping it as history), which the caller read and
@@ -331,6 +371,40 @@ export class TimeEntriesService {
     if (!deleted) {
       throw new TimeEntryChangedError();
     }
+  }
+
+  // Deletes entries the caller read and checked (keeping them as history) in
+  // one statement, as writeDelete does one. Returns the IDs it left alone
+  // because the entry changed since.
+  public async writeDeletes(
+    entries: ITimeEntryViewModel[],
+    actor: IUserViewModel,
+    { openOnly = !isTimeEntriesAdmin(actor.role) }: IWriteOptions = {},
+  ): Promise<string[]> {
+    if (!entries.length) {
+      return [];
+    }
+
+    const ids = entries.map(({ id }) => id);
+    const deleted = await this.refusingBilled(() =>
+      this.timeEntriesRepository.updateMany(
+        {
+          id: { operator: 'in', value: ids },
+          slack_team_id: actor.slack_team_id,
+          deleted_at: { operator: 'is', value: null },
+          ...(openOnly
+            ? { status: { operator: 'in', value: OPEN_TIME_ENTRY_STATUSES } }
+            : {}),
+        },
+        {
+          deleted_at: new Date().toISOString(),
+          deleted_by: actor.id,
+        },
+      ),
+    );
+    const written = new Set(deleted.map(({ id }) => id));
+
+    return ids.filter((id) => !written.has(id));
   }
 
   // Deletes the time logged from a vacation (keeping it as history) when the
@@ -484,6 +558,20 @@ export class TimeEntriesService {
   // Which of the entries are in a billing snapshot (locked).
   public findBilledIds(slackTeamId: string, ids: string[]) {
     return this.timeEntriesRepository.findBilledIds(slackTeamId, ids);
+  }
+
+  // The user's entries between two days, cancelled ones included, without
+  // their relations, and which of them are billed: in one query.
+  public findOfUserWithBilled(params: {
+    userId: string;
+    slackTeamId: string;
+    dateFrom: string;
+    dateTo: string;
+  }) {
+    return this.timeEntriesRepository.findOfUserWithBilled(
+      params.slackTeamId,
+      params,
+    );
   }
 
   public count(params: IFindParams): Promise<number> {

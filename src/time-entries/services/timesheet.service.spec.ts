@@ -1,6 +1,5 @@
 import UserRole from 'src/common/enums/user-role.enum';
 import { weekDays, weekStartOf } from 'src/common/utils/period-presets';
-import ClientsService from 'src/clients/services/clients.service';
 import { GetUserProjectsQuery } from 'src/projects/queries/get-user-projects.query';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
@@ -11,6 +10,7 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { cellKey } from 'src/time-entries/types/timesheet.types';
 import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-changed.error';
 import { TransactionService } from 'src/database/transaction.service';
+import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { IUserViewModel } from 'src/users/types/user.interface';
 
 const WEEK = '2026-06-15';
@@ -66,16 +66,21 @@ describe('TimesheetService', () => {
     service = new TimesheetService(
       {
         findMany,
-        findBilledIds: jest.fn(async () => billed),
+        findOfUserWithBilled: jest.fn(async ({ dateFrom, dateTo }) => ({
+          entries: entries.filter(
+            (item) => item.work_date >= dateFrom && item.work_date <= dateTo,
+          ),
+          billedIds: billed,
+        })),
       } as unknown as TimeEntriesService,
       {
-        findMany: jest.fn(async ({ includeArchived }) =>
-          projects.filter((item) => includeArchived || !item.archived_at),
+        findAllWithClientNames: jest.fn(async () =>
+          projects.map((item) => ({
+            ...item,
+            client_name: item.client_id === 'acme' ? 'Acme' : null,
+          })),
         ),
       } as unknown as ProjectsService,
-      {
-        findMany: jest.fn(async () => [{ id: 'acme', name: 'Acme' }]),
-      } as unknown as ClientsService,
       {
         execute: jest.fn(async () => userProjects),
       } as unknown as GetUserProjectsQuery,
@@ -83,6 +88,12 @@ describe('TimesheetService', () => {
       {} as TransactionService,
     );
   });
+
+  const formRows = async (
+    user: IUserViewModel,
+    weekStart: string,
+    added: string[],
+  ) => (await service.getForm(user, weekStart, added)).week;
 
   const wednesdayCell = async () => {
     const week = await service.getWeek(userWith(UserRole.Member), WEEK);
@@ -180,23 +191,20 @@ describe('TimesheetService', () => {
       entry('e-old', 'old', 60, { work_date: '2026-05-11' }),
     ];
 
-    const week = await service.getFormRows(userWith(UserRole.Member), WEEK, [
-      'foreign',
-    ]);
+    const week = await formRows(userWith(UserRole.Member), WEEK, ['foreign']);
 
     expect(week.rows).toHaveLength(10);
-    const ofRecent = await service.getFormRows(
-      userWith(UserRole.Member),
-      WEEK,
-      ['new', 'foreign'],
-    );
+    const ofRecent = await formRows(userWith(UserRole.Member), WEEK, [
+      'new',
+      'foreign',
+    ]);
     const projectIds = ofRecent.rows.map((row) => row.projectId);
 
     expect(projectIds).not.toContain('foreign');
     expect(projectIds).not.toContain('old');
 
     entries = [entry('e1', 'p00', 60)];
-    const few = await service.getFormRows(userWith(UserRole.Member), WEEK, [
+    const few = await formRows(userWith(UserRole.Member), WEEK, [
       'new',
       'foreign',
     ]);
@@ -224,9 +232,7 @@ describe('TimesheetService', () => {
       entry('e-p11', 'p11', 60),
     ];
 
-    const week = await service.getFormRows(userWith(UserRole.Member), WEEK, [
-      'new',
-    ]);
+    const week = await formRows(userWith(UserRole.Member), WEEK, ['new']);
 
     expect(week.rows.map((row) => row.projectId)).toEqual([
       'new',
@@ -257,7 +263,7 @@ describe('TimesheetService', () => {
       entry('e-closed', 'closed', 60),
     ];
 
-    const week = await service.getFormRows(userWith(UserRole.Member), WEEK, []);
+    const week = await formRows(userWith(UserRole.Member), WEEK, []);
 
     expect(week.rows.map((row) => row.projectId)).toEqual(['closed', 'web']);
     expect(week.rows[0].cells[2]).toMatchObject({
@@ -269,7 +275,7 @@ describe('TimesheetService', () => {
   it('keeps a project from 4 weeks before the shown one', async () => {
     entries = [entry('e', 'web', 60, { work_date: '2026-05-18' })];
 
-    const week = await service.getFormRows(userWith(UserRole.Member), WEEK, []);
+    const week = await formRows(userWith(UserRole.Member), WEEK, []);
 
     expect(week.rows.map((row) => row.projectId)).toEqual(['web']);
     expect(week.total).toBe(0);
@@ -316,68 +322,68 @@ describe('TimesheetService', () => {
 
 describe('TimesheetService.saveCells', () => {
   let entries: ITimeEntryViewModel[];
-  let writes: Record<'insert' | 'writeUpdate' | 'writeDelete', jest.Mock>;
+  let writes: Record<'insertMany' | 'writeMinutes' | 'writeDeletes', jest.Mock>;
   let validation: Record<
-    'validateCreate' | 'validateUpdate' | 'validateDelete',
+    'checkCreate' | 'checkUpdate' | 'checkDelete' | 'checkDailyTotal',
     jest.Mock
   >;
   let lock: jest.Mock;
   let service: TimesheetService;
   const member = userWith(UserRole.Member);
 
-  beforeEach(() => {
-    entries = [];
-    lock = jest.fn(async () => undefined);
-    writes = {
-      insert: jest.fn(async (params) => {
-        const created = entry(
-          `new-${entries.length}`,
-          params.projectId,
-          params.minutes,
-          { work_date: params.workDate.toISOString().slice(0, 10) },
-        );
-
-        entries.push(created);
-
-        return created;
-      }),
-      writeUpdate: jest.fn(async (item) => item),
-      writeDelete: jest.fn(async () => undefined),
-    };
-    validation = {
-      validateCreate: jest.fn(async () => undefined),
-      validateUpdate: jest.fn(async () => undefined),
-      validateDelete: jest.fn(async () => undefined),
-    };
-    service = new TimesheetService(
+  const serviceWith = (validationService: TimeEntriesValidationService) =>
+    new TimesheetService(
       {
-        findMany: jest.fn(async ({ dateFrom, dateTo }) =>
-          entries.filter(
+        findOfUserWithBilled: jest.fn(async ({ dateFrom, dateTo }) => ({
+          entries: entries.filter(
             (item) => item.work_date >= dateFrom && item.work_date <= dateTo,
           ),
-        ),
-        findBilledIds: jest.fn(async () => new Set()),
+          billedIds: new Set(),
+        })),
         submit: jest.fn(async () => []),
         ...writes,
       } as unknown as TimeEntriesService,
       {
-        findMany: jest.fn(async () => [project('web')]),
+        findAllWithClientNames: jest.fn(async () => [
+          { ...project('web'), client_name: null },
+        ]),
       } as unknown as ProjectsService,
-      {
-        findMany: jest.fn(async () => []),
-      } as unknown as ClientsService,
       {
         execute: jest.fn(async () => [
           { id: 'web', name: 'Project web', clientName: '' },
         ]),
       } as unknown as GetUserProjectsQuery,
-      validation as unknown as TimeEntriesValidationService,
+      validationService,
       {
         transaction: async <T>(work: () => Promise<T>) => work(),
         lock,
       } as unknown as TransactionService,
     );
+
+  beforeEach(() => {
+    entries = [];
+    lock = jest.fn(async () => undefined);
+    writes = {
+      insertMany: jest.fn(async () => []),
+      writeMinutes: jest.fn(async () => []),
+      writeDeletes: jest.fn(async () => []),
+    };
+    validation = {
+      checkCreate: jest.fn(),
+      checkUpdate: jest.fn(),
+      checkDelete: jest.fn(),
+      checkDailyTotal: jest.fn(),
+    };
+    service = serviceWith(
+      validation as unknown as TimeEntriesValidationService,
+    );
   });
+
+  const expectNothingWritten = () => {
+    expect(writes.insertMany).not.toHaveBeenCalled();
+    expect(writes.writeMinutes).not.toHaveBeenCalled();
+    expect(writes.writeDeletes).not.toHaveBeenCalled();
+  };
 
   it('throws at the first bad cell and writes nothing', async () => {
     entries = [entry('s', 'web', 60, { status: TimeEntryStatus.Submitted })];
@@ -392,9 +398,7 @@ describe('TimesheetService.saveCells', () => {
       message: 'Submitted time entries cannot be edited',
       field: cellKey('web', WEDNESDAY),
     });
-    expect(writes.insert).not.toHaveBeenCalled();
-    expect(writes.writeUpdate).not.toHaveBeenCalled();
-    expect(writes.writeDelete).not.toHaveBeenCalled();
+    expectNothingWritten();
   });
 
   it('skips untouched cells', async () => {
@@ -407,20 +411,24 @@ describe('TimesheetService.saveCells', () => {
       { projectId: 'web', date: TUESDAY, minutes: 90, shownMinutes: null },
     ]);
 
-    expect(writes.insert).toHaveBeenCalledTimes(1);
-    expect(writes.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'me',
-        projectId: 'web',
-        workDate: new Date(`${TUESDAY}T00:00:00Z`),
-        minutes: 90,
-        status: TimeEntryStatus.Draft,
-      }),
-      { id: 'web', client_id: null, billable: true },
+    expect(writes.insertMany).toHaveBeenCalledTimes(1);
+    expect(writes.insertMany).toHaveBeenCalledWith(
+      [
+        {
+          params: expect.objectContaining({
+            userId: 'me',
+            projectId: 'web',
+            workDate: new Date(`${TUESDAY}T00:00:00Z`),
+            minutes: 90,
+            status: TimeEntryStatus.Draft,
+          }),
+          project: { id: 'web', client_id: null, billable: true },
+        },
+      ],
       member,
     );
-    expect(validation.validateCreate).toHaveBeenCalledTimes(1);
-    expect(writes.writeUpdate).not.toHaveBeenCalled();
+    expect(validation.checkCreate).toHaveBeenCalledTimes(1);
+    expect(writes.writeMinutes).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 1,
       updated: 0,
@@ -431,6 +439,44 @@ describe('TimesheetService.saveCells', () => {
         [WEDNESDAY]: 60,
         [MONDAY]: 0,
       }),
+    });
+  });
+
+  it('writes the new, changed and deleted entries in one statement each', async () => {
+    entries = [
+      entry('changed', 'web', 60, { work_date: MONDAY }),
+      entry('rejected', 'web', 60, {
+        work_date: TUESDAY,
+        status: TimeEntryStatus.Rejected,
+      }),
+      entry('gone', 'web', 120),
+    ];
+
+    const result = await service.saveCells(member, [
+      { projectId: 'web', date: MONDAY, minutes: 120, shownMinutes: 60 },
+      { projectId: 'web', date: TUESDAY, minutes: 30, shownMinutes: 60 },
+      { projectId: 'web', date: WEDNESDAY, minutes: null, shownMinutes: 120 },
+      { projectId: 'web', date: '2026-06-18', minutes: 45, shownMinutes: null },
+    ]);
+
+    expect(writes.insertMany).toHaveBeenCalledTimes(1);
+    expect(writes.writeMinutes).toHaveBeenCalledWith(
+      new Map([
+        ['changed', 120],
+        ['rejected', 30],
+      ]),
+      { status: TimeEntryStatus.Draft },
+      member,
+      { openOnly: true },
+    );
+    expect(writes.writeDeletes).toHaveBeenCalledWith([entries[2]], member, {
+      openOnly: true,
+    });
+    expect(result).toMatchObject({
+      created: 1,
+      updated: 2,
+      deleted: 1,
+      minutes: 195,
     });
   });
 
@@ -451,9 +497,7 @@ describe('TimesheetService.saveCells', () => {
         'The comment goes on the entries whose hours you add or change: nothing changed.',
       field: 'comment',
     });
-    expect(writes.insert).not.toHaveBeenCalled();
-    expect(writes.writeUpdate).not.toHaveBeenCalled();
-    expect(writes.writeDelete).not.toHaveBeenCalled();
+    expectNothingWritten();
   });
 
   it("saves under the lock of the user's time", async () => {
@@ -466,7 +510,7 @@ describe('TimesheetService.saveCells', () => {
 
   it('refuses a cell whose entry was submitted between the check and the write', async () => {
     entries = [entry('d', 'web', 60)];
-    writes.writeUpdate.mockRejectedValue(new TimeEntryChangedError());
+    writes.writeMinutes.mockResolvedValue(['d']);
 
     await expect(
       service.saveCells(member, [
@@ -477,12 +521,40 @@ describe('TimesheetService.saveCells', () => {
       field: cellKey('web', WEDNESDAY),
     });
     // Only while it is still a draft or rejected, whatever the role.
-    expect(writes.writeUpdate).toHaveBeenCalledWith(
-      entries[0],
-      { minutes: 120, status: TimeEntryStatus.Draft },
+    expect(writes.writeMinutes).toHaveBeenCalledWith(
+      new Map([['d', 120]]),
+      { status: TimeEntryStatus.Draft },
       member,
       { openOnly: true },
     );
+  });
+
+  it("counts the cell's cancelled time in the 24 hours, and not the entry it changes", async () => {
+    service = serviceWith(
+      new TimeEntriesValidationService({} as TimeEntriesRepository),
+    );
+    entries = [
+      entry('cancelled', 'web', 600, {
+        status: TimeEntryStatus.Cancelled,
+        user_id: 'me',
+      }),
+      entry('d', 'web', 600, { user_id: 'me' }),
+    ];
+
+    // 10h cancelled + 14h: the whole day, with the draft's 10h replaced.
+    await service.saveCells(member, [
+      { projectId: 'web', date: WEDNESDAY, minutes: 840, shownMinutes: 600 },
+    ]);
+
+    await expect(
+      service.saveCells(member, [
+        { projectId: 'web', date: WEDNESDAY, minutes: 855, shownMinutes: 600 },
+      ]),
+    ).rejects.toMatchObject({
+      message:
+        'Total logged time for this project and date cannot exceed 24 hours',
+      field: cellKey('web', WEDNESDAY),
+    });
   });
 });
 
