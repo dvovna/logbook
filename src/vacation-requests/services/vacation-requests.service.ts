@@ -39,6 +39,7 @@ import {
   vacationTimeLock,
 } from '@modules/vacation-requests/utils/vacation-time.utils';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
+import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 
 interface ICreateParams {
   userId: string;
@@ -113,6 +114,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     private readonly usersService: UsersService,
     private readonly transactions: TransactionService,
     private readonly timeEntriesService: TimeEntriesService,
+    private readonly requestWorkflowService: RequestWorkflowService,
   ) {}
 
   public async create(createParams: ICreateParams, user: IUserViewModel) {
@@ -405,8 +407,8 @@ export class VacationRequestsService implements IVacationRequestsService {
     });
   }
 
-  // Removes the time logged from the request too, but for billed days, in
-  // one transaction.
+  // Removes the time logged from the request too, but for billed days, and
+  // closes its approvals, in one transaction.
   public async delete(
     findParams: IFindParams,
     user: IUserViewModel,
@@ -423,6 +425,11 @@ export class VacationRequestsService implements IVacationRequestsService {
         user,
       );
 
+      // Its approval workflow is deleted with it; the approvers' messages lose
+      // their buttons, as on a cancel, once the delete has committed. The
+      // workflow's lock comes after the request's (vacationTimeLock), and
+      // nothing that holds it takes the request's.
+      await this.requestWorkflowService.closeBeforeDelete(request.id, user);
       await this.vacationRequestsRepository.deleteMany(
         this.getFindQuery(findParams),
       );
@@ -477,7 +484,8 @@ export class VacationRequestsService implements IVacationRequestsService {
   }
 
   // The user's vacations become `vacations`, in one transaction: when the
-  // database refuses one of them, the user keeps what they had.
+  // database refuses one of them, the user keeps what they had, and the
+  // approvals of their pending requests stay open.
   public async replaceUserVacations(
     user: IUserViewModel,
     vacations: ICreateParams[],
@@ -512,6 +520,18 @@ export class VacationRequestsService implements IVacationRequestsService {
     const owner = { slack_team_id: replacedBy.slack_team_id, user_id: user.id };
 
     return this.transactions.transaction(async () => {
+      // As on Delete Request, the approvers of a pending request see their
+      // message without buttons once the import has committed.
+      const pending = await this.findMany({
+        userId: user.id,
+        slackTeamId: replacedBy.slack_team_id,
+        statuses: [VacationRequestStatus.Pending],
+      });
+
+      for (const { id } of pending) {
+        await this.requestWorkflowService.closeBeforeDelete(id, replacedBy);
+      }
+
       await this.vacationRequestsRepository.deleteMany(owner);
 
       return this.vacationRequestsRepository.createMany(

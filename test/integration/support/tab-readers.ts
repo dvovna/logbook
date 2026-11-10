@@ -89,8 +89,9 @@ export const sectionTexts = (view: View): string[] =>
     .filter((block) => block.type === 'section' && block.text)
     .map((block) => block.text.text);
 
-// The action_ids of every interactive element: buttons, menus, selects.
-export const actionIdsOf = (view: View): string[] =>
+// The action_ids of every interactive element: buttons, menus, selects. Of a
+// view, or of a message the app sent.
+export const actionIdsOf = (view: View | { blocks?: unknown[] }): string[] =>
   blocksOf(view).flatMap((block) =>
     [
       ...(block.elements ?? []),

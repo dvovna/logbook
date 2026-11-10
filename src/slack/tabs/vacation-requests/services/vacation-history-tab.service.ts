@@ -39,7 +39,7 @@ type HistoryTabModalViewResolversMapType = {
     params: IViewVacationRequestModalViewParams,
   ) => Promise<View>;
   [HistoryTabModalName.RequestTimeOff]: (
-    params: IOpenModalBaseParams,
+    params: IOpenModalBaseParams<string>,
   ) => Promise<View>;
 };
 
@@ -59,11 +59,16 @@ export class VacationHistoryTabService extends BaseTabService<
     super(TabId.TimeOff, {
       [HistoryTabModalName.ViewRequestDetails]: (params) =>
         this.getViewRequestDetailsModal(params),
-      [HistoryTabModalName.RequestTimeOff]: ({ user, errorMessage }) =>
+      [HistoryTabModalName.RequestTimeOff]: ({
+        user,
+        errorMessage,
+        pageMetadata,
+      }) =>
         this.vacationRequestModalService.getModal({
           user,
           errorMessage,
           callbackId: ViewCallbackId.UserVacationRequest,
+          pageMetadata,
         }),
     });
   }

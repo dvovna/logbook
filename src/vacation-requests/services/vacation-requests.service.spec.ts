@@ -6,6 +6,7 @@ import { VacationRequestsValidationService } from 'src/vacation-requests/service
 import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
 import TeamsService from 'src/teams/services/teams.service';
 import { UsersService } from 'src/users/services/users.service';
+import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
@@ -69,6 +70,7 @@ describe('VacationRequestsService', () => {
   let eventEmitter: { emit: jest.Mock };
   let usersService: { findOneWithValidation: jest.Mock };
   let timeEntriesService: { deleteVacationTime: jest.Mock };
+  let workflowService: { closeBeforeDelete: jest.Mock };
   let service: VacationRequestsService;
   // Which repository calls ran inside TransactionService.transaction().
   let inTransaction: boolean;
@@ -106,6 +108,7 @@ describe('VacationRequestsService', () => {
         .fn()
         .mockResolvedValue({ deleted: 0, billedDates: [] }),
     };
+    workflowService = { closeBeforeDelete: jest.fn() };
 
     service = new VacationRequestsService(
       repository as unknown as VacationRequestsRepository,
@@ -118,6 +121,7 @@ describe('VacationRequestsService', () => {
       usersService as unknown as UsersService,
       transactions as unknown as TransactionService,
       timeEntriesService as unknown as TimeEntriesService,
+      workflowService as unknown as RequestWorkflowService,
     );
     inTransaction = false;
   });
@@ -420,6 +424,7 @@ describe('VacationRequestsService', () => {
       expect(repository.update).not.toHaveBeenCalled();
     });
   });
+
   // Time logged from an approved vacation goes when the vacation changes.
   describe('the logged time', () => {
     const hr: IUserViewModel = { ...requester, id: 'hr-1', role: UserRole.HR };
@@ -538,6 +543,42 @@ describe('VacationRequestsService', () => {
     });
   });
 
+  describe('delete', () => {
+    const admin: IUserViewModel = {
+      ...requester,
+      id: 'admin-1',
+      slack_id: 'U_ADMIN',
+      role: UserRole.Admin,
+    };
+
+    // The steps go with the request (ON DELETE CASCADE): closing them and
+    // deleting it either both happen or neither does.
+    it("closes the request's approvals in the transaction that deletes it", async () => {
+      const calls: string[] = [];
+      repository.findOne.mockResolvedValue(buildRequest());
+      workflowService.closeBeforeDelete.mockImplementation(() => {
+        calls.push(`close the approvals, in a transaction: ${inTransaction}`);
+      });
+      repository.deleteMany.mockImplementation(() => {
+        calls.push(`delete, in a transaction: ${inTransaction}`);
+      });
+
+      await service.delete(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        admin,
+      );
+
+      expect(workflowService.closeBeforeDelete).toHaveBeenCalledWith(
+        'request-1',
+        admin,
+      );
+      expect(calls).toEqual([
+        'close the approvals, in a transaction: true',
+        'delete, in a transaction: true',
+      ]);
+    });
+  });
+
   describe("replacing a user's vacations (CSV import)", () => {
     const vacations = [
       {
@@ -584,6 +625,36 @@ describe('VacationRequestsService', () => {
           status: VacationRequestStatus.Approved,
           created_by: requester.id,
         }),
+      ]);
+    });
+
+    // A refused import rolls back the closed steps and the jobs with it.
+    it("closes the approvals of the user's pending requests in the same transaction", async () => {
+      const calls: string[] = [];
+      repository.findMany.mockResolvedValue([
+        buildRequest({ id: 'pending-1' }),
+      ]);
+      workflowService.closeBeforeDelete.mockImplementation(() => {
+        calls.push(`close the approvals, in a transaction: ${inTransaction}`);
+      });
+      repository.deleteMany.mockImplementation(() => {
+        calls.push(`delete, in a transaction: ${inTransaction}`);
+      });
+
+      await service.replaceUserVacations(requester, vacations, requester);
+
+      expect(repository.findMany).toHaveBeenCalledWith({
+        user_id: requester.id,
+        slack_team_id: SLACK_TEAM_ID,
+        status: { operator: 'in', value: [VacationRequestStatus.Pending] },
+      });
+      expect(workflowService.closeBeforeDelete).toHaveBeenCalledWith(
+        'pending-1',
+        requester,
+      );
+      expect(calls).toEqual([
+        'close the approvals, in a transaction: true',
+        'delete, in a transaction: true',
       ]);
     });
   });

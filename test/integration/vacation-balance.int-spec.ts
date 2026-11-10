@@ -204,9 +204,8 @@ describe('Vacation balance under a policy', () => {
 
       const response = await request(VacationType.SickLeave);
 
-      expect(sectionTexts(response.view).join()).toContain(
-        'created successfully',
-      );
+      expect(response).toEqual({ response_action: 'clear' });
+      expect(await workspace.rows('vacation_requests')).toHaveLength(1);
     });
 
     it("leaves out the policy's enabled holidays from the working days", async () => {

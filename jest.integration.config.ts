@@ -22,8 +22,9 @@ const config: Config = {
   testEnvironment: 'node',
   globalSetup: '<rootDir>/test/integration/support/global-setup.ts',
   setupFiles: ['<rootDir>/test/integration/support/test-env.ts'],
+  // Sets the test timeout too: Jest ignores `testTimeout` in a project config,
+  // and this suite also runs as a project of jest.coverage.config.ts.
   setupFilesAfterEnv: ['<rootDir>/test/integration/support/setup-after-env.ts'],
-  testTimeout: 30_000,
 };
 
 export default config;

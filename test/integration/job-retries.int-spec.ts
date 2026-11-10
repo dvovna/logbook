@@ -3,6 +3,8 @@ import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { Tables } from '@common/types/database.types';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
+import { WorkflowStepJob } from '@modules/request-workflows/services/workflow-step-processor.service';
+import * as errorReporter from '@common/errors/error-reporter';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { textOf } from './support/block-kit';
@@ -23,6 +25,14 @@ describe('Jobs when Slack fails', () => {
   });
 
   afterAll(() => t.close());
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    // The app outlives a test: a failure one test asked for and didn't use
+    // up would fail the next one's calls.
+    t.slackApi.failNext('chat.postMessage', 0);
+    t.slackApi.failNext('chat.update', 0);
+  });
 
   beforeEach(async () => {
     workspace = await t.createWorkspace();
@@ -114,6 +124,58 @@ describe('Jobs when Slack fails', () => {
     await t.retryJobs();
 
     expect(approvedNotices()).toHaveLength(1);
+  });
+
+  // A request posts more than the approver's message (the requester is told
+  // where it went), so Slack fails every message until the test lets it
+  // through, rather than a counted number of them.
+  it('keeps the job for another retry when a retry fails too', async () => {
+    t.slackApi.failNext('chat.postMessage', 100);
+
+    await requestVacation(t, workspace, member, workWeek(2));
+    await t.idle();
+    await t.retryJobs();
+    expect(messagesTo(manager)).toEqual([]);
+
+    t.slackApi.failNext('chat.postMessage', 0);
+    await t.retryJobs();
+
+    expect(messagesTo(manager)).toHaveLength(1);
+  });
+
+  it('gives up after the last retry and reports the job to error tracking', async () => {
+    const report = jest.spyOn(errorReporter, 'reportError');
+    const askReports = () =>
+      report.mock.calls.filter(
+        ([, context]) => context?.job === WorkflowStepJob.Ask,
+      );
+    t.slackApi.failNext('chat.postMessage', 100);
+
+    await requestVacation(t, workspace, member, workWeek(2));
+    await t.idle();
+    expect(report).not.toHaveBeenCalled();
+
+    // The run in the request, then a first saved run and 8 retries.
+    let retries = 0;
+    while (!askReports().length && retries < 20) {
+      await t.retryJobs();
+      retries += 1;
+    }
+
+    expect(retries).toBe(9);
+    expect(askReports()).toEqual([
+      [
+        expect.objectContaining({
+          message: expect.stringContaining('service_unavailable'),
+        }),
+        { job: WorkflowStepJob.Ask },
+      ],
+    ]);
+
+    // Slack is back, but the job is gone: nothing asks the manager.
+    t.slackApi.failNext('chat.postMessage', 0);
+    await t.retryJobs();
+    expect(messagesTo(manager)).toEqual([]);
   });
 
   it('does not run a job again once it succeeded', async () => {

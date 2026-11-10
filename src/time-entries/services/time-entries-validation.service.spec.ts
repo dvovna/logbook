@@ -193,3 +193,273 @@ describe('isBilledEntryError', () => {
     expect(isBilledEntryError(undefined)).toBe(false);
   });
 });
+
+describe('TimeEntriesValidationService permissions and limits', () => {
+  const SLACK_TEAM_ID = 'slack-team-1';
+  const PROJECT_ID = 'project-1';
+  const WORK_DATE = new Date('2026-06-17');
+
+  const user = (id: string, role: UserRole) =>
+    ({ id, role, slack_team_id: SLACK_TEAM_ID }) as IUserViewModel;
+
+  const member = user('member-1', UserRole.Member);
+  const otherMember = user('member-2', UserRole.Member);
+  const manager = user('manager-1', UserRole.Manager);
+  const hr = user('hr-1', UserRole.HR);
+  const admin = user('admin-1', UserRole.Admin);
+
+  const entry = (overrides: Partial<ITimeEntryViewModel> = {}) =>
+    ({
+      id: 'entry-1',
+      user_id: member.id,
+      project_id: PROJECT_ID,
+      work_date: '2026-06-17',
+      minutes: 60,
+      status: TimeEntryStatus.Draft,
+      slack_team_id: SLACK_TEAM_ID,
+      ...overrides,
+    }) as ITimeEntryViewModel;
+
+  let repository: { findMany: jest.Mock; findBilledIds: jest.Mock };
+  let service: TimeEntriesValidationService;
+
+  beforeEach(() => {
+    repository = {
+      findMany: jest.fn().mockResolvedValue([]),
+      findBilledIds: jest.fn().mockResolvedValue(new Set()),
+    };
+    service = new TimeEntriesValidationService(
+      repository as unknown as TimeEntriesRepository,
+    );
+  });
+
+  const create = (
+    actor: IUserViewModel,
+    overrides: Partial<{
+      userId: string;
+      minutes: number;
+      status: TimeEntryStatus;
+    }> = {},
+  ) =>
+    service.validateCreate(
+      {
+        userId: actor.id,
+        projectId: PROJECT_ID,
+        workDate: WORK_DATE,
+        minutes: 60,
+        status: TimeEntryStatus.Draft,
+        ...overrides,
+      },
+      actor,
+    );
+
+  describe('minutes', () => {
+    it.each([
+      [0, 'Logged minutes must be greater than 0'],
+      [-15, 'Logged minutes must be greater than 0'],
+      [24 * 60 + 15, 'Logged minutes cannot exceed 1440'],
+      [20, 'Logged minutes must be in 15 - minute increments'],
+    ])('rejects %i minutes at the minutes field', async (minutes, message) => {
+      const error = await create(member, { minutes }).catch((e) => e);
+
+      expect(error).toEqual(new ValidationError(message, 'minutes'));
+      expect(error.field).toBe('minutes');
+    });
+
+    it('accepts a whole day in 15-minute steps', async () => {
+      await expect(create(member, { minutes: 24 * 60 })).resolves.toBe(
+        undefined,
+      );
+    });
+
+    it('checks the minutes of an update too', async () => {
+      await expect(
+        service.validateUpdate(entry(), { minutes: 50 }, member),
+      ).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('logging time for someone else', () => {
+    it.each([member, manager])('is forbidden to a $role', async (actor) => {
+      await expect(create(actor, { userId: otherMember.id })).rejects.toThrow(
+        new ForbiddenException('You cannot log time for another user'),
+      );
+      expect(repository.findMany).not.toHaveBeenCalled();
+    });
+
+    it.each([hr, admin])('is allowed to $role', async (actor) => {
+      await expect(create(actor, { userId: member.id })).resolves.toBe(
+        undefined,
+      );
+    });
+  });
+
+  describe('approved entries', () => {
+    it.each([member, manager])('a $role cannot create one', async (actor) => {
+      await expect(
+        create(actor, { status: TimeEntryStatus.Approved }),
+      ).rejects.toThrow(
+        new ForbiddenException('Only admins can create approved entries'),
+      );
+    });
+
+    it.each([hr, admin])('$role can create one', async (actor) => {
+      await expect(
+        create(actor, { status: TimeEntryStatus.Approved }),
+      ).resolves.toBe(undefined);
+    });
+
+    it('the owner cannot approve their own entry by updating its status', async () => {
+      await expect(
+        service.validateUpdate(
+          entry({ status: TimeEntryStatus.Draft }),
+          { status: TimeEntryStatus.Approved },
+          member,
+        ),
+      ).rejects.toThrow(
+        new ForbiddenException('Only admins can approve entries'),
+      );
+    });
+
+    it('the owner may submit a draft', async () => {
+      await expect(
+        service.validateUpdate(
+          entry({ status: TimeEntryStatus.Draft }),
+          { status: TimeEntryStatus.Submitted },
+          member,
+        ),
+      ).resolves.toBe(undefined);
+    });
+  });
+
+  describe('editing and deleting', () => {
+    it('nobody but Admin and HR edits or deletes another user’s entry', async () => {
+      for (const actor of [otherMember, manager]) {
+        await expect(
+          service.validateUpdate(entry(), { minutes: 30 }, actor),
+        ).rejects.toThrow(
+          new ForbiddenException('You cannot edit this time entry'),
+        );
+        await expect(service.validateDelete(entry(), actor)).rejects.toThrow(
+          new ForbiddenException('You cannot delete this time entry'),
+        );
+      }
+    });
+
+    it.each([TimeEntryStatus.Submitted, TimeEntryStatus.Approved])(
+      'the owner can no longer change a %s entry',
+      async (status) => {
+        const label = status.charAt(0).toUpperCase() + status.slice(1);
+
+        await expect(
+          service.validateUpdate(entry({ status }), { minutes: 30 }, member),
+        ).rejects.toThrow(
+          new ForbiddenException(`${label} time entries cannot be edited`),
+        );
+        await expect(
+          service.validateDelete(entry({ status }), member),
+        ).rejects.toThrow(
+          new ForbiddenException(`${label} time entries cannot be deleted`),
+        );
+      },
+    );
+
+    it.each([TimeEntryStatus.Draft, TimeEntryStatus.Rejected])(
+      'the owner changes and deletes a %s entry',
+      async (status) => {
+        await expect(
+          service.validateUpdate(entry({ status }), { minutes: 30 }, member),
+        ).resolves.toBe(undefined);
+        await expect(
+          service.validateDelete(entry({ status }), member),
+        ).resolves.toBeUndefined();
+      },
+    );
+
+    it.each([hr, admin])(
+      '$role changes and deletes anyone’s submitted or approved entry',
+      async (actor) => {
+        for (const status of [
+          TimeEntryStatus.Submitted,
+          TimeEntryStatus.Approved,
+        ]) {
+          await expect(
+            service.validateUpdate(
+              entry({ status }),
+              { minutes: 30, status: TimeEntryStatus.Draft },
+              actor,
+            ),
+          ).resolves.toBe(undefined);
+          await expect(
+            service.validateDelete(entry({ status }), actor),
+          ).resolves.toBeUndefined();
+        }
+      },
+    );
+  });
+
+  describe('at most 24 hours per user, project and day', () => {
+    it('counts the user’s other entries of that project and day', async () => {
+      repository.findMany.mockResolvedValue([{ id: 'a', minutes: 23 * 60 }]);
+
+      await expect(create(member, { minutes: 60 })).resolves.toBe(undefined);
+      expect(repository.findMany).toHaveBeenCalledWith({
+        user_id: member.id,
+        project_id: PROJECT_ID,
+        work_date: WORK_DATE.toISOString(),
+        slack_team_id: SLACK_TEAM_ID,
+        deleted_at: { operator: 'is', value: null },
+      });
+
+      await expect(create(member, { minutes: 75 })).rejects.toThrow(
+        new ValidationError(
+          'Total logged time for this project and date cannot exceed 24 hours',
+          'minutes',
+        ),
+      );
+    });
+
+    it('leaves the entry being updated out of the total', async () => {
+      repository.findMany.mockResolvedValue([
+        { id: 'entry-1', minutes: 8 * 60 },
+        { id: 'other', minutes: 15 * 60 },
+      ]);
+
+      await expect(
+        service.validateUpdate(entry(), { minutes: 9 * 60 }, member),
+      ).resolves.toBe(undefined);
+      await expect(
+        service.validateUpdate(entry(), { minutes: 9 * 60 + 15 }, member),
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('checks the day and project the entry moves to, with its current minutes', async () => {
+      repository.findMany.mockResolvedValue([{ id: 'other', minutes: 1400 }]);
+      const nextDay = new Date('2026-06-18');
+
+      await expect(
+        service.validateUpdate(
+          entry({ minutes: 60 }),
+          { workDate: nextDay, projectId: 'project-2' },
+          member,
+        ),
+      ).rejects.toThrow(ValidationError);
+      expect(repository.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          project_id: 'project-2',
+          work_date: nextDay.toISOString(),
+        }),
+      );
+    });
+
+    it('does not count anything when only the status changes', async () => {
+      await service.validateUpdate(
+        entry(),
+        { status: TimeEntryStatus.Submitted },
+        member,
+      );
+
+      expect(repository.findMany).not.toHaveBeenCalled();
+    });
+  });
+});

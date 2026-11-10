@@ -10,6 +10,8 @@ export enum WorkflowStepStatus {
   Approved = 'approved',
   Rejected = 'rejected',
   Cancelled = 'canceled',
+  // Only until the request's row is deleted, which takes its steps along.
+  Deleted = 'deleted',
 }
 
 export interface IRequestSnapshotData {

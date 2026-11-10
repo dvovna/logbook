@@ -9,7 +9,10 @@ import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { acknowledged } from './support/slack-test-client';
 import { openAppHomeTab } from './support/app-home';
-import { sectionTexts } from './support/tab-readers';
+import { actionIdsOf, sectionTexts } from './support/tab-readers';
+import { textOf } from './support/block-kit';
+import { workWeek } from './support/dates';
+import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 
 const HEADER = [
   'email',
@@ -287,6 +290,70 @@ describe('user-vacations.csv', () => {
 
     expect(reply).toContain('User not found: stranger@example.test');
     expect(await other.rows('vacation_requests')).toEqual([]);
+  });
+
+  describe('a pending request it replaces', () => {
+    let cy: Tables<'users'>;
+    let manager: Tables<'users'>;
+    let approval: Awaited<ReturnType<typeof approvalMessageTo>>;
+
+    beforeEach(async () => {
+      manager = await workspace.addUser({ role: UserRole.Manager });
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+      });
+      cy = await workspace.addUser({
+        email: 'cy@example.test',
+        team_id: team.id,
+      });
+      await requestVacation(t, workspace, cy, workWeek(2));
+      approval = await approvalMessageTo(t, workspace, manager);
+    });
+
+    it("closes the approver's message", async () => {
+      await importCsv(
+        row(cy.email, '2025-09-01', [
+          '2026-03-02',
+          '2026-03-06',
+          'annual_leave',
+          'approved',
+        ]),
+      );
+
+      expect(await workspace.rows('request_workflow_steps')).toEqual([]);
+      const updates = t.slackApi.messageUpdates(workspace.token, approval);
+      expect(updates).toHaveLength(1);
+      expect(textOf(updates[0])).toContain(`Deleted by <@${admin.slack_id}>`);
+      expect(actionIdsOf(updates[0])).toEqual([]);
+    });
+
+    it('leaves the request waiting for approval when the import is refused', async () => {
+      const users = t.app.get(UsersService);
+      const asAdmin = await users.findBySlackId(admin.slack_id, workspace.id);
+      const cyUser = await users.findBySlackId(cy.slack_id, workspace.id);
+
+      await expect(
+        t.app.get(VacationRequestsService).replaceUserVacations(
+          cyUser!,
+          [
+            {
+              userId: cy.id,
+              teamId: cy.team_id,
+              startDate: new Date('2026-03-02'),
+              endDate: new Date('2026-03-06'),
+              type: 'no_such_type' as VacationType,
+              status: VacationRequestStatus.Approved,
+            },
+          ],
+          asAdmin!,
+        ),
+      ).rejects.toThrow('[vacation_requests] createMany error: new row');
+      await t.idle();
+
+      expect(t.slackApi.messageUpdates(workspace.token, approval)).toEqual([]);
+      const [step] = await workspace.rows('request_workflow_steps');
+      expect(step.completed_at).toBeNull();
+    });
   });
 
   describe('shared files', () => {

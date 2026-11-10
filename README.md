@@ -217,8 +217,11 @@ pnpm slack:event src/commands/slack-events/team-join.json --team T0123ABCD
 ```bash
 pnpm test          # unit tests
 pnpm test:int      # integration tests, need the local Supabase stack
+pnpm test:cov:all  # both, with their coverage merged into coverage/index.html
 npx tsc --noEmit
 ```
+
+Coverage means little for one suite alone: unit tests leave the Slack UI out, and integration tests replace the Slack and Nager.Date clients with fakes. `pnpm test:cov:all` (`jest.coverage.config.ts`) runs both as Jest projects in one run and reports what they cover together; it needs the local stack like `pnpm test:int`.
 
 `test/integration` runs the whole app against the local Supabase stack, with the real `AppModule` and the request pipeline from `main.ts`. Only the Slack Web API is replaced: `SlackApiClient` is swapped for a fake that records every call. The tests:
 - send signed Slack requests to the real routes: events, slash commands, interactions, external select options and the OAuth redirect;
