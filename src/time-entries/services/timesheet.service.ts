@@ -13,7 +13,6 @@ import { TimeEntriesService } from 'src/time-entries/services/time-entries.servi
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { BILLED_ENTRY_MESSAGE } from 'src/time-entries/constants/billed-time-entries';
-import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-changed.error';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
@@ -25,6 +24,7 @@ import {
   ITimesheetRow,
   ITimesheetSaveResult,
   ITimesheetWeek,
+  ITimesheetWeekWithEntries,
   MAX_TIMESHEET_ROWS,
   TimesheetCellLock,
 } from 'src/time-entries/types/timesheet.types';
@@ -107,21 +107,24 @@ export class TimesheetService {
   public async getWeek(
     user: IUserViewModel,
     weekStart: string,
-  ): Promise<ITimesheetWeek> {
+  ): Promise<ITimesheetWeekWithEntries> {
     const days = weekDays(weekStart);
-    const [week, projects] = await Promise.all([
+    const [found, projects] = await Promise.all([
       this.findEntries(user, days[0], days[6]),
       this.loadProjects(user),
     ]);
-    const entries = week.entries.filter(isNotCancelled);
+    const entries = found.entries.filter(isNotCancelled);
 
-    return this.buildWeek(
-      weekStart,
-      entries,
-      week.billedIds,
-      new Map(entries.map((entry) => [entry.project_id, 0])),
-      projects,
-    );
+    return {
+      week: this.buildWeek(
+        weekStart,
+        entries,
+        found.billedIds,
+        new Map(entries.map((entry) => [entry.project_id, 0])),
+        projects,
+      ),
+      ...found,
+    };
   }
 
   // The week form's table, of the recent projects and the added ones, and
@@ -179,20 +182,13 @@ export class TimesheetService {
     user: IUserViewModel,
     weekStart: string,
   ): Promise<ITimesheetOpenBefore | null> {
-    const entries = await this.timeEntriesService.findMany({
+    const { count, oldest } = await this.timeEntriesService.countOpenUpTo({
       userId: user.id,
       slackTeamId: user.slack_team_id,
-      statuses: OPEN_TIME_ENTRY_STATUSES,
       dateTo: weekDays(shiftWeek(weekStart, -1))[6],
     });
 
-    if (!entries.length) {
-      return null;
-    }
-
-    const [oldest] = entries.map((entry) => entry.work_date).sort();
-
-    return { count: entries.length, weekStart: weekStartOf(oldest) };
+    return oldest ? { count, weekStart: weekStartOf(oldest) } : null;
   }
 
   // Saves what a form typed into the user's cells, all or nothing. A cell

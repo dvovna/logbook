@@ -50,7 +50,7 @@ describe('TimesheetService', () => {
   let projects: ReturnType<typeof project>[];
   let billed: Set<string>;
   let userProjects: { id: string; name: string; clientName: string }[];
-  let findMany: jest.Mock;
+  let countOpenUpTo: jest.Mock;
   let service: TimesheetService;
 
   beforeEach(() => {
@@ -58,14 +58,10 @@ describe('TimesheetService', () => {
     projects = [project('web')];
     billed = new Set();
     userProjects = [{ id: 'web', name: 'Project web', clientName: '' }];
-    findMany = jest.fn(async ({ dateFrom, dateTo }) =>
-      entries.filter(
-        (item) => item.work_date >= dateFrom && item.work_date <= dateTo,
-      ),
-    );
+    countOpenUpTo = jest.fn();
     service = new TimesheetService(
       {
-        findMany,
+        countOpenUpTo,
         findOfUserWithBilled: jest.fn(async ({ dateFrom, dateTo }) => ({
           entries: entries.filter(
             (item) => item.work_date >= dateFrom && item.work_date <= dateTo,
@@ -96,7 +92,7 @@ describe('TimesheetService', () => {
   ) => (await service.getForm(user, weekStart, added)).week;
 
   const wednesdayCell = async () => {
-    const week = await service.getWeek(userWith(UserRole.Member), WEEK);
+    const { week } = await service.getWeek(userWith(UserRole.Member), WEEK);
 
     return week.rows[0].cells[2];
   };
@@ -150,7 +146,7 @@ describe('TimesheetService', () => {
     projects = [project('old', { archived_at: '2026-06-01T00:00:00Z' })];
     entries = [entry('a', 'old', 120)];
 
-    const week = await service.getWeek(userWith(UserRole.Member), WEEK);
+    const { week } = await service.getWeek(userWith(UserRole.Member), WEEK);
 
     expect(week.rows.map((row) => row.projectId)).toEqual(['old']);
     expect(week.rows[0].cells.every((cell) => cell.lock === 'project')).toBe(
@@ -167,7 +163,7 @@ describe('TimesheetService', () => {
     projects = ids.map((id) => project(id));
     entries = ids.map((id) => entry(`e-${id}`, id, 60));
 
-    const week = await service.getWeek(userWith(UserRole.Member), WEEK);
+    const { week } = await service.getWeek(userWith(UserRole.Member), WEEK);
 
     expect(week.rows).toHaveLength(12);
     expect(week.total).toBe(12 * 60);
@@ -280,25 +276,18 @@ describe('TimesheetService', () => {
   });
 
   it('counts the open entries of earlier weeks and finds the oldest week', async () => {
-    findMany.mockResolvedValue([
-      entry('a', 'web', 60, { work_date: '2026-06-10' }),
-      entry('b', 'web', 60, {
-        work_date: '2026-06-03',
-        status: TimeEntryStatus.Rejected,
-      }),
-    ]);
+    countOpenUpTo.mockResolvedValue({ count: 2, oldest: '2026-06-03' });
 
     expect(
       await service.findOpenBefore(userWith(UserRole.Member), WEEK),
     ).toEqual({ count: 2, weekStart: '2026-06-01' });
-    expect(findMany).toHaveBeenCalledWith({
+    expect(countOpenUpTo).toHaveBeenCalledWith({
       userId: 'me',
       slackTeamId: 'team-1',
-      statuses: [TimeEntryStatus.Draft, TimeEntryStatus.Rejected],
       dateTo: '2026-06-14',
     });
 
-    findMany.mockResolvedValue([]);
+    countOpenUpTo.mockResolvedValue({ count: 0, oldest: null });
 
     expect(
       await service.findOpenBefore(userWith(UserRole.Member), WEEK),

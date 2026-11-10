@@ -13,6 +13,24 @@ export interface ITimeEntriesTabFilters {
 
 export const TIME_ENTRIES_TAB_PAGE_SIZE = 10;
 
+// The minutes of each of `days` over `entries`.
+export const totalsByDay = (
+  days: string[],
+  entries: { work_date: string; minutes: number }[],
+): Record<string, number> => {
+  const totals: Record<string, number> = Object.fromEntries(
+    days.map((day) => [day, 0]),
+  );
+
+  for (const entry of entries) {
+    if (entry.work_date in totals) {
+      totals[entry.work_date] += entry.minutes;
+    }
+  }
+
+  return totals;
+};
+
 @Injectable()
 export class TimeEntriesTabDataService {
   constructor(
@@ -41,17 +59,8 @@ export class TimeEntriesTabDataService {
       dateFrom: sorted[0],
       dateTo: sorted[sorted.length - 1],
     });
-    const totals: Record<string, number> = Object.fromEntries(
-      days.map((day) => [day, 0]),
-    );
 
-    for (const entry of entries) {
-      if (entry.work_date in totals) {
-        totals[entry.work_date] += entry.minutes;
-      }
-    }
-
-    return totals;
+    return totalsByDay(days, entries);
   }
 
   async getTimeEntriesTabData(params: {

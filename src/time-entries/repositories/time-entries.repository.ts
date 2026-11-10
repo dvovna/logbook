@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { sql } from 'kysely';
+import { ExpressionBuilder, sql } from 'kysely';
 import {
   IRelation,
   BaseRepository,
 } from '@common/repositories/base.repository';
-import { SqlRow, SqlUpdate } from '@common/types/sql-database.types';
+import {
+  SqlDatabase,
+  SqlRow,
+  SqlUpdate,
+} from '@common/types/sql-database.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 
 const dateOf = ({ work_date }: { work_date: string }) => work_date;
 
@@ -152,6 +157,27 @@ export class TimeEntriesRepository extends BaseRepository<
     };
   }
 
+  // How many drafts and rejected entries the user has dated up to `dateTo`,
+  // and the day of the oldest one (null when none), in one statement.
+  public async countOpenUpTo(
+    slackTeamId: string,
+    userId: string,
+    dateTo: string,
+  ): Promise<{ count: number; oldest: string | null }> {
+    const { count, oldest } = await this.selectInWorkspace(slackTeamId)
+      .select((eb) => [
+        eb.fn.countAll<string>().as('count'),
+        eb.fn.min('work_date').as('oldest'),
+      ])
+      .where('user_id', '=', userId)
+      .where('status', 'in', OPEN_TIME_ENTRY_STATUSES)
+      .where('deleted_at', 'is', null)
+      .where('work_date', '<=', dateTo)
+      .executeTakeFirstOrThrow();
+
+    return { count: Number(count), oldest };
+  }
+
   // Gives each entry of `minutesById` its minutes, and all of them
   // `changes`, in one statement, but only those still not deleted and, with
   // `statuses`, in one of them. Returns the IDs it changed.
@@ -201,10 +227,18 @@ export class TimeEntriesRepository extends BaseRepository<
     const ofVacation = this.selectInWorkspace(slackTeamId)
       .where('vacation_request_id', '=', vacationRequestId)
       .where('deleted_at', 'is', null);
-    const billed = this.db
-      .selectFrom('billing_snapshot_entries')
-      .select('billing_snapshot_entries.time_entry_id')
-      .where('billing_snapshot_entries.slack_team_id', '=', slackTeamId);
+    const billed = (eb: ExpressionBuilder<SqlDatabase, 'time_entries'>) =>
+      eb.exists(
+        eb
+          .selectFrom('billing_snapshot_entries')
+          .select('billing_snapshot_entries.time_entry_id')
+          .where('billing_snapshot_entries.slack_team_id', '=', slackTeamId)
+          .whereRef(
+            'billing_snapshot_entries.time_entry_id',
+            '=',
+            'time_entries.id',
+          ),
+      );
     const rows = await this.db
       .with('deleted', (db) =>
         db
@@ -213,7 +247,7 @@ export class TimeEntriesRepository extends BaseRepository<
           .where('slack_team_id', '=', slackTeamId)
           .where('vacation_request_id', '=', vacationRequestId)
           .where('deleted_at', 'is', null)
-          .where('id', 'not in', billed)
+          .where((eb) => eb.not(billed(eb)))
           .returning(['work_date', 'minutes', 'project_id', 'user_id']),
       )
       .selectFrom('deleted')
@@ -226,7 +260,7 @@ export class TimeEntriesRepository extends BaseRepository<
       ])
       .unionAll(
         ofVacation
-          .where('id', 'in', billed)
+          .where(billed)
           .select([
             sql<boolean>`true`.as('billed'),
             'work_date',

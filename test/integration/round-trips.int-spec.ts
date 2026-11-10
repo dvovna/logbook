@@ -57,7 +57,7 @@ const ROUND_TRIPS: Record<string, { roundTrips: number; statements: number }> =
     'show the weekend in the form': { roundTrips: 1, statements: 1 },
     'change the day in the form': { roundTrips: 1, statements: 1 },
     'open My time': { roundTrips: 1, statements: 1 },
-    'go to the previous week on My time': { roundTrips: 3, statements: 8 },
+    'go to the previous week on My time': { roundTrips: 2, statements: 6 },
     "change a logged vacation's dates": { roundTrips: 10, statements: 15 },
     "change a vacation's comment": { roundTrips: 9, statements: 10 },
     'delete a logged vacation': { roundTrips: 9, statements: 9 },

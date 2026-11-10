@@ -19,11 +19,10 @@ import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-inte
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
 import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
 import { TimesheetFormMetadata } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
-import { TimesheetService } from 'src/time-entries/services/timesheet.service';
+import { IUserProject } from 'src/projects/queries/get-user-projects.query';
 import { MAX_TIMESHEET_ROWS } from 'src/time-entries/types/timesheet.types';
 
 // Adding a row, showing the weekend or choosing another day rebuilds the open
@@ -56,7 +55,6 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
   };
 
   public constructor(
-    private readonly timesheetService: TimesheetService,
     private readonly timeEntriesTabService: TimeEntriesTabService,
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {
@@ -80,18 +78,17 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
     if (
       !projectId ||
       added.includes(projectId) ||
-      added.length >= MAX_TIMESHEET_ROWS ||
-      !(await this.timesheetService.allowedProjects(user)).some(
-        ({ id }) => id === projectId,
-      )
+      added.length >= MAX_TIMESHEET_ROWS
     ) {
       return;
     }
 
-    await this.updateForm(payload, user, {
-      ...metadata,
-      addedProjectIds: [...added, projectId],
-    });
+    await this.updateForm(
+      payload,
+      user,
+      { ...metadata, addedProjectIds: [...added, projectId] },
+      (projects) => projects.some(({ id }) => id === projectId),
+    );
   }
 
   private async showWeekend(
@@ -125,19 +122,23 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
     });
   }
 
+  // Not when `allows` refuses the projects the user may log on.
   private async updateForm(
     payload: ISlackBlockActionPayload,
     user: IUserViewModel,
     metadata: TimesheetFormMetadata,
+    allows: (projects: IUserProject[]) => boolean = () => true,
   ) {
     if (!payload.view?.id) {
       return;
     }
 
-    const form = await this.timeEntriesTabService.getModalView(
-      TimeEntriesTabModalName.FillWeek,
-      { user, metadata },
-    );
+    const { view: form, projects } =
+      await this.timeEntriesTabService.getTimesheetForm({ user, metadata });
+
+    if (!allows(projects)) {
+      return;
+    }
 
     try {
       // The form as this click saw it: after two quick clicks, the later

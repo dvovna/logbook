@@ -536,6 +536,38 @@ describe('Time entries', () => {
       ]);
     });
 
+    it("counts a canceled entry in its day's total, over the filtered project only", async () => {
+      const mobile = await workspace.addProject({ name: 'Mobile' });
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-17',
+        minutes: 60,
+      });
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-17',
+        minutes: 30,
+        status: TimeEntryStatus.Cancelled,
+      });
+      await workspace.addTimeEntry(member, mobile, {
+        work_date: '2026-06-17',
+        minutes: 120,
+      });
+
+      const myTime = await openAppHomeTab(t, workspace, member, [
+        NavigationActionId.MyTime,
+      ]);
+      expect(dayLines(myTime)).toEqual(['*Wed, 17 Jun 2026* · 3h 30m']);
+
+      const filtered = await actOnTab(
+        t,
+        workspace,
+        member,
+        myTime,
+        TimeEntriesTabViewActionId.FilterByProject,
+        website.id,
+      );
+      expect(dayLines(filtered)).toEqual(['*Wed, 17 Jun 2026* · 1h 30m']);
+    });
+
     it('shows a member only their own entries, without admin navigation', async () => {
       await workspace.addTimeEntry(member, website, {
         minutes: 90,

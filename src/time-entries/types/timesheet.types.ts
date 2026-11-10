@@ -1,4 +1,5 @@
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 
 // Why a cell can't be changed in the week form: it holds several entries, its
 // entry waits for approval, is approved or is in a billing snapshot, or its
@@ -30,6 +31,15 @@ export interface ITimesheetWeek {
   dayTotals: number[];
   total: number;
   statusCounts: Record<TimeEntryStatus, number>;
+}
+
+// My time's week: its table, and for the list of the week's entries under it
+// the user's entries of the week that aren't deleted (cancelled ones too, as
+// the list shows them) and which of them are billed.
+export interface ITimesheetWeekWithEntries {
+  week: ITimesheetWeek;
+  entries: ITimeEntryViewModel[];
+  billedIds: Set<string>;
 }
 
 // The drafts and rejected entries of a user dated before a shown week.

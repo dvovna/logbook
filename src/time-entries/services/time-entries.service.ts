@@ -571,6 +571,20 @@ export class TimeEntriesService {
     );
   }
 
+  // The user's drafts and rejected entries dated up to `dateTo`: how many,
+  // and the oldest one's day.
+  public countOpenUpTo(params: {
+    userId: string;
+    slackTeamId: string;
+    dateTo: string;
+  }) {
+    return this.timeEntriesRepository.countOpenUpTo(
+      params.slackTeamId,
+      params.userId,
+      params.dateTo,
+    );
+  }
+
   public count(params: IFindParams): Promise<number> {
     return this.timeEntriesRepository.count(this.getFindQuery(params));
   }
