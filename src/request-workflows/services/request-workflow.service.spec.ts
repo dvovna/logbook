@@ -16,7 +16,10 @@ import UserRole from 'src/common/enums/user-role.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { VacationWorkflowEventEnum } from 'src/common/enums/vacation-workflow-event.enum';
 import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
-import { VacationWorkflowFinished } from 'src/request-workflows/events/vacation-workflow.events';
+import {
+  VacationWorkflowFinished,
+  VacationWorkflowLevelCompleted,
+} from 'src/request-workflows/events/vacation-workflow.events';
 import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { TransactionService } from 'src/database/transaction.service';
@@ -260,7 +263,12 @@ describe('RequestWorkflowService', () => {
       expect(processorService.processSteps).toHaveBeenCalledWith([
         nextLevelStep,
       ]);
-      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+      // The requester hears that the level is done, with the decision.
+      expect(eventEmitter.emitAsync).toHaveBeenCalledTimes(1);
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationWorkflowEventEnum.LevelCompleted,
+        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1),
+      );
     });
 
     it('does not ask the next level again when another approver already did', async () => {
@@ -372,7 +380,10 @@ describe('RequestWorkflowService', () => {
       );
       expect(processorService.updateStepMessages).toHaveBeenCalledWith(level1);
       expect(processorService.processSteps).toHaveBeenCalledWith(level2);
-      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationWorkflowEventEnum.LevelCompleted,
+        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1),
+      );
     });
 
     it('finishes the workflow as approved when it was the last level', async () => {

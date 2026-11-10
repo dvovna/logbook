@@ -1,6 +1,6 @@
 import { ApprovalsModule } from '@modules/slack/approvals/approvals.module';
 import { Module } from '@nestjs/common';
-import { VacationApproversNoticeService } from '@modules/slack/tabs/vacation-requests/services/vacation-approvers-notice.service';
+import { VacationRequestProgressNoticesService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-progress-notices.service';
 import { VacationDecisionNotificationsService } from '@modules/slack/tabs/vacation-requests/services/vacation-decision-notifications.service';
 import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 import { VacationRequestsTabService } from '@modules/slack/tabs/vacation-requests/services/vacation-requests-tab.service';
@@ -35,7 +35,7 @@ import { VacationRequestModalService } from '@modules/slack/tabs/vacation-reques
   ],
   providers: [
     VacationDecisionNotificationsService,
-    VacationApproversNoticeService,
+    VacationRequestProgressNoticesService,
     VacationRequestsTabService,
     AdminVacationRequestHandler,
     UserVacationRequestHandler,

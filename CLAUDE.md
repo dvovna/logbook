@@ -184,7 +184,7 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - level 1: `manager_approvers`;
    - level 2: `hr_approvers`.
 
-   Each level has an `ApprovalRule` of `ANY` or `ALL`. If nobody on the team can approve it (no team, no approvers, or the requester is the only one), it goes as one `ANY` level to everyone with the HR role, else to every admin, never to the requester. The requester gets a DM saying so (`VacationApproversNoticeService`). With nobody else in the workspace, no workflow is created and the DM says the request stays pending.
+   Each level has an `ApprovalRule` of `ANY` or `ALL`. If nobody on the team can approve it (no team, no approvers, or the requester is the only one), it goes as one `ANY` level to everyone with the HR role, else to every admin, never to the requester. With nobody else in the workspace, no workflow is created. Either way the requester gets a DM saying who the request went to, or that nobody can approve it yet and it stays pending, with the teammates who are off on those days (approved or pending, sick leave left out; `TimeOffContextService`). After each level that isn't the last they get another DM: who approved and who decides next (`VacationRequestProgressNoticesService`).
 3. `RequestWorkflowService` stores one row per approver in `vacation_request_workflow_steps` and activates level 1 through `WorkflowStepProcessorService`.
 4. Step processors are registered with `@WorkflowStepProcessor(type)` and found by `WorkflowStepProcessorsRegistry` (the same discovery pattern as Slack handlers). The only type is `approver`: `ApproverStepProcessor` sends each approver a DM with Approve / Reject / Comment buttons. `WorkflowStepProcessorService` asks and updates in jobs, one per step; a decided or canceled step is marked `completed_at` first, so a Slack failure never stops the workflow. The approver's DM, its buttons and forms, and `ApproverStepProcessor` are the Slack side, in `src/slack/approvals` (`ApprovalsModule`); `request-workflows` holds the workflow itself.
 5. Button clicks go to `ApproverStepMessageHandler` (`block_id` `workflow_step_message`):
@@ -219,7 +219,7 @@ Domain modules `clients`, `projects`, `time-entries`; Slack tabs `clients`, `pro
 `JobsService` (`src/common/jobs/`, pg-boss 10 on `DATABASE_URL`) runs the work that must happen even when Slack or the database fails for a while:
 - approving and rejecting, including "Approve for Approvers" (`WorkflowDecisionsService`);
 - starting a vacation workflow, asking approvers, updating their messages, finishing the request;
-- telling people of the decision, the DM about a request nobody on the team can approve, and the DM about a rejected time entry;
+- telling people of the decision, the requester's DMs about where the request went and each approved level, and the DM about a rejected time entry;
 - the Slack events `file_shared` (CSV imports), `team_join`, `user_change` and `app_uninstalled` (`SlackEventsService`);
 - importing the workspace's members after an install (`TeamSetupWorkflowService`).
 

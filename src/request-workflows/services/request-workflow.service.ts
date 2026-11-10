@@ -22,7 +22,10 @@ import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { VacationWorkflowEventEnum } from '@common/enums/vacation-workflow-event.enum';
 import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
 import { IVacationWorkflow } from '@modules/request-workflows/types/vacation-workflow.types';
-import { VacationWorkflowFinished } from '@modules/request-workflows/events/vacation-workflow.events';
+import {
+  VacationWorkflowFinished,
+  VacationWorkflowLevelCompleted,
+} from '@modules/request-workflows/events/vacation-workflow.events';
 import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
@@ -441,6 +444,19 @@ export class RequestWorkflowService {
         await this.requestWorkflowStepsService.claimUnprocessed(nextLevel);
 
       await this.workflowStepProcessorService.processSteps(claimedSteps);
+
+      // Whoever asked the next level tells the requester, inside the
+      // decision's transaction like the jobs above.
+      if (claimedSteps.length > 0) {
+        await this.eventEmitter.emitAsync(
+          VacationWorkflowEventEnum.LevelCompleted,
+          new VacationWorkflowLevelCompleted(
+            step.request_id,
+            step.slack_team_id,
+            step.step_level,
+          ),
+        );
+      }
 
       return;
     }

@@ -17,6 +17,7 @@ import { UsersService } from 'src/users/services/users.service';
 import UserRole from 'src/common/enums/user-role.enum';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
+import { TimeOffContextService } from 'src/vacation-requests/services/time-off-context.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -70,6 +71,7 @@ describe('VacationRequestProcessingService', () => {
   let requestsService: { findOne: jest.Mock; findMany: jest.Mock };
   let usersService: { findMany: jest.Mock; findOne: jest.Mock };
   let usageService: { getCurrentVacationPeriodUsage: jest.Mock };
+  let timeOffContext: { findColleaguesOff: jest.Mock };
   let jobs: ReturnType<typeof inlineJobs>;
   let service: VacationRequestProcessingService;
 
@@ -92,6 +94,7 @@ describe('VacationRequestProcessingService', () => {
       findOne: jest.fn().mockResolvedValue(null),
     };
     usageService = { getCurrentVacationPeriodUsage: jest.fn() };
+    timeOffContext = { findColleaguesOff: jest.fn().mockResolvedValue([]) };
     eventEmitter = { emit: jest.fn() };
     requestsService = {
       findOne: jest.fn(),
@@ -107,6 +110,7 @@ describe('VacationRequestProcessingService', () => {
       requestsService as unknown as VacationRequestsService,
       jobs.jobs,
       usageService as unknown as VacationsUsageService,
+      timeOffContext as unknown as TimeOffContextService,
     );
     service.onModuleInit();
   });
@@ -145,31 +149,31 @@ describe('VacationRequestProcessingService', () => {
       limits: { daysTotal: 20, bonusDays: 2 },
       usage: { [VacationType.AnnualLeave]: { available: 10 } },
     });
-    requestsService.findMany.mockResolvedValue([
-      // The request itself counts as overlapping; it is left out.
-      { user_id: 'user-1', start_date: '2026-02-02', end_date: '2026-02-06' },
-      {
-        user_id: 'user-2',
-        user: { name: 'Lea' },
-        start_date: '2026-02-01',
-        end_date: '2026-02-03',
-      },
+    timeOffContext.findColleaguesOff.mockResolvedValue([
+      { name: 'Lea', start_date: '2026-02-01', end_date: '2026-02-03' },
     ]);
 
     await onCreated(VacationRequestStatus.Pending);
 
-    expect(requestsService.findMany).toHaveBeenCalledWith({
-      slackTeamId: SLACK_TEAM_ID,
-      teamId: 'team-1',
-      statuses: [VacationRequestStatus.Approved, VacationRequestStatus.Pending],
-      overlapping: { startDate: '2026-02-02', endDate: '2026-02-06' },
-    });
+    expect(timeOffContext.findColleaguesOff).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'request-1' }),
+      { forRequester: false },
+    );
     expect(workflowService.create.mock.calls[0][0].snapshot.context).toEqual({
       balance_after: { available: 10, total: 20, unit: 'vacation' },
       also_off: [
         { name: 'Lea', start_date: '2026-02-01', end_date: '2026-02-03' },
       ],
     });
+  });
+
+  it("tells the requester it went to their team's approvers", async () => {
+    await onCreated(VacationRequestStatus.Pending);
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      VacationRequestEvent.SentForApproval,
+      expect.objectContaining({ fallback: null }),
+    );
   });
 
   it.each([
@@ -211,8 +215,8 @@ describe('VacationRequestProcessingService', () => {
     const levelsOf = () => workflowService.create.mock.calls[0][0].levels;
     const sentTo = () => {
       const [event, payload] = eventEmitter.emit.mock.calls[0];
-      expect(event).toBe(VacationRequestEvent.WithoutTeamApprovers);
-      return payload.sentTo;
+      expect(event).toBe(VacationRequestEvent.SentForApproval);
+      return payload.fallback.sentTo;
     };
     // One level, named by who decides it.
     const anyOf = (name: string, ...slackIds: string[]) => [
@@ -265,7 +269,7 @@ describe('VacationRequestProcessingService', () => {
       await onCreated(VacationRequestStatus.Pending);
 
       expect(levelsOf()).toEqual(anyOf('HR approval', 'U_HR_1'));
-      expect(eventEmitter.emit.mock.calls[0][1].inTeam).toBe(false);
+      expect(eventEmitter.emit.mock.calls[0][1].fallback.inTeam).toBe(false);
     });
 
     it('starts no workflow when nobody else can approve it', async () => {

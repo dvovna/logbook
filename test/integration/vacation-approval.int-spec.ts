@@ -49,6 +49,11 @@ describe('Vacation request approval', () => {
   const statusOf = async (request: Tables<'vacation_requests'>) =>
     (await workspace.row('vacation_requests', request.id)).status;
 
+  // The decision is the requester's last DM: who the request went to comes
+  // first.
+  const lastMessageTo = (user: Tables<'users'>) =>
+    t.slackApi.postedMessages(workspace.token, user.slack_id).slice(-1)[0];
+
   const click = (
     approver: Tables<'users'>,
     message: Awaited<ReturnType<typeof approvalMessageTo>>,
@@ -104,10 +109,7 @@ describe('Vacation request approval', () => {
 
     await t.idle();
     expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
-    const [requesterNotice] = t.slackApi.postedMessages(
-      workspace.token,
-      member.slack_id,
-    );
+    const requesterNotice = lastMessageTo(member);
     expect(textOf(requesterNotice)).toContain(
       'Your time off request was approved',
     );
@@ -159,10 +161,7 @@ describe('Vacation request approval', () => {
       status: VacationRequestStatus.Rejected,
       rejection_reason: 'Release week <!channel>',
     });
-    const [notice] = t.slackApi.postedMessages(
-      workspace.token,
-      member.slack_id,
-    );
+    const notice = lastMessageTo(member);
     expect(textOf(notice)).toContain('Your time off request was rejected');
     expect(textOf(notice)).toContain('>Release week &lt;!channel&gt;');
     expect(textOf(notice)).toContain(`Rejected by <@${manager.slack_id}>`);
@@ -269,6 +268,88 @@ describe('Vacation request approval', () => {
     expect(contextOf(hrApproval)).toEqual([
       `${situation} · Level 2 of 2 · approved by <@${manager.slack_id}>`,
     ]);
+  });
+
+  describe('what the requester hears while it waits', () => {
+    const messagesTo = async (user: Tables<'users'>) => {
+      await t.idle();
+
+      return t.slackApi
+        .postedMessages(workspace.token, user.slack_id)
+        .map(({ text }) => text);
+    };
+
+    it('who the request went to', async () => {
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+      });
+      await addMember(team);
+      const { start, end } = workWeek(2);
+
+      await requestVacation(t, workspace, member, { start, end });
+
+      expect(await messagesTo(member)).toEqual([
+        `📨 Your vacation request (${formatDateRange(start, end)}) went to <@${manager.slack_id}> (Manager approval).`,
+      ]);
+    });
+
+    it('who else on the team is off then, leaving sick leave out', async () => {
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+      });
+      await addMember(team);
+      const { start, end } = workWeek(2);
+      const lea = await workspace.addUser({
+        name: 'Lea <Teammate>',
+        team_id: team.id,
+      });
+      const sam = await workspace.addUser({
+        name: 'Sam Sick',
+        team_id: team.id,
+      });
+      await workspace.addVacationRequest(lea, {
+        start_date: start,
+        end_date: start,
+      });
+      await workspace.addVacationRequest(sam, {
+        start_date: start,
+        end_date: end,
+        type: 'sick_leave',
+      });
+
+      await requestVacation(t, workspace, member, { start, end });
+
+      const [notice] = await messagesTo(member);
+      expect(notice).toContain(
+        `\n⚠️ Also off on those days: Lea &lt;Teammate&gt; (${formatDateRange(start, start)}). Your request may be rejected because of the overlap.`,
+      );
+      expect(notice).not.toContain('Sam Sick');
+    });
+
+    it('that a level approved it and who decides next', async () => {
+      const hr = await workspace.addUser({
+        role: UserRole.HR,
+        name: 'Hana HR',
+      });
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+        hr_approvers: [hr.slack_id],
+      });
+      await addMember(team);
+      const { start, end } = workWeek(2);
+      await requestVacation(t, workspace, member, { start, end });
+
+      await click(
+        manager,
+        await approvalMessageTo(t, workspace, manager),
+        ApproverMessageActionId.Approve,
+      );
+
+      const messages = await messagesTo(member);
+      expect(messages[messages.length - 1]).toBe(
+        `✅ Your vacation request (${formatDateRange(start, end)}): Manager approval done by <@${manager.slack_id}>. Now waiting for HR approval from <@${hr.slack_id}>.`,
+      );
+    });
   });
 
   it('does not let a member approve', async () => {
@@ -451,10 +532,7 @@ describe('Vacation request approval', () => {
         status: VacationRequestStatus.Rejected,
         rejection_reason: null,
       });
-      const [notice] = t.slackApi.postedMessages(
-        workspace.token,
-        member.slack_id,
-      );
+      const notice = lastMessageTo(member);
       // No quoted reason line (textOf escapes the line break).
       expect(textOf(notice)).not.toContain('\\n>');
     });
@@ -563,10 +641,7 @@ describe('Vacation request approval', () => {
 
       await t.idle();
       expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
-      const [notice] = t.slackApi.postedMessages(
-        workspace.token,
-        member.slack_id,
-      );
+      const notice = lastMessageTo(member);
       expect(textOf(notice)).toContain('Your time off request was approved');
     });
   });

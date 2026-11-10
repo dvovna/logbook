@@ -279,10 +279,18 @@ describe('Access control', () => {
       const request = await requestVacation(t, workspace, manager, workWeek(2));
 
       // The manager level is left out, so the request goes straight to HR.
+      // The manager hears only where it went, with nothing to approve.
       await approvalMessageTo(t, workspace, hr);
+      await t.idle();
       expect(
         t.slackApi.postedMessages(workspace.token, manager.slack_id),
-      ).toEqual([]);
+      ).toEqual([
+        expect.objectContaining({
+          text: expect.stringContaining(
+            `went to <@${hr.slack_id}> (HR approval).`,
+          ) as string,
+        }),
+      ]);
       const steps = await workspace.rows('request_workflow_steps');
       expect(steps.map(({ slack_user_id }) => slack_user_id)).toEqual([
         hr.slack_id,

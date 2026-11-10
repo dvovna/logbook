@@ -8,8 +8,8 @@ import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import {
   VacationRequestCreatedEvent,
+  VacationRequestSentForApprovalEvent,
   VacationRequestUpdatedEvent,
-  VacationRequestWithoutTeamApproversEvent,
 } from '@modules/vacation-requests/events/vacation-request.events';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { UsersService } from '@modules/users/services/users.service';
@@ -24,6 +24,7 @@ import {
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import { TimeOffContextService } from '@modules/vacation-requests/services/time-off-context.service';
 
 export const START_WORKFLOW_JOB = 'vacation-request-start-workflow';
 
@@ -42,6 +43,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly jobs: JobsService,
     private readonly vacationsUsageService: VacationsUsageService,
+    private readonly timeOffContextService: TimeOffContextService,
   ) {}
 
   public onModuleInit() {
@@ -128,6 +130,11 @@ export class VacationRequestProcessingService implements OnModuleInit {
     if (levels.length) {
       await this.requestWorkflowService.create({ ...workflow, levels });
 
+      this.eventEmitter.emit(
+        VacationRequestEvent.SentForApproval,
+        new VacationRequestSentForApprovalEvent(request, null),
+      );
+
       return;
     }
 
@@ -150,12 +157,11 @@ export class VacationRequestProcessingService implements OnModuleInit {
     }
 
     this.eventEmitter.emit(
-      VacationRequestEvent.WithoutTeamApprovers,
-      new VacationRequestWithoutTeamApproversEvent(
-        request,
-        Boolean(team),
-        fallback?.role ?? null,
-      ),
+      VacationRequestEvent.SentForApproval,
+      new VacationRequestSentForApprovalEvent(request, {
+        inTeam: Boolean(team),
+        sentTo: fallback?.role ?? null,
+      }),
     );
   }
 
@@ -216,31 +222,12 @@ export class VacationRequestProcessingService implements OnModuleInit {
       slackTeamId: request.slack_team_id,
       includeInactive: true,
     });
-    const teammatesOff = request.team_id
-      ? await this.vacationRequestsService.findMany({
-          slackTeamId: request.slack_team_id,
-          teamId: request.team_id,
-          statuses: [
-            VacationRequestStatus.Approved,
-            VacationRequestStatus.Pending,
-          ],
-          overlapping: {
-            startDate: request.start_date,
-            endDate: request.end_date,
-          },
-        })
-      : [];
 
     return {
       balance_after: owner ? await this.findBalanceAfter(owner, request) : null,
-      also_off: teammatesOff
-        .filter(({ user_id }) => user_id !== request.user_id)
-        .slice(0, 5)
-        .map(({ user, start_date, end_date }) => ({
-          name: user?.name ?? 'Someone',
-          start_date,
-          end_date,
-        })),
+      also_off: await this.timeOffContextService.findColleaguesOff(request, {
+        forRequester: false,
+      }),
     };
   }
 

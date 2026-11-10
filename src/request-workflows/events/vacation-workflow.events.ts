@@ -3,3 +3,11 @@ import { IVacationWorkflow } from '@modules/request-workflows/types/vacation-wor
 export class VacationWorkflowFinished {
   public constructor(public readonly workflow: IVacationWorkflow) {}
 }
+
+export class VacationWorkflowLevelCompleted {
+  public constructor(
+    public readonly requestId: string,
+    public readonly slackTeamId: string,
+    public readonly level: number,
+  ) {}
+}
