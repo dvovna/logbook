@@ -1,3 +1,4 @@
+import { RATE_ROLES } from 'src/projects/constants/rate-roles';
 import { Injectable } from '@nestjs/common';
 import type { StaticSelectAction } from '@slack/bolt/dist/types/actions/block-action';
 import { isPeriodPreset, presetPeriod } from '@common/utils/period-presets';
@@ -15,7 +16,6 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { ReportsModalName } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
 import { ReportsTabService } from '@modules/slack/tabs/reports/services/reports-tab.service';
 import { PERIOD_PRESET_ACTION_ID } from '@modules/slack/tabs/reports/views/period-fields';
-import { TIME_ENTRIES_ADMIN_ROLES } from 'src/time-entries/constants/time-entries-admin-roles';
 import { SNAPSHOT_ROLES } from 'src/billing/constants/snapshot-roles';
 
 type ReportForm =
@@ -88,7 +88,7 @@ export class TimeReportPresetHandler extends ReportFormPresetHandler {
 @SlackHandler({
   callbackId: ViewCallbackId.BillingReportFormSubmit,
   type: 'block_actions',
-  allowedRoles: TIME_ENTRIES_ADMIN_ROLES,
+  allowedRoles: RATE_ROLES,
 })
 export class BillingReportPresetHandler extends ReportFormPresetHandler {
   protected readonly form = ReportsModalName.BillingReport;

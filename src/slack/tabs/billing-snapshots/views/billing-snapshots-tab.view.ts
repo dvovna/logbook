@@ -68,7 +68,7 @@ export const snapshotAmount = (snapshot: IBillingSnapshot) =>
 const byWhom = (person: { name: string } | null) =>
   person ? ` by ${escapeMrkdwn(person.name)}` : '';
 
-// The workspace's billing snapshots, newest first, for Admin and HR: what
+// The workspace's billing snapshots, newest first, for Admin and Finance: what
 // each holds and whether it is invoiced, with its CSV, the invoiced mark,
 // and (an admin's) unlocking.
 @Injectable()

@@ -66,7 +66,7 @@ describe('UninvoicedReportService', () => {
       },
     ]);
 
-    const report = await service.getReport(userWith(UserRole.HR));
+    const report = await service.getReport(userWith(UserRole.Finance));
 
     expect(unbilledByClient).toHaveBeenCalledWith('slack-team-1', {});
     expect(report).toEqual({
@@ -141,7 +141,7 @@ describe('UninvoicedReportService', () => {
     expect(unbilledByClient).not.toHaveBeenCalled();
   });
 
-  it.each([UserRole.Manager, UserRole.Member])(
+  it.each([UserRole.HR, UserRole.Manager, UserRole.Member])(
     'is not shown to a %s',
     async (role) => {
       await expect(service.getReport(userWith(role))).rejects.toThrow(

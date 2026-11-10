@@ -3,7 +3,7 @@ import UserRole from '@common/enums/user-role.enum';
 import { RATE_ROLES } from 'src/projects/constants/rate-roles';
 
 // Who creates billing snapshots, sends their CSV, marks them invoiced and
-// sees the uninvoiced report: those who see rates and amounts, Admin and HR.
+// sees the uninvoiced report: those who see rates and amounts, Admin and Finance.
 export const SNAPSHOT_ROLES = RATE_ROLES;
 
 // Who unlocks a snapshot, which deletes it: an admin.
@@ -18,7 +18,7 @@ export const canUnlockSnapshots = (role: UserRole) =>
 export const assertCanManageSnapshots = ({ role }: { role: UserRole }) => {
   if (!canManageSnapshots(role)) {
     throw new ForbiddenException(
-      'Only Admin and HR work with billing snapshots.',
+      'Only Admin and Finance work with billing snapshots.',
     );
   }
 };

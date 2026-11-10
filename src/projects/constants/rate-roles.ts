@@ -1,18 +1,19 @@
 import { ForbiddenException } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
-import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
+import { BILLING_ROLES } from '@common/constants/role-groups';
 import { ValidationError } from '@common/errors/validation.error';
 import { isValidHourlyRate, MAX_HOURLY_RATE } from '@common/utils/money.utils';
 
-// Who sees and sets hourly rates, and sees amounts: Admin and HR. Managers
-// see projects and assign people to them, but not what the time costs.
-export const RATE_ROLES = ADMIN_AND_HR_ROLES;
+// Who sees and sets hourly rates, and sees amounts: Admin and Finance.
+// Managers and HR see projects and assign people to them, but not what the
+// time costs.
+export const RATE_ROLES = BILLING_ROLES;
 
 export const canSeeRates = (role: UserRole) => RATE_ROLES.includes(role);
 
 export const assertCanSeeRates = ({ role }: { role: UserRole }) => {
   if (!canSeeRates(role)) {
-    throw new ForbiddenException('Only Admin and HR see and set rates.');
+    throw new ForbiddenException('Only Admin and Finance see and set rates.');
   }
 };
 

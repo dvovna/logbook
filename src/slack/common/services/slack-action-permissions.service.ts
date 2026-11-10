@@ -39,13 +39,22 @@ export class SlackActionPermissionsService {
       UserRole.Admin,
       UserRole.HR,
     ],
-    // Managers see clients and projects; only Admin and HR change them, but a
-    // manager may assign people to a project and archive it. Rates are Admin's
-    // and HR's, the currency an admin's.
-    [ClientsTabViewActionId.AddClient]: [UserRole.Admin, UserRole.HR],
-    [ClientsTabViewActionId.ManageClientMenu]: [UserRole.Admin, UserRole.HR],
-    [ProjectsTabViewActionId.AddProject]: [UserRole.Admin, UserRole.HR],
-    [ProjectsTabViewActionId.EditProject]: [UserRole.Admin, UserRole.HR],
+    // Managers see clients and projects; Admin, HR and Finance change clients,
+    // Admin and Finance projects (their form has the rate). A manager or HR
+    // may assign people to a project and archive it. Rates are Admin's and
+    // Finance's, the currency an admin's.
+    [ClientsTabViewActionId.AddClient]: [
+      UserRole.Admin,
+      UserRole.HR,
+      UserRole.Finance,
+    ],
+    [ClientsTabViewActionId.ManageClientMenu]: [
+      UserRole.Admin,
+      UserRole.HR,
+      UserRole.Finance,
+    ],
+    [ProjectsTabViewActionId.AddProject]: [UserRole.Admin, UserRole.Finance],
+    [ProjectsTabViewActionId.EditProject]: [UserRole.Admin, UserRole.Finance],
     [ProjectsTabViewActionId.ManageProjectAssignments]: [
       UserRole.Admin,
       UserRole.HR,
@@ -55,10 +64,14 @@ export class SlackActionPermissionsService {
       UserRole.Admin,
       UserRole.HR,
       UserRole.Manager,
+      UserRole.Finance,
     ],
-    [ProjectsTabViewActionId.ManagePersonRates]: [UserRole.Admin, UserRole.HR],
+    [ProjectsTabViewActionId.ManagePersonRates]: [
+      UserRole.Admin,
+      UserRole.Finance,
+    ],
     [ProjectsTabViewActionId.ChangeCurrency]: [UserRole.Admin],
-    // Admin and HR make billing snapshots; only an admin unlocks one.
+    // Admin and Finance make billing snapshots; only an admin unlocks one.
     [BillingSnapshotsTabActionId.UnlockSnapshot]: [UserRole.Admin],
   } as const;
 

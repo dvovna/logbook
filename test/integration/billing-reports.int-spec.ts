@@ -308,19 +308,22 @@ describe('Billing reports', () => {
     });
   });
 
-  it('is for Admin and HR only', async () => {
-    const manager = await workspace.addUser({ role: UserRole.Manager });
-    const reports = await openAppHomeTab(t, workspace, manager, REPORTS_TAB);
-    expect(actionIdsOf(reports)).not.toContain(
-      ReportsTabActionId.BillingReport,
-    );
+  it.each([UserRole.Manager, UserRole.HR])(
+    'is for Admin and Finance only, not %s',
+    async (role) => {
+      const manager = await workspace.addUser({ role });
+      const reports = await openAppHomeTab(t, workspace, manager, REPORTS_TAB);
+      expect(actionIdsOf(reports)).not.toContain(
+        ReportsTabActionId.BillingReport,
+      );
 
-    const response = await t.slack
-      .submitView(workspace, manager, await openReportForm(), {
-        clientId: acme.id,
-      })
-      .expect(200);
+      const response = await t.slack
+        .submitView(workspace, manager, await openReportForm(), {
+          clientId: acme.id,
+        })
+        .expect(200);
 
-    expect(response.body.view.title.text).toBe('Forbidden');
-  });
+      expect(response.body.view.title.text).toBe('Forbidden');
+    },
+  );
 });

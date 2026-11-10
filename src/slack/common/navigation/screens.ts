@@ -2,6 +2,7 @@ import UserRole from '@common/enums/user-role.enum';
 import {
   ADMIN_AND_HR_ROLES,
   ALL_ROLES,
+  BILLING_ROLES,
   MANAGER_ROLES,
 } from '@common/constants/role-groups';
 import { TabId } from '@modules/slack/common/enums/tab-id.enum';
@@ -53,6 +54,10 @@ export interface IScreen {
   // Opened from that screen: Back goes there, and the navigation marks it.
   parent?: ScreenId;
 }
+
+// Projects and clients: managers assign people to projects, Finance sets
+// their rates.
+const PROJECT_ROLES: readonly UserRole[] = [...MANAGER_ROLES, UserRole.Finance];
 
 export const SCREENS: Record<ScreenId, IScreen> = {
   [ScreenId.Home]: {
@@ -114,14 +119,14 @@ export const SCREENS: Record<ScreenId, IScreen> = {
   },
   [ScreenId.Projects]: {
     title: '📁 Projects',
-    roles: MANAGER_ROLES,
+    roles: PROJECT_ROLES,
     tabId: TabId.Projects,
     actionId: NavigationActionId.Projects,
     menuGroup: MenuGroup.Settings,
   },
   [ScreenId.Clients]: {
     title: '💼 Clients',
-    roles: MANAGER_ROLES,
+    roles: PROJECT_ROLES,
     tabId: TabId.Clients,
     actionId: NavigationActionId.Clients,
     menuGroup: MenuGroup.Settings,
@@ -147,10 +152,10 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     actionId: NavigationActionId.TimeLogs,
     parent: ScreenId.Reports,
   },
-  // Billing snapshots are Admin's and HR's, as rates are (SNAPSHOT_ROLES).
+  // Billing snapshots are Admin's and Finance's, as rates are (SNAPSHOT_ROLES).
   [ScreenId.BillingSnapshots]: {
     title: '🔒 Billing snapshots',
-    roles: ADMIN_AND_HR_ROLES,
+    roles: BILLING_ROLES,
     tabId: TabId.BillingSnapshots,
     actionId: NavigationActionId.BillingSnapshots,
     parent: ScreenId.Reports,

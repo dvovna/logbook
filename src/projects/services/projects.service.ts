@@ -23,7 +23,7 @@ interface ICreateProjectParams {
   description?: string;
   slackTeamId: string;
   clientId?: string | null;
-  // Admin and HR only; null or left out: no rate.
+  // Admin and Finance only; null or left out: no rate.
   hourlyRate?: number | null;
 }
 
@@ -223,7 +223,7 @@ export default class ProjectsService implements IProjectsService {
     return this.projectsRepository.count(this.getFindQuery(params));
   }
 
-  // A rate is Admin's and HR's to set, whatever handler passes it on.
+  // A rate is Admin's and Finance's to set, whatever handler passes it on.
   private assertCanSetRate(
     hourlyRate: number | null | undefined,
     user: IUserViewModel,

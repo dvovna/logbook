@@ -109,7 +109,7 @@ describe('BillingSnapshotsService', () => {
       );
 
       const snapshot = await service.create({
-        user: userWith(UserRole.HR),
+        user: userWith(UserRole.Finance),
         ...PERIOD,
       });
 
@@ -219,7 +219,7 @@ describe('BillingSnapshotsService', () => {
       ).rejects.toThrow(ValidationError);
     });
 
-    it.each([UserRole.Manager, UserRole.Member])(
+    it.each([UserRole.HR, UserRole.Manager, UserRole.Member])(
       'is not made by a %s',
       async (role) => {
         entries.push(entry('e1', 'web', 'mia', 60));
@@ -269,7 +269,7 @@ describe('BillingSnapshotsService', () => {
       snapshotsRepository.findOne.mockResolvedValue(stored());
       snapshotsRepository.markInvoiced.mockResolvedValue(true);
 
-      await service.markInvoiced('snapshot-1', userWith(UserRole.HR));
+      await service.markInvoiced('snapshot-1', userWith(UserRole.Finance));
 
       expect(snapshotsRepository.findOne).toHaveBeenCalledWith({
         id: 'snapshot-1',
@@ -320,7 +320,7 @@ describe('BillingSnapshotsService', () => {
       });
       snapshotsRepository.unmarkInvoiced = jest.fn().mockResolvedValue(true);
 
-      await service.markNotInvoiced('snapshot-1', userWith(UserRole.HR));
+      await service.markNotInvoiced('snapshot-1', userWith(UserRole.Finance));
 
       expect(snapshotsRepository.unmarkInvoiced).toHaveBeenCalledWith(
         SLACK_TEAM_ID,
@@ -357,7 +357,7 @@ describe('BillingSnapshotsService', () => {
       pageSize: 10,
     });
 
-    await service.search(userWith(UserRole.HR), {
+    await service.search(userWith(UserRole.Finance), {
       pageSize: 10,
       clientId: 'acme',
     });

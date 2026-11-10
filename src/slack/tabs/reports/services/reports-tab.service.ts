@@ -1,3 +1,4 @@
+import { canSeeRates } from 'src/projects/constants/rate-roles';
 import { Injectable } from '@nestjs/common';
 import { View } from '@slack/types/dist/views';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
@@ -11,7 +12,6 @@ import {
   ReportsTabView,
 } from '@modules/slack/tabs/reports/views/reports-tab.view';
 import { BillingReportService } from 'src/time-entries/services/billing-report.service';
-import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { BillingReportModalView } from '@modules/slack/tabs/reports/views/billing-report-modal.view';
 import { TimeReportModalView } from '@modules/slack/tabs/reports/views/time-report-modal.view';
 import { ReportsModalName } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
@@ -22,7 +22,7 @@ import {
 import { TimeEntriesSummaryService } from 'src/time-entries/services/time-entries-summary.service';
 import { TimeReportService } from 'src/time-entries/services/time-report.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { MANAGER_ROLES } from '@common/constants/role-groups';
+import { OTHERS_TIME_ROLES } from '@common/constants/role-groups';
 import { ValidationError } from '@common/errors/validation.error';
 import { formatDateRange } from '@common/utils/date.utils';
 import { formatMoney } from '@common/utils/money.utils';
@@ -114,15 +114,15 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
     const [weekSummary, billingReport, timeReports, uninvoicedReport] =
       await Promise.all([
         this.timeEntriesSummaryService.getWeekSummary(user),
-        // The billing report is Admin's and HR's.
-        report && isTimeEntriesAdmin(user.role)
+        // The billing report is Admin's and Finance's.
+        report && canSeeRates(user.role)
           ? this.billingReportService.getClientReport({
               user,
               ...report,
             })
           : null,
         timeReport ? this.getTimeReports(user, timeReport) : null,
-        // As billing snapshots, Admin's and HR's.
+        // As billing snapshots, Admin's and Finance's.
         uninvoiced && canManageSnapshots(user.role)
           ? this.uninvoicedReportService.getReport(user, uninvoiced)
           : null,
@@ -258,7 +258,7 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
     errorMessage,
     period,
   }: IReportFormParams) {
-    const seesOthers = MANAGER_ROLES.includes(user.role);
+    const seesOthers = OTHERS_TIME_ROLES.includes(user.role);
     const clients = seesOthers
       ? await this.clientsService.findMany({
           slackTeamId: user.slack_team_id,

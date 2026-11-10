@@ -1,3 +1,4 @@
+import { canSeeRates } from 'src/projects/constants/rate-roles';
 import { TeamModalActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { SlackUserAccessFilter } from '@modules/slack/filters/slack-user-access.filter';
 import {
@@ -24,7 +25,10 @@ import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/en
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
 import { TimeReportFilterId } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
-import { MANAGER_ROLES } from '@common/constants/role-groups';
+import {
+  MANAGER_ROLES,
+  OTHERS_TIME_ROLES,
+} from '@common/constants/role-groups';
 @Controller('api/slack/options')
 @UseFilters(SlackUserAccessFilter)
 @UseGuards(SlackSignatureGuard, SlackUserGuard, SlackActiveUserGuard)
@@ -45,13 +49,27 @@ export class SlackOptionsController {
       case UsersTabViewActionId.FilterUsersByUser:
       case TimeEntriesTabViewActionId.SelectUser:
       case TimeEntriesTabViewActionId.FilterByUser:
-      case VacationRequestsTabViewActionId.FilterRequestsByUser:
-      case PersonRateModalActionId.Person: {
-        // Inactive people too: their past time may still need a rate.
+      case VacationRequestsTabViewActionId.FilterRequestsByUser: {
+        // Inactive people too: what they did is still in the lists.
         return this.userOptionsService.searchUsers({
           query: payload.value,
           user: request.user!,
           includeInactive: true,
+        });
+      }
+      case PersonRateModalActionId.Person: {
+        // Anyone of the workspace, for those who set rates (Admin and
+        // Finance); inactive people too: their past time may still need a
+        // rate.
+        if (!canSeeRates(request.user!.role)) {
+          return { options: [] };
+        }
+
+        return this.userOptionsService.searchUsers({
+          query: payload.value,
+          user: request.user!,
+          includeInactive: true,
+          wholeWorkspace: true,
         });
       }
       case TeamModalActionId.Members: {
@@ -89,7 +107,7 @@ export class SlackOptionsController {
       case TimeReportFilterId.Project: {
         const params = { query: payload.value, user: request.user! };
 
-        return MANAGER_ROLES.includes(request.user!.role)
+        return OTHERS_TIME_ROLES.includes(request.user!.role)
           ? this.projectOptionsService.searchProjects({
               ...params,
               includeArchived: true,
@@ -97,7 +115,7 @@ export class SlackOptionsController {
           : this.projectOptionsService.searchUserProjects(params);
       }
       case TimeReportFilterId.Person: {
-        return MANAGER_ROLES.includes(request.user!.role)
+        return OTHERS_TIME_ROLES.includes(request.user!.role)
           ? this.userOptionsService.searchPeopleInScope({
               query: payload.value,
               user: request.user!,

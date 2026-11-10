@@ -62,6 +62,7 @@ describe('Billing snapshots', () => {
   let workspace: TestWorkspace;
   let admin: Tables<'users'>;
   let hr: Tables<'users'>;
+  let finance: Tables<'users'>;
   let manager: Tables<'users'>;
   let mia: Tables<'users'>;
   let backend: Tables<'teams'>;
@@ -84,6 +85,10 @@ describe('Billing snapshots', () => {
       name: 'Ann Admin',
     });
     hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+    finance = await workspace.addUser({
+      role: UserRole.Finance,
+      name: 'Fay Finance',
+    });
     manager = await workspace.addUser({
       role: UserRole.Manager,
       name: 'Max Manager',
@@ -363,11 +368,13 @@ describe('Billing snapshots', () => {
       expect(await snapshotRows()).toHaveLength(1);
     });
 
-    it('is made by HR too', async () => {
-      const { tab } = await lock(hr);
+    it('is made by Finance too', async () => {
+      const { tab } = await lock(finance);
 
       expect(listItems(tab!)[0]).toMatchObject({
-        fields: expect.objectContaining({ Created: '17 Jun 2026 by Hana HR' }),
+        fields: expect.objectContaining({
+          Created: '17 Jun 2026 by Fay Finance',
+        }),
         // Unlocking is an admin's.
         menuLabels: ['Send CSV to my DMs', 'Mark as invoiced'],
       });
@@ -587,9 +594,9 @@ describe('Billing snapshots', () => {
       await lock();
     });
 
-    it('lets HR mark a snapshot invoiced, once', async () => {
+    it('lets Finance mark a snapshot invoiced, once', async () => {
       const form = await openMenuModal(
-        hr,
+        finance,
         BillingSnapshotsTabActionId.MarkInvoiced,
       );
 
@@ -597,32 +604,32 @@ describe('Billing snapshots', () => {
         'The snapshot *Acme · 1–30 Jun 2026* (*$225.00*) will be marked invoiced. It stays locked.',
       ]);
 
-      const { tab } = await submit(hr, form);
+      const { tab } = await submit(finance, form);
 
       expect(noticeOf(tab!)).toBe('✅ Acme · 1–30 Jun 2026 marked invoiced.');
       expect(listItems(tab!)[0]).toMatchObject({
         fields: expect.objectContaining({
-          Status: '✅ Invoiced 17 Jun 2026 by Hana HR',
+          Status: '✅ Invoiced 17 Jun 2026 by Fay Finance',
         }),
         menuLabels: ['Send CSV to my DMs', 'Mark as not invoiced'],
       });
 
       // The same form again.
-      const again = await submit(hr, form);
+      const again = await submit(finance, form);
 
       expect(modalError(again.response.body.view)).toBe(
         'This snapshot is already marked invoiced.',
       );
     });
 
-    it('lets HR take the invoiced mark off again', async () => {
+    it('lets Finance take the invoiced mark off again', async () => {
       await submit(
-        hr,
-        await openMenuModal(hr, BillingSnapshotsTabActionId.MarkInvoiced),
+        finance,
+        await openMenuModal(finance, BillingSnapshotsTabActionId.MarkInvoiced),
       );
 
       const form = await openMenuModal(
-        hr,
+        finance,
         BillingSnapshotsTabActionId.MarkNotInvoiced,
       );
 
@@ -630,7 +637,7 @@ describe('Billing snapshots', () => {
         'The snapshot *Acme · 1–30 Jun 2026* will no longer be marked invoiced. It stays locked, and its time counts as uninvoiced again.',
       ]);
 
-      const { tab } = await submit(hr, form);
+      const { tab } = await submit(finance, form);
 
       expect(noticeOf(tab!)).toBe(
         '↩️ Acme · 1–30 Jun 2026 is no longer marked invoiced.',
@@ -645,7 +652,7 @@ describe('Billing snapshots', () => {
         expect.objectContaining({ invoiced_at: null, invoiced_by: null }),
       ]);
 
-      const again = await submit(hr, form);
+      const again = await submit(finance, form);
 
       expect(modalError(again.response.body.view)).toBe(
         "This snapshot isn't marked invoiced.",
@@ -761,7 +768,7 @@ describe('Billing snapshots', () => {
       expect(await snapshotRows()).toEqual([]);
     });
 
-    it('is not unlocked by HR, whatever they send', async () => {
+    it('is not unlocked by Finance, whatever they send', async () => {
       const adminForm = await openMenuModal(
         admin,
         BillingSnapshotsTabActionId.UnlockSnapshot,
@@ -769,8 +776,8 @@ describe('Billing snapshots', () => {
       const since = t.slackApi.mark();
 
       await forge(
-        hr,
-        await openSnapshots(hr),
+        finance,
+        await openSnapshots(finance),
         menu(
           BillingSnapshotsTabActionId.ManageSnapshotMenu,
           `${BillingSnapshotsTabActionId.UnlockSnapshot}:${await snapshotId()}`,
@@ -779,42 +786,46 @@ describe('Billing snapshots', () => {
       expect(openedModals(since)).toHaveLength(0);
 
       const response = await t.slack
-        .submitView(workspace, hr, adminForm, {})
+        .submitView(workspace, finance, adminForm, {})
         .expect(200);
 
       expect(response.body.response_action).toBe('update');
       expect(await snapshotRows()).toHaveLength(1);
     });
 
-    it('is out of reach of managers', async () => {
-      const id = await snapshotId();
-      const snapshots = await openSnapshots();
-      const since = t.slackApi.mark();
+    it.each(['manager', 'hr'] as const)(
+      'is out of reach of a %s',
+      async (role) => {
+        const viewer = { manager, hr }[role];
+        const id = await snapshotId();
+        const snapshots = await openSnapshots();
+        const since = t.slackApi.mark();
 
-      for (const action of [
-        BillingSnapshotsTabActionId.ExportSnapshot,
-        BillingSnapshotsTabActionId.MarkInvoiced,
-        BillingSnapshotsTabActionId.MarkNotInvoiced,
-        BillingSnapshotsTabActionId.UnlockSnapshot,
-      ]) {
-        await forge(
-          manager,
-          snapshots,
-          menu(
-            BillingSnapshotsTabActionId.ManageSnapshotMenu,
-            `${action}:${id}`,
-          ),
-        );
-      }
+        for (const action of [
+          BillingSnapshotsTabActionId.ExportSnapshot,
+          BillingSnapshotsTabActionId.MarkInvoiced,
+          BillingSnapshotsTabActionId.MarkNotInvoiced,
+          BillingSnapshotsTabActionId.UnlockSnapshot,
+        ]) {
+          await forge(
+            viewer,
+            snapshots,
+            menu(
+              BillingSnapshotsTabActionId.ManageSnapshotMenu,
+              `${action}:${id}`,
+            ),
+          );
+        }
 
-      expect(openedModals(since)).toHaveLength(0);
-      expect(
-        t.slackApi.callsWith(workspace.token, 'chat.postMessage', { since }),
-      ).toEqual([]);
-      expect(await snapshotRows()).toEqual([
-        expect.objectContaining({ id, invoiced_at: null }),
-      ]);
-    });
+        expect(openedModals(since)).toHaveLength(0);
+        expect(
+          t.slackApi.callsWith(workspace.token, 'chat.postMessage', { since }),
+        ).toEqual([]);
+        expect(await snapshotRows()).toEqual([
+          expect.objectContaining({ id, invoiced_at: null }),
+        ]);
+      },
+    );
 
     it("leaves another workspace's snapshot alone", async () => {
       const other = await t.createWorkspace();
@@ -892,7 +903,7 @@ describe('Billing snapshots', () => {
         .where('project_id', '=', website.id)
         .execute();
 
-      const { after, messages, files } = await exportSnapshot(hr);
+      const { after, messages, files } = await exportSnapshot(finance);
 
       expect(noticeOf(after)).toBe('📨 Sending the CSV to your DMs.');
       expect(messages.map(({ text }) => text)).toEqual([
@@ -976,7 +987,7 @@ describe('Billing snapshots', () => {
       // Approved after the snapshot was made.
       await approved(mia, website, { work_date: '2026-06-16', minutes: 45 });
 
-      const reports = await showUninvoiced(hr);
+      const reports = await showUninvoiced(finance);
 
       expect(reportTexts(reports)).toEqual([
         "*Uninvoiced time* · All time · Approved billable time that isn't invoiced yet\n" +

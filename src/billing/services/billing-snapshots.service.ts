@@ -55,7 +55,7 @@ const NO_SUCH_SNAPSHOT = 'This snapshot no longer exists.';
 // the period that are in no other snapshot, so a second snapshot of the same
 // period takes only what was approved since. While an entry is in a
 // snapshot, nobody changes it (time_entries_keep_billed); an admin unlocks
-// the snapshot by deleting it, which frees its entries. Admin and HR create
+// the snapshot by deleting it, which frees its entries. Admin and Finance create
 // snapshots and mark them invoiced; every method checks the role and that
 // the IDs, which come from the client, are the workspace's.
 @Injectable()
@@ -190,7 +190,7 @@ export class BillingSnapshotsService {
     return this.findOne(id, user);
   }
 
-  // Takes the invoiced mark off, e.g. one set by mistake; Admin and HR, as
+  // Takes the invoiced mark off, e.g. one set by mistake; Admin and Finance, as
   // marking. The snapshot stays locked.
   public async markNotInvoiced(
     id: string,

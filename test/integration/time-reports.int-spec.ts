@@ -205,6 +205,20 @@ describe('Time reports', () => {
       ]);
     });
 
+    it("shows Finance everyone's time with amounts, and HR without", async () => {
+      const finance = await workspace.addUser({ role: UserRole.Finance });
+      const hr = await workspace.addUser({ role: UserRole.HR });
+
+      expect(
+        reportTexts(await showReport(finance, TimeReportKind.Project)),
+      ).toEqual([
+        "*Time by project* · 1–30 Jun 2026 · Everyone's time\nLogged *4h 45m* · billable *3h 30m* · approved *3h 15m* · amount *$350.00*",
+      ]);
+      expect(
+        tableRows(await showReport(hr, TimeReportKind.Project))[0],
+      ).toEqual(['Project', 'Hours', 'Billable', 'Approved']);
+    });
+
     it("shows a manager their teams' time and their own, without amounts", async () => {
       const reports = await showReport(manager, TimeReportKind.Person);
 

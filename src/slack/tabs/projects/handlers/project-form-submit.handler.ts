@@ -1,3 +1,4 @@
+import { RATE_ROLES } from 'src/projects/constants/rate-roles';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -8,7 +9,6 @@ import {
   TabId,
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
-import UserRole from '@common/enums/user-role.enum';
 import IProjectViewModel from 'src/projects/types/project.types';
 import {
   IProjectModalViewMetadata,
@@ -29,7 +29,8 @@ import { IProjectsTabMetaData } from '@modules/slack/tabs/projects/views/project
 @SlackHandler({
   callbackId: ViewCallbackId.ProjectFormSubmit,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  // The form has the project's rate.
+  allowedRoles: RATE_ROLES,
 })
 export class ProjectFormSubmitHandler extends BaseModalFormSubmitHandler<
   IProjectModalViewMetadata,

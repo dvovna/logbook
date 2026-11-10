@@ -5,6 +5,7 @@ export const ROLE_DISPLAY_NAME: Record<UserRole, string> = {
   [UserRole.Admin]: 'Admin',
   [UserRole.HR]: 'HR',
   [UserRole.Manager]: 'Manager',
+  [UserRole.Finance]: 'Finance',
   [UserRole.Member]: 'Member',
 };
 
@@ -13,5 +14,6 @@ export const ROLE_OPTIONS: IOption[] = [
   UserRole.Admin,
   UserRole.HR,
   UserRole.Manager,
+  UserRole.Finance,
   UserRole.Member,
 ].map((role) => ({ name: ROLE_DISPLAY_NAME[role], id: role }));

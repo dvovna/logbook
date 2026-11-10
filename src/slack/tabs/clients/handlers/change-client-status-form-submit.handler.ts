@@ -24,7 +24,7 @@ import {
 @SlackHandler({
   callbackId: ViewCallbackId.ChangeClientStatus,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Finance],
 })
 export class ChangeClientStatusFormSubmitHandler extends BaseModalFormSubmitHandler<
   IConfirmationModalViewMetadata,

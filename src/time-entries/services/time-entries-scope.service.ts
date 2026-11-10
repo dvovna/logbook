@@ -1,8 +1,8 @@
+import { COMPANY_TIME_ROLES } from '@common/constants/role-groups';
 import { Injectable } from '@nestjs/common';
 import TeamsService from '@modules/teams/services/teams.service';
 import { UsersService } from '@modules/users/services/users.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 
@@ -34,7 +34,7 @@ export class TimeEntriesScopeService {
   ) {}
 
   public async scopeOf(user: IUserViewModel): Promise<TimeScope> {
-    if (isTimeEntriesAdmin(user.role)) {
+    if (COMPANY_TIME_ROLES.includes(user.role)) {
       return { kind: 'workspace' };
     }
 

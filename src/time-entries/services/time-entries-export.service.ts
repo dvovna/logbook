@@ -47,7 +47,7 @@ const money = (cents: number) => (cents / 100).toFixed(2);
 
 // The time entries of a period as a CSV file, one line each, for a
 // spreadsheet or an invoice: the same entries, scope and filters as the time
-// report (TimeReportService.findFilteredEntries). Admin and HR also get each entry's rate (the
+// report (TimeReportService.findFilteredEntries). Admin and Finance also get each entry's rate (the
 // person's own on the project, else the project's) and amount: its billable
 // time at that rate, rounded to the cent.
 @Injectable()

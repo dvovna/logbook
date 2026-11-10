@@ -111,7 +111,7 @@ const context = (text: string): AnyBlock => ({
 });
 
 // The week at a glance and the time report, for everyone in their scope
-// (TimeEntriesScopeService); for Admin and HR also the billing report (and
+// (TimeEntriesScopeService); for Admin and Finance also the billing report (and
 // locking its time in a snapshot), the uninvoiced report, billing snapshots
 // and everyone's time logs.
 @Injectable()
@@ -151,7 +151,9 @@ export class ReportsTabView extends BaseTabView<
         ].join('\n'),
       },
     };
-    const forAdmins = canOpenScreen(ScreenId.TimeLogs, userRole);
+    // Billing for Admin and Finance, everyone's entries for Admin and HR.
+    const forBilling = canOpenScreen(ScreenId.BillingSnapshots, userRole);
+    const forTimeLogs = canOpenScreen(ScreenId.TimeLogs, userRole);
 
     return [
       week,
@@ -164,7 +166,7 @@ export class ReportsTabView extends BaseTabView<
             style: 'primary',
             action_id: ReportsTabActionId.TimeReport,
           },
-          ...(forAdmins
+          ...(forBilling
             ? [
                 {
                   type: 'button',
@@ -184,6 +186,10 @@ export class ReportsTabView extends BaseTabView<
                   },
                   action_id: NavigationActionId.BillingSnapshots,
                 },
+              ]
+            : []),
+          ...(forTimeLogs
+            ? [
                 {
                   type: 'button',
                   text: { type: 'plain_text', text: '⏱ Time logs' },

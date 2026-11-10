@@ -120,7 +120,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     });
 
     const projectIds = projectsListData.items.map(({ id }) => id);
-    // Rates and the currency are Admin's and HR's.
+    // Rates and the currency are Admin's and Finance's.
     const [peopleByProject, rates, currency] = await Promise.all([
       this.projectAssignmentsService.findPeopleByProject(
         projectIds,
@@ -147,7 +147,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     );
   }
 
-  // The project form has the project's rate: for Admin and HR only.
+  // The project form has the project's rate: for Admin and Finance only.
   private async getCreateProjectModalView({
     errorMessage,
     pageMetadata,

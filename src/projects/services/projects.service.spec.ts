@@ -12,7 +12,7 @@ const SLACK_TEAM_ID = 'slack-team-1';
 const userWith = (role: UserRole) =>
   ({ id: 'actor', role, slack_team_id: SLACK_TEAM_ID }) as IUserViewModel;
 
-// A project's rate is Admin's and HR's to set, whichever handler calls.
+// A project's rate is Admin's and Finance's to set, whichever handler calls.
 describe('ProjectsService rates', () => {
   let repository: Record<'count' | 'create' | 'update', jest.Mock>;
   let service: ProjectsService;
@@ -43,8 +43,8 @@ describe('ProjectsService rates', () => {
       userWith(role),
     );
 
-  it('stores the rate Admin or HR sets', async () => {
-    await create(UserRole.HR, 120.5);
+  it('stores the rate Admin or Finance sets', async () => {
+    await create(UserRole.Finance, 120.5);
 
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({ hourly_rate: 120.5 }),

@@ -1,3 +1,4 @@
+import { RATE_ROLES } from 'src/projects/constants/rate-roles';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -13,7 +14,6 @@ import {
   BillingReportService,
   IBillingReport,
 } from 'src/time-entries/services/billing-report.service';
-import { TIME_ENTRIES_ADMIN_ROLES } from 'src/time-entries/constants/time-entries-admin-roles';
 import {
   TabId,
   TabNavigationService,
@@ -24,7 +24,7 @@ import { IReportsTabMetadata } from '@modules/slack/tabs/reports/views/reports-t
 @SlackHandler({
   callbackId: ViewCallbackId.BillingReportFormSubmit,
   type: 'view_submission',
-  allowedRoles: TIME_ENTRIES_ADMIN_ROLES,
+  allowedRoles: RATE_ROLES,
 })
 export class BillingReportFormSubmitHandler extends BaseModalFormSubmitHandler<
   object,

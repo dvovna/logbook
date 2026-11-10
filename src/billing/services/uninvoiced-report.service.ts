@@ -48,7 +48,7 @@ const emptyRow = (clientName: string): IUninvoicedRow => ({
 // What hasn't been invoiced, per client, in a period (all time by default):
 // approved billable time in no billing snapshot yet (at today's rates, entry
 // by entry, as a snapshot would bill it), and the time in snapshots that
-// aren't marked invoiced. Admin and HR only.
+// aren't marked invoiced. Admin and Finance only.
 @Injectable()
 export class UninvoicedReportService {
   public constructor(

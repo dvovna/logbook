@@ -51,7 +51,7 @@ interface IGetProjectsViewParams extends IBaseTabViewParams {
   projectsListData: IProjectsListData;
   // Names of the people assigned to each listed project.
   peopleByProject: Record<string, string[]>;
-  // Rates by project and the workspace's currency, for Admin and HR; null
+  // Rates by project and the workspace's currency, for Admin and Finance; null
   // for anyone else.
   rates: Map<string, IProjectRates> | null;
   currency: string | null;

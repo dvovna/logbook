@@ -1,3 +1,4 @@
+import { canSeeRates } from 'src/projects/constants/rate-roles';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { ValidationError } from '@common/errors/validation.error';
 import { amountInCents } from '@common/utils/money.utils';
@@ -8,7 +9,6 @@ import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import ProjectsService from 'src/projects/services/projects.service';
 import { ProjectRatesService } from 'src/projects/services/project-rates.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
-import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 
 // One person's approved time on one project, and what it comes to.
@@ -116,7 +116,7 @@ const totals = (
 // projects (archived ones included), by project and person, at today's
 // rates, and how much of it billing snapshots hold already (at the rates
 // they froze, which the report doesn't show). A person's own rate on a project replaces the project's; billable
-// time without either has no amount and is counted apart. Admin and HR only.
+// time without either has no amount and is counted apart. Admin and Finance only.
 @Injectable()
 export class BillingReportService {
   public constructor(
@@ -133,8 +133,10 @@ export class BillingReportService {
     fromDate,
     toDate,
   }: IReportParams): Promise<IBillingReport> {
-    if (!isTimeEntriesAdmin(user.role)) {
-      throw new ForbiddenException('Only Admin and HR make billing reports.');
+    if (!canSeeRates(user.role)) {
+      throw new ForbiddenException(
+        'Only Admin and Finance make billing reports.',
+      );
     }
 
     const slackTeamId = user.slack_team_id;

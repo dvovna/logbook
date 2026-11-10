@@ -79,7 +79,7 @@ describe('TimeEntriesExportService', () => {
     );
   });
 
-  it('writes one line per entry, by date and person, with rates for Admin and HR', async () => {
+  it('writes one line per entry, by date and person, with rates for Admin and Finance', async () => {
     entries.push(
       entry({ id: 'e2', work_date: '2026-11-04', minutes: 15 }),
       entry({
@@ -107,7 +107,7 @@ describe('TimeEntriesExportService', () => {
     );
 
     const csv = await service.getCsv({
-      user: userWith(UserRole.HR),
+      user: userWith(UserRole.Finance),
       ...PERIOD,
     });
 
@@ -127,20 +127,23 @@ describe('TimeEntriesExportService', () => {
     ]);
   });
 
-  it('leaves rates and amounts out for everyone else', async () => {
-    entries.push(entry({}));
+  it.each([UserRole.HR, UserRole.Manager])(
+    'leaves rates and amounts out for %s',
+    async (role) => {
+      entries.push(entry({}));
 
-    const csv = await service.getCsv({
-      user: userWith(UserRole.Manager),
-      ...PERIOD,
-    });
+      const csv = await service.getCsv({
+        user: userWith(role),
+        ...PERIOD,
+      });
 
-    expect(rowsOf(csv.content)).toEqual([
-      'Date,Person,Email,Team,Client,Project,Description,Hours,Billable,Status',
-      '2026-11-03,Mia Member,mia@acme.test,Backend,"Acme, Inc.",Website,API review,2.50,yes,approved',
-    ]);
-    expect(projectRatesService.findRates).not.toHaveBeenCalled();
-  });
+      expect(rowsOf(csv.content)).toEqual([
+        'Date,Person,Email,Team,Client,Project,Description,Hours,Billable,Status',
+        '2026-11-03,Mia Member,mia@acme.test,Backend,"Acme, Inc.",Website,API review,2.50,yes,approved',
+      ]);
+      expect(projectRatesService.findRates).not.toHaveBeenCalled();
+    },
+  );
 
   it('writes only the header for a period without time', async () => {
     const csv = await service.getCsv({

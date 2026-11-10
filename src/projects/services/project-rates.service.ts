@@ -102,7 +102,7 @@ export class ProjectRatesService {
 
   // Sets or removes the person's own rate on the project. The person may be
   // anyone in the workspace, inactive too: Admin and HR log time for anyone,
-  // and past time still gets billed.
+  // and past time still gets billed. Admin and Finance set it.
   public async setPersonRate({
     projectId,
     userId,

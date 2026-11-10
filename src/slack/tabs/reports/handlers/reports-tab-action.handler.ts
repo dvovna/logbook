@@ -1,5 +1,5 @@
+import { RATE_ROLES } from 'src/projects/constants/rate-roles';
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
-import { TIME_ENTRIES_ADMIN_ROLES } from 'src/time-entries/constants/time-entries-admin-roles';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
@@ -57,13 +57,15 @@ export default class ReportsTabActionHandler extends BaseTabActionHandler {
     };
   }
 
-  // The billing report is Admin's and HR's.
+  // The billing report is Admin's and Finance's.
   private handleBillingReports = async (
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
-    if (!TIME_ENTRIES_ADMIN_ROLES.includes(user.role)) {
-      throw new ForbiddenException('Only Admin and HR make billing reports');
+    if (!RATE_ROLES.includes(user.role)) {
+      throw new ForbiddenException(
+        'Only Admin and Finance make billing reports',
+      );
     }
 
     await this.reportsTabService.openModal(

@@ -7,8 +7,16 @@ interface IUserChange {
   isActive?: boolean;
 }
 
-// HR manages people, but only an admin makes someone an admin, takes the role
-// away or deactivates an admin. Otherwise HR could make themselves admin.
+// The roles only an admin grants or takes away: Admin, and Finance, which
+// sees rates and money that HR doesn't.
+const ADMIN_GRANTED_ROLES: readonly UserRole[] = [
+  UserRole.Admin,
+  UserRole.Finance,
+];
+
+// HR manages people, but only an admin makes someone an admin or Finance,
+// takes either role away or deactivates an admin. Otherwise HR could make
+// themselves admin, or someone Finance to see the rates.
 export const assertCanChangeUser = (
   actor: IUserViewModel,
   target: IUserViewModel,
@@ -18,16 +26,17 @@ export const assertCanChangeUser = (
     return;
   }
 
-  const grantsAdmin =
-    change.role === UserRole.Admin && target.role !== UserRole.Admin;
-  const changesAnAdmin =
-    target.role === UserRole.Admin &&
-    ((change.role !== undefined && change.role !== UserRole.Admin) ||
-      change.isActive !== undefined);
+  const changesRole = change.role !== undefined && change.role !== target.role;
+  const grantsOrRemoves =
+    changesRole &&
+    (ADMIN_GRANTED_ROLES.includes(change.role!) ||
+      ADMIN_GRANTED_ROLES.includes(target.role));
+  const deactivatesAnAdmin =
+    target.role === UserRole.Admin && change.isActive !== undefined;
 
-  if (grantsAdmin || changesAnAdmin) {
+  if (grantsOrRemoves || deactivatesAnAdmin) {
     throw new ForbiddenException(
-      'Only an admin can grant or remove the Admin role, or deactivate an admin.',
+      'Only an admin can grant or remove the Admin or Finance role, or deactivate an admin.',
     );
   }
 };

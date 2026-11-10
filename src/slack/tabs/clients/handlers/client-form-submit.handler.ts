@@ -28,7 +28,7 @@ import { IClientsTabMetaData } from '@modules/slack/tabs/clients/views/clients-t
 @SlackHandler({
   callbackId: ViewCallbackId.ClientFormSubmit,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: [UserRole.Admin, UserRole.HR, UserRole.Finance],
 })
 export class ClientFormSubmitHandler extends BaseModalFormSubmitHandler<
   IClientModalViewMetadata,

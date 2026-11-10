@@ -44,6 +44,7 @@ describe('Access control', () => {
   let hr: Tables<'users'>;
   let manager: Tables<'users'>;
   let member: Tables<'users'>;
+  let finance: Tables<'users'>;
 
   beforeAll(async () => {
     t = await createTestApp();
@@ -63,6 +64,10 @@ describe('Access control', () => {
       name: 'Max Manager',
     });
     member = await workspace.addUser({ name: 'Mo Member' });
+    finance = await workspace.addUser({
+      role: UserRole.Finance,
+      name: 'Fay Finance',
+    });
   });
 
   describe('tabs', () => {
@@ -144,6 +149,31 @@ describe('Access control', () => {
     );
 
     it.each([
+      NavigationActionId.People,
+      NavigationActionId.Approvals,
+      NavigationActionId.AllRequests,
+      NavigationActionId.Teams,
+      NavigationActionId.Policies,
+      NavigationActionId.TimeLogs,
+    ])('keeps Finance out of %s: no people or approvals', async (action) => {
+      expect(await navigateFromHome(finance, action)).toEqual([
+        ViewCallbackId.HomeTabView,
+      ]);
+    });
+
+    it.each(['manager', 'hr'] as const)(
+      'keeps a %s out of Billing snapshots, which are for Admin and Finance',
+      async (role) => {
+        expect(
+          await navigateFromHome(
+            { manager, hr }[role],
+            NavigationActionId.BillingSnapshots,
+          ),
+        ).toEqual([ViewCallbackId.HomeTabView]);
+      },
+    );
+
+    it.each([
       NavigationActionId.Teams,
       NavigationActionId.Policies,
       NavigationActionId.TimeLogs,
@@ -183,12 +213,29 @@ describe('Access control', () => {
           NavigationActionId.AllRequests,
         ],
       ],
-      ['hr', SCREEN_ACTIONS],
+      [
+        'hr',
+        SCREEN_ACTIONS.filter(
+          (action) => action !== NavigationActionId.BillingSnapshots,
+        ),
+      ],
+      [
+        'finance',
+        [
+          NavigationActionId.Home,
+          NavigationActionId.MyTime,
+          NavigationActionId.TimeOff,
+          NavigationActionId.Reports,
+          NavigationActionId.Projects,
+          NavigationActionId.Clients,
+          NavigationActionId.BillingSnapshots,
+        ],
+      ],
       ['admin', SCREEN_ACTIONS],
     ] as const)(
       'leads a %s from every button and menu option only to screens it may open',
       async (role, reachable) => {
-        const user = { member, manager, hr, admin }[role];
+        const user = { member, manager, hr, finance, admin }[role];
         const navigation = new Set<string>(SCREEN_ACTIONS);
         const followed = new Set<string>();
         const bounced: string[] = [];
@@ -272,12 +319,49 @@ describe('Access control', () => {
           .expect(200);
 
         expect(modalError(response.body.view)).toContain(
-          'Only an admin can grant or remove the Admin role',
+          'Only an admin can grant or remove the Admin or Finance role',
         );
         expect((await workspace.row('users', target.id)).role).toBe(
           target.role,
         );
       }
+    });
+
+    // Finance sees the rates and money that HR doesn't.
+    it('nor Finance, which HR neither grants nor takes away', async () => {
+      for (const [target, role] of [
+        [member, UserRole.Finance],
+        [hr, UserRole.Finance],
+        [finance, UserRole.Member],
+      ] as const) {
+        const form = await fromUsersMenu(
+          hr,
+          UsersTabViewActionId.EditUser,
+          target,
+        );
+        const response = await t.slack
+          .submitView(workspace, hr, form, { role })
+          .expect(200);
+
+        expect(modalError(response.body.view)).toContain(
+          'Only an admin can grant or remove the Admin or Finance role',
+        );
+        expect((await workspace.row('users', target.id)).role).toBe(
+          target.role,
+        );
+      }
+
+      const form = await fromUsersMenu(
+        admin,
+        UsersTabViewActionId.EditUser,
+        member,
+      );
+      await t.slack
+        .submitView(workspace, admin, form, { role: UserRole.Finance })
+        .expect(200);
+      expect((await workspace.row('users', member.id)).role).toBe(
+        UserRole.Finance,
+      );
     });
 
     it('cannot be taken from an admin, or the admin deactivated, by HR', async () => {

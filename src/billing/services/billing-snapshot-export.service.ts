@@ -53,7 +53,7 @@ const byDatePersonProject = (a: ISnapshotLine, b: ISnapshotLine) =>
   a.createdAt.localeCompare(b.createdAt);
 
 // A billing snapshot as a CSV file for accounting, one line per entry, with
-// the rate and amount it was billed at. Admin and HR only
+// the rate and amount it was billed at. Admin and Finance only
 // (BillingSnapshotsService.findOne checks).
 @Injectable()
 export class BillingSnapshotExportService {

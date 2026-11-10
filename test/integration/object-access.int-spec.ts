@@ -354,9 +354,10 @@ describe('Access to objects by ID', () => {
           select,
           ['Ada Admin', 'Anna Ownteam', 'Boris Otherteam', 'Max Manager'],
         ]);
+        // Person Rates is for those who set rates: a manager finds nobody.
         expect(await suggestedNames(manager, view, select)).toEqual([
           select,
-          ['Anna Ownteam'],
+          select === PersonRateModalActionId.Person ? [] : ['Anna Ownteam'],
         ]);
         expect(await suggestedNames(ownTeam, view, select)).toEqual([
           select,

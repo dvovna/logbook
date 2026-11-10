@@ -27,13 +27,14 @@ const PROJECTS_TAB = [NavigationActionId.Projects];
 const { Person, HourlyRate } = PersonRateModalActionId;
 
 // Hourly rates on projects, people's own rates, and the workspace's currency:
-// Admin and HR see and set rates, an admin sets the currency, and managers,
-// who see the projects, see neither.
+// Admin and Finance see and set rates, an admin sets the currency, and
+// managers and HR, who see the projects, see neither.
 describe('Rates', () => {
   let t: ITestApp;
   let workspace: TestWorkspace;
   let admin: Tables<'users'>;
   let hr: Tables<'users'>;
+  let finance: Tables<'users'>;
   let manager: Tables<'users'>;
   let ada: Tables<'users'>;
 
@@ -50,6 +51,10 @@ describe('Rates', () => {
       name: 'Ann Admin',
     });
     hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+    finance = await workspace.addUser({
+      role: UserRole.Finance,
+      name: 'Fay Finance',
+    });
     manager = await workspace.addUser({
       role: UserRole.Manager,
       name: 'Max Manager',
@@ -126,7 +131,7 @@ describe('Rates', () => {
     t.slackApi.callsWith(workspace.token, 'views.open', { since });
 
   describe("a project's rate", () => {
-    it('is set in the project form and shown to Admin and HR', async () => {
+    it('is set in the project form and shown to Admin and Finance', async () => {
       const create = await openModalFrom(
         t,
         workspace,
@@ -149,7 +154,7 @@ describe('Rates', () => {
       const [project] = await workspace.rows('projects');
       expect(project).toMatchObject({ name: 'Website', hourly_rate: 120.5 });
       expect(listItems(tab)[0].fields.Rate).toBe('$120.50/h');
-      expect(listItems(await openProjectsTab(hr))[0].fields.Rate).toBe(
+      expect(listItems(await openProjectsTab(finance))[0].fields.Rate).toBe(
         '$120.50/h',
       );
 
@@ -194,7 +199,7 @@ describe('Rates', () => {
   });
 
   describe("a person's own rate", () => {
-    it('is set and removed in Person Rates, by HR too', async () => {
+    it('is set and removed in Person Rates, by Finance too', async () => {
       const project = await workspace.addProject({
         name: 'Website',
         hourly_rate: 100,
@@ -203,20 +208,20 @@ describe('Rates', () => {
       const modal = await openFromMenu(
         ProjectsTabViewActionId.ManagePersonRates,
         project,
-        hr,
+        finance,
       );
       expect(sectionTexts(modal)).toEqual([
         "*Website*: *$100.00/h*.\nA person's own rate replaces the project's for their time on it.",
         '_Nobody has a rate of their own on this project yet._',
       ]);
       const suggestions = await t.slack
-        .suggest(workspace, hr, modal, Person, 'ada')
+        .suggest(workspace, finance, modal, Person, 'ada')
         .expect(acknowledged);
       expect(suggestions.body.options).toEqual([
         { text: { type: 'plain_text', text: 'Ada Lovelace' }, value: ada.id },
       ]);
 
-      const set = await submit(hr, modal, {
+      const set = await submit(finance, modal, {
         [Person]: ada.id,
         [HourlyRate]: '150',
       });
@@ -230,8 +235,8 @@ describe('Rates', () => {
           project_id: project.id,
           user_id: ada.id,
           hourly_rate: 150,
-          created_by: hr.id,
-          updated_by: hr.id,
+          created_by: finance.id,
+          updated_by: finance.id,
         }),
       ]);
       expect(listItems(set.tab)[0].fields).toMatchObject({
@@ -250,7 +255,7 @@ describe('Rates', () => {
       expect(await workspace.rows('project_user_rates')).toEqual([
         expect.objectContaining({
           hourly_rate: 175.25,
-          created_by: hr.id,
+          created_by: finance.id,
           updated_by: admin.id,
         }),
       ]);
@@ -345,15 +350,17 @@ describe('Rates', () => {
       });
     });
 
-    it('is not changed by HR', async () => {
-      const hrTab = await openProjectsTab(hr);
-      expect(sectionTexts(hrTab)).toContain('Rates and amounts are in *USD*.');
-      expect(actionIdsOf(hrTab)).not.toContain(
+    it('is not changed by Finance', async () => {
+      const financeTab = await openProjectsTab(finance);
+      expect(sectionTexts(financeTab)).toContain(
+        'Rates and amounts are in *USD*.',
+      );
+      expect(actionIdsOf(financeTab)).not.toContain(
         ProjectsTabViewActionId.ChangeCurrency,
       );
 
       const since = t.slackApi.mark();
-      await forge(hr, hrTab, {
+      await forge(finance, financeTab, {
         type: 'button',
         action_id: ProjectsTabViewActionId.ChangeCurrency,
       });
@@ -367,7 +374,7 @@ describe('Rates', () => {
         ProjectsTabViewActionId.ChangeCurrency,
       );
       const response = await t.slack
-        .submitView(workspace, hr, adminsForm, { currency: 'EUR' })
+        .submitView(workspace, finance, adminsForm, { currency: 'EUR' })
         .expect(200);
 
       expect(response.body.view.title.text).toBe('Forbidden');
@@ -383,67 +390,71 @@ describe('Rates', () => {
     });
   });
 
-  describe('for a manager', () => {
-    it('are not shown, and their forms do not open or save', async () => {
-      const project = await workspace.addProject({
-        name: 'Website',
-        hourly_rate: 100,
-      });
-      await workspace.addPersonRate(project, ada, 150);
+  describe('for a manager or HR', () => {
+    it.each(['manager', 'hr'] as const)(
+      'are not shown to a %s, and their forms do not open or save',
+      async (role) => {
+        const viewer = { manager, hr }[role];
+        const project = await workspace.addProject({
+          name: 'Website',
+          hourly_rate: 100,
+        });
+        await workspace.addPersonRate(project, ada, 150);
 
-      const managersTab = await openProjectsTab(manager);
-      expect(listItems(managersTab)[0].fields).not.toHaveProperty('Rate');
-      expect(listItems(managersTab)[0].fields).not.toHaveProperty('Own rates');
-      expect(JSON.stringify(managersTab.blocks)).not.toMatch(/\$\d/);
-      expect(sectionTexts(managersTab)).not.toContain(
-        'Rates and amounts are in *USD*.',
-      );
-      expect(listItems(managersTab)[0].menu).toEqual([
-        ProjectsTabViewActionId.ManageProjectAssignments,
-        ProjectsTabViewActionId.ArchiveProject,
-      ]);
+        const viewersTab = await openProjectsTab(viewer);
+        expect(listItems(viewersTab)[0].fields).not.toHaveProperty('Rate');
+        expect(listItems(viewersTab)[0].fields).not.toHaveProperty('Own rates');
+        expect(JSON.stringify(viewersTab.blocks)).not.toMatch(/\$\d/);
+        expect(sectionTexts(viewersTab)).not.toContain(
+          'Rates and amounts are in *USD*.',
+        );
+        expect(listItems(viewersTab)[0].menu).toEqual([
+          ProjectsTabViewActionId.ManageProjectAssignments,
+          ProjectsTabViewActionId.ArchiveProject,
+        ]);
 
-      const since = t.slackApi.mark();
-      for (const item of [
-        ProjectsTabViewActionId.EditProject,
-        ProjectsTabViewActionId.ManagePersonRates,
-      ]) {
-        await forgeMenu(manager, managersTab, item, project);
-      }
-      await forge(manager, managersTab, {
-        type: 'button',
-        action_id: ProjectsTabViewActionId.ChangeCurrency,
-      });
-      expect(openedModals(since)).toEqual([]);
+        const since = t.slackApi.mark();
+        for (const item of [
+          ProjectsTabViewActionId.EditProject,
+          ProjectsTabViewActionId.ManagePersonRates,
+        ]) {
+          await forgeMenu(viewer, viewersTab, item, project);
+        }
+        await forge(viewer, viewersTab, {
+          type: 'button',
+          action_id: ProjectsTabViewActionId.ChangeCurrency,
+        });
+        expect(openedModals(since)).toEqual([]);
 
-      // The admin's forms, submitted by the manager.
-      const personRates = await openFromMenu(
-        ProjectsTabViewActionId.ManagePersonRates,
-        project,
-      );
-      const rateResponse = await t.slack
-        .submitView(workspace, manager, personRates, {
-          [Person]: ada.id,
-          [HourlyRate]: '1',
-        })
-        .expect(200);
-      const edit = await openFromMenu(
-        ProjectsTabViewActionId.EditProject,
-        project,
-      );
-      const editResponse = await t.slack
-        .submitView(workspace, manager, edit, { hourlyRate: '1' })
-        .expect(200);
+        // The admin's forms, submitted by the viewer.
+        const personRates = await openFromMenu(
+          ProjectsTabViewActionId.ManagePersonRates,
+          project,
+        );
+        const rateResponse = await t.slack
+          .submitView(workspace, viewer, personRates, {
+            [Person]: ada.id,
+            [HourlyRate]: '1',
+          })
+          .expect(200);
+        const edit = await openFromMenu(
+          ProjectsTabViewActionId.EditProject,
+          project,
+        );
+        const editResponse = await t.slack
+          .submitView(workspace, viewer, edit, { hourlyRate: '1' })
+          .expect(200);
 
-      expect(rateResponse.body.view.title.text).toBe('Forbidden');
-      expect(editResponse.body.view.title.text).toBe('Forbidden');
-      expect(await workspace.rows('project_user_rates')).toEqual([
-        expect.objectContaining({ hourly_rate: 150 }),
-      ]);
-      expect((await workspace.row('projects', project.id)).hourly_rate).toBe(
-        100,
-      );
-    });
+        expect(rateResponse.body.view.title.text).toBe('Forbidden');
+        expect(editResponse.body.view.title.text).toBe('Forbidden');
+        expect(await workspace.rows('project_user_rates')).toEqual([
+          expect.objectContaining({ hourly_rate: 150 }),
+        ]);
+        expect((await workspace.row('projects', project.id)).hourly_rate).toBe(
+          100,
+        );
+      },
+    );
 
     it('keeps the rates when assigning people to the project', async () => {
       const project = await workspace.addProject({ hourly_rate: 100 });

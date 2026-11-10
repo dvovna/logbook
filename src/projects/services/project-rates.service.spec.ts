@@ -41,7 +41,7 @@ describe('ProjectRatesService', () => {
   });
 
   describe('setPersonRate', () => {
-    const setRate = (hourlyRate: number | null, role = UserRole.HR) =>
+    const setRate = (hourlyRate: number | null, role = UserRole.Finance) =>
       service.setPersonRate({
         projectId: PROJECT.id,
         userId: ADA.id,
@@ -87,7 +87,7 @@ describe('ProjectRatesService', () => {
       expect(repository.setRate).not.toHaveBeenCalled();
     });
 
-    it.each([UserRole.Manager, UserRole.Member])(
+    it.each([UserRole.HR, UserRole.Manager, UserRole.Member])(
       'refuses a %s',
       async (role) => {
         await expect(setRate(150, role)).rejects.toThrow(ForbiddenException);
