@@ -35,12 +35,12 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - Hourly rates: a project's rate, and a person's own rate on a project that replaces it. One currency per workspace, which an admin sets. Only admins and HR see rates and amounts.
 - Time entries in 15-minute steps, logged from the App Home or with `/log` as drafts, and then submitted for approval.
 - The team's managers, HR or an admin approve or reject submitted time; a rejection tells the owner why.
-- Time reports for a period, by client, project, person or team: hours, billable and approved time, and for admins and HR the amounts. Admins and HR see everyone's time, managers their teams' and their own, everyone else their own.
+- Time reports for a period, by client, project, person or team: hours, billable and approved time, and for admins and HR the amounts. Admins and HR see everyone's time, managers their teams' and their own, everyone else their own. A quick period (this or last week, month, quarter) fills the dates, and the report and its CSV can be narrowed to a client, a project or a person.
 - "Who hasn't submitted": the people a manager, HR or an admin sees who logged nothing in a period, or still have drafts or rejected time in it.
 - A CSV of a time report's entries, sent to you as a file in a DM: date, person, email, team, client, project, description, hours, billable, status, and for admins and HR the rate and the amount (comma-separated UTF-8).
 - A billing report per client and period, from approved time: each person's hours on each project with the rate and the amount, the totals by project and by person, and the amount in all. Billable time without a rate has no amount and is counted apart.
-- Billing snapshots: admins and HR lock a billing report's approved time with today's rates, for an invoice you make elsewhere (Logbook makes no invoices). Nobody can change the time in a snapshot. A snapshot's CSV is sent to you in a DM (date, person, email, team, project, description, hours, billable, rate, amount, currency), and you mark it invoiced. An admin can unlock a snapshot to correct its time, which deletes it.
-- An uninvoiced report per client: approved billable time in no snapshot, with its amount at today's rates, and the time of snapshots not marked invoiced yet.
+- Billing snapshots: admins and HR lock a billing report's approved time with today's rates, for an invoice you make elsewhere (Logbook makes no invoices). Nobody can change the time in a snapshot. A snapshot's CSV is sent to you in a DM (date, person, email, team, project, description, hours, billable, rate, amount, currency), and you mark it invoiced (or not invoiced again). The list filters by client. An admin can unlock a snapshot to correct its time, which deletes it.
+- An uninvoiced report per client, for all time or a period: approved billable time in no snapshot, with its amount at today's rates, and the time of snapshots not marked invoiced yet.
 - Admins and HR see everyone's time logs.
 
 ## How it works
