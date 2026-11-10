@@ -9,6 +9,7 @@ import { VacationRequestsService } from '@modules/vacation-requests/services/vac
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { vacationTimeLock } from '@modules/vacation-requests/utils/vacation-time.utils';
+import { timesheetLock } from 'src/time-entries/utils/timesheet-lock';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
@@ -65,8 +66,8 @@ export class TimeOffLoggingService {
     private readonly transactions: TransactionService,
   ) {}
 
-  // Null unless the time off is approved, its type has an active project and
-  // it has working days left.
+  // Null unless the time off is approved, its type has an active project,
+  // its requester is active and it has working days left.
   public async offerFor(
     request: IVacationRequestViewModel,
   ): Promise<ITimeOffOffer | null> {
@@ -88,6 +89,9 @@ export class TimeOffLoggingService {
   // the project is skipped, so a second run, or a second click at the same
   // moment, writes nothing more; so is a day that has time of this request
   // on another project, so a changed type never logs a day twice.
+  // It takes the request's lock, then the lock on the user's time that a
+  // timesheet save takes (in that order only, timesheetLock), so a save of
+  // the same days waits for it.
   public async log(
     user: IUserViewModel,
     requestId: string,
@@ -96,6 +100,7 @@ export class TimeOffLoggingService {
 
     return this.transactions.transaction(async () => {
       await this.transactions.lock(vacationTimeLock(requestId));
+      await this.transactions.lock(timesheetLock(user.id));
 
       const request = await this.vacationRequestsService.findOneWithValidation({
         id: requestId,
@@ -221,10 +226,17 @@ export class TimeOffLoggingService {
       return null;
     }
 
-    const requester = await this.usersService.findOneWithValidation({
+    // Someone deactivated since gets no offer.
+    const requester = await this.usersService.findOne({
       id: request.user_id,
       slackTeamId,
+      includeInactive: true,
     });
+
+    if (!requester?.is_active) {
+      return null;
+    }
+
     const team = requester.team_id
       ? await this.teamsService.findOne({
           id: requester.team_id,

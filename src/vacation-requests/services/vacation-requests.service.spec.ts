@@ -483,6 +483,34 @@ describe('VacationRequestsService', () => {
       expect(result.billedDates).toEqual([]);
     });
 
+    // HR's form read the request while it was pending; the workflow approved
+    // it before the lock, and the requester logged it. An edit of the comment
+    // changes nothing of that time.
+    it('compares with the request as it is under the lock', async () => {
+      repository.findOne
+        .mockResolvedValueOnce(
+          buildRequest({ status: VacationRequestStatus.Pending }),
+        )
+        .mockResolvedValueOnce(approved);
+      repository.update.mockResolvedValue({
+        ...approved,
+        user_comment: 'Family trip',
+      });
+
+      await service.update(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { userComment: 'Family trip' },
+        hr,
+      );
+
+      expect(repository.findOne).toHaveBeenCalledTimes(2);
+      expect(timeEntriesService.deleteVacationTime).not.toHaveBeenCalled();
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        VacationRequestEvent.Updated,
+        expect.objectContaining({ previous: approved }),
+      );
+    });
+
     it('is removed before the request is deleted, in one transaction', async () => {
       const calls: string[] = [];
       timeEntriesService.deleteVacationTime.mockImplementation(() => {

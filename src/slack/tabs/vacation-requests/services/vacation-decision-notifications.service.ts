@@ -107,10 +107,25 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
       includeInactive: true,
     });
 
-    // An approved time off carries the button to log it as time.
-    const offer = await this.timeOffLoggingService.offerFor(decided.request);
+    const offer = await this.offerOf(decided.request);
 
     await this.notifyUser(decided.request, decidedBy, decided.comments, offer);
+  }
+
+  // An approved time off carries the button to log it as time. The decision
+  // never waits for the offer: when it fails, the message goes without it.
+  private async offerOf(
+    request: IVacationRequestViewModel,
+  ): Promise<ITimeOffOffer | null> {
+    try {
+      return await this.timeOffLoggingService.offerFor(request);
+    } catch (error) {
+      this.logger.warn(
+        `No offer to log time off ${request.id} as time: ${(error as Error).message}`,
+      );
+
+      return null;
+    }
   }
 
   private async notifyRecipients(job: IRequestJob) {

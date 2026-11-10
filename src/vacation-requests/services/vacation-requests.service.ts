@@ -292,6 +292,10 @@ export class VacationRequestsService implements IVacationRequestsService {
     const change = await this.transactions.transaction(async () => {
       await this.transactions.lock(vacationTimeLock(existingRequest.id));
 
+      // The request as it is under the lock: a workflow approval or another
+      // edit may have changed it since it was read above, and what this edit
+      // changes decides whether the logged time goes.
+      const previous = await this.findOneWithValidation({ id, slackTeamId });
       const request = await this.vacationRequestsRepository.update(
         {
           id,
@@ -319,7 +323,7 @@ export class VacationRequestsService implements IVacationRequestsService {
           updated_at: new Date().toISOString(),
         },
       );
-      const { billedDates } = changesLoggedTime(existingRequest, request)
+      const { billedDates } = changesLoggedTime(previous, request)
         ? await this.timeEntriesService.deleteVacationTime(
             request.id,
             slackTeamId,
@@ -327,15 +331,15 @@ export class VacationRequestsService implements IVacationRequestsService {
           )
         : { billedDates: [] };
 
-      return { request, billedDates };
+      return { request, previous, billedDates };
     });
 
     this.eventEmitter.emit(
       VacationRequestEvent.Updated,
-      new VacationRequestUpdatedEvent(change.request, user, existingRequest),
+      new VacationRequestUpdatedEvent(change.request, user, change.previous),
     );
 
-    return change;
+    return { request: change.request, billedDates: change.billedDates };
   }
 
   public async cancel(requestId: string, user: IUserViewModel) {

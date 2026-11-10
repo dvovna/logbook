@@ -20,6 +20,7 @@ const user = {
   id: 'u1',
   team_id: 't1',
   slack_team_id: SLACK_TEAM_ID,
+  is_active: true,
 } as IUserViewModel;
 
 const request = (
@@ -40,7 +41,7 @@ describe('TimeOffLoggingService', () => {
   let settings: { get: jest.Mock };
   let requests: { findOneWithValidation: jest.Mock };
   let projects: { findMany: jest.Mock };
-  let users: { findOneWithValidation: jest.Mock };
+  let users: { findOne: jest.Mock };
   let teams: { findOne: jest.Mock };
   let days: { workingDates: jest.Mock };
   let entries: { findMany: jest.Mock; createForVacation: jest.Mock };
@@ -60,7 +61,7 @@ describe('TimeOffLoggingService', () => {
     projects = {
       findMany: jest.fn().mockResolvedValue([{ id: 'p1', name: 'Vacations' }]),
     };
-    users = { findOneWithValidation: jest.fn().mockResolvedValue(user) };
+    users = { findOne: jest.fn().mockResolvedValue(user) };
     teams = {
       findOne: jest.fn().mockResolvedValue({ vacation_policy_id: 'v1' }),
     };
@@ -115,6 +116,17 @@ describe('TimeOffLoggingService', () => {
     await expect(service.offerFor(request())).resolves.toBeNull();
   });
 
+  it('offers nothing to a requester who was deactivated', async () => {
+    users.findOne.mockResolvedValue({ ...user, is_active: false });
+
+    await expect(service.offerFor(request())).resolves.toBeNull();
+    expect(users.findOne).toHaveBeenCalledWith({
+      id: 'u1',
+      slackTeamId: SLACK_TEAM_ID,
+      includeInactive: true,
+    });
+  });
+
   it('offers nothing when no working days are left', async () => {
     days.workingDates.mockResolvedValue([]);
 
@@ -123,14 +135,15 @@ describe('TimeOffLoggingService', () => {
     expect(entries.findMany).not.toHaveBeenCalled();
   });
 
-  it('logs the days with no time yet, under a lock of the request', async () => {
+  it("logs the days with no time yet, under the request's and the user's locks", async () => {
     entries.findMany.mockResolvedValue([
       { work_date: '2026-06-19T00:00:00Z', project_id: 'p1' },
     ]);
 
     const result = await service.log(user, 'r1');
 
-    expect(lock).toHaveBeenCalledWith('time-off:r1');
+    // The request's lock, then the one a timesheet save of the user takes.
+    expect(lock.mock.calls).toEqual([['time-off:r1'], ['timesheet:u1']]);
     expect(entries.findMany).toHaveBeenCalledWith({
       userId: 'u1',
       dateFrom: '2026-06-19',
