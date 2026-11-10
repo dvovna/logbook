@@ -439,12 +439,14 @@ describe('RequestWorkflowService', () => {
       stepsService.findOneWithValidation.mockResolvedValue(step);
       stepsService.decide.mockResolvedValue(rejectedSteps);
 
-      await service.rejectStep(step.id, approver);
+      await service.rejectStep(step.id, approver, '  Release week ');
 
+      // The reason goes with the steps, for the approvers' messages.
       expect(stepsService.decide).toHaveBeenCalledWith(
         { requestId: REQUEST_ID, stepLevel: 1, slackTeamId: SLACK_TEAM_ID },
         'rejected',
         approver,
+        'Release week',
       );
       expect(processorService.updateStepMessages).toHaveBeenCalledWith(
         rejectedSteps,
@@ -456,6 +458,7 @@ describe('RequestWorkflowService', () => {
         slackTeamId: SLACK_TEAM_ID,
         approvedBy: approver.id,
         reviewComments: comments,
+        rejectionReason: 'Release week',
       });
     });
 

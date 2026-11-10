@@ -171,6 +171,12 @@ describe('Vacation request approval', () => {
     expect(textOf(notice)).toContain('>Release week &lt;!channel&gt;');
     expect(textOf(notice)).toContain(`Rejected by <@${manager.slack_id}>`);
 
+    // The approver's own message keeps the reason too.
+    const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+    expect(textOf(update)).toContain(
+      `❌ Rejected by <@${manager.slack_id}>\\n>Release week &lt;!channel&gt;`,
+    );
+
     // The requester finds the reason in the history and in Details.
     const history = await openAppHomeTab(t, workspace, member, [
       NavigationActionId.TimeOff,

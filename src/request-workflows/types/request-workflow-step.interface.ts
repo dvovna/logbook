@@ -49,6 +49,8 @@ export interface IApproverStepData {
   level_name?: string;
   decided_at?: string | null;
   decided_by_slack_id?: string | null;
+  // Why the level was rejected, as the approver wrote it.
+  rejection_reason?: string | null;
 }
 
 export interface IRequestWorkflowStepViewModel {

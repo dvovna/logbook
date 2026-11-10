@@ -322,6 +322,7 @@ export class RequestWorkflowService {
         },
         RequestWorkflowStatus.Rejected,
         rejectedBy,
+        reason?.trim() || undefined,
       );
 
       await this.workflowStepProcessorService.updateStepMessages(rejectedSteps);
