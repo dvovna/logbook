@@ -31,7 +31,11 @@ export class ProjectsRepository extends BaseRepository<
 
     return this.db
       .selectFrom('projects')
-      .leftJoin('clients', 'clients.id', 'projects.client_id')
+      .leftJoin('clients', (join) =>
+        join
+          .onRef('clients.id', '=', 'projects.client_id')
+          .on('clients.slack_team_id', '=', slackTeamId),
+      )
       .where('projects.slack_team_id', '=', slackTeamId)
       .select([
         'projects.id',
