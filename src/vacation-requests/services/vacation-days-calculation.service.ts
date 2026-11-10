@@ -12,27 +12,39 @@ export class VacationDaysCalculationService {
     vacationPolicyId: string | null,
     slackTeamId: string,
   ): Promise<number> {
+    return (await this.workingDates(start, end, vacationPolicyId, slackTeamId))
+      .length;
+  }
+
+  // The days from `start` to `end` that count: no weekends, no enabled
+  // holiday of the policy (as 'YYYY-MM-DD').
+  public async workingDates(
+    start: Date,
+    end: Date,
+    vacationPolicyId: string | null,
+    slackTeamId: string,
+  ): Promise<string[]> {
     const holidays = vacationPolicyId
       ? await this.getHolidaysInRange(vacationPolicyId, slackTeamId, start, end)
       : [];
 
     const holidayDates = holidays.map((holiday) => holiday.date);
 
-    let workingDays = 0;
+    const dates: string[] = [];
     const current = new Date(start);
 
     while (current <= end) {
       const isWeekend = [0, 6].includes(current.getDay());
-      const isHoliday = holidayDates.includes(getDateOnly(current));
+      const date = getDateOnly(current);
 
-      if (!isWeekend && !isHoliday) {
-        workingDays++;
+      if (!isWeekend && !holidayDates.includes(date)) {
+        dates.push(date);
       }
 
       current.setDate(current.getDate() + 1);
     }
 
-    return workingDays;
+    return dates;
   }
 
   private getHolidaysInRange(

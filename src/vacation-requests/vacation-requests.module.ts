@@ -41,6 +41,7 @@ import { TimeOffContextService } from '@modules/vacation-requests/services/time-
     VacationRequestsService,
     VacationsUsageService,
     TimeOffContextService,
+    VacationDaysCalculationService,
   ],
 })
 export class VacationRequestsModule {}

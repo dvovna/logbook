@@ -1,8 +1,12 @@
+import { ForbiddenException } from '@nestjs/common';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
+import { UsersService } from '@modules/users/services/users.service';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -226,6 +230,203 @@ describe('Time off logging', () => {
       }
 
       expect((await settings().get(workspace.id)).minutesPerDay).toBe(480);
+    });
+  });
+  describe('Logging', () => {
+    const logging = () => t.app.get(TimeOffLoggingService);
+
+    const asViewModel = (user: Tables<'users'>) =>
+      t.app
+        .get(UsersService)
+        .findOneWithValidation({ id: user.id, slackTeamId: workspace.id });
+
+    const mapProject = (type: string, projectId: string) =>
+      t.db
+        .insertInto('time_off_projects')
+        .values({
+          slack_team_id: workspace.id,
+          vacation_type: type,
+          project_id: projectId,
+        })
+        .execute();
+
+    const entriesOf = async (user: Tables<'users'>) =>
+      (await workspace.rows('time_entries'))
+        .filter(({ user_id }) => user_id === user.id)
+        .sort((a, b) => a.work_date.localeCompare(b.work_date));
+
+    // Mon 22 Jun is a holiday of the requester's team policy.
+    const setup = async (
+      { start, end, workingDays } = {
+        start: '2026-06-19',
+        end: '2026-06-23',
+        workingDays: 2,
+      },
+    ) => {
+      const policy = await workspace.addVacationPolicy();
+      await t.db
+        .insertInto('holidays')
+        .values({
+          slack_team_id: workspace.id,
+          vacation_policy_id: policy.id,
+          name: 'Founders Day',
+          date: '2026-06-22',
+          year: 2026,
+          is_company_custom: true,
+          created_by: admin.id,
+        })
+        .execute();
+      const team = await workspace.addTeam({ vacation_policy_id: policy.id });
+      const requester = await workspace.addUser({ team_id: team.id });
+      const project = await workspace.addProject({ name: 'Vacations' });
+      await mapProject('annual_leave', project.id);
+      const request = await workspace.addVacationRequest(requester, {
+        start_date: start,
+        end_date: end,
+        working_days: workingDays,
+      });
+
+      return { team, requester, project, request };
+    };
+
+    it('logs one approved entry per working day', async () => {
+      const { team, requester, project, request } = await setup();
+
+      const result = await logging().log(
+        await asViewModel(requester),
+        request.id,
+      );
+      const entries = await entriesOf(requester);
+
+      expect(result.logged).toEqual(['2026-06-19', '2026-06-23']);
+      expect(result.logged).toHaveLength(request.working_days);
+      expect(result.skipped).toEqual([]);
+      expect(
+        entries.map((entry) => [
+          entry.work_date.slice(0, 10),
+          entry.minutes,
+          entry.status,
+          entry.project_id,
+          entry.team_id,
+          entry.created_by,
+          entry.vacation_request_id,
+        ]),
+      ).toEqual(
+        ['2026-06-19', '2026-06-23'].map((date) => [
+          date,
+          480,
+          'approved',
+          project.id,
+          team.id,
+          requester.id,
+          request.id,
+        ]),
+      );
+    });
+
+    it('skips days that already have time on the project', async () => {
+      const { requester, project, request } = await setup();
+      await workspace.addTimeEntry(requester, project, {
+        work_date: '2026-06-19',
+        minutes: 480,
+      });
+
+      const result = await logging().log(
+        await asViewModel(requester),
+        request.id,
+      );
+
+      expect(result.logged).toEqual(['2026-06-23']);
+      expect(result.skipped).toEqual(['2026-06-19']);
+      expect(await entriesOf(requester)).toHaveLength(2);
+    });
+
+    it('logs nothing twice', async () => {
+      const { requester, request } = await setup();
+      const user = await asViewModel(requester);
+
+      await logging().log(user, request.id);
+      const again = await logging().log(user, request.id);
+
+      expect(again.logged).toEqual([]);
+      expect(again.skipped).toEqual(['2026-06-19', '2026-06-23']);
+      expect(await entriesOf(requester)).toHaveLength(2);
+    });
+
+    it('logs one set for two clicks at once', async () => {
+      const { requester, request } = await setup({
+        start: '2026-06-15',
+        end: '2026-06-19',
+        workingDays: 5,
+      });
+      const user = await asViewModel(requester);
+
+      await Promise.all([
+        logging().log(user, request.id),
+        logging().log(user, request.id),
+      ]);
+
+      expect(await entriesOf(requester)).toHaveLength(5);
+    });
+
+    it("is only the requester's", async () => {
+      const { request } = await setup();
+      const other = await workspace.addUser({ role: UserRole.Admin });
+
+      await expect(
+        logging().log(await asViewModel(other), request.id),
+      ).rejects.toThrow(ForbiddenException);
+      expect(await workspace.rows('time_entries')).toEqual([]);
+    });
+
+    it('only for approved time off', async () => {
+      const { requester, request } = await setup();
+      await t.db
+        .updateTable('vacation_requests')
+        .set({ status: 'pending' })
+        .where('id', '=', request.id)
+        .execute();
+
+      await expect(
+        logging().log(await asViewModel(requester), request.id),
+      ).rejects.toThrow('This time off is no longer approved.');
+      expect(await workspace.rows('time_entries')).toEqual([]);
+    });
+
+    it('has no offer without a project for the type, or for "Other"', async () => {
+      const { requester, request, project } = await setup();
+      const model = (id: string) =>
+        t.app
+          .get(VacationRequestsService)
+          .findOneWithValidation({ id, slackTeamId: workspace.id });
+      const sick = await workspace.addVacationRequest(requester, {
+        start_date: '2026-06-19',
+        end_date: '2026-06-19',
+        type: 'sick_leave',
+      });
+      const other = await workspace.addVacationRequest(requester, {
+        start_date: '2026-06-19',
+        end_date: '2026-06-19',
+        type: 'other',
+      });
+
+      expect(await logging().offerFor(await model(sick.id))).toBeNull();
+      expect(await logging().offerFor(await model(other.id))).toBeNull();
+      expect(await logging().offerFor(await model(request.id))).toEqual({
+        requestId: request.id,
+        projectId: project.id,
+        projectName: 'Vacations',
+        minutes: 480,
+        dates: ['2026-06-19', '2026-06-23'],
+      });
+
+      await t.db
+        .updateTable('projects')
+        .set({ archived_at: new Date().toISOString() })
+        .where('id', '=', project.id)
+        .execute();
+
+      expect(await logging().offerFor(await model(request.id))).toBeNull();
     });
   });
 });

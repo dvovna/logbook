@@ -57,6 +57,9 @@ interface IEntryProject {
   billable: boolean;
 }
 
+// Who writes an entry.
+type IEntryActor = Pick<IUserViewModel, 'id' | 'slack_team_id'>;
+
 interface IWriteOptions {
   // Write only while the entry is a draft or rejected: the owner's rule, and
   // the timesheet's for everyone. Admin and HR otherwise change any entry.
@@ -118,11 +121,74 @@ export class TimeEntriesService {
   public insert(
     params: ICreateParams,
     project: IEntryProject,
-    actor: IUserViewModel,
+    actor: IEntryActor,
   ): Promise<ITimeEntryViewModel> {
+    return this.timeEntriesRepository.create(
+      this.newRow(params, project, actor),
+    );
+  }
+
+  // The approved time of a vacation: `minutes` on each of `dates`, in one
+  // insert. The caller has checked the person, the days and the project (no
+  // owner or assignment check, which are for people logging their own time),
+  // and takes care that no day gets two sets. Returns how many entries.
+  public async createForVacation({
+    userId,
+    teamId,
+    projectId,
+    minutes,
+    dates,
+    vacationRequestId,
+    slackTeamId,
+  }: {
+    userId: string;
+    teamId: string | null;
+    projectId: string;
+    minutes: number;
+    dates: string[];
+    vacationRequestId: string;
+    slackTeamId: string;
+  }): Promise<number> {
+    const project = await this.projectsService.findOne({
+      id: projectId,
+      slackTeamId,
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const created = await this.timeEntriesRepository.createMany(
+      dates.map((date) =>
+        this.newRow(
+          {
+            userId,
+            teamId,
+            projectId,
+            workDate: new Date(date),
+            minutes,
+            status: TimeEntryStatus.Approved,
+          },
+          project,
+          { id: userId, slack_team_id: slackTeamId },
+          vacationRequestId,
+        ),
+      ),
+    );
+
+    return created.length;
+  }
+
+  // The row of a new entry: its client and billability are its project's.
+  private newRow(
+    params: ICreateParams,
+    project: IEntryProject,
+    actor: IEntryActor,
+    vacationRequestId: string | null = null,
+  ) {
     const now = new Date().toISOString();
 
-    return this.timeEntriesRepository.create({
+    return {
       user_id: params.userId,
       project_id: project.id,
       client_id: project.client_id,
@@ -132,12 +198,13 @@ export class TimeEntriesService {
       billable: project.billable,
       status: params.status,
       team_id: params.teamId,
+      vacation_request_id: vacationRequestId,
       slack_team_id: actor.slack_team_id,
       created_at: now,
       updated_at: now,
       created_by: actor.id,
       updated_by: actor.id,
-    });
+    };
   }
 
   public async update(

@@ -80,6 +80,7 @@ export class TimeEntriesRepository extends BaseRepository<
       billable: row.billable,
       status: row.status as TimeEntryStatus,
       project_id: row.project_id,
+      vacation_request_id: row.vacation_request_id,
       created_at: row.created_at,
       updated_at: row.updated_at,
       created_by: row.created_by,
