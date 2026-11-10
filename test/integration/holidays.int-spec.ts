@@ -17,7 +17,7 @@ import {
 import { listItems, sectionTexts, noticeOf } from './support/tab-readers';
 
 // Home → Vacations → Vacation Policies.
-const POLICIES_TAB = [NavigationActionId.Settings, NavigationActionId.Policies];
+const POLICIES_TAB = [NavigationActionId.Policies];
 
 // Today is 2026-06-17 (TEST_NOW), so the tab starts on 2026. Country
 // holidays are cached per country and year for the app's life, so every

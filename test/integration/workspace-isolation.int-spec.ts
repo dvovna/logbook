@@ -106,10 +106,7 @@ describe('Workspace isolation', () => {
   describe('lists', () => {
     it('shows only its own users and teams', async () => {
       const users = await open([NavigationActionId.People]);
-      const teams = await open([
-        NavigationActionId.Settings,
-        NavigationActionId.Teams,
-      ]);
+      const teams = await open([NavigationActionId.Teams]);
 
       expect(idsOf(users)).toEqual(sorted([a.admin.id, a.ada.id]));
       expect(idsOf(teams)).toEqual([a.design.id]);
@@ -117,14 +114,8 @@ describe('Workspace isolation', () => {
     });
 
     it('shows only its own clients, projects and time entries', async () => {
-      const clients = await open([
-        NavigationActionId.Settings,
-        NavigationActionId.Clients,
-      ]);
-      const projects = await open([
-        NavigationActionId.Settings,
-        NavigationActionId.Projects,
-      ]);
+      const clients = await open([NavigationActionId.Clients]);
+      const projects = await open([NavigationActionId.Projects]);
       const timeLogs = await open([
         NavigationActionId.Reports,
         NavigationActionId.TimeLogs,
@@ -225,10 +216,7 @@ describe('Workspace isolation', () => {
 
   describe('searches', () => {
     it('suggests only its own users and projects', async () => {
-      const projects = await open([
-        NavigationActionId.Settings,
-        NavigationActionId.Projects,
-      ]);
+      const projects = await open([NavigationActionId.Projects]);
       const timeLogs = await open([
         NavigationActionId.Reports,
         NavigationActionId.TimeLogs,

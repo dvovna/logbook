@@ -131,9 +131,9 @@ Don't use "Install to Workspace" in the app settings, and don't use the sharable
 The person who installs the app becomes its admin. The other members are imported a few seconds later. Installing it again later (for example after an update adds scopes) only replaces the bot token: data and roles stay as they are.
 
 The CSV export needs the `files:write` scope, which the manifest got after the first installs. If your Slack app was created from an older manifest, add `files:write` under "OAuth & Permissions" → "Bot Token Scopes" (or update the app from the current manifest), then install the app again in every workspace through `/api/slack/install`. Until a workspace does, the export answers with a DM that asks for it. Uninstalling the app removes its bot token at once and keeps the workspace's data for `UNINSTALLED_DATA_RETENTION_DAYS` days (30 by default; 0 deletes it at once): installing again within that time restores everything, with the members who joined meanwhile. After it, the data is deleted for good. Then, in the App Home:
-- create vacation policies and their holidays under Settings → Policies;
-- give approvers the Manager or HR role under People;
-- create teams, their members and approvers under Settings → Teams.
+- create vacation policies and their holidays under More → Policies;
+- give approvers the Manager or HR role under More → People;
+- create teams, their members and approvers under More → Teams.
 
 The installer gets a message with these steps, and Home shows admins and HR a checklist until they are done.
 

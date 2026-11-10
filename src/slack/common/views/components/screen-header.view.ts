@@ -1,24 +1,27 @@
-import { splitIntoRows } from '@modules/slack/common/views/components/actions-rows';
-import { AnyBlock, Button } from '@slack/web-api';
+import {
+  ActionsBlockElement,
+  AnyBlock,
+  Button,
+  PlainTextOption,
+  StaticSelect,
+} from '@slack/web-api';
 import UserRole from '@common/enums/user-role.enum';
 import {
-  canOpenScreen,
-  NAVIGATION_ROW,
+  menuScreensFor,
+  navigationScreensFor,
   rootOf,
   SCREENS,
   ScreenId,
-  SETTINGS_TITLE,
-  settingsScreensFor,
 } from '@modules/slack/common/navigation/screens';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 
 export const HEADER_BLOCK_IDS = {
   navigation: 'navigation',
-  // The navigation's second row, when it has more buttons than one row shows.
-  navigationMore: 'navigation_more',
-  settings: 'settings_navigation',
   back: 'back_navigation',
 };
+
+// What the More menu says while none of its screens is open.
+export const MENU_PLACEHOLDER = '☰ More';
 
 export interface IScreenHeaderParams {
   screenId: ScreenId;
@@ -38,8 +41,14 @@ const button = (
   ...(active ? { style: 'primary' as const } : {}),
 });
 
-// The top of every screen, from SCREENS: the navigation row, the Settings
-// row on a Settings screen, and Back on a screen opened from another one.
+const menuOption = (screenId: ScreenId): PlainTextOption => ({
+  text: { type: 'plain_text', text: SCREENS[screenId].title, emoji: true },
+  value: SCREENS[screenId].actionId!,
+});
+
+// The top of every screen, from SCREENS: one row of the main screens'
+// buttons and a More menu with the rest, which shows the screen open from
+// it; then Back on a screen opened from another one.
 export class ScreenHeader {
   public static getBlocks({
     screenId,
@@ -47,28 +56,13 @@ export class ScreenHeader {
     approvalsCount,
   }: IScreenHeaderParams): AnyBlock[] {
     const root = rootOf(screenId);
-    const inSettings = !!SCREENS[root].inSettings;
-    const navigation = this.getNavigationButtons(root, inSettings, role, {
-      approvalsCount,
-    });
-    // At most two rows: the navigation has seven buttons at most.
-    const blocks: AnyBlock[] = splitIntoRows(navigation).map((elements, i) => ({
-      type: 'actions',
-      block_id: i
-        ? HEADER_BLOCK_IDS.navigationMore
-        : HEADER_BLOCK_IDS.navigation,
-      elements,
-    }));
-
-    if (inSettings) {
-      blocks.push({
+    const blocks: AnyBlock[] = [
+      {
         type: 'actions',
-        block_id: HEADER_BLOCK_IDS.settings,
-        elements: settingsScreensFor(role).map((id) =>
-          button(SCREENS[id].title, SCREENS[id].actionId!, id === root),
-        ),
-      });
-    }
+        block_id: HEADER_BLOCK_IDS.navigation,
+        elements: this.getNavigation(root, role, approvalsCount),
+      },
+    ];
 
     const parent = SCREENS[screenId].parent;
     const parentActionId = parent && SCREENS[parent].actionId;
@@ -86,30 +80,50 @@ export class ScreenHeader {
     return blocks;
   }
 
-  private static getNavigationButtons(
+  private static getNavigation(
     root: ScreenId,
-    inSettings: boolean,
     role: UserRole,
-    { approvalsCount }: { approvalsCount?: number },
-  ): Button[] {
-    return NAVIGATION_ROW.flatMap((item) => {
-      if (item === NavigationActionId.Settings) {
-        return settingsScreensFor(role).length
-          ? [button(SETTINGS_TITLE, item, inSettings)]
-          : [];
-      }
-
-      if (!canOpenScreen(item, role)) {
-        return [];
-      }
-
-      const { title, actionId } = SCREENS[item];
+    approvalsCount?: number,
+  ): ActionsBlockElement[] {
+    const buttonOf = (id: ScreenId) => {
       const count =
-        item === ScreenId.Approvals && approvalsCount
+        id === ScreenId.Approvals && approvalsCount
           ? ` (${approvalsCount})`
           : '';
 
-      return [button(`${title}${count}`, actionId!, item === root)];
-    });
+      return button(
+        `${SCREENS[id].title}${count}`,
+        SCREENS[id].actionId!,
+        id === root,
+      );
+    };
+    const menu = menuScreensFor(role);
+
+    // A menu of one screen would hide it a click deeper: a button it is.
+    return [
+      ...navigationScreensFor(role).map(buttonOf),
+      ...(menu.length > 1 ? [this.getMenu(menu, root)] : menu.map(buttonOf)),
+    ];
+  }
+
+  private static getMenu(screens: ScreenId[], root: ScreenId): StaticSelect {
+    const groups = [
+      ...new Set(screens.map((id) => SCREENS[id].menuGroup!)),
+    ].map((group) => ({
+      label: { type: 'plain_text' as const, text: group },
+      options: screens
+        .filter((id) => SCREENS[id].menuGroup === group)
+        .map(menuOption),
+    }));
+
+    return {
+      type: 'static_select',
+      action_id: NavigationActionId.Menu,
+      placeholder: { type: 'plain_text', text: MENU_PLACEHOLDER, emoji: true },
+      ...(groups.length > 1
+        ? { option_groups: groups }
+        : { options: groups[0].options }),
+      ...(screens.includes(root) ? { initial_option: menuOption(root) } : {}),
+    };
   }
 }

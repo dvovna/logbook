@@ -22,7 +22,7 @@ import {
 } from './support/app-home';
 
 // Home → Time & Billing → Clients.
-const CLIENTS_TAB = [NavigationActionId.Settings, NavigationActionId.Clients];
+const CLIENTS_TAB = [NavigationActionId.Clients];
 
 describe('Clients', () => {
   let t: ITestApp;

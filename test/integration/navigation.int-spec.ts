@@ -15,14 +15,42 @@ import { buttonText, sectionTexts } from './support/tab-readers';
 import { workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 
-// The buttons of a header row: their labels, the active one in [brackets].
+const elementsOf = (view: View, blockId: string): SlackJson[] =>
+  (view.blocks as SlackJson[]).find((block) => block.block_id === blockId)
+    ?.elements ?? [];
+
+// A header row as it reads: the buttons' labels and the More menu with what
+// it shows ('☰ More ▾'), the open screen in [brackets].
 const rowOf = (view: View, blockId: string) =>
-  (
-    (view.blocks as SlackJson[]).find((block) => block.block_id === blockId)
-      ?.elements ?? []
-  ).map(({ text, style }: SlackJson) =>
-    style === 'primary' ? `[${text.text}]` : text.text,
+  elementsOf(view, blockId).map(
+    ({ type, text, style, placeholder, initial_option }: SlackJson) => {
+      if (type === 'static_select') {
+        return initial_option
+          ? `[${initial_option.text.text} ▾]`
+          : `${placeholder.text} ▾`;
+      }
+
+      return style === 'primary' ? `[${text.text}]` : text.text;
+    },
   );
+
+// The More menu's screens by group.
+const menuOf = (view: View) => {
+  const menu = elementsOf(view, HEADER_BLOCK_IDS.navigation).find(
+    ({ action_id }) => action_id === NavigationActionId.Menu,
+  )!;
+  const titles = (options: SlackJson[]) =>
+    options.map((option) => option.text.text);
+
+  return menu.option_groups
+    ? Object.fromEntries(
+        menu.option_groups.map((group: SlackJson) => [
+          group.label.text,
+          titles(group.options),
+        ]),
+      )
+    : titles(menu.options);
+};
 
 describe('Navigation', () => {
   let t: ITestApp;
@@ -47,53 +75,58 @@ describe('Navigation', () => {
     member = await workspace.addUser({ team_id: team.id, name: 'Max Member' });
   });
 
-  it('shows each role its sections, the current one marked', async () => {
+  it('shows each role one row: its main screens and a More menu', async () => {
+    // A member's menu would hold Reports alone: a button instead.
     expect(
       rowOf(
         await openAppHomeTab(t, workspace, member),
         HEADER_BLOCK_IDS.navigation,
       ),
     ).toEqual(['[🏠 Home]', '🕒 My time', '🌴 Time off', '📊 Reports']);
-    expect(
-      rowOf(
-        await openAppHomeTab(t, workspace, manager, [
-          NavigationActionId.TimeOff,
-        ]),
-        HEADER_BLOCK_IDS.navigation,
-      ),
-    ).toEqual(['🏠 Home', '🕒 My time', '[🌴 Time off]', '✅ Approvals']);
-    // Slack shows five buttons of a row and folds the rest into "+ N more".
-    expect(
-      rowOf(
-        await openAppHomeTab(t, workspace, manager),
-        HEADER_BLOCK_IDS.navigationMore,
-      ),
-    ).toEqual(['👥 People', '📊 Reports', '⚙️ Settings']);
+
+    const managerTimeOff = await openAppHomeTab(t, workspace, manager, [
+      NavigationActionId.TimeOff,
+    ]);
+    expect(rowOf(managerTimeOff, HEADER_BLOCK_IDS.navigation)).toEqual([
+      '🏠 Home',
+      '🕒 My time',
+      '[🌴 Time off]',
+      '✅ Approvals',
+      '☰ More ▾',
+    ]);
+    expect(menuOf(managerTimeOff)).toEqual({
+      Manage: ['👥 People', '📊 Reports'],
+      Settings: ['📁 Projects', '💼 Clients'],
+    });
+
+    expect(menuOf(await openAppHomeTab(t, workspace, admin))).toEqual({
+      Manage: ['👥 People', '📊 Reports'],
+      Settings: ['🏢 Teams', '📜 Policies', '📁 Projects', '💼 Clients'],
+    });
   });
 
-  it('opens the first Settings screen a role may use, with the Settings row', async () => {
-    const adminSettings = await openAppHomeTab(t, workspace, admin, [
-      NavigationActionId.Settings,
-    ]);
-    expect(adminSettings.callback_id).toBe(ViewCallbackId.TeamsTabView);
-    expect(rowOf(adminSettings, HEADER_BLOCK_IDS.settings)).toEqual([
-      '[🏢 Teams]',
-      '📜 Policies',
-      '📁 Projects',
-      '💼 Clients',
+  it('opens a screen chosen in the More menu, which then shows it', async () => {
+    const teams = await openAppHomeTab(t, workspace, admin, [
+      NavigationActionId.Teams,
     ]);
 
-    const managerSettings = await openAppHomeTab(t, workspace, manager, [
-      NavigationActionId.Settings,
+    expect(teams.callback_id).toBe(ViewCallbackId.TeamsTabView);
+    expect(rowOf(teams, HEADER_BLOCK_IDS.navigation)).toEqual([
+      '🏠 Home',
+      '🕒 My time',
+      '🌴 Time off',
+      '✅ Approvals',
+      '[🏢 Teams ▾]',
     ]);
-    expect(managerSettings.callback_id).toBe(ViewCallbackId.ProjectsTabView);
-    expect(rowOf(managerSettings, HEADER_BLOCK_IDS.settings)).toEqual([
-      '[📁 Projects]',
-      '💼 Clients',
-    ]);
-    expect(rowOf(managerSettings, HEADER_BLOCK_IDS.navigationMore)).toContain(
-      '[⚙️ Settings]',
+
+    const home = await actOnTab(
+      t,
+      workspace,
+      admin,
+      teams,
+      NavigationActionId.Home,
     );
+    expect(rowOf(home, HEADER_BLOCK_IDS.navigation)).toContain('☰ More ▾');
   });
 
   it('goes back from Holidays to Policies', async () => {
@@ -102,16 +135,13 @@ describe('Navigation', () => {
       t,
       workspace,
       admin,
-      await openAppHomeTab(t, workspace, admin, [
-        NavigationActionId.Settings,
-        NavigationActionId.Policies,
-      ]),
+      await openAppHomeTab(t, workspace, admin, [NavigationActionId.Policies]),
       PolicyTabViewActionId.ManagePolicyMenu,
       `${PolicyTabViewActionId.EditHolidays}:${policy.id}`,
     );
 
-    expect(rowOf(holidays, HEADER_BLOCK_IDS.settings)).toContain(
-      '[📜 Policies]',
+    expect(rowOf(holidays, HEADER_BLOCK_IDS.navigation)).toContain(
+      '[📜 Policies ▾]',
     );
     expect(rowOf(holidays, HEADER_BLOCK_IDS.back)).toEqual([
       '⬅️ Back to 📜 Policies',

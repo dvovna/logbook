@@ -20,10 +20,10 @@ import {
 } from './support/tab-readers';
 
 // Home → Vacations → Vacation Policies.
-const POLICIES_TAB = [NavigationActionId.Settings, NavigationActionId.Policies];
+const POLICIES_TAB = [NavigationActionId.Policies];
 
 // Home → People → Teams.
-const TEAMS_TAB = [NavigationActionId.Settings, NavigationActionId.Teams];
+const TEAMS_TAB = [NavigationActionId.Teams];
 
 describe('Vacation policies and teams', () => {
   let t: ITestApp;

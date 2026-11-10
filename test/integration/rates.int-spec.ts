@@ -21,8 +21,8 @@ import {
   publishedHome,
 } from './support/app-home';
 
-// Settings → Projects.
-const PROJECTS_TAB = [NavigationActionId.Settings, NavigationActionId.Projects];
+// More → Projects.
+const PROJECTS_TAB = [NavigationActionId.Projects];
 
 const { Person, HourlyRate } = PersonRateModalActionId;
 

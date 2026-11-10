@@ -104,7 +104,6 @@ describe('First setup', () => {
 
   it('offers to create the first team in the empty list', async () => {
     const teamsTab = await openAppHomeTab(t, workspace, admin, [
-      NavigationActionId.Settings,
       NavigationActionId.Teams,
     ]);
     expect(sectionTexts(teamsTab)).toContain(
@@ -124,7 +123,6 @@ describe('First setup', () => {
   describe("the team form's members", () => {
     const openTeamForm = async (teamId?: string) => {
       const teamsTab = await openAppHomeTab(t, workspace, admin, [
-        NavigationActionId.Settings,
         NavigationActionId.Teams,
       ]);
 

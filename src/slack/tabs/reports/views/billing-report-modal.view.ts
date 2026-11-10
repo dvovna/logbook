@@ -48,7 +48,7 @@ export class BillingReportModalView extends BaseModalView<IGetViewParams> {
         actionId: 'clientId',
         label: 'Client',
         placeholder: 'Select client',
-        emptyText: 'No clients yet. Add one under Settings → Clients.',
+        emptyText: 'No clients yet. Add one under More → Clients.',
         options: clients.map((client) => ({
           id: client.id,
           name: client.archived_at ? `${client.name} (archived)` : client.name,

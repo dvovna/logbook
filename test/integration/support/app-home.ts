@@ -3,6 +3,8 @@ import { Tables } from '@common/types/database.types';
 import { ITestApp } from './test-app';
 import { TestWorkspace } from './test-workspace';
 import { acknowledged } from './slack-test-client';
+import { actionIdsOf } from './tab-readers';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 
 // The App Home view the app publishes for `user` after the mark `since`
 // (t.slackApi.mark()), e.g. the tab it re-renders after a modal submit.
@@ -34,8 +36,22 @@ export const actOnTab = async (
   return publishedHome(t, workspace, user, since);
 };
 
-// Opens the App Home as `user`, then clicks the navigation buttons in `path`
-// (their action_ids) one after another. Returns the view of the last tab.
+// Opens the screen of the navigation action `actionId` from `view` the way
+// a user does: with its button, or by choosing it in the More menu.
+export const navigate = (
+  t: ITestApp,
+  workspace: TestWorkspace,
+  user: Tables<'users'>,
+  view: View,
+  actionId: string,
+): Promise<View> =>
+  actionIdsOf(view).includes(actionId)
+    ? actOnTab(t, workspace, user, view, actionId)
+    : actOnTab(t, workspace, user, view, NavigationActionId.Menu, actionId);
+
+// Opens the App Home as `user`, then opens the screens in `path` (the
+// navigation actions of their buttons or menu options) one after another.
+// Returns the view of the last tab.
 export const openAppHomeTab = async (
   t: ITestApp,
   workspace: TestWorkspace,
@@ -55,7 +71,7 @@ export const openAppHomeTab = async (
   let view = await publishedHome(t, workspace, user, since);
 
   for (const actionId of path) {
-    view = await actOnTab(t, workspace, user, view, actionId);
+    view = await navigate(t, workspace, user, view, actionId);
   }
 
   return view;

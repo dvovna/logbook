@@ -9,10 +9,30 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { actOnTab, openAppHomeTab, openModalFrom } from './support/app-home';
+import { navigate, openAppHomeTab, openModalFrom } from './support/app-home';
+import { SlackJson } from './support/block-kit';
 import { actionIdsOf, modalError } from './support/tab-readers';
 import { workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
+
+// The navigation actions that open a screen: all but the More menu itself
+// and the Settings button of views published before it.
+const SCREEN_ACTIONS = Object.values(NavigationActionId).filter(
+  (actionId) =>
+    actionId !== NavigationActionId.Menu &&
+    actionId !== NavigationActionId.Settings,
+);
+
+// The screens the navigation's More menu offers.
+const menuValuesOf = (view: View): string[] =>
+  (view.blocks as SlackJson[])
+    .flatMap((block) => block.elements ?? [])
+    .filter(({ action_id }) => action_id === NavigationActionId.Menu)
+    .flatMap((menu) => [
+      ...(menu.options ?? []),
+      ...(menu.option_groups ?? []).flatMap((group) => group.options),
+    ])
+    .map((option) => option.value);
 
 // Slack takes action ids, button values and menu choices from the client, so
 // hiding a button is not access control: these tests send what the UI would
@@ -47,10 +67,12 @@ describe('Access control', () => {
 
   describe('tabs', () => {
     // Sends a navigation action from the user's Home, whether or not their
-    // Home shows that button, and returns the tabs the app published.
+    // Home shows that button, and returns the tabs the app published. With
+    // `menuValue`, the action is choosing that value in the More menu.
     const navigateFromHome = async (
       user: Tables<'users'>,
       actionId: NavigationActionId,
+      menuValue?: string,
     ) => {
       const home: View = await openAppHomeTab(t, workspace, user);
       const since = t.slackApi.mark();
@@ -64,13 +86,24 @@ describe('Access control', () => {
           container: { type: 'view' },
           view: { team_id: workspace.slackId, ...home },
           actions: [
-            {
-              type: 'button',
-              action_id: actionId,
-              block_id: ViewCallbackId.HomeTabView,
-              value: actionId,
-              action_ts: '1',
-            },
+            menuValue === undefined
+              ? {
+                  type: 'button',
+                  action_id: actionId,
+                  block_id: ViewCallbackId.HomeTabView,
+                  value: actionId,
+                  action_ts: '1',
+                }
+              : {
+                  type: 'static_select',
+                  action_id: actionId,
+                  block_id: ViewCallbackId.HomeTabView,
+                  selected_option: {
+                    text: { type: 'plain_text', text: menuValue },
+                    value: menuValue,
+                  },
+                  action_ts: '1',
+                },
           ],
         })
         .expect(200);
@@ -95,6 +128,20 @@ describe('Access control', () => {
         ViewCallbackId.HomeTabView,
       ]);
     });
+
+    it.each([
+      NavigationActionId.Teams,
+      NavigationActionId.Clients,
+      NavigationActionId.Menu,
+      'not a screen',
+    ])(
+      'sends a member who chooses %s in the More menu back to their Home',
+      async (value) => {
+        expect(
+          await navigateFromHome(member, NavigationActionId.Menu, value),
+        ).toEqual([ViewCallbackId.HomeTabView]);
+      },
+    );
 
     it.each([
       NavigationActionId.Teams,
@@ -131,31 +178,33 @@ describe('Access control', () => {
           NavigationActionId.Approvals,
           NavigationActionId.People,
           NavigationActionId.Reports,
-          NavigationActionId.Settings,
           NavigationActionId.Projects,
           NavigationActionId.Clients,
           NavigationActionId.AllRequests,
         ],
       ],
-      ['hr', Object.values(NavigationActionId)],
-      ['admin', Object.values(NavigationActionId)],
+      ['hr', SCREEN_ACTIONS],
+      ['admin', SCREEN_ACTIONS],
     ] as const)(
-      'leads a %s from every button only to screens it may open',
+      'leads a %s from every button and menu option only to screens it may open',
       async (role, reachable) => {
         const user = { member, manager, hr, admin }[role];
-        const navigation = new Set<string>(Object.values(NavigationActionId));
+        const navigation = new Set<string>(SCREEN_ACTIONS);
         const followed = new Set<string>();
         const bounced: string[] = [];
         const screens: View[] = [await openAppHomeTab(t, workspace, user)];
 
         for (let view = screens.shift(); view; view = screens.shift()) {
-          for (const actionId of actionIdsOf(view)) {
+          for (const actionId of [
+            ...actionIdsOf(view),
+            ...menuValuesOf(view),
+          ]) {
             if (!navigation.has(actionId) || followed.has(actionId)) {
               continue;
             }
 
             followed.add(actionId);
-            const opened = await actOnTab(t, workspace, user, view, actionId);
+            const opened = await navigate(t, workspace, user, view, actionId);
 
             if (
               opened.callback_id === ViewCallbackId.HomeTabView &&
@@ -180,6 +229,17 @@ describe('Access control', () => {
       expect(await navigateFromHome(hr, NavigationActionId.Teams)).toEqual([
         ViewCallbackId.TeamsTabView,
       ]);
+      expect(
+        await navigateFromHome(
+          hr,
+          NavigationActionId.Menu,
+          NavigationActionId.Policies,
+        ),
+      ).toEqual([ViewCallbackId.VacationPoliciesTabView]);
+      // The Settings button of a view published before the More menu.
+      expect(
+        await navigateFromHome(admin, NavigationActionId.Settings),
+      ).toEqual([ViewCallbackId.TeamsTabView]);
     });
   });
 

@@ -30,8 +30,8 @@ const REQUESTS_TAB = [
   NavigationActionId.TimeOff,
   NavigationActionId.AllRequests,
 ];
-const PROJECTS_TAB = [NavigationActionId.Settings, NavigationActionId.Projects];
-const TEAMS_TAB = [NavigationActionId.Settings, NavigationActionId.Teams];
+const PROJECTS_TAB = [NavigationActionId.Projects];
+const TEAMS_TAB = [NavigationActionId.Teams];
 
 const option = (value: string) => ({
   text: { type: 'plain_text', text: value },

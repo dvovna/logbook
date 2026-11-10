@@ -7,8 +7,8 @@ import {
 import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 
-// Every screen of the App Home, in one place: the navigation row, the
-// Settings row and Back are built from it (ScreenHeader), BaseTabService
+// Every screen of the App Home, in one place: the navigation row, its More
+// menu and Back are built from it (ScreenHeader), BaseTabService
 // refuses a screen the role may not open, and every tab handles its buttons
 // (BaseTabActionHandler). A new screen needs an entry here.
 export enum ScreenId {
@@ -29,6 +29,12 @@ export enum ScreenId {
   TimeLogs = 'time_logs',
 }
 
+// The groups of the More menu, in their order.
+export enum MenuGroup {
+  Manage = 'Manage',
+  Settings = 'Settings',
+}
+
 export interface IScreen {
   // With its icon, as on its button: '🏢 Teams'.
   title: string;
@@ -40,8 +46,9 @@ export interface IScreen {
   // The button that opens it; a screen without one opens from another one
   // (Holidays from a policy's menu).
   actionId?: NavigationActionId;
-  // In the Settings row rather than the navigation row.
-  inSettings?: boolean;
+  // In the navigation row's More menu, in this group, rather than a button
+  // of the row.
+  menuGroup?: MenuGroup;
   // Opened from that screen: Back goes there, and the navigation marks it.
   parent?: ScreenId;
 }
@@ -77,6 +84,7 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     roles: MANAGER_ROLES,
     tabId: TabId.Users,
     actionId: NavigationActionId.People,
+    menuGroup: MenuGroup.Manage,
   },
   // Time reports for everyone, each of their own scope (a member's own time,
   // a manager's teams); the billing report and everyone's time logs are for
@@ -86,6 +94,7 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     roles: ALL_ROLES,
     tabId: TabId.Reports,
     actionId: NavigationActionId.Reports,
+    menuGroup: MenuGroup.Manage,
   },
 
   [ScreenId.Teams]: {
@@ -93,28 +102,28 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     roles: ADMIN_AND_HR_ROLES,
     tabId: TabId.Teams,
     actionId: NavigationActionId.Teams,
-    inSettings: true,
+    menuGroup: MenuGroup.Settings,
   },
   [ScreenId.Policies]: {
     title: '📜 Policies',
     roles: ADMIN_AND_HR_ROLES,
     tabId: TabId.VacationPolicies,
     actionId: NavigationActionId.Policies,
-    inSettings: true,
+    menuGroup: MenuGroup.Settings,
   },
   [ScreenId.Projects]: {
     title: '📁 Projects',
     roles: MANAGER_ROLES,
     tabId: TabId.Projects,
     actionId: NavigationActionId.Projects,
-    inSettings: true,
+    menuGroup: MenuGroup.Settings,
   },
   [ScreenId.Clients]: {
     title: '💼 Clients',
     roles: MANAGER_ROLES,
     tabId: TabId.Clients,
     actionId: NavigationActionId.Clients,
-    inSettings: true,
+    menuGroup: MenuGroup.Settings,
   },
 
   [ScreenId.Holidays]: {
@@ -139,26 +148,27 @@ export const SCREENS: Record<ScreenId, IScreen> = {
   },
 };
 
-// The navigation row, in order; Settings stands for the Settings screens.
-export const NAVIGATION_ROW = [
-  ScreenId.Home,
-  ScreenId.MyTime,
-  ScreenId.TimeOff,
-  ScreenId.Approvals,
-  ScreenId.People,
-  ScreenId.Reports,
-  NavigationActionId.Settings,
-] as const;
-
-export const SETTINGS_TITLE = '⚙️ Settings';
-
 export const canOpenScreen = (screenId: ScreenId, role: UserRole) =>
   SCREENS[screenId].roles.includes(role);
 
-export const settingsScreensFor = (role: UserRole): ScreenId[] =>
+const screensFor = (role: UserRole, include: (screen: IScreen) => boolean) =>
   (Object.keys(SCREENS) as ScreenId[]).filter(
-    (id) => SCREENS[id].inSettings && canOpenScreen(id, role),
+    (id) => include(SCREENS[id]) && canOpenScreen(id, role),
   );
+
+// The buttons of the navigation row, in order: the screens not opened from
+// another one, nor in the More menu.
+export const navigationScreensFor = (role: UserRole): ScreenId[] =>
+  screensFor(role, (screen) => !screen.parent && !screen.menuGroup);
+
+// The More menu, in order: its groups, each with its screens.
+export const menuScreensFor = (role: UserRole): ScreenId[] =>
+  Object.values(MenuGroup).flatMap((group) =>
+    screensFor(role, (screen) => screen.menuGroup === group),
+  );
+
+export const settingsScreensFor = (role: UserRole): ScreenId[] =>
+  screensFor(role, (screen) => screen.menuGroup === MenuGroup.Settings);
 
 // The screen a tab shows with `metadata`: of the tab's screens, the one whose
 // metadata it has (My time has ownEntriesOnly), else the one without any.
@@ -202,7 +212,7 @@ export const rolesOfTab = (tabId: TabId): readonly UserRole[] => {
   return ALL_ROLES.filter((role) => roles.has(role));
 };
 
-// What a navigation button opens for `role`.
+// What a navigation button, or an option of the More menu, opens for `role`.
 export const screenOfAction = (
   actionId: NavigationActionId,
   role: UserRole,
@@ -212,3 +222,8 @@ export const screenOfAction = (
     : (Object.keys(SCREENS) as ScreenId[]).find(
         (id) => SCREENS[id].actionId === actionId,
       );
+
+export const isNavigationActionId = (
+  value: unknown,
+): value is NavigationActionId =>
+  Object.values(NavigationActionId).includes(value as NavigationActionId);

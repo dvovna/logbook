@@ -54,16 +54,23 @@ describe('BaseTabService', () => {
     return tabView as ViewsPublishArguments;
   };
 
-  // The navigation's rows, each a list of button labels.
+  // The navigation row: its buttons' labels, and the More menu with what
+  // it shows.
   const navigationOf = (tabView: ViewsPublishArguments) =>
     (
       tabView.view.blocks as {
         block_id?: string;
-        elements?: { text: { text: string } }[];
+        elements?: {
+          text?: { text: string };
+          placeholder?: { text: string };
+          initial_option?: { text: { text: string } };
+        }[];
       }[]
     )
-      .filter(({ block_id }) => block_id?.startsWith('navigation'))
-      .map(({ elements }) => elements!.map(({ text }) => text.text));
+      .find(({ block_id }) => block_id === 'navigation')!
+      .elements!.map(({ text, placeholder, initial_option }) =>
+        text ? text.text : `${(initial_option?.text ?? placeholder)!.text} ▾`,
+      );
 
   beforeEach(() => {
     slackCommunicationService = {
@@ -88,12 +95,15 @@ describe('BaseTabService', () => {
       tabView,
       user.slack_team_id,
     );
-    // Slack folds an actions block past five buttons into "+ N more".
+    // One row: Slack folds an actions block past five elements.
     expect(navigationOf(tabView)).toEqual([
-      ['🏠 Home', '🕒 My time', '🌴 Time off', '✅ Approvals (3)'],
-      ['👥 People', '📊 Reports', '⚙️ Settings'],
+      '🏠 Home',
+      '🕒 My time',
+      '🌴 Time off',
+      '✅ Approvals (3)',
+      '☰ More ▾',
     ]);
-    expect(tabView.view.blocks.slice(2)).toEqual([
+    expect(tabView.view.blocks.slice(1)).toEqual([
       expect.objectContaining({ block_id: 'tab_notice' }),
       content,
     ]);
@@ -105,7 +115,7 @@ describe('BaseTabService', () => {
 
     await createService().publish({ user });
 
-    expect(navigationOf(published())[0]).toContain('✅ Approvals');
+    expect(navigationOf(published())).toContain('✅ Approvals');
   });
 
   it('sends a role to Home from a screen it may not open', async () => {

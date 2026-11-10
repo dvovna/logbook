@@ -33,7 +33,6 @@ describe('Admin', () => {
     // Home → People → Teams → the team's menu → Delete: the confirmation modal.
     const openDeleteConfirmation = async (team: Tables<'teams'>) => {
       const teamsTab = await openAppHomeTab(t, workspace, admin, [
-        NavigationActionId.Settings,
         NavigationActionId.Teams,
       ]);
 
