@@ -2,6 +2,7 @@ import { TimeEntryApprovalsService } from 'src/time-entries/services/time-entry-
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeEntriesListQuery } from 'src/time-entries/queries/time-entries-list.query';
 import TeamsService from 'src/teams/services/teams.service';
+import { UsersService } from 'src/users/services/users.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import UserRole from 'src/common/enums/user-role.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
@@ -28,6 +29,7 @@ describe('TimeEntryApprovalsService', () => {
       repository as unknown as TimeEntriesRepository,
       {} as TimeEntriesListQuery,
       {} as TeamsService,
+      {} as UsersService,
     );
   });
 

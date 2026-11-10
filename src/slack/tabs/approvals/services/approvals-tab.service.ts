@@ -98,6 +98,7 @@ export class ApprovalsTabService extends BaseTabService<ApprovalsTabModalViewRes
       this.timeEntryApprovalsService.listPending(user, {
         page: metadata.page,
         pageSize: TIME_APPROVALS_PAGE_SIZE,
+        all: metadata.allEntries,
       }),
     ]);
 

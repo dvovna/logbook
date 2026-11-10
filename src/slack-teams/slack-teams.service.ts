@@ -118,6 +118,11 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return workspaces.map(({ id }) => id);
   }
 
+  // See SlackTeamsRepository.claimReminderWeek.
+  public claimReminderWeek(id: string, monday: string): Promise<boolean> {
+    return this.slackTeamsRepository.claimReminderWeek(id, monday);
+  }
+
   // Deletes the workspaces uninstalled before `cutoff`, with all their data
   // (every table cascades from slack_teams). Returns how many.
   public deleteUninstalledBefore(cutoff: Date): Promise<number> {

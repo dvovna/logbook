@@ -1,3 +1,4 @@
+import { TimeEntryRemindersService } from '@modules/slack/tabs/time-tracking/services/time-entry-reminders.service';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
@@ -1160,6 +1161,75 @@ describe('Time entries', () => {
       expect(
         listItems(await publishedHome(t, workspace, admin, since)),
       ).toEqual([]);
+    });
+  });
+
+  // Today is Wednesday 2026-06-17: the week started on Monday 2026-06-15.
+  describe('the weekly reminder', () => {
+    it('reminds of drafts and rejected entries from before the week, once', async () => {
+      const reminders = t.app.get(TimeEntryRemindersService);
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-10',
+        minutes: 120,
+      });
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-11',
+        minutes: 60,
+        status: TimeEntryStatus.Rejected,
+      });
+      // This week's draft, and time already sent, are no reason to remind.
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-16',
+      });
+      await workspace.addTimeEntry(admin, website, {
+        work_date: '2026-06-10',
+        status: TimeEntryStatus.Submitted,
+      });
+      const since = t.slackApi.mark();
+
+      expect(await reminders.remindWorkspace(workspace.id, '2026-06-15')).toBe(
+        1,
+      );
+      await t.idle();
+      expect(
+        t.slackApi
+          .postedMessages(workspace.token, member.slack_id, { since })
+          .map(({ text }) => text),
+      ).toEqual([
+        [
+          ':alarm_clock: You have *2 time entries* (3h) from 10–11 Jun 2026 not submitted yet.',
+          '1 of them was rejected: fix it under Home → ✏️ Edit Entries.',
+          'Your approvers see time only once you submit it: Home → 📤 Submit for Approval.',
+        ].join('\n'),
+      ]);
+      expect(
+        t.slackApi.postedMessages(workspace.token, admin.slack_id, { since }),
+      ).toEqual([]);
+
+      // A restart, or the next tick, sends nothing more this week.
+      expect(await reminders.remindWorkspace(workspace.id, '2026-06-15')).toBe(
+        0,
+      );
+    });
+
+    it('waits for Monday 09:00 UTC', async () => {
+      const reminders = t.app.get(TimeEntryRemindersService);
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-10',
+      });
+
+      expect(await reminders.remindAll(new Date('2026-06-15T08:59:00Z'))).toBe(
+        0,
+      );
+      expect(
+        (
+          await t.db
+            .selectFrom('slack_teams')
+            .select('time_reminder_week')
+            .where('id', '=', workspace.id)
+            .executeTakeFirstOrThrow()
+        ).time_reminder_week,
+      ).toBeNull();
     });
   });
 });

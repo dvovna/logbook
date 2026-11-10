@@ -1,3 +1,8 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  TIME_ENTRIES_SUBMITTED,
+  TimeEntriesSubmittedEvent,
+} from 'src/time-entries/events/time-entries.events';
 import {
   ForbiddenException,
   Injectable,
@@ -46,6 +51,8 @@ interface IUpdateParams {
 
 interface IFindParams {
   id?: string;
+  // These entries only; an empty list matches none.
+  ids?: string[];
   userId?: string;
   // The entries of these people; an empty list matches none.
   userIds?: string[];
@@ -69,6 +76,7 @@ export class TimeEntriesService {
     private readonly timeEntriesValidationService: TimeEntriesValidationService,
     private readonly projectsService: ProjectsService,
     private readonly getUserProjectsQuery: GetUserProjectsQuery,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   public async create(
@@ -224,7 +232,7 @@ export class TimeEntriesService {
       }
     }
 
-    return this.timeEntriesRepository.updateMany(
+    const submitted = await this.timeEntriesRepository.updateMany(
       this.getFindQuery({
         id,
         userId: user.id,
@@ -238,6 +246,15 @@ export class TimeEntriesService {
         updated_by: user.id,
       },
     );
+
+    if (submitted.length) {
+      this.eventEmitter.emit(
+        TIME_ENTRIES_SUBMITTED,
+        new TimeEntriesSubmittedEvent(submitted, user),
+      );
+    }
+
+    return submitted;
   }
 
   // Which of the entries are in a billing snapshot (locked).
@@ -319,6 +336,7 @@ export class TimeEntriesService {
     return {
       deleted_at: { operator: 'is', value: null },
       ...(params.id ? { id: params.id } : {}),
+      ...(params.ids ? { id: { operator: 'in', value: params.ids } } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
       ...(params.userIds
         ? { user_id: { operator: 'in', value: params.userIds } }

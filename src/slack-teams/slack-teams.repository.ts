@@ -119,6 +119,31 @@ export class SlackTeamsRepository extends BaseRepository<
     );
   }
 
+  // Marks the reminder of the week starting `monday` as sent, once: true for
+  // the one caller that marked it, false when it was sent already (or the
+  // workspace is uninstalled).
+  public async claimReminderWeek(id: string, monday: string): Promise<boolean> {
+    const rows = await this.failingWith(
+      'Failed to claim the weekly reminder',
+      () =>
+        this.db
+          .updateTable('slack_teams')
+          .set({ time_reminder_week: monday })
+          .where('id', '=', id)
+          .where('uninstalled_at', 'is', null)
+          .where((eb) =>
+            eb.or([
+              eb('time_reminder_week', 'is', null),
+              eb('time_reminder_week', '<', monday),
+            ]),
+          )
+          .returning('id')
+          .execute(),
+    );
+
+    return rows.length > 0;
+  }
+
   private async failingWith<T>(message: string, query: () => Promise<T>) {
     try {
       return await query();

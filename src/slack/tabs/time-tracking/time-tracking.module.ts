@@ -15,6 +15,9 @@ import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/service
 import TimeEntriesTabActionHandler from '@modules/slack/tabs/time-tracking/handlers/time-entries-tab-action.handler';
 import { TimeEntriesTabDataService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab-data.service';
 import { TimeEntriesTabView } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
+import { TimeEntryRemindersService } from '@modules/slack/tabs/time-tracking/services/time-entry-reminders.service';
+import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
+import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
 
 @Module({
   imports: [
@@ -23,6 +26,8 @@ import { TimeEntriesTabView } from '@modules/slack/tabs/time-tracking/views/time
     SlackCommonModule,
     UsersModule,
     ClientsModule,
+    SlackTeamsModule,
+    SlackCommunicationModule,
   ],
   providers: [
     TimeEntryFormModalView,
@@ -36,6 +41,7 @@ import { TimeEntriesTabView } from '@modules/slack/tabs/time-tracking/views/time
     TimeEntriesTabService,
     TimeEntriesTabView,
     TimeEntriesTabActionHandler,
+    TimeEntryRemindersService,
   ],
   exports: [TimeEntryModalService],
 })

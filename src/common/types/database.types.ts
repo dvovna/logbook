@@ -667,6 +667,7 @@ export type Database = {
           slack_refresh_token: string | null;
           slack_token: string | null;
           slack_token_expires_at: string | null;
+          time_reminder_week: string | null;
           uninstalled_at: string | null;
         };
         ComputedFields: never;
@@ -679,6 +680,7 @@ export type Database = {
           slack_refresh_token?: string | null;
           slack_token?: string | null;
           slack_token_expires_at?: string | null;
+          time_reminder_week?: string | null;
           uninstalled_at?: string | null;
         };
         Update: {
@@ -690,6 +692,7 @@ export type Database = {
           slack_refresh_token?: string | null;
           slack_token?: string | null;
           slack_token_expires_at?: string | null;
+          time_reminder_week?: string | null;
           uninstalled_at?: string | null;
         };
         Relationships: [];

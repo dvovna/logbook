@@ -60,6 +60,24 @@ export default class ApprovalsTabActionHandler extends BaseTabActionHandler {
       [ApprovalsTabActionId.ApproveEntry]: this.handleApprove,
       [ApprovalsTabActionId.RejectEntry]: this.handleReject,
       [ApprovalsTabActionId.ApproveAll]: this.handleApproveAll,
+      [ApprovalsTabActionId.ShowAllEntries]: (payload, user) =>
+        this.updateTab(
+          {
+            ...parseMetadata<IApprovalsTabMetaData>(payload),
+            allEntries: true,
+            page: 1,
+          },
+          user,
+        ),
+      [ApprovalsTabActionId.ShowWaitingEntries]: (payload, user) =>
+        this.updateTab(
+          {
+            ...parseMetadata<IApprovalsTabMetaData>(payload),
+            allEntries: false,
+            page: 1,
+          },
+          user,
+        ),
       [ApprovalsTabActionId.PaginationPrev]: paginationHandler,
       [ApprovalsTabActionId.PaginationNext]: paginationHandler,
     };

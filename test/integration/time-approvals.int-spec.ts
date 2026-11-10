@@ -114,19 +114,158 @@ describe('Time approvals', () => {
       );
     });
 
-    it("shows HR everyone's submitted entries but their own", async () => {
+    it('tells the approvers what was submitted, in one message each', async () => {
       const hr = await workspace.addUser({ role: UserRole.HR });
-      await submitted(member, { description: 'Kickoff' });
-      await submitted(opsMember, { description: 'Ops work' });
-      await submitted(hr, { description: 'Own work' });
+      await workspace.addTimeEntry(member, website, { minutes: 120 });
+      await workspace.addTimeEntry(member, website, { minutes: 60 });
+      await workspace.addTimeEntry(opsMember, website, { minutes: 30 });
+      const since = t.slackApi.mark();
+      const messagesTo = (user: Tables<'users'>) =>
+        t.slackApi
+          .postedMessages(workspace.token, user.slack_id, { since })
+          .map(({ text }) => text);
 
-      const approvals = await openAppHomeTab(t, workspace, hr, APPROVALS_TAB);
+      for (const owner of [member, opsMember]) {
+        await actOnTab(
+          t,
+          workspace,
+          owner,
+          await openAppHomeTab(t, workspace, owner),
+          HomeTabActionId.SubmitTimeEntries,
+        );
+      }
+      await t.idle();
 
-      expect(
-        listItems(approvals)
+      expect(messagesTo(manager)).toEqual([
+        ':inbox_tray: *Mia Member* submitted *2 time entries* (3h) for your approval: Website (3h).\nThey wait for you in Logbook → ✅ Approvals.',
+      ]);
+      // Ops has no manager: HR hears of its people's entries.
+      expect(messagesTo(hr)).toEqual([
+        expect.stringContaining(
+          'submitted *1 time entry* (30m) for your approval: Website (30m).',
+        ),
+      ]);
+    });
+
+    describe('for HR and admins', () => {
+      // Kickoff waits for Design's manager; the others nobody else decides:
+      // Ops has no manager, the manager's own entry has no other approver,
+      // and Solo is in no team.
+      const submitAll = async (hr?: Tables<'users'>) => {
+        const solo = await workspace.addUser({ name: 'Sol Solo' });
+        await submitted(member, { description: 'Kickoff' });
+        await submitted(opsMember, { description: 'Ops work' });
+        await submitted(manager, { description: 'Manager work' });
+        await submitted(solo, { description: 'Solo work' });
+        if (hr) {
+          await submitted(hr, { description: 'Own work' });
+        }
+      };
+      const descriptions = (view: Parameters<typeof listItems>[0]) =>
+        listItems(view)
           .map(({ fields }) => fields.Description)
-          .sort(),
-      ).toEqual(['Kickoff', 'Ops work']);
+          .sort();
+
+      it("gives HR only the entries nobody else decides, and everyone else's on request", async () => {
+        const hr = await workspace.addUser({ role: UserRole.HR });
+        const admin = await workspace.addUser({ role: UserRole.Admin });
+        await submitAll(hr);
+
+        const approvals = await openAppHomeTab(t, workspace, hr, APPROVALS_TAB);
+        expect(descriptions(approvals)).toEqual([
+          'Manager work',
+          'Ops work',
+          'Solo work',
+        ]);
+        expect(buttonText(approvals, ApprovalsTabActionId.ApproveAll)).toBe(
+          'Approve all (3)',
+        );
+
+        const all = await actOnTab(
+          t,
+          workspace,
+          hr,
+          approvals,
+          ApprovalsTabActionId.ShowAllEntries,
+        );
+        expect(descriptions(all)).toEqual([
+          'Kickoff',
+          'Manager work',
+          'Ops work',
+          'Solo work',
+        ]);
+        expect(
+          buttonText(all, ApprovalsTabActionId.ApproveAll),
+        ).toBeUndefined();
+
+        // With HR in the workspace, only HR's own entry waits for the admin:
+        // nobody else has the HR role to decide it.
+        expect(
+          descriptions(
+            await openAppHomeTab(t, workspace, admin, APPROVALS_TAB),
+          ),
+        ).toEqual(['Own work']);
+      });
+
+      it('gives the admins what nobody decides when nobody has the HR role', async () => {
+        const admin = await workspace.addUser({ role: UserRole.Admin });
+        await submitAll();
+
+        expect(
+          descriptions(
+            await openAppHomeTab(t, workspace, admin, APPROVALS_TAB),
+          ),
+        ).toEqual(['Manager work', 'Ops work', 'Solo work']);
+      });
+
+      it("approves all of HR's inbox, and a manager's entry only one by one", async () => {
+        const hr = await workspace.addUser({ role: UserRole.HR });
+        await submitAll();
+        const kickoff = (await workspace.rows('time_entries')).find(
+          ({ description }) => description === 'Kickoff',
+        )!;
+
+        const form = await openModalFrom(
+          t,
+          workspace,
+          hr,
+          await openAppHomeTab(t, workspace, hr, APPROVALS_TAB),
+          ApprovalsTabActionId.ApproveAll,
+        );
+        await t.slack.submitView(workspace, hr, form).expect(200);
+        await t.idle();
+
+        const statuses = Object.fromEntries(
+          (await workspace.rows('time_entries')).map((entry) => [
+            entry.description,
+            entry.status,
+          ]),
+        );
+        expect(statuses).toEqual({
+          Kickoff: TimeEntryStatus.Submitted,
+          'Ops work': TimeEntryStatus.Approved,
+          'Manager work': TimeEntryStatus.Approved,
+          'Solo work': TimeEntryStatus.Approved,
+        });
+
+        // For a manager who is away.
+        const all = await actOnTab(
+          t,
+          workspace,
+          hr,
+          await openAppHomeTab(t, workspace, hr, APPROVALS_TAB),
+          ApprovalsTabActionId.ShowAllEntries,
+        );
+        await actOnTab(
+          t,
+          workspace,
+          hr,
+          all,
+          ApprovalsTabActionId.ApproveEntry,
+          kickoff.id,
+        );
+        expect(await statusOf(kickoff)).toBe(TimeEntryStatus.Approved);
+      });
     });
   });
 

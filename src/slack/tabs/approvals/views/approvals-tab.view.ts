@@ -37,6 +37,9 @@ interface IGetViewParams extends IBaseTabViewParams {
 export interface IApprovalsTabMetaData {
   // The page of time entries.
   page?: number;
+  // Admin and HR: every submitted entry rather than those waiting for them,
+  // to decide for an approver who is away.
+  allEntries?: boolean;
 }
 
 export const TIME_APPROVALS_PAGE_SIZE = 10;
@@ -70,11 +73,11 @@ export class ApprovalsTabView extends BaseTabView<
 
   protected getContentBlocks(
     params: IGetViewParams,
-    { page }: IApprovalsTabMetaData,
+    metadata: IApprovalsTabMetaData,
   ): AnyBlock[] {
     return [
       ...this.getTimeOffBlocks(params),
-      ...this.getTimeEntriesBlocks(params, page),
+      ...this.getTimeEntriesBlocks(params, metadata),
     ];
   }
 
@@ -159,18 +162,27 @@ export class ApprovalsTabView extends BaseTabView<
     });
   }
 
+  // Those waiting for the viewer, with Approve all; for Admin and HR also a
+  // switch to every submitted entry, where they decide one by one.
   private getTimeEntriesBlocks(
-    { pendingEntries }: IGetViewParams,
-    page?: number,
+    { pendingEntries, userRole }: IGetViewParams,
+    { page, allEntries }: IApprovalsTabMetaData,
   ): AnyBlock[] {
     const { totalCount } = pendingEntries;
+    const mayShowAll = ADMIN_AND_HR_ROLES.includes(userRole);
+    const showsAll = mayShowAll && !!allEntries;
 
     return [
       ...Divider.getBlocks(),
       {
         type: 'section',
-        text: { type: 'mrkdwn', text: `*⏱ Time entries* (${totalCount})` },
-        ...(totalCount
+        text: {
+          type: 'mrkdwn',
+          text: showsAll
+            ? `*⏱ All pending time entries* (${totalCount})\nAnyone's, to decide for an approver who is away.`
+            : `*⏱ Time entries* (${totalCount})`,
+        },
+        ...(totalCount && !showsAll
           ? {
               accessory: button(
                 `Approve all (${totalCount})`,
@@ -181,6 +193,24 @@ export class ApprovalsTabView extends BaseTabView<
             }
           : {}),
       },
+      ...(mayShowAll
+        ? [
+            {
+              type: 'actions',
+              elements: [
+                showsAll
+                  ? button(
+                      '⬅️ Waiting for you',
+                      ApprovalsTabActionId.ShowWaitingEntries,
+                    )
+                  : button(
+                      '📋 All pending entries',
+                      ApprovalsTabActionId.ShowAllEntries,
+                    ),
+              ],
+            } as AnyBlock,
+          ]
+        : []),
       ...PaginatedListView.getBlocks<ITimeEntryListItem>({
         itemsData: {
           ...pendingEntries,
@@ -190,7 +220,9 @@ export class ApprovalsTabView extends BaseTabView<
         getItemBlocks: (entry) => this.getEntryBlocks(entry),
         prevPageActionId: ApprovalsTabActionId.PaginationPrev,
         nextPageActionId: ApprovalsTabActionId.PaginationNext,
-        emptyText: '_No time entries wait for you._',
+        emptyText: showsAll
+          ? '_No time entries are waiting for anyone._'
+          : '_No time entries wait for you._',
       }),
     ];
   }
