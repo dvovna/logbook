@@ -22,10 +22,18 @@ import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admi
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
 import { weekDays, weekStartOf } from '@common/utils/period-presets';
+import {
+  TimesheetFormMetadata,
+  TimesheetFormModalView,
+} from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 
 interface ITimeEntryModalViewParams extends IOpenModalBaseParams<string> {
   entryId: string;
 }
+
+export type ITimesheetFormModalParams = IOpenModalBaseParams & {
+  metadata: TimesheetFormMetadata;
+};
 
 type TimeEntriesTabModalViewResolversMap = {
   [TimeEntriesTabModalName.CreateTimeEntry]: (
@@ -36,6 +44,9 @@ type TimeEntriesTabModalViewResolversMap = {
   ) => Promise<View>;
   [TimeEntriesTabModalName.DeleteEntry]: (
     params: ITimeEntryModalViewParams,
+  ) => Promise<View>;
+  [TimeEntriesTabModalName.FillWeek]: (
+    params: ITimesheetFormModalParams,
   ) => Promise<View>;
 };
 
@@ -52,6 +63,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesService: TimeEntriesService,
     private readonly timesheetService: TimesheetService,
+    private readonly timesheetFormModalView: TimesheetFormModalView,
   ) {
     super(TabId.TimeEntries, {
       [TimeEntriesTabModalName.CreateTimeEntry]: (params) =>
@@ -60,6 +72,8 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
         this.getUpdateTimeEntryModal(params),
       [TimeEntriesTabModalName.DeleteEntry]: (params) =>
         this.getDeleteTimeEntryModal(params),
+      [TimeEntriesTabModalName.FillWeek]: (params) =>
+        this.getTimesheetFormModal(params),
     });
   }
 
@@ -144,6 +158,27 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
       timeEntryId: entryId,
       pageMetadata,
     });
+  }
+
+  // Fill in the week: the viewer's own time, whatever their role.
+  private async getTimesheetFormModal({
+    user,
+    errorMessage,
+    metadata,
+  }: ITimesheetFormModalParams) {
+    const [week, projects] = await Promise.all([
+      this.timesheetService.getFormRows(
+        user,
+        metadata.weekStart,
+        metadata.addedProjectIds,
+      ),
+      this.timesheetService.allowedProjects(user),
+    ]);
+
+    return this.timesheetFormModalView.getView(
+      { week, projects, errorMessage },
+      metadata,
+    );
   }
 
   // Says which entry goes. The ID comes from the client: only Admin and HR

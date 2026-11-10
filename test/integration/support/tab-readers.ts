@@ -1,6 +1,7 @@
 import { View } from '@slack/types/dist/views';
 import { SlackJson } from './block-kit';
 import { TAB_NOTICE_BLOCK_ID } from '@modules/slack/common/types/tab-params.types';
+import { TIMESHEET_ROW_BLOCK_ID } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 
 // Reads App Home tabs the way a user reads them, so that tests compare
 // values instead of searching the view's JSON (where "Review" also matches
@@ -163,3 +164,39 @@ export const timesheetStatusOf = (view: View): string | undefined =>
     .filter((block) => block.type === 'context')
     .map((block) => block.elements[0]?.text as string)
     .find((text) => text?.startsWith('🕒 Week of'));
+
+export interface ITimesheetFormRow {
+  // 'Website · Acme'
+  project: string;
+  // An input as its day and its hours, 'Wed 17 [1.5]' ('Wed 17 []' when
+  // empty); a cell that can't be changed there as its text, 'Wed 17 · 2h ·
+  // submitted'.
+  cells: string[];
+}
+
+// The rows of the week form (Fill in the week), as a user reads them.
+export const timesheetFormRows = (view: View): ITimesheetFormRow[] => {
+  const rows: ITimesheetFormRow[] = [];
+  let row: ITimesheetFormRow | undefined;
+
+  for (const block of blocksOf(view)) {
+    if (block.block_id?.startsWith(`${TIMESHEET_ROW_BLOCK_ID}:`)) {
+      row = { project: block.text.text.replace(/\*/g, ''), cells: [] };
+      rows.push(row);
+    } else if (
+      row &&
+      block.type === 'input' &&
+      block.element.type === 'plain_text_input'
+    ) {
+      row.cells.push(
+        `${block.label.text} [${block.element.initial_value ?? ''}]`,
+      );
+    } else if (row && block.type === 'context') {
+      row.cells.push(block.elements[0].text);
+    } else {
+      row = undefined;
+    }
+  }
+
+  return rows;
+};

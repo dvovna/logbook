@@ -11,6 +11,8 @@ export interface ITimesheetCell {
   minutes: number;
   // The cell's entry; null when it has none or several.
   entryId: string | null;
+  // How many entries the cell sums up.
+  entryCount: number;
   lock: TimesheetCellLock | null;
 }
 
@@ -34,3 +36,26 @@ export interface ITimesheetWeek {
 
 // The most project rows the week form offers.
 export const MAX_TIMESHEET_ROWS = 10;
+
+// A cell of a project and a day: the block_id and action_id of its input in
+// the forms, and the field of an error about it.
+export const cellKey = (projectId: string, date: string) =>
+  `${projectId}_${date}`;
+
+// What a form sends for one cell.
+export interface ITimesheetCellInput {
+  projectId: string;
+  date: string;
+  // null: no time (an empty cell, or 0).
+  minutes: number | null;
+  // What the form showed in the cell when it opened, null for nothing.
+  shownMinutes: number | null;
+}
+
+export interface ITimesheetSaveResult {
+  created: number;
+  updated: number;
+  deleted: number;
+  // The user's time in the inputs' week after saving.
+  minutes: number;
+}

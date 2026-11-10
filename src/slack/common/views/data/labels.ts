@@ -4,6 +4,7 @@ import { IOption } from '@common/types/option.interface';
 import { WorkflowStepStatus } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
+import { TimesheetCellLock } from 'src/time-entries/types/timesheet.types';
 
 // How the app names and marks every status and type, in lists, filters,
 // forms and messages: one label and one icon per value, so that a value
@@ -73,6 +74,28 @@ export const TIME_ENTRY_STATUS_LABELS: Record<TimeEntryStatus, ILabel> = {
   [TimeEntryStatus.Rejected]: { label: 'Rejected', icon: '❌' },
   [TimeEntryStatus.Cancelled]: { label: 'Canceled', icon: '🚫' },
 };
+
+// Why a timesheet form shows a cell as text rather than as an input, after
+// its day and hours: 'Wed 17 · 2h · submitted'.
+const TIMESHEET_CELL_LOCK_LABELS: Record<
+  Exclude<TimesheetCellLock, 'several'>,
+  string
+> = {
+  submitted:
+    TIME_ENTRY_STATUS_LABELS[TimeEntryStatus.Submitted].label.toLowerCase(),
+  approved:
+    TIME_ENTRY_STATUS_LABELS[TimeEntryStatus.Approved].label.toLowerCase(),
+  billed: 'billed',
+  project: 'closed for logging',
+};
+
+export const timesheetCellLockLabel = (
+  lock: TimesheetCellLock,
+  entryCount: number,
+) =>
+  lock === 'several'
+    ? `${entryCount} entries`
+    : TIMESHEET_CELL_LOCK_LABELS[lock];
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, ILabel> = {
   [ProjectStatus.Active]: { label: 'Active', icon: '🟢' },

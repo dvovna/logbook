@@ -8,11 +8,16 @@ import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ITimesheetWeek } from 'src/time-entries/types/timesheet.types';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const SATURDAY = 5;
+// The index of Saturday in a week's days (Monday first).
+export const SATURDAY = 5;
 
 // 'Mon 15'
-const dayHeading = (date: string) =>
+export const dayHeading = (date: string) =>
   `${WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]} ${Number(date.slice(8))}`;
+
+// The week of Monday 15 June 2026: '15 Jun'.
+export const weekLabel = (weekStart: string) =>
+  formatDate(weekStart).replace(/ \d{4}$/, '');
 
 // '' for no time: an empty cell reads better than 0m.
 const hours = (minutes: number) => (minutes ? getDisplayTime(minutes) : '');
@@ -31,8 +36,6 @@ export class TimesheetTableView {
   }
 
   private static getStatusLine(week: ITimesheetWeek): string {
-    // 15 Jun 2026 -> 15 Jun
-    const start = formatDate(week.weekStart).replace(/ \d{4}$/, '');
     const statuses = Object.values(TimeEntryStatus)
       .filter((status) => week.statusCounts[status] > 0)
       .map((status) => {
@@ -47,7 +50,7 @@ export class TimesheetTableView {
       });
 
     return [
-      `🕒 Week of ${start}`,
+      `🕒 Week of ${weekLabel(week.weekStart)}`,
       week.total ? getDisplayTime(week.total) : 'nothing logged',
       ...statuses,
     ].join(' · ');

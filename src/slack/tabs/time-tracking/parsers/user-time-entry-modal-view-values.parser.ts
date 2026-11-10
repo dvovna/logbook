@@ -7,6 +7,28 @@ import { MAX_TIME_ENTRY_DESCRIPTION_LENGTH } from '@common/constants/text-limits
 
 const MAX_HOURS = 24;
 
+// Hours typed into a form, "1,5" as well as "1.5": Log Time's field and the
+// timesheet's cells.
+export const hoursSchema = z
+  .string()
+  .transform((val) => val.trim().replace(',', '.'))
+  .refine(
+    (val) => {
+      const num = Number(val);
+
+      return !isNaN(num) && num > 0 && num <= MAX_HOURS;
+    },
+    {
+      message: `Hours must be a number between 0 and ${MAX_HOURS}`,
+    },
+  )
+  // Next to the field rather than as a general error after saving. Not a
+  // number at all is the check above's to report.
+  .refine((val) => isNaN(Number(val)) || Number.isInteger(Number(val) * 4), {
+    message: 'Use 15-minute steps: 0.25, 0.5, 0.75, 1…',
+  })
+  .transform((val) => Number(val));
+
 // The client and billability come from the project, so the form has no
 // fields for them.
 export const timeEntryFormSchema = z.object({
@@ -23,26 +45,7 @@ export const timeEntryFormSchema = z.object({
       text: z.string(),
     })
     .required(),
-  // "1,5" as well as "1.5".
-  hours: z
-    .string()
-    .transform((val) => val.trim().replace(',', '.'))
-    .refine(
-      (val) => {
-        const num = Number(val);
-
-        return !isNaN(num) && num > 0 && num <= MAX_HOURS;
-      },
-      {
-        message: `Hours must be a number between 0 and ${MAX_HOURS}`,
-      },
-    )
-    // Next to the field rather than as a general error after saving. Not a
-    // number at all is the check above's to report.
-    .refine((val) => isNaN(Number(val)) || Number.isInteger(Number(val) * 4), {
-      message: 'Use 15-minute steps: 0.25, 0.5, 0.75, 1…',
-    })
-    .transform((val) => Number(val)),
+  hours: hoursSchema,
   workDate: z.string().refine((dateStr) => !isNaN(Date.parse(dateStr)), {
     message: 'Invalid date format',
   }),

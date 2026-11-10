@@ -196,11 +196,14 @@ export class SlackTestClient {
     );
   }
 
+  // `forgedState`: state values for blocks the view doesn't have, as a
+  // client could send them, merged into what fillForm builds.
   public submitView(
     workspace: ISlackWorkspace,
     user: ISlackActor,
     view: View,
     values: Record<string, string | string[] | undefined> = {},
+    forgedState: Record<string, Record<string, unknown>> = {},
   ) {
     return this.interaction({
       type: 'view_submission',
@@ -210,7 +213,7 @@ export class SlackTestClient {
       view: {
         team_id: workspace.slackId,
         ...view,
-        state: { values: fillForm(view, values) },
+        state: { values: { ...fillForm(view, values), ...forgedState } },
       },
     });
   }

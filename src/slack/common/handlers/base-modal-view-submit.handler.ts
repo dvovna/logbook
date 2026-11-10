@@ -43,7 +43,7 @@ export abstract class BaseModalFormSubmitHandler<
 
       return this.successResponse(result, user, metadata);
     } catch (error) {
-      const fieldErrors = this.fieldErrorsOf(error);
+      const fieldErrors = this.fieldErrorsOf(error, payload);
 
       // At the field it is about: Slack keeps what was typed and scrolls there.
       if (fieldErrors) {
@@ -73,19 +73,26 @@ export abstract class BaseModalFormSubmitHandler<
     }
   }
 
-  private fieldErrorsOf(error: unknown): Record<string, string> | null {
+  private fieldErrorsOf(
+    error: unknown,
+    payload: ISlackViewSubmissionPayload,
+  ): Record<string, string> | null {
     const field =
       error instanceof ValidationError || error instanceof DuplicatedRecordError
         ? error.field
         : undefined;
-
-    if (!field || !this.formParser) {
-      return null;
-    }
-
-    const blockId = this.formParser.blockIdOf(this.errorFields[field] ?? field);
+    const blockId = field && this.blockIdOfField(field, payload);
 
     return blockId ? { [blockId]: (error as Error).message } : null;
+  }
+
+  // The input block that shows an error about the domain field `field`, or
+  // null when the form has none (the error then shows in the modal).
+  protected blockIdOfField(
+    field: string,
+    _payload: ISlackViewSubmissionPayload,
+  ): string | null {
+    return this.formParser?.blockIdOf(this.errorFields[field] ?? field) ?? null;
   }
 
   protected getFormData(

@@ -1,6 +1,7 @@
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { IViewStateValues } from '@modules/slack/common/types/slack-view-state-values.interface';
 import type { BlockElementAction } from '@slack/bolt/dist/types/actions/block-action';
+import type { AnyBlock } from '@slack/web-api';
 
 export interface ISlackUser {
   id: string;
@@ -12,6 +13,8 @@ export interface ISlackView {
   team_id: string;
   callback_id: ViewCallbackId;
   private_metadata: string;
+  // As the app sent them: a form reads what it showed from them.
+  blocks?: AnyBlock[];
   state?: {
     values: IViewStateValues;
   };

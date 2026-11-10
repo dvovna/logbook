@@ -150,8 +150,8 @@ export class TimeEntriesTabView extends BaseTabView<
     return blocks;
   }
 
-  // The week's navigation and its submit button (the drafts and rejected
-  // entries of the shown week).
+  // The week's navigation, its form and its submit button (the drafts and
+  // rejected entries of the shown week).
   private getWeekButtons(week: ITimesheetWeek): AnyBlock[] {
     const toSubmit =
       week.statusCounts[TimeEntryStatus.Draft] +
@@ -168,6 +168,11 @@ export class TimeEntriesTabView extends BaseTabView<
         text: { type: 'plain_text', text: 'Next week ➡️' },
         action_id: TimeEntriesTabViewActionId.NextWeek,
         value: shiftWeek(week.weekStart, 1),
+      },
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: '✏️ Fill in the week' },
+        action_id: TimeEntriesTabViewActionId.FillWeek,
       },
       ...(toSubmit > 0
         ? [
