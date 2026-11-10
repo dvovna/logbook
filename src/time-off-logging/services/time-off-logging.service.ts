@@ -8,6 +8,7 @@ import TeamsService from '@modules/teams/services/teams.service';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
+import { vacationTimeLock } from '@modules/vacation-requests/utils/vacation-time.utils';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TransactionService } from 'src/database/transaction.service';
@@ -85,7 +86,7 @@ export class TimeOffLoggingService {
     const slackTeamId = user.slack_team_id;
 
     return this.transactions.transaction(async () => {
-      await this.transactions.lock(`time-off:${requestId}`);
+      await this.transactions.lock(vacationTimeLock(requestId));
 
       const request = await this.vacationRequestsService.findOneWithValidation({
         id: requestId,

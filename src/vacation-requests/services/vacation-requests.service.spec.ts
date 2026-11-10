@@ -14,6 +14,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { TransactionService } from 'src/database/transaction.service';
+import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -67,6 +68,7 @@ describe('VacationRequestsService', () => {
   >;
   let eventEmitter: { emit: jest.Mock };
   let usersService: { findOneWithValidation: jest.Mock };
+  let timeEntriesService: { deleteVacationTime: jest.Mock };
   let service: VacationRequestsService;
   // Which repository calls ran inside TransactionService.transaction().
   let inTransaction: boolean;
@@ -80,6 +82,7 @@ describe('VacationRequestsService', () => {
         inTransaction = false;
       }
     },
+    lock: jest.fn(),
   };
 
   beforeEach(() => {
@@ -98,6 +101,11 @@ describe('VacationRequestsService', () => {
     };
     eventEmitter = { emit: jest.fn() };
     usersService = { findOneWithValidation: jest.fn() };
+    timeEntriesService = {
+      deleteVacationTime: jest
+        .fn()
+        .mockResolvedValue({ deleted: 0, billedDates: [] }),
+    };
 
     service = new VacationRequestsService(
       repository as unknown as VacationRequestsRepository,
@@ -109,6 +117,7 @@ describe('VacationRequestsService', () => {
       eventEmitter as unknown as EventEmitter2,
       usersService as unknown as UsersService,
       transactions as unknown as TransactionService,
+      timeEntriesService as unknown as TimeEntriesService,
     );
     inTransaction = false;
   });
@@ -411,6 +420,96 @@ describe('VacationRequestsService', () => {
       expect(repository.update).not.toHaveBeenCalled();
     });
   });
+  // Time logged from an approved vacation goes when the vacation changes.
+  describe('the logged time', () => {
+    const hr: IUserViewModel = { ...requester, id: 'hr-1', role: UserRole.HR };
+    const approved = buildRequest({ status: VacationRequestStatus.Approved });
+
+    beforeEach(() => {
+      repository.findOne.mockResolvedValue(approved);
+      timeEntriesService.deleteVacationTime.mockImplementation(() => {
+        expect(inTransaction).toBe(true);
+
+        return Promise.resolve({ deleted: 3, billedDates: ['2026-02-04'] });
+      });
+    });
+
+    it.each([
+      ['the days', { end_date: '2026-02-09' }],
+      ['the status', { status: VacationRequestStatus.Rejected }],
+      ['the type', { type: VacationType.SickLeave }],
+      ['the person', { user_id: 'user-2' }],
+    ])(
+      'is removed with an edit of %s, in its transaction',
+      async (_change, changed) => {
+        repository.update.mockImplementation(() => {
+          expect(inTransaction).toBe(true);
+
+          return Promise.resolve({ ...approved, ...changed });
+        });
+
+        const result = await service.update(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          {},
+          hr,
+        );
+
+        expect(transactions.lock).toHaveBeenCalledWith('time-off:request-1');
+        expect(timeEntriesService.deleteVacationTime).toHaveBeenCalledWith(
+          'request-1',
+          SLACK_TEAM_ID,
+          hr,
+        );
+        expect(result).toEqual({
+          request: { ...approved, ...changed },
+          billedDates: ['2026-02-04'],
+        });
+      },
+    );
+
+    it('stays with an edit of the comment', async () => {
+      repository.update.mockResolvedValue({
+        ...approved,
+        user_comment: 'Family trip',
+      });
+
+      const result = await service.update(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { userComment: 'Family trip' },
+        hr,
+      );
+
+      expect(timeEntriesService.deleteVacationTime).not.toHaveBeenCalled();
+      expect(result.billedDates).toEqual([]);
+    });
+
+    it('is removed before the request is deleted, in one transaction', async () => {
+      const calls: string[] = [];
+      timeEntriesService.deleteVacationTime.mockImplementation(() => {
+        calls.push(`time, in a transaction: ${inTransaction}`);
+
+        return Promise.resolve({ deleted: 3, billedDates: ['2026-02-04'] });
+      });
+      repository.deleteMany.mockImplementation(() => {
+        calls.push(`request, in a transaction: ${inTransaction}`);
+      });
+
+      const result = await service.delete(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        hr,
+      );
+
+      expect(calls).toEqual([
+        'time, in a transaction: true',
+        'request, in a transaction: true',
+      ]);
+      expect(result).toEqual({
+        request: approved,
+        billedDates: ['2026-02-04'],
+      });
+    });
+  });
+
   describe("replacing a user's vacations (CSV import)", () => {
     const vacations = [
       {

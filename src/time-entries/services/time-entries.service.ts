@@ -28,6 +28,7 @@ import {
   isBilledEntryError,
 } from 'src/time-entries/constants/billed-time-entries';
 import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-changed.error';
+import { getDateOnly } from '@common/utils/date.utils';
 
 interface ICreateParams {
   userId: string;
@@ -86,6 +87,8 @@ interface IFindParams {
   statuses?: TimeEntryStatus[];
   // The entries of these teams; an empty list matches none.
   teamIds?: string[];
+  // The time logged from this vacation.
+  vacationRequestId?: string;
   slackTeamId: string;
 }
 
@@ -330,6 +333,47 @@ export class TimeEntriesService {
     }
   }
 
+  // Deletes the time logged from a vacation (keeping it as history) when the
+  // vacation changes, in the caller's transaction. Entries in a billing
+  // snapshot can't change and stay; their days are returned, sorted, so the
+  // person who changed the vacation hears of them.
+  public async deleteVacationTime(
+    requestId: string,
+    slackTeamId: string,
+    user: IUserViewModel,
+  ): Promise<{ deleted: number; billedDates: string[] }> {
+    const entries = await this.findMany({
+      vacationRequestId: requestId,
+      slackTeamId,
+    });
+    const billedIds = await this.findBilledIds(
+      slackTeamId,
+      entries.map(({ id }) => id),
+    );
+    const unbilledIds = entries
+      .filter(({ id }) => !billedIds.has(id))
+      .map(({ id }) => id);
+    const deleted = unbilledIds.length
+      ? await this.refusingBilled(() =>
+          this.timeEntriesRepository.updateMany(
+            this.getFindQuery({ ids: unbilledIds, slackTeamId }),
+            {
+              deleted_at: new Date().toISOString(),
+              deleted_by: user.id,
+            },
+          ),
+        )
+      : [];
+    const billedDates = entries
+      .filter(({ id }) => billedIds.has(id))
+      .map(({ work_date }) => getDateOnly(work_date));
+
+    return {
+      deleted: deleted.length,
+      billedDates: [...new Set(billedDates)].sort(),
+    };
+  }
+
   public findOne(params: IFindParams): Promise<ITimeEntryViewModel | null> {
     return this.timeEntriesRepository.findOne(this.getFindQuery(params));
   }
@@ -564,6 +608,9 @@ export class TimeEntriesService {
         : {}),
       ...(params.teamIds
         ? { team_id: { operator: 'in', value: params.teamIds } }
+        : {}),
+      ...(params.vacationRequestId
+        ? { vacation_request_id: params.vacationRequestId }
         : {}),
       ...(params.dateFrom || params.dateTo
         ? {

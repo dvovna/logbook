@@ -19,6 +19,7 @@ import { actionIdsOf, buttonText, noticeOf } from './support/tab-readers';
 import { textOf } from './support/block-kit';
 import { addDays, workWeek } from './support/dates';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
+import { acknowledged } from './support/slack-test-client';
 import {
   openAppHomeTab,
   openModalFrom,
@@ -633,6 +634,7 @@ describe('Time off logging', () => {
       await t.db
         .updateTable('vacation_requests')
         .set({ status: 'canceled' })
+        .where('slack_team_id', '=', workspace.id)
         .execute();
 
       await t.slack
@@ -759,6 +761,305 @@ describe('Time off logging', () => {
         '✅ 40h logged to R&amp;D &lt;b&gt;PTO&lt;/b&gt;.',
       );
       expect(textOf(update)).not.toContain('<b>');
+    });
+  });
+
+  // HR or an admin changes a vacation whose time was logged.
+  describe('Changes after logging', () => {
+    const OFFER = 'log_time_off';
+    // This week (today is Wed 17 Jun) and the next one.
+    const THIS_WEEK = { start: '2026-06-15', end: '2026-06-19' };
+    const NEXT_WEEK = { start: '2026-06-22', end: '2026-06-26' };
+
+    let hr: Tables<'users'>;
+    let requester: Tables<'users'>;
+    let client: Tables<'clients'>;
+
+    beforeEach(async () => {
+      hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+      requester = await workspace.addUser({
+        name: 'Max Member',
+        email: 'max@example.test',
+      });
+      client = await workspace.addClient({ name: 'Internal' });
+      await mapProject('Vacations', 'annual_leave');
+    });
+
+    const mapProject = async (name: string, type: string) => {
+      const project = await workspace.addProject({
+        name,
+        client_id: client.id,
+      });
+      await t.db
+        .insertInto('time_off_projects')
+        .values({
+          slack_team_id: workspace.id,
+          vacation_type: type,
+          project_id: project.id,
+        })
+        .execute();
+
+      return project;
+    };
+
+    // An approved annual leave of the requester, logged as time.
+    const loggedVacation = async (week = THIS_WEEK) => {
+      const request = await workspace.addVacationRequest(requester, {
+        start_date: week.start,
+        end_date: week.end,
+        days: 5,
+        working_days: 5,
+      });
+      const user = await t.app
+        .get(UsersService)
+        .findOneWithValidation({ id: requester.id, slackTeamId: workspace.id });
+      await t.app.get(TimeOffLoggingService).log(user, request.id);
+      expect(await liveEntries()).toHaveLength(5);
+
+      return request;
+    };
+
+    const liveEntries = async () =>
+      (await workspace.rows('time_entries'))
+        .filter(({ deleted_at }) => deleted_at === null)
+        .sort((a, b) => a.work_date.localeCompare(b.work_date));
+
+    const offersTo = (user: Tables<'users'>) =>
+      t.slackApi
+        .postedMessages(workspace.token, user.slack_id)
+        .filter((message) => buttonText(message as unknown as View, OFFER));
+
+    const requestsTab = (user: Tables<'users'>) =>
+      openAppHomeTab(t, workspace, user, [
+        NavigationActionId.TimeOff,
+        NavigationActionId.AllRequests,
+      ]);
+
+    // Submits `form` and returns the notice of the tab it goes back to, or
+    // the form's answer when it stays open.
+    const submitForNotice = async (
+      user: Tables<'users'>,
+      form: View,
+      values: Record<string, string> = {},
+    ) => {
+      const since = t.slackApi.mark();
+      const response = await t.slack
+        .submitView(workspace, user, form, values)
+        .expect(200);
+      const notice =
+        response.body.response_action === 'clear'
+          ? noticeOf(await publishedHome(t, workspace, user, since))
+          : JSON.stringify(response.body);
+      await t.idle();
+
+      return notice;
+    };
+
+    // HR's Edit Request form, with `values` changed.
+    const editAsHr = async (
+      request: Tables<'vacation_requests'>,
+      values: Record<string, string>,
+    ) =>
+      submitForNotice(
+        hr,
+        await openModalFrom(
+          t,
+          workspace,
+          hr,
+          await requestsTab(hr),
+          VacationRequestsTabViewActionId.ManageRequestMenu,
+          `${VacationRequestsTabViewActionId.EditRequest}:${request.id}`,
+        ),
+        values,
+      );
+
+    // The admin's Delete Request confirmation, confirmed.
+    const deleteAsAdmin = async (request: Tables<'vacation_requests'>) =>
+      submitForNotice(
+        admin,
+        await openModalFrom(
+          t,
+          workspace,
+          admin,
+          await requestsTab(admin),
+          VacationRequestsTabViewActionId.ManageRequestMenu,
+          `${VacationRequestsTabViewActionId.DeleteRequest}:${request.id}`,
+        ),
+      );
+
+    const lockInSnapshot = async (entries: Tables<'time_entries'>[]) => {
+      const minutes = entries.reduce((sum, entry) => sum + entry.minutes, 0);
+      const snapshot = await t.db
+        .insertInto('billing_snapshots')
+        .values({
+          slack_team_id: workspace.id,
+          client_id: client.id,
+          period_start: THIS_WEEK.start,
+          period_end: THIS_WEEK.end,
+          currency: 'USD',
+          total_minutes: minutes,
+          billable_minutes: minutes,
+          total_amount: 0,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+
+      await t.db
+        .insertInto('billing_snapshot_entries')
+        .values(
+          entries.map((entry) => ({
+            slack_team_id: workspace.id,
+            snapshot_id: snapshot.id,
+            time_entry_id: entry.id,
+            minutes: entry.minutes,
+            billable: entry.billable,
+          })),
+        )
+        .execute();
+    };
+
+    it('removes the logged time when HR changes the dates, and offers again', async () => {
+      const request = await loggedVacation();
+
+      expect(
+        await editAsHr(request, {
+          start_date: NEXT_WEEK.start,
+          end_date: NEXT_WEEK.end,
+        }),
+      ).toBe('✅ Vacation request updated.');
+
+      expect(await liveEntries()).toEqual([]);
+      expect(
+        (await workspace.rows('time_entries')).map(
+          ({ deleted_by, vacation_request_id }) => [
+            deleted_by,
+            vacation_request_id,
+          ],
+        ),
+      ).toEqual(Array(5).fill([hr.id, request.id]));
+
+      const offers = offersTo(requester);
+      expect(offers).toHaveLength(1);
+      expect(textOf(offers[0])).toContain(
+        formatDateRange(NEXT_WEEK.start, NEXT_WEEK.end),
+      );
+      expect(buttonText(offers[0] as unknown as View, OFFER)).toBe(
+        'Log 40h to Vacations',
+      );
+    });
+
+    it('removes it when HR rejects or deletes the vacation, without a new offer', async () => {
+      const rejected = await loggedVacation(THIS_WEEK);
+
+      expect(
+        await editAsHr(rejected, { status: VacationRequestStatus.Rejected }),
+      ).toBe('✅ Vacation request updated.');
+      expect(await liveEntries()).toEqual([]);
+
+      const deleted = await loggedVacation(NEXT_WEEK);
+
+      expect(await deleteAsAdmin(deleted)).toBe('✅ Vacation request deleted.');
+      expect(await liveEntries()).toEqual([]);
+      expect(
+        (await workspace.rows('vacation_requests')).map(({ id }) => id),
+      ).toEqual([rejected.id]);
+      expect(offersTo(requester)).toEqual([]);
+    });
+
+    it('keeps billed days and says so', async () => {
+      const request = await loggedVacation();
+      const billed = (await liveEntries()).filter(({ work_date }) =>
+        ['2026-06-17', '2026-06-18'].includes(work_date.slice(0, 10)),
+      );
+      await lockInSnapshot(billed);
+
+      expect(
+        await editAsHr(request, {
+          start_date: NEXT_WEEK.start,
+          end_date: NEXT_WEEK.end,
+        }),
+      ).toBe(
+        '✅ Vacation request updated. 2 days stay logged: they are billed (17–18 Jun).',
+      );
+
+      expect(
+        (await liveEntries()).map(({ id, vacation_request_id }) => [
+          id,
+          vacation_request_id,
+        ]),
+      ).toEqual(billed.map(({ id }) => [id, request.id]));
+      expect(offersTo(requester)).toHaveLength(1);
+
+      // Deleting the vacation keeps them too, without the link.
+      expect(await deleteAsAdmin(request)).toBe(
+        '✅ Vacation request deleted. 2 days stay logged: they are billed (17–18 Jun).',
+      );
+      expect(
+        (await liveEntries()).map(({ id, vacation_request_id }) => [
+          id,
+          vacation_request_id,
+        ]),
+      ).toEqual(billed.map(({ id }) => [id, null]));
+    });
+
+    it('keeps the hours and drops the link on a CSV import', async () => {
+      const request = await loggedVacation();
+
+      await t.slack
+        .event(workspace, {
+          type: 'file_shared',
+          file_id: t.slackApi.addFile(
+            'user-vacations.csv',
+            [
+              'email;contractStartDate;vacation[0].startDate;vacation[0].endDate;vacation[0].type;vacation[0].status',
+              `${requester.email};2025-01-01;${THIS_WEEK.start};${THIS_WEEK.end};annual_leave;approved`,
+            ].join('\n'),
+          ),
+          user_id: admin.slack_id,
+          channel_id: 'D_TEST',
+        })
+        .expect(acknowledged);
+      await t.idle();
+
+      const [imported] = await workspace.rows('vacation_requests');
+      expect(imported.id).not.toBe(request.id);
+      expect(
+        (await liveEntries()).map(({ minutes, vacation_request_id }) => [
+          minutes,
+          vacation_request_id,
+        ]),
+      ).toEqual(Array(5).fill([480, null]));
+      expect(offersTo(requester)).toEqual([]);
+    });
+
+    it('does nothing for edits that change neither dates nor status', async () => {
+      const request = await loggedVacation();
+      const before = await liveEntries();
+
+      expect(await editAsHr(request, { comment: 'Family trip' })).toBe(
+        '✅ Vacation request updated.',
+      );
+
+      expect(await liveEntries()).toEqual(before);
+      expect(offersTo(requester)).toEqual([]);
+    });
+
+    // The project depends on the type: logging it again after a type change
+    // would leave two sets of entries on two projects.
+    it("removes it when HR changes the type, and offers the new type's project", async () => {
+      await mapProject('Sick Leave', 'sick_leave');
+      const request = await loggedVacation();
+
+      expect(
+        await editAsHr(request, { type_option: VacationType.SickLeave }),
+      ).toBe('✅ Vacation request updated.');
+
+      expect(await liveEntries()).toEqual([]);
+      const offers = offersTo(requester);
+      expect(offers).toHaveLength(1);
+      expect(buttonText(offers[0] as unknown as View, OFFER)).toBe(
+        'Log 40h to Sick Leave',
+      );
     });
   });
 });

@@ -25,6 +25,7 @@ import {
   VacationRequestUpdatedEvent,
 } from '@modules/vacation-requests/events/vacation-request.events';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import { changesLoggedTime } from '@modules/vacation-requests/utils/vacation-time.utils';
 import {
   ITimeOffOffer,
   ITimeOffResult,
@@ -91,19 +92,15 @@ export class TimeOffOfferService implements OnModuleInit {
     }
   }
 
-  // An edit that approved the request, or moved the days of an approved one.
-  // The workflow's own approval carries no `previous`: its decision DM holds
-  // the button.
+  // An edit that approved the request, or changed the person, days or type
+  // of an approved one (which removed its logged time). The workflow's own
+  // approval carries no `previous`: its decision DM holds the button.
   @OnEvent(VacationRequestEvent.Updated)
   public handleUpdated({ request, previous }: VacationRequestUpdatedEvent) {
-    if (!previous || request.status !== VacationRequestStatus.Approved) {
-      return;
-    }
-
     if (
-      previous.status !== VacationRequestStatus.Approved ||
-      previous.start_date !== request.start_date ||
-      previous.end_date !== request.end_date
+      previous &&
+      request.status === VacationRequestStatus.Approved &&
+      changesLoggedTime(previous, request)
     ) {
       this.offerLater(request.id, request.slack_team_id);
     }
