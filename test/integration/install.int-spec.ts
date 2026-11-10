@@ -2,7 +2,7 @@ import { MemberSyncScheduleService } from '@modules/team-setup/member-sync-sched
 import { WELCOME_TEXT } from '@modules/team-setup/team-setup-workflow.service';
 import { Logger } from '@nestjs/common';
 import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
-import * as request from 'supertest';
+import request from 'supertest';
 import { ConfigService } from '@nestjs/config';
 import UserRole from '@common/enums/user-role.enum';
 import { TEST_SLACK_CLIENT_ID } from './support/test-env';

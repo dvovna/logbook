@@ -8,7 +8,7 @@ import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { AnyBlock, Button } from '@slack/web-api';
 import { truncate } from 'lodash';
-import * as pluralize from 'pluralize';
+import pluralize from 'pluralize';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   BaseTabView,

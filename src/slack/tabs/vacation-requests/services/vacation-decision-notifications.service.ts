@@ -4,7 +4,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { KnownBlock } from '@slack/types/dist/block-kit/blocks';
-import * as pluralize from 'pluralize';
+import pluralize from 'pluralize';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';

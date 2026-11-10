@@ -13,7 +13,7 @@ import {
 } from '@modules/slack/common/views/base-tab.view';
 import { SlackActionPermissionsService } from '@modules/slack/common/services/slack-action-permissions.service';
 import VacationType from '@common/enums/vacation-type.enum';
-import * as pluralize from 'pluralize';
+import pluralize from 'pluralize';
 import { Divider } from '@modules/slack/common/views/components/separator';
 import { getDisplayTime } from '@common/utils/time.utils';
 import { IUserTimeSummary } from 'src/time-entries/services/time-entries-summary.service';

@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { WorkspaceRetentionService } from '@modules/slack-teams/workspace-retention.service';
-import * as request from 'supertest';
+import request from 'supertest';
 import UserRole from '@common/enums/user-role.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId, TestWorkspace } from './support/test-workspace';

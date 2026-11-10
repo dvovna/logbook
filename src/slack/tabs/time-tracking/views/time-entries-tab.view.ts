@@ -2,7 +2,7 @@ import {
   TIME_ENTRY_STATUS_LABELS,
   withIcon,
 } from '@modules/slack/common/views/data/labels';
-import * as pluralize from 'pluralize';
+import pluralize from 'pluralize';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';

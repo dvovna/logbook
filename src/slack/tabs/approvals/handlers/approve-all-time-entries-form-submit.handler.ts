@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import * as pluralize from 'pluralize';
+import pluralize from 'pluralize';
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';

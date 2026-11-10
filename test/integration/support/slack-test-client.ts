@@ -1,5 +1,5 @@
 import { createHmac, randomUUID } from 'crypto';
-import * as request from 'supertest';
+import request from 'supertest';
 import { App } from 'supertest/types';
 import { View } from '@slack/types/dist/views';
 import { TEST_SLACK_SIGNING_SECRET } from './test-env';

@@ -1,4 +1,4 @@
-import * as request from 'supertest';
+import request from 'supertest';
 import { createTestApp, ITestApp } from './support/test-app';
 
 describe('Health check', () => {

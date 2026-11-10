@@ -7,7 +7,7 @@ import {
   OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as PgBoss from 'pg-boss';
+import PgBoss from 'pg-boss';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import delay from '@common/utils/delay';
 import { trackInBackground } from '@common/utils/run-in-background';

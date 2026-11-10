@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { View } from '@slack/types/dist/views';
-import * as pluralize from 'pluralize';
+import pluralize from 'pluralize';
 import BaseTabService, {
   IOpenModalBaseParams,
   IPublishBaseParams,

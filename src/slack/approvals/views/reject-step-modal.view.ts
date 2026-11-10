@@ -3,7 +3,7 @@ import {
   VACATION_TYPE_LABELS,
 } from '@modules/slack/common/views/data/labels';
 import { Injectable } from '@nestjs/common';
-import * as pluralize from 'pluralize';
+import pluralize from 'pluralize';
 import { formatDateRange } from '@common/utils/date.utils';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { RejectWithReasonModalView } from '@modules/slack/common/views/components/reject-with-reason-modal.view';
