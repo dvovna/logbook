@@ -2,6 +2,7 @@ import { WebClient } from '@slack/web-api';
 import SlackApiClient, {
   CALL_OPTIONS,
   INTERACTIVE_CALL_OPTIONS,
+  slackErrorOf,
 } from 'src/api-clients/third-party/slack-api.client';
 
 jest.mock('@slack/web-api', () => ({ WebClient: jest.fn() }));
@@ -14,7 +15,10 @@ describe('SlackApiClient', () => {
   let slack: {
     chat: Record<'postEphemeral' | 'postMessage' | 'update', jest.Mock>;
     views: Record<'open' | 'publish', jest.Mock>;
-    files: Record<'info', jest.Mock>;
+    files: Record<
+      'info' | 'getUploadURLExternal' | 'completeUploadExternal',
+      jest.Mock
+    >;
     apiCall: jest.Mock;
   };
   let client: SlackApiClient;
@@ -32,6 +36,12 @@ describe('SlackApiClient', () => {
       },
       files: {
         info: jest.fn().mockResolvedValue({ ...ok, file: { id: 'F1' } }),
+        getUploadURLExternal: jest.fn().mockResolvedValue({
+          ...ok,
+          upload_url: 'https://files.slack.com/upload/v1/F2',
+          file_id: 'F2',
+        }),
+        completeUploadExternal: jest.fn().mockResolvedValue(ok),
       },
       apiCall: jest.fn().mockResolvedValue({ ...ok, members: [] }),
     };
@@ -206,6 +216,79 @@ describe('SlackApiClient', () => {
         'larger than',
       );
     });
+  });
+
+  describe('uploadFile', () => {
+    let fetchMock: jest.SpyInstance;
+    const upload = () =>
+      client.uploadFile({
+        channelId: 'D1',
+        filename: 'report.csv',
+        title: 'Report',
+        content: 'Name\r\nАнна\r\n',
+        accessToken: 'xoxb-1',
+      });
+
+    beforeEach(() => {
+      fetchMock = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(new Response(''));
+    });
+
+    afterEach(() => fetchMock.mockRestore());
+
+    it('gets an upload URL, sends the bytes there, then shares the file', async () => {
+      await upload();
+
+      // Bytes, not characters: "Анна" takes eight.
+      expect(slack.files.getUploadURLExternal).toHaveBeenCalledWith({
+        filename: 'report.csv',
+        length: 16,
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://files.slack.com/upload/v1/F2',
+        expect.objectContaining({
+          method: 'POST',
+          body: Buffer.from('Name\r\nАнна\r\n'),
+        }),
+      );
+      // No token goes to the upload URL.
+      expect(fetchMock.mock.calls[0][1].headers).toBeUndefined();
+      expect(slack.files.completeUploadExternal).toHaveBeenCalledWith({
+        files: [{ id: 'F2', title: 'Report' }],
+        channel_id: 'D1',
+      });
+    });
+
+    it('uploads nowhere but to Slack', async () => {
+      slack.files.getUploadURLExternal.mockResolvedValue({
+        ...ok,
+        upload_url: 'https://evil.example/upload',
+        file_id: 'F2',
+      });
+
+      await expect(upload()).rejects.toThrow('Refusing to upload');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('does not share a file whose bytes did not arrive', async () => {
+      fetchMock.mockResolvedValue(new Response('', { status: 500 }));
+
+      await expect(upload()).rejects.toThrow('500');
+      expect(slack.files.completeUploadExternal).not.toHaveBeenCalled();
+    });
+  });
+
+  it("reads the error code of Slack's platform errors", () => {
+    expect(
+      slackErrorOf(
+        Object.assign(new Error('An API error occurred: missing_scope'), {
+          data: { ok: false, error: 'missing_scope' },
+        }),
+      ),
+    ).toBe('missing_scope');
+    expect(slackErrorOf(new Error('socket hang up'))).toBeUndefined();
+    expect(slackErrorOf(null)).toBeUndefined();
   });
 
   it('passes any other method through', async () => {

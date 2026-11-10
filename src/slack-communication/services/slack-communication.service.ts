@@ -1,4 +1,6 @@
-import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
+import SlackApiClient, {
+  IUploadFileParams,
+} from 'src/api-clients/third-party/slack-api.client';
 import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
 import { Injectable } from '@nestjs/common';
 import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
@@ -86,6 +88,17 @@ export default class SlackCommunicationService {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 
     return this.slackApiClient.makeCall<T>(method, params, accessToken);
+  }
+
+  // Shares a file in a conversation (a D… channel for a DM: post to the user
+  // first, and take the channel from the answer).
+  public async uploadFile(
+    params: Omit<IUploadFileParams, 'accessToken'>,
+    teamId: string,
+  ) {
+    const accessToken = await this.accessTokenService.getAccessToken(teamId);
+
+    return this.slackApiClient.uploadFile({ ...params, accessToken });
   }
 
   public async getFileInfo(fileId: string, teamId: string) {

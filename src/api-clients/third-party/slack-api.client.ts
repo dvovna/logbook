@@ -17,6 +17,15 @@ interface ISendEphemeralMessageParams extends ISendMessageParams {
   userId: string;
 }
 
+export interface IUploadFileParams {
+  // A conversation ID: C…, G…, or D… for a DM (a user ID is refused).
+  channelId: string;
+  filename: string;
+  title: string;
+  content: string;
+  accessToken: string;
+}
+
 // views.open has to reach Slack while its trigger_id lives (3 seconds): one
 // try, and a rate limit fails it at once instead of being waited out.
 export const INTERACTIVE_CALL_OPTIONS: WebClientOptions = {
@@ -32,8 +41,12 @@ export const CALL_OPTIONS: WebClientOptions = {
   timeout: 10_000,
 };
 
-// Where Slack serves files from (GovSlack has its own domain).
+// Where Slack serves files from and takes uploads (GovSlack has its own
+// domain).
 const SLACK_FILE_HOSTS = ['files.slack.com', 'files.slack-gov.com'];
+
+// Sending a file's bytes to its upload URL, as long as other calls.
+const UPLOAD_TIMEOUT_MS = 10_000;
 
 const isSlackFileUrl = (url: string) => {
   try {
@@ -44,6 +57,11 @@ const isSlackFileUrl = (url: string) => {
     return false;
   }
 };
+
+// The error code of a failed Slack call ("missing_scope", "not_in_channel"),
+// as @slack/web-api reports it; undefined for any other failure.
+export const slackErrorOf = (error: unknown): string | undefined =>
+  (error as { data?: { error?: string } } | null)?.data?.error;
 
 @Injectable()
 export default class SlackApiClient {
@@ -181,6 +199,52 @@ export default class SlackApiClient {
     }
 
     return content;
+  }
+
+  // Shares a file in a conversation, in Slack's three steps: get an upload
+  // URL, send the bytes there, then complete the upload into the channel.
+  // Needs the files:write scope.
+  public async uploadFile({
+    channelId,
+    filename,
+    title,
+    content,
+    accessToken,
+  }: IUploadFileParams) {
+    const client = this.getClient(accessToken);
+    const bytes = Buffer.from(content);
+
+    const { upload_url: uploadUrl, file_id: fileId } =
+      await client.files.getUploadURLExternal({
+        filename,
+        length: bytes.byteLength,
+      });
+
+    // The URL comes from Slack, and only the file goes there.
+    if (!uploadUrl || !fileId || !isSlackFileUrl(uploadUrl)) {
+      throw new Error(`Refusing to upload a file to ${uploadUrl}`);
+    }
+
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      body: bytes,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to upload the file: ${response.status}`);
+    }
+
+    const result = await client.files.completeUploadExternal({
+      files: [{ id: fileId, title }],
+      channel_id: channelId,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to share the file');
+    }
+
+    return result;
   }
 
   public async makeCall<ResponseData>(

@@ -479,7 +479,8 @@ describe('Installing the app (OAuth redirect)', () => {
       );
       expect(Object.fromEntries(authorizeUrl.searchParams)).toMatchObject({
         client_id: TEST_SLACK_CLIENT_ID,
-        scope: 'commands,chat:write,files:read,users:read,users:read.email',
+        scope:
+          'commands,chat:write,files:read,files:write,users:read,users:read.email',
         redirect_uri: process.env.SLACK_REDIRECT_URI,
       });
       expect(state).toMatch(/^[0-9a-f]{48}$/);

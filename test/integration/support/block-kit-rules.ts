@@ -550,3 +550,51 @@ export const suggestionsProblems = (answer: unknown): Problems => {
     optionProblems(option, `options[${i}]`),
   );
 };
+
+// files.getUploadURLExternal: a file needs a name and some bytes (Slack
+// answers an empty one with missing_argument).
+export const uploadUrlProblems = ({
+  filename,
+  length,
+}: {
+  filename?: string;
+  length?: number;
+}): Problems => [
+  ...(filename ? [] : ['filename: required']),
+  ...(Number.isInteger(length) && length! > 0
+    ? []
+    : ['length: the size of the file in bytes, more than 0']),
+];
+
+// files.completeUploadExternal: the files must come from
+// files.getUploadURLExternal, and the channel is a conversation ID (C…, G…,
+// D… or Z…): Slack refuses a user ID there with invalid_arguments.
+export const completeUploadProblems = (
+  params: unknown,
+  uploadedIds: Set<string>,
+): Problems => {
+  const { files, channel_id: channelId, thread_ts: threadTs } = asSent(params);
+  const problems: Problems = [];
+
+  if (!Array.isArray(files) || !files.length) {
+    problems.push('files: at least one');
+  }
+
+  (Array.isArray(files) ? files : []).forEach((file: SlackJson, i: number) => {
+    if (!uploadedIds.has(file.id)) {
+      problems.push(`files[${i}].id: not from files.getUploadURLExternal`);
+    }
+
+    problems.push(...unknownKeys(file, ['id', 'title'], `files[${i}]`));
+  });
+
+  if (channelId !== undefined && !/^[CGDZ][A-Z0-9]+$/.test(channelId)) {
+    problems.push(`channel_id: ${channelId} is not a conversation ID`);
+  }
+
+  if (threadTs !== undefined && channelId === undefined) {
+    problems.push('thread_ts: needs channel_id');
+  }
+
+  return problems;
+};

@@ -41,6 +41,9 @@ oauth_config:
       - commands
       - chat:write
       - files:read
+      # Time report CSVs sent in DMs. Workspaces that installed the app
+      # before have to install it again.
+      - files:write
       - users:read
       - users:read.email
 settings:

@@ -6,7 +6,12 @@ import {
 } from '@slack/web-api/dist/types/request/views';
 import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
 import { SlackJson } from './block-kit';
-import { messageProblems, viewProblems } from './block-kit-rules';
+import {
+  completeUploadProblems,
+  messageProblems,
+  uploadUrlProblems,
+  viewProblems,
+} from './block-kit-rules';
 import { reportSlackViolation } from './slack-violations';
 
 export interface ISlackApiCall {
@@ -55,6 +60,22 @@ export interface IFakeOauthGrant {
   expiresIn?: number;
 }
 
+// A file the app shared (files.completeUploadExternal), with the bytes it
+// sent to the upload URL.
+export interface IUploadedFile {
+  channel: string;
+  filename: string;
+  title?: string;
+  content: string;
+}
+
+// Calls a test can make fail (failNext).
+type FailingMethod =
+  | 'chat.postMessage'
+  | 'chat.update'
+  | 'files.getUploadURLExternal'
+  | 'files.completeUploadExternal';
+
 type PublicMethods<T> = Pick<T, keyof T>;
 
 // The real client returns Slack's response types; the fake answers with plain
@@ -74,7 +95,15 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     { name: string; content: string; size: number }
   >();
   private readonly oauthGrants = new Map<string, IFakeOauthGrant>();
-  private readonly failures = new Map<string, number>();
+  private readonly failures = new Map<
+    string,
+    { times: number; error: string }
+  >();
+  // Files uploaded but not necessarily shared yet, by file ID.
+  private readonly uploads = new Map<
+    string,
+    { filename: string; content: string }
+  >();
   private messageCount = 0;
 
   // --- test setup -----------------------------------------------------------
@@ -101,13 +130,17 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
 
   // --- assertions -----------------------------------------------------------
 
-  // The current position in the call log, for `since`.
-  // The next `times` calls of `method` fail as when Slack is down; Slack never
-  // got them, so they are not recorded.
-  public failNext(method: 'chat.postMessage' | 'chat.update', times = 1) {
-    this.failures.set(method, times);
+  // The next `times` calls of `method` fail as when Slack is down, or with
+  // `error` (e.g. missing_scope); they are not recorded.
+  public failNext(
+    method: FailingMethod,
+    times = 1,
+    error = 'service_unavailable',
+  ) {
+    this.failures.set(method, { times, error });
   }
 
+  // The current position in the call log, for `since`.
   public mark() {
     return this.calls.length;
   }
@@ -161,6 +194,23 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
         channel: result!.channel,
         ts: result!.ts,
       }));
+  }
+
+  // The files the app shared in `channel` (a DM's is D…, see postMessage).
+  public uploadedFiles(
+    token: string,
+    channel: string,
+    options?: ISince,
+  ): IUploadedFile[] {
+    return this.callsWith(token, 'files.completeUploadExternal', options)
+      .filter(({ params }) => params.channel_id === channel)
+      .flatMap(({ params }) =>
+        params.files.map(({ id, title }: { id: string; title?: string }) => ({
+          channel,
+          title,
+          ...this.uploads.get(id)!,
+        })),
+      );
   }
 
   public ephemeralMessages(token: string, to: string, options?: ISince) {
@@ -258,6 +308,49 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     return file.content;
   }
 
+  // Slack's three steps: files.getUploadURLExternal, the bytes to the upload
+  // URL (kept here with the file), files.completeUploadExternal.
+  public async uploadFile({
+    accessToken,
+    channelId,
+    filename,
+    title,
+    content,
+  }: Parameters<SlackApiClient['uploadFile']>[0]): Promise<SlackResponse> {
+    const length = Buffer.byteLength(content);
+
+    this.failIfAsked('files.getUploadURLExternal');
+    this.refuseInvalid(
+      'files.getUploadURLExternal',
+      uploadUrlProblems({ filename, length }),
+    );
+
+    const fileId = `F${randomUUID().slice(0, 8).toUpperCase()}`;
+
+    this.record(
+      'files.getUploadURLExternal',
+      { filename, length },
+      accessToken,
+      {
+        ok: true,
+        upload_url: `https://files.slack.com/upload/v1/${fileId}`,
+        file_id: fileId,
+      },
+    );
+    this.uploads.set(fileId, { filename, content });
+
+    const params = { files: [{ id: fileId, title }], channel_id: channelId };
+
+    this.failIfAsked('files.completeUploadExternal');
+    this.refuseInvalid(
+      'files.completeUploadExternal',
+      completeUploadProblems(params, new Set(this.uploads.keys())),
+    );
+    this.record('files.completeUploadExternal', params, accessToken);
+
+    return { ok: true, files: [{ id: fileId, title, name: filename }] };
+  }
+
   public async makeCall<ResponseData>(
     method: string,
     params: Record<string, unknown>,
@@ -281,13 +374,21 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
 
   // --- fake Slack -----------------------------------------------------------
 
+  // Thrown as @slack/web-api throws a platform error, with the code in
+  // `data.error` (slackErrorOf).
   private failIfAsked(method: string) {
-    const left = this.failures.get(method) ?? 0;
+    const failure = this.failures.get(method);
 
-    if (left > 0) {
-      this.failures.set(method, left - 1);
+    if (failure && failure.times > 0) {
+      this.failures.set(method, { ...failure, times: failure.times - 1 });
 
-      throw new Error(`An API error occurred: service_unavailable (${method})`);
+      throw Object.assign(
+        new Error(`An API error occurred: ${failure.error} (${method})`),
+        {
+          code: 'slack_webapi_platform_error',
+          data: { ok: false, error: failure.error },
+        },
+      );
     }
   }
 

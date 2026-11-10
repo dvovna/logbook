@@ -8,6 +8,8 @@ export const SLACK_BOT_SCOPES = [
   'commands',
   'chat:write',
   'files:read',
+  // Time report CSVs in DMs.
+  'files:write',
   'users:read',
   'users:read.email',
 ];
