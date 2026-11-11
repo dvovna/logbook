@@ -28,6 +28,7 @@ export enum ViewCallbackId {
   TeamsTabView = 'teams_tab_view',
   DeleteTeam = 'delete_team',
   TeamFormSubmit = 'team_form_submit',
+  CompanyRulesSubmit = 'company_rules_submit',
 
   // vacation-policies
   VacationPoliciesTabView = 'vacation_policies_tab_view',

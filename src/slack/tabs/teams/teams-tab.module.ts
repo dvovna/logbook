@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TeamsModule } from '@modules/teams/teams.module';
 import { DeleteTeamFormSubmitHandler } from '@modules/slack/tabs/teams/handlers/delete-team-form-submit.handler';
+import { CompanyRulesFormSubmitHandler } from '@modules/slack/tabs/teams/handlers/company-rules-form-submit.handler';
+import { TeamFormRulesHandler } from '@modules/slack/tabs/teams/handlers/team-form-rules.handler';
+import CompanyRulesViewValuesParser from '@modules/slack/tabs/teams/parsers/company-rules-view-values.parser';
+import { CompanyRulesModalView } from '@modules/slack/tabs/teams/views/company-rules-modal.view';
 import { TeamFormSubmitHandler } from '@modules/slack/tabs/teams/handlers/team-form-submit.handler';
 import TeamsTabActionHandler from '@modules/slack/tabs/teams/handlers/teams-tab-action.handler';
 import { TeamsTabService } from '@modules/slack/tabs/teams/services/teams-tab.service';
@@ -19,7 +23,11 @@ import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
     SlackCommonModule,
   ],
   providers: [
+    CompanyRulesFormSubmitHandler,
+    CompanyRulesModalView,
+    CompanyRulesViewValuesParser,
     DeleteTeamFormSubmitHandler,
+    TeamFormRulesHandler,
     TeamFormSubmitHandler,
     TeamsTabActionHandler,
     TeamModalViewValuesParser,

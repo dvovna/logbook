@@ -38,6 +38,7 @@ export default class TeamsTabActionHandler extends BaseTabActionHandler {
 
     this.actionMap = {
       [TeamsTabViewActionId.AddTeam]: this.handleAddTeam,
+      [TeamsTabViewActionId.CompanyRules]: this.handleCompanyRules,
       [TeamsTabViewActionId.ManageTeamMenu]: withMenuAction<
         TeamsTabViewActionId,
         [IUserViewModel]
@@ -64,6 +65,17 @@ export default class TeamsTabActionHandler extends BaseTabActionHandler {
     await this.teamsTabService.openModal(
       payload.trigger_id || user.slack_id,
       TeamsTabModalName.CreateTeam,
+      { user, pageMetadata: payload.view.private_metadata },
+    );
+  };
+
+  private handleCompanyRules = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    await this.teamsTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      TeamsTabModalName.CompanyRules,
       { user, pageMetadata: payload.view.private_metadata },
     );
   };

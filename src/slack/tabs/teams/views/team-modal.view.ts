@@ -11,21 +11,24 @@ import { InputCheckboxesBlockBuilder } from '@modules/slack/common/views/builder
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { TeamModalActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
+import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
+import { IRuleFieldValues } from '@modules/slack/tabs/teams/types/rule-field-values.interface';
+import { ruleFields } from '@modules/slack/tabs/teams/views/rule-fields';
 
 interface IGetViewParams extends IBaseModalViewParams {
   initialData?: {
     id: string;
     name: string;
     description?: string;
-    vacation_policy_id: string | null;
     managerApprovers: string[] | undefined;
-    hrApprovers: string[] | undefined;
-    approvalNotificationRecipients: string[] | undefined;
     managerApproversRule: ApprovalRule | null;
-    hrApproversRule: ApprovalRule | null;
     // Its active members.
     members: IOption[];
   } | null;
+  rules: TeamRulesChoice;
+  // What the rule fields show when the team has its own rules.
+  ruleValues: IRuleFieldValues;
+  ruleFieldsVersion?: string;
   policies: IOption[];
   managers: IOption[];
   hrUsers: IOption[];
@@ -39,16 +42,9 @@ export interface ITeamModalViewMetadata {
   setsMembers?: boolean;
 }
 
-export const NO_POLICY_VALUE = 'NO_POLICY';
-
 // As many as Slack shows chosen in one field. A bigger team is changed
 // person by person under People, so the form doesn't drop the rest.
 export const MAX_TEAM_MEMBERS = 100;
-
-const NO_POLICY_OPTION: PlainTextOption = {
-  text: { type: 'plain_text', text: 'No Policy' },
-  value: NO_POLICY_VALUE,
-};
 
 @Injectable()
 export class TeamModalView extends BaseModalView<
@@ -62,7 +58,7 @@ export class TeamModalView extends BaseModalView<
   }
 
   public getViewBlocks(params: IGetViewParams): AnyBlock[] {
-    const { initialData, policies, errorMessage } = params;
+    const { initialData, errorMessage } = params;
 
     return [
       {
@@ -78,9 +74,17 @@ export class TeamModalView extends BaseModalView<
           text: 'Team Name',
         },
       },
-      this.getPolicyBlock(policies, initialData?.vacation_policy_id),
+      this.getRulesBlock(params.rules),
       ...this.getMembersBlocks(params),
-      ...this.getApproverBlocks(params),
+      ...this.getManagerBlocks(params),
+      ...(params.rules === TeamRulesChoice.Own
+        ? ruleFields({
+            values: params.ruleValues,
+            policies: params.policies,
+            hrUsers: params.hrUsers,
+            version: params.ruleFieldsVersion,
+          })
+        : []),
       {
         type: 'input',
         block_id: 'description_block',
@@ -142,7 +146,39 @@ export class TeamModalView extends BaseModalView<
     ];
   }
 
-  private getApproverBlocks(params: IGetViewParams) {
+  // The company rules or the team's own: choosing rebuilds the form
+  // (TeamFormRulesHandler) with or without the fields of its own rules.
+  private getRulesBlock(rules: TeamRulesChoice): AnyBlock {
+    const options: PlainTextOption[] = [
+      {
+        text: { type: 'plain_text', text: 'Company rules' },
+        value: TeamRulesChoice.Company,
+      },
+      {
+        text: { type: 'plain_text', text: 'Its own rules' },
+        value: TeamRulesChoice.Own,
+      },
+    ];
+
+    return {
+      type: 'input',
+      block_id: 'rules_block',
+      dispatch_action: true,
+      label: { type: 'plain_text', text: 'Rules' },
+      hint: {
+        type: 'plain_text',
+        text: 'Level 2, who hears of decisions and the vacation policy come from the company rules (Teams → Company rules) or are set for this team.',
+      },
+      element: {
+        type: 'static_select',
+        action_id: TeamModalActionId.Rules,
+        options,
+        initial_option: options.find(({ value }) => value === rules),
+      },
+    };
+  }
+
+  private getManagerBlocks(params: IGetViewParams) {
     return [
       ...SlackMultiStaticSelectView.getView({
         blockId: 'manager_approvers_block',
@@ -170,89 +206,6 @@ export class TeamModalView extends BaseModalView<
             : [],
         optional: true,
       }),
-      ...SlackMultiStaticSelectView.getView({
-        blockId: 'hr_approvers_block',
-        actionId: 'hr_approvers',
-        maxSelectedItems: 5,
-        label: 'Level 2: HR',
-        hint: 'People with the HR or Admin role. Give someone that role under People to choose them here.',
-        emptyText:
-          'Level 2 approvers are people with the HR or Admin role. Nobody has it yet: change a role under People first.',
-        optional: true,
-        placeholder: 'HR Approvers',
-        options: params.hrUsers,
-        initialValues: params.initialData?.hrApprovers,
-      }),
-      ...InputCheckboxesBlockBuilder.build({
-        blockId: 'hr_approvers_rule_block',
-        actionId: 'hr_approvers_rule',
-        label: 'Level 2 rule',
-        options: [
-          { name: 'All listed approvers must approve', id: ApprovalRule.All },
-        ],
-        initialValues:
-          params.initialData?.hrApproversRule === ApprovalRule.All
-            ? [ApprovalRule.All]
-            : [],
-        optional: true,
-      }),
-      {
-        type: 'input',
-        block_id: 'approval_notification_recipients_block',
-        optional: true,
-        element: {
-          type: 'multi_users_select',
-          action_id: 'approval_notification_recipients',
-          max_selected_items: 5,
-          placeholder: { type: 'plain_text', text: 'Select users to notify' },
-          initial_users: params.initialData?.approvalNotificationRecipients,
-        },
-        label: {
-          type: 'plain_text',
-          text: 'Approval Notification Recipients',
-        },
-      },
     ];
-  }
-
-  private getPolicyBlock(
-    policies: { id: string; name: string }[],
-    teamPolicyId?: string | null,
-  ) {
-    const policyOptions = policies.map((policy) => ({
-      text: {
-        type: 'plain_text',
-        text: policy.name,
-      },
-      value: policy.id,
-    }));
-
-    const options = [NO_POLICY_OPTION, ...policyOptions];
-
-    const selectedPolicyId = teamPolicyId || NO_POLICY_VALUE;
-    const selectedPolicy = options.find(
-      (policy) => policy.value === selectedPolicyId,
-    );
-
-    // Required, with "No Policy" as a choice: an optional field would add
-    // Slack's own "Clear selection", which means the same.
-    return {
-      type: 'input',
-      block_id: 'policy_block',
-      element: {
-        type: 'static_select',
-        action_id: 'policy',
-        placeholder: {
-          type: 'plain_text',
-          text: 'Select a vacation policy',
-        },
-        options,
-        ...(selectedPolicy && { initial_option: selectedPolicy }),
-      },
-      label: {
-        type: 'plain_text',
-        text: 'Vacation Policy',
-      },
-    };
   }
 }

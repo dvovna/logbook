@@ -16,8 +16,25 @@ import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { addDays, workWeek } from './support/dates';
 import { textOf } from './support/block-kit';
-import { listItems, modalError, sectionTexts } from './support/tab-readers';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import {
+  actionIdsOf,
+  listItems,
+  modalError,
+  noticeOf,
+  sectionTexts,
+} from './support/tab-readers';
+import {
+  openAppHomeTab,
+  openModalFrom,
+  publishedHome,
+} from './support/app-home';
+import { findAction } from './support/block-kit';
+import {
+  TeamModalActionId,
+  TeamsTabViewActionId,
+} from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
+import { View } from '@slack/types/dist/views';
 import {
   approvalMessageTo,
   requestVacation,
@@ -54,7 +71,7 @@ describe('Company rules', () => {
     officeManager = await workspace.addUser({ name: 'Olga Office' });
   });
 
-  // Set through the service until Teams has the company rules form.
+  // Set directly, for the tests that don't go through the form.
   const setCompanyRules = (rules: Partial<ICompanyRulesParams>) =>
     t.app.get(CompanyRulesService).update(
       workspace.id,
@@ -413,6 +430,279 @@ describe('Company rules', () => {
           (text) => text.startsWith('Annual leave'),
         ),
       ).toEqual(['Annual leave: no limit (no vacation policy applies to you)']);
+    });
+  });
+
+  describe('on Teams', () => {
+    const TEAMS_TAB = [NavigationActionId.Teams];
+
+    const openCompanyRules = async (user: Tables<'users'>) =>
+      openModalFrom(
+        t,
+        workspace,
+        user,
+        await openAppHomeTab(t, workspace, user, TEAMS_TAB),
+        TeamsTabViewActionId.CompanyRules,
+      );
+
+    const openTeamForm = async (team?: Tables<'teams'>) =>
+      openModalFrom(
+        t,
+        workspace,
+        admin,
+        await openAppHomeTab(t, workspace, admin, TEAMS_TAB),
+        team
+          ? TeamsTabViewActionId.ManageTeamMenu
+          : TeamsTabViewActionId.AddTeam,
+        team && `${TeamsTabViewActionId.EditTeam}:${team.id}`,
+      );
+
+    const chooseRules = async (form: View, rules: TeamRulesChoice) => {
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .actOnView(workspace, admin, form, TeamModalActionId.Rules, rules)
+        .expect(200);
+      await t.idle();
+
+      return t.slackApi.updatedModal(workspace.token, { since });
+    };
+
+    const teamItemsOf = async () =>
+      listItems(await openAppHomeTab(t, workspace, admin, TEAMS_TAB)).map(
+        ({ title, fields }) => [
+          title,
+          fields.Rules,
+          fields['Vacation Policy'],
+          fields.Approvers,
+        ],
+      );
+
+    it('HR saves company rules from Teams and a new team follows them', async () => {
+      const policy = await workspace.addVacationPolicy({ name: 'Standard' });
+      const form = await openCompanyRules(hr);
+      const since = t.slackApi.mark();
+
+      const response = await t.slack
+        .submitView(workspace, hr, form, {
+          policy: policy.id,
+          hr_approvers: [hr.slack_id],
+          hr_approvers_rule: [ApprovalRule.All],
+          approval_notification_recipients: [officeManager.slack_id],
+        })
+        .expect(200);
+
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(noticeOf(await publishedHome(t, workspace, hr, since))).toBe(
+        '✅ Company rules saved.',
+      );
+      expect(
+        await t.app.get(CompanyRulesService).get(workspace.id),
+      ).toMatchObject({
+        vacation_policy_id: policy.id,
+        hr_approvers: [hr.slack_id],
+        hr_approvers_rule: ApprovalRule.All,
+        approval_notification_recipients: [officeManager.slack_id],
+      });
+
+      const teamForm = await openTeamForm();
+      expect(
+        findAction(teamForm.blocks, TeamModalActionId.Rules).element,
+      ).toMatchObject({ initial_option: { value: TeamRulesChoice.Company } });
+      expect(actionIdsOf(teamForm)).not.toContain('policy');
+      await t.slack
+        .submitView(workspace, admin, teamForm, { name: 'Design' })
+        .expect(200);
+
+      expect(await workspace.rows('teams')).toEqual([
+        expect.objectContaining({
+          name: 'Design',
+          rule_set_id: await companyRuleSetId(),
+        }),
+      ]);
+      expect(await teamItemsOf()).toEqual([
+        ['Design', 'company', 'Standard', `HR <@${hr.slack_id}> (all)`],
+      ]);
+    });
+
+    it('switching a team to its own rules shows level 2, recipients and policy filled from the company rules', async () => {
+      const policy = await workspace.addVacationPolicy({ name: 'Standard' });
+      const ownHr = await workspace.addUser({
+        role: UserRole.HR,
+        name: 'Otto Own HR',
+      });
+      await setCompanyRules({
+        hrApprovers: [hr.slack_id],
+        notificationRecipients: [officeManager.slack_id],
+        vacationPolicyId: policy.id,
+      });
+      // The team still holds what it had before it followed the company rules.
+      const team = await workspace.addTeam({
+        rule_set_id: await companyRuleSetId(),
+        hr_approvers: [ownHr.slack_id],
+      });
+      const form = await openTeamForm(team);
+      expect(actionIdsOf(form)).not.toContain('hr_approvers');
+
+      const own = await chooseRules(form, TeamRulesChoice.Own);
+
+      expect((own as { id?: string }).id).toBe((form as { id?: string }).id);
+      expect(
+        findAction(own.blocks, 'hr_approvers').element.initial_options.map(
+          ({ value }: { value: string }) => value,
+        ),
+      ).toEqual([hr.slack_id]);
+      expect(
+        findAction(own.blocks, 'approval_notification_recipients').element
+          .initial_users,
+      ).toEqual([officeManager.slack_id]);
+      expect(
+        findAction(own.blocks, 'policy').element.initial_option.value,
+      ).toBe(policy.id);
+      expect(findAction(own.blocks, 'hr_approvers').blockId).toMatch(
+        /^hr_approvers_block:own\./,
+      );
+
+      await t.slack.submitView(workspace, admin, own).expect(200);
+
+      expect(await workspace.row('teams', team.id)).toMatchObject({
+        rule_set_id: null,
+        hr_approvers: [hr.slack_id],
+        approval_notification_recipients: [officeManager.slack_id],
+        vacation_policy_id: policy.id,
+      });
+    });
+
+    it('a team switched back to company rules drops its own values from the tab', async () => {
+      const companyPolicy = await workspace.addVacationPolicy({
+        name: 'Company',
+      });
+      const ownPolicy = await workspace.addVacationPolicy({ name: 'Own' });
+      const ownHr = await workspace.addUser({
+        role: UserRole.HR,
+        name: 'Otto Own HR',
+      });
+      await setCompanyRules({
+        hrApprovers: [hr.slack_id],
+        vacationPolicyId: companyPolicy.id,
+      });
+      const team = await workspace.addTeam({
+        name: 'Design',
+        vacation_policy_id: ownPolicy.id,
+        hr_approvers: [ownHr.slack_id],
+      });
+      expect(await teamItemsOf()).toEqual([
+        ['Design', 'own', 'Own', `HR <@${ownHr.slack_id}> (any one)`],
+      ]);
+      const form = await openTeamForm(team);
+      expect(
+        findAction(form.blocks, TeamModalActionId.Rules).element,
+      ).toMatchObject({ initial_option: { value: TeamRulesChoice.Own } });
+
+      const company = await chooseRules(form, TeamRulesChoice.Company);
+      expect(actionIdsOf(company)).not.toContain('policy');
+      await t.slack.submitView(workspace, admin, company).expect(200);
+
+      expect(await teamItemsOf()).toEqual([
+        ['Design', 'company', 'Company', `HR <@${hr.slack_id}> (any one)`],
+      ]);
+      expect(await workspace.row('teams', team.id)).toMatchObject({
+        rule_set_id: await companyRuleSetId(),
+        vacation_policy_id: ownPolicy.id,
+        hr_approvers: [ownHr.slack_id],
+      });
+    });
+
+    it('refuses level 2 approvers without the HR or Admin role and a policy of another workspace', async () => {
+      const form = await openCompanyRules(admin);
+      const other = await t.createWorkspace();
+      const foreignPolicy = await other.addVacationPolicy();
+
+      // Slack takes values from the client: a form can name anyone.
+      const approvers = await t.slack
+        .submitView(
+          workspace,
+          admin,
+          form,
+          {},
+          {
+            hr_approvers_block: {
+              hr_approvers: {
+                type: 'multi_static_select',
+                selected_options: [
+                  {
+                    value: officeManager.slack_id,
+                    text: { type: 'plain_text', text: 'Olga Office' },
+                  },
+                ],
+              },
+            },
+          },
+        )
+        .expect(200);
+      const policy = await t.slack
+        .submitView(
+          workspace,
+          admin,
+          form,
+          {},
+          {
+            policy_block: {
+              policy: {
+                type: 'static_select',
+                selected_option: {
+                  value: foreignPolicy.id,
+                  text: { type: 'plain_text', text: 'Foreign' },
+                },
+              },
+            },
+          },
+        )
+        .expect(200);
+
+      expect(approvers.body).toEqual({
+        response_action: 'errors',
+        errors: {
+          hr_approvers_block: 'Level 2 approvers need the HR or Admin role.',
+        },
+      });
+      expect(policy.body).toEqual({
+        response_action: 'errors',
+        errors: {
+          policy_block: 'This vacation policy is not in this workspace.',
+        },
+      });
+      expect(
+        (await t.app.get(CompanyRulesService).get(workspace.id)).hr_approvers,
+      ).toEqual([]);
+    });
+
+    it('a member cannot open or submit the company rules form', async () => {
+      const form = await openCompanyRules(admin);
+      const teamsTab = await openAppHomeTab(t, workspace, admin, TEAMS_TAB);
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .actOnView(
+          workspace,
+          officeManager,
+          teamsTab,
+          TeamsTabViewActionId.CompanyRules,
+        )
+        .expect(200);
+      await t.idle();
+      await t.slack
+        .submitView(workspace, officeManager, form, {
+          hr_approvers: [hr.slack_id],
+        })
+        .expect(200);
+
+      expect(() => t.slackApi.openedModal(workspace.token, { since })).toThrow(
+        'No modal was opened',
+      );
+      expect(
+        (await t.app.get(CompanyRulesService).get(workspace.id)).hr_approvers,
+      ).toEqual([]);
     });
   });
 });

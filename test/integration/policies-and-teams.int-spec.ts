@@ -2,8 +2,12 @@ import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
-import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
-import { NO_POLICY_VALUE } from '@modules/slack/tabs/teams/views/team-modal.view';
+import {
+  TeamModalActionId,
+  TeamsTabViewActionId,
+} from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
+import { NO_POLICY_VALUE } from '@modules/slack/tabs/teams/constants/no-policy';
 import { View } from '@slack/types/dist/views';
 import { PolicyTabViewActionId } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -19,6 +23,8 @@ import {
   modalError,
   sectionTexts,
   noticeOf,
+  buttonText,
+  actionIdsOf,
 } from './support/tab-readers';
 
 // Home → Vacations → Vacation Policies.
@@ -55,6 +61,18 @@ describe('Vacation policies and teams', () => {
       actionId,
       value,
     );
+
+  // Chooses the team form's rules; the form is rebuilt in place.
+  const chooseRules = async (form: View, rules: TeamRulesChoice) => {
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .actOnView(workspace, admin, form, TeamModalActionId.Rules, rules)
+      .expect(200);
+    await t.idle();
+
+    return t.slackApi.updatedModal(workspace.token, { since });
+  };
 
   describe('vacation policies', () => {
     it('creates a policy', async () => {
@@ -187,6 +205,7 @@ describe('Vacation policies and teams', () => {
       await openAppHomeTab(t, workspace, admin, TEAMS_TAB),
     );
     expect(teamItem.fields).toMatchObject({
+      Rules: 'own',
       Approvers: `managers <@${manager.slack_id}> (any one), then HR <@${hr.slack_id}> (all)`,
       Members: '2 (Ada Lovelace, Bob Builder)',
     });
@@ -204,6 +223,23 @@ describe('Vacation policies and teams', () => {
   });
 
   describe('teams', () => {
+    it('offers company rules next to Add Team, and a new team starts on them', async () => {
+      const tab = await openAppHomeTab(t, workspace, admin, TEAMS_TAB);
+
+      expect(
+        [TeamsTabViewActionId.AddTeam, TeamsTabViewActionId.CompanyRules].map(
+          (actionId) => buttonText(tab, actionId),
+        ),
+      ).toEqual(['➕ Add Team', '⚙️ Company rules']);
+
+      const form = await openModal(TEAMS_TAB, TeamsTabViewActionId.AddTeam);
+
+      expect(
+        findAction(form.blocks, TeamModalActionId.Rules).element,
+      ).toMatchObject({ initial_option: { value: TeamRulesChoice.Company } });
+      expect(actionIdsOf(form)).not.toContain('policy');
+    });
+
     it('creates a team with its policy, approvers and rules', async () => {
       const policy = await workspace.addVacationPolicy({ name: 'Berlin' });
       const manager = await workspace.addUser({
@@ -215,7 +251,11 @@ describe('Vacation policies and teams', () => {
         name: 'Hana HR',
       });
       await workspace.addUser({ name: 'Mia Member' });
-      const form = await openModal(TEAMS_TAB, TeamsTabViewActionId.AddTeam);
+      const newTeamForm = await openModal(
+        TEAMS_TAB,
+        TeamsTabViewActionId.AddTeam,
+      );
+      const form = await chooseRules(newTeamForm, TeamRulesChoice.Own);
 
       // Members cannot approve: only managers and admins, or HR and admins.
       const optionsOf = (actionId: string) =>
@@ -256,6 +296,7 @@ describe('Vacation policies and teams', () => {
           hr_approvers: [hr.slack_id],
           hr_approvers_rule: ApprovalRule.Any,
           approval_notification_recipients: [admin.slack_id],
+          rule_set_id: null,
         }),
       ]);
     });
@@ -294,14 +335,16 @@ describe('Vacation policies and teams', () => {
       const policy = await workspace.addVacationPolicy({ name: 'Berlin' });
       const team = await workspace.addTeam({ vacation_policy_id: policy.id });
       const policyBlockOf = (view: View) =>
-        view.blocks.find(({ block_id }) => block_id === 'policy_block') as {
+        view.blocks.find(({ block_id }) =>
+          block_id?.startsWith('policy_block'),
+        ) as {
           optional?: boolean;
           element: { initial_option?: { value: string } };
         };
 
-      const newTeamForm = await openModal(
-        TEAMS_TAB,
-        TeamsTabViewActionId.AddTeam,
+      const newTeamForm = await chooseRules(
+        await openModal(TEAMS_TAB, TeamsTabViewActionId.AddTeam),
+        TeamRulesChoice.Own,
       );
       expect(policyBlockOf(newTeamForm).optional).toBeUndefined();
       expect(policyBlockOf(newTeamForm).element.initial_option?.value).toBe(

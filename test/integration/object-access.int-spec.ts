@@ -13,6 +13,7 @@ import {
   TeamModalActionId,
   TeamsTabViewActionId,
 } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
@@ -580,13 +581,26 @@ describe('Access to objects by ID', () => {
       );
       expect(await workspace.rows('projects')).toEqual([]);
 
-      const addTeam = await openModalFrom(
+      const newTeam = await openModalFrom(
         t,
         workspace,
         admin,
         await openAppHomeTab(t, workspace, admin, TEAMS_TAB),
         TeamsTabViewActionId.AddTeam,
       );
+      // A policy is the form of a team with its own rules.
+      const since = t.slackApi.mark();
+      await t.slack
+        .actOnView(
+          workspace,
+          admin,
+          newTeam,
+          TeamModalActionId.Rules,
+          TeamRulesChoice.Own,
+        )
+        .expect(200);
+      await t.idle();
+      const addTeam = t.slackApi.updatedModal(workspace.token, { since });
       const teamResponse = await submitForged(
         admin,
         addTeam,

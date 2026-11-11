@@ -4,6 +4,7 @@ import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { Injectable } from '@nestjs/common';
 import { ISelectedOption } from '@modules/slack/common/utils/parsing-utils';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
 
 export const MAX_DESCRIPTION_LENGTH = 200;
 export const MAX_TEAM_NAME_LENGTH = 50;
@@ -20,6 +21,12 @@ const teamFormSchema = z.object({
     .string()
     .max(MAX_DESCRIPTION_LENGTH, 'Description must be at most 200 characters')
     .optional(),
+  rules: z.object({
+    value: z.enum(Object.values(TeamRulesChoice)),
+    text: z.string(),
+  }),
+  // The fields of its own rules: not on the form while it follows the
+  // company rules.
   policy: z
     .object({
       value: z.string(),
@@ -68,6 +75,7 @@ const teamFormSchema = z.object({
 
 export interface ITeamFormViewData {
   name: string;
+  rules: ISelectedOption<TeamRulesChoice>;
   policy?: ISelectedOption;
   description?: string;
   manager_approvers?: ISelectedOption[];
@@ -90,6 +98,10 @@ export default class TeamModalViewValuesParser extends BaseValuesParser<ITeamFor
       description: {
         blockId: 'description_block',
         type: ViewFieldType.Text,
+      },
+      rules: {
+        blockId: 'rules_block',
+        type: ViewFieldType.Select,
       },
       policy: {
         blockId: 'policy_block',

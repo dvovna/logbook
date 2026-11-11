@@ -12,9 +12,10 @@ import TeamModalViewValuesParser, {
 import TeamsService from '@modules/teams/services/teams.service';
 import {
   ITeamModalViewMetadata,
-  NO_POLICY_VALUE,
   TeamModalView,
 } from '@modules/slack/tabs/teams/views/team-modal.view';
+import { NO_POLICY_VALUE } from '@modules/slack/tabs/teams/constants/no-policy';
+import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import {
   TabId,
@@ -101,7 +102,11 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   ) {
     const policyId = data.policy?.value;
 
-    if (!policyId || policyId === NO_POLICY_VALUE) {
+    if (
+      data.rules.value === TeamRulesChoice.Company ||
+      !policyId ||
+      policyId === NO_POLICY_VALUE
+    ) {
       return;
     }
 
@@ -117,6 +122,24 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     }
   }
 
+  // The fields of its own rules are only on the form, and only taken, while
+  // the team has its own rules. A team that follows the company rules keeps
+  // whatever it holds in them, which nothing reads.
+  private ownRulesOf(data: ITeamFormViewData) {
+    if (data.rules.value === TeamRulesChoice.Company) {
+      return { followsCompanyRules: true };
+    }
+
+    return {
+      followsCompanyRules: false,
+      vacationPolicyId:
+        data.policy?.value === NO_POLICY_VALUE ? null : data.policy?.value,
+      hrApprovers: data.hr_approvers?.map((option) => option.value),
+      approvalNotificationRecipients: data.approval_notification_recipients,
+      hrApproversRule: data.hr_approvers_rule?.[0]?.value || ApprovalRule.Any,
+    };
+  }
+
   private create(
     data: ITeamFormViewData,
     user: IUserViewModel,
@@ -125,15 +148,11 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       {
         name: data.name,
         description: data.description,
-        vacationPolicyId:
-          data.policy?.value === NO_POLICY_VALUE ? null : data.policy?.value,
         slackTeamId: user.slack_team_id,
         managerApprovers: data.manager_approvers?.map((option) => option.value),
-        hrApprovers: data.hr_approvers?.map((option) => option.value),
-        approvalNotificationRecipients: data.approval_notification_recipients,
         managerApproversRule:
           data.manager_approvers_rule?.[0]?.value || ApprovalRule.Any,
-        hrApproversRule: data.hr_approvers_rule?.[0]?.value || ApprovalRule.Any,
+        ...this.ownRulesOf(data),
       },
       user,
     );
@@ -152,14 +171,10 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       {
         name: data.name,
         description: data.description,
-        vacationPolicyId:
-          data.policy?.value === NO_POLICY_VALUE ? null : data.policy?.value,
         managerApprovers: data.manager_approvers?.map((option) => option.value),
-        hrApprovers: data.hr_approvers?.map((option) => option.value),
-        approvalNotificationRecipients: data.approval_notification_recipients,
         managerApproversRule:
           data.manager_approvers_rule?.[0]?.value || ApprovalRule.Any,
-        hrApproversRule: data.hr_approvers_rule?.[0]?.value || ApprovalRule.Any,
+        ...this.ownRulesOf(data),
       },
       user,
     );
@@ -167,7 +182,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
 
   protected async errorResponse(
     errorMessage: string,
-    _data: ITeamFormViewData,
+    data: ITeamFormViewData,
     metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
   ) {
@@ -175,6 +190,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       metadata,
       errorMessage,
       user,
+      data.rules.value,
     );
 
     return SlackViewResponseFactory.update(updatedModalView);
@@ -184,6 +200,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     metadata: ITeamModalViewMetadata,
     errorMessage: string,
     user: IUserViewModel,
+    rules: TeamRulesChoice,
   ) {
     if (metadata.id) {
       return this.teamsTabService.getModalView(TeamsTabModalName.UpdateTeam, {
@@ -191,6 +208,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
         errorMessage,
         user,
         pageMetadata: metadata.pageMetadata,
+        rules,
       });
     }
 
@@ -198,6 +216,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       errorMessage,
       user,
       pageMetadata: metadata.pageMetadata,
+      rules,
     });
   }
 }

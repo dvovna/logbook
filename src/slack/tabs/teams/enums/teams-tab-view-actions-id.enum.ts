@@ -1,5 +1,6 @@
 export enum TeamsTabViewActionId {
   AddTeam = 'add_team',
+  CompanyRules = 'company_rules',
   EditTeam = 'edit_team',
   DeleteTeam = 'delete_team',
   ManageTeamMenu = 'manage_team_menu',
@@ -7,7 +8,9 @@ export enum TeamsTabViewActionId {
   PaginationNext = 'teams_pagination_next',
 }
 
-// The team form's members: people searched as you type.
 export enum TeamModalActionId {
+  // People searched as you type.
   Members = 'members',
+  // Company rules or the team's own: choosing rebuilds the form.
+  Rules = 'rules',
 }
