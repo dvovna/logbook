@@ -74,4 +74,23 @@ describe('ApproverStepProcessor', () => {
       expect.objectContaining({ type: 'actions' }),
     );
   });
+
+  it('says the request was deleted when the step closes with it', async () => {
+    await processor.updateMessage(
+      buildStep(WorkflowStepStatus.Cancelled),
+      [],
+      true,
+    );
+
+    const [, , message] = communicationService.updateMessage.mock.calls[0] as [
+      string,
+      string,
+      { text: string; blocks: object[] },
+    ];
+
+    expect(message.text).toBe('🗑️ Vacation request deleted');
+    expect(JSON.stringify(message.blocks)).toContain(
+      'Deleted by <@U_REQUESTER>',
+    );
+  });
 });

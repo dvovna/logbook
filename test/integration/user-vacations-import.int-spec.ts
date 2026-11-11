@@ -327,6 +327,32 @@ describe('user-vacations.csv', () => {
       expect(actionIdsOf(updates[0])).toEqual([]);
     });
 
+    it('closes the messages of every pending request it replaces', async () => {
+      await requestVacation(t, workspace, cy, workWeek(4));
+      await t.idle();
+      const messages = t.slackApi.postedMessages(
+        workspace.token,
+        manager.slack_id,
+      );
+      expect(messages).toHaveLength(2);
+
+      const reply = await importCsv(
+        row(cy.email, '2025-09-01', [
+          '2026-03-02',
+          '2026-03-06',
+          'annual_leave',
+          'approved',
+        ]),
+      );
+
+      expect(reply).toContain('✅ Imported `user-vacations.csv`');
+      expect(await workspace.rows('request_workflow_steps')).toEqual([]);
+      for (const message of messages) {
+        const [update] = t.slackApi.messageUpdates(workspace.token, message);
+        expect(textOf(update)).toContain(`Deleted by <@${admin.slack_id}>`);
+      }
+    });
+
     it('leaves the request waiting for approval when the import is refused', async () => {
       const users = t.app.get(UsersService);
       const asAdmin = await users.findBySlackId(admin.slack_id, workspace.id);

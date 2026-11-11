@@ -2,16 +2,7 @@ import { ZodError, ZodType } from 'zod';
 import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
 import { getValueByType } from '@modules/slack/common/utils/parsing-utils';
 import { IViewStateValues } from '@modules/slack/common/types/slack-view-state-values.interface';
-
-export type IViewParseResult<Data> =
-  | {
-      data: Data;
-      errors?: never;
-    }
-  | {
-      data?: never;
-      errors: Record<string, string>;
-    };
+import { IViewParseResult } from '@modules/slack/common/types/form-parser.types';
 
 interface IFieldConfig {
   type: ViewFieldType;
@@ -42,10 +33,12 @@ export default class SlackViewValuesParser<ViewData extends object> {
   ) {}
 
   // The block a form field sits in, to show an error at it.
-  public blockIdOf(field: string): string | undefined {
-    return (this.fieldsConfig as Record<string, IFieldConfig | undefined>)[
-      field
-    ]?.blockId;
+  public blockIdOf(field: string, values: IViewStateValues): string | null {
+    const config = (
+      this.fieldsConfig as Record<string, IFieldConfig | undefined>
+    )[field];
+
+    return config ? blockIdIn(values, config.blockId) : null;
   }
 
   public parse(values: IViewStateValues): IViewParseResult<ViewData> {

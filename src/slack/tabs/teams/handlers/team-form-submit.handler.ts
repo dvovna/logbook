@@ -1,7 +1,6 @@
 import { UsersService } from '@modules/users/services/users.service';
 import { Injectable } from '@nestjs/common';
 import { RuleInputsValidationService } from '@modules/slack/tabs/teams/services/rule-inputs-validation.service';
-import { ISlackViewSubmissionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { ValidationError } from '@common/errors/validation.error';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -175,22 +174,6 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
         ...this.ownRulesOf(data),
       },
       user,
-    );
-  }
-
-  // The rule fields' block_ids carry a version once the form was rebuilt.
-  protected blockIdOfField(
-    field: string,
-    payload: ISlackViewSubmissionPayload,
-  ) {
-    const blockId = super.blockIdOfField(field, payload);
-
-    return (
-      payload.view.blocks?.find(
-        (block) =>
-          block.block_id === blockId ||
-          block.block_id?.startsWith(`${blockId}:`),
-      )?.block_id ?? blockId
     );
   }
 

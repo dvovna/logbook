@@ -27,8 +27,8 @@ import {
   ITimesheetRow,
   ITimesheetWeek,
 } from 'src/time-entries/types/timesheet.types';
-import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/max-timesheet-rows';
-import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
+import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/timesheet';
+import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';
 
 // The section that starts a project's row: `${TIMESHEET_ROW_BLOCK_ID}:<project id>`.
 export const TIMESHEET_ROW_BLOCK_ID = 'timesheet_row';
@@ -59,6 +59,9 @@ interface ITimesheetFormViewParams extends IBaseModalViewParams<ViewCallbackId.T
   week: ITimesheetWeek;
   // The projects the user may log time on, for "Add a project".
   projects: IUserProject[];
+  // By cellKey, the minutes the form being rebuilt showed in its inputs: a
+  // cell that is an input again shows these, not the week's.
+  shownMinutes?: Map<string, number | null>;
 }
 
 // A cell that can't be changed here (several entries, submitted, approved,
@@ -83,7 +86,7 @@ export class TimesheetFormModalView extends BaseModalView<
   }
 
   protected getViewBlocks(
-    { week, projects, errorMessage }: ITimesheetFormViewParams,
+    { week, projects, errorMessage, shownMinutes }: ITimesheetFormViewParams,
     { mode, date, addedProjectIds, showWeekend }: TimesheetFormMetadata,
   ): AnyBlock[] {
     const day = mode === 'day' && date ? date : null;
@@ -111,7 +114,12 @@ export class TimesheetFormModalView extends BaseModalView<
       },
       ...(week.rows.length
         ? week.rows.flatMap((row) =>
-            this.getRowBlocks(row, shownDays, day ? 'that day' : 'this week'),
+            this.getRowBlocks(
+              row,
+              shownDays,
+              day ? 'that day' : 'this week',
+              shownMinutes,
+            ),
           )
         : [this.getNoRowsBlock(addable.length > 0)]),
       ...(week.rows.length < MAX_TIMESHEET_ROWS && addable.length
@@ -183,6 +191,7 @@ export class TimesheetFormModalView extends BaseModalView<
     row: ITimesheetRow,
     shownDays: number[],
     period: string,
+    shownMinutes?: Map<string, number | null>,
   ): AnyBlock[] {
     const cells = shownDays
       .map((index) => row.cells[index])
@@ -191,7 +200,7 @@ export class TimesheetFormModalView extends BaseModalView<
       .map((cell) =>
         cell.lock
           ? this.getLockedCellBlock(cell)
-          : this.getCellBlock(row.projectId, cell),
+          : this.getCellBlock(row.projectId, cell, shownMinutes),
       );
 
     return [
@@ -217,8 +226,15 @@ export class TimesheetFormModalView extends BaseModalView<
   }
 
   // The hours of a cell: its block_id and action_id are its cellKey.
-  private getCellBlock(projectId: string, cell: ITimesheetCell): AnyBlock {
+  private getCellBlock(
+    projectId: string,
+    cell: ITimesheetCell,
+    shownMinutes?: Map<string, number | null>,
+  ): AnyBlock {
     const key = cellKey(projectId, cell.date);
+    const minutes = shownMinutes?.has(key)
+      ? (shownMinutes.get(key) ?? 0)
+      : cell.minutes;
 
     return {
       type: 'input',
@@ -228,8 +244,18 @@ export class TimesheetFormModalView extends BaseModalView<
       element: {
         type: 'plain_text_input',
         action_id: key,
-        ...(cell.minutes ? { initial_value: String(cell.minutes / 60) } : {}),
+        ...(minutes ? { initial_value: String(minutes / 60) } : {}),
       },
+      // The form keeps what it first showed, so that typing over a change
+      // made elsewhere is refused; it says what the cell holds now.
+      ...(minutes !== cell.minutes
+        ? {
+            hint: {
+              type: 'plain_text',
+              text: `Now ${cell.minutes ? getDisplayTime(cell.minutes) : 'no time'}: changed since this form opened.`,
+            },
+          }
+        : {}),
     };
   }
 

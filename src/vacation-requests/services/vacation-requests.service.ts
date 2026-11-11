@@ -1,3 +1,4 @@
+import { vacationRequestLock } from 'src/database/advisory-locks';
 import {
   Injectable,
   NotFoundException,
@@ -7,7 +8,6 @@ import { VacationRequestsRepository } from '@modules/vacation-requests/repositor
 import { TransactionService } from 'src/database/transaction.service';
 import getDaysBetweenDates from '@common/utils/get-days-between-dates';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
-import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import { RepositoryFilter } from '@common/repositories/repository.types';
@@ -34,48 +34,15 @@ import {
   assertDatesInOrder,
   assertVacationType,
 } from '@modules/vacation-requests/utils/vacation-request-input.utils';
-import {
-  changesLoggedTime,
-  vacationTimeLock,
-} from '@modules/vacation-requests/utils/vacation-time.utils';
-import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
+import {
+  IVacationRequestCreateParams,
+  IVacationRequestFindParams,
+  IVacationRequestUpdate,
+  IVacationRequestUpdateParams,
+} from '@modules/vacation-requests/types/vacation-request-params.types';
 
-interface ICreateParams {
-  userId: string;
-  teamId: string | null;
-  startDate: Date;
-  endDate: Date;
-  type: VacationType;
-  status: VacationRequestStatus;
-  userComment?: string | null;
-}
-
-interface IUpdateParams {
-  startDate?: Date;
-  endDate?: Date;
-  type?: VacationType;
-  status?: VacationRequestStatus;
-  userComment?: string | null;
-  // The request's person; the request goes to their team.
-  userId?: string;
-}
-
-interface IFindParams {
-  id?: string;
-  userId?: string;
-  teamId?: string;
-  teamIds?: string[];
-  year?: string;
-  startDate?: string;
-  // Requests that share at least one day with this period.
-  overlapping?: { startDate: string; endDate: string };
-  statuses?: VacationRequestStatus[];
-  type?: VacationType;
-  slackTeamId: string;
-}
-
-type ISearchRequestsParams = ISearchParams<IFindParams>;
+type ISearchRequestsParams = ISearchParams<IVacationRequestFindParams>;
 
 // The value of a read started beside others, or its error.
 const settled = <T>(result: PromiseSettledResult<T>): T => {
@@ -86,27 +53,23 @@ const settled = <T>(result: PromiseSettledResult<T>): T => {
   return result.value;
 };
 
-export interface IVacationRequestChange {
-  request: IVacationRequestViewModel;
-  // The days whose logged time stays, sorted: it is in a billing snapshot.
-  billedDates: string[];
-}
-
 interface IVacationRequestsService {
   create(
-    createParams: ICreateParams,
+    createParams: IVacationRequestCreateParams,
     user: IUserViewModel,
   ): Promise<IVacationRequestViewModel>;
   findOneWithValidation(
-    findParams: IFindParams,
+    findParams: IVacationRequestFindParams,
   ): Promise<IVacationRequestViewModel>;
-  findMany(findParams: IFindParams): Promise<IVacationRequestViewModel[]>;
+  findMany(
+    findParams: IVacationRequestFindParams,
+  ): Promise<IVacationRequestViewModel[]>;
   search(
     searchParams: ISearchRequestsParams,
   ): Promise<ISearchResult<IVacationRequestViewModel>>;
   replaceUserVacations(
     user: IUserViewModel,
-    vacations: ICreateParams[],
+    vacations: IVacationRequestCreateParams[],
     replacedBy: IUserViewModel,
   ): Promise<IVacationRequestViewModel[]>;
 }
@@ -121,11 +84,13 @@ export class VacationRequestsService implements IVacationRequestsService {
     private readonly eventEmitter: EventEmitter2,
     private readonly usersService: UsersService,
     private readonly transactions: TransactionService,
-    private readonly timeEntriesService: TimeEntriesService,
     private readonly requestWorkflowService: RequestWorkflowService,
   ) {}
 
-  public async create(createParams: ICreateParams, user: IUserViewModel) {
+  public async create(
+    createParams: IVacationRequestCreateParams,
+    user: IUserViewModel,
+  ) {
     const { userId, teamId, startDate, endDate, type } = createParams;
 
     this.assertCanCreate(createParams, user);
@@ -198,17 +163,15 @@ export class VacationRequestsService implements IVacationRequestsService {
     return request;
   }
 
-  // An edit that changes what the request's logged time was made of
-  // (changesLoggedTime) removes that time in the same transaction, but for
-  // billed days.
+  // Checks an edit and writes nothing: applyUpdate writes what passed.
   // What the checks read is read at once where it can be (the request and
   // its person, then their team, the overlaps and the balance, then the
   // team's holidays), and checked in the order below.
-  public async update(
-    { id, slackTeamId }: IFindParams,
-    updateParams: IUpdateParams,
+  public async checkUpdate(
+    { id, slackTeamId }: IVacationRequestFindParams,
+    updateParams: IVacationRequestUpdateParams,
     user: IUserViewModel,
-  ): Promise<IVacationRequestChange> {
+  ): Promise<IVacationRequestUpdate> {
     const [existingRequest, chosenOwner] = await Promise.all([
       this.findOneWithValidation({ id, slackTeamId }),
       updateParams.userId !== undefined
@@ -291,73 +254,100 @@ export class VacationRequestsService implements IVacationRequestsService {
       );
     }
 
-    const change = await this.transactions.transaction(async () => {
-      await this.transactions.lock(vacationTimeLock(existingRequest.id));
-
-      // The request as it is under the lock: a workflow approval or another
-      // edit may have changed it since it was read above, and what this edit
-      // changes decides whether the logged time goes.
-      const previous = await this.findOneWithValidation({ id, slackTeamId });
-      const request = await this.vacationRequestsRepository.update(
-        {
-          id,
-          slack_team_id: slackTeamId,
-        },
-        {
-          ...(updateParams.startDate !== undefined
-            ? { start_date: startDate.toISOString() }
-            : {}),
-          ...(updateParams.endDate !== undefined
-            ? { end_date: endDate.toISOString() }
-            : {}),
-          ...(type !== undefined ? { type } : {}),
-          ...(userComment !== undefined ? { user_comment: userComment } : {}),
-          ...(status !== undefined ? { status } : {}),
-          ...(userId !== undefined ? { user_id: userId } : {}),
-          ...(teamId !== undefined ? { team_id: teamId } : {}),
-          ...(calendarDays !== existingRequest.days
-            ? { days: calendarDays }
-            : {}),
-          ...(workingDays !== existingRequest.working_days
-            ? { working_days: workingDays }
-            : {}),
-          updated_by: user.id,
-          updated_at: new Date().toISOString(),
-        },
-      );
-      const removedTime = changesLoggedTime(previous, request)
-        ? await this.timeEntriesService.deleteVacationTime(
-            request.id,
-            slackTeamId,
-            user,
-          )
-        : undefined;
-
-      return { request, previous, removedTime };
-    });
-
-    this.eventEmitter.emit(
-      VacationRequestEvent.Updated,
-      new VacationRequestUpdatedEvent(
-        change.request,
-        user,
-        change.previous,
-        change.removedTime,
-      ),
-    );
-
     return {
-      request: change.request,
-      billedDates: change.removedTime?.billedDates ?? [],
+      checked: existingRequest,
+      changes: updateParams,
+      teamId,
+      days: calendarDays,
+      workingDays,
     };
   }
 
-  public async cancel(requestId: string, user: IUserViewModel) {
-    const request = await this.findOneWithValidation({
-      id: requestId,
-      slackTeamId: user.slack_team_id,
-    });
+  // Writes an edit that passed checkUpdate, in the caller's transaction and
+  // under the request's lock, which the caller takes. Emits nothing: the
+  // caller tells of the change once it has committed.
+  public async applyUpdate(
+    { checked, changes, teamId, days, workingDays }: IVacationRequestUpdate,
+    user: IUserViewModel,
+    assertCurrent?: (current: IVacationRequestViewModel) => void,
+  ) {
+    const { id, slack_team_id: slackTeamId } = checked;
 
+    this.transactions.assertHolds(vacationRequestLock(id));
+
+    // The request as it is under the lock: a workflow approval or another
+    // edit may have changed it since the checks read it, and the caller
+    // compares with it.
+    const previous = await this.findOneWithValidation({ id, slackTeamId });
+
+    assertCurrent?.(previous);
+
+    const request = await this.vacationRequestsRepository.update(
+      {
+        id,
+        slack_team_id: slackTeamId,
+      },
+      {
+        ...(changes.startDate !== undefined
+          ? { start_date: changes.startDate.toISOString() }
+          : {}),
+        ...(changes.endDate !== undefined
+          ? { end_date: changes.endDate.toISOString() }
+          : {}),
+        type: changes.type ?? checked.type,
+        ...(changes.userComment !== undefined
+          ? { user_comment: changes.userComment }
+          : {}),
+        ...(changes.status !== undefined ? { status: changes.status } : {}),
+        ...(changes.userId !== undefined ? { user_id: changes.userId } : {}),
+        ...(teamId !== undefined ? { team_id: teamId } : {}),
+        ...(days !== checked.days ? { days } : {}),
+        ...(workingDays !== checked.working_days
+          ? { working_days: workingDays }
+          : {}),
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      },
+    );
+
+    return { previous, request };
+  }
+
+  public async cancel(requestId: string, user: IUserViewModel) {
+    const update = await this.checkUpdate(
+      { id: requestId, slackTeamId: user.slack_team_id },
+      { status: VacationRequestStatus.Canceled },
+      user,
+    );
+
+    this.assertCanCancel(update.checked, user);
+
+    // Without TimeOffChangesService's cleanup: a pending request holds no
+    // logged time, since only an approved one is logged and leaving approved
+    // removes it. Checked again under the lock, as the workflow may have
+    // approved it, and its time been logged, since the check above.
+    const { previous, request } = await this.transactions.transaction(
+      async () => {
+        await this.transactions.lock(vacationRequestLock(requestId));
+
+        return this.applyUpdate(update, user, (current) =>
+          this.assertCanCancel(current, user),
+        );
+      },
+    );
+
+    this.eventEmitter.emit(
+      VacationRequestEvent.Updated,
+      new VacationRequestUpdatedEvent(request, user, previous),
+    );
+
+    return request;
+  }
+
+  private assertCanCancel(
+    request: IVacationRequestViewModel,
+    user: IUserViewModel,
+  ) {
     if (request.user_id !== user.id) {
       throw new ForbiddenException(
         'You can cancel only your own vacation requests',
@@ -369,24 +359,16 @@ export class VacationRequestsService implements IVacationRequestsService {
         'Only vacation requests waiting for approval can be canceled',
       );
     }
-
-    const { request: canceled } = await this.update(
-      { id: requestId, slackTeamId: user.slack_team_id },
-      { status: VacationRequestStatus.Canceled },
-      user,
-    );
-
-    return canceled;
   }
 
   public findOne(
-    params: IFindParams,
+    params: IVacationRequestFindParams,
   ): Promise<IVacationRequestViewModel | null> {
     return this.vacationRequestsRepository.findOne(this.getFindQuery(params));
   }
 
   public async findOneWithValidation(
-    findParams: IFindParams,
+    findParams: IVacationRequestFindParams,
   ): Promise<IVacationRequestViewModel> {
     const request = await this.findOne(findParams);
 
@@ -397,7 +379,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     return request;
   }
 
-  public async findMany(params: IFindParams) {
+  public async findMany(params: IVacationRequestFindParams) {
     return await this.vacationRequestsRepository.findMany(
       this.getFindQuery(params),
     );
@@ -415,49 +397,27 @@ export class VacationRequestsService implements IVacationRequestsService {
     });
   }
 
-  // Removes the time logged from the request too, but for billed days, and
-  // closes its approvals, in one transaction.
-  public async delete(
-    findParams: IFindParams,
+  // Closes the request's approvals and deletes it, in the caller's
+  // transaction and under the request's lock, which the caller takes.
+  // Its approval workflow is deleted with it; the approvers' messages lose
+  // their buttons, as on a cancel, once the delete has committed. The
+  // workflow's lock comes after the request's.
+  public async applyDelete(
+    request: IVacationRequestViewModel,
     user: IUserViewModel,
-  ): Promise<IVacationRequestChange> {
-    const request = await this.findOneWithValidation(findParams);
-
-    const removedTime = await this.transactions.transaction(async () => {
-      await this.transactions.lock(vacationTimeLock(request.id));
-
-      // Before the request goes: deleting it unlinks its entries.
-      const removed = await this.timeEntriesService.deleteVacationTime(
-        request.id,
-        request.slack_team_id,
-        user,
-      );
-
-      // Its approval workflow is deleted with it; the approvers' messages lose
-      // their buttons, as on a cancel, once the delete has committed. The
-      // workflow's lock comes after the request's (vacationTimeLock), and
-      // nothing that holds it takes the request's.
-      await this.requestWorkflowService.closeBeforeDelete(request.id, user);
-      await this.vacationRequestsRepository.deleteMany(
-        this.getFindQuery(findParams),
-      );
-
-      return removed;
-    });
-
-    this.eventEmitter.emit(
-      VacationRequestEvent.Deleted,
-      new VacationRequestUpdatedEvent(request, user, undefined, removedTime),
+  ) {
+    this.transactions.assertHolds(vacationRequestLock(request.id));
+    await this.requestWorkflowService.closeBeforeDelete(request.id, user);
+    await this.vacationRequestsRepository.deleteMany(
+      this.getFindQuery({ id: request.id, slackTeamId: request.slack_team_id }),
     );
-
-    return { request, billedDates: removedTime.billedDates };
   }
 
   // Sets the outcome of the approval workflow if the request still waits for
   // it, in one statement. Null when it was decided (e.g. by another approver
   // at the same time) or canceled in the meantime.
   public async finishPending(
-    { id, slackTeamId }: IFindParams,
+    { id, slackTeamId }: IVacationRequestFindParams,
     status: VacationRequestStatus.Approved | VacationRequestStatus.Rejected,
     decidedBy: IUserViewModel,
     rejectionReason?: string,
@@ -496,7 +456,7 @@ export class VacationRequestsService implements IVacationRequestsService {
   // approvals of their pending requests stay open.
   public async replaceUserVacations(
     user: IUserViewModel,
-    vacations: ICreateParams[],
+    vacations: IVacationRequestCreateParams[],
     replacedBy: IUserViewModel,
   ) {
     const { vacationPolicyId } = await this.teamRulesService.forTeam(
@@ -534,7 +494,8 @@ export class VacationRequestsService implements IVacationRequestsService {
         statuses: [VacationRequestStatus.Pending],
       });
 
-      for (const { id } of pending) {
+      // In the order of their workflow locks (compareLocks).
+      for (const id of pending.map((request) => request.id).sort()) {
         await this.requestWorkflowService.closeBeforeDelete(id, replacedBy);
       }
 
@@ -546,7 +507,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     });
   }
 
-  private getFindQuery(params: IFindParams): RepositoryFilter {
+  private getFindQuery(params: IVacationRequestFindParams): RepositoryFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
@@ -588,7 +549,7 @@ export class VacationRequestsService implements IVacationRequestsService {
   // approval. Only HR and admins make one for someone else or with another
   // status (the admin form, e.g. to record time off already agreed).
   private assertCanCreate(
-    { userId, status }: ICreateParams,
+    { userId, status }: IVacationRequestCreateParams,
     actor: IUserViewModel,
   ) {
     if (isPeopleAdmin(actor.role)) {

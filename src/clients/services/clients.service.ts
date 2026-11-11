@@ -1,3 +1,4 @@
+import { clientsLock } from 'src/database/advisory-locks';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
@@ -100,7 +101,7 @@ export default class ClientsService implements IClientsService {
   @CatchDuplicatedClient
   public create(createParams: ICreateClientParams, user: IUserViewModel) {
     return this.transactions.transaction(async () => {
-      await this.transactions.lock(`clients:${createParams.slackTeamId}`);
+      await this.transactions.lock(clientsLock(createParams.slackTeamId));
 
       const clientsCount = await this.clientsRepository.count({
         slack_team_id: createParams.slackTeamId,

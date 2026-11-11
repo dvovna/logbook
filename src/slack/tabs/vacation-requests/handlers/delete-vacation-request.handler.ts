@@ -5,10 +5,8 @@ import { IVacationRequestsTabMetadata } from '@modules/slack/tabs/vacation-reque
 import ConfirmationModalView, {
   IConfirmationModalViewMetadata,
 } from '@modules/slack/common/views/components/confirmation-modal.view';
-import {
-  IVacationRequestChange,
-  VacationRequestsService,
-} from '@modules/vacation-requests/services/vacation-requests.service';
+import { TimeOffChangesService } from 'src/time-off-logging/services/time-off-changes.service';
+import { IVacationRequestChange } from 'src/time-off-logging/types/time-off-change.types';
 import {
   VacationRequestsTabModalName,
   VacationRequestsTabService,
@@ -37,7 +35,7 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<
 > {
   public constructor(
     private readonly confirmationModalView: ConfirmationModalView,
-    private readonly vacationRequestsService: VacationRequestsService,
+    private readonly timeOffChangesService: TimeOffChangesService,
     private readonly vacationRequestsTabService: VacationRequestsTabService,
     private readonly tabNavigationService: TabNavigationService,
   ) {
@@ -71,7 +69,7 @@ export class DeleteVacationRequestHandler extends BaseModalFormSubmitHandler<
     metadata: IConfirmationModalViewMetadata,
     user: IUserViewModel,
   ) {
-    return this.vacationRequestsService.delete(
+    return this.timeOffChangesService.delete(
       {
         id: metadata.id,
         slackTeamId: user.slack_team_id,

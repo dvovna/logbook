@@ -2,6 +2,8 @@ import {
   currentWeekStart,
   PeriodPreset,
   presetPeriod,
+  weekDays,
+  weekStartOf,
 } from '@common/utils/period-presets';
 
 describe('presetPeriod', () => {
@@ -58,5 +60,21 @@ describe('currentWeekStart', () => {
     ['2026-06-22T00:00:00Z', '2026-06-22'],
   ])('puts %s in the week of %s', (now, monday) => {
     expect(currentWeekStart(new Date(now))).toBe(monday);
+  });
+});
+
+describe('weeks', () => {
+  it('starts a week on Monday', () => {
+    expect(weekStartOf('2027-01-01')).toBe('2026-12-28');
+    expect(weekStartOf('2026-12-28')).toBe('2026-12-28');
+    expect(weekStartOf('2027-01-03')).toBe('2026-12-28');
+  });
+
+  it('lists the seven days', () => {
+    const days = weekDays('2026-12-28');
+
+    expect(days).toHaveLength(7);
+    expect(days[0]).toBe('2026-12-28');
+    expect(days[6]).toBe('2027-01-03');
   });
 });

@@ -11,21 +11,21 @@ import {
   TabId,
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
-import { ISlackViewSubmissionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import {
   ITimesheetFormData,
-  parseTimesheetForm,
+  TimesheetFormParser,
 } from '@modules/slack/tabs/time-tracking/parsers/timesheet-form.parser';
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
-import {
-  COMMENT_BLOCK_ID,
-  TimesheetFormMetadata,
-} from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
+import { TimesheetFormMetadata } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 import { weekLabel } from '@common/utils/date.utils';
 import { dayLabel } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 import { ITimeEntriesTabMetaData } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
-import { TimesheetService } from 'src/time-entries/services/timesheet.service';
+import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';
+import { timesheetCellLockError } from '@modules/slack/common/views/data/labels';
+import { ValidationError } from '@common/errors/validation.error';
+import { TimesheetSaveService } from 'src/time-entries/services/timesheet-save.service';
+import { TimesheetCellError } from 'src/time-entries/errors/timesheet-cell.error';
 import { ITimesheetSaveResult } from 'src/time-entries/types/timesheet.types';
 
 // The viewer's own time, whatever their role. Null: the form had nothing
@@ -42,32 +42,12 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
   ITimesheetSaveResult | null
 > {
   public constructor(
-    private readonly timesheetService: TimesheetService,
+    private readonly timesheetSaveService: TimesheetSaveService,
     private readonly timeEntriesTabService: TimeEntriesTabService,
     private readonly tabNavigationService: TabNavigationService,
+    formParser: TimesheetFormParser,
   ) {
-    super();
-  }
-
-  // The cells differ from form to form: no fixed field config fits them.
-  protected getFormData(payload: ISlackViewSubmissionPayload) {
-    return parseTimesheetForm(payload.view);
-  }
-
-  // An error about a cell shows at its input, one about the comment at the
-  // comment. A cell the form has no input for came from the client: its
-  // error shows in the modal.
-  protected blockIdOfField(
-    field: string,
-    payload: ISlackViewSubmissionPayload,
-  ): string | null {
-    const blockId = field === 'comment' ? COMMENT_BLOCK_ID : field;
-
-    return (payload.view.blocks ?? []).some(
-      (block) => block.type === 'input' && block.block_id === blockId,
-    )
-      ? blockId
-      : null;
+    super(formParser);
   }
 
   protected async onSubmit(
@@ -77,21 +57,35 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
   ) {
     const isDay = metadata.mode === 'day';
     // The form's week, or its day: a cell of another day came from the client.
-    const inputs = cells.filter((cell) =>
+    const formCells = cells.filter((cell) =>
       isDay
         ? cell.date === metadata.date
         : weekDays(metadata.weekStart).includes(cell.date),
     );
     const dayComment = isDay ? comment : undefined;
 
-    if (!inputs.length && !submitWeek && !dayComment) {
+    if (!formCells.length && !submitWeek && !dayComment) {
       return null;
     }
 
-    return this.timesheetService.saveCells(user, inputs, {
-      comment: dayComment,
-      submitWeekStart: submitWeek ? metadata.weekStart : undefined,
-    });
+    try {
+      return await this.timesheetSaveService.saveCells(user, formCells, {
+        comment: dayComment,
+        submitWeekStart: submitWeek ? metadata.weekStart : undefined,
+      });
+    } catch (error) {
+      throw error instanceof TimesheetCellError
+        ? this.cellErrorOf(error)
+        : error;
+    }
+  }
+
+  // At the cell's input, in the words of its lock when it has one.
+  private cellErrorOf({ cell, lock, message }: TimesheetCellError) {
+    return new ValidationError(
+      lock ? timesheetCellLockError(lock) : message,
+      cellKey(cell.projectId, cell.date),
+    );
   }
 
   // My time on the form's week: the day form's day may be in another week
@@ -131,14 +125,14 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
 
   protected async errorResponse(
     errorMessage: string,
-    _data: ITimesheetFormData,
+    { shownMinutes }: ITimesheetFormData,
     metadata: TimesheetFormMetadata,
     user: IUserViewModel,
   ) {
     return SlackViewResponseFactory.update(
       await this.timeEntriesTabService.getModalView(
         TimeEntriesTabModalName.FillWeek,
-        { user, errorMessage, metadata },
+        { user, errorMessage, metadata, shownMinutes },
       ),
     );
   }

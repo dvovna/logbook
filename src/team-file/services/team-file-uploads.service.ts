@@ -4,6 +4,7 @@ import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import UserRole from '@common/enums/user-role.enum';
 import { DAY_MS } from '@common/utils/date.utils';
 import { TransactionService } from 'src/database/transaction.service';
+import { teamFileLock } from 'src/database/advisory-locks';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import TeamsService from '@modules/teams/services/teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -55,7 +56,7 @@ export class TeamFileUploadsService {
     const plan = this.plan(rows, state);
 
     const upload = await this.transactions.transaction(async () => {
-      await this.transactions.lock(`team-file:${slackTeamId}`);
+      await this.transactions.lock(teamFileLock(slackTeamId));
       await this.uploadsRepository.supersedePreviewed(slackTeamId);
 
       return this.uploadsRepository.create({
@@ -126,7 +127,7 @@ export class TeamFileUploadsService {
     return this.transactions.transaction(async () => {
       // receive takes it too, so a newer file can't supersede this one
       // halfway, and two clicks apply once.
-      await this.transactions.lock(`team-file:${slackTeamId}`);
+      await this.transactions.lock(teamFileLock(slackTeamId));
 
       const upload = await this.uploadsRepository.findOne({
         id: uploadId,

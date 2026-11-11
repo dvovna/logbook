@@ -1,3 +1,4 @@
+import { billingSnapshotsLock } from 'src/database/advisory-locks';
 import { ForbiddenException } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
 import { ValidationError } from '@common/errors/validation.error';
@@ -114,7 +115,7 @@ describe('BillingSnapshotsService', () => {
       });
 
       expect(transactions.lock).toHaveBeenCalledWith(
-        `billing-snapshots:${SLACK_TEAM_ID}`,
+        billingSnapshotsLock(SLACK_TEAM_ID),
       );
       expect(entriesRepository.findUnbilledApproved).toHaveBeenCalledWith({
         slackTeamId: SLACK_TEAM_ID,

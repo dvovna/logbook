@@ -1,6 +1,5 @@
-import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { ButtonAction } from '@slack/bolt';
-import { ValidationError } from '@common/errors/validation.error';
 import {
   ISlackBlockActionPayload,
   ISlackInteractionPayload,
@@ -15,6 +14,7 @@ import {
 } from '@modules/slack/common/services/tab-navigation.service';
 import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
+import { classifyActionError } from '@modules/slack/common/utils/action-errors';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
@@ -152,9 +152,9 @@ export default class ApprovalsTabActionHandler extends BaseTabActionHandler {
         this.entryIdOf(payload),
       );
     } catch (error) {
-      if (!(
-        error instanceof ValidationError || error instanceof ForbiddenException
-      )) {
+      const kind = classifyActionError(error);
+
+      if (kind === 'unexpected' || kind === 'not-found') {
         throw error;
       }
 

@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { teamFileLock } from 'src/database/advisory-locks';
 import UserRole from '@common/enums/user-role.enum';
 import { DAY_MS } from '@common/utils/date.utils';
 import TeamsService from '@modules/teams/services/teams.service';
@@ -132,7 +133,7 @@ describe('TeamFileUndoService', () => {
 
     await service.undo(UPLOAD_ID, hr);
 
-    expect(transactions.lock).toHaveBeenCalledWith('team-file:ws');
+    expect(transactions.lock).toHaveBeenCalledWith(teamFileLock('ws'));
     expect(repository.findOne).toHaveBeenCalledWith({
       id: UPLOAD_ID,
       slack_team_id: 'ws',

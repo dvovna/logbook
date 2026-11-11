@@ -42,4 +42,15 @@ describe('SlackViewValuesParser', () => {
       },
     });
   });
+
+  it('finds the block of a field the form renamed, for an error at it', () => {
+    const values = {
+      'from_date_block:v2': { fromDate: date('2026-05-01') },
+      to_date_block: { toDate: date('2026-05-31') },
+    } as never;
+
+    expect(parser.blockIdOf('fromDate', values)).toBe('from_date_block:v2');
+    expect(parser.blockIdOf('toDate', values)).toBe('to_date_block');
+    expect(parser.blockIdOf('note', values)).toBeNull();
+  });
 });

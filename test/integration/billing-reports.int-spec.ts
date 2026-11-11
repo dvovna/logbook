@@ -120,6 +120,27 @@ describe('Billing reports', () => {
     );
   });
 
+  it('leaves a quick period out when a later one changed the form first', async () => {
+    const form = await openReportForm();
+    const choose = (preset: string) =>
+      t.slack
+        .actOnView(workspace, admin, form, PERIOD_PRESET_ACTION_ID, preset)
+        .expect(200);
+
+    await choose('last_quarter');
+    await t.idle();
+    const since = t.slackApi.mark();
+
+    // A second choice in the form as it was before the first one's rebuild:
+    // Slack refuses its update (hash_conflict).
+    await choose('last_month');
+    await t.idle();
+
+    expect(
+      t.slackApi.callsWith(workspace.token, 'views.update', { since }),
+    ).toEqual([]);
+  });
+
   it("sums a client's approved hours by project and person", async () => {
     const support = await workspace.addProject({
       name: 'Support',

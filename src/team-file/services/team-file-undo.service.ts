@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DAY_MS } from '@common/utils/date.utils';
 import { TransactionService } from 'src/database/transaction.service';
+import { teamFileLock } from 'src/database/advisory-locks';
 import TeamsService from '@modules/teams/services/teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
@@ -43,7 +44,7 @@ export class TeamFileUndoService {
     }
 
     return this.transactions.transaction(async () => {
-      await this.transactions.lock(`team-file:${slackTeamId}`);
+      await this.transactions.lock(teamFileLock(slackTeamId));
 
       const upload = await this.uploadsRepository.findOne({
         id: uploadId,

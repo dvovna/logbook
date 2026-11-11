@@ -24,11 +24,9 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
-import {
-  ITimeOffOffer,
-  TimeOffLoggingService,
-} from 'src/time-off-logging/services/time-off-logging.service';
-import { TimeOffOfferService } from '@modules/slack/tabs/vacation-requests/services/time-off-offer.service';
+import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
+import { ITimeOffOffer } from 'src/time-off-logging/types/time-off-offer.types';
+import { TimeOffOfferView } from '@modules/slack/tabs/vacation-requests/views/time-off-offer.view';
 import { UsersService } from '@modules/users/services/users.service';
 
 export enum DecisionNotificationJob {
@@ -64,7 +62,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     private readonly usersService: UsersService,
     private readonly jobs: JobsService,
     private readonly timeOffLoggingService: TimeOffLoggingService,
-    private readonly timeOffOfferService: TimeOffOfferService,
+    private readonly timeOffOfferView: TimeOffOfferView,
   ) {}
 
   public onModuleInit() {
@@ -221,9 +219,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
             },
           ],
         } as KnownBlock,
-        ...(offer
-          ? (this.timeOffOfferService.getBlocks(offer) as KnownBlock[])
-          : []),
+        ...(offer ? this.timeOffOfferView.getButtonBlocks(offer) : []),
       ],
     };
   }

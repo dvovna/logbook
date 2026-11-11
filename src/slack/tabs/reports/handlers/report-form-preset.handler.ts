@@ -59,10 +59,13 @@ abstract class ReportFormPresetHandler extends BaseActionHandler {
       },
     });
 
+    // An older click's rebuild fails (hash_conflict) instead of replacing a
+    // newer one.
     await this.slackCommunicationService.updateView(
       payload.view.id,
       view,
       user.slack_team_id,
+      payload.view.hash,
     );
   }
 }
