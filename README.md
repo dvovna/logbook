@@ -19,7 +19,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - The requester and the team's notification recipients are told about the decision.
 
 **Policies and balances**
-- Vacation policies per team: vacation days, working days, bonus days, plus carryover per user.
+- Vacation policies per team: vacation days, working days, bonus days, and the most days a person may carry over. Each person's carryover is set on their profile, up to that limit.
 - The vacation year runs from the employee's contract start date, or over the calendar year when the employee has none.
 - Calendar and working days are counted separately. Working days skip weekends and the policy's holidays.
 - Public holidays can be imported per country (from [Nager.Date](https://date.nager.at)). You can add company holidays and turn individual ones off.
@@ -27,22 +27,22 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 
 **People**
 - When the app is installed, all workspace members are imported; people who join later are added automatically.
-- Roles: admin, HR, manager, member.
+- Roles: admin, HR, manager, finance, member. Finance handles rates, billing reports and snapshots, and sees everyone's time in reports; it approves nothing and manages no people.
 - Admins upload a CSV to bulk-load vacation history.
 - Admin and HR set up teams from a file the bot sends. They fill it in and share it back, check the preview, then apply it. Undo restores it for 7 days.
 
 **Time & Billing (beta)**
 - Clients, projects with team and user assignments, and billable flags.
-- Hourly rates: a project's rate, and a person's own rate on a project that replaces it. One currency per workspace, which an admin sets. Only admins and HR see rates and amounts.
+- Hourly rates: a project's rate, and a person's own rate on a project that replaces it. One currency per workspace, which an admin sets. Only admins and finance see rates and amounts.
 - Time entries in 15-minute steps, logged from the App Home or with `/log` as drafts, and then submitted for approval.
 - My time shows the week as a table of projects by day, with previous and next week and "Submit week". One form fills in a week, or a day with a comment, across your projects.
 - Time off as time: admins map each leave type to a project and set the hours of a working day; an approved request then offers to log its working days as approved time on that project.
 - The team's managers, HR or an admin approve or reject submitted time; a rejection tells the owner why.
-- Time reports for a period, by client, project, person or team: hours, billable and approved time, and for admins and HR the amounts. Admins and HR see everyone's time, managers their teams' and their own, everyone else their own. A quick period (this or last week, month, quarter) fills the dates, and the report and its CSV can be narrowed to a client, a project or a person.
-- "Who hasn't submitted": the people a manager, HR or an admin sees who logged nothing in a period, or still have drafts or rejected time in it.
-- A CSV of a time report's entries, sent to you as a file in a DM: date, person, email, team, client, project, description, hours, billable, status, and for admins and HR the rate and the amount (comma-separated UTF-8).
-- A billing report per client and period, from approved time: each person's hours on each project with the rate and the amount, the totals by project and by person, and the amount in all. Billable time without a rate has no amount and is counted apart.
-- Billing snapshots: admins and HR lock a billing report's approved time with today's rates, for an invoice you make elsewhere (Logbook makes no invoices). Nobody can change the time in a snapshot. A snapshot's CSV is sent to you in a DM (date, person, email, team, project, description, hours, billable, rate, amount, currency), and you mark it invoiced (or not invoiced again). The list filters by client. An admin can unlock a snapshot to correct its time, which deletes it.
+- Time reports for a period, by client, project, person or team: hours, billable and approved time, and for admins and finance the amounts. Admins, HR and finance see everyone's time, managers their teams' and their own, everyone else their own. A quick period (this or last week, month, quarter) fills the dates, and the report and its CSV can be narrowed to a client, a project or a person.
+- "Who hasn't submitted": the people a manager, HR, finance or an admin sees who logged nothing in a period, or still have drafts or rejected time in it.
+- A CSV of a time report's entries, sent to you as a file in a DM: date, person, email, team, client, project, description, hours, billable, status, and for admins and finance the rate and the amount (comma-separated UTF-8).
+- A billing report per client and period, from approved time: each person's hours on each project with the rate and the amount, the totals by project and by person, and the amount in all. Billable time without a rate has no amount and is counted apart. Billing reports, snapshots and the uninvoiced report are for admins and finance.
+- Billing snapshots: admins and finance lock a billing report's approved time with today's rates, for an invoice you make elsewhere (Logbook makes no invoices). Nobody can change the time in a snapshot. A snapshot's CSV is sent to you in a DM (date, person, email, team, project, description, hours, billable, rate, amount, currency), and you mark it invoiced (or not invoiced again). The list filters by client. An admin can unlock a snapshot to correct its time, which deletes it.
 - An uninvoiced report per client, for all time or a period: approved billable time in no snapshot, with its amount at today's rates, and the time of snapshots not marked invoiced yet.
 - Admins and HR see everyone's time logs.
 
@@ -92,7 +92,7 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `SLACK_SIGN_IN_SECRET` | Slack app → Basic Information → Signing Secret |
 | `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
 | `SLACK_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the bot tokens in the database. Keep it with your other secrets: without it the app can't read the tokens, and every workspace has to install the app again. |
-| `PORT` | Port to listen on. The Docker image defaults to 10000. |
+| `PORT` | Port to listen on: 3000 in `.env.example`, and 3000 when it's unset, except in the Docker image, which sets 10000. |
 | `ALLOWED_SLACK_TEAM_IDS` | Optional. Comma-separated Slack workspace IDs (`T…`) that may install the app on your server. Any other workspace gets a refusal, and its token is revoked. Unset, every workspace with the install link may install. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Optional. Sends unexpected errors to your Sentry project: the error and its stack, no request data or people's details. Empty sends nothing anywhere. |
 | `DATABASE_POOL_SIZE` | Optional, default 5. Connections the app's pool may hold; the job queue holds 2 more. Keep both under the Supabase project's "Pool Size". |
@@ -104,8 +104,10 @@ The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` li
 The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.2.0`), its minor line (`0.2`) and `latest`:
 
 ```bash
-docker run -d --name logbook --restart always --env-file .env -p 3000:10000 ghcr.io/dvovna/logbook:0.2
+docker run -d --name logbook --restart always --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.2
 ```
+
+The second port of `-p` is `PORT` from `.env`; with `PORT` left out of `.env`, the container listens on 10000, so map `-p 3000:10000`.
 
 Or with the compose file, which runs the same image (`LOGBOOK_VERSION` picks the tag, `latest` by default):
 
