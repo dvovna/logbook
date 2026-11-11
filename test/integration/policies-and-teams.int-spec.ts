@@ -145,6 +145,26 @@ describe('Vacation policies and teams', () => {
       expect(await workspace.rows('vacation_policies')).toEqual([]);
     });
 
+    it('asks for at least one working day, as the database does', async () => {
+      const form = await openModal(
+        POLICIES_TAB,
+        PolicyTabViewActionId.AddPolicy,
+      );
+
+      const response = await t.slack
+        .submitView(workspace, admin, form, {
+          name: 'Berlin',
+          vacation_days: '0',
+          working_days: '0',
+        })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        response_action: 'errors',
+        errors: { working_days_block: 'Working days must be at least 1' },
+      });
+    });
+
     it('deletes a policy no team uses, and refuses one in use', async () => {
       const unused = await workspace.addVacationPolicy({ name: 'Unused' });
       const used = await workspace.addVacationPolicy({ name: 'Used' });

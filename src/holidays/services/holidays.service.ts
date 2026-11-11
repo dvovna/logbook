@@ -109,7 +109,7 @@ export default class HolidaysService implements IHolidaysService {
     if (createParams.isCompanyCustom) {
       await this.validateCustomHolidayLimit(
         createParams.vacationPolicyId,
-        new Date(createParams.date).getFullYear(),
+        yearOf(createParams.date),
         createParams.slackTeamId,
       );
     }
@@ -117,7 +117,7 @@ export default class HolidaysService implements IHolidaysService {
     return await this.holidaysRepository.create({
       name: createParams.name,
       date: createParams.date,
-      year: new Date(createParams.date).getFullYear(),
+      year: yearOf(createParams.date),
       is_company_custom: createParams.isCompanyCustom,
       slack_team_id: createParams.slackTeamId,
       vacation_policy_id: createParams.vacationPolicyId,
@@ -139,7 +139,7 @@ export default class HolidaysService implements IHolidaysService {
     const holidaysToCreate = createParamsArray.map((createParams) => ({
       name: createParams.name,
       date: createParams.date,
-      year: new Date(createParams.date).getFullYear(),
+      year: yearOf(createParams.date),
       is_company_custom: createParams.isCompanyCustom,
       slack_team_id: createParams.slackTeamId,
       vacation_policy_id: createParams.vacationPolicyId,
@@ -155,7 +155,8 @@ export default class HolidaysService implements IHolidaysService {
   }
 
   // A policy's country holidays of `year` become `holidays`, in one
-  // transaction; the company's own holidays stay.
+  // transaction; the company's own holidays stay, and a date that was
+  // switched off stays off.
   public replaceCountryHolidays(
     params: { slackTeamId: string; vacationPolicyId: string; year: number },
     holidays: { name: string; date: string; countryCode: string }[],
@@ -166,20 +167,32 @@ export default class HolidaysService implements IHolidaysService {
       vacation_policy_id: params.vacationPolicyId,
     };
 
+    const countryHolidaysOfYear = {
+      ...policy,
+      year: params.year,
+      is_company_custom: false,
+    };
+
     return this.transactions.transaction(async () => {
-      await this.holidaysRepository.deleteMany({
-        ...policy,
-        year: params.year,
-        is_company_custom: false,
-      });
+      const switchedOff = new Set(
+        (
+          await this.holidaysRepository.findMany({
+            ...countryHolidaysOfYear,
+            is_disabled: true,
+          })
+        ).map(({ date }) => date),
+      );
+
+      await this.holidaysRepository.deleteMany(countryHolidaysOfYear);
 
       return this.holidaysRepository.createMany(
         holidays.map(({ name, date, countryCode }) => ({
           ...policy,
           name,
           date,
-          year: Number(date.slice(0, 4)),
+          year: yearOf(date),
           is_company_custom: false,
+          is_disabled: switchedOff.has(date),
           country_code: countryCode,
           created_by: user.id,
           updated_by: user.id,
@@ -193,9 +206,29 @@ export default class HolidaysService implements IHolidaysService {
     updateParams: IUpdateParams,
     user: IUserViewModel,
   ): Promise<IHolidayViewModel> {
+    // A company holiday moved to another year counts toward that year's
+    // limit, and is listed under it.
+    if (updateParams.date) {
+      const holiday = await this.findOneWithValidation(findParams);
+      const year = yearOf(updateParams.date);
+
+      if (
+        (updateParams.isCompanyCustom ?? holiday.is_company_custom) &&
+        year !== yearOf(holiday.date)
+      ) {
+        await this.validateCustomHolidayLimit(
+          holiday.vacation_policy_id,
+          year,
+          findParams.slackTeamId,
+        );
+      }
+    }
+
     return await this.holidaysRepository.update(this.getFindQuery(findParams), {
       ...(updateParams.name ? { name: updateParams.name } : {}),
-      ...(updateParams.date ? { date: updateParams.date } : {}),
+      ...(updateParams.date
+        ? { date: updateParams.date, year: yearOf(updateParams.date) }
+        : {}),
       ...(updateParams.isCompanyCustom !== undefined
         ? { is_company_custom: updateParams.isCompanyCustom }
         : {}),
@@ -267,3 +300,6 @@ export default class HolidaysService implements IHolidaysService {
     }
   }
 }
+
+// Of a 'YYYY-MM-DD' date.
+const yearOf = (date: string) => Number(date.slice(0, 4));

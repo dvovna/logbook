@@ -67,11 +67,6 @@ type HolidaysTabModalViewResolversMapType = {
   ) => Promise<View>;
 };
 
-export const MIN_YEAR = 2025;
-export const MAX_YEAR = 2030;
-
-const CURRENT_YEAR = new Date().getFullYear();
-
 @Injectable()
 export class HolidaysTabService extends BaseTabService<
   HolidaysTabModalViewResolversMapType,
@@ -105,7 +100,7 @@ export class HolidaysTabService extends BaseTabService<
     metadata,
   }: IPublishHolidaysTabPublishParams) {
     const {
-      filters: { policyId, selectedYear = CURRENT_YEAR },
+      filters: { policyId, selectedYear = new Date().getFullYear() },
     } = metadata;
 
     const [countryHolidays, companyHolidays, policy] = await Promise.all([

@@ -21,7 +21,7 @@ const policyFormSchema = z
       .default(0),
     working_days: z.coerce
       .number()
-      .min(0, 'Working days cannot be negative')
+      .min(1, 'Working days must be at least 1')
       .max(30, 'Working days cannot exceed 30')
       .default(0),
     carryover_days: z.coerce

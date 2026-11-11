@@ -15,6 +15,8 @@ import {
   publishedHome,
 } from './support/app-home';
 import { listItems, sectionTexts, noticeOf } from './support/tab-readers';
+import { travelTo } from './support/clock';
+import { findAction } from './support/block-kit';
 
 // Home → Vacations → Vacation Policies.
 const POLICIES_TAB = [NavigationActionId.Policies];
@@ -93,17 +95,9 @@ describe('Holidays', () => {
 
   // The texts of the options of a modal's select.
   const selectOptionsOf = (view: View, actionId: string) =>
-    view.blocks
-      .flatMap((block) =>
-        'element' in block &&
-        block.element &&
-        'action_id' in block.element &&
-        block.element.action_id === actionId &&
-        'options' in block.element
-          ? (block.element.options ?? [])
-          : [],
-      )
-      .map((option) => option.text.text);
+    findAction(view.blocks, actionId).element.options.map(
+      (option: { text: { text: string } }) => option.text.text,
+    );
 
   describe('custom holidays', () => {
     it('adds a holiday to the policy', async () => {
@@ -168,6 +162,37 @@ describe('Holidays', () => {
       expect((await workspace.row('holidays', holiday.id)).is_disabled).toBe(
         false,
       );
+    });
+
+    it('moves a holiday to the next year, where it is listed', async () => {
+      const holiday = await addHoliday({ date: '2026-12-31' });
+      const holidaysTab = await openHolidaysTab();
+      const form = await openModalFrom(
+        t,
+        workspace,
+        admin,
+        holidaysTab,
+        HolidaysTabViewActionId.ManageHolidayMenu,
+        `${HolidaysTabViewActionId.EditHoliday}:${holiday.id}`,
+      );
+
+      await t.slack
+        .submitView(workspace, admin, form, { date: '2027-01-01' })
+        .expect(200);
+
+      expect(await workspace.row('holidays', holiday.id)).toMatchObject({
+        date: '2027-01-01',
+        year: 2027,
+      });
+      const nextYear = await actOnTab(
+        t,
+        workspace,
+        admin,
+        await openHolidaysTab(),
+        HolidaysTabViewActionId.ChangeYear,
+        '2027',
+      );
+      expect(named(nextYear, 'Founders Day')).toBeDefined();
     });
 
     it('deletes a holiday', async () => {
@@ -283,6 +308,29 @@ describe('Holidays', () => {
 
       expect((await holidays()).map(({ name }) => name)).toEqual([
         'Old Holiday',
+      ]);
+    });
+
+    it('keeps a holiday switched off when it comes again', async () => {
+      await addHoliday({
+        name: 'Labour Day',
+        date: '2026-05-01',
+        is_company_custom: false,
+        is_disabled: true,
+        country_code: 'IT',
+      });
+      t.nager.addHolidays('IT', 2026, [
+        ['2026-05-01', 'Labour Day'],
+        ['2026-06-02', 'Republic Day'],
+      ]);
+
+      await importCountry('IT');
+
+      expect(
+        (await holidays()).map(({ name, is_disabled }) => [name, is_disabled]),
+      ).toEqual([
+        ['Labour Day', true],
+        ['Republic Day', false],
       ]);
     });
 
@@ -407,6 +455,17 @@ describe('Holidays', () => {
         'Old Holiday',
       ]);
     });
+  });
+
+  it('opens on the year it is now, also after New Year', async () => {
+    travelTo('2027-01-05');
+
+    const holidaysTab = await openHolidaysTab();
+
+    expect(
+      findAction(holidaysTab.blocks, HolidaysTabViewActionId.ChangeYear).element
+        .initial_option.value,
+    ).toBe('2027');
   });
 
   it('shows the holidays of the year chosen', async () => {
