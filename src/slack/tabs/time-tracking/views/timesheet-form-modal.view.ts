@@ -233,7 +233,7 @@ export class TimesheetFormModalView extends BaseModalView<
   ): AnyBlock {
     const key = cellKey(projectId, cell.date);
     const minutes = shownMinutes?.has(key)
-      ? shownMinutes.get(key)
+      ? (shownMinutes.get(key) ?? 0)
       : cell.minutes;
 
     return {
@@ -246,6 +246,16 @@ export class TimesheetFormModalView extends BaseModalView<
         action_id: key,
         ...(minutes ? { initial_value: String(minutes / 60) } : {}),
       },
+      // The form keeps what it first showed, so that typing over a change
+      // made elsewhere is refused; it says what the cell holds now.
+      ...(minutes !== cell.minutes
+        ? {
+            hint: {
+              type: 'plain_text',
+              text: `Now ${cell.minutes ? getDisplayTime(cell.minutes) : 'no time'}: changed since this form opened.`,
+            },
+          }
+        : {}),
     };
   }
 

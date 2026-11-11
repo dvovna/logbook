@@ -714,6 +714,11 @@ describe('Fill in the week', () => {
     );
 
     for (const rebuilt of [added, failed.body.view as View]) {
+      expect(
+        rebuilt.blocks.find((block) => block.block_id === key),
+      ).toMatchObject({
+        hint: { text: 'Now 2h: changed since this form opened.' },
+      });
       expect(timesheetFormRows(rebuilt)[1]).toEqual({
         project: 'Website · Acme',
         cells: [

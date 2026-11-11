@@ -27,7 +27,7 @@ export class TimeOffChangesService {
 
   // The time goes when the edit changes what it was made of
   // (changesLoggedTime), compared with the request as applyUpdate found it
-  // under its lock.
+  // under the lock.
   public async update(
     findParams: IVacationRequestFindParams,
     changes: IVacationRequestUpdateParams,
@@ -40,6 +40,8 @@ export class TimeOffChangesService {
     );
     const { previous, request, removedTime } =
       await this.transactions.transaction(async () => {
+        await this.transactions.lock(vacationRequestLock(update.checked.id));
+
         const applied = await this.vacationRequestsService.applyUpdate(
           update,
           user,
@@ -66,26 +68,32 @@ export class TimeOffChangesService {
   }
 
   public async delete(
-    findParams: IVacationRequestFindParams,
+    { id, slackTeamId }: { id: string; slackTeamId: string },
     user: IUserViewModel,
   ): Promise<IVacationRequestChange> {
-    const request =
-      await this.vacationRequestsService.findOneWithValidation(findParams);
+    const { request, removedTime } = await this.transactions.transaction(
+      async () => {
+        await this.transactions.lock(vacationRequestLock(id));
 
-    const removedTime = await this.transactions.transaction(async () => {
-      await this.transactions.lock(vacationRequestLock(request.id));
+        // Read under the lock: the event and the removal DM tell of the
+        // request as it was deleted, not as it was before a concurrent edit.
+        const current =
+          await this.vacationRequestsService.findOneWithValidation({
+            id,
+            slackTeamId,
+          });
+        // Before the request goes: deleting it unlinks its entries.
+        const removed = await this.vacationTimeService.remove(
+          id,
+          slackTeamId,
+          user,
+        );
 
-      // Before the request goes: deleting it unlinks its entries.
-      const removed = await this.vacationTimeService.remove(
-        request.id,
-        request.slack_team_id,
-        user,
-      );
+        await this.vacationRequestsService.applyDelete(current, user);
 
-      await this.vacationRequestsService.applyDelete(request, user);
-
-      return removed;
-    });
+        return { request: current, removedTime: removed };
+      },
+    );
 
     this.eventEmitter.emit(
       VacationRequestEvent.Deleted,

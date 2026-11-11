@@ -24,8 +24,17 @@ export default abstract class BaseValuesParser<
     );
   }
 
+  // Slack refuses errors at a block the view doesn't have.
   public blockIdOf(field: string, view: ISlackView): string | null {
-    return this.valuesParser.blockIdOf(field, view.state?.values ?? {});
+    const blockId = this.valuesParser.blockIdOf(
+      field,
+      view.state?.values ?? {},
+    );
+
+    return blockId &&
+      (view.blocks ?? []).some((block) => block.block_id === blockId)
+      ? blockId
+      : null;
   }
 
   public parse(view: ISlackView): IViewParseResult<ViewData> {

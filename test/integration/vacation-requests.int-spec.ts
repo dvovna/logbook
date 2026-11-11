@@ -10,6 +10,7 @@ import { acknowledged } from './support/slack-test-client';
 import { publishedHome } from './support/app-home';
 import { noticeOf, sectionTexts } from './support/tab-readers';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import {
   approvalMessageTo,
   requestVacation,
@@ -90,6 +91,51 @@ describe('/vacations', () => {
       await t.idle();
       const [update] = t.slackApi.messageUpdates(workspace.token, approval);
       expect(textOf(update)).toContain(`Canceled by <@${member.slack_id}>`);
+    });
+
+    // The workflow approves it, and its time may be logged, between the
+    // cancel's check and its write: the cancel looks again under the lock.
+    it('refuses a request approved while the cancel was being checked', async () => {
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, manager);
+
+      const since = await command('cancel');
+      await t.idle();
+      const modal = t.slackApi.openedModal(workspace.token, { since });
+      const requests = t.app.get(VacationRequestsService);
+      const checkUpdate = requests.checkUpdate.bind(requests);
+      const approveAfterCheck = jest
+        .spyOn(requests, 'checkUpdate')
+        .mockImplementation(async (...args) => {
+          const checked = await checkUpdate(...args);
+
+          await t.db
+            .updateTable('vacation_requests')
+            .set({ status: VacationRequestStatus.Approved })
+            .where('id', '=', request.id)
+            .execute();
+
+          return checked;
+        });
+
+      try {
+        const response = await t.slack
+          .submitView(workspace, member, modal, {
+            [CANCEL_REQUEST_ACTION_ID]: request.id,
+          })
+          .expect(200);
+
+        expect(response.body.response_action).toBe('update');
+        expect(sectionTexts(response.body.view)).toEqual([
+          ':warning: Only vacation requests waiting for approval can be canceled',
+        ]);
+      } finally {
+        approveAfterCheck.mockRestore();
+      }
+
+      expect(
+        (await workspace.row('vacation_requests', request.id)).status,
+      ).toBe(VacationRequestStatus.Approved);
     });
 
     it('offers only pending requests', async () => {

@@ -65,8 +65,12 @@ export class CancelVacationRequestCommandSubmitHandler extends BaseModalFormSubm
       statuses: [VacationRequestStatus.Pending],
     });
 
+    // With nothing left to cancel (approved or canceled meanwhile) the form
+    // has no choices, which Slack refuses: only what went wrong.
     return SlackViewResponseFactory.update(
-      this.modalView.getView({ requests, errorMessage }),
+      requests.length
+        ? this.modalView.getView({ requests, errorMessage })
+        : this.modalView.getErrorView('Cancel Vacation', errorMessage),
     );
   }
 }

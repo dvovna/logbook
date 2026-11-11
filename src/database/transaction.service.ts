@@ -102,6 +102,14 @@ export class TransactionService {
     scope.lastLock = lock;
   }
 
+  // For work that must run under `lock` and leaves taking it to its caller,
+  // who decides what else runs under it.
+  public assertHolds(lock: IAdvisoryLock) {
+    if (!currentTransaction()?.heldLocks.has(lock.key)) {
+      throw new Error(`${lock.key} must be held here`);
+    }
+  }
+
   public async lockInOrder(...locks: IAdvisoryLock[]) {
     for (const lock of [...locks].sort(compareLocks)) {
       await this.lock(lock);

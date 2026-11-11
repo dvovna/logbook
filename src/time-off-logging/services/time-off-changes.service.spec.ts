@@ -115,6 +115,11 @@ describe('TimeOffChangesService', () => {
 
       const result = await update();
 
+      expect(lock).toHaveBeenCalledWith(vacationRequestLock('request-1'));
+      expect(lock.mock.invocationCallOrder[0]).toBeLessThan(
+        requests.applyUpdate.mock.invocationCallOrder[0],
+      );
+
       expect(requests.applyUpdate).toHaveBeenCalledWith(
         { checked: approved },
         hr,
@@ -163,10 +168,15 @@ describe('TimeOffChangesService', () => {
     );
   });
 
-  it('is removed before the request is deleted, in one transaction', async () => {
+  it('reads the request under its lock and removes the time before deleting it', async () => {
     const calls: string[] = [];
     lock.mockImplementation(() => {
       calls.push(`lock, in a transaction: ${inTransaction}`);
+    });
+    requests.findOneWithValidation.mockImplementation(() => {
+      calls.push(`read, in a transaction: ${inTransaction}`);
+
+      return Promise.resolve(approved);
     });
     vacationTime.remove.mockImplementation(() => {
       calls.push(`time, in a transaction: ${inTransaction}`);
@@ -186,6 +196,7 @@ describe('TimeOffChangesService', () => {
     expect(requests.applyDelete).toHaveBeenCalledWith(approved, hr);
     expect(calls).toEqual([
       'lock, in a transaction: true',
+      'read, in a transaction: true',
       'time, in a transaction: true',
       'request, in a transaction: true',
     ]);

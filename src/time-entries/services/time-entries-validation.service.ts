@@ -65,6 +65,9 @@ export class TimeEntriesValidationService {
     update: IUpdateCheckParams,
     actor: IUserViewModel,
   ) {
+    // Someone who may not edit the entry is refused before anything is read.
+    this.validateEditPermissions(existing, actor);
+
     const changesDay =
       update.userId ||
       update.projectId ||
@@ -95,6 +98,7 @@ export class TimeEntriesValidationService {
     existing: ITimeEntryViewModel,
     actor: IUserViewModel,
   ) {
+    this.validateEditPermissions(existing, actor, 'delete');
     this.checkDelete(existing, actor, await this.isBilled(existing));
   }
 

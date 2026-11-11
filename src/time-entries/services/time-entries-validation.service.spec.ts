@@ -366,6 +366,14 @@ describe('TimeEntriesValidationService', () => {
       );
     });
 
+    it('reads nothing for someone who may not edit the entry', async () => {
+      await expect(
+        service.validateUpdate(entry(), { minutes: 60 }, otherMember),
+      ).rejects.toThrow(ForbiddenException);
+      expect(repository.findBilledIds).not.toHaveBeenCalled();
+      expect(repository.findMany).not.toHaveBeenCalled();
+    });
+
     it('does not count anything when only the status changes', async () => {
       await service.validateUpdate(
         entry(),
@@ -393,6 +401,13 @@ describe('TimeEntriesValidationService', () => {
       await expect(
         service.validateDelete(entry(), member),
       ).resolves.toBeUndefined();
+    });
+
+    it('reads nothing for someone who may not delete the entry', async () => {
+      await expect(
+        service.validateDelete(entry(), otherMember),
+      ).rejects.toThrow(ForbiddenException);
+      expect(repository.findBilledIds).not.toHaveBeenCalled();
     });
   });
 });

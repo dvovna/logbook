@@ -89,6 +89,7 @@ describe('VacationRequestsService', () => {
       }
     },
     lock: jest.fn(),
+    assertHolds: jest.fn(),
   };
 
   beforeEach(() => {
@@ -116,6 +117,7 @@ describe('VacationRequestsService', () => {
     };
     workflowService = { closeBeforeDelete: jest.fn() };
     transactions.lock.mockReset();
+    transactions.assertHolds.mockReset();
 
     service = new VacationRequestsService(
       repository as unknown as VacationRequestsRepository,
@@ -450,7 +452,6 @@ describe('VacationRequestsService', () => {
     it('refuses the cancel when the request was approved since its check', async () => {
       repository.findOne
         .mockResolvedValueOnce(buildRequest())
-        .mockResolvedValueOnce(buildRequest())
         .mockResolvedValue(
           buildRequest({ status: VacationRequestStatus.Approved }),
         );
@@ -493,8 +494,8 @@ describe('VacationRequestsService', () => {
 
           return Promise.resolve(approved);
         });
-      transactions.lock.mockImplementation(() => {
-        calls.push('lock');
+      transactions.assertHolds.mockImplementation(() => {
+        calls.push('lock held');
       });
       repository.update.mockImplementation(() => {
         calls.push('write');
@@ -512,10 +513,10 @@ describe('VacationRequestsService', () => {
 
       const result = await service.applyUpdate(update, hr);
 
-      expect(transactions.lock).toHaveBeenCalledWith(
+      expect(transactions.assertHolds).toHaveBeenCalledWith(
         vacationRequestLock('request-1'),
       );
-      expect(calls).toEqual(['lock', 'read', 'write']);
+      expect(calls).toEqual(['lock held', 'read', 'write']);
       expect(result).toEqual({
         previous: approved,
         request: { ...approved, user_comment: 'Family trip' },
@@ -536,8 +537,8 @@ describe('VacationRequestsService', () => {
     // deleting it either both happen or neither does.
     it("closes the request's approvals, then deletes it, under its lock", async () => {
       const calls: string[] = [];
-      transactions.lock.mockImplementation(() => {
-        calls.push('lock');
+      transactions.assertHolds.mockImplementation(() => {
+        calls.push('lock held');
       });
       workflowService.closeBeforeDelete.mockImplementation(() => {
         calls.push('close the approvals');
@@ -548,7 +549,7 @@ describe('VacationRequestsService', () => {
 
       await service.applyDelete(buildRequest(), admin);
 
-      expect(transactions.lock).toHaveBeenCalledWith(
+      expect(transactions.assertHolds).toHaveBeenCalledWith(
         vacationRequestLock('request-1'),
       );
       expect(workflowService.closeBeforeDelete).toHaveBeenCalledWith(
@@ -559,7 +560,7 @@ describe('VacationRequestsService', () => {
         id: 'request-1',
         slack_team_id: SLACK_TEAM_ID,
       });
-      expect(calls).toEqual(['lock', 'close the approvals', 'delete']);
+      expect(calls).toEqual(['lock held', 'close the approvals', 'delete']);
     });
   });
 

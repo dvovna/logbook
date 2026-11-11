@@ -263,10 +263,9 @@ export class VacationRequestsService implements IVacationRequestsService {
     };
   }
 
-  // Writes an edit that passed checkUpdate, in the caller's transaction,
-  // under the request's lock (taken here; a lock the caller holds costs
-  // nothing). Emits nothing: the caller tells of the change once it has
-  // committed.
+  // Writes an edit that passed checkUpdate, in the caller's transaction and
+  // under the request's lock, which the caller takes. Emits nothing: the
+  // caller tells of the change once it has committed.
   public async applyUpdate(
     { checked, changes, teamId, days, workingDays }: IVacationRequestUpdate,
     user: IUserViewModel,
@@ -274,7 +273,7 @@ export class VacationRequestsService implements IVacationRequestsService {
   ) {
     const { id, slack_team_id: slackTeamId } = checked;
 
-    await this.transactions.lock(vacationRequestLock(id));
+    this.transactions.assertHolds(vacationRequestLock(id));
 
     // The request as it is under the lock: a workflow approval or another
     // edit may have changed it since the checks read it, and the caller
@@ -315,23 +314,26 @@ export class VacationRequestsService implements IVacationRequestsService {
   }
 
   public async cancel(requestId: string, user: IUserViewModel) {
-    const findParams = { id: requestId, slackTeamId: user.slack_team_id };
-
-    this.assertCanCancel(await this.findOneWithValidation(findParams), user);
-
     const update = await this.checkUpdate(
-      findParams,
+      { id: requestId, slackTeamId: user.slack_team_id },
       { status: VacationRequestStatus.Canceled },
       user,
     );
+
+    this.assertCanCancel(update.checked, user);
+
     // Without TimeOffChangesService's cleanup: a pending request holds no
     // logged time, since only an approved one is logged and leaving approved
     // removes it. Checked again under the lock, as the workflow may have
     // approved it, and its time been logged, since the check above.
-    const { previous, request } = await this.transactions.transaction(() =>
-      this.applyUpdate(update, user, (current) =>
-        this.assertCanCancel(current, user),
-      ),
+    const { previous, request } = await this.transactions.transaction(
+      async () => {
+        await this.transactions.lock(vacationRequestLock(requestId));
+
+        return this.applyUpdate(update, user, (current) =>
+          this.assertCanCancel(current, user),
+        );
+      },
     );
 
     this.eventEmitter.emit(
@@ -396,7 +398,7 @@ export class VacationRequestsService implements IVacationRequestsService {
   }
 
   // Closes the request's approvals and deletes it, in the caller's
-  // transaction, under the request's lock (taken here, as in applyUpdate).
+  // transaction and under the request's lock, which the caller takes.
   // Its approval workflow is deleted with it; the approvers' messages lose
   // their buttons, as on a cancel, once the delete has committed. The
   // workflow's lock comes after the request's.
@@ -404,7 +406,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     request: IVacationRequestViewModel,
     user: IUserViewModel,
   ) {
-    await this.transactions.lock(vacationRequestLock(request.id));
+    this.transactions.assertHolds(vacationRequestLock(request.id));
     await this.requestWorkflowService.closeBeforeDelete(request.id, user);
     await this.vacationRequestsRepository.deleteMany(
       this.getFindQuery({ id: request.id, slackTeamId: request.slack_team_id }),
