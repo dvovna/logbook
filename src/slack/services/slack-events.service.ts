@@ -14,6 +14,7 @@ import {
 import { UsersService } from '@modules/users/services/users.service';
 import { SlackAppUninstallService } from '@modules/slack/services/slack-app-uninstall.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
+import { SlackEventReceiptsService } from '@modules/slack-teams/slack-event-receipts.service';
 import { getRequestWorkspaceSlackId } from '@common/utils/slack-request.utils';
 import { NEW_PERSON_PROMPT_JOB } from 'src/team-file/constants/jobs';
 import { INewPersonPromptJob } from 'src/team-file/types/new-person-prompt-job.interface';
@@ -128,6 +129,7 @@ export default class SlackEventsService implements OnModuleInit {
     private readonly slackAppUninstallService: SlackAppUninstallService,
     private readonly slackTeamService: SlackTeamsService,
     private readonly jobs: JobsService,
+    private readonly eventReceipts: SlackEventReceiptsService,
   ) {}
 
   // Slack sends an event once and gets its answer at once, so the work runs
@@ -168,9 +170,11 @@ export default class SlackEventsService implements OnModuleInit {
   ) {
     switch (event.type) {
       case SlackEventType.FileShared:
-        await this.jobs.enqueue<IEventJob<IFileSharedEvent>>(
-          SlackEventJob.FileShared,
-          { event, ...this.actor(user) },
+        await this.saveJobOnce(body, () =>
+          this.jobs.enqueue<IEventJob<IFileSharedEvent>>(
+            SlackEventJob.FileShared,
+            { event, ...this.actor(user) },
+          ),
         );
 
         break;
@@ -179,20 +183,21 @@ export default class SlackEventsService implements OnModuleInit {
 
         break;
       case SlackEventType.TeamJoin:
-        await this.jobs.enqueue<IEventJob<ITeamJoinEvent>>(
-          SlackEventJob.TeamJoin,
-          {
+        await this.saveJobOnce(body, () =>
+          this.jobs.enqueue<IEventJob<ITeamJoinEvent>>(SlackEventJob.TeamJoin, {
             event,
             ...this.actor(user),
             workspaceSlackId: getRequestWorkspaceSlackId(body),
-          },
+          }),
         );
 
         break;
       case SlackEventType.UserChange:
-        await this.jobs.enqueue<IEventJob<IUserChangeEvent>>(
-          SlackEventJob.UserChange,
-          { event, ...this.actor(user) },
+        await this.saveJobOnce(body, () =>
+          this.jobs.enqueue<IEventJob<IUserChangeEvent>>(
+            SlackEventJob.UserChange,
+            { event, ...this.actor(user) },
+          ),
         );
 
         break;
@@ -200,7 +205,9 @@ export default class SlackEventsService implements OnModuleInit {
         const { team_id: teamSlackId } =
           body as unknown as IAppUninstalledEventBodyData;
 
-        await this.jobs.enqueue(SlackEventJob.AppUninstalled, { teamSlackId });
+        await this.saveJobOnce(body, () =>
+          this.jobs.enqueue(SlackEventJob.AppUninstalled, { teamSlackId }),
+        );
 
         break;
       }
@@ -211,6 +218,26 @@ export default class SlackEventsService implements OnModuleInit {
     }
 
     return { ok: true };
+  }
+
+  // Slack sends an event again when its answer came late or failed: only
+  // its first delivery saves a job. Opening Home has no job, and showing it
+  // twice does no harm.
+  private async saveJobOnce(
+    body: Record<string, unknown>,
+    save: () => Promise<void>,
+  ) {
+    const eventId =
+      typeof body.event_id === 'string' ? body.event_id : undefined;
+    const taken = await this.eventReceipts.takeOnce(
+      getRequestWorkspaceSlackId(body),
+      eventId,
+      save,
+    );
+
+    if (!taken) {
+      this.logger.log('Ignoring an event Slack sent again', { eventId });
+    }
   }
 
   private actor(user: IUserViewModel | undefined) {

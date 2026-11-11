@@ -72,11 +72,17 @@ export class SlackTestClient {
   }
 
   // An Events API body as is, e.g. the url_verification handshake.
-  public rawEvent(body: Record<string, unknown>) {
+  // `headers`: more headers, such as X-Slack-Retry-Num on a delivery Slack
+  // repeats.
+  public rawEvent(
+    body: Record<string, unknown>,
+    headers: Record<string, string> = {},
+  ) {
     return this.post(
       '/api/slack/events',
       JSON.stringify(body),
       'application/json',
+      headers,
     );
   }
 
@@ -219,7 +225,12 @@ export class SlackTestClient {
     });
   }
 
-  private post(path: string, body: string, contentType: string) {
+  private post(
+    path: string,
+    body: string,
+    contentType: string,
+    headers: Record<string, string> = {},
+  ) {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const sentAt = performance.now();
     const signature = createHmac('sha256', TEST_SLACK_SIGNING_SECRET)
@@ -234,6 +245,7 @@ export class SlackTestClient {
       .set('Content-Type', contentType)
       .set('X-Slack-Request-Timestamp', timestamp)
       .set('X-Slack-Signature', `v0=${signature}`)
+      .set(headers)
       .send(body)
       .expect(() => {
         const answeredAfter = performance.now() - sentAt;

@@ -20,6 +20,7 @@ import { TabNavigationService } from 'src/slack/common/services/tab-navigation.s
 import { UsersService } from 'src/users/services/users.service';
 import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall.service';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
+import { SlackEventReceiptsService } from 'src/slack-teams/slack-event-receipts.service';
 import SlackEventType from 'src/slack/enums/slack-event-type.enum';
 import UserRole from 'src/common/enums/user-role.enum';
 import ISlackTeamViewModel from 'src/slack-teams/types/slack-team.interface';
@@ -61,6 +62,7 @@ describe('SlackEventsService', () => {
   let tabNavigationService: { navigate: jest.Mock };
   let loggerError: jest.SpyInstance;
   let send: jest.Mock;
+  let takeOnce: jest.Mock;
   let service: SlackEventsService;
 
   beforeEach(() => {
@@ -74,6 +76,14 @@ describe('SlackEventsService', () => {
     };
     tabNavigationService = { navigate: jest.fn() };
     send = jest.fn().mockResolvedValue(null);
+    // Every delivery is the first one.
+    takeOnce = jest.fn(
+      async (_workspace: string, _event: string, save: () => Promise<void>) => {
+        await save();
+
+        return true;
+      },
+    );
     loggerError = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => undefined);
@@ -92,6 +102,7 @@ describe('SlackEventsService', () => {
         afterCommit: (work: () => Promise<unknown>) =>
           void startInBackground(work),
       } as unknown as TransactionService),
+      { takeOnce } as unknown as SlackEventReceiptsService,
     );
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     service.onModuleInit();
@@ -115,6 +126,32 @@ describe('SlackEventsService', () => {
       expect.anything(),
     );
     await flushPromises();
+  });
+
+  it('saves no job for an event Slack delivered before', async () => {
+    takeOnce.mockResolvedValue(false);
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+
+    const response = await service.handleSlackEvent(
+      {
+        type: SlackEventType.FileShared,
+        user_id: 'U_ADMIN',
+        file_id: 'F1',
+        channel_id: 'D1',
+        team_id: slackTeam.slack_id,
+      },
+      undefined,
+      { team_id: slackTeam.slack_id, event_id: 'Ev1' },
+    );
+    await flushPromises();
+
+    expect(response).toEqual({ ok: true });
+    expect(takeOnce).toHaveBeenCalledWith(
+      slackTeam.slack_id,
+      'Ev1',
+      expect.any(Function),
+    );
+    expect(send).not.toHaveBeenCalled();
   });
 
   // Slack sends it again when it gets no answer.

@@ -771,6 +771,33 @@ export type Database = {
           },
         ];
       };
+      slack_event_receipts: {
+        Row: {
+          event_id: string;
+          received_at: string;
+          slack_team_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          event_id: string;
+          received_at: string;
+          slack_team_id: string;
+        };
+        Update: {
+          event_id?: string;
+          received_at?: string;
+          slack_team_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'slack_event_receipts_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       slack_teams: {
         Row: {
           created_at: string;
