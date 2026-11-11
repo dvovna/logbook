@@ -4,7 +4,7 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
-Company rules, and teams set up from a file. Update step: three database migrations, see Running it.
+Company rules, and teams set up from a file. Update step: four database migrations, see Running it.
 
 ### Teams and approvers
 - Company rules, opened from Teams: the level 2 approvers and their rule, who hears of decisions, and the vacation policy. A team follows them or keeps rules of its own, chosen in the team form; people in no team follow them. Level 1 always comes from the team.
@@ -19,7 +19,8 @@ Company rules, and teams set up from a file. Update step: three database migrati
 - `DATABASE_POOL_SIZE` defaults to 10 (was 5), and the job queue holds 3 connections (was 2): together they must stay under your Supabase project's "Pool Size" (15 on the smaller compute sizes). A query that gets no connection within 2 seconds now fails instead of waiting.
 - `JOBS_CONCURRENCY` (optional, default 4): how many background jobs run at once, so that a burst of them leaves connections to people's clicks.
 - README → Self-hosting says why to run the app in the database's region.
-- **Update step:** this release adds three database migrations (`20261112100000_company_rules.sql`, `20261112110000_team_file_uploads.sql`, `20261112120000_new_person_prompts.sql`). Apply them as 0.2.0 describes, with `pnpm supabase db push --remote "<connection string>"`; the app refuses to start without them.
+- My time's list reads only your own entries, and Time logs and the Approvals lists read only the page they show and count the rest without copying them; each render read the workspace's whole history of time before. This comes with a database migration, part of the update step.
+- **Update step:** this release adds four database migrations (`20261112100000_company_rules.sql`, `20261112110000_team_file_uploads.sql`, `20261112120000_new_person_prompts.sql`, `20261112130000_time_entries_list_invoker.sql`). Apply them as 0.2.0 describes, with `pnpm supabase db push --remote "<connection string>"`; the app refuses to start without them.
 - The `/user-team-mapping` command and `user-team-mapping.csv` are gone, replaced by the team file. Apply `slack-app-manifest.yml` again to drop the command from an installed app.
 - HR may now share files with the bot (the team file); `user-vacations.csv` stays Admin only.
 
