@@ -107,7 +107,7 @@ The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` li
 The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.2.0`), its minor line (`0.2`) and `latest`:
 
 ```bash
-docker run -d --name logbook --restart always --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.2
+docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.2
 ```
 
 The second port of `-p` is `PORT` from `.env`; with `PORT` left out of `.env`, the container listens on 10000, so map `-p 3000:10000`.
@@ -127,6 +127,8 @@ pnpm start:prod
 ```
 
 Put the app behind HTTPS (a reverse proxy, or a platform such as Render or Fly.io). Then open "Event Subscriptions" in the Slack app settings and retry the URL verification.
+
+On a restart or a deploy the app gets SIGTERM: it stops taking requests at once, finishes what is in flight (an approval, a CSV on its way) for up to 12 seconds, then closes its connections, in 22 seconds at most. `docker stop` kills a container after 10 seconds, so the compose file sets `stop_grace_period: 30s` and the `docker run` above passes `--stop-timeout 30`. A platform has its own grace period: set it to 30 seconds, e.g. `maxShutdownDelaySeconds` in Render's `render.yaml` or `kill_timeout` in Fly.io's `fly.toml`. Work cut off by a shorter one isn't lost, since the next process retries it, but it comes minutes late.
 
 `GET /health` answers 200 while the app reaches its database and 503 when it can't; point your platform's health check at it. The Docker image already uses it.
 
