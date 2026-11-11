@@ -53,3 +53,15 @@ export const getVacationPeriodsBetween = (
 
   return periods;
 };
+
+// The vacation year the person came into Logbook in (`createdAt`), whose
+// carryover HR enters by hand; never later than the current one.
+export const getJoinedVacationPeriod = (
+  contractStartDate: string | null | undefined,
+  createdAt: string,
+  today = new Date(),
+) =>
+  getCurrentVacationPeriod(
+    contractStartDate,
+    new Date(Math.min(new Date(createdAt).getTime(), today.getTime())),
+  );

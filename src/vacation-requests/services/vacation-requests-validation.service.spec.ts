@@ -177,6 +177,7 @@ describe('VacationRequestsValidationService', () => {
         workingDays: 20,
         bonusDays: 0,
         carryoverDays: 0,
+        carryoverWorkingDays: 0,
         daysTotal: 20,
       },
       usage: {

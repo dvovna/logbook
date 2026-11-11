@@ -1,3 +1,5 @@
+import { getJoinedVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
+import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
@@ -97,15 +99,28 @@ export class EditUserModalView extends BaseModalView<
         options: teamOptions,
         initialValue: selectedTeamId,
       }),
-      this.addUnusedDaysBlock(user.carryover_days),
+      this.addUnusedDaysBlock(
+        user.carryover_days,
+        getJoinedVacationPeriod(user.contract_start_date, user.created_at)
+          .periodStart,
+      ),
       ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
     ];
   }
 
-  private addUnusedDaysBlock(daysUnused: number | null = 0) {
+  // Entered for the year the person joined in: later years carry over what
+  // is left on their own.
+  private addUnusedDaysBlock(
+    daysUnused: number | null = 0,
+    joinedYearStart: Date,
+  ) {
     return {
       type: 'input',
       block_id: 'carryover_days_block',
+      hint: {
+        type: 'plain_text',
+        text: `Days left from before they joined, for the vacation year from ${formatDate(joinedYearStart)}. Each later year carries over what is left on its own, up to the policy's limit.`,
+      },
       element: {
         type: 'number_input',
         action_id: 'carryover_days',

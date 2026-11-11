@@ -19,6 +19,11 @@ export interface IVacationDaysUsage {
   otherUsed: number;
 }
 
+export interface IVacationPeriod {
+  periodStart: Date;
+  periodEnd: Date;
+}
+
 export interface IPeriodUsageOptions {
   // A request being edited, which the check counts with its new dates.
   excludeRequestId?: string;
@@ -30,7 +35,7 @@ export interface IPeriodUsageOptions {
 // holidays as they are now: a request keeps the working days it had when it
 // was made, which a holiday imported, added or switched off since makes
 // wrong. One query for the requests, then one per team and per policy among
-// them.
+// them, however many periods.
 @Injectable()
 export class VacationPeriodUsageService {
   public constructor(
@@ -39,35 +44,45 @@ export class VacationPeriodUsageService {
     private readonly vacationDaysCalculationService: VacationDaysCalculationService,
   ) {}
 
-  public async getPeriodUsage(
+  // The usage of each of `periods` (in order), from one read of the
+  // requests of all of them.
+  public async getUsageByPeriods(
     user: IUserViewModel,
-    periodStart: Date,
-    periodEnd: Date,
+    periods: IVacationPeriod[],
     { excludeRequestId, ownRules }: IPeriodUsageOptions = {},
-  ): Promise<IVacationDaysUsage> {
+  ): Promise<IVacationDaysUsage[]> {
+    const from = periods[0].periodStart;
+    const to = periods[periods.length - 1].periodEnd;
     const vacationRequests = await this.getVacationRequestsByPeriod(
       user,
-      periodStart,
-      periodEnd,
+      from,
+      to,
       excludeRequestId,
     );
-    const holidaysOfTeam = this.holidaysByTeam(
-      user,
-      periodStart,
-      periodEnd,
-      ownRules,
+    const holidaysOfTeam = this.holidaysByTeam(user, from, to, ownRules);
+    const requests = await Promise.all(
+      vacationRequests.map(async (vacation) => ({
+        vacation,
+        holidayDates: await holidaysOfTeam(vacation.team_id),
+      })),
     );
 
-    return this.aggregateVacationDays(
-      await Promise.all(
-        vacationRequests.map(async (vacation) =>
-          this.getDaysInPeriod(
-            vacation,
-            periodStart,
-            periodEnd,
-            await holidaysOfTeam(vacation.team_id),
+    return periods.map(({ periodStart, periodEnd }) =>
+      this.aggregateVacationDays(
+        requests
+          .filter(
+            ({ vacation }) =>
+              vacation.start_date <= getDateOnly(periodEnd) &&
+              vacation.end_date >= getDateOnly(periodStart),
+          )
+          .map(({ vacation, holidayDates }) =>
+            this.getDaysInPeriod(
+              vacation,
+              periodStart,
+              periodEnd,
+              holidayDates,
+            ),
           ),
-        ),
       ),
     );
   }

@@ -72,7 +72,12 @@ describe('Vacation balance under a policy', () => {
   describe('on Home', () => {
     it('shows what is left of the policy, with carryover', async () => {
       await setUp(
-        { vacation_days: 20, working_days: 15, bonus_days: 2 },
+        {
+          vacation_days: 20,
+          working_days: 15,
+          bonus_days: 2,
+          carryover_days: 5,
+        },
         { carryover_days: 3 },
       );
       await workspace.addVacationRequest(member, {
@@ -105,6 +110,50 @@ describe('Vacation balance under a policy', () => {
         'Annual leave: *16 available* / 20 total (*7* used, *5* working, +*3* carryover)',
         'Bonus days: *1 available* / 2 total (*1* used)',
       ]);
+    });
+
+    describe('for someone who joined in an earlier year', () => {
+      const joinedLastYear = { created_at: '2025-02-01T09:00:00Z' };
+
+      it("carries over what was left of last year, up to the policy's most", async () => {
+        await setUp(
+          { vacation_days: 20, working_days: 20, carryover_days: 5 },
+          joinedLastYear,
+        );
+        // 12 days in 2025, so 8 are left; 5 may carry over.
+        await workspace.addVacationRequest(member, {
+          start_date: '2025-03-02',
+          end_date: '2025-03-13',
+        });
+
+        expect(await usageOnHome()).toEqual([
+          'Annual leave: *25 available* / 20 total (+*5* carryover)',
+        ]);
+      });
+
+      it('starts from the carryover HR entered for the year they joined', async () => {
+        await setUp(
+          { vacation_days: 20, working_days: 20, carryover_days: 5 },
+          { ...joinedLastYear, carryover_days: 2 },
+        );
+        // Three weeks in 2025: 20 + 2 - 21 leaves 1 day.
+        await workspace.addVacationRequest(member, {
+          start_date: '2025-03-03',
+          end_date: '2025-03-23',
+        });
+
+        expect(await usageOnHome()).toEqual([
+          'Annual leave: *21 available* / 20 total (+*1* carryover)',
+        ]);
+      });
+
+      it('carries nothing over when the policy allows none', async () => {
+        await setUp({ vacation_days: 20, working_days: 20 }, joinedLastYear);
+
+        expect(await usageOnHome()).toEqual([
+          'Annual leave: *20 available* / 20 total',
+        ]);
+      });
     });
 
     it('says there is no limit when no policy applies', async () => {
