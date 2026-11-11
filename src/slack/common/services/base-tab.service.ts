@@ -46,7 +46,7 @@ export default abstract class BaseTabService<
   private readonly logger = new Logger(BaseTabService.name);
 
   @Inject(SlackCommunicationService)
-  private readonly slackCommunicationService: SlackCommunicationService;
+  protected readonly slackCommunicationService: SlackCommunicationService;
 
   @Inject(TabNavigationService)
   private readonly tabNavigationService: TabNavigationService;

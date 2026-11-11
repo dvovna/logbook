@@ -91,9 +91,8 @@ export default class ReportsTabActionHandler extends BaseTabActionHandler {
       throw new ValidationError('Show a billing report first.');
     }
 
-    await this.reportsTabService.openModal(
+    await this.reportsTabService.openLockSnapshotModal(
       payload.trigger_id || user.slack_id,
-      ReportsModalName.LockSnapshot,
       { user, pageMetadata: payload.view?.private_metadata ?? '{}' },
     );
   };

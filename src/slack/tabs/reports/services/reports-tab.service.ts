@@ -1,5 +1,5 @@
 import { canSeeRates } from 'src/projects/constants/rate-roles';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { View } from '@slack/types/dist/views';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 import BaseTabService, {
@@ -29,6 +29,8 @@ import { formatDateRange } from '@common/utils/date.utils';
 import { todayIso } from '@common/utils/period-presets';
 import { formatMoney } from '@common/utils/money.utils';
 import { getDisplayTime } from '@common/utils/time.utils';
+import { runInBackground } from '@common/utils/run-in-background';
+import { classifyActionError } from '@modules/slack/common/utils/action-errors';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -76,6 +78,24 @@ export const billingReportOf = (
   }
 };
 
+const LOCK_SNAPSHOT_TITLE = 'Lock in a snapshot';
+
+// The confirmation until it knows what it would lock: nothing to confirm.
+const LOCK_SNAPSHOT_PENDING: View = {
+  type: 'modal',
+  title: { type: 'plain_text', text: LOCK_SNAPSHOT_TITLE },
+  close: { type: 'plain_text', text: 'Cancel' },
+  blocks: [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: "⏳ Adding up the approved time that isn't in a snapshot yet…",
+      },
+    },
+  ],
+};
+
 // A dated form's period: the quick period's, else this month up to today.
 const datedPeriod = (period?: IFormPeriod) => ({
   fromDate: period ? period.fromDate : `${todayIso().slice(0, 8)}01`,
@@ -88,6 +108,8 @@ export class ReportsTabService extends BaseTabService<
   ReportsModalViewResolversMap,
   IReportsPublishParams
 > {
+  private readonly reportsLogger = new Logger(ReportsTabService.name);
+
   public constructor(
     private readonly reportsTabView: ReportsTabView,
     private readonly billingReportModalView: BillingReportModalView,
@@ -215,6 +237,67 @@ export class ReportsTabService extends BaseTabService<
     });
   }
 
+  // Opens the confirmation at once, while the click's trigger_id lives (3
+  // seconds), and puts in what it would lock after the answer: adding up a
+  // year of a big client's time can take longer.
+  public async openLockSnapshotModal(
+    triggerId: string,
+    params: IOpenModalBaseParams<string>,
+  ) {
+    const { view } = await this.slackCommunicationService.openView(
+      triggerId,
+      LOCK_SNAPSHOT_PENDING,
+      params.user.slack_team_id,
+    );
+
+    if (view?.id) {
+      const { id, hash } = view;
+
+      runInBackground(
+        this.reportsLogger,
+        'show what a snapshot would lock',
+        () => this.showLockSnapshotPreview(id, hash, params),
+      );
+    }
+  }
+
+  // The confirmation `views.open` opened, with what it would lock, or with
+  // why that couldn't be worked out. `hash` is the opened view's: an update
+  // never replaces a view that changed since.
+  private async showLockSnapshotPreview(
+    viewId: string,
+    hash: string | undefined,
+    params: IOpenModalBaseParams<string>,
+  ) {
+    let view: View;
+    let unexpected: unknown = null;
+
+    try {
+      view = await this.getLockSnapshotModal(params);
+    } catch (error) {
+      const kind = classifyActionError(error);
+
+      unexpected = kind === 'unexpected' || kind === 'not-found' ? error : null;
+      view = this.confirmationModalView.getErrorView(
+        LOCK_SNAPSHOT_TITLE,
+        unexpected
+          ? "Couldn't add up the time to lock. Please try again."
+          : (error as Error).message,
+      );
+    }
+
+    await this.slackCommunicationService.updateView(
+      viewId,
+      view,
+      params.user.slack_team_id,
+      hash,
+    );
+
+    if (unexpected) {
+      throw unexpected;
+    }
+  }
+
   // What locking the billing report on show would take: its approved time
   // that isn't in a snapshot yet.
   private async getLockSnapshotModal({
@@ -239,7 +322,7 @@ export class ReportsTabService extends BaseTabService<
     return this.confirmationModalView.getView(
       {
         callbackId: ViewCallbackId.CreateBillingSnapshot,
-        title: 'Lock in a snapshot',
+        title: LOCK_SNAPSHOT_TITLE,
         confirmText: 'Lock',
         message: preview.entryCount
           ? [

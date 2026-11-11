@@ -223,6 +223,21 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     };
   }
 
+  // The modal last opened in the workspace as its user sees it now: as
+  // views.open showed it, or as views.update replaced it since, e.g. a
+  // confirmation that shows what it is about once that is worked out.
+  public shownModal(token: string, options?: ISince): View {
+    const opened = this.openedModal(token, options);
+    const id = (opened as { id?: string }).id;
+    const update = this.callsWith(token, 'views.update', options)
+      .filter(({ params }) => params.view_id === id)
+      .pop();
+
+    return update
+      ? { ...update.params.view, id, hash: update.result?.view?.hash }
+      : opened;
+  }
+
   // The modal the app last replaced with views.update, with its ID.
   public updatedModal(token: string, options?: ISince): View {
     const update = this.callsWith(token, 'views.update', options).pop();

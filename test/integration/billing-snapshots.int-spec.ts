@@ -1,4 +1,4 @@
-import { View } from '@slack/types/dist/views';
+import { ModalView, View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
@@ -437,6 +437,87 @@ describe('Billing snapshots', () => {
 
       expect(modalError(response.body.view)).toBe('Client not found.');
       expect(await snapshotRows()).toEqual([]);
+    });
+  });
+
+  describe('working after the answer', () => {
+    // The ID and hash Slack gave a modal the app opened.
+    const idOf = (view: View) => (view as View & { id: string }).id;
+    const hashOf = (view: View) => (view as View & { hash: string }).hash;
+    // A modal's button that confirms, if it has one.
+    const submitOf = (view: View) => (view as ModalView).submit;
+
+    // The statements sent since `mark` that someone waited for before the
+    // answer, and those that ran after it.
+    const statementsSince = (mark: number) => {
+      const statements = t.sql.statements(mark);
+
+      return {
+        answer: statements.filter(({ background }) => !background),
+        after: statements.filter(({ background }) => background),
+      };
+    };
+
+    it('opens the confirmation at once and adds up what it locks after the answer', async () => {
+      const reports = await showBillingReport();
+      const mark = t.sql.mark();
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .actOnView(workspace, admin, reports, ReportsTabActionId.LockSnapshot)
+        .expect(200);
+      await t.idle();
+
+      const opened = t.slackApi.openedModal(workspace.token, { since });
+      const [update] = t.slackApi.callsWith(workspace.token, 'views.update', {
+        since,
+      });
+      const shown = t.slackApi.updatedModal(workspace.token, { since });
+
+      // Nothing to confirm yet.
+      expect(sectionTexts(opened)).toEqual([
+        "⏳ Adding up the approved time that isn't in a snapshot yet…",
+      ]);
+      expect(submitOf(opened)).toBeUndefined();
+      // The same modal, as views.open left it.
+      expect(update.params).toMatchObject({
+        view_id: idOf(opened),
+        hash: hashOf(opened),
+      });
+      expect(shown.callback_id).toBe(ViewCallbackId.CreateBillingSnapshot);
+      expect(sectionTexts(shown)).toEqual([LOCK_MESSAGE]);
+
+      const { answer, after } = statementsSince(mark);
+
+      expect(
+        answer.filter(({ text }) => text.includes('time_entries')),
+      ).toEqual([]);
+      expect(after.some(({ text }) => text.includes('time_entries'))).toBe(
+        true,
+      );
+    });
+
+    it("says in the confirmation when what it locks can't be added up", async () => {
+      const other = await t.createWorkspace();
+      const theirs = await other.addClient({ name: 'Theirs' });
+      const reports = await showBillingReport();
+      const since = t.slackApi.mark();
+
+      await forge(
+        admin,
+        {
+          ...reports,
+          private_metadata: JSON.stringify({
+            report: { clientId: theirs.id, ...JUNE },
+          }),
+        },
+        button(ReportsTabActionId.LockSnapshot),
+      );
+
+      const shown = t.slackApi.updatedModal(workspace.token, { since });
+
+      expect(modalError(shown)).toBe('Client not found.');
+      expect(submitOf(shown)).toBeUndefined();
     });
   });
 

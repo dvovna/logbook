@@ -78,7 +78,7 @@ export const openAppHomeTab = async (
 };
 
 // Clicks or chooses `value` in an element of `view` and returns the modal
-// the app opens in response.
+// the app opens in response, as the app left it once its work was done.
 export const openModalFrom = async (
   t: ITestApp,
   workspace: TestWorkspace,
@@ -93,5 +93,5 @@ export const openModalFrom = async (
 
   await t.idle();
 
-  return t.slackApi.openedModal(workspace.token, { since });
+  return t.slackApi.shownModal(workspace.token, { since });
 };
