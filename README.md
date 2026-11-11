@@ -28,7 +28,8 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 **People**
 - When the app is installed, all workspace members are imported; people who join later are added automatically.
 - Roles: admin, HR, manager, member.
-- Admins upload CSV files to bulk-load vacation history and team membership.
+- Admins upload a CSV to bulk-load vacation history.
+- Admin and HR set up teams from a file the bot sends. They fill it in and share it back, check the preview, then apply it. Undo restores it for 7 days.
 
 **Time & Billing (beta)**
 - Clients, projects with team and user assignments, and billable flags.

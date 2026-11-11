@@ -94,11 +94,6 @@ export class UsersTabView extends BaseTabView<
             text: { type: 'plain_text', text: '📥 Import vacations (CSV)' },
             action_id: UsersTabViewActionId.ImportVacations,
           },
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '📥 Import teams (CSV)' },
-            action_id: UsersTabViewActionId.ImportTeams,
-          },
         ],
       });
     }

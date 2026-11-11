@@ -114,7 +114,7 @@ Controllers are in `src/slack/controllers/`:
 - Users are looked up by workspace and Slack user ID together (`UsersService.findBySlackId(slackId, slackTeamId)`; unique `(slack_team_id, slack_id)`). On Enterprise Grid the same `U…` exists in several workspaces. The guards take the workspace from the request (`getRequestWorkspaceSlackId`).
 - `/vacations` and `/log` slash commands (`/log` opens the Log Time form, as on Home).
 - Admin commands.
-- Events: home tab opened, `file_shared` (starts the CSV import), `team_join`/`user_change` (user upsert), `app_uninstalled`.
+- Events: home tab opened, `file_shared` (starts a file import), `team_join`/`user_change` (user upsert), `app_uninstalled`.
 - Interactions.
 - Options (external select search).
 
@@ -266,9 +266,11 @@ Slash command replies stay in memory (`runInBackground`): a reply hours later is
   - Limits come only from the vacation policy the user's team follows: its own, or the company rules' for a team that follows them and for someone in no team. With no policy, `limits` is null: usage is tracked and shown, but no balance is checked. This is the "no setup" mode.
   - Usage is counted from the requests on every read (`VacationPeriodUsageService`), not cached: a cache went stale on CSV imports and holiday or policy changes.
 - **Working days:** `VacationDaysCalculationService` excludes weekends and the enabled holidays of the user's vacation policy. Holidays can be imported per country from Nager.Date (`src/holidays/clients/nager-date.client.ts`).
-- **CSV imports:** an admin command posts a prompt, the admin uploads a file, Slack sends `file_shared`, and `FileUploadService` routes the file **by its name** to `src/user-data-import/`:
-  - `user-vacations.csv` (`/upload-vacations`): sets the contract start date and replaces the user's vacations (the approvers of a pending one see their message closed);
-  - `user-team-mapping.csv` (`/user-team-mapping`): `email;team_name` (both CSVs use `;`), moves users to the team with that exact name.
+- **File imports:** Slack sends `file_shared`, and `FileUploadService` routes the file:
+  - `user-vacations.csv` (by name; Admin only; the `/upload-vacations` command or Users → Import vacations posts the prompt) goes to `src/user-data-import/`: sets the contract start date and replaces the user's vacations (the approvers of a pending one see their message closed), `;` separated.
+  - Any other `.csv` or `.xlsx` is parsed as a team file (`src/team-file`, the Slack side in `src/slack/team-file`; Admin and HR). Its Email and Team columns tell it from other files; a file without them gets "Unknown file type". Teams → "📄 Set up from a file" DMs the template of everyone (`team-setup.csv`: Name, Email, Team, Team lead).
+  - The file is not applied at once: the bot posts a preview (Apply / Cancel / Company rules) and keeps the upload in `team_file_uploads`, applicable for 7 days. Apply runs in one transaction under the advisory lock `team-file:<workspace>`, re-plans, and applies only when the plan's digest is the one the clicked preview showed. It creates teams that follow the company rules, places people, sets leads and makes a Member lead a Manager.
+  - Undo restores the workspace's latest applied upload within 7 days, and only where a value is still what Apply left.
 - **Caching:** `CacheModule.register()` is in-memory, so each process has its own cache (access tokens for a day, Nager.Date holidays for an hour; cache-manager takes TTLs in milliseconds). That's fine because production runs a single instance. Running more instances would need a shared store, for example Redis via Keyv.
 - **Logging:** `nestjs-pino`, pretty-printed unless `NODE_ENV=production`.
 - **Health and error tracking:** `GET /health` checks the database through the pool (200 or 503); the Docker image's `HEALTHCHECK` calls it. With `SENTRY_DSN` set, `reportError` (`src/common/errors/error-reporter.ts`) sends unexpected errors to Sentry with no request data or user details: from `GlobalExceptionsFilter` (5xx), `runInBackground`, a job that won't run again, and an uninstalled workspace that could not be deleted. Every log line of a request and of the background work it starts carries the request's id (`genReqId`).

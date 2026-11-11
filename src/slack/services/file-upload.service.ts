@@ -8,7 +8,6 @@ import {
   UserVacationsImportService,
 } from '@modules/user-data-import/services/user-vacations-import.service';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
-import { UserTeamMappingImportService } from '@modules/user-data-import/services/user-team-mapping-import.service';
 import { TeamFileMessagesService } from '@modules/slack/team-file/services/team-file-messages.service';
 import { parseTeamFile } from 'src/team-file/parsers/team-file.parser';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
@@ -36,7 +35,6 @@ export default class FileUploadService {
 
   public constructor(
     private readonly userVacationsImportService: UserVacationsImportService,
-    private readonly userTeamMappingImportService: UserTeamMappingImportService,
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly teamFileUploadsService: TeamFileUploadsService,
     private readonly teamFileMessagesService: TeamFileMessagesService,
@@ -44,8 +42,6 @@ export default class FileUploadService {
     this.importers = {
       [VACATIONS_FILE]: (content, user) =>
         this.userVacationsImportService.handle(content, user),
-      'user-team-mapping.csv': (content, user) =>
-        this.userTeamMappingImportService.handle(content, user),
     };
   }
 
