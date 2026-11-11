@@ -13,7 +13,10 @@ import {
 } from '@modules/slack/tabs/holidays/views/holidays-tab.view';
 import HolidaysService from '@modules/holidays/services/holidays.service';
 import { HolidayModalView } from '@modules/slack/tabs/holidays/views/holiday-modal.view';
-import { ImportHolidaysModalView } from '@modules/slack/tabs/holidays/views/import-holidays-modal.view';
+import {
+  IImportRegions,
+  ImportHolidaysModalView,
+} from '@modules/slack/tabs/holidays/views/import-holidays-modal.view';
 import { ConfigService } from '@nestjs/config';
 import { jsonParse } from '@common/utils/json-parse';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
@@ -23,6 +26,10 @@ import EnvironmentVariable from '@common/enums/environment-variable.enum';
 interface IHolidayModalViewParams extends IOpenModalBaseParams<string> {
   holidayId: string;
 }
+
+type IImportHolidaysModalViewParams = IOpenModalBaseParams<string> & {
+  regions?: IImportRegions;
+};
 
 export enum HolidaysTabModalName {
   CreateHoliday = 'CreateHoliday',
@@ -53,7 +60,7 @@ type HolidaysTabModalViewResolversMapType = {
     params: IHolidayModalViewParams,
   ) => Promise<View>;
   [HolidaysTabModalName.ImportHolidays]: (
-    params: IOpenModalBaseParams<string>,
+    params: IImportHolidaysModalViewParams,
   ) => View;
   [HolidaysTabModalName.DeleteHoliday]: (
     params: IHolidayModalViewParams,
@@ -154,10 +161,17 @@ export class HolidaysTabService extends BaseTabService<
   private getImportHolidaysModalView({
     errorMessage,
     pageMetadata,
-  }: IOpenModalBaseParams<string>) {
+    regions,
+  }: IImportHolidaysModalViewParams) {
+    const parsedPageMetadata = jsonParse<IHolidaysTabMetadata>(pageMetadata);
+
+    if (!parsedPageMetadata) {
+      throw new Error('Invalid page metadata');
+    }
+
     return this.importHolidaysModalView.getView(
-      { errorMessage },
-      { pageMetadata },
+      { errorMessage, year: parsedPageMetadata.filters.selectedYear },
+      { pageMetadata, regions },
     );
   }
 
