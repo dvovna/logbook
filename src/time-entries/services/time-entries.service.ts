@@ -34,6 +34,7 @@ import {
   IReportEntriesQuery,
   TimeReportCsvCursor,
 } from 'src/time-entries/types/time-report.types';
+import { TransactionService } from 'src/database/transaction.service';
 
 interface IFindParams {
   id?: string;
@@ -65,6 +66,7 @@ export class TimeEntriesService {
     private readonly getUserProjectsQuery: GetUserProjectsQuery,
     private readonly eventEmitter: EventEmitter2,
     private readonly timeEntryWriter: TimeEntryWriter,
+    private readonly transactions: TransactionService,
   ) {}
 
   public async create(
@@ -75,15 +77,17 @@ export class TimeEntriesService {
 
     await this.timeEntriesValidationService.validateCreate(createParams, user);
 
-    const created = await this.timeEntryWriter.insert(
-      createParams,
-      project,
-      user,
-    );
+    return this.submitting(createParams.status, async () => {
+      const created = await this.timeEntryWriter.insert(
+        createParams,
+        project,
+        user,
+      );
 
-    this.announceSubmitted([created], user);
+      await this.announceSubmitted([created], user);
 
-    return created;
+      return created;
+    });
   }
 
   public async update(
@@ -111,24 +115,26 @@ export class TimeEntriesService {
       user,
     );
 
-    const updated = await this.answeringAsTheCheck(
-      () =>
-        this.timeEntryWriter.writeUpdate(existingEntry, updateParams, user, {
-          project,
-        }),
-      async () =>
-        this.timeEntriesValidationService.validateUpdate(
-          await this.findOneWithValidation({ id, slackTeamId }),
-          updateParams,
-          user,
-        ),
-    );
+    return this.submitting(updateParams.status, async () => {
+      const updated = await this.answeringAsTheCheck(
+        () =>
+          this.timeEntryWriter.writeUpdate(existingEntry, updateParams, user, {
+            project,
+          }),
+        async () =>
+          this.timeEntriesValidationService.validateUpdate(
+            await this.findOneWithValidation({ id, slackTeamId }),
+            updateParams,
+            user,
+          ),
+      );
 
-    if (existingEntry.status !== TimeEntryStatus.Submitted) {
-      this.announceSubmitted([updated], user);
-    }
+      if (existingEntry.status !== TimeEntryStatus.Submitted) {
+        await this.announceSubmitted([updated], user);
+      }
 
-    return updated;
+      return updated;
+    });
   }
 
   public findOne(params: IFindParams): Promise<ITimeEntryViewModel | null> {
@@ -243,31 +249,45 @@ export class TimeEntriesService {
       }
     }
 
-    const submitted = await this.timeEntriesRepository.updateMany(
-      this.getFindQuery({
-        id,
-        userId: user.id,
-        slackTeamId,
-        dateFrom,
-        dateTo,
-        statuses: OPEN_TIME_ENTRY_STATUSES,
-      }),
-      {
-        status: TimeEntryStatus.Submitted,
-        rejection_reason: null,
-        updated_at: new Date().toISOString(),
-        updated_by: user.id,
-      },
-    );
+    return this.transactions.transaction(async () => {
+      const submitted = await this.timeEntriesRepository.updateMany(
+        this.getFindQuery({
+          id,
+          userId: user.id,
+          slackTeamId,
+          dateFrom,
+          dateTo,
+          statuses: OPEN_TIME_ENTRY_STATUSES,
+        }),
+        {
+          status: TimeEntryStatus.Submitted,
+          rejection_reason: null,
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        },
+      );
 
-    this.announceSubmitted(submitted, user);
+      await this.announceSubmitted(submitted, user);
 
-    return submitted;
+      return submitted;
+    });
+  }
+
+  // A write that may submit an entry runs in a transaction with the jobs
+  // that tell its approvers (announceSubmitted); any other needs none.
+  private submitting<T>(
+    status: TimeEntryStatus | undefined,
+    write: () => Promise<T>,
+  ): Promise<T> {
+    return status === TimeEntryStatus.Submitted
+      ? this.transactions.transaction(write)
+      : write();
   }
 
   // Entries that just went to their approvers: submitted by their owner, or
-  // logged or set as submitted by Admin or HR. The approvers hear of them.
-  private announceSubmitted(
+  // logged or set as submitted by Admin or HR. The approvers hear of them:
+  // the listener saves the jobs in the caller's transaction (emitAsync).
+  private async announceSubmitted(
     entries: ITimeEntryViewModel[],
     submittedBy: IUserViewModel,
   ) {
@@ -276,7 +296,7 @@ export class TimeEntriesService {
     );
 
     if (submitted.length) {
-      this.eventEmitter.emit(
+      await this.eventEmitter.emitAsync(
         TIME_ENTRIES_SUBMITTED,
         new TimeEntriesSubmittedEvent(
           submitted,

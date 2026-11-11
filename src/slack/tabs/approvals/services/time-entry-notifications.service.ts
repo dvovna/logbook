@@ -65,8 +65,10 @@ export class TimeEntryNotificationsService implements OnModuleInit {
 
   // Tells each approver of the submitted entries, in one message, what waits
   // for them (TimeEntryApprovalsService.groupByApprover). A job per
-  // approver: when Slack fails the message is retried, not lost.
-  @OnEvent(TIME_ENTRIES_SUBMITTED)
+  // approver: when Slack fails the message is retried, not lost. Runs in the
+  // transaction that submits them (emitAsync), so the jobs are saved, in one
+  // statement, with the entries' status.
+  @OnEvent(TIME_ENTRIES_SUBMITTED, { suppressErrors: false })
   public async handleSubmitted({
     entries,
     slackTeamId,
@@ -78,32 +80,36 @@ export class TimeEntryNotificationsService implements OnModuleInit {
     );
 
     // Admin or HR who logged it as submitted knows already.
-    for (const { approver, entries: theirs } of groups.filter(
-      ({ approver }) => approver.id !== submittedById,
-    )) {
-      // One message per owner: Admin or HR may log time for several people.
-      for (const [ownerId, owned] of Object.entries(
-        groupBy(theirs, ({ user_id }) => user_id),
-      )) {
-        void this.jobs.run<INotifySubmittedJob>(NOTIFY_SUBMITTED_JOB, {
-          slackTeamId,
-          approverId: approver.id,
-          ownerId,
-          entryIds: owned.map(({ id }) => id),
-        });
-      }
-    }
+    const jobs = groups
+      .filter(({ approver }) => approver.id !== submittedById)
+      .flatMap(({ approver, entries: theirs }) =>
+        // One message per owner: Admin or HR may log time for several people.
+        Object.entries(groupBy(theirs, ({ user_id }) => user_id)).map(
+          ([ownerId, owned]): INotifySubmittedJob => ({
+            slackTeamId,
+            approverId: approver.id,
+            ownerId,
+            entryIds: owned.map(({ id }) => id),
+          }),
+        ),
+      );
+
+    await this.jobs.enqueueMany<INotifySubmittedJob>(
+      NOTIFY_SUBMITTED_JOB,
+      jobs,
+    );
   }
 
   // Tells the owner which entry was rejected, by whom and why, and where to
   // fix it: My time shows a week, so the message names the entry's.
-  // A job: when Slack fails the message is retried, not lost.
+  // A job: when Slack fails the message is retried, not lost. Call it in the
+  // transaction that rejects the entry, which saves the job.
   public notifyRejected(
     entry: ITimeEntryViewModel,
     reviewer: IUserViewModel,
     reason?: string,
   ) {
-    this.jobs.run<INotifyRejectedJob>(NOTIFY_REJECTED_JOB, {
+    return this.jobs.enqueue<INotifyRejectedJob>(NOTIFY_REJECTED_JOB, {
       timeEntryId: entry.id,
       slackTeamId: reviewer.slack_team_id,
       reviewerId: reviewer.id,

@@ -38,9 +38,14 @@ export class ApproverAccessService implements OnModuleInit {
     );
   }
 
-  @OnEvent(USER_ACCESS_CHANGED)
-  public handleAccessChanged({ userId, slackTeamId }: UserAccessChangedEvent) {
-    this.jobs.run<IApproverAccessJob>(APPROVER_ACCESS_JOB, {
+  // Runs in the transaction that changes the user (emitAsync), so the job is
+  // saved with the change.
+  @OnEvent(USER_ACCESS_CHANGED, { suppressErrors: false })
+  public async handleAccessChanged({
+    userId,
+    slackTeamId,
+  }: UserAccessChangedEvent) {
+    await this.jobs.enqueue<IApproverAccessJob>(APPROVER_ACCESS_JOB, {
       userId,
       slackTeamId,
     });

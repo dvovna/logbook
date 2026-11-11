@@ -2,7 +2,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import UserRole from '@common/enums/user-role.enum';
 import { TransactionService } from 'src/database/transaction.service';
 import {
+  USER_ACCESS_CHANGED,
   USER_TEAM_CHANGED,
+  UserAccessChangedEvent,
   UserTeamChangedEvent,
 } from '@modules/users/events/users.events';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
@@ -52,6 +54,11 @@ describe('UsersService', () => {
         calls.push('emit');
 
         return true;
+      }),
+      emitAsync: jest.fn(() => {
+        calls.push('emitAsync');
+
+        return Promise.resolve([]);
       }),
     };
     const service = new UsersService(
@@ -171,6 +178,44 @@ describe('UsersService', () => {
         );
       },
     );
+  });
+
+  // The listener saves the job that hands their approvals over with it.
+  it('tells of a deactivation inside the transaction that writes it', async () => {
+    const { service, repository, eventEmitter, calls } = build();
+    repository.findOne.mockResolvedValue(user('ann', 'acme', UserRole.Manager));
+    repository.update.mockImplementation(async () => {
+      calls.push('update');
+
+      return { ...user('ann', 'acme', UserRole.Manager), is_active: false };
+    });
+
+    await service.update(
+      { id: 'ann', slackTeamId: 'workspace-1' },
+      { isActive: false },
+      hr,
+    );
+
+    expect(calls).toEqual(['begin', 'update', 'emitAsync', 'commit']);
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+      USER_ACCESS_CHANGED,
+      new UserAccessChangedEvent('ann', 'workspace-1'),
+    );
+  });
+
+  it('needs no transaction for a change that leaves access alone', async () => {
+    const { service, repository, transactions, eventEmitter } = build();
+    repository.findOne.mockResolvedValue(user('ann', 'acme'));
+    repository.update.mockResolvedValue(user('ann', 'acme'));
+
+    await service.update(
+      { id: 'ann', slackTeamId: 'workspace-1' },
+      { name: 'Ann' },
+      hr,
+    );
+
+    expect(transactions.transaction).not.toHaveBeenCalled();
+    expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
   });
 
   describe('makeManagers', () => {
