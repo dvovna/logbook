@@ -4,18 +4,8 @@ import { UsersService } from '@modules/users/services/users.service';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import ProjectsService from 'src/projects/services/projects.service';
+import { ISetupProgress } from '@modules/slack/tabs/home/types/setup-progress.interface';
 import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
-
-export interface ISetupProgress {
-  hasPolicy: boolean;
-  // The company rules name a level 2 approver, or every team has its own.
-  hasCompanyApprovers: boolean;
-  hasTeamWithApprovers: boolean;
-  // Active people in no team: their requests go to HR or the admins.
-  peopleWithoutTeam: number;
-  // Optional: only for time tracking.
-  hasProjects: boolean;
-}
 
 // How far the workspace is set up, for the checklist on Admin's and HR's
 // Home. Null when the four required steps are done, or for other roles.

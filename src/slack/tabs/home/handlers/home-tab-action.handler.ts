@@ -87,7 +87,7 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
       TeamsTabModalName.CompanyRules,
       {
         user,
-        pageMetadata: payload.view.private_metadata,
+        pageMetadata: '',
         openedFrom: TabId.Home,
       },
     );

@@ -23,7 +23,7 @@ import { IUserTimeSummary } from 'src/time-entries/services/time-entries-summary
 import { IPendingApprovals } from '@modules/slack/common/services/pending-approvals.service';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
-import { ISetupProgress } from '@modules/slack/tabs/home/services/setup-progress.service';
+import { ISetupProgress } from '@modules/slack/tabs/home/types/setup-progress.interface';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;

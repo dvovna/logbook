@@ -9,7 +9,7 @@ Company rules, and teams set up from a file. Update step: three database migrati
 ### Teams and approvers
 - Company rules, opened from Teams: the level 2 approvers and their rule, who hears of decisions, and the vacation policy. A team follows them or keeps rules of its own, chosen in the team form; people in no team follow them. Level 1 always comes from the team.
 - Teams → "Set up from a file": the bot sends a template with everyone's team and team lead, you fill it in and send it back as CSV or Excel, and it answers with a preview of what changes. Apply it within 7 days, and Undo it for 7 days after. For Admin and HR.
-- When someone joins later, HR gets a message asking which team they are on. It waits until the daily member import, so people who arrive together are asked about at once.
+- When someone joins Slack after the app is set up, HR (the admins when nobody has the HR role) get a message asking which team they are on, with a list of teams and Not yet. The first answer places them and updates everyone's message; placing them any other way (the team form, People, the file) does too.
 - Home's setup checklist now has the company rules and the team file as steps, and the welcome message to the installing admin lists the steps in the same order.
 
 ### Running it

@@ -34,18 +34,14 @@ const TEAM_STEP = {
   text: "*Create teams and pick their approvers*\nA team's approvers decide time off for its people. The team file sets up everyone at once.",
   buttons: [TeamsTabViewActionId.TeamFile, NavigationActionId.Teams],
 };
-const PEOPLE_STEP = {
-  text: '*Put people in teams*\n2 people have no team: their requests go to HR or the admins.',
+const peopleStep = (count: number) => ({
+  text: `*Put people in teams*
+${count} ${count === 1 ? 'person has' : 'people have'} no team: their requests go to HR or the admins.`,
   button: NavigationActionId.People,
-};
+});
 const PROJECTS_STEP = {
   text: '*Add projects* · _optional_\nOnly if you track time: people log hours on them.',
   button: NavigationActionId.Projects,
-};
-
-const PEOPLE_STEP_OF_ADMIN = {
-  text: '*Put people in teams*\n1 person has no team: their requests go to HR or the admins.',
-  button: NavigationActionId.People,
 };
 
 // What an admin sees until the workspace is set up, and the team form's
@@ -89,7 +85,7 @@ describe('First setup', () => {
         RULES_STEP,
         { text: TEAM_STEP.text },
         { buttons: TEAM_STEP.buttons },
-        PEOPLE_STEP,
+        peopleStep(2),
         PROJECTS_STEP,
       ]);
     });
@@ -108,7 +104,7 @@ describe('First setup', () => {
         {
           text: '✅ Done: vacation policy, company rules, team with approvers, projects',
         },
-        PEOPLE_STEP,
+        peopleStep(2),
       ]);
 
       await t.db
@@ -148,7 +144,7 @@ describe('First setup', () => {
           { text: '*🚀 Set up Logbook* · 2 of 4 done' },
           { text: '✅ Done: vacation policy, team with approvers' },
           RULES_STEP,
-          PEOPLE_STEP_OF_ADMIN,
+          peopleStep(1),
           PROJECTS_STEP,
         ]);
 
@@ -163,10 +159,31 @@ describe('First setup', () => {
       it('counts as done when every team has rules of its own', async () => {
         await workspace.addVacationPolicy();
         await workspace.addTeam({ hr_approvers: [admin.slack_id] });
+        await workspace.addTeam({ hr_approvers: [admin.slack_id] });
 
         expect(
           (await checklistOf(admin)).map(({ text }) => text),
         ).not.toContain(RULES_STEP.text);
+      });
+
+      it('is not done while a second team follows the company rules', async () => {
+        await workspace.addVacationPolicy();
+        await workspace.addTeam({ hr_approvers: [admin.slack_id] });
+        await followingCompanyRules();
+
+        expect(await checklistOf(admin)).toContainEqual(RULES_STEP);
+      });
+
+      it('ignores the old own approvers of a team that follows the company rules', async () => {
+        await workspace.addVacationPolicy();
+        const team = await followingCompanyRules();
+        await t.db
+          .updateTable('teams')
+          .set({ hr_approvers: [admin.slack_id] })
+          .where('id', '=', team.id)
+          .execute();
+
+        expect(await checklistOf(admin)).toContainEqual(RULES_STEP);
       });
 
       it('does not count as done with no teams, whatever the company rules lack', async () => {
