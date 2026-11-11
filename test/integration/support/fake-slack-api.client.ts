@@ -237,6 +237,23 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       }));
   }
 
+  // postedMessages() without the ones the app deleted (chat.delete).
+  public shownMessages(
+    token: string,
+    to: string,
+    options?: ISince,
+  ): IPostedMessage[] {
+    const deleted = new Set(
+      this.callsWith(token, 'chat.delete').map(
+        ({ params }) => `${params.channel}/${params.ts}`,
+      ),
+    );
+
+    return this.postedMessages(token, to, options).filter(
+      ({ channel, ts }) => !deleted.has(`${channel}/${ts}`),
+    );
+  }
+
   // The files the app shared in `channel` (a DM's is D…, see postMessage).
   public uploadedFiles(
     token: string,
@@ -300,6 +317,24 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     this.record('chat.update', params, accessToken);
 
     return { ok: true, channel: params.channel, ts: params.ts };
+  }
+
+  // Like Slack, it needs the conversation (D… for a DM, as postMessage
+  // answered) and a message the app posted there.
+  public async deleteMessage({
+    accessToken,
+    channel,
+    ts,
+  }: Parameters<SlackApiClient['deleteMessage']>[0]) {
+    const posted = this.callsWith(accessToken, 'chat.postMessage').some(
+      ({ result }) => result?.channel === channel && result?.ts === ts,
+    );
+
+    this.refuseInvalid(
+      'chat.delete',
+      posted ? [] : [`no message ${ts} in ${channel}`],
+    );
+    this.record('chat.delete', { channel, ts }, accessToken);
   }
 
   public async openView(
@@ -408,15 +443,13 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     return Buffer.from(file.content);
   }
 
-  // Slack's three steps: files.getUploadURLExternal, the bytes to the upload
-  // URL (kept here with the file), files.completeUploadExternal.
+  // Slack's first two steps: files.getUploadURLExternal, then the bytes to
+  // the upload URL (kept here with the file). shareFile() is the third.
   public async uploadFile({
     accessToken,
-    channelId,
     filename,
-    title,
     content,
-  }: Parameters<SlackApiClient['uploadFile']>[0]): Promise<SlackResponse> {
+  }: Parameters<SlackApiClient['uploadFile']>[0]): Promise<string> {
     const length = Buffer.byteLength(content);
 
     this.failIfAsked('files.getUploadURLExternal');
@@ -439,6 +472,17 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     );
     this.uploads.set(fileId, { filename, content });
 
+    return fileId;
+  }
+
+  // files.completeUploadExternal, into a conversation.
+  public async shareFile({
+    accessToken,
+    fileId,
+    channelId,
+    title,
+  }: Parameters<SlackApiClient['shareFile']>[0]): Promise<SlackResponse> {
+    const { filename } = this.uploads.get(fileId) ?? {};
     const params = { files: [{ id: fileId, title }], channel_id: channelId };
 
     this.failIfAsked('files.completeUploadExternal');

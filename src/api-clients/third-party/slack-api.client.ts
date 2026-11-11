@@ -19,11 +19,17 @@ interface ISendEphemeralMessageParams extends ISendMessageParams {
 }
 
 export interface IUploadFileParams {
+  filename: string;
+  content: string;
+  accessToken: string;
+}
+
+export interface IShareFileParams {
+  // What uploadFile() returned.
+  fileId: string;
   // A conversation ID: C…, G…, or D… for a DM (a user ID is refused).
   channelId: string;
-  filename: string;
   title: string;
-  content: string;
   accessToken: string;
 }
 
@@ -46,8 +52,19 @@ export const CALL_OPTIONS: WebClientOptions = {
 // domain).
 const SLACK_FILE_HOSTS = ['files.slack.com', 'files.slack-gov.com'];
 
-// Sending a file's bytes to its upload URL, as long as other calls.
+// Sending a file's bytes to its upload URL: as long as other calls, and a
+// second more per full megabyte (a year's CSV of a big workspace is tens of
+// megabytes), up to a minute.
 const UPLOAD_TIMEOUT_MS = 10_000;
+const UPLOAD_TIMEOUT_PER_MB_MS = 1_000;
+const MAX_UPLOAD_TIMEOUT_MS = 60_000;
+
+export const uploadTimeoutMs = (bytes: number) =>
+  Math.min(
+    UPLOAD_TIMEOUT_MS +
+      Math.floor(bytes / 1024 ** 2) * UPLOAD_TIMEOUT_PER_MB_MS,
+    MAX_UPLOAD_TIMEOUT_MS,
+  );
 
 const isSlackFileUrl = (url: string) => {
   try {
@@ -134,6 +151,24 @@ export default class SlackApiClient {
     return result;
   }
 
+  public async deleteMessage({
+    channel,
+    ts,
+    accessToken,
+  }: {
+    channel: string;
+    ts: string;
+    accessToken: string;
+  }) {
+    const client = this.getClient(accessToken);
+
+    const result = await client.chat.delete({ channel, ts });
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to delete message');
+    }
+  }
+
   public async openView(viewOpenArgs: ViewsOpenArguments, accessToken: string) {
     const client = this.getClient(accessToken, { interactive: true });
 
@@ -218,16 +253,14 @@ export default class SlackApiClient {
     return content;
   }
 
-  // Shares a file in a conversation, in Slack's three steps: get an upload
-  // URL, send the bytes there, then complete the upload into the channel.
-  // Needs the files:write scope.
+  // The first two of Slack's three steps to share a file: get an upload URL,
+  // send the bytes there. Returns the file's ID, for shareFile(); until then
+  // the file is in no conversation. Needs the files:write scope.
   public async uploadFile({
-    channelId,
     filename,
-    title,
     content,
     accessToken,
-  }: IUploadFileParams) {
+  }: IUploadFileParams): Promise<string> {
     const client = this.getClient(accessToken);
     const bytes = Buffer.from(content);
 
@@ -245,12 +278,25 @@ export default class SlackApiClient {
     const response = await fetch(uploadUrl, {
       method: 'POST',
       body: bytes,
-      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+      signal: AbortSignal.timeout(uploadTimeoutMs(bytes.byteLength)),
     });
 
     if (!response.ok) {
       throw new Error(`Failed to upload the file: ${response.status}`);
     }
+
+    return fileId;
+  }
+
+  // The third step: completes an upload into a conversation, where the file
+  // shows. Needs the files:write scope.
+  public async shareFile({
+    fileId,
+    channelId,
+    title,
+    accessToken,
+  }: IShareFileParams) {
+    const client = this.getClient(accessToken);
 
     const result = await client.files.completeUploadExternal({
       files: [{ id: fileId, title }],

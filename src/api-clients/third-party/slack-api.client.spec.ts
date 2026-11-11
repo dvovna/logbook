@@ -3,6 +3,7 @@ import SlackApiClient, {
   CALL_OPTIONS,
   INTERACTIVE_CALL_OPTIONS,
   slackErrorOf,
+  uploadTimeoutMs,
 } from 'src/api-clients/third-party/slack-api.client';
 
 jest.mock('@slack/web-api', () => ({ WebClient: jest.fn() }));
@@ -13,7 +14,10 @@ jest.mock('@slack/web-api', () => ({ WebClient: jest.fn() }));
 describe('SlackApiClient', () => {
   const ok = { ok: true };
   let slack: {
-    chat: Record<'postEphemeral' | 'postMessage' | 'update', jest.Mock>;
+    chat: Record<
+      'postEphemeral' | 'postMessage' | 'update' | 'delete',
+      jest.Mock
+    >;
     views: Record<'open' | 'publish', jest.Mock>;
     files: Record<
       'info' | 'getUploadURLExternal' | 'completeUploadExternal',
@@ -29,6 +33,7 @@ describe('SlackApiClient', () => {
         postEphemeral: jest.fn().mockResolvedValue(ok),
         postMessage: jest.fn().mockResolvedValue({ ...ok, ts: '1.0' }),
         update: jest.fn().mockResolvedValue(ok),
+        delete: jest.fn().mockResolvedValue(ok),
       },
       views: {
         open: jest.fn().mockResolvedValue(ok),
@@ -146,6 +151,19 @@ describe('SlackApiClient', () => {
     });
   });
 
+  it('deletes a message', async () => {
+    await client.deleteMessage({
+      channel: 'D1',
+      ts: '1.0',
+      accessToken: 'xoxb-1',
+    });
+
+    expect(slack.chat.delete).toHaveBeenCalledWith({
+      channel: 'D1',
+      ts: '1.0',
+    });
+  });
+
   it('opens and publishes views as given', async () => {
     const modal = {
       trigger_id: 't1',
@@ -218,13 +236,11 @@ describe('SlackApiClient', () => {
     });
   });
 
-  describe('uploadFile', () => {
+  describe('uploadFile and shareFile', () => {
     let fetchMock: jest.SpyInstance;
     const upload = () =>
       client.uploadFile({
-        channelId: 'D1',
         filename: 'report.csv',
-        title: 'Report',
         content: 'Name\r\nАнна\r\n',
         accessToken: 'xoxb-1',
       });
@@ -238,7 +254,15 @@ describe('SlackApiClient', () => {
     afterEach(() => fetchMock.mockRestore());
 
     it('gets an upload URL, sends the bytes there, then shares the file', async () => {
-      await upload();
+      expect(await upload()).toBe('F2');
+      expect(slack.files.completeUploadExternal).not.toHaveBeenCalled();
+
+      await client.shareFile({
+        fileId: 'F2',
+        channelId: 'D1',
+        title: 'Report',
+        accessToken: 'xoxb-1',
+      });
 
       // Bytes, not characters: "Анна" takes eight.
       expect(slack.files.getUploadURLExternal).toHaveBeenCalledWith({
@@ -271,11 +295,20 @@ describe('SlackApiClient', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('does not share a file whose bytes did not arrive', async () => {
+    it('fails when the bytes did not arrive', async () => {
       fetchMock.mockResolvedValue(new Response('', { status: 500 }));
 
       await expect(upload()).rejects.toThrow('500');
-      expect(slack.files.completeUploadExternal).not.toHaveBeenCalled();
+    });
+
+    // A big file takes longer to send than any other call.
+    it('waits for the bytes longer the larger the file is, up to a minute', () => {
+      const mb = 1024 ** 2;
+
+      expect(uploadTimeoutMs(16)).toBe(CALL_OPTIONS.timeout);
+      expect(uploadTimeoutMs(mb)).toBe(11_000);
+      expect(uploadTimeoutMs(30 * mb + 1)).toBe(40_000);
+      expect(uploadTimeoutMs(500 * mb)).toBe(60_000);
     });
   });
 

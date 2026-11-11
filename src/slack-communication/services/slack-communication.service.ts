@@ -1,4 +1,5 @@
 import SlackApiClient, {
+  IShareFileParams,
   IUploadFileParams,
   slackErrorOf,
 } from 'src/api-clients/third-party/slack-api.client';
@@ -64,6 +65,12 @@ export default class SlackCommunicationService {
     });
   }
 
+  public async deleteMessage(channel: string, ts: string, teamId: string) {
+    const accessToken = await this.accessTokenService.getAccessToken(teamId);
+
+    await this.slackApiClient.deleteMessage({ channel, ts, accessToken });
+  }
+
   public async openView(triggerId: string, view: View, teamId: string) {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 
@@ -124,8 +131,8 @@ export default class SlackCommunicationService {
     return this.slackApiClient.makeCall<T>(method, params, accessToken);
   }
 
-  // Shares a file in a conversation (a D… channel for a DM: post to the user
-  // first, and take the channel from the answer).
+  // Uploads a file to Slack, shared nowhere yet; returns its ID for
+  // shareFile().
   public async uploadFile(
     params: Omit<IUploadFileParams, 'accessToken'>,
     teamId: string,
@@ -133,6 +140,17 @@ export default class SlackCommunicationService {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 
     return this.slackApiClient.uploadFile({ ...params, accessToken });
+  }
+
+  // Shares an uploaded file in a conversation (a D… channel for a DM: post
+  // to the user first, and take the channel from the answer).
+  public async shareFile(
+    params: Omit<IShareFileParams, 'accessToken'>,
+    teamId: string,
+  ) {
+    const accessToken = await this.accessTokenService.getAccessToken(teamId);
+
+    return this.slackApiClient.shareFile({ ...params, accessToken });
   }
 
   public async getFileInfo(fileId: string, teamId: string) {
