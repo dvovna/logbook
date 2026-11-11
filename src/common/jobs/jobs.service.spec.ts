@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import {
   DEFAULT_JOBS_OPTIONS,
   FIRST_RETRY_AFTER_SECONDS,
+  IJobsOptions,
   JobQueue,
   JobsService,
 } from '@common/jobs/jobs.service';
@@ -68,6 +69,18 @@ describe('JobsService', () => {
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  // Another JobsService on the same fake queue, with these options.
+  const createJobs = (options: Partial<IJobsOptions>) => {
+    const other = new JobsService(
+      queue as unknown as JobQueue,
+      { ...DEFAULT_JOBS_OPTIONS, pollIntervalSeconds: 0, ...options },
+      transactions as unknown as TransactionService,
+    );
+    void other.onApplicationBootstrap();
+
+    return other;
+  };
 
   it('saves a job, runs it at once as background work, and deletes the saved copy', async () => {
     void jobs.run('notify', { to: 'U1' });
@@ -164,6 +177,93 @@ describe('JobsService', () => {
       { startAfter: FIRST_RETRY_AFTER_SECONDS },
     );
     expect(transactions.afterCommit).not.toHaveBeenCalled();
+  });
+
+  describe('concurrency', () => {
+    // Jobs that run until the test ends them, by name.
+    const blocked = new Map<string, () => void>();
+    const started: string[] = [];
+    const block = ({ to }: { to: string }) => {
+      started.push(to);
+
+      return new Promise<void>((resolve) => blocked.set(to, resolve));
+    };
+    const flush = () => new Promise((resolve) => setImmediate(resolve));
+    const end = async (to: string) => {
+      blocked.get(to)!();
+      await flush();
+    };
+
+    beforeEach(() => {
+      blocked.clear();
+      started.length = 0;
+    });
+
+    it('runs at most `concurrency` jobs at once, first runs and retries alike', async () => {
+      const limited = createJobs({ concurrency: 2 });
+      limited.define('block', block);
+
+      void limited.run('block', { to: 'U1' });
+      void limited.run('block', { to: 'U2' });
+      void limited.run('block', { to: 'U3' });
+      await flush();
+      expect(started).toEqual(['U1', 'U2']);
+
+      queue.fetch.mockResolvedValueOnce([
+        { id: 'j1', data: { to: 'U4' }, retryCount: 1, retryLimit: 8 },
+      ]);
+      const retries = limited.runDueJobs();
+
+      await end('U1');
+      expect(started).toEqual(['U1', 'U2', 'U3']);
+
+      await end('U2');
+      expect(started).toEqual(['U1', 'U2', 'U3', 'U4']);
+
+      await end('U3');
+      await end('U4');
+      await retries;
+      await whenBackgroundWorkIsDone();
+      expect(queue.complete).toHaveBeenCalledWith('block', 'j1');
+    });
+
+    it('leaves a job that waited for a slot until its saved copy was due to the worker', async () => {
+      jest.useFakeTimers();
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
+      try {
+        const limited = createJobs({ concurrency: 1 });
+        limited.define('block', block);
+
+        void limited.run('block', { to: 'U1' });
+        void limited.run('block', { to: 'U2' });
+        await jest.advanceTimersByTimeAsync(FIRST_RETRY_AFTER_SECONDS * 1000);
+        blocked.get('U1')!();
+        await whenBackgroundWorkIsDone();
+
+        expect(started).toEqual(['U1']);
+        expect(queue.deleteJob.mock.calls).toEqual([['block', 'job-1']]);
+        expect(warn).toHaveBeenCalledWith(
+          'Job block waited too long for a free slot: a worker runs its saved copy',
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('starts no waiting job once the app shuts down', async () => {
+      const limited = createJobs({ concurrency: 1 });
+      limited.define('block', block);
+
+      void limited.run('block', { to: 'U1' });
+      void limited.run('block', { to: 'U2' });
+      await flush();
+      await limited.onApplicationShutdown();
+      await end('U1');
+      await whenBackgroundWorkIsDone();
+
+      expect(started).toEqual(['U1']);
+    });
   });
 
   it('refuses a job nobody defined, and a second definition', () => {

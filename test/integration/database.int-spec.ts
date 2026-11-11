@@ -1,4 +1,6 @@
+import { ConfigService } from '@nestjs/config';
 import { sql } from 'kysely';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import UserRole from '@common/enums/user-role.enum';
 import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
 import { JobsService } from '@common/jobs/jobs.service';
@@ -105,6 +107,42 @@ describe('The database connection', () => {
     expect(rows).toEqual([
       { time_zone: 'UTC', statement_timeout: '10s', idle: '30s' },
     ]);
+  });
+
+  it('fails a query that waits for a free connection longer than 2 seconds', async () => {
+    const poolSize = t.app
+      .get(ConfigService)
+      .getOrThrow<number>(EnvironmentVariable.DatabasePoolSize);
+    let release!: () => void;
+    const busy = new Promise<void>((resolve) => (release = resolve));
+    let allHeld!: () => void;
+    const held = new Promise<void>((resolve) => (allHeld = resolve));
+    let holding = 0;
+    // Every connection of the pool in a transaction that waits.
+    const holders = Array.from({ length: poolSize }, () =>
+      database.db.transaction().execute(async (trx) => {
+        await sql`select 1`.execute(trx);
+        holding += 1;
+
+        if (holding === poolSize) {
+          allHeld();
+        }
+
+        await busy;
+      }),
+    );
+    await held;
+    const start = performance.now();
+
+    await expect(sql`select 1`.execute(database.db)).rejects.toThrow(
+      'timeout exceeded when trying to connect',
+    );
+    const waited = performance.now() - start;
+    release();
+    await Promise.all(holders);
+
+    expect(waited).toBeGreaterThanOrEqual(1_900);
+    expect(waited).toBeLessThan(3_000);
   });
 
   describe('transactions', () => {

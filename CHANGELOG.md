@@ -13,6 +13,9 @@ Company rules, and teams set up from a file. Update step: three database migrati
 - Home's setup checklist now has the company rules and the team file as steps, and the welcome message to the installing admin lists the steps in the same order.
 
 ### Running it
+- `DATABASE_POOL_SIZE` defaults to 10 (was 5), and the job queue holds 3 connections (was 2): together they must stay under your Supabase project's "Pool Size" (15 on the smaller compute sizes). A query that gets no connection within 2 seconds now fails instead of waiting.
+- `JOBS_CONCURRENCY` (optional, default 4): how many background jobs run at once, so that a burst of them leaves connections to people's clicks.
+- README → Self-hosting says why to run the app in the database's region.
 - **Update step:** this release adds three database migrations (`20261112100000_company_rules.sql`, `20261112110000_team_file_uploads.sql`, `20261112120000_new_person_prompts.sql`). Apply them as 0.2.0 describes, with `pnpm supabase db push --remote "<connection string>"`; the app refuses to start without them.
 - The `/user-team-mapping` command and `user-team-mapping.csv` are gone, replaced by the team file. Apply `slack-app-manifest.yml` again to drop the command from an installed app.
 - HR may now share files with the bot (the team file); `user-vacations.csv` stays Admin only.

@@ -2,6 +2,7 @@ enum EnvironmentVariable {
   Port = 'PORT',
   DatabaseUrl = 'DATABASE_URL',
   DatabasePoolSize = 'DATABASE_POOL_SIZE',
+  JobsConcurrency = 'JOBS_CONCURRENCY',
   SlackClientId = 'SLACK_CLIENT_ID',
   SlackClientSecret = 'SLACK_CLIENT_SECRET',
   SlackSignInSecret = 'SLACK_SIGN_IN_SECRET',

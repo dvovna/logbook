@@ -325,9 +325,10 @@ export default class SlackEventsService implements OnModuleInit {
     })) as IUserViewModel;
 
     // Before the first member import finished, the import brings everyone
-    // in and asks about nobody.
+    // in and asks about nobody. Not awaited: this job holds a slot that the
+    // prompt's job may be waiting for (JobsService).
     if (slackTeam.members_imported_at) {
-      await this.jobs.run<INewPersonPromptJob>(NEW_PERSON_PROMPT_JOB, {
+      void this.jobs.run<INewPersonPromptJob>(NEW_PERSON_PROMPT_JOB, {
         slackTeamId: slackTeam.id,
         userId: created.id,
       });

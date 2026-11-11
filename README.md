@@ -72,6 +72,8 @@ pnpm supabase db push --remote "postgresql://postgres.<project-ref>:<db-password
 
 Take the session pooler connection string from the project's "Connect" dialog. The direct `db.<project-ref>.supabase.co` host is IPv6-only. The app connects with the same string (`DATABASE_URL` below).
 
+Run the app in the project's region. Every SQL statement is a round trip to the database, and a click such as saving a week or approving a request sends up to ten of them one after another before the app answers. A round trip takes about a millisecond within a region and about 100 ms between regions. Far from its database, the app spends up to a second of the 3 that Slack waits on the database alone, and every statement holds one of the pooler's few connections a hundred times longer, so the whole installation manages only a few clicks a second.
+
 ### 2. Slack app
 
 1. Replace `APP_DOMAIN` in [`slack-app-manifest.yml`](slack-app-manifest.yml) with the domain the bot will run on:
@@ -95,7 +97,8 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `PORT` | Port to listen on. The Docker image defaults to 10000. |
 | `ALLOWED_SLACK_TEAM_IDS` | Optional. Comma-separated Slack workspace IDs (`T…`) that may install the app on your server. Any other workspace gets a refusal, and its token is revoked. Unset, every workspace with the install link may install. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Optional. Sends unexpected errors to your Sentry project: the error and its stack, no request data or people's details. Empty sends nothing anywhere. |
-| `DATABASE_POOL_SIZE` | Optional, default 5. Connections the app's pool may hold; the job queue holds 2 more. Keep both under the Supabase project's "Pool Size". |
+| `DATABASE_POOL_SIZE` | Optional, default 10. Connections the app's pool may hold; the job queue holds 3 more. Together they must stay under the Supabase project's "Pool Size" (15 on the smaller compute sizes), the connections the session pooler allows at once for all its clients: 10 + 3 leaves 2 for `supabase db push` or `psql`. A query that finds no free connection within 2 seconds fails, and Slack shows an error instead of waiting for nothing. |
+| `JOBS_CONCURRENCY` | Optional, default 4. How many background jobs (messages, approval steps, imports, reminders) run at once; the others wait their turn, saved in the database, so a restart loses none. Keep it well under `DATABASE_POOL_SIZE`, so that a burst such as the Monday reminder leaves connections to the clicks people wait on. |
 
 The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` lists them.
 

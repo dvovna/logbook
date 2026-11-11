@@ -38,7 +38,10 @@ export class DatabaseService implements OnApplicationShutdown {
       connectionString: config.getOrThrow<string>(
         EnvironmentVariable.DatabaseUrl,
       ),
-      max: config.get<number>(EnvironmentVariable.DatabasePoolSize) ?? 5,
+      max: config.get<number>(EnvironmentVariable.DatabasePoolSize) ?? 10,
+      // A query that can't get a connection in time fails, and the request
+      // with it, instead of missing Slack's 3 seconds without a word.
+      connectionTimeoutMillis: 2_000,
       application_name: 'logbook',
       types: POSTGREST_COMPATIBLE_TYPES,
       idleTimeoutMillis: IDLE_CONNECTION_MS,

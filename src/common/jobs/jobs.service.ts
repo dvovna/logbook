@@ -9,6 +9,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import PgBoss from 'pg-boss';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
+import { ISavedJob } from '@common/jobs/types/jobs.types';
+import { ConcurrencyLimit } from '@common/utils/concurrency-limit';
 import delay from '@common/utils/delay';
 import {
   startInBackground,
@@ -24,6 +26,10 @@ export interface IJobsOptions {
   pollIntervalSeconds: number;
   // pg-boss's archiving and expiry of jobs.
   maintenance: boolean;
+  // How many job runs this process runs at once (JOBS_CONCURRENCY), first
+  // runs and retries together: a burst of jobs leaves the rest of the pool
+  // to the queries people wait on. The others wait their turn, saved.
+  concurrency: number;
 }
 
 export const JOBS_OPTIONS = Symbol('JOBS_OPTIONS');
@@ -32,6 +38,7 @@ export const DEFAULT_JOBS_OPTIONS: IJobsOptions = {
   schema: 'pgboss',
   pollIntervalSeconds: 30,
   maintenance: true,
+  concurrency: 4,
 };
 
 // A job's first run happens at once, in the process that asked for it. Its
@@ -46,6 +53,12 @@ const RETRY_DELAY_SECONDS = 60;
 
 // A job that started and never ended (its process died) is retried after this.
 const EXPIRE_IN_SECONDS = 15 * 60;
+
+// A first run that gets its slot only this close to the moment its saved
+// copy becomes due leaves the job to the worker, which could otherwise run it
+// a second time. The copy's moment counts from the start of the transaction
+// that saved it, which can come a little before the save.
+const FIRST_RUN_GIVES_WAY_MS = 60_000;
 
 const DEADLOCK_DETECTED = '40P01';
 
@@ -77,8 +90,9 @@ export const createJobQueue = (
     ),
     schema: options.schema,
     application_name: 'logbook-jobs',
-    // Supabase's pooler allows few connections per project.
-    max: 2,
+    // Supabase's pooler allows few connections per project: these and
+    // DATABASE_POOL_SIZE stay under its Pool Size.
+    max: 3,
     schedule: false,
     supervise: options.maintenance,
   });
@@ -91,6 +105,10 @@ export const createJobQueue = (
 // a worker retries it later. Handlers take IDs and load what they need, so
 // a retry sees the current data, and must be safe to run twice: a retry can
 // follow a run that did part of the work.
+//
+// At most `concurrency` runs go on at once; a job waits for a slot after it
+// was saved. So a job must not await another job's run (run()): enough of
+// them holding their slots would wait for each other for ever.
 @Injectable()
 export class JobsService
   implements OnApplicationBootstrap, OnApplicationShutdown
@@ -103,11 +121,17 @@ export class JobsService
 
   private poller: NodeJS.Timeout | null = null;
 
+  private readonly slots: ConcurrencyLimit;
+
+  private stopped = false;
+
   public constructor(
     @Inject(JOB_QUEUE) private readonly boss: JobQueue,
     @Inject(JOBS_OPTIONS) private readonly options: IJobsOptions,
     private readonly transactions: TransactionService,
-  ) {}
+  ) {
+    this.slots = new ConcurrencyLimit(options.concurrency);
+  }
 
   // The services that own a job define it in onModuleInit, before the app
   // starts and the worker can take saved jobs.
@@ -153,13 +177,14 @@ export class JobsService
 
     await this.started;
 
+    const dueAt = performance.now() + FIRST_RETRY_AFTER_SECONDS * 1000;
     const id = await this.boss.send(name, payload, {
       startAfter: FIRST_RETRY_AFTER_SECONDS,
       db: this.transactions.sqlExecutor(),
     });
 
     this.transactions.afterCommit(() =>
-      this.runSaved(name, handler, payload, id),
+      this.runInSlot(name, handler, payload, id ? { id, dueAt } : null),
     );
   }
 
@@ -176,22 +201,24 @@ export class JobsService
       });
 
       for (const job of jobs) {
-        try {
-          await handler(job.data);
-          await this.boss.complete(queue, job.id);
-        } catch (error) {
-          const isLastTry = job.retryCount >= job.retryLimit;
+        await this.slots.run(async () => {
+          try {
+            await handler(job.data);
+            await this.boss.complete(queue, job.id);
+          } catch (error) {
+            const isLastTry = job.retryCount >= job.retryLimit;
 
-          this.logFailure(
-            queue,
-            error as Error,
-            isLastTry ? 'gives up after its last retry' : 'will be retried',
-            isLastTry,
-          );
-          await this.boss.fail(queue, job.id, {
-            message: (error as Error).message,
-          });
-        }
+            this.logFailure(
+              queue,
+              error as Error,
+              isLastTry ? 'gives up after its last retry' : 'will be retried',
+              isLastTry,
+            );
+            await this.boss.fail(queue, job.id, {
+              message: (error as Error).message,
+            });
+          }
+        });
       }
     }
   }
@@ -203,6 +230,10 @@ export class JobsService
   }
 
   public async onApplicationShutdown() {
+    // The first runs that still wait for a slot: their saved copies are
+    // retried, by the next process if need be.
+    this.stopped = true;
+
     if (this.poller) {
       clearInterval(this.poller);
     }
@@ -282,44 +313,79 @@ export class JobsService
     handler: JobHandler<object>,
     payload: object,
   ) {
-    await this.runSaved(name, handler, payload, await this.save(name, payload));
+    await this.runInSlot(
+      name,
+      handler,
+      payload,
+      await this.save(name, payload),
+    );
   }
 
-  // The first run of a job saved as `id` (null: not saved, its only run).
-  private async runSaved(
+  private runInSlot(
     name: string,
     handler: JobHandler<object>,
     payload: object,
-    id: string | null,
+    saved: ISavedJob | null,
   ) {
-    try {
-      await handler(payload);
-    } catch (error) {
-      // Without a saved copy nothing retries it: that was its only try.
-      this.logFailure(name, error as Error, id ? 'will be retried' : null, !id);
+    return this.slots.run(() => this.runFirst(name, handler, payload, saved));
+  }
+
+  // The first run of a job saved as `saved` (null: not saved, its only run),
+  // in its slot.
+  private async runFirst(
+    name: string,
+    handler: JobHandler<object>,
+    payload: object,
+    saved: ISavedJob | null,
+  ) {
+    if (this.stopped) {
+      return;
+    }
+
+    if (saved && performance.now() > saved.dueAt - FIRST_RUN_GIVES_WAY_MS) {
+      this.logger.warn(
+        `Job ${name} waited too long for a free slot: a worker runs its saved copy`,
+      );
 
       return;
     }
 
-    if (id) {
+    try {
+      await handler(payload);
+    } catch (error) {
+      // Without a saved copy nothing retries it: that was its only try.
+      this.logFailure(
+        name,
+        error as Error,
+        saved ? 'will be retried' : null,
+        !saved,
+      );
+
+      return;
+    }
+
+    if (saved) {
       await this.boss
-        .deleteJob(name, id)
+        .deleteJob(name, saved.id)
         .catch((error: Error) =>
           this.logger.error(
-            `Failed to delete the done job ${name} ${id}: ${error.message}`,
+            `Failed to delete the done job ${name} ${saved.id}: ${error.message}`,
           ),
         );
     }
   }
 
   // The saved copy, for a retry. If saving fails the job still runs once.
-  private async save(name: string, payload: object) {
+  private async save(name: string, payload: object): Promise<ISavedJob | null> {
     try {
       await this.started;
 
-      return await this.boss.send(name, payload, {
+      const dueAt = performance.now() + FIRST_RETRY_AFTER_SECONDS * 1000;
+      const id = await this.boss.send(name, payload, {
         startAfter: FIRST_RETRY_AFTER_SECONDS,
       });
+
+      return id ? { id, dueAt } : null;
     } catch (error) {
       this.logger.error(
         `Failed to save job ${name}, running it once without retries: ${(error as Error).message}`,

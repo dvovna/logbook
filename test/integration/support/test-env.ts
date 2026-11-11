@@ -13,6 +13,10 @@ const testEnv: Record<string, string> = {
   SLACK_REDIRECT_URI: 'http://localhost/api/slack/oauth/redirect',
   SLACK_TOKEN_ENCRYPTION_KEY: TEST_TOKEN_ENCRYPTION_KEY,
 
+  // A test file is an app of its own, and they run at once against the local
+  // Postgres's 100 connections: each keeps a smaller pool than production's.
+  DATABASE_POOL_SIZE: '5',
+
   MIN_YEAR: '2020',
   MAX_YEAR: '2100',
   MAX_REQUESTS_PER_USER: '500',
