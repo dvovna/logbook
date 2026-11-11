@@ -10,16 +10,15 @@ import BillingReportModalViewValuesParser, {
 } from '@modules/slack/tabs/reports/parsers/billing-report-modal-view-values.parser';
 import { ReportsTabService } from '@modules/slack/tabs/reports/services/reports-tab.service';
 import { ReportsModalName } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
-import {
-  BillingReportService,
-  IBillingReport,
-} from 'src/time-entries/services/billing-report.service';
+import { BillingReportService } from 'src/time-entries/services/billing-report.service';
 import {
   TabId,
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
 import { IReportsTabMetadata } from '@modules/slack/tabs/reports/views/reports-tab.view';
 
+// The form closes once the client is checked, and Reports makes the report
+// after the answer, once, and shows it as a table, which a modal cannot have.
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.BillingReportFormSubmit,
@@ -28,8 +27,7 @@ import { IReportsTabMetadata } from '@modules/slack/tabs/reports/views/reports-t
 })
 export class BillingReportFormSubmitHandler extends BaseModalFormSubmitHandler<
   object,
-  IBillingReportFormViewData,
-  IBillingReport
+  IBillingReportFormViewData
 > {
   public constructor(
     private readonly billingReportService: BillingReportService,
@@ -40,19 +38,14 @@ export class BillingReportFormSubmitHandler extends BaseModalFormSubmitHandler<
     super(formParser);
   }
 
-  // Checked here, so the form can say what is wrong; Reports then shows it
-  // as a table, which a modal cannot have.
   protected async onSubmit(
     data: IBillingReportFormViewData,
     _meta: object,
     user: IUserViewModel,
-  ): Promise<IBillingReport> {
-    const report = await this.billingReportService.getClientReport({
-      user,
-      clientId: data.clientId.value,
-      fromDate: data.fromDate,
-      toDate: data.toDate,
-    });
+  ): Promise<void> {
+    const clientId = data.clientId.value;
+
+    await this.billingReportService.assertCanReport({ user, clientId });
 
     this.tabNavigationService.navigate<{
       user: IUserViewModel;
@@ -60,15 +53,9 @@ export class BillingReportFormSubmitHandler extends BaseModalFormSubmitHandler<
     }>(TabId.Reports, {
       user,
       metadata: {
-        report: {
-          clientId: data.clientId.value,
-          fromDate: data.fromDate,
-          toDate: data.toDate,
-        },
+        report: { clientId, fromDate: data.fromDate, toDate: data.toDate },
       },
     });
-
-    return report;
   }
 
   protected successResponse() {
