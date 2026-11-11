@@ -526,13 +526,6 @@ code {
   font-size: 0.78rem;
 }
 
-/* Slack's "danger" button style. */
-.ui-button--reject {
-  background: #b8323e;
-  border-color: #b8323e;
-  color: var(--white);
-}
-
 .step-note {
   margin-top: 0.6rem;
   font-family: var(--serif);
@@ -600,6 +593,13 @@ code {
 .ui-button--approve {
   background: var(--approve);
   border-color: var(--approve);
+  color: var(--white);
+}
+
+/* Slack's "danger" button style. */
+.ui-button--reject {
+  background: #b8323e;
+  border-color: #b8323e;
   color: var(--white);
 }
 
