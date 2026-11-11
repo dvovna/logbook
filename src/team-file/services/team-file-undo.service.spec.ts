@@ -96,8 +96,9 @@ describe('TeamFileUndoService', () => {
       findMany: jest.fn().mockResolvedValue(teams),
       replaceApprovers: jest.fn(
         async (teamId: string, expected: string[]) =>
-          teams.find((t) => t.id === teamId)!.manager_approvers?.join() ===
-          expected.join(),
+          [...(teams.find((t) => t.id === teamId)!.manager_approvers ?? [])]
+            .sort()
+            .join() === [...expected].sort().join(),
       ),
       findReferenced: jest.fn().mockResolvedValue(referenced),
       delete: jest.fn(),

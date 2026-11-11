@@ -82,8 +82,8 @@ export class TeamsRepository extends BaseRepository<'teams', ITeamViewModel> {
     return found;
   }
 
-  // The leads change only while the team's leads are still `expected`: null
-  // when they are not.
+  // The leads change only while they are still `expected`, in any order:
+  // null when they are not.
   public async replaceApprovers(
     id: string,
     slackTeamId: string,
@@ -98,8 +98,11 @@ export class TeamsRepository extends BaseRepository<'teams', ITeamViewModel> {
         updated_by: updatedBy,
       })
       .where('id', '=', id)
-      // sql.val: a plain array would be read as a list of values.
-      .where(sql<boolean>`manager_approvers = ${sql.val(expected)}`)
+      // As sets, a missing list being empty: the order of leads means
+      // nothing. sql.val, since a plain array would be read as a value list.
+      .where(
+        sql<boolean>`coalesce(manager_approvers, '{}') @> ${sql.val(expected)}::text[] and coalesce(manager_approvers, '{}') <@ ${sql.val(expected)}::text[]`,
+      )
       .returningAll()
       .executeTakeFirst();
 

@@ -272,4 +272,29 @@ describe('Team file Undo', () => {
     expect(await people()).toEqual(before);
     expect((await uploads())[0].status).toBe('applied');
   });
+
+  it('Undo restores leads that were only reordered by hand', async () => {
+    const dee = await workspace.addUser({
+      name: 'Dee Dunn',
+      role: UserRole.Manager,
+    });
+    const backend = await workspace.addTeam({
+      name: 'Backend',
+      manager_approvers: [dee.slack_id, 'UELI', 'UFAY'],
+    });
+    await moveTo(dee, backend.id);
+    const applied = await apply(csv(`Dee Dunn,${dee.email},Backend,`));
+    await t.db
+      .updateTable('teams')
+      .set({ manager_approvers: ['UFAY', 'UELI'] })
+      .where('id', '=', backend.id)
+      .execute();
+
+    const update = await click(applied, 'undo');
+
+    expect(messageTexts(update)).toEqual(['↩️ Undone: 1 change restored.']);
+    expect(await teams()).toEqual([
+      { name: 'Backend', manager_approvers: [dee.slack_id, 'UELI', 'UFAY'] },
+    ]);
+  });
 });
