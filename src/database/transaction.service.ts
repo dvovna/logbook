@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CompiledQuery, sql } from 'kysely';
 import { runInBackground } from '@common/utils/run-in-background';
-import { IAdvisoryLock } from 'src/database/advisory-locks';
+import { compareLocks, IAdvisoryLock } from 'src/database/advisory-locks';
 import { DatabaseService } from 'src/database/database.service';
 import {
   currentTransaction,
@@ -36,7 +36,7 @@ export class TransactionService {
       afterCommit: [],
       done: false,
       heldLocks: new Set(),
-      highestLockRank: -Infinity,
+      lastLock: null,
     };
     let result: T;
 
@@ -75,8 +75,8 @@ export class TransactionService {
 
   // Serializes the transactions that take the same key until they end, e.g.
   // the checks of a per-workspace limit and the insert after them. A lock
-  // whose rank is not above the highest one held throws before any SQL (see
-  // advisory-locks.ts); one already held is a no-op.
+  // that comes before the last one taken (compareLocks) throws before any
+  // SQL; one already held is a no-op.
   public async lock(lock: IAdvisoryLock) {
     const scope = currentTransaction();
 
@@ -88,9 +88,9 @@ export class TransactionService {
       return;
     }
 
-    if (lock.rank <= scope.highestLockRank) {
+    if (scope.lastLock && compareLocks(lock, scope.lastLock) < 0) {
       throw new Error(
-        `lock(${lock.key}) is out of order: a lock of the same or a higher rank is held`,
+        `lock(${lock.key}) is out of order: ${scope.lastLock.key} is held`,
       );
     }
 
@@ -99,12 +99,11 @@ export class TransactionService {
     );
 
     scope.heldLocks.add(lock.key);
-    scope.highestLockRank = lock.rank;
+    scope.lastLock = lock;
   }
 
-  // Takes the locks lowest rank first, whatever order they are given in.
   public async lockInOrder(...locks: IAdvisoryLock[]) {
-    for (const lock of [...locks].sort((a, b) => a.rank - b.rank)) {
+    for (const lock of [...locks].sort(compareLocks)) {
       await this.lock(lock);
     }
   }

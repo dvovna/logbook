@@ -3,9 +3,10 @@ export interface IAdvisoryLock {
   rank: number;
 }
 
-// A transaction takes the locks it needs in rank order, lowest first
-// (TransactionService.lock refuses the other order): two transactions that
-// each hold one lock and wait for the other's would never finish. A request
+// A transaction takes the locks it needs in rank order, lowest first, and
+// locks of one rank by key (TransactionService.lock refuses any other
+// order): two transactions that each hold one lock and wait for the other's
+// would never finish. A request
 // is changed under its own lock, then its approval workflow under the
 // workflow's; logging time off as time and a timesheet save both take the
 // person's time last. The workspace locks are taken alone.
@@ -16,6 +17,9 @@ const RANK = {
   clients: 40,
   billingSnapshots: 50,
 } as const;
+
+export const compareLocks = (a: IAdvisoryLock, b: IAdvisoryLock) =>
+  a.rank - b.rank || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
 
 export const vacationRequestLock = (requestId: string): IAdvisoryLock => ({
   key: `vacation-request:${requestId}`,

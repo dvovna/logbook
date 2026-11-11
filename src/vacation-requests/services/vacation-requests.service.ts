@@ -491,7 +491,8 @@ export class VacationRequestsService implements IVacationRequestsService {
         statuses: [VacationRequestStatus.Pending],
       });
 
-      for (const { id } of pending) {
+      // In the order of their workflow locks (compareLocks).
+      for (const id of pending.map((request) => request.id).sort()) {
         await this.requestWorkflowService.closeBeforeDelete(id, replacedBy);
       }
 
