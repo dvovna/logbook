@@ -532,6 +532,78 @@ describe('JobsService', () => {
       }
     });
 
+    const saved = (id: string, to: string) => ({
+      id,
+      data: { to },
+      retryCount: 1,
+      retryLimit: 8,
+    });
+
+    // pg-boss counts a fetched job's 15 minutes until it expires from the
+    // fetch: a job must not wait for a slot after it.
+    it('fetches no more saved jobs than there are free slots, and starts them at once', async () => {
+      const limited = createJobs({ concurrency: 3 });
+      limited.define('block', block);
+      void limited.run('block', { to: 'U1' });
+      await flush();
+
+      queue.fetch.mockResolvedValueOnce([saved('j1', 'R1'), saved('j2', 'R2')]);
+      const retries = limited.runDueJobs();
+      await flush();
+
+      expect(queue.fetch).toHaveBeenCalledWith('block', {
+        batchSize: 2,
+        includeMetadata: true,
+      });
+      expect(started).toEqual(['U1', 'R1', 'R2']);
+
+      // The batch filled the free slots: there may be more, fetched as
+      // slots free up.
+      queue.fetch.mockResolvedValueOnce([saved('j3', 'R3')]);
+      await end('R1');
+      expect(queue.fetch).toHaveBeenLastCalledWith('block', {
+        batchSize: 1,
+        includeMetadata: true,
+      });
+      expect(started).toEqual(['U1', 'R1', 'R2', 'R3']);
+
+      await end('U1');
+      expect(queue.fetch).toHaveBeenCalledTimes(3);
+      await end('R2');
+      await end('R3');
+      await retries;
+      expect(queue.complete.mock.calls).toEqual([
+        ['block', 'j1'],
+        ['block', 'j2'],
+        ['block', 'j3'],
+      ]);
+      expect(queue.fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('starts no poll while the last one still runs', async () => {
+      jest.useFakeTimers();
+
+      try {
+        const polling = createJobs({ pollIntervalSeconds: 30 });
+        polling.define('block', block);
+        queue.fetch.mockResolvedValueOnce([saved('j1', 'R1')]);
+
+        await jest.advanceTimersByTimeAsync(30_000);
+        expect(started).toEqual(['R1']);
+
+        await jest.advanceTimersByTimeAsync(60_000);
+        expect(queue.fetch).toHaveBeenCalledTimes(1);
+
+        blocked.get('R1')!();
+        await jest.advanceTimersByTimeAsync(30_000);
+        expect(queue.fetch).toHaveBeenCalledTimes(2);
+
+        polling.onModuleDestroy();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('starts no waiting job once the app shuts down', async () => {
       const limited = createJobs({ concurrency: 1 });
       limited.define('block', block);

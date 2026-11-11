@@ -22,16 +22,18 @@ export class ConcurrencyLimit {
       await new Promise<void>((resolve) => this.waiting.push(resolve));
     }
 
-    let released = false;
+    return this.releaser();
+  }
 
-    return () => {
-      if (released) {
-        return;
-      }
+  // A slot that is free now, without waiting for one; null when none is.
+  public tryAcquire(): (() => void) | null {
+    if (this.running >= this.limit) {
+      return null;
+    }
 
-      released = true;
-      this.release();
-    };
+    this.running += 1;
+
+    return this.releaser();
   }
 
   public async run<T>(task: () => Promise<T>): Promise<T> {
@@ -42,6 +44,19 @@ export class ConcurrencyLimit {
     } finally {
       release();
     }
+  }
+
+  private releaser() {
+    let released = false;
+
+    return () => {
+      if (released) {
+        return;
+      }
+
+      released = true;
+      this.release();
+    };
   }
 
   private release() {

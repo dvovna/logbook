@@ -75,6 +75,28 @@ describe('ConcurrencyLimit', () => {
     expect(started).toEqual(['second', 'third']);
   });
 
+  it('takes a free slot without waiting, and none when all are taken', async () => {
+    const limit = new ConcurrencyLimit(2);
+    const first = await limit.acquire();
+    const second = limit.tryAcquire();
+
+    expect(second).toEqual(expect.any(Function));
+    expect(limit.tryAcquire()).toBeNull();
+
+    const started: string[] = [];
+    const waiting = limit.run(async () => {
+      started.push('waiting');
+    });
+
+    second!();
+    await waiting;
+    expect(started).toEqual(['waiting']);
+    // The waiting task had the slot: one is free again now that it ended.
+    expect(limit.tryAcquire()).toEqual(expect.any(Function));
+    expect(limit.tryAcquire()).toBeNull();
+    first();
+  });
+
   it('refuses a limit that lets nothing run', () => {
     expect(() => new ConcurrencyLimit(0)).toThrow(
       'A concurrency limit of 0 lets nothing run',

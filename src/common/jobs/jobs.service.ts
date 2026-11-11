@@ -142,6 +142,10 @@ export class JobsService
 
   private poller: NodeJS.Timeout | null = null;
 
+  private polling: Promise<void> | null = null;
+
+  private retriesStopped = false;
+
   private readonly slots: ConcurrencyLimit;
 
   private stopped = false;
@@ -288,41 +292,50 @@ export class JobsService
   }
 
   // Runs the saved jobs whose time has come: retries, and jobs a stopped
-  // process left. `includeNotDue` runs the waiting ones as well (tests).
+  // process left. `includeNotDue` makes the waiting ones due first (tests).
+  //
+  // pg-boss marks a job active when it is fetched and, 15 minutes later,
+  // expires it and counts a failed try. So a queue is fetched only as many
+  // jobs as there are free slots, and each starts in its slot at once: a
+  // fetched job never waits behind others, however long their Slack calls
+  // hang. The next free slots get the next jobs, until the queue has no
+  // more that are due (a failed one is due a minute later at the earliest).
   public async runDueJobs({ includeNotDue = false } = {}) {
     await this.started;
 
-    for (const [queue, handler] of this.handlers) {
-      const jobs = await this.boss.fetch<object>(queue, {
-        batchSize: 20,
-        ignoreStartAfter: includeNotDue,
-        includeMetadata: true,
-      });
+    if (includeNotDue) {
+      await this.makeWaitingJobsDue();
+    }
 
-      for (const job of jobs) {
-        await this.slots.run(async () => {
-          try {
-            await handler(job.data);
-            await this.boss.complete(queue, job.id);
-          } catch (error) {
-            const isLastTry = job.retryCount >= job.retryLimit;
+    const runs: Promise<void>[] = [];
 
-            this.logFailure(
-              queue,
-              error as Error,
-              isLastTry ? 'gives up after its last retry' : 'will be retried',
-              isLastTry,
-            );
-            await this.boss.fail(queue, job.id, {
-              message: (error as Error).message,
+    try {
+      for (const [queue, handler] of this.handlers) {
+        let due = true;
+
+        while (due && !this.retriesStopped) {
+          const slots = await this.freeSlots();
+          const jobs = await this.boss
+            .fetch<object>(queue, {
+              batchSize: slots.length,
+              includeMetadata: true,
+            })
+            .catch((error: unknown) => {
+              slots.forEach((release) => release());
+              throw error;
             });
 
-            if (isLastTry) {
-              await this.giveUp(queue, job.data);
-            }
-          }
-        });
+          slots.slice(jobs.length).forEach((release) => release());
+          runs.push(
+            ...jobs.map((job, index) =>
+              this.runSaved(queue, handler, job).finally(slots[index]),
+            ),
+          );
+          due = jobs.length === slots.length;
+        }
       }
+    } finally {
+      await Promise.all(runs);
     }
   }
 
@@ -335,6 +348,8 @@ export class JobsService
   // No retry starts once the app shuts down (onModuleDestroy comes first);
   // the ones running are background work, which the shutdown waits for.
   public onModuleDestroy() {
+    this.retriesStopped = true;
+
     if (this.poller) {
       clearInterval(this.poller);
       this.poller = null;
@@ -374,19 +389,94 @@ export class JobsService
 
     if (this.options.pollIntervalSeconds > 0) {
       this.poller = setInterval(
-        () =>
-          trackInBackground(
-            this.runDueJobs().catch((error: Error) =>
-              this.logger.error(
-                `Failed to run due jobs: ${error.message}`,
-                error.stack,
-              ),
-            ),
-          ),
+        () => this.poll(),
         this.options.pollIntervalSeconds * 1000,
       );
       this.poller.unref();
     }
+  }
+
+  // A poll that is still running (a big backlog, or Slack hanging) has the
+  // next one skipped: it would wait for the same slots.
+  private poll() {
+    if (this.polling) {
+      return;
+    }
+
+    this.polling = this.runDueJobs()
+      .catch((error: Error) =>
+        this.logger.error(
+          `Failed to run due jobs: ${error.message}`,
+          error.stack,
+        ),
+      )
+      .finally(() => {
+        this.polling = null;
+      });
+    trackInBackground(this.polling);
+  }
+
+  // Waits for a free slot, then takes the others that are free too.
+  private async freeSlots() {
+    const slots = [await this.slots.acquire()];
+
+    for (
+      let slot = this.slots.tryAcquire();
+      slot;
+      slot = this.slots.tryAcquire()
+    ) {
+      slots.push(slot);
+    }
+
+    return slots;
+  }
+
+  // A saved job a worker fetched, in its slot. Never rejects.
+  private async runSaved(
+    queue: string,
+    handler: JobHandler<object>,
+    job: PgBoss.JobWithMetadata<object>,
+  ) {
+    try {
+      await handler(job.data);
+      await this.boss.complete(queue, job.id);
+    } catch (error) {
+      const isLastTry = job.retryCount >= job.retryLimit;
+
+      this.logFailure(
+        queue,
+        error as Error,
+        isLastTry ? 'gives up after its last retry' : 'will be retried',
+        isLastTry,
+      );
+
+      try {
+        await this.boss.fail(queue, job.id, {
+          message: (error as Error).message,
+        });
+      } catch (failError) {
+        // It expires and is retried all the same.
+        this.logger.error(
+          `Failed to mark job ${queue} ${job.id} as failed: ${(failError as Error).message}`,
+        );
+      }
+
+      if (isLastTry) {
+        await this.giveUp(queue, job.data);
+      }
+    }
+  }
+
+  // For the tests: every job that waits for its first worker run or a retry
+  // is due now. A job that fails then is due again only after its retry
+  // delay, so a run of runDueJobs() tries it once.
+  private async makeWaitingJobsDue() {
+    await this.transactions
+      .sqlExecutor()
+      .executeSql(
+        `update "${this.options.schema}".job set start_after = now() - interval '1 second' where state < 'active' and start_after > now() - interval '1 second'`,
+        [],
+      );
   }
 
   // pg-boss creates a table per queue. Two instances doing that at once can
