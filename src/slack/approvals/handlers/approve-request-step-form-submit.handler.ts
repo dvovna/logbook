@@ -1,4 +1,7 @@
 import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
+import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
+import { WorkflowStepStatus } from '@modules/request-workflows/types/request-workflow-step.interface';
+import { decisionNotice } from '@modules/slack/approvals/utils/decision-notice';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -26,6 +29,7 @@ import { runInBackground } from '@common/utils/run-in-background';
 export class ApproveRequestStepFormSubmitHandler extends BaseModalFormSubmitHandler<IConfirmationModalViewMetadata> {
   constructor(
     private readonly workflowDecisionsService: WorkflowDecisionsService,
+    private readonly requestWorkflowStepsService: RequestWorkflowStepsService,
     protected readonly tabNavigationService: TabNavigationService,
     private readonly confirmationModalView: ConfirmationModalView,
   ) {
@@ -48,8 +52,15 @@ export class ApproveRequestStepFormSubmitHandler extends BaseModalFormSubmitHand
       this.tabNavigationService.navigate(TabId.Approvals, {
         user,
         metadata: pageMetadata,
-        notice:
+        notice: decisionNotice(
+          await this.requestWorkflowStepsService.findOne({
+            id: stepId,
+            slackTeamId: user.slack_team_id,
+          }),
+          user,
+          WorkflowStepStatus.Approved,
           '✅ Approved. The request moves on to the next approvers, if there are any.',
+        ),
       });
     });
   }

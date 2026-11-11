@@ -76,7 +76,13 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
   ) {
-    await this.assertOwnRules(data, user);
+    await Promise.all([
+      this.ruleInputsValidationService.assertLevel1Approvers(
+        (data.manager_approvers ?? []).map(({ value }) => value),
+        user,
+      ),
+      this.assertOwnRules(data, user),
+    ]);
 
     const team = metadata.id
       ? await this.update(metadata.id, data, user)

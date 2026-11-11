@@ -27,6 +27,7 @@ import {
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
 import { UsersService } from '@modules/users/services/users.service';
+import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
 
 describe('Vacation request approval', () => {
   let t: ITestApp;
@@ -615,6 +616,37 @@ describe('Vacation request approval', () => {
 
       await t.idle();
       expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+    });
+
+    it('says so when someone else decided first', async () => {
+      const hr = await workspace.addUser({ role: UserRole.HR });
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, manager);
+      const [step] = await workspace.rows('request_workflow_steps');
+      const confirmation = await openModalFrom(
+        t,
+        workspace,
+        manager,
+        await openAppHomeTab(t, workspace, manager, [
+          NavigationActionId.Approvals,
+        ]),
+        ApprovalsTabActionId.ApproveTimeOff,
+        step.id,
+      );
+      // HR rejects it while the manager's form is open.
+      const hrUser = await t.app
+        .get(UsersService)
+        .findBySlackId(hr.slack_id, workspace.id);
+      await t.app.get(WorkflowDecisionsService).rejectStep(step.id, hrUser!);
+
+      const since = t.slackApi.mark();
+      await t.slack.submitView(workspace, manager, confirmation).expect(200);
+      await t.idle();
+
+      expect(noticeOf(await publishedHome(t, workspace, manager, since))).toBe(
+        'Not decided: someone else rejected it first.',
+      );
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Rejected);
     });
 
     it('rejects, a reason being optional', async () => {

@@ -261,6 +261,19 @@ describe('VacationRequestProcessingService', () => {
     );
   });
 
+  it('calls level 2 an admin approval when only admins are on it', async () => {
+    teamRules.forTeam.mockResolvedValue(
+      rules({ managerApprovers: [], hrApprovers: ['U_ADMIN'] }),
+    );
+    usersByRole = { [UserRole.Admin]: ['U_ADMIN'] };
+
+    await onCreated(VacationRequestStatus.Pending);
+
+    expect(workflowService.create.mock.calls[0][0].levels).toEqual([
+      expect.objectContaining({ name: 'Admin approval' }),
+    ]);
+  });
+
   // Deactivated, or without an approving role since the team named them:
   // findMany doesn't return them.
   it('leaves out an approver who can no longer decide, and goes to HR', async () => {

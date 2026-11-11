@@ -96,7 +96,10 @@ export class VacationRequestProcessingService implements OnModuleInit {
         roles: [...MANAGER_ROLES],
       }),
     ]);
-    const canDecide = new Set(approvers.map(({ slack_id }) => slack_id));
+    const roleOf = new Map(
+      approvers.map(({ slack_id, role }) => [slack_id, role]),
+    );
+    const canDecide = new Set(roleOf.keys());
 
     const workflow: ICreateWorkflowParams = {
       requestId: request.id,
@@ -141,7 +144,12 @@ export class VacationRequestProcessingService implements OnModuleInit {
       this.buildApproverLevel(
         whoCanDecide(rules.hrApprovers),
         rules.hrApproversRule,
-        'HR approval',
+        // Named by who decides it: level 2 takes HR and admins.
+        whoCanDecide(rules.hrApprovers).every(
+          (slackId) => roleOf.get(slackId) === UserRole.Admin,
+        )
+          ? 'Admin approval'
+          : 'HR approval',
       ),
     ].filter((level): level is ICreateWorkflowLevelParams => level !== null);
 
