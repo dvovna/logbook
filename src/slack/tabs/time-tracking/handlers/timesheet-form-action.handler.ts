@@ -22,7 +22,7 @@ import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/t
 import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
 import { TimesheetFormMetadata } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 import { IUserProject } from 'src/projects/queries/get-user-projects.query';
-import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/max-timesheet-rows';
+import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/timesheet';
 
 // Adding a row, showing the weekend or choosing another day rebuilds the open
 // form (views.update).

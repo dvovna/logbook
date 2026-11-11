@@ -13,7 +13,7 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { LOG_TIME_OFF_ACTION_ID } from '@modules/slack/tabs/vacation-requests/services/time-off-offer.service';
 import { UsersService } from '@modules/users/services/users.service';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
-import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
+import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { openAppHomeTab, openModalFrom } from './support/app-home';

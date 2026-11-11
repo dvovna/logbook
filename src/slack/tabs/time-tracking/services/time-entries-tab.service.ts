@@ -23,7 +23,7 @@ import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/service
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
-import { TimesheetService } from 'src/time-entries/services/timesheet.service';
+import { TimesheetWeekService } from 'src/time-entries/services/timesheet-week.service';
 import { currentWeekStart, weekDays } from '@common/utils/period-presets';
 import { IUserProject } from 'src/projects/queries/get-user-projects.query';
 import {
@@ -66,7 +66,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     private readonly timeEntriesTabView: TimeEntriesTabView,
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesService: TimeEntriesService,
-    private readonly timesheetService: TimesheetService,
+    private readonly timesheetWeekService: TimesheetWeekService,
     private readonly timesheetFormModalView: TimesheetFormModalView,
   ) {
     super(TabId.TimeEntries, {
@@ -105,9 +105,11 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
         page: metadata.page,
         filters,
       }),
-      weekStart ? this.timesheetService.getWeek(user, weekStart) : undefined,
       weekStart
-        ? this.timesheetService.findOpenBefore(user, weekStart)
+        ? this.timesheetWeekService.getWeek(user, weekStart)
+        : undefined,
+      weekStart
+        ? this.timesheetWeekService.findOpenBefore(user, weekStart)
         : undefined,
     ]);
     const listDays = [
@@ -189,7 +191,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     view: View;
     projects: IUserProject[];
   }> {
-    const { week, projects } = await this.timesheetService.getForm(
+    const { week, projects } = await this.timesheetWeekService.getForm(
       user,
       metadata.weekStart,
       metadata.addedProjectIds,

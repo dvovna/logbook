@@ -27,8 +27,8 @@ import {
   ITimesheetRow,
   ITimesheetWeek,
 } from 'src/time-entries/types/timesheet.types';
-import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/max-timesheet-rows';
-import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
+import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/timesheet';
+import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';
 
 // The section that starts a project's row: `${TIMESHEET_ROW_BLOCK_ID}:<project id>`.
 export const TIMESHEET_ROW_BLOCK_ID = 'timesheet_row';

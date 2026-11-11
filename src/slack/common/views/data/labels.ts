@@ -5,6 +5,7 @@ import { WorkflowStepStatus } from '@modules/request-workflows/types/request-wor
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { TimesheetCellLock } from 'src/time-entries/types/timesheet.types';
+import { BILLED_ENTRY_MESSAGE } from 'src/time-entries/constants/billed-time-entries';
 
 // How the app names and marks every status and type, in lists, filters,
 // forms and messages: one label and one icon per value, so that a value
@@ -76,27 +77,42 @@ export const TIME_ENTRY_STATUS_LABELS: Record<TimeEntryStatus, ILabel> = {
   [TimeEntryStatus.Cancelled]: { label: 'Canceled', icon: '🚫' },
 };
 
-// Why a timesheet form shows a cell as text rather than as an input, after
-// its day and hours: 'Wed 17 · 2h · submitted'.
-const TIMESHEET_CELL_LOCK_LABELS: Record<
-  Exclude<TimesheetCellLock, 'several'>,
-  string
+// Why a timesheet form can't change a cell. `label`: what the form shows
+// after its day and hours instead of an input ('Wed 17 · 2h · submitted');
+// `error`: the error at the cell when one is typed into anyway.
+const TIMESHEET_CELL_LOCKS: Record<
+  TimesheetCellLock,
+  { label: (entryCount: number) => string; error: string }
 > = {
-  submitted:
-    TIME_ENTRY_STATUS_LABELS[TimeEntryStatus.Submitted].label.toLowerCase(),
-  approved:
-    TIME_ENTRY_STATUS_LABELS[TimeEntryStatus.Approved].label.toLowerCase(),
-  billed: 'billed',
-  project: 'closed for logging',
+  several: {
+    label: (entryCount) => `${entryCount} entries`,
+    error:
+      'This day has more than one entry on this project: change them on My time.',
+  },
+  submitted: {
+    label: () =>
+      TIME_ENTRY_STATUS_LABELS[TimeEntryStatus.Submitted].label.toLowerCase(),
+    error: 'Submitted time entries cannot be edited',
+  },
+  approved: {
+    label: () =>
+      TIME_ENTRY_STATUS_LABELS[TimeEntryStatus.Approved].label.toLowerCase(),
+    error: 'Approved time entries cannot be edited',
+  },
+  billed: { label: () => 'billed', error: BILLED_ENTRY_MESSAGE },
+  project: {
+    label: () => 'closed for logging',
+    error: 'This project is not available.',
+  },
 };
 
 export const timesheetCellLockLabel = (
   lock: TimesheetCellLock,
   entryCount: number,
-) =>
-  lock === 'several'
-    ? `${entryCount} entries`
-    : TIMESHEET_CELL_LOCK_LABELS[lock];
+) => TIMESHEET_CELL_LOCKS[lock].label(entryCount);
+
+export const timesheetCellLockError = (lock: TimesheetCellLock) =>
+  TIMESHEET_CELL_LOCKS[lock].error;
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, ILabel> = {
   [ProjectStatus.Active]: { label: 'Active', icon: '🟢' },

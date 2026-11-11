@@ -7,7 +7,7 @@ import { View } from '@slack/types/dist/views';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
-import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
+import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';
 import { COMMENT_BLOCK_ID } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';

@@ -12,28 +12,16 @@ import {
   SUBMIT_WEEK_BLOCK_ID,
 } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 import { MAX_TIME_ENTRY_DESCRIPTION_LENGTH } from '@common/constants/text-limits';
-import { ITimesheetCellInput } from 'src/time-entries/types/timesheet.types';
+import { parseCellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';
+import { ITimesheetCellChange } from 'src/time-entries/types/timesheet.types';
 
 export interface ITimesheetFormData {
   // Every cell the form sent, typed into or not.
-  cells: ITimesheetCellInput[];
+  cells: ITimesheetCellChange[];
   submitWeek: boolean;
   // The day form's comment; undefined when empty or not in the form.
   comment?: string;
 }
-
-// cellKey(projectId, date): a project's UUID and a day.
-const CELL_KEY =
-  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_(\d{4}-\d{2}-\d{2})$/i;
-
-// The project and the day of a cell's key; null for the form's other fields.
-export const parseCellKey = (
-  key: string,
-): { projectId: string; date: string } | null => {
-  const match = CELL_KEY.exec(key);
-
-  return match ? { projectId: match[1], date: match[2] } : null;
-};
 
 // A cell's hours as minutes. Empty or 0 is no time (null); anything else
 // takes Log Time's rules and messages.
@@ -71,7 +59,7 @@ export const parseTimesheetForm = (
 ): IViewParseResult<ITimesheetFormData> => {
   const values = view.state?.values ?? {};
   const shown = shownHours(view);
-  const cells: ITimesheetCellInput[] = [];
+  const cells: ITimesheetCellChange[] = [];
   const errors: Record<string, string> = {};
 
   for (const [blockId, fields] of Object.entries(values)) {
@@ -94,7 +82,7 @@ export const parseTimesheetForm = (
     cells.push({
       ...cell,
       minutes: typed.minutes,
-      shownMinutes: 'error' in before ? null : before.minutes,
+      expectedMinutes: 'error' in before ? null : before.minutes,
     });
   }
 
