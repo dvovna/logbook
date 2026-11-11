@@ -17,6 +17,10 @@ import { TimeEntriesExportService } from 'src/time-entries/services/time-entries
 import { TimesheetWeekService } from 'src/time-entries/services/timesheet-week.service';
 import { TimesheetSaveService } from 'src/time-entries/services/timesheet-save.service';
 import { TimeEntryWriter } from 'src/time-entries/services/time-entry-writer.service';
+import {
+  DEFAULT_TIME_ENTRIES_EXPORT_LIMITS,
+  TIME_ENTRIES_EXPORT_LIMITS,
+} from 'src/time-entries/constants/time-entries-export';
 
 @Module({
   imports: [
@@ -38,6 +42,10 @@ import { TimeEntryWriter } from 'src/time-entries/services/time-entry-writer.ser
     TimeEntriesScopeService,
     TimeReportService,
     TimeEntriesExportService,
+    {
+      provide: TIME_ENTRIES_EXPORT_LIMITS,
+      useValue: DEFAULT_TIME_ENTRIES_EXPORT_LIMITS,
+    },
     TimesheetWeekService,
     TimesheetSaveService,
   ],

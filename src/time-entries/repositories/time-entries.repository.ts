@@ -15,8 +15,46 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { ITimeEntryListItem } from 'src/time-entries/types/time-entries-list.types';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
+import { TimeReportGrouping } from 'src/time-entries/enums/time-report-grouping.enum';
+import {
+  IReportEntriesQuery,
+  ITimeReportCsvRow,
+  ITimeReportGroupSum,
+  IUserTimeSum,
+  TimeReportCsvCursor,
+} from 'src/time-entries/types/time-report.types';
 
 const dateOf = ({ work_date }: { work_date: string }) => work_date;
+
+// ICU's root order, which String.localeCompare follows too: the CSV keeps the
+// order it had when Node sorted it, whatever the database's own collation.
+const NAME_COLLATION = 'und-x-icu';
+
+// Each grouping's key and name, over the joins of sumReportGroups. No
+// parameters: Postgres matches a grouped expression by its text.
+const REPORT_GROUPS: Record<
+  TimeReportGrouping,
+  { key: RawBuilder<string | null>; name: RawBuilder<string | null> }
+> = {
+  // By the project's client rather than the entry's client_id, which entries
+  // logged before it was filled in do not have.
+  [TimeReportGrouping.Client]: {
+    key: sql`(case when "p"."id" is not null then "pc"."id" else "ec"."id" end)::text`,
+    name: sql`case when "p"."id" is not null then "pc"."name" else "ec"."name" end`,
+  },
+  [TimeReportGrouping.Project]: {
+    key: sql`"c"."project_id"::text`,
+    name: sql`"p"."name"`,
+  },
+  [TimeReportGrouping.Person]: {
+    key: sql`"c"."user_id"::text`,
+    name: sql`"u"."name"`,
+  },
+  [TimeReportGrouping.Team]: {
+    key: sql`"tm"."id"::text`,
+    name: sql`"tm"."name"`,
+  },
+};
 
 @Injectable()
 export class TimeEntriesRepository extends BaseRepository<
@@ -231,6 +269,263 @@ export class TimeEntriesRepository extends BaseRepository<
       minutes: Number(row.minutes),
       billableMinutes: Number(row.billable_minutes),
     };
+  }
+
+  // A time report's groups (see reportEntries), each with its time and, in
+  // cents, the amount of its billable time: rounded per project and person
+  // at their rate, then added up, as the billing report rounds. Reads the
+  // entries in the database, and returns one row a group.
+  public async sumReportGroups(
+    slackTeamId: string,
+    query: IReportEntriesQuery,
+    groupBy: TimeReportGrouping,
+  ): Promise<ITimeReportGroupSum[]> {
+    // First by everything a group can be: few rows for the joins after it.
+    const combos = this.reportEntries(slackTeamId, query)
+      .select([
+        'time_entries.project_id',
+        'time_entries.user_id',
+        'time_entries.team_id',
+        'time_entries.client_id',
+        sql<number>`count(*)`.as('entries'),
+        sql<number>`sum("time_entries"."minutes")`.as('minutes'),
+        sql<number>`coalesce(sum("time_entries"."minutes") filter (where "time_entries"."billable"), 0)`.as(
+          'billable_minutes',
+        ),
+        sql<number>`coalesce(sum("time_entries"."minutes") filter (where "time_entries"."status" = ${TimeEntryStatus.Approved}), 0)`.as(
+          'approved_minutes',
+        ),
+      ])
+      .groupBy([
+        'time_entries.project_id',
+        'time_entries.user_id',
+        'time_entries.team_id',
+        'time_entries.client_id',
+      ]);
+    const { key, name } = REPORT_GROUPS[groupBy];
+    const rate = sql<
+      number | null
+    >`case when "p"."id" is not null then coalesce("r"."hourly_rate", "p"."hourly_rate") end`;
+    const byPersonOnProject = this.db
+      .selectFrom(combos.as('c'))
+      .leftJoin('projects as p', (join) =>
+        join
+          .onRef('p.id', '=', 'c.project_id')
+          .on('p.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('clients as pc', (join) =>
+        join
+          .onRef('pc.id', '=', 'p.client_id')
+          .on('pc.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('clients as ec', (join) =>
+        join
+          .onRef('ec.id', '=', 'c.client_id')
+          .on('ec.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('users as u', (join) =>
+        join
+          .onRef('u.id', '=', 'c.user_id')
+          .on('u.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('teams as tm', (join) =>
+        join
+          .onRef('tm.id', '=', 'c.team_id')
+          .on('tm.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('project_user_rates as r', (join) =>
+        join
+          .onRef('r.project_id', '=', 'c.project_id')
+          .onRef('r.user_id', '=', 'c.user_id')
+          .on('r.slack_team_id', '=', slackTeamId),
+      )
+      .select([
+        key.as('group_key'),
+        sql<string | null>`min(${name})`.as('group_name'),
+        sql<number | null>`min(${rate})`.as('hourly_rate'),
+        sql<number>`sum("c"."entries")`.as('entries'),
+        sql<number>`sum("c"."minutes")`.as('minutes'),
+        sql<number>`sum("c"."billable_minutes")`.as('billable_minutes'),
+        sql<number>`sum("c"."approved_minutes")`.as('approved_minutes'),
+        sql<
+          number | null
+        >`round(min(${rate}) * 100 * sum("c"."billable_minutes") / 60)`.as(
+          'amount',
+        ),
+      ])
+      .groupBy([key, 'c.project_id', 'c.user_id']);
+    const rows = await this.db
+      .selectFrom(byPersonOnProject.as('g'))
+      .select([
+        'g.group_key',
+        sql<string | null>`min("g"."group_name")`.as('group_name'),
+        sql<number>`sum("g"."entries")`.as('entries'),
+        sql<number>`sum("g"."minutes")`.as('minutes'),
+        sql<number>`sum("g"."billable_minutes")`.as('billable_minutes'),
+        sql<number>`sum("g"."approved_minutes")`.as('approved_minutes'),
+        sql<number>`coalesce(sum("g"."amount"), 0)`.as('amount'),
+        sql<number>`coalesce(sum("g"."billable_minutes") filter (where "g"."hourly_rate" is null), 0)`.as(
+          'unrated_minutes',
+        ),
+      ])
+      .groupBy('g.group_key')
+      .execute();
+
+    return rows.map((row) => ({
+      key: row.group_key,
+      name: row.group_name,
+      entries: Number(row.entries),
+      minutes: Number(row.minutes),
+      billableMinutes: Number(row.billable_minutes),
+      approvedMinutes: Number(row.approved_minutes),
+      amount: Number(row.amount),
+      unratedMinutes: Number(row.unrated_minutes),
+    }));
+  }
+
+  // A page of a time report's entries (see reportEntries) as its CSV shows
+  // them, in its order: by day, person, project and when they were logged,
+  // names as the app sorts them (localeCompare, ICU's root order). `after`
+  // is the last line of the page before.
+  public async findReportCsvPage(
+    slackTeamId: string,
+    query: IReportEntriesQuery,
+    {
+      after,
+      limit,
+      withRates,
+    }: { after?: TimeReportCsvCursor; limit: number; withRates: boolean },
+  ): Promise<ITimeReportCsvRow[]> {
+    const person = sql<string>`coalesce("u"."name", '')`;
+    const project = sql<string>`coalesce("p"."name", '')`;
+    const collated = (text: RawBuilder<string>) =>
+      sql`${text} collate ${sql.id(NAME_COLLATION)}`;
+    const sortKeys = [
+      sql.ref('time_entries.work_date'),
+      collated(person),
+      collated(project),
+      sql.ref('time_entries.created_at'),
+      sql.ref('time_entries.id'),
+    ];
+    const rate = withRates
+      ? sql<
+          number | null
+        >`case when "p"."id" is not null then coalesce("r"."hourly_rate", "p"."hourly_rate") end`
+      : sql<null>`null`;
+    const rows = await this.reportEntries(slackTeamId, query)
+      .leftJoin('users as u', (join) =>
+        join
+          .onRef('u.id', '=', 'time_entries.user_id')
+          .on('u.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('teams as tm', (join) =>
+        join
+          .onRef('tm.id', '=', 'time_entries.team_id')
+          .on('tm.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('projects as p', (join) =>
+        join
+          .onRef('p.id', '=', 'time_entries.project_id')
+          .on('p.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('clients as pc', (join) =>
+        join
+          .onRef('pc.id', '=', 'p.client_id')
+          .on('pc.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('clients as ec', (join) =>
+        join
+          .onRef('ec.id', '=', 'time_entries.client_id')
+          .on('ec.slack_team_id', '=', slackTeamId),
+      )
+      .leftJoin('project_user_rates as r', (join) =>
+        join
+          .onRef('r.project_id', '=', 'time_entries.project_id')
+          .onRef('r.user_id', '=', 'time_entries.user_id')
+          .on('r.slack_team_id', '=', slackTeamId),
+      )
+      .select([
+        'time_entries.id',
+        'time_entries.work_date',
+        'time_entries.created_at',
+        person.as('person'),
+        'u.email',
+        'tm.name as team',
+        sql<
+          string | null
+        >`case when "p"."id" is not null then "pc"."name" else "ec"."name" end`.as(
+          'client',
+        ),
+        project.as('project'),
+        'time_entries.description',
+        'time_entries.minutes',
+        'time_entries.billable',
+        'time_entries.status',
+        rate.as('hourly_rate'),
+      ])
+      .$if(!!after, (page) =>
+        page
+          // Implied by the next condition, but the index on the day can
+          // start there.
+          .where('time_entries.work_date', '>=', after!.work_date)
+          .where(
+            sql<boolean>`(${sql.join(sortKeys)}) > (${sql.join([
+              sql`${after!.work_date}::date`,
+              sql`${after!.person}`,
+              sql`${after!.project}`,
+              sql`${after!.created_at}::timestamptz`,
+              sql`${after!.id}::uuid`,
+            ])})`,
+          ),
+      )
+      .$call((page) =>
+        sortKeys.reduce((sorted, key) => sorted.orderBy(key), page),
+      )
+      .limit(limit)
+      .execute();
+
+    return rows.map((row) => ({
+      ...row,
+      status: row.status as TimeEntryStatus,
+      hourly_rate: row.hourly_rate === null ? null : Number(row.hourly_rate),
+    }));
+  }
+
+  // Each person's minutes of a period, all and of drafts and rejected
+  // entries, with how many of those; deleted entries left out. A row for
+  // each of `userIds` who logged any.
+  public async sumOfUsers(
+    slackTeamId: string,
+    userIds: string[],
+    { dateFrom, dateTo }: { dateFrom: string; dateTo: string },
+  ): Promise<IUserTimeSum[]> {
+    if (!userIds.length) {
+      return [];
+    }
+
+    const open = sql`"status" in (${sql.join(OPEN_TIME_ENTRY_STATUSES)})`;
+    const rows = await this.selectInWorkspace(slackTeamId)
+      .select([
+        'user_id',
+        sql<number>`sum("minutes")`.as('minutes'),
+        sql<number>`coalesce(sum("minutes") filter (where ${open}), 0)`.as(
+          'open_minutes',
+        ),
+        sql<number>`count(*) filter (where ${open})`.as('open_count'),
+      ])
+      .where(sql<boolean>`"user_id" = any(${userIds}::uuid[])`)
+      .where('deleted_at', 'is', null)
+      .where('work_date', '>=', dateFrom)
+      .where('work_date', '<=', dateTo)
+      .groupBy('user_id')
+      .execute();
+
+    return rows.map((row) => ({
+      userId: row.user_id,
+      minutes: Number(row.minutes),
+      openMinutes: Number(row.open_minutes),
+      openCount: Number(row.open_count),
+    }));
   }
 
   // A person's minutes of a period, and how many drafts and rejected entries
@@ -497,6 +792,47 @@ export class TimeEntriesRepository extends BaseRepository<
       .execute();
 
     return new Set(rows.map(({ time_entry_id }) => time_entry_id));
+  }
+
+  // The entries of a time report: a period's, deleted ones left out, within
+  // the scope (with its `userId`, that person's and those logged in its
+  // `teamIds`), then narrowed by the filters: a client's projects (archived
+  // ones too), a project, a person.
+  private reportEntries(
+    slackTeamId: string,
+    { dateFrom, dateTo, scope, filters }: IReportEntriesQuery,
+  ) {
+    const teamIds = scope.teamIds ?? [];
+
+    return this.selectInWorkspace(slackTeamId)
+      .where('time_entries.deleted_at', 'is', null)
+      .where('time_entries.work_date', '>=', dateFrom)
+      .where('time_entries.work_date', '<=', dateTo)
+      .$if(!!scope.userId, (query) =>
+        query.where((eb) =>
+          eb.or([
+            eb('time_entries.user_id', '=', scope.userId!),
+            ...(teamIds.length
+              ? [eb('time_entries.team_id', 'in', teamIds)]
+              : []),
+          ]),
+        ),
+      )
+      .$if(!!filters.clientId, (query) =>
+        query.where('time_entries.project_id', 'in', (eb) =>
+          eb
+            .selectFrom('projects')
+            .select('projects.id')
+            .where('projects.slack_team_id', '=', slackTeamId)
+            .where('projects.client_id', '=', filters.clientId!),
+        ),
+      )
+      .$if(!!filters.projectId, (query) =>
+        query.where('time_entries.project_id', '=', filters.projectId!),
+      )
+      .$if(!!filters.userId, (query) =>
+        query.where('time_entries.user_id', '=', filters.userId!),
+      );
   }
 
   // The submitted entries that wait for `approverId`.

@@ -1,4 +1,4 @@
-import { TimeReportGrouping } from 'src/time-entries/services/time-report.service';
+import { TimeReportGrouping } from 'src/time-entries/enums/time-report-grouping.enum';
 
 // What the time report form asks for: time by client, project, person or
 // team (TimeReportGrouping), or who hasn't sent their time for approval.

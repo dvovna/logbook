@@ -1,28 +1,38 @@
-import { Injectable } from '@nestjs/common';
-import { csvText, toCsv } from '@common/utils/csv.utils';
+import { Inject, Injectable } from '@nestjs/common';
+import { csvLines, csvStart, csvText } from '@common/utils/csv.utils';
 import { amountInCents } from '@common/utils/money.utils';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { canSeeRates } from 'src/projects/constants/rate-roles';
-import { ProjectRatesService } from 'src/projects/services/project-rates.service';
-import { IProjectRates } from 'src/projects/types/project-user-rate.types';
-import { TimeScopeKind } from 'src/time-entries/services/time-entries-scope.service';
 import {
-  IAppliedFilters,
+  ITimeEntriesExportLimits,
+  TIME_ENTRIES_EXPORT_LIMITS,
+} from 'src/time-entries/constants/time-entries-export';
+import {
+  scopeFilterOf,
+  TimeEntriesScopeService,
+} from 'src/time-entries/services/time-entries-scope.service';
+import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
+import {
+  ITimeReport,
+  ITimeReportCsvRow,
   ITimeReportFilters,
-  rateOf,
-  TimeReportService,
-} from 'src/time-entries/services/time-report.service';
+  TimeReportCsvCursor,
+} from 'src/time-entries/types/time-report.types';
 import { assertReportPeriod } from 'src/time-entries/utils/report-period';
 
-export interface ITimeEntriesExport {
-  filename: string;
-  content: string;
-  scope: TimeScopeKind;
-  filters: IAppliedFilters;
-  entryCount: number;
-  minutes: number;
-}
+export type TimeEntriesCsv =
+  // No entries: no file.
+  | { status: 'empty' }
+  // More entries than a file may hold (maxEntries): no file.
+  | { status: 'too_many'; maxEntries: number }
+  | {
+      status: 'ready';
+      filename: string;
+      content: string;
+      entryCount: number;
+      minutes: number;
+    };
 
 const COLUMNS = [
   'Date',
@@ -45,106 +55,148 @@ const hours = (minutes: number) => (minutes / 60).toFixed(2);
 
 const money = (cents: number) => (cents / 100).toFixed(2);
 
-// The time entries of a period as a CSV file, one line each, for a
-// spreadsheet or an invoice: the same entries, scope and filters as the time
-// report (TimeReportService.findFilteredEntries). Admin and Finance also get each entry's rate (the
-// person's own on the project, else the project's) and amount: its billable
-// time at that rate, rounded to the cent.
+const cursorOf = ({
+  work_date,
+  person,
+  project,
+  created_at,
+  id,
+}: ITimeReportCsvRow): TimeReportCsvCursor => ({
+  work_date,
+  person,
+  project,
+  created_at,
+  id,
+});
+
+// The entries of a time report as a CSV file, one line each, for a
+// spreadsheet or an invoice: the same entries, scope and filters as the
+// report. Admin and Finance also get each entry's rate (the person's own on
+// the project, else the project's) and amount: its billable time at that
+// rate, rounded to the cent. The entries are read a page at a time, in the
+// file's order, and only the file's text is kept.
 @Injectable()
 export class TimeEntriesExportService {
   public constructor(
-    private readonly timeReportService: TimeReportService,
-    private readonly projectRatesService: ProjectRatesService,
+    private readonly scopeService: TimeEntriesScopeService,
+    private readonly timeEntriesService: TimeEntriesService,
     private readonly slackTeamsService: SlackTeamsService,
+    @Inject(TIME_ENTRIES_EXPORT_LIMITS)
+    private readonly limits: ITimeEntriesExportLimits,
   ) {}
 
+  // The CSV of `report`, which `user` made with `filters`. Its entry count
+  // tells an empty or too big file before anything is read.
   public async getCsv({
     user,
-    fromDate,
-    toDate,
+    report,
     filters,
   }: {
     user: IUserViewModel;
-    fromDate: string;
-    toDate: string;
-    filters?: ITimeReportFilters;
-  }): Promise<ITimeEntriesExport> {
-    assertReportPeriod(fromDate, toDate);
+    report: ITimeReport;
+    filters: ITimeReportFilters;
+  }): Promise<TimeEntriesCsv> {
+    const { pageSize, maxEntries } = this.limits;
+
+    assertReportPeriod(report.fromDate, report.toDate);
+
+    if (!report.entryCount) {
+      return { status: 'empty' };
+    }
+
+    if (report.entryCount > maxEntries) {
+      return { status: 'too_many', maxEntries };
+    }
 
     const withRates = canSeeRates(user.role);
-    const { scope, entries, applied } =
-      await this.timeReportService.findFilteredEntries({
-        user,
-        fromDate,
-        toDate,
-        filters,
-      });
-    const projectIds = [...new Set(entries.map((entry) => entry.project_id))];
-    const [clientOf, rates, currency] = await Promise.all([
-      this.timeReportService.clientsByProject(user, projectIds),
-      withRates && projectIds.length
-        ? this.projectRatesService.findRates(projectIds, user)
-        : new Map<string, IProjectRates>(),
+    const [scope, currency] = await Promise.all([
+      this.scopeService.scopeOf(user),
       withRates ? this.slackTeamsService.getCurrency(user.slack_team_id) : '',
     ]);
+    const query = {
+      dateFrom: report.fromDate,
+      dateTo: report.toDate,
+      scope: scopeFilterOf(scope, user),
+      filters,
+    };
+    const parts = [
+      csvStart(withRates ? [...COLUMNS, ...RATE_COLUMNS] : COLUMNS),
+    ];
+    let entryCount = 0;
+    let minutes = 0;
+    let after: TimeReportCsvCursor | undefined;
 
-    const lines = entries
-      .map((entry) => ({
-        entry,
-        person: entry.user?.name ?? '',
-        project: entry.project?.name ?? '',
-      }))
-      .sort(
-        (a, b) =>
-          a.entry.work_date.localeCompare(b.entry.work_date) ||
-          a.person.localeCompare(b.person) ||
-          a.project.localeCompare(b.project) ||
-          a.entry.created_at.localeCompare(b.entry.created_at),
+    for (;;) {
+      const page = await this.timeEntriesService.findReportCsvPage(
+        user.slack_team_id,
+        query,
+        { after, limit: pageSize, withRates },
       );
 
-    const rows = lines.map(({ entry, person, project }) => {
-      const client = clientOf.has(entry.project_id)
-        ? clientOf.get(entry.project_id)
-        : entry.client;
-      const row = [
-        entry.work_date,
-        csvText(person),
-        csvText(entry.user?.email),
-        csvText(entry.team?.name),
-        csvText(client?.name),
-        csvText(project),
-        csvText(entry.description),
-        hours(entry.minutes),
-        entry.billable ? 'yes' : 'no',
-        entry.status,
-      ];
+      entryCount += page.length;
 
-      if (!withRates) {
-        return row;
+      // Logged since the report was made.
+      if (entryCount > maxEntries) {
+        return { status: 'too_many', maxEntries };
       }
 
-      const rate = rateOf(rates, entry.project_id, entry.user_id);
+      for (const row of page) {
+        minutes += row.minutes;
+      }
 
-      return [
-        ...row,
-        rate === null ? '' : rate.toFixed(2),
-        rate === null || !entry.billable
-          ? ''
-          : money(amountInCents(entry.minutes, rate)),
-        currency,
-      ];
-    });
+      parts.push(
+        csvLines(page.map((row) => this.lineOf(row, withRates, currency))),
+      );
 
-    return {
-      filename: `time-report-${fromDate}-to-${toDate}.csv`,
-      content: toCsv([
-        withRates ? [...COLUMNS, ...RATE_COLUMNS] : COLUMNS,
-        ...rows,
-      ]),
-      scope: scope.kind,
-      filters: applied,
-      entryCount: entries.length,
-      minutes: entries.reduce((sum, { minutes }) => sum + minutes, 0),
-    };
+      if (page.length < pageSize) {
+        break;
+      }
+
+      after = cursorOf(page[page.length - 1]);
+    }
+
+    return entryCount
+      ? {
+          status: 'ready',
+          filename: `time-report-${report.fromDate}-to-${report.toDate}.csv`,
+          content: parts.join(''),
+          entryCount,
+          minutes,
+        }
+      : { status: 'empty' };
+  }
+
+  private lineOf(
+    row: ITimeReportCsvRow,
+    withRates: boolean,
+    currency: string,
+  ): string[] {
+    const line = [
+      row.work_date,
+      csvText(row.person),
+      csvText(row.email),
+      csvText(row.team),
+      csvText(row.client),
+      csvText(row.project),
+      csvText(row.description),
+      hours(row.minutes),
+      row.billable ? 'yes' : 'no',
+      row.status,
+    ];
+
+    if (!withRates) {
+      return line;
+    }
+
+    const rate = row.hourly_rate;
+
+    return [
+      ...line,
+      rate === null ? '' : rate.toFixed(2),
+      rate === null || !row.billable
+        ? ''
+        : money(amountInCents(row.minutes, rate)),
+      currency,
+    ];
   }
 }

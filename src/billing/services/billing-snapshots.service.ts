@@ -12,7 +12,7 @@ import { TransactionService } from 'src/database/transaction.service';
 import ProjectsService from 'src/projects/services/projects.service';
 import { ProjectRatesService } from 'src/projects/services/project-rates.service';
 import { IProjectRates } from 'src/projects/types/project-user-rate.types';
-import { rateOf } from 'src/time-entries/services/time-report.service';
+import { rateOf } from 'src/projects/utils/project-rates.utils';
 import { assertReportPeriod } from 'src/time-entries/utils/report-period';
 import {
   assertCanManageSnapshots,

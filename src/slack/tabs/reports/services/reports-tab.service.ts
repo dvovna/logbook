@@ -21,6 +21,7 @@ import {
 } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
 import { TimeEntriesSummaryService } from 'src/time-entries/services/time-entries-summary.service';
 import { TimeReportService } from 'src/time-entries/services/time-report.service';
+import { ITimeReport } from 'src/time-entries/types/time-report.types';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { OTHERS_TIME_ROLES } from '@common/constants/role-groups';
 import { ValidationError } from '@common/errors/validation.error';
@@ -36,7 +37,11 @@ import { UninvoicedReportService } from 'src/billing/services/uninvoiced-report.
 import { canManageSnapshots } from 'src/billing/constants/snapshot-roles';
 import { UninvoicedReportModalView } from '@modules/slack/tabs/reports/views/uninvoiced-report-modal.view';
 
-export type IGetReportsTabViewParams = IPublishBaseParams<IReportsTabMetadata>;
+export interface IReportsPublishParams extends IPublishBaseParams<IReportsTabMetadata> {
+  // The time report the metadata names, when the caller made it already
+  // (Export makes it for the CSV too).
+  timeReport?: Promise<ITimeReport>;
+}
 
 // A report form's period, as a quick period filled it
 // (ReportFormPresetHandler): new dates, under new block_ids.
@@ -79,7 +84,10 @@ const datedPeriod = (period?: IFormPeriod) => ({
 });
 
 @Injectable()
-export class ReportsTabService extends BaseTabService<ReportsModalViewResolversMap> {
+export class ReportsTabService extends BaseTabService<
+  ReportsModalViewResolversMap,
+  IReportsPublishParams
+> {
   public constructor(
     private readonly reportsTabView: ReportsTabView,
     private readonly billingReportModalView: BillingReportModalView,
@@ -108,7 +116,8 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
   protected async getTabView({
     user,
     metadata = {},
-  }: IGetReportsTabViewParams) {
+    timeReport: madeReport,
+  }: IReportsPublishParams) {
     const { report, timeReport, uninvoiced } = metadata;
     const [weekSummary, billingReport, timeReports, uninvoicedReport] =
       await Promise.all([
@@ -120,7 +129,7 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
               ...report,
             })
           : null,
-        timeReport ? this.getTimeReports(user, timeReport) : null,
+        timeReport ? this.getTimeReports(user, timeReport, madeReport) : null,
         // As billing snapshots, Admin's and Finance's.
         uninvoiced && canManageSnapshots(user.role)
           ? this.uninvoicedReportService.getReport(user, uninvoiced)
@@ -149,18 +158,20 @@ export class ReportsTabService extends BaseTabService<ReportsModalViewResolversM
       toDate,
       ...filters
     }: NonNullable<IReportsTabMetadata['timeReport']>,
+    madeReport?: Promise<ITimeReport>,
   ) {
     const groupBy = groupingOf(kind);
 
     return groupBy
       ? {
-          timeReport: await this.timeReportService.getReport({
-            user,
-            groupBy,
-            fromDate,
-            toDate,
-            filters,
-          }),
+          timeReport: await (madeReport ??
+            this.timeReportService.getReport({
+              user,
+              groupBy,
+              fromDate,
+              toDate,
+              filters,
+            })),
           missingTime: null,
         }
       : {

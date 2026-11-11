@@ -2,21 +2,18 @@ import UserRole from 'src/common/enums/user-role.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
 import ClientsService from 'src/clients/services/clients.service';
 import ProjectsService from 'src/projects/services/projects.service';
-import { ProjectRatesService } from 'src/projects/services/project-rates.service';
-import { IProjectRates } from 'src/projects/types/project-user-rate.types';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 import TeamsService from 'src/teams/services/teams.service';
-import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
-import {
-  TimeEntriesScopeService,
-  TimeScope,
-} from 'src/time-entries/services/time-entries-scope.service';
+import { TimeReportGrouping } from 'src/time-entries/enums/time-report-grouping.enum';
+import { TimeEntriesScopeService } from 'src/time-entries/services/time-entries-scope.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
+import { TimeReportService } from 'src/time-entries/services/time-report.service';
 import {
-  TimeReportGrouping,
-  TimeReportService,
-} from 'src/time-entries/services/time-report.service';
-import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
+  ITimeReportGroupSum,
+  IUserTimeSum,
+} from 'src/time-entries/types/time-report.types';
+import { TimeScope } from 'src/time-entries/types/time-scope.types';
+import { UsersService } from 'src/users/services/users.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 
 const SLACK_TEAM_ID = 'slack-team-1';
@@ -25,76 +22,54 @@ const PERIOD = { fromDate: '2026-11-01', toDate: '2026-11-30' };
 const userWith = (role: UserRole) =>
   ({ id: 'viewer', role, slack_team_id: SLACK_TEAM_ID }) as IUserViewModel;
 
-const PEOPLE = { ann: 'Ann Admin', mia: 'Mia Member' } as const;
-const PROJECTS = { web: 'Website', app: 'App', int: 'Internal' } as const;
-const TEAMS = { backend: 'Backend' } as const;
-const PROJECT_ROWS = [
-  { id: 'web', name: PROJECTS.web, client_id: 'acme' },
-  { id: 'app', name: PROJECTS.app, client_id: 'acme' },
-  { id: 'int', name: PROJECTS.int, client_id: null },
-];
-
-const entry = (
-  projectId: keyof typeof PROJECTS,
-  person: keyof typeof PEOPLE,
+const group = (
+  name: string | null,
   minutes: number,
-  fields: Partial<ITimeEntryViewModel> = {},
-) =>
-  ({
-    id: `${projectId}-${person}-${minutes}`,
-    project_id: projectId,
-    project: { id: projectId, name: PROJECTS[projectId] },
-    user_id: person,
-    user: { id: person, name: PEOPLE[person] },
-    team_id: 'backend',
-    team: { id: 'backend', name: TEAMS.backend },
-    client_id: null,
-    client: null,
-    minutes,
-    billable: projectId !== 'int',
-    status: TimeEntryStatus.Approved,
-    ...fields,
-  }) as ITimeEntryViewModel;
+  fields: Partial<ITimeReportGroupSum> = {},
+): ITimeReportGroupSum => ({
+  key: name && name.toLowerCase(),
+  name,
+  entries: 1,
+  minutes,
+  billableMinutes: minutes,
+  approvedMinutes: minutes,
+  amount: 0,
+  unratedMinutes: 0,
+  ...fields,
+});
 
 describe('TimeReportService', () => {
-  let entries: ITimeEntryViewModel[];
+  let groups: ITimeReportGroupSum[];
+  let sums: IUserTimeSum[];
   let scope: TimeScope;
-  let rates: Map<string, IProjectRates>;
-  let projectRatesService: { findRates: jest.Mock };
   let slackTeamsService: { getCurrency: jest.Mock };
-  let scopeService: { findEntries: jest.Mock; findPeople: jest.Mock };
-  let timeEntriesService: { findMany: jest.Mock };
+  let scopeService: { scopeOf: jest.Mock; findPeople: jest.Mock };
+  let timeEntriesService: { sumReportGroups: jest.Mock; sumOfUsers: jest.Mock };
   let service: TimeReportService;
 
   beforeEach(() => {
-    entries = [];
+    groups = [];
+    sums = [];
     scope = { kind: 'workspace' };
-    rates = new Map();
-    projectRatesService = { findRates: jest.fn(async () => rates) };
     slackTeamsService = { getCurrency: jest.fn().mockResolvedValue('EUR') };
     scopeService = {
-      findEntries: jest.fn(async () => ({ scope, entries })),
+      scopeOf: jest.fn(async () => scope),
       findPeople: jest.fn(),
     };
-    timeEntriesService = { findMany: jest.fn(async () => entries) };
+    timeEntriesService = {
+      sumReportGroups: jest.fn(async () => groups),
+      sumOfUsers: jest.fn(async () => sums),
+    };
 
     service = new TimeReportService(
       scopeService as unknown as TimeEntriesScopeService,
       timeEntriesService as unknown as TimeEntriesService,
       {
-        findMany: jest.fn(async ({ clientId }: { clientId?: string }) =>
-          PROJECT_ROWS.filter(
-            (project) => !clientId || project.client_id === clientId,
-          ),
-        ),
-        findOne: jest.fn(
-          async ({ id }: { id: string }) =>
-            PROJECT_ROWS.find((project) => project.id === id) ?? null,
+        findOne: jest.fn(async ({ id }: { id: string }) =>
+          id === 'int' ? { id, name: 'Internal' } : null,
         ),
       } as unknown as ProjectsService,
-      projectRatesService as unknown as ProjectRatesService,
       {
-        findMany: jest.fn().mockResolvedValue([{ id: 'acme', name: 'Acme' }]),
         findOne: jest.fn(async ({ id }: { id: string }) =>
           id === 'acme' ? { id, name: 'Acme' } : null,
         ),
@@ -102,28 +77,36 @@ describe('TimeReportService', () => {
       {
         findMany: jest
           .fn()
-          .mockResolvedValue([{ id: 'backend', name: TEAMS.backend }]),
+          .mockResolvedValue([{ id: 'backend', name: 'Backend' }]),
       } as unknown as TeamsService,
+      {
+        findOne: jest.fn(async ({ id }: { id: string }) =>
+          id === 'mia' ? { id, name: 'Mia Member' } : null,
+        ),
+      } as unknown as UsersService,
       slackTeamsService as unknown as SlackTeamsService,
     );
   });
 
-  const report = (groupBy: TimeReportGrouping, role = UserRole.Admin) =>
-    service.getReport({ user: userWith(role), groupBy, ...PERIOD });
+  const report = (
+    groupBy: TimeReportGrouping,
+    role = UserRole.Admin,
+    filters = {},
+  ) => service.getReport({ user: userWith(role), groupBy, ...PERIOD, filters });
 
-  it('adds up time by project, with amounts at the person or project rate', async () => {
-    rates.set('web', {
-      hourlyRate: 100,
-      personRates: [{ userId: 'ann', name: PEOPLE.ann, hourlyRate: 150 }],
-    });
-    rates.set('app', { hourlyRate: null, personRates: [] });
-    rates.set('int', { hourlyRate: 80, personRates: [] });
-    entries.push(
-      entry('web', 'mia', 90),
-      entry('web', 'ann', 30, { status: TimeEntryStatus.Draft }),
-      entry('web', 'ann', 30),
-      entry('app', 'mia', 45, { status: TimeEntryStatus.Submitted }),
-      entry('int', 'mia', 60),
+  it('shows the groups the database added up, most time first, with their total', async () => {
+    groups.push(
+      group('App', 45, {
+        entries: 2,
+        approvedMinutes: 0,
+        unratedMinutes: 45,
+      }),
+      group('Website', 150, {
+        entries: 3,
+        approvedMinutes: 120,
+        amount: 30000,
+      }),
+      group('Internal', 60, { billableMinutes: 0 }),
     );
 
     expect(await report(TimeReportGrouping.Project)).toEqual({
@@ -138,10 +121,8 @@ describe('TimeReportService', () => {
           minutes: 150,
           billableMinutes: 150,
           approvedMinutes: 120,
-          // 1h 30m at 100 and 1h at Ann's own 150.
           amount: 30000,
         },
-        // Not billable: a rate, but nothing to bill.
         {
           name: 'Internal',
           minutes: 60,
@@ -165,44 +146,36 @@ describe('TimeReportService', () => {
         amount: 30000,
       },
       unratedMinutes: 45,
+      entryCount: 6,
     });
-    expect(projectRatesService.findRates).toHaveBeenCalledWith(
-      ['web', 'app', 'int'],
-      userWith(UserRole.Admin),
+    expect(timeEntriesService.sumReportGroups).toHaveBeenCalledWith(
+      SLACK_TEAM_ID,
+      {
+        dateFrom: PERIOD.fromDate,
+        dateTo: PERIOD.toDate,
+        scope: {},
+        filters: {},
+      },
+      TimeReportGrouping.Project,
     );
   });
 
-  it("groups by the project's client, and by person and team", async () => {
-    entries.push(
-      entry('web', 'mia', 60),
-      // Logged before the project had its client.
-      entry('app', 'ann', 30, { team_id: null, team: null }),
-      entry('int', 'mia', 15, {
-        client_id: 'old',
-        client: { id: 'old', name: 'Old client' },
-      }),
+  it.each([
+    [TimeReportGrouping.Client, 'No client'],
+    [TimeReportGrouping.Project, 'Unknown project'],
+    [TimeReportGrouping.Person, 'Unknown user'],
+    [TimeReportGrouping.Team, 'No team'],
+  ])('names a %s group without a name %j', async (groupBy, name) => {
+    groups.push(group('Zed', 15), group(null, 15));
+
+    expect((await report(groupBy)).rows.map((row) => row.name)).toEqual(
+      [name, 'Zed'].sort((a, b) => a.localeCompare(b)),
     );
-
-    const names = async (groupBy: TimeReportGrouping) =>
-      (await report(groupBy)).rows.map(({ name, minutes }) => [name, minutes]);
-
-    expect(await names(TimeReportGrouping.Client)).toEqual([
-      ['Acme', 90],
-      ['No client', 15],
-    ]);
-    expect(await names(TimeReportGrouping.Person)).toEqual([
-      ['Mia Member', 75],
-      ['Ann Admin', 30],
-    ]);
-    expect(await names(TimeReportGrouping.Team)).toEqual([
-      ['Backend', 75],
-      ['No team', 30],
-    ]);
   });
 
-  it('shows no amounts to a manager and reads no rates for them', async () => {
+  it("reads a manager's teams' time and their own, without amounts", async () => {
     scope = { kind: 'teams', teamIds: ['backend'] };
-    entries.push(entry('web', 'mia', 60));
+    groups.push(group('Mia Member', 60, { amount: 12000, unratedMinutes: 15 }));
 
     const result = await report(TimeReportGrouping.Person, UserRole.Manager);
 
@@ -213,7 +186,13 @@ describe('TimeReportService', () => {
       rows: [{ name: 'Mia Member', minutes: 60, amount: null }],
       total: { minutes: 60, amount: null },
     });
-    expect(projectRatesService.findRates).not.toHaveBeenCalled();
+    expect(timeEntriesService.sumReportGroups).toHaveBeenCalledWith(
+      SLACK_TEAM_ID,
+      expect.objectContaining({
+        scope: { userId: 'viewer', teamIds: ['backend'] },
+      }),
+      TimeReportGrouping.Person,
+    );
     expect(slackTeamsService.getCurrency).not.toHaveBeenCalled();
   });
 
@@ -233,64 +212,53 @@ describe('TimeReportService', () => {
           toDate,
         }),
       ).rejects.toThrow(ValidationError);
-      expect(scopeService.findEntries).not.toHaveBeenCalled();
+      expect(scopeService.scopeOf).not.toHaveBeenCalled();
+      expect(timeEntriesService.sumReportGroups).not.toHaveBeenCalled();
     },
   );
 
   describe('filters', () => {
-    beforeEach(() => {
-      entries.push(
-        entry('web', 'mia', 90),
-        entry('app', 'ann', 30),
-        entry('int', 'mia', 60),
+    it('go to the database after the scope, and name what they chose', async () => {
+      scope = { kind: 'own' };
+      groups.push(group('Website', 90));
+
+      const filters = { clientId: 'acme', projectId: 'int', userId: 'mia' };
+      const result = await report(
+        TimeReportGrouping.Project,
+        UserRole.Member,
+        filters,
+      );
+
+      expect(result.filters).toEqual({
+        client: 'Acme',
+        project: 'Internal',
+        person: 'Mia Member',
+      });
+      expect(timeEntriesService.sumReportGroups).toHaveBeenCalledWith(
+        SLACK_TEAM_ID,
+        {
+          dateFrom: PERIOD.fromDate,
+          dateTo: PERIOD.toDate,
+          scope: { userId: 'viewer', teamIds: [] },
+          filters,
+        },
+        TimeReportGrouping.Project,
       );
     });
 
-    const filtered = (filters: Record<string, string>) =>
-      service.getReport({
-        user: userWith(UserRole.Admin),
-        groupBy: TimeReportGrouping.Project,
-        ...PERIOD,
-        filters,
+    it("name what isn't the workspace's, and a person without time in the report, as unknown", async () => {
+      const result = await report(TimeReportGrouping.Project, UserRole.Admin, {
+        clientId: 'elsewhere',
+        projectId: 'elsewhere',
+        userId: 'mia',
       });
 
-    it("narrow the report to a client's projects, a project or a person", async () => {
-      const byClient = await filtered({ clientId: 'acme' });
-
-      expect(byClient.rows.map(({ name }) => name)).toEqual([
-        PROJECTS.web,
-        PROJECTS.app,
-      ]);
-      expect(byClient.filters).toEqual({ client: 'Acme' });
-
-      const byBoth = await filtered({ clientId: 'acme', userId: 'mia' });
-
-      expect(byBoth.total.minutes).toBe(90);
-      expect(byBoth.filters).toEqual({ client: 'Acme', person: PEOPLE.mia });
-
-      const byProject = await filtered({ projectId: 'int' });
-
-      expect(byProject.total.minutes).toBe(60);
-      expect(byProject.filters).toEqual({ project: PROJECTS.int });
-    });
-
-    it('come after the scope, so they never widen it', async () => {
-      await filtered({ userId: 'ann' });
-
-      expect(scopeService.findEntries).toHaveBeenCalledWith(
-        userWith(UserRole.Admin),
-        { dateFrom: PERIOD.fromDate, dateTo: PERIOD.toDate },
-      );
-    });
-
-    it("match nothing for a client or a project that isn't the workspace's", async () => {
-      const otherClient = await filtered({ clientId: 'elsewhere' });
-      const otherProject = await filtered({ projectId: 'elsewhere' });
-
-      expect(otherClient.total.minutes).toBe(0);
-      expect(otherClient.filters).toEqual({ client: 'Unknown client' });
-      expect(otherProject.total.minutes).toBe(0);
-      expect(otherProject.filters).toEqual({ project: 'Unknown project' });
+      expect(result.total.minutes).toBe(0);
+      expect(result.filters).toEqual({
+        client: 'Unknown client',
+        project: 'Unknown project',
+        person: 'Unknown person',
+      });
     });
   });
 
@@ -302,7 +270,7 @@ describe('TimeReportService', () => {
         fromDate: '2028-01-01',
         toDate: '2028-12-31',
       }),
-    ).resolves.toMatchObject({ rows: [] });
+    ).resolves.toMatchObject({ rows: [], entryCount: 0 });
   });
 
   describe('who has not submitted', () => {
@@ -320,27 +288,10 @@ describe('TimeReportService', () => {
           person('dan', 'Dan', 'backend'),
         ],
       });
-      entries.push(
-        entry('web', 'ann' as never, 60, {
-          user_id: 'ann',
-          status: TimeEntryStatus.Draft,
-        }),
-        entry('web', 'ann' as never, 30, {
-          user_id: 'ann',
-          status: TimeEntryStatus.Submitted,
-        }),
-        entry('web', 'cat' as never, 15, {
-          user_id: 'cat',
-          status: TimeEntryStatus.Rejected,
-        }),
-        entry('web', 'cat' as never, 30, {
-          user_id: 'cat',
-          status: TimeEntryStatus.Draft,
-        }),
-        entry('web', 'dan' as never, 60, {
-          user_id: 'dan',
-          status: TimeEntryStatus.Approved,
-        }),
+      sums.push(
+        { userId: 'ann', minutes: 90, openMinutes: 60, openCount: 1 },
+        { userId: 'cat', minutes: 45, openMinutes: 45, openCount: 2 },
+        { userId: 'dan', minutes: 60, openMinutes: 0, openCount: 0 },
       );
 
       expect(
@@ -376,7 +327,7 @@ describe('TimeReportService', () => {
           },
         ],
       });
-      expect(timeEntriesService.findMany).toHaveBeenCalledWith({
+      expect(timeEntriesService.sumOfUsers).toHaveBeenCalledWith({
         slackTeamId: SLACK_TEAM_ID,
         userIds: ['ann', 'bob', 'cat', 'dan'],
         dateFrom: PERIOD.fromDate,

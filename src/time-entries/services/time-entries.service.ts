@@ -29,6 +29,11 @@ import {
   ITimeEntryCreateParams,
   ITimeEntryUpdateParams,
 } from 'src/time-entries/types/time-entry-writes.types';
+import { TimeReportGrouping } from 'src/time-entries/enums/time-report-grouping.enum';
+import {
+  IReportEntriesQuery,
+  TimeReportCsvCursor,
+} from 'src/time-entries/types/time-report.types';
 
 interface IFindParams {
   id?: string;
@@ -157,6 +162,43 @@ export class TimeEntriesService {
     teamIds?: string[];
   }) {
     return this.timeEntriesRepository.sumMinutes(slackTeamId, params);
+  }
+
+  public sumReportGroups(
+    slackTeamId: string,
+    query: IReportEntriesQuery,
+    groupBy: TimeReportGrouping,
+  ) {
+    return this.timeEntriesRepository.sumReportGroups(
+      slackTeamId,
+      query,
+      groupBy,
+    );
+  }
+
+  public findReportCsvPage(
+    slackTeamId: string,
+    query: IReportEntriesQuery,
+    page: { after?: TimeReportCsvCursor; limit: number; withRates: boolean },
+  ) {
+    return this.timeEntriesRepository.findReportCsvPage(
+      slackTeamId,
+      query,
+      page,
+    );
+  }
+
+  public sumOfUsers({
+    slackTeamId,
+    userIds,
+    ...period
+  }: {
+    slackTeamId: string;
+    userIds: string[];
+    dateFrom: string;
+    dateTo: string;
+  }) {
+    return this.timeEntriesRepository.sumOfUsers(slackTeamId, userIds, period);
   }
 
   public async search(
