@@ -30,6 +30,9 @@ export enum ViewCallbackId {
   TeamFormSubmit = 'team_form_submit',
   CompanyRulesSubmit = 'company_rules_submit',
 
+  // The buttons of the DM that previews a team file.
+  TeamFileMessage = 'team_file_message',
+
   // vacation-policies
   VacationPoliciesTabView = 'vacation_policies_tab_view',
   DeleteVacationPolicy = 'delete_vacation_policy',

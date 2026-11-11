@@ -765,6 +765,70 @@ export type Database = {
         };
         Relationships: [];
       };
+      team_file_uploads: {
+        Row: {
+          applied_at: string | null;
+          created_at: string;
+          file_name: string;
+          id: string;
+          message_channel: string | null;
+          message_ts: string | null;
+          plan_digest: string;
+          rows: NonNullable<Json>;
+          slack_team_id: string;
+          status: string;
+          undo: Json | null;
+          undone_at: string | null;
+          uploaded_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          applied_at?: string | null;
+          created_at?: string;
+          file_name: string;
+          id?: string;
+          message_channel?: string | null;
+          message_ts?: string | null;
+          plan_digest: string;
+          rows: NonNullable<Json>;
+          slack_team_id: string;
+          status: string;
+          undo?: Json | null;
+          undone_at?: string | null;
+          uploaded_by?: string | null;
+        };
+        Update: {
+          applied_at?: string | null;
+          created_at?: string;
+          file_name?: string;
+          id?: string;
+          message_channel?: string | null;
+          message_ts?: string | null;
+          plan_digest?: string;
+          rows?: NonNullable<Json>;
+          slack_team_id?: string;
+          status?: string;
+          undo?: Json | null;
+          undone_at?: string | null;
+          uploaded_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'team_file_uploads_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'team_file_uploads_uploaded_by_fkey';
+            columns: ['uploaded_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       teams: {
         Row: {
           approval_notification_recipients: string[] | null;
