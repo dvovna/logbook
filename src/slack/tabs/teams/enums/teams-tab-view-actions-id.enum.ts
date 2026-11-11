@@ -1,6 +1,7 @@
 export enum TeamsTabViewActionId {
   AddTeam = 'add_team',
   CompanyRules = 'company_rules',
+  TeamFile = 'team_file',
   EditTeam = 'edit_team',
   DeleteTeam = 'delete_team',
   ManageTeamMenu = 'manage_team_menu',

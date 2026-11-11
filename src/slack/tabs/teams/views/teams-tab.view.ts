@@ -74,6 +74,11 @@ export class TeamsTabView extends BaseTabView<
             text: { type: 'plain_text', text: '⚙️ Company rules' },
             action_id: TeamsTabViewActionId.CompanyRules,
           },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '📄 Set up from a file' },
+            action_id: TeamsTabViewActionId.TeamFile,
+          },
         ],
       },
     ];

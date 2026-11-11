@@ -26,6 +26,7 @@ import { pinoHttpOptions } from '@common/logging/pino-http.options';
 import { ClientsModule } from '@modules/clients/clients.module';
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 import { TimeOffLoggingModule } from 'src/time-off-logging/time-off-logging.module';
+import { TeamFileModule } from 'src/team-file/team-file.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { TimeOffLoggingModule } from 'src/time-off-logging/time-off-logging.modu
     RequestWorkflowsModule,
     TimeEntriesModule,
     TimeOffLoggingModule,
+    TeamFileModule,
   ],
   controllers: [AppController],
   providers: [BackgroundWorkShutdownService, EventTrackingService],

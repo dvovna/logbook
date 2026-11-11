@@ -14,6 +14,7 @@ import { TeamsTabView } from '@modules/slack/tabs/teams/views/teams-tab.view';
 import { TeamModalView } from '@modules/slack/tabs/teams/views/team-modal.view';
 import { UsersModule } from '@modules/users/users.module';
 import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
+import { TeamFileSlackModule } from '@modules/slack/team-file/team-file-slack.module';
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
     UsersModule,
     VacationPoliciesModule,
     SlackCommonModule,
+    TeamFileSlackModule,
   ],
   providers: [
     CompanyRulesFormSubmitHandler,
