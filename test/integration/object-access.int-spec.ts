@@ -13,6 +13,7 @@ import {
   TeamModalActionId,
   TeamsTabViewActionId,
 } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { chooseTeamRules } from './support/team-form';
 import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
@@ -20,7 +21,7 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { acknowledged } from './support/slack-test-client';
-import { fillForm } from './support/block-kit';
+import { fillForm, findAction } from './support/block-kit';
 import {
   openAppHomeTab,
   openModalFrom,
@@ -588,28 +589,26 @@ describe('Access to objects by ID', () => {
         await openAppHomeTab(t, workspace, admin, TEAMS_TAB),
         TeamsTabViewActionId.AddTeam,
       );
-      // A policy is the form of a team with its own rules.
-      const since = t.slackApi.mark();
-      await t.slack
-        .actOnView(
-          workspace,
-          admin,
-          newTeam,
-          TeamModalActionId.Rules,
-          TeamRulesChoice.Own,
-        )
-        .expect(200);
-      await t.idle();
-      const addTeam = t.slackApi.updatedModal(workspace.token, { since });
+      const addTeam = await chooseTeamRules(
+        t,
+        workspace,
+        admin,
+        newTeam,
+        TeamRulesChoice.Own,
+      );
       const teamResponse = await submitForged(
         admin,
         addTeam,
         { name: 'Ops' },
         { policy: strangersPolicy.id },
       );
-      expect(modalError(teamResponse.body.view)).toContain(
-        'not in this workspace',
-      );
+      expect(teamResponse.body).toMatchObject({
+        response_action: 'errors',
+        errors: {
+          [findAction(addTeam.blocks, 'policy').blockId]:
+            'This vacation policy is not in this workspace.',
+        },
+      });
       expect(await workspace.rows('teams')).toEqual([]);
     });
   });

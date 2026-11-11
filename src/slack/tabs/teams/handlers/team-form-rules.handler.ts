@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { StaticSelectAction } from '@slack/bolt/dist/types/actions/block-action';
-import UserRole from '@common/enums/user-role.enum';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import {
@@ -28,7 +28,7 @@ import { ITeamModalViewMetadata } from '@modules/slack/tabs/teams/views/team-mod
 @SlackHandler({
   callbackId: ViewCallbackId.TeamFormSubmit,
   type: 'block_actions',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: ADMIN_AND_HR_ROLES,
 })
 export class TeamFormRulesHandler extends BaseActionHandler {
   protected actionMap: ActionMapType = {

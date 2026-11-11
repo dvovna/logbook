@@ -7,6 +7,7 @@ import CompanyRulesViewValuesParser from '@modules/slack/tabs/teams/parsers/comp
 import { CompanyRulesModalView } from '@modules/slack/tabs/teams/views/company-rules-modal.view';
 import { TeamFormSubmitHandler } from '@modules/slack/tabs/teams/handlers/team-form-submit.handler';
 import TeamsTabActionHandler from '@modules/slack/tabs/teams/handlers/teams-tab-action.handler';
+import { RuleInputsValidationService } from '@modules/slack/tabs/teams/services/rule-inputs-validation.service';
 import { TeamsTabService } from '@modules/slack/tabs/teams/services/teams-tab.service';
 import TeamModalViewValuesParser from '@modules/slack/tabs/teams/parsers/team-modal-view-values.parser';
 import { TeamsTabView } from '@modules/slack/tabs/teams/views/teams-tab.view';
@@ -31,6 +32,7 @@ import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
     TeamFormSubmitHandler,
     TeamsTabActionHandler,
     TeamModalViewValuesParser,
+    RuleInputsValidationService,
     TeamsTabService,
     TeamsTabView,
     TeamModalView,

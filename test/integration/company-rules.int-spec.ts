@@ -13,6 +13,7 @@ import {
 } from '@modules/teams/services/company-rules.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { createTestApp, ITestApp } from './support/test-app';
+import { chooseTeamRules } from './support/team-form';
 import { TestWorkspace } from './support/test-workspace';
 import { addDays, workWeek } from './support/dates';
 import { textOf } from './support/block-kit';
@@ -457,16 +458,8 @@ describe('Company rules', () => {
         team && `${TeamsTabViewActionId.EditTeam}:${team.id}`,
       );
 
-    const chooseRules = async (form: View, rules: TeamRulesChoice) => {
-      const since = t.slackApi.mark();
-
-      await t.slack
-        .actOnView(workspace, admin, form, TeamModalActionId.Rules, rules)
-        .expect(200);
-      await t.idle();
-
-      return t.slackApi.updatedModal(workspace.token, { since });
-    };
+    const chooseRules = (form: View, rules: TeamRulesChoice, user = admin) =>
+      chooseTeamRules(t, workspace, user, form, rules);
 
     const teamItemsOf = async () =>
       listItems(await openAppHomeTab(t, workspace, admin, TEAMS_TAB)).map(
@@ -675,6 +668,135 @@ describe('Company rules', () => {
       expect(
         (await t.app.get(CompanyRulesService).get(workspace.id)).hr_approvers,
       ).toEqual([]);
+    });
+
+    const forgedSelect = (
+      blockId: string,
+      actionId: string,
+      value: string,
+    ) => ({
+      [blockId]: {
+        [actionId]: {
+          type: 'static_select',
+          selected_option: {
+            value,
+            text: { type: 'plain_text', text: value },
+          },
+        },
+      },
+    });
+
+    it('does not save a team on its own rules when the form never showed them', async () => {
+      const team = await workspace.addTeam({
+        name: 'Design',
+        rule_set_id: await companyRuleSetId(),
+      });
+      const form = await openTeamForm(team);
+
+      const response = await t.slack
+        .submitView(
+          workspace,
+          admin,
+          form,
+          {},
+          forgedSelect('rules_block', 'rules', TeamRulesChoice.Own),
+        )
+        .expect(200);
+
+      expect(response.body.response_action).toBe('update');
+      expect(modalError(response.body.view)).toBe(
+        "Check the team's own rules, then save again.",
+      );
+      expect(actionIdsOf(response.body.view)).toEqual(
+        expect.arrayContaining(['policy', 'hr_approvers']),
+      );
+      expect(await workspace.row('teams', team.id)).toMatchObject({
+        rule_set_id: await companyRuleSetId(),
+        hr_approvers: null,
+      });
+    });
+
+    it('ignores rule fields sent with the company rules', async () => {
+      const other = await t.createWorkspace();
+      const foreignPolicy = await other.addVacationPolicy();
+      const team = await workspace.addTeam({
+        rule_set_id: await companyRuleSetId(),
+      });
+      const form = await openTeamForm(team);
+
+      await t.slack
+        .submitView(
+          workspace,
+          admin,
+          form,
+          {},
+          {
+            ...forgedSelect('policy_block', 'policy', foreignPolicy.id),
+            hr_approvers_block: {
+              hr_approvers: {
+                type: 'multi_static_select',
+                selected_options: [
+                  {
+                    value: officeManager.slack_id,
+                    text: { type: 'plain_text', text: 'Olga Office' },
+                  },
+                ],
+              },
+            },
+          },
+        )
+        .expect(200);
+
+      expect(await workspace.row('teams', team.id)).toMatchObject({
+        rule_set_id: await companyRuleSetId(),
+        vacation_policy_id: null,
+        hr_approvers: null,
+      });
+    });
+
+    it('lets HR switch the rules, and names a level 2 approver without the role at the rebuilt field', async () => {
+      const own = await chooseRules(
+        await openModalFrom(
+          t,
+          workspace,
+          hr,
+          await openAppHomeTab(t, workspace, hr, TEAMS_TAB),
+          TeamsTabViewActionId.AddTeam,
+        ),
+        TeamRulesChoice.Own,
+        hr,
+      );
+      const { blockId } = findAction(own.blocks, 'hr_approvers');
+
+      const response = await t.slack
+        .submitView(
+          workspace,
+          hr,
+          own,
+          { name: 'Design' },
+          {
+            [blockId]: {
+              hr_approvers: {
+                type: 'multi_static_select',
+                selected_options: [
+                  {
+                    value: officeManager.slack_id,
+                    text: { type: 'plain_text', text: 'Olga Office' },
+                  },
+                ],
+              },
+            },
+          },
+        )
+        .expect(200);
+
+      expect(response.body).toEqual({
+        response_action: 'errors',
+        errors: {
+          [blockId]: 'Level 2 approvers need the HR or Admin role.',
+        },
+      });
+      expect(await workspace.rows('teams')).toEqual([]);
     });
 
     it('a member cannot open or submit the company rules form', async () => {

@@ -1,6 +1,7 @@
 import { UsersService } from '@modules/users/services/users.service';
 import { Injectable } from '@nestjs/common';
-import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import { RuleInputsValidationService } from '@modules/slack/tabs/teams/services/rule-inputs-validation.service';
+import { ISlackViewSubmissionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { ValidationError } from '@common/errors/validation.error';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -26,7 +27,7 @@ import {
   TeamsTabModalName,
   TeamsTabService,
 } from '@modules/slack/tabs/teams/services/teams-tab.service';
-import UserRole from '@common/enums/user-role.enum';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.view';
 
@@ -34,7 +35,7 @@ import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.vie
 @SlackHandler({
   callbackId: ViewCallbackId.TeamFormSubmit,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: ADMIN_AND_HR_ROLES,
 })
 export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   ITeamModalViewMetadata,
@@ -46,7 +47,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     private readonly teamsService: TeamsService,
     private readonly teamsTabService: TeamsTabService,
     private readonly tabNavigationService: TabNavigationService,
-    private readonly vacationPoliciesService: VacationPoliciesService,
+    private readonly ruleInputsValidationService: RuleInputsValidationService,
     private readonly usersService: UsersService,
     teamModalViewValuesParser: TeamModalViewValuesParser,
   ) {
@@ -76,7 +77,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
   ) {
-    await this.assertPolicyInWorkspace(data, user);
+    await this.assertOwnRules(data, user);
 
     const team = metadata.id
       ? await this.update(metadata.id, data, user)
@@ -94,32 +95,29 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     return team;
   }
 
-  // The policy ID comes from the form, so it has to be one of the
-  // workspace's policies.
-  private async assertPolicyInWorkspace(
-    data: ITeamFormViewData,
-    user: IUserViewModel,
-  ) {
-    const policyId = data.policy?.value;
-
-    if (
-      data.rules.value === TeamRulesChoice.Company ||
-      !policyId ||
-      policyId === NO_POLICY_VALUE
-    ) {
+  // The fields of its own rules are checked only while the team has its
+  // own rules.
+  private async assertOwnRules(data: ITeamFormViewData, user: IUserViewModel) {
+    if (data.rules.value === TeamRulesChoice.Company) {
       return;
     }
 
-    const policy = await this.vacationPoliciesService.findOne({
-      id: policyId,
-      slackTeamId: user.slack_team_id,
-    });
-
-    if (!policy) {
-      throw new ValidationError(
-        'This vacation policy is not in this workspace.',
-      );
+    // The policy is required wherever the fields are shown: without it the
+    // rebuild of the form after choosing "own" never reached the user.
+    if (!data.policy) {
+      throw new ValidationError("Check the team's own rules, then save again.");
     }
+
+    await Promise.all([
+      this.ruleInputsValidationService.assertPolicyInWorkspace(
+        data.policy.value === NO_POLICY_VALUE ? null : data.policy.value,
+        user,
+      ),
+      this.ruleInputsValidationService.assertLevel2Approvers(
+        (data.hr_approvers ?? []).map(({ value }) => value),
+        user,
+      ),
+    ]);
   }
 
   // The fields of its own rules are only on the form, and only taken, while
@@ -180,6 +178,22 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     );
   }
 
+  // The rule fields' block_ids carry a version once the form was rebuilt.
+  protected blockIdOfField(
+    field: string,
+    payload: ISlackViewSubmissionPayload,
+  ) {
+    const blockId = super.blockIdOfField(field, payload);
+
+    return (
+      payload.view.blocks?.find(
+        (block) =>
+          block.block_id === blockId ||
+          block.block_id?.startsWith(`${blockId}:`),
+      )?.block_id ?? blockId
+    );
+  }
+
   protected async errorResponse(
     errorMessage: string,
     data: ITeamFormViewData,
@@ -209,6 +223,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
         user,
         pageMetadata: metadata.pageMetadata,
         rules,
+        ruleFieldsVersion: `${rules}.${Date.now().toString(36)}`,
       });
     }
 
@@ -217,6 +232,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       user,
       pageMetadata: metadata.pageMetadata,
       rules,
+      ruleFieldsVersion: `${rules}.${Date.now().toString(36)}`,
     });
   }
 }

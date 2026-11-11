@@ -11,6 +11,7 @@ import { NO_POLICY_VALUE } from '@modules/slack/tabs/teams/constants/no-policy';
 import { View } from '@slack/types/dist/views';
 import { PolicyTabViewActionId } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import { createTestApp, ITestApp } from './support/test-app';
+import { chooseTeamRules } from './support/team-form';
 import { TestWorkspace } from './support/test-workspace';
 import { findAction } from './support/block-kit';
 import {
@@ -62,17 +63,8 @@ describe('Vacation policies and teams', () => {
       value,
     );
 
-  // Chooses the team form's rules; the form is rebuilt in place.
-  const chooseRules = async (form: View, rules: TeamRulesChoice) => {
-    const since = t.slackApi.mark();
-
-    await t.slack
-      .actOnView(workspace, admin, form, TeamModalActionId.Rules, rules)
-      .expect(200);
-    await t.idle();
-
-    return t.slackApi.updatedModal(workspace.token, { since });
-  };
+  const chooseRules = (form: View, rules: TeamRulesChoice) =>
+    chooseTeamRules(t, workspace, admin, form, rules);
 
   describe('vacation policies', () => {
     it('creates a policy', async () => {

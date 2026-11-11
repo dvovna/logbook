@@ -24,15 +24,14 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
 import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
+import {
+  IChosenApprovers,
+  INewTeamModalViewParams,
+} from '@modules/slack/tabs/teams/types/team-modal-params.interface';
 import { CompanyRulesModalView } from '@modules/slack/tabs/teams/views/company-rules-modal.view';
 
 interface ITeamModalViewParams extends IOpenModalBaseParams<string> {
   teamId: string;
-  rules?: TeamRulesChoice;
-  ruleFieldsVersion?: string;
-}
-
-interface INewTeamModalViewParams extends IOpenModalBaseParams<string> {
   rules?: TeamRulesChoice;
   ruleFieldsVersion?: string;
 }
@@ -110,6 +109,17 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       (membersByTeam[member.team_id!] ??= []).push(member.name);
     }
 
+    // A team created after the two reads above started.
+    const rulesByTeam = Object.fromEntries(
+      teamRules.map((rules) => [rules.team!.id, rules]),
+    );
+    for (const { id } of teamsData.items.filter(({ id }) => !rulesByTeam[id])) {
+      rulesByTeam[id] = await this.teamRulesService.forTeam(
+        id,
+        user.slack_team_id,
+      );
+    }
+
     return await this.teamsTabView.getView(
       {
         userId: user.slack_id,
@@ -117,9 +127,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
         teamsData,
         membersByTeam,
         companyRules,
-        rulesByTeam: Object.fromEntries(
-          teamRules.map((rules) => [rules.team!.id, rules]),
-        ),
+        rulesByTeam,
       },
       metadata,
     );
@@ -132,10 +140,11 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     rules = TeamRulesChoice.Company,
     ruleFieldsVersion,
   }: INewTeamModalViewParams) {
-    const [{ policies, managers, hrUsers }, companyRules] = await Promise.all([
-      this.getTeamFormData(user),
+    const [formData, companyRules] = await Promise.all([
+      this.readTeamFormData(user),
       this.teamRulesService.forTeam(null, user.slack_team_id),
     ]);
+    const { policies, managers, hrUsers } = this.approverOptions(formData, {});
 
     return this.teamModalView.getView(
       {
@@ -164,25 +173,22 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     rules,
     ruleFieldsVersion,
   }: ITeamModalViewParams) {
-    const team = await this.teamsService.findOneWithValidation({
-      id: teamId,
-      slackTeamId: user.slack_team_id,
-    });
-
-    const effective = await this.teamRulesService.forTeam(
-      team.id,
-      user.slack_team_id,
-    );
-    const [{ policies, managers, hrUsers }, members] = await Promise.all([
-      this.getTeamFormData(user, {
-        managerApprovers: effective.managerApprovers,
-        hrApprovers: effective.hrApprovers,
+    const [team, effective, formData, members] = await Promise.all([
+      this.teamsService.findOneWithValidation({
+        id: teamId,
+        slackTeamId: user.slack_team_id,
       }),
+      this.teamRulesService.forTeam(teamId, user.slack_team_id),
+      this.readTeamFormData(user),
       this.usersService.findMany({
         slackTeamId: user.slack_team_id,
-        teamId: team.id,
+        teamId,
       }),
     ]);
+    const { policies, managers, hrUsers } = this.approverOptions(formData, {
+      managerApprovers: effective.managerApprovers,
+      hrApprovers: effective.hrApprovers,
+    });
 
     return this.teamModalView.getView(
       {
@@ -221,8 +227,11 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     errorMessage,
     pageMetadata,
   }: IOpenModalBaseParams<string>) {
-    const companyRules = await this.companyRulesService.get(user.slack_team_id);
-    const { policies, hrUsers } = await this.getTeamFormData(user, {
+    const [companyRules, formData] = await Promise.all([
+      this.companyRulesService.get(user.slack_team_id),
+      this.readTeamFormData(user),
+    ]);
+    const { policies, hrUsers } = this.approverOptions(formData, {
       hrApprovers: companyRules.hr_approvers,
     });
 
@@ -267,11 +276,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     );
   }
 
-  // People already chosen stay in the lists when they lost the role.
-  private async getTeamFormData(
-    user: IUserViewModel,
-    chosen: { managerApprovers?: string[]; hrApprovers?: string[] } = {},
-  ) {
+  private async readTeamFormData(user: IUserViewModel) {
     const [policies, users] = await Promise.all([
       this.vacationPoliciesService.findMany({
         slackTeamId: user.slack_team_id,
@@ -282,6 +287,16 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       }),
     ]);
 
+    return { policies, users };
+  }
+
+  // A person already chosen stays in the list while they hold one of the
+  // roles, e.g. a manager chosen for level 2: submitting then names them in
+  // the error instead of the field dropping them.
+  private approverOptions(
+    { policies, users }: Awaited<ReturnType<typeof this.readTeamFormData>>,
+    chosen: IChosenApprovers,
+  ) {
     const managers = users
       .filter(
         (user) =>
@@ -298,10 +313,6 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       )
       .map((user) => ({ name: user.name, id: user.slack_id }));
 
-    return {
-      policies,
-      managers,
-      hrUsers,
-    };
+    return { policies, managers, hrUsers };
   }
 }

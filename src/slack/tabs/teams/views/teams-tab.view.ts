@@ -108,9 +108,9 @@ export class TeamsTabView extends BaseTabView<
     rules: IEffectiveTeamRules,
     companyRules: IRuleSetViewModel,
   ): AnyBlock[] {
-    const policy = rules.followsCompanyRules
-      ? companyRules.vacation_policy
-      : team.vacation_policy;
+    const policy = [companyRules.vacation_policy, team.vacation_policy].find(
+      (candidate) => candidate?.id === rules.vacationPolicyId,
+    );
 
     return ListItem.getBlocks({
       title: team.name,

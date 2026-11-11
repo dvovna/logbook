@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import UserRole from '@common/enums/user-role.enum';
-import { ValidationError } from '@common/errors/validation.error';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import {
   TabId,
@@ -23,14 +22,13 @@ import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
 import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { UsersService } from '@modules/users/services/users.service';
-import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import { RuleInputsValidationService } from '@modules/slack/tabs/teams/services/rule-inputs-validation.service';
 
 @Injectable()
 @SlackHandler({
   callbackId: ViewCallbackId.CompanyRulesSubmit,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: ADMIN_AND_HR_ROLES,
 })
 export class CompanyRulesFormSubmitHandler extends BaseModalFormSubmitHandler<
   ICompanyRulesModalMetadata,
@@ -41,8 +39,7 @@ export class CompanyRulesFormSubmitHandler extends BaseModalFormSubmitHandler<
     private readonly companyRulesService: CompanyRulesService,
     private readonly teamsTabService: TeamsTabService,
     private readonly tabNavigationService: TabNavigationService,
-    private readonly vacationPoliciesService: VacationPoliciesService,
-    private readonly usersService: UsersService,
+    private readonly ruleInputsValidationService: RuleInputsValidationService,
     parser: CompanyRulesViewValuesParser,
   ) {
     super(parser);
@@ -58,8 +55,11 @@ export class CompanyRulesFormSubmitHandler extends BaseModalFormSubmitHandler<
       data.policy.value === NO_POLICY_VALUE ? null : data.policy.value;
 
     await Promise.all([
-      this.assertPolicyInWorkspace(vacationPolicyId, user),
-      this.assertCanApprove(hrApprovers, user),
+      this.ruleInputsValidationService.assertPolicyInWorkspace(
+        vacationPolicyId,
+        user,
+      ),
+      this.ruleInputsValidationService.assertLevel2Approvers(hrApprovers, user),
     ]);
 
     return this.companyRulesService.update(
@@ -74,49 +74,8 @@ export class CompanyRulesFormSubmitHandler extends BaseModalFormSubmitHandler<
     );
   }
 
-  // The IDs come from the form, so they have to be the workspace's.
-  private async assertPolicyInWorkspace(
-    policyId: string | null,
-    user: IUserViewModel,
-  ) {
-    if (
-      policyId &&
-      !(await this.vacationPoliciesService.findOne({
-        id: policyId,
-        slackTeamId: user.slack_team_id,
-      }))
-    ) {
-      throw new ValidationError(
-        'This vacation policy is not in this workspace.',
-        'policy',
-      );
-    }
-  }
-
-  private async assertCanApprove(slackIds: string[], user: IUserViewModel) {
-    if (!slackIds.length) {
-      return;
-    }
-
-    const approvers = new Set(
-      (
-        await this.usersService.findMany({
-          slackTeamId: user.slack_team_id,
-          roles: [UserRole.HR, UserRole.Admin],
-        })
-      ).map(({ slack_id }) => slack_id),
-    );
-
-    if (slackIds.some((slackId) => !approvers.has(slackId))) {
-      throw new ValidationError(
-        'Level 2 approvers need the HR or Admin role.',
-        'hr_approvers',
-      );
-    }
-  }
-
   protected successResponse(
-    _rules: unknown,
+    _rules: IRuleSetViewModel,
     user: IUserViewModel,
     metadata: ICompanyRulesModalMetadata,
   ) {
