@@ -1,6 +1,7 @@
 import { isPersonWithEmail } from '@modules/slack-communication/services/slack-users.service';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import UserRole from '@common/enums/user-role.enum';
 import SlackUserAccessService from '@modules/slack/services/slack-user-access.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -331,7 +332,15 @@ export default class SlackEventsService implements OnModuleInit {
       return;
     }
 
-    await this.slackUserAccessService.checkUserRoleAccess(user, UserRole.Admin);
+    // A refusal is final: running the job again would only repeat it.
+    if (
+      !(await this.slackUserAccessService.checkUserRoleAccess(
+        user,
+        ADMIN_AND_HR_ROLES,
+      ))
+    ) {
+      return;
+    }
 
     const { file_id: fileId } = event;
 

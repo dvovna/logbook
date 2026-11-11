@@ -192,11 +192,11 @@ export default class SlackApiClient {
   // Downloads a file Slack hosts (files.info's url_private_download). The URL
   // comes from Slack, but the bot token goes with the request, so it is sent
   // only to Slack's file hosts, and the file is read only up to `maxBytes`.
-  public async downloadFile(
+  public async downloadFileBytes(
     url: string,
     accessToken: string,
     maxBytes: number,
-  ): Promise<string> {
+  ): Promise<Buffer> {
     if (!isSlackFileUrl(url)) {
       throw new Error(`Refusing to download a file from ${url}`);
     }
@@ -209,9 +209,9 @@ export default class SlackApiClient {
       throw new Error(`Failed to download the file: ${response.status}`);
     }
 
-    const content = await response.text();
+    const content = Buffer.from(await response.arrayBuffer());
 
-    if (Buffer.byteLength(content) > maxBytes) {
+    if (content.byteLength > maxBytes) {
       throw new Error(`The file is larger than ${maxBytes} bytes`);
     }
 

@@ -141,13 +141,27 @@ export default class SlackCommunicationService {
     return this.slackApiClient.getFileInfo(fileId, accessToken);
   }
 
-  public async fetchFileContent(
+  public async fetchFileBytes(
     fileUrl: string,
     teamId: string,
     maxBytes: number,
   ) {
     const accessToken = await this.accessTokenService.getAccessToken(teamId);
 
-    return this.slackApiClient.downloadFile(fileUrl, accessToken, maxBytes);
+    return this.slackApiClient.downloadFileBytes(
+      fileUrl,
+      accessToken,
+      maxBytes,
+    );
+  }
+
+  public async fetchFileContent(
+    fileUrl: string,
+    teamId: string,
+    maxBytes: number,
+  ) {
+    return (await this.fetchFileBytes(fileUrl, teamId, maxBytes)).toString(
+      'utf8',
+    );
   }
 }

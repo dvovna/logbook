@@ -1,6 +1,7 @@
 import { KnownBlock } from '@slack/types';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { Injectable } from '@nestjs/common';
+import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   IImportResult,
@@ -11,6 +12,8 @@ import { UserTeamMappingImportService } from '@modules/user-data-import/services
 
 // Far more than the CSVs need (1000 rows each), small enough to hold in memory.
 const MAX_IMPORT_FILE_BYTES = 1024 * 1024;
+
+const VACATIONS_FILE = 'user-vacations.csv';
 
 // The problems a result lists; the rest are counted.
 const MAX_LISTED_PROBLEMS = 10;
@@ -31,7 +34,7 @@ export default class FileUploadService {
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {
     this.importers = {
-      'user-vacations.csv': (content, user) =>
+      [VACATIONS_FILE]: (content, user) =>
         this.userVacationsImportService.handle(content, user),
       'user-team-mapping.csv': (content, user) =>
         this.userTeamMappingImportService.handle(content, user),
@@ -55,6 +58,12 @@ export default class FileUploadService {
 
     if (!importFile) {
       return this.reply(user, this.getUnknownFileUploadPromptMessage());
+    }
+
+    if (file.name === VACATIONS_FILE && user.role !== UserRole.Admin) {
+      return this.reply(user, {
+        text: '⛔ Only admins can import vacations.',
+      });
     }
 
     if ((file.size ?? 0) > MAX_IMPORT_FILE_BYTES) {

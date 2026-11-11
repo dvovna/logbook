@@ -10,19 +10,24 @@ export default class SlackUserAccessService {
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {}
 
-  public async checkUserRoleAccess(user: IUserViewModel, userRole: UserRole) {
-    if (user.role !== userRole) {
-      await this.slackCommunicationService.postEphemeral(
-        user.slack_id,
-        {
-          text: `⛔ Only user with role ${capitalize(userRole)} can use this command.`,
-        },
-        user.slack_team_id,
-      );
-
-      throw new Error(
-        `User with role ${user.role} tried to access command that requires ${userRole} role.`,
-      );
+  // True when the user has one of the roles; else tells them so, in an
+  // ephemeral message.
+  public async checkUserRoleAccess(
+    user: IUserViewModel,
+    userRoles: readonly UserRole[],
+  ) {
+    if (userRoles.includes(user.role)) {
+      return true;
     }
+
+    await this.slackCommunicationService.postEphemeral(
+      user.slack_id,
+      {
+        text: `⛔ Only user with role ${userRoles.map(capitalize).join(' or ')} can use this command.`,
+      },
+      user.slack_team_id,
+    );
+
+    return false;
   }
 }

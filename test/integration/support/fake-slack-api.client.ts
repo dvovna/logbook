@@ -100,7 +100,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   private readonly users = new Map<string, IFakeSlackUser>();
   private readonly files = new Map<
     string,
-    { name: string; content: string; size: number }
+    { name: string; content: string | Buffer; size: number }
   >();
   private readonly oauthGrants = new Map<string, IFakeOauthGrant>();
   private readonly failures = new Map<
@@ -125,7 +125,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   // `size` is what files.info reports, e.g. to fake a large file.
   public addFile(
     name: string,
-    content: string,
+    content: string | Buffer,
     { size = Buffer.byteLength(content) }: { size?: number } = {},
   ) {
     const id = `F${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -395,7 +395,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     };
   }
 
-  public async downloadFile(url: string, accessToken: string) {
+  public async downloadFileBytes(url: string, accessToken: string) {
     this.record('files.download', { url }, accessToken);
 
     const fileId = /-(F[0-9A-F]+)\//.exec(url)?.[1];
@@ -405,7 +405,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       throw new Error(`No file at ${url}`);
     }
 
-    return file.content;
+    return Buffer.from(file.content);
   }
 
   // Slack's three steps: files.getUploadURLExternal, the bytes to the upload

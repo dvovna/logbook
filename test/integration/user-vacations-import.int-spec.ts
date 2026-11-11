@@ -404,6 +404,22 @@ describe('user-vacations.csv', () => {
       expect(await vacationsOf(ada)).toEqual([]);
     });
 
+    it('HR sharing user-vacations.csv is told only admins can import vacations', async () => {
+      const hr = await workspace.addUser({ role: UserRole.HR });
+
+      const reply = await share(hr, 'user-vacations.csv', csv().join('\n'));
+
+      expect(reply).toBe('⛔ Only admins can import vacations.');
+      expect(downloads()).toEqual([]);
+      expect(await vacationsOf(ada)).toEqual([]);
+
+      await t.retryJobs();
+
+      expect(
+        t.slackApi.ephemeralMessages(workspace.token, hr.slack_id),
+      ).toHaveLength(1);
+    });
+
     it('ignores a file shared by a deactivated admin', async () => {
       await t.db
         .updateTable('users')

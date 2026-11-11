@@ -41,6 +41,7 @@
     "axios": "^1.11.0",
     "cache-manager": "^7.2.9",
     "csv-parse": "^7.0.3",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "keyv": "^6.1.0",
     "kysely": "^0.28.19",
