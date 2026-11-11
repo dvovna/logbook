@@ -29,10 +29,10 @@ export class PendingApprovalsService {
     }
 
     const [timeOff, timeEntries] = await Promise.all([
-      this.requestWorkflowStepsService.findWaitingFor(user),
+      this.requestWorkflowStepsService.countWaitingFor(user),
       this.timeEntryApprovalsService.countPending(user),
     ]);
 
-    return { timeOff: timeOff.length, timeEntries };
+    return { timeOff, timeEntries };
   }
 }

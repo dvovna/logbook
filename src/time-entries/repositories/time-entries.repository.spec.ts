@@ -47,6 +47,74 @@ describe('TimeEntriesRepository', () => {
     expect(parametersOf(0)).toEqual(['w1', 'draft', 'rejected', '2026-06-14']);
   });
 
+  it('counts what waits for an approver in one row, running the rule once per team and owner', async () => {
+    const { database, sqlOf, parametersOf } = recordingDatabase([
+      [{ count: 12935 }],
+    ]);
+
+    await expect(
+      new TimeEntriesRepository(database).countWaitingFor('w1', 'u1'),
+    ).resolves.toBe(12935);
+    expect(sqlOf(0)).toMatch(
+      /^select coalesce\(sum\("waiting"\."entries"\), 0\) as "count" from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null and "time_entries"\."user_id" != \$3 group by "time_entries"\."team_id", "time_entries"\."user_id" having exists \(select "approver"\."id" from "users" as "approver" where "approver"\."id" = \$4 and /,
+    );
+    expect(parametersOf(0).slice(0, 4)).toEqual([
+      'w1',
+      'submitted',
+      'u1',
+      'u1',
+    ]);
+  });
+
+  it("sums the minutes of a manager's teams and their own in one row", async () => {
+    const { database, sqlOf, parametersOf } = recordingDatabase([
+      [{ minutes: 90, billable_minutes: 60 }],
+    ]);
+
+    await expect(
+      new TimeEntriesRepository(database).sumMinutes('w1', {
+        dateFrom: '2026-06-15',
+        dateTo: '2026-06-21',
+        userId: 'u1',
+        teamIds: ['t1'],
+      }),
+    ).resolves.toEqual({ minutes: 90, billableMinutes: 60 });
+    expect(sqlOf(0)).toBe(
+      'select coalesce(sum("minutes"), 0) as "minutes", ' +
+        'coalesce(sum("minutes") filter (where "billable"), 0) as "billable_minutes" ' +
+        'from "time_entries" where "time_entries"."slack_team_id" = $1 ' +
+        'and "deleted_at" is null and "work_date" >= $2 and "work_date" <= $3 ' +
+        'and ("user_id" = $4 or "team_id" in ($5))',
+    );
+    expect(parametersOf(0)).toEqual([
+      'w1',
+      '2026-06-15',
+      '2026-06-21',
+      'u1',
+      't1',
+    ]);
+  });
+
+  it("sums a person's week and open entries in one row", async () => {
+    const { database, sqlOf } = recordingDatabase([
+      [{ minutes: 180, open_count: 2, open_minutes: 120 }],
+    ]);
+
+    await expect(
+      new TimeEntriesRepository(database).sumOfUser('w1', 'u1', {
+        dateFrom: '2026-06-15',
+        dateTo: '2026-06-21',
+      }),
+    ).resolves.toEqual({ minutes: 180, openCount: 2, openMinutes: 120 });
+    expect(sqlOf(0)).toBe(
+      'select coalesce(sum("minutes") filter (where "work_date" between $1 and $2), 0) as "minutes", ' +
+        'count(*) filter (where "status" in ($3, $4)) as "open_count", ' +
+        'coalesce(sum("minutes") filter (where "status" in ($5, $6)), 0) as "open_minutes" ' +
+        'from "time_entries" where "time_entries"."slack_team_id" = $7 and "user_id" = $8 ' +
+        'and "deleted_at" is null and ("work_date" between $9 and $10 or "status" in ($11, $12))',
+    );
+  });
+
   it('sends the IDs to find billed entries as one parameter, however many', async () => {
     const ids = Array.from({ length: 70000 }, (_, index) => `e${index}`);
     const { database, sqlOf, parametersOf } = recordingDatabase([

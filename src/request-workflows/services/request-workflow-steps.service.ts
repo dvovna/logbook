@@ -165,22 +165,21 @@ export class RequestWorkflowStepsService {
   // approves their own request; a step made for the requester before that
   // rule (assertNotOwnRequest refuses it) is left out, so it doesn't sit in
   // their Approvals forever.
-  public async findWaitingFor(approver: {
+  public findWaitingFor(approver: { slack_id: string; slack_team_id: string }) {
+    return this.requestWorkflowStepsRepository.findWaitingFor(
+      approver.slack_team_id,
+      approver.slack_id,
+    );
+  }
+
+  // How many steps findWaitingFor finds, counted in the database.
+  public countWaitingFor(approver: {
     slack_id: string;
     slack_team_id: string;
   }) {
-    const steps = await this.findMany(
-      {
-        slackUserId: approver.slack_id,
-        slackTeamId: approver.slack_team_id,
-        processed: true,
-        completed: false,
-      },
-      { orderBy: ['created_at:asc'] },
-    );
-
-    return steps.filter(
-      (step) => step.step_data.snapshot?.slack_user_id !== approver.slack_id,
+    return this.requestWorkflowStepsRepository.countWaitingFor(
+      approver.slack_team_id,
+      approver.slack_id,
     );
   }
 

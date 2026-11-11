@@ -22,7 +22,7 @@ const entry = (id: string) => ({ id }) as ITimeEntryViewModel;
 
 describe('TimeEntriesScopeService', () => {
   let managedTeamIds: string[] | null;
-  let timeEntriesService: { findMany: jest.Mock };
+  let timeEntriesService: { findMany: jest.Mock; sumMinutes: jest.Mock };
   let usersService: { findMany: jest.Mock };
   let service: TimeEntriesScopeService;
 
@@ -32,6 +32,10 @@ describe('TimeEntriesScopeService', () => {
       findMany: jest.fn(async (params: { userId?: string }) =>
         params.userId ? [entry('own'), entry('shared')] : [entry('shared')],
       ),
+      sumMinutes: jest.fn().mockResolvedValue({
+        minutes: 90,
+        billableMinutes: 60,
+      }),
     };
     usersService = {
       findMany: jest.fn().mockResolvedValue([{ id: 'mia', name: 'Mia' }]),
@@ -98,6 +102,27 @@ describe('TimeEntriesScopeService', () => {
         ...PERIOD,
         userId: 'viewer',
       });
+    },
+  );
+
+  it.each([
+    [UserRole.HR, null, {}],
+    [UserRole.Manager, ['backend'], { userId: 'viewer', teamIds: ['backend'] }],
+    [UserRole.Member, [], { userId: 'viewer', teamIds: [] }],
+  ])(
+    'sums the time a %s sees in the database',
+    async (role, teamIds, narrowing) => {
+      managedTeamIds = teamIds;
+
+      await expect(service.sumMinutes(userWith(role), PERIOD)).resolves.toEqual(
+        { minutes: 90, billableMinutes: 60 },
+      );
+      expect(timeEntriesService.sumMinutes).toHaveBeenCalledWith({
+        slackTeamId: SLACK_TEAM_ID,
+        ...PERIOD,
+        ...narrowing,
+      });
+      expect(timeEntriesService.findMany).not.toHaveBeenCalled();
     },
   );
 

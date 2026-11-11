@@ -77,6 +77,26 @@ export class TimeEntriesScopeService {
     return { scope, entries: [...byId.values()] };
   }
 
+  // The minutes of the period `user` sees, all and billable: what
+  // findEntries' entries add up to, summed in the database.
+  public async sumMinutes(
+    user: IUserViewModel,
+    period: IPeriod,
+  ): Promise<{ minutes: number; billableMinutes: number }> {
+    const scope = await this.scopeOf(user);
+
+    return this.timeEntriesService.sumMinutes({
+      slackTeamId: user.slack_team_id,
+      ...period,
+      ...(scope.kind === 'workspace'
+        ? {}
+        : {
+            userId: user.id,
+            teamIds: scope.kind === 'teams' ? scope.teamIds : [],
+          }),
+    });
+  }
+
   // The active people whose time `user` sees: everyone, the people of the
   // teams they manage and themselves, or only themselves.
   public async findPeople(

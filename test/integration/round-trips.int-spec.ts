@@ -13,10 +13,11 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { LOG_TIME_OFF_ACTION_ID } from '@modules/slack/tabs/vacation-requests/constants/time-off-offer';
 import { UsersService } from '@modules/users/services/users.service';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import { navigate, openAppHomeTab, openModalFrom } from './support/app-home';
 import { buttonText } from './support/tab-readers';
 import { workWeek } from './support/dates';
 import {
@@ -78,6 +79,20 @@ const ROUND_TRIPS: Record<string, { roundTrips: number; statements: number }> =
     },
   };
 
+// The same for the screens a click opens, counted until the screen is
+// published: the app answers the click first and publishes after (background
+// work), and the person waits for both.
+const SCREEN_ROUND_TRIPS: Record<
+  string,
+  { roundTrips: number; statements: number }
+> = {
+  'show Home to an admin': { roundTrips: 4, statements: 14 },
+  'show Approvals to an admin': { roundTrips: 2, statements: 6 },
+  'show Reports to an admin': { roundTrips: 2, statements: 5 },
+  'show Home to a manager': { roundTrips: 3, statements: 8 },
+  'show Reports to a manager': { roundTrips: 3, statements: 6 },
+};
+
 const STATEMENTS_HEADROOM = 3;
 
 // What the actions sent, for ROUND_TRIPS_REPORT.
@@ -137,8 +152,14 @@ describe('Round trips to the database before the answer', () => {
   });
 
   // Runs `action` (one request to the app) and checks what it sent before
-  // the answer against ROUND_TRIPS[name]. Returns what `action` returned.
-  const measure = async <T>(name: string, action: () => Promise<T>) => {
+  // the answer against ROUND_TRIPS[name], or with `screen` all it sent, the
+  // screen's publishing included, against SCREEN_ROUND_TRIPS[name]. Returns
+  // what `action` returned.
+  const measure = async <T>(
+    name: string,
+    action: () => Promise<T>,
+    { screen = false } = {},
+  ) => {
     await t.idle();
     // Every connection of the pool open, as on a server in use: opening one
     // takes round trips the log doesn't see, and would vary with the order
@@ -151,25 +172,27 @@ describe('Round trips to the database before the answer', () => {
     const result = await action();
     await t.idle();
 
-    const count = t.sql.count(since);
+    const counts = t.sql.count(since);
+    const count = screen ? counts.all : counts.answer;
+    const allowed = (screen ? SCREEN_ROUND_TRIPS : ROUND_TRIPS)[name];
     const limit = {
-      ...ROUND_TRIPS[name],
-      statements: ROUND_TRIPS[name].statements + STATEMENTS_HEADROOM,
+      ...allowed,
+      statements: allowed.statements + STATEMENTS_HEADROOM,
     };
 
-    measured[name] = count;
+    measured[name] = counts;
 
     if (
-      count.answer.statements > limit.statements ||
-      count.answer.roundTrips > limit.roundTrips
+      count.statements > limit.statements ||
+      count.roundTrips > limit.roundTrips
     ) {
       const sent = t.sql
         .statements(since)
-        .filter(({ background }) => !background)
+        .filter(({ background }) => screen || !background)
         .map(({ text }) => `  ${text.replace(/\s+/g, ' ').slice(0, 140)}`);
 
       throw new Error(
-        `"${name}" sent ${count.answer.statements} statements in ${count.answer.roundTrips} round trips before its answer, more than ${limit.statements} in ${limit.roundTrips}:\n${sent.join('\n')}`,
+        `"${name}" sent ${count.statements} statements in ${count.roundTrips} round trips ${screen ? 'until the screen showed' : 'before its answer'}, more than ${limit.statements} in ${limit.roundTrips}:\n${sent.join('\n')}`,
       );
     }
 
@@ -323,6 +346,69 @@ describe('Round trips to the database before the answer', () => {
           TimeEntriesTabViewActionId.PreviousWeek,
         )
         .expect(200),
+    );
+  });
+
+  // The Approvals count is on every screen, and Home and Reports sum the
+  // time they show.
+  it('shows Home, Approvals and Reports with what waits for approval', async () => {
+    const admin = await workspace.addUser({ role: UserRole.Admin });
+    const solo = await workspace.addUser({ name: 'Sol' });
+    const manager = (await workspace.rows('users')).find(
+      ({ role }) => role === UserRole.Manager,
+    )!;
+    // Mia's wait for Design's manager; Sol is in no team, and the manager
+    // has nobody else on Design, so theirs wait for the admin.
+    for (const owner of [member, member, solo, manager]) {
+      await workspace.addTimeEntry(owner, website, {
+        status: TimeEntryStatus.Submitted,
+      });
+    }
+    const screen = { screen: true };
+    const home = await openAppHomeTab(t, workspace, admin);
+
+    const approvals = await measure(
+      'show Approvals to an admin',
+      () => navigate(t, workspace, admin, home, NavigationActionId.Approvals),
+      screen,
+    );
+    expect(buttonText(approvals, NavigationActionId.Approvals)).toBe(
+      '✅ Approvals (2)',
+    );
+    const adminHome = await measure(
+      'show Home to an admin',
+      () => navigate(t, workspace, admin, approvals, NavigationActionId.Home),
+      screen,
+    );
+    await measure(
+      'show Reports to an admin',
+      () =>
+        navigate(t, workspace, admin, adminHome, NavigationActionId.Reports),
+      screen,
+    );
+
+    const reports = await openAppHomeTab(t, workspace, manager, [
+      NavigationActionId.Reports,
+    ]);
+    const managerHome = await measure(
+      'show Home to a manager',
+      () => navigate(t, workspace, manager, reports, NavigationActionId.Home),
+      screen,
+    );
+    expect(buttonText(managerHome, NavigationActionId.Approvals)).toBe(
+      '✅ Approvals (2)',
+    );
+    await measure(
+      'show Reports to a manager',
+      () =>
+        navigate(
+          t,
+          workspace,
+          manager,
+          managerHome,
+          NavigationActionId.Reports,
+        ),
+      screen,
     );
   });
 

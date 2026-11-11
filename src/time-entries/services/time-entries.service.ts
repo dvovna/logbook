@@ -146,6 +146,19 @@ export class TimeEntriesService {
     return this.timeEntriesRepository.findMany(this.getFindQuery(params));
   }
 
+  public sumMinutes({
+    slackTeamId,
+    ...params
+  }: {
+    slackTeamId: string;
+    dateFrom: string;
+    dateTo: string;
+    userId?: string;
+    teamIds?: string[];
+  }) {
+    return this.timeEntriesRepository.sumMinutes(slackTeamId, params);
+  }
+
   public async search(
     params: ISearchTimeEntriesParams,
   ): Promise<ISearchResult<ITimeEntryViewModel>> {

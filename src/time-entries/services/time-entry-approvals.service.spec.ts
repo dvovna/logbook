@@ -9,6 +9,7 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 import UserRole from 'src/common/enums/user-role.enum';
 import { MANAGER_ROLES } from 'src/common/constants/role-groups';
 import { ValidationError } from 'src/common/errors/validation.error';
+import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 
 const admin: IUserViewModel = {
   id: 'admin-1',
@@ -73,9 +74,10 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
 
   let repository: {
     updateMany: jest.Mock;
-    count: jest.Mock;
-    findMany: jest.Mock;
-    findSubmittedKeys: jest.Mock;
+    countWaitingFor: jest.Mock;
+    findWaitingFor: jest.Mock;
+    findWaitingIds: jest.Mock;
+    findApproverIds: jest.Mock;
   };
   let listQuery: { execute: jest.Mock };
   let teamsService: { findMany: jest.Mock };
@@ -85,9 +87,10 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
   beforeEach(() => {
     repository = {
       updateMany: jest.fn().mockResolvedValue([{ id: 'entry-1' }]),
-      count: jest.fn().mockResolvedValue(3),
-      findMany: jest.fn().mockResolvedValue([]),
-      findSubmittedKeys: jest.fn().mockResolvedValue([]),
+      countWaitingFor: jest.fn().mockResolvedValue(3),
+      findWaitingFor: jest.fn().mockResolvedValue([]),
+      findWaitingIds: jest.fn().mockResolvedValue([]),
+      findApproverIds: jest.fn().mockResolvedValue([]),
     };
     listQuery = {
       execute: jest.fn().mockResolvedValue({ items: [], totalCount: 0 }),
@@ -110,7 +113,8 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
       ).resolves.toEqual({ items: [], totalCount: 0 });
       await expect(service.countPending(member)).resolves.toBe(0);
       expect(listQuery.execute).not.toHaveBeenCalled();
-      expect(repository.count).not.toHaveBeenCalled();
+      expect(repository.findWaitingFor).not.toHaveBeenCalled();
+      expect(repository.countWaitingFor).not.toHaveBeenCalled();
     });
 
     it('cannot approve or reject, even with an entry id', async () => {
@@ -152,17 +156,13 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
       );
     });
 
-    it('of no team matches no entry rather than every entry', async () => {
-      await service.approve(manager);
-      await service.countPending(manager);
-      await service.listPending(manager, { pageSize: 10 });
+    it('of no team decides no entry rather than every entry', async () => {
+      await service.approve(manager, 'entry-1');
 
-      const noTeams = { operator: 'in', value: [] };
-      expect(repository.updateMany.mock.calls[0][0].team_id).toEqual(noTeams);
-      expect(repository.count.mock.calls[0][0].team_id).toEqual(noTeams);
-      expect(listQuery.execute).toHaveBeenCalledWith(
-        expect.objectContaining({ teamIds: [] }),
-      );
+      expect(repository.updateMany.mock.calls[0][0].team_id).toEqual({
+        operator: 'in',
+        value: [],
+      });
     });
   });
 
@@ -191,59 +191,75 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
     });
   });
 
-  // What waits for Admin and HR: the entries no manager of their team
-  // decides. Those go to HR, and to the admins only when there is no HR.
-  describe('what waits for Admin and HR', () => {
-    beforeEach(() => {
-      repository.findSubmittedKeys.mockResolvedValue([
-        { id: 'with-manager', team_id: 'team-1', user_id: member.id },
-        { id: 'no-team', team_id: null, user_id: member.id },
-        // The team's only manager can't approve their own entry.
-        { id: 'managers-own', team_id: 'team-1', user_id: manager.id },
-      ]);
-      teamsService.findMany.mockResolvedValue([
-        { id: 'team-1', manager_approvers: [manager.slack_id] },
-      ]);
-      usersService.findMany.mockResolvedValue([manager, hr, workspaceAdmin]);
-      repository.updateMany.mockResolvedValue([]);
-    });
+  // Whom an entry waits for is the repository's rule (approves(), checked
+  // against the database in test/integration/time-approvals.int-spec.ts).
+  describe.each([manager, hr, workspaceAdmin])(
+    'what waits for $role',
+    (approver) => {
+      it('is counted and listed by the rule, a page at a time', async () => {
+        repository.findWaitingFor.mockResolvedValue([{ id: 'entry-3' }]);
 
-    it('is what no manager decides, for HR', async () => {
-      await expect(service.countPending(hr)).resolves.toBe(2);
+        await expect(service.countPending(approver)).resolves.toBe(3);
+        await expect(
+          service.listPending(approver, { page: 2, pageSize: 10 }),
+        ).resolves.toEqual({ items: [{ id: 'entry-3' }], totalCount: 3 });
 
-      await service.approve(hr);
-
-      expect(repository.findSubmittedKeys).toHaveBeenCalledWith(
-        SLACK_TEAM_ID,
-        hr.id,
-      );
-      expect(usersService.findMany).toHaveBeenCalledWith({
-        slackTeamId: SLACK_TEAM_ID,
-        roles: [...MANAGER_ROLES],
+        expect(repository.countWaitingFor).toHaveBeenCalledWith(
+          SLACK_TEAM_ID,
+          approver.id,
+        );
+        expect(repository.findWaitingFor).toHaveBeenCalledWith(
+          SLACK_TEAM_ID,
+          approver.id,
+          { limit: 10, offset: 10 },
+        );
+        expect(listQuery.execute).not.toHaveBeenCalled();
       });
-      expect(repository.updateMany).toHaveBeenCalledWith(
-        {
-          ...pendingFilter(hr),
-          id: { operator: 'in', value: ['no-team', 'managers-own'] },
-        },
-        expect.objectContaining({ status: TimeEntryStatus.Approved }),
-      );
-    });
 
-    it('is nothing for an admin while there is HR', async () => {
-      await expect(service.countPending(workspaceAdmin)).resolves.toBe(0);
+      it('is what Approve all approves, within what they may decide', async () => {
+        teamsService.findMany.mockResolvedValue([{ id: 'team-1' }]);
+        repository.findWaitingIds.mockResolvedValue(['entry-1', 'entry-2']);
 
-      await expect(service.approve(workspaceAdmin)).resolves.toEqual([]);
-      expect(repository.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ id: { operator: 'in', value: [] } }),
-        expect.anything(),
-      );
-    });
+        await service.approve(approver);
 
-    it('goes to the admins when there is no HR', async () => {
-      usersService.findMany.mockResolvedValue([manager, workspaceAdmin]);
+        expect(repository.updateMany).toHaveBeenCalledWith(
+          {
+            ...pendingFilter(approver),
+            ...(approver === manager
+              ? { team_id: { operator: 'in', value: ['team-1'] } }
+              : {}),
+            id: { operator: 'in', value: ['entry-1', 'entry-2'] },
+          },
+          expect.objectContaining({ status: TimeEntryStatus.Approved }),
+        );
+      });
+    },
+  );
 
-      await expect(service.countPending(workspaceAdmin)).resolves.toBe(2);
+  it('tells each approver of the entries that wait for them', async () => {
+    const entries = ['entry-1', 'entry-2'].map(
+      (id) => ({ id }) as ITimeEntryViewModel,
+    );
+    repository.findApproverIds.mockResolvedValue([
+      { entry_id: 'entry-1', approver_id: manager.id },
+      { entry_id: 'entry-2', approver_id: hr.id },
+      { entry_id: 'entry-1', approver_id: hr.id },
+    ]);
+    usersService.findMany.mockResolvedValue([manager, hr, workspaceAdmin]);
+
+    await expect(
+      service.groupByApprover(entries, SLACK_TEAM_ID),
+    ).resolves.toEqual([
+      { approver: manager, entries: [entries[0]] },
+      { approver: hr, entries: [entries[1], entries[0]] },
+    ]);
+    expect(repository.findApproverIds).toHaveBeenCalledWith(SLACK_TEAM_ID, [
+      'entry-1',
+      'entry-2',
+    ]);
+    expect(usersService.findMany).toHaveBeenCalledWith({
+      slackTeamId: SLACK_TEAM_ID,
+      roles: [...MANAGER_ROLES],
     });
   });
 

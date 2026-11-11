@@ -75,4 +75,40 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
 
     return rows.map(this.mapToViewModel);
   }
+
+  // The open steps that wait for the approver `slackUserId`, oldest first,
+  // but those of their own request (RequestWorkflowStepsService.findWaitingFor).
+  public async findWaitingFor(
+    slackTeamId: string,
+    slackUserId: string,
+  ): Promise<IRequestWorkflowStepViewModel[]> {
+    const rows = await this.waitingFor(slackTeamId, slackUserId)
+      .selectAll()
+      .orderBy('created_at')
+      .orderBy('id')
+      .execute();
+
+    return rows.map(this.mapToViewModel);
+  }
+
+  public async countWaitingFor(
+    slackTeamId: string,
+    slackUserId: string,
+  ): Promise<number> {
+    const { count } = await this.waitingFor(slackTeamId, slackUserId)
+      .select((eb) => eb.fn.countAll<number>().as('count'))
+      .executeTakeFirstOrThrow();
+
+    return Number(count);
+  }
+
+  private waitingFor(slackTeamId: string, slackUserId: string) {
+    return this.selectInWorkspace(slackTeamId)
+      .where('slack_user_id', '=', slackUserId)
+      .where('processed_at', 'is not', null)
+      .where('completed_at', 'is', null)
+      .where(
+        sql<boolean>`"step_data" -> 'snapshot' ->> 'slack_user_id' is distinct from ${slackUserId}`,
+      );
+  }
 }

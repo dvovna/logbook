@@ -72,18 +72,25 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
   }
 
   public async getTabView({ user, pendingApprovals }: IPublishBaseParams) {
-    const [vacationUsageInfo, requestedVacations, timeSummary, setup] =
-      await Promise.all([
-        this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
-        this.vacationsService.findMany({
-          userId: user.id,
-          slackTeamId: user.slack_team_id,
-          startDate: user.contract_start_date || undefined,
-          statuses: [VacationRequestStatus.Pending],
-        }),
-        this.timeEntriesSummaryService.getUserSummary(user),
-        this.setupProgressService.get(user),
-      ]);
+    const [
+      vacationUsageInfo,
+      requestedVacations,
+      timeSummary,
+      setup,
+      approvals,
+    ] = await Promise.all([
+      this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
+      this.vacationsService.findMany({
+        userId: user.id,
+        slackTeamId: user.slack_team_id,
+        startDate: user.contract_start_date || undefined,
+        statuses: [VacationRequestStatus.Pending],
+      }),
+      this.timeEntriesSummaryService.getUserSummary(user),
+      this.setupProgressService.get(user),
+      // Counted by BaseTabService for the Approvals button too.
+      pendingApprovals,
+    ]);
 
     return this.homeTabViewService.getView({
       userId: user.slack_id,
@@ -91,8 +98,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       vacationUsageInfo,
       requestedVacations,
       timeSummary,
-      // Counted by BaseTabService for the Approvals button too.
-      pendingApprovals: pendingApprovals ?? { timeOff: 0, timeEntries: 0 },
+      pendingApprovals: approvals ?? { timeOff: 0, timeEntries: 0 },
       setup,
     });
   }

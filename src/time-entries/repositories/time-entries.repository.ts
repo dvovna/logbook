@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { ExpressionBuilder, sql } from 'kysely';
+import { ExpressionBuilder, RawBuilder, sql } from 'kysely';
+import UserRole from '@common/enums/user-role.enum';
+import { MANAGER_ROLES } from '@common/constants/role-groups';
 import {
   IRelation,
   BaseRepository,
@@ -10,6 +12,7 @@ import {
   SqlUpdate,
 } from '@common/types/sql-database.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
+import { ITimeEntryListItem } from 'src/time-entries/types/time-entries-list.types';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 
@@ -98,20 +101,192 @@ export class TimeEntriesRepository extends BaseRepository<
     };
   };
 
-  // The submitted entries of the workspace but `excludeUserId`'s, newest
-  // work first: only what deciding who approves them needs, no joins.
-  public async findSubmittedKeys(
+  // How many submitted entries wait for `approverId` (see approves()).
+  public async countWaitingFor(
     slackTeamId: string,
-    excludeUserId: string,
-  ): Promise<{ id: string; team_id: string | null; user_id: string }[]> {
-    return this.selectInWorkspace(slackTeamId)
-      .select(['id', 'team_id', 'user_id'])
-      .where('status', '=', TimeEntryStatus.Submitted)
-      .where('deleted_at', 'is', null)
-      .where('user_id', '!=', excludeUserId)
-      .orderBy('work_date', 'desc')
-      .orderBy('created_at', 'desc')
+    approverId: string,
+  ): Promise<number> {
+    const { count } = await this.db
+      .selectFrom(this.waitingGroups(slackTeamId, approverId).as('waiting'))
+      .select(sql<number>`coalesce(sum("waiting"."entries"), 0)`.as('count'))
+      .executeTakeFirstOrThrow();
+
+    return Number(count);
+  }
+
+  // A page of the submitted entries that wait for `approverId` (see
+  // approves()), as the lists show them, newest work first.
+  public async findWaitingFor(
+    slackTeamId: string,
+    approverId: string,
+    { limit, offset }: { limit: number; offset: number },
+  ): Promise<ITimeEntryListItem[]> {
+    const rows = await this.waitingEntries(slackTeamId, approverId)
+      .innerJoin('users', 'users.id', 'time_entries.user_id')
+      .leftJoin('projects', 'projects.id', 'time_entries.project_id')
+      .leftJoin('clients', 'clients.id', 'time_entries.client_id')
+      .select([
+        'time_entries.id',
+        'time_entries.work_date',
+        'time_entries.created_at',
+        'users.name as user_name',
+        'projects.name as project_name',
+        'clients.name as client_name',
+        'time_entries.minutes',
+        'time_entries.description',
+        'time_entries.rejection_reason',
+        'time_entries.user_id',
+        'time_entries.status',
+      ])
+      .orderBy('time_entries.work_date', 'desc')
+      .orderBy('time_entries.created_at', 'desc')
+      .orderBy('time_entries.id')
+      .limit(limit)
+      .offset(offset)
       .execute();
+
+    return rows.map((row) => ({
+      ...row,
+      project_name: row.project_name ?? '',
+      client_name: row.client_name ?? '',
+      description: row.description ?? '',
+      status: row.status as TimeEntryStatus,
+    }));
+  }
+
+  // The IDs of all the submitted entries that wait for `approverId`.
+  public async findWaitingIds(
+    slackTeamId: string,
+    approverId: string,
+  ): Promise<string[]> {
+    const rows = await this.waitingEntries(slackTeamId, approverId)
+      .select('time_entries.id')
+      .execute();
+
+    return rows.map(({ id }) => id);
+  }
+
+  // Who each of the entries `ids` waits for (see approves()), as pairs.
+  public async findApproverIds(
+    slackTeamId: string,
+    ids: string[],
+  ): Promise<{ entry_id: string; approver_id: string }[]> {
+    if (!ids.length) {
+      return [];
+    }
+
+    return this.selectInWorkspace(slackTeamId)
+      .innerJoin('users as approver', (join) =>
+        join.on(
+          this.approves(slackTeamId, {
+            person: 'approver',
+            team: 'time_entries.team_id',
+            owner: 'time_entries.user_id',
+          }),
+        ),
+      )
+      .select(['time_entries.id as entry_id', 'approver.id as approver_id'])
+      .where(sql<boolean>`"time_entries"."id" = any(${ids}::uuid[])`)
+      .execute();
+  }
+
+  // The minutes of a period's entries, all and billable, deleted ones left
+  // out: everyone's, or with `userId` that person's and those logged in
+  // `teamIds`.
+  public async sumMinutes(
+    slackTeamId: string,
+    {
+      dateFrom,
+      dateTo,
+      userId,
+      teamIds = [],
+    }: {
+      dateFrom: string;
+      dateTo: string;
+      userId?: string;
+      teamIds?: string[];
+    },
+  ): Promise<{ minutes: number; billableMinutes: number }> {
+    const row = await this.selectInWorkspace(slackTeamId)
+      .select([
+        sql<number>`coalesce(sum("minutes"), 0)`.as('minutes'),
+        sql<number>`coalesce(sum("minutes") filter (where "billable"), 0)`.as(
+          'billable_minutes',
+        ),
+      ])
+      .where('deleted_at', 'is', null)
+      .where('work_date', '>=', dateFrom)
+      .where('work_date', '<=', dateTo)
+      .$if(!!userId, (query) =>
+        query.where((eb) =>
+          eb.or([
+            eb('user_id', '=', userId!),
+            ...(teamIds.length ? [eb('team_id', 'in', teamIds)] : []),
+          ]),
+        ),
+      )
+      .executeTakeFirstOrThrow();
+
+    return {
+      minutes: Number(row.minutes),
+      billableMinutes: Number(row.billable_minutes),
+    };
+  }
+
+  // A person's minutes of a period, and how many drafts and rejected entries
+  // of any date they have and their minutes; deleted entries left out.
+  public async sumOfUser(
+    slackTeamId: string,
+    userId: string,
+    { dateFrom, dateTo }: { dateFrom: string; dateTo: string },
+  ): Promise<{ minutes: number; openCount: number; openMinutes: number }> {
+    const inPeriod = sql`"work_date" between ${dateFrom} and ${dateTo}`;
+    const open = sql`"status" in (${sql.join(OPEN_TIME_ENTRY_STATUSES)})`;
+    const row = await this.selectInWorkspace(slackTeamId)
+      .select([
+        sql<number>`coalesce(sum("minutes") filter (where ${inPeriod}), 0)`.as(
+          'minutes',
+        ),
+        sql<number>`count(*) filter (where ${open})`.as('open_count'),
+        sql<number>`coalesce(sum("minutes") filter (where ${open}), 0)`.as(
+          'open_minutes',
+        ),
+      ])
+      .where('user_id', '=', userId)
+      .where('deleted_at', 'is', null)
+      .where(sql<boolean>`(${inPeriod} or ${open})`)
+      .executeTakeFirstOrThrow();
+
+    return {
+      minutes: Number(row.minutes),
+      openCount: Number(row.open_count),
+      openMinutes: Number(row.open_minutes),
+    };
+  }
+
+  // A person's minutes of one day per client name, most first, then the
+  // client of the latest entry; entries without a client under null.
+  public async sumOfUserByClient(
+    slackTeamId: string,
+    userId: string,
+    date: string,
+  ): Promise<{ client_name: string | null; minutes: number }[]> {
+    const minutes = sql<number>`sum("time_entries"."minutes")`;
+    const rows = await this.selectInWorkspace(slackTeamId)
+      .leftJoin('clients', 'clients.id', 'time_entries.client_id')
+      .select(['clients.name as client_name', minutes.as('minutes')])
+      .where('time_entries.user_id', '=', userId)
+      .where('time_entries.deleted_at', 'is', null)
+      .where('time_entries.work_date', '=', date)
+      .groupBy('clients.name')
+      .orderBy(minutes, 'desc')
+      .orderBy(sql`max("time_entries"."created_at")`, 'desc')
+      .execute();
+
+    return rows.map(({ client_name, minutes }) => ({
+      client_name,
+      minutes: Number(minutes),
+    }));
   }
 
   // Not deleted, cancelled ones included; without the relations, in
@@ -322,5 +497,97 @@ export class TimeEntriesRepository extends BaseRepository<
       .execute();
 
     return new Set(rows.map(({ time_entry_id }) => time_entry_id));
+  }
+
+  // The submitted entries that wait for `approverId`.
+  private waitingEntries(slackTeamId: string, approverId: string) {
+    return this.selectInWorkspace(slackTeamId)
+      .innerJoin(
+        this.waitingGroups(slackTeamId, approverId).as('waiting'),
+        (join) =>
+          join
+            .onRef('waiting.user_id', '=', 'time_entries.user_id')
+            .on(
+              sql<boolean>`"waiting"."team_id" is not distinct from "time_entries"."team_id"`,
+            ),
+      )
+      .where('time_entries.status', '=', TimeEntryStatus.Submitted)
+      .where('time_entries.deleted_at', 'is', null);
+  }
+
+  // The submitted entries of others by team and owner, with how many each,
+  // where they wait for `approverId`. Whom an entry waits for depends on its
+  // team and owner only, so the rule runs once a pair, not once an entry:
+  // Admin and HR would otherwise run it for every submitted entry of the
+  // workspace.
+  private waitingGroups(slackTeamId: string, approverId: string) {
+    return this.selectInWorkspace(slackTeamId)
+      .select([
+        'time_entries.team_id',
+        'time_entries.user_id',
+        (eb) => eb.fn.countAll<number>().as('entries'),
+      ])
+      .where('time_entries.status', '=', TimeEntryStatus.Submitted)
+      .where('time_entries.deleted_at', 'is', null)
+      .where('time_entries.user_id', '!=', approverId)
+      .groupBy(['time_entries.team_id', 'time_entries.user_id'])
+      .having((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('users as approver')
+            .select('approver.id')
+            .where('approver.id', '=', approverId)
+            .where(
+              this.approves(slackTeamId, {
+                person: 'approver',
+                team: 'time_entries.team_id',
+                owner: 'time_entries.user_id',
+              }),
+            ),
+        ),
+      );
+  }
+
+  // Whether `person` (a row of users) is whom the submitted entries of
+  // `owner` logged in `team` (columns of the query around it) wait for: the
+  // active people with a role that approves (MANAGER_ROLES) whom the team
+  // lists among its manager approvers, but the owner; when there are none,
+  // everyone with the HR role, else every admin, never the owner (as
+  // fallbackApprovers does for time off). Admin and HR may decide any entry;
+  // this is the one rule for what waits for whom: the Approvals count, the
+  // inbox, Approve all and the messages on submission.
+  private approves(
+    slackTeamId: string,
+    refs: { person: string; team: string; owner: string },
+  ): RawBuilder<boolean> {
+    const column = (alias: string, name: string) => sql.ref(`${alias}.${name}`);
+    const team = sql.ref(refs.team);
+    const approving = (alias: string) =>
+      sql`${column(alias, 'slack_team_id')} = ${slackTeamId}
+        and ${column(alias, 'is_active')}
+        and ${column(alias, 'role')} in (${sql.join(MANAGER_ROLES)})
+        and ${column(alias, 'id')} <> ${sql.ref(refs.owner)}`;
+    const role = column(refs.person, 'role');
+
+    return sql<boolean>`(${approving(refs.person)} and case
+      when exists (
+        select 1 from "teams" as "listing"
+        join "users" as "manager"
+          on "manager"."slack_id" = any("listing"."manager_approvers")
+        where "listing"."id" = ${team}
+          and "listing"."slack_team_id" = ${slackTeamId}
+          and ${approving('manager')}
+      ) then exists (
+        select 1 from "teams" as "listing"
+        where "listing"."id" = ${team}
+          and "listing"."slack_team_id" = ${slackTeamId}
+          and ${column(refs.person, 'slack_id')} = any("listing"."manager_approvers")
+      )
+      when exists (
+        select 1 from "users" as "hr"
+        where ${approving('hr')} and "hr"."role" = ${UserRole.HR}
+      ) then ${role} = ${UserRole.HR}
+      else ${role} = ${UserRole.Admin}
+    end)`;
   }
 }
