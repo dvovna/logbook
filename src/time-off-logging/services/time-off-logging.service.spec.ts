@@ -17,6 +17,7 @@ import { VacationRequestsService } from 'src/vacation-requests/services/vacation
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
+import { VacationTimeService } from 'src/time-off-logging/services/vacation-time.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -48,7 +49,8 @@ describe('TimeOffLoggingService', () => {
   let users: { findOne: jest.Mock };
   let teams: { findOne: jest.Mock };
   let days: { workingDates: jest.Mock };
-  let entries: { findMany: jest.Mock; createForVacation: jest.Mock };
+  let entries: { findMany: jest.Mock };
+  let vacationTime: { log: jest.Mock };
   let lock: jest.Mock;
   let service: TimeOffLoggingService;
 
@@ -72,10 +74,8 @@ describe('TimeOffLoggingService', () => {
     days = {
       workingDates: jest.fn().mockResolvedValue(['2026-06-19', '2026-06-23']),
     };
-    entries = {
-      findMany: jest.fn().mockResolvedValue([]),
-      createForVacation: jest.fn().mockResolvedValue(2),
-    };
+    entries = { findMany: jest.fn().mockResolvedValue([]) };
+    vacationTime = { log: jest.fn().mockResolvedValue(2) };
     lock = jest.fn();
 
     service = new TimeOffLoggingService(
@@ -86,6 +86,7 @@ describe('TimeOffLoggingService', () => {
       teams as unknown as TeamsService,
       days as unknown as VacationDaysCalculationService,
       entries as unknown as TimeEntriesService,
+      vacationTime as unknown as VacationTimeService,
       {
         transaction: (work: () => Promise<unknown>) => work(),
         lockInOrder: lock,
@@ -156,7 +157,7 @@ describe('TimeOffLoggingService', () => {
       dateTo: '2026-06-23',
       slackTeamId: SLACK_TEAM_ID,
     });
-    expect(entries.createForVacation).toHaveBeenCalledWith({
+    expect(vacationTime.log).toHaveBeenCalledWith({
       userId: 'u1',
       teamId: 't1',
       projectId: 'p1',
@@ -177,7 +178,7 @@ describe('TimeOffLoggingService', () => {
 
     const result = await service.log(user, 'r1');
 
-    expect(entries.createForVacation).not.toHaveBeenCalled();
+    expect(vacationTime.log).not.toHaveBeenCalled();
     expect(result.logged).toEqual([]);
   });
 

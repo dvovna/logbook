@@ -18,6 +18,7 @@ import { TimeEntriesService } from 'src/time-entries/services/time-entries.servi
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { TransactionService } from 'src/database/transaction.service';
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
+import { VacationTimeService } from 'src/time-off-logging/services/vacation-time.service';
 import {
   isTimeOffLeaveType,
   TIME_OFF_DESCRIPTIONS,
@@ -65,6 +66,7 @@ export class TimeOffLoggingService {
     private readonly teamsService: TeamsService,
     private readonly daysCalculationService: VacationDaysCalculationService,
     private readonly timeEntriesService: TimeEntriesService,
+    private readonly vacationTimeService: VacationTimeService,
     private readonly transactions: TransactionService,
   ) {}
 
@@ -143,7 +145,7 @@ export class TimeOffLoggingService {
       const free = offer.dates.filter((date) => !taken.has(date));
 
       if (free.length) {
-        await this.timeEntriesService.createForVacation({
+        await this.vacationTimeService.log({
           userId: user.id,
           teamId,
           projectId: offer.projectId,

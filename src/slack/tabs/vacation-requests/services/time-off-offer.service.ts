@@ -24,14 +24,12 @@ import { UsersService } from '@modules/users/services/users.service';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { withBilledDays } from '@modules/slack/tabs/vacation-requests/views/billed-days-notice';
 import ProjectsService from 'src/projects/services/projects.service';
-import { IRemovedVacationTime } from 'src/time-entries/types/removed-vacation-time.types';
+import { IRemovedVacationTime } from 'src/time-off-logging/types/vacation-time.types';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
-import {
-  VacationRequestCreatedEvent,
-  VacationRequestUpdatedEvent,
-} from '@modules/vacation-requests/events/vacation-request.events';
+import { VacationRequestCreatedEvent } from '@modules/vacation-requests/events/vacation-request.events';
+import { TimeOffChangedEvent } from 'src/time-off-logging/events/time-off.events';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
-import { changesLoggedTime } from '@modules/vacation-requests/utils/vacation-time.utils';
+import { changesLoggedTime } from 'src/time-off-logging/utils/vacation-time.utils';
 import {
   ITimeOffOffer,
   ITimeOffResult,
@@ -140,7 +138,7 @@ export class TimeOffOfferService implements OnModuleInit {
     request,
     previous,
     removedTime,
-  }: VacationRequestUpdatedEvent) {
+  }: TimeOffChangedEvent) {
     const offers =
       !!previous &&
       request.status === VacationRequestStatus.Approved &&
@@ -180,7 +178,7 @@ export class TimeOffOfferService implements OnModuleInit {
   }
 
   @OnEvent(VacationRequestEvent.Deleted)
-  public handleDeleted({ request, removedTime }: VacationRequestUpdatedEvent) {
+  public handleDeleted({ request, removedTime }: TimeOffChangedEvent) {
     for (const owner of removedTime?.owners ?? []) {
       this.offerLater(request.id, request.slack_team_id, {
         removed: this.removedNotice(request, removedTime!, owner, 'deleted'),

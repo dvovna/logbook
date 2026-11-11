@@ -15,6 +15,7 @@ import { TimeEntriesScopeService } from 'src/time-entries/services/time-entries-
 import { TimeReportService } from 'src/time-entries/services/time-report.service';
 import { TimeEntriesExportService } from 'src/time-entries/services/time-entries-export.service';
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
+import { TimeEntryWriter } from 'src/time-entries/services/time-entry-writer.service';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TimesheetService } from 'src/time-entries/services/timesheet.service';
   providers: [
     TimeEntriesRepository,
     TimeEntriesService,
+    TimeEntryWriter,
     TimeEntriesValidationService,
     TimeEntryApprovalsService,
     TimeEntriesSummaryService,
@@ -41,6 +43,7 @@ import { TimesheetService } from 'src/time-entries/services/timesheet.service';
     TimeEntriesSummaryService,
     BillingReportService,
     TimeEntriesService,
+    TimeEntryWriter,
     TimeEntryApprovalsService,
     TimeEntriesListQuery,
     TimeReportService,

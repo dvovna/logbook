@@ -8,6 +8,8 @@ import { ProjectsModule } from 'src/projects/projects.module';
 import { TimeOffProjectsRepository } from 'src/time-off-logging/repositories/time-off-projects.repository';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
+import { VacationTimeService } from 'src/time-off-logging/services/vacation-time.service';
+import { TimeOffChangesService } from 'src/time-off-logging/services/time-off-changes.service';
 
 @Module({
   imports: [
@@ -22,7 +24,13 @@ import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-s
     TimeOffProjectsRepository,
     TimeOffSettingsService,
     TimeOffLoggingService,
+    VacationTimeService,
+    TimeOffChangesService,
   ],
-  exports: [TimeOffSettingsService, TimeOffLoggingService],
+  exports: [
+    TimeOffSettingsService,
+    TimeOffLoggingService,
+    TimeOffChangesService,
+  ],
 })
 export class TimeOffLoggingModule {}

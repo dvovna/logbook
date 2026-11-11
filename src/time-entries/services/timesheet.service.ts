@@ -10,6 +10,7 @@ import {
 } from 'src/projects/queries/get-user-projects.query';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
+import { TimeEntryWriter } from 'src/time-entries/services/time-entry-writer.service';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { BILLED_ENTRY_MESSAGE } from 'src/time-entries/constants/billed-time-entries';
@@ -91,6 +92,7 @@ const byClientAndName = (
 export class TimesheetService {
   public constructor(
     private readonly timeEntriesService: TimeEntriesService,
+    private readonly timeEntryWriter: TimeEntryWriter,
     private readonly projectsService: ProjectsService,
     private readonly getUserProjectsQuery: GetUserProjectsQuery,
     private readonly timeEntriesValidationService: TimeEntriesValidationService,
@@ -403,12 +405,12 @@ export class TimesheetService {
     return changes;
   }
 
-  // Writes what checkCells found, through TimeEntriesService's writes: one
-  // statement for the new entries, one for the changed ones and one for the
-  // deleted ones. A change or deletion happens only while the entry is
-  // still a draft or rejected, for every role: one submitted after the check
-  // is refused, at the first such cell in the form's order (the transaction
-  // undoes the rest).
+  // Writes what checkCells found, through TimeEntryWriter: one statement for
+  // the new entries, one for the changed ones and one for the deleted ones.
+  // A change or deletion happens only while the entry is still a draft or
+  // rejected, for every role: one submitted after the check is refused, at
+  // the first such cell in the form's order (the transaction undoes the
+  // rest).
   private async writeCells(
     user: IUserViewModel,
     changes: ICellChange[],
@@ -424,7 +426,7 @@ export class TimesheetService {
     const openOnly = { openOnly: true };
 
     if (created.length) {
-      await this.timeEntriesService.insertMany(
+      await this.timeEntryWriter.insertMany(
         created.map(({ input, project }) => ({
           params: this.newEntry(user, input, comment),
           project: {
@@ -440,7 +442,7 @@ export class TimesheetService {
     // The entries left alone because they changed since the check.
     const leftAlone = new Set([
       ...(updated.length
-        ? await this.timeEntriesService.writeMinutes(
+        ? await this.timeEntryWriter.writeMinutes(
             new Map(
               updated.map(({ entry, input }) => [entry!.id, input.minutes!]),
             ),
@@ -450,7 +452,7 @@ export class TimesheetService {
           )
         : []),
       ...(deleted.length
-        ? await this.timeEntriesService.writeDeletes(
+        ? await this.timeEntryWriter.writeDeletes(
             deleted.map(({ entry }) => entry!),
             user,
             openOnly,

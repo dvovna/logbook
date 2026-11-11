@@ -6,6 +6,7 @@ import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimesheetService } from 'src/time-entries/services/timesheet.service';
+import { TimeEntryWriter } from 'src/time-entries/services/time-entry-writer.service';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
@@ -70,6 +71,7 @@ describe('TimesheetService', () => {
           billedIds: billed,
         })),
       } as unknown as TimeEntriesService,
+      {} as TimeEntryWriter,
       {
         findAllWithClientNames: jest.fn(async () =>
           projects.map((item) => ({
@@ -329,8 +331,8 @@ describe('TimesheetService.saveCells', () => {
           billedIds: new Set(),
         })),
         submit: jest.fn(async () => []),
-        ...writes,
       } as unknown as TimeEntriesService,
+      writes as unknown as TimeEntryWriter,
       {
         findAllWithClientNames: jest.fn(async () => [
           { ...project('web'), client_name: null },

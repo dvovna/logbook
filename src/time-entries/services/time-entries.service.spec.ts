@@ -6,6 +6,7 @@ import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
+import { TimeEntryWriter } from 'src/time-entries/services/time-entry-writer.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { IUserViewModel } from 'src/users/types/user.interface';
 
@@ -47,6 +48,7 @@ describe('TimeEntriesService writes', () => {
       {} as ProjectsService,
       {} as GetUserProjectsQuery,
       { emit: jest.fn() } as unknown as EventEmitter2,
+      new TimeEntryWriter(repository as unknown as TimeEntriesRepository),
     );
   });
 
@@ -107,24 +109,5 @@ describe('TimeEntriesService writes', () => {
       { id: 'e', slack_team_id: 'team-1', deleted_at: notDeleted },
       expect.objectContaining({ minutes: 120 }),
     );
-  });
-
-  it('creates nothing for time off with no days', async () => {
-    const createMany = jest.fn();
-    (repository as unknown as Record<string, jest.Mock>).createMany =
-      createMany;
-
-    await expect(
-      service.createForVacation({
-        userId: 'me',
-        teamId: null,
-        projectId: 'web',
-        minutes: 480,
-        dates: [],
-        vacationRequestId: 'r',
-        slackTeamId: 'team-1',
-      }),
-    ).resolves.toBe(0);
-    expect(createMany).not.toHaveBeenCalled();
   });
 });
