@@ -1,0 +1,56 @@
+<!doctype html>
+<!-- The source of og.png (1200×627, the link preview on LinkedIn and others).
+     Regenerate it after a change:
+     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+       --hide-scrollbars --window-size=1200,627 --screenshot=site/og.png \
+       --virtual-time-budget=5000 "http://localhost:4173/og.html" -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex">
+  <title>Logbook preview image</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=block">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    html, body { width: 1200px; height: 627px; overflow: hidden; }
+    body { font-size: 20px; }
+    .card { display: grid; grid-template-columns: 1fr 520px; gap: 64px; align-items: center; height: 100%; padding: 0 72px; border-top: 14px solid var(--ink); }
+    .card h1 { font-size: 66px; margin-top: 18px; }
+    .card .label { font-size: 15px; }
+    .card .lead { margin-top: 24px; font-size: 22px; color: var(--ink-soft); }
+    .card .sheet { padding: 24px 24px 34px; }
+    .card .week { font-size: 17px; }
+    .card .week thead th { font-size: 13px; }
+    .card .stamp { font-size: 15px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div>
+      <p class="label label--accent">Logbook · a Slack app</p>
+      <h1>Time off and timesheets, kept in Slack.</h1>
+      <p class="lead">Open source. Runs on your own server.</p>
+    </div>
+    <figure class="sheet">
+      <figcaption>Week of 15 June</figcaption>
+      <p class="sub">Anna Kowalska · 38h 30m</p>
+      <div class="scroll">
+        <table class="week">
+          <thead>
+            <tr><th>Project</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th></tr>
+          </thead>
+          <tbody>
+            <tr><th class="project">Mobile app<small>Acme Corp</small></th><td>6</td><td>5.5</td><td>7</td><td>–</td><td>–</td></tr>
+            <tr><th class="project">Hiring<small>Internal</small></th><td>2</td><td>1</td><td>1</td><td>–</td><td>–</td></tr>
+            <tr class="off"><th class="project">Time off<small>Annual leave</small></th><td>–</td><td>–</td><td>–</td><td>8</td><td>8</td></tr>
+          </tbody>
+          <tfoot>
+            <tr><th>Total</th><td>8</td><td>6.5</td><td>8</td><td>8</td><td>8</td></tr>
+          </tfoot>
+        </table>
+      </div>
+      <span class="stamp">APPROVED</span>
+    </figure>
+  </div>
+</body>
+</html>

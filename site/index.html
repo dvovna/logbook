@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Logbook: time off and timesheets in Slack</title>
+  <meta name="description" content="A Slack app for leave requests, timesheets and approvals. Open source, runs on your own server.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://dvovna.github.io/logbook/">
+  <meta property="og:title" content="Logbook: time off and timesheets in Slack">
+  <meta property="og:description" content="Leave requests, timesheets and approvals in Slack. Open source, runs on your own server.">
+  <meta property="og:image" content="https://dvovna.github.io/logbook/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="627">
+  <meta property="og:image:alt" content="Logbook: a week of hours with two days of annual leave, stamped Approved">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="bar">
+      <a class="wordmark" href="./">Logbook</a>
+      <nav class="site-nav" aria-label="Main">
+        <ul>
+          <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#self-hosting">Self-hosting</a></li>
+          <li><a href="https://github.com/dvovna/logbook">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap">
+    <div>
+      <p class="label label--accent">A Slack app · open source</p>
+      <h1 id="hero-title">Your team's hours and days off, kept in Slack.</h1>
+      <p class="lead">People ask for leave and log their hours in the Slack they already have open. Managers approve from a message. Reports and billing come from the same records, so nobody copies anything into a spreadsheet.</p>
+      <div class="actions">
+        <a class="button button--main" href="https://github.com/dvovna/logbook">View on GitHub</a>
+        <a class="button" href="https://github.com/dvovna/logbook#self-hosting">Self-hosting guide</a>
+      </div>
+      <p class="fine">Free under AGPL-3.0. You run it on your own server.</p>
+    </div>
+
+    <figure class="sheet">
+      <figcaption>Week of 15 June</figcaption>
+      <p class="sub">Anna Kowalska · 38h 30m</p>
+      <div class="scroll">
+        <table class="week">
+          <thead>
+            <tr><th scope="col">Project</th><th scope="col">Mon</th><th scope="col">Tue</th><th scope="col">Wed</th><th scope="col">Thu</th><th scope="col">Fri</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row" class="project">Mobile app<small>Acme Corp</small></th><td>6</td><td>5.5</td><td>7</td><td>–</td><td>–</td></tr>
+            <tr><th scope="row" class="project">Hiring<small>Internal</small></th><td>2</td><td>1</td><td>1</td><td>–</td><td>–</td></tr>
+            <tr class="off"><th scope="row" class="project">Time off<small>Annual leave</small></th><td>–</td><td>–</td><td>–</td><td>8</td><td>8</td></tr>
+          </tbody>
+          <tfoot>
+            <tr><th scope="row">Total</th><td>8</td><td>6.5</td><td>8</td><td>8</td><td>8</td></tr>
+          </tfoot>
+        </table>
+      </div>
+      <span class="stamp" aria-label="Status: approved">APPROVED</span>
+    </figure>
+  </div>
+</section>
+
+<section class="section" id="how-it-works" aria-labelledby="how-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="label">How it works</p>
+      <h2 id="how-title">Time off, hours and billing, step by step</h2>
+      <p>The forms and messages below are the ones Logbook sends. Only the people and the client are made up.</p>
+    </div>
+
+    <article class="story" aria-labelledby="story-leave">
+      <p class="label label--accent">01 · Time off</p>
+      <h3 id="story-leave">From “can I take Thursday and Friday off?” to the timesheet</h3>
+      <p>Anna asks for two days of annual leave. Her manager and HR approve them from their DMs, and the approved days go into her week as hours.</p>
+      <ol class="steps">
+        <li class="step">
+          <p class="label">Mon 8 Jun, 09:12 · Anna</p>
+          <h4>Asks for the days</h4>
+          <figure class="ui" aria-label="The time off request form in Slack">
+            <div class="ui-title">Time off request</div>
+            <div class="ui-field"><span>Start Date</span><i class="ui-input">18 Jun 2026</i></div>
+            <div class="ui-field"><span>End Date</span><i class="ui-input">19 Jun 2026</i></div>
+            <div class="ui-field"><span>Type</span><i class="ui-input">🏖️ Annual leave</i></div>
+            <div class="ui-field"><span>Comment</span><i class="ui-input">Long weekend with family</i></div>
+            <div class="ui-buttons ui-foot"><span class="ui-button">Cancel</span><span class="ui-button ui-button--approve">Submit</span></div>
+          </figure>
+        </li>
+        <li class="step">
+          <p class="label">Mon 8 Jun, 10:40 · Tom, her manager</p>
+          <h4>Approves from a DM</h4>
+          <figure class="ui" aria-label="The message Tom gets from Logbook">
+            <div class="ui-head"><span class="ui-app">Logbook</span><span class="ui-tag">APP</span><span class="ui-time">10:40</span></div>
+            <p>⏳ Vacation request for Anna Kowalska<br>📅 Dates: 18–19 Jun 2026 (2 calendar days, 2 working days)<br>🏖️ Type: Annual leave<br>⚡ Needs your approval</p>
+            <p class="ui-context">Balance after: 16 of 24 days · Also off: Mark Rees (19 Jun 2026) · Level 1 of 2</p>
+            <div class="ui-buttons"><span class="ui-button ui-button--approve">Approve ✅</span><span class="ui-button">Reject ❌</span><span class="ui-button">Comment 💬</span></div>
+          </figure>
+        </li>
+        <li class="step">
+          <p class="label">Mon 8 Jun, 10:41 · Anna</p>
+          <h4>Hears who decides next</h4>
+          <figure class="ui" aria-label="The message Anna gets after her manager approves">
+            <div class="ui-head"><span class="ui-app">Logbook</span><span class="ui-tag">APP</span><span class="ui-time">10:41</span></div>
+            <p>✅ Your vacation request (18–19 Jun 2026): Manager approval done by <b class="ui-mention">@Tom Becker</b>. Now waiting for HR approval from <b class="ui-mention">@Ira Shah</b>.</p>
+          </figure>
+        </li>
+        <li class="step">
+          <p class="label">Mon 8 Jun, 14:05 · Anna</p>
+          <h4>Gets the answer, logs it as time</h4>
+          <figure class="ui" aria-label="The approval message with a button that logs the leave as time">
+            <div class="ui-head"><span class="ui-app">Logbook</span><span class="ui-tag">APP</span><span class="ui-time">14:05</span></div>
+            <p>✅ <b>Your time off request was approved</b><br><b>Annual leave</b> · 18–19 Jun 2026 (2 days, 2 working)</p>
+            <p class="ui-context">Approved by <b class="ui-mention">@Ira Shah</b></p>
+            <div class="ui-buttons"><span class="ui-button">Log 16h to Time off</span></div>
+          </figure>
+          <p class="step-note">One click logs each day off as 8 approved hours on the Time off project. An admin picks the project and the length of the day.</p>
+        </li>
+      </ol>
+    </article>
+
+    <article class="story" aria-labelledby="story-hours">
+      <p class="label label--accent">02 · Hours</p>
+      <h3 id="story-hours">A week of hours, from the form to approval</h3>
+      <p>Anna fills in her week in one form and sends it for approval. Her manager gets one message about it, and a teammate who forgot gets a reminder on Monday.</p>
+      <ol class="steps">
+        <li class="step">
+          <p class="label">Fri 19 Jun, 17:30 · Anna</p>
+          <h4>Fills in the week</h4>
+          <figure class="ui" aria-label="The week form in Slack">
+            <div class="ui-title">Fill in the week</div>
+            <p class="ui-context">Week of 15 Jun · hours a day, e.g. 1.5</p>
+            <table class="ui-grid">
+              <thead><tr><th scope="col">Project</th><th scope="col">Mon</th><th scope="col">Tue</th><th scope="col">Wed</th><th scope="col">Thu</th><th scope="col">Fri</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Mobile app</th><td><span>6</span></td><td><span>5.5</span></td><td><span>7</span></td><td><span>&nbsp;</span></td><td><span>&nbsp;</span></td></tr>
+                <tr><th scope="row">Hiring</th><td><span>2</span></td><td><span>1</span></td><td><span>1</span></td><td><span>&nbsp;</span></td><td><span>&nbsp;</span></td></tr>
+                <tr class="locked"><th scope="row">Time off</th><td></td><td></td><td></td><td>8h</td><td>8h</td></tr>
+              </tbody>
+            </table>
+            <div class="ui-check"><i aria-hidden="true"></i><span>Submit the week's time for approval</span></div>
+            <div class="ui-buttons ui-foot"><span class="ui-button">Cancel</span><span class="ui-button ui-button--approve">Save</span></div>
+          </figure>
+          <p class="step-note">The approved days off are already in the week and can't be changed here.</p>
+        </li>
+        <li class="step">
+          <p class="label">Fri 19 Jun, 17:30 · Tom</p>
+          <h4>Gets one message for the week</h4>
+          <figure class="ui" aria-label="The message Tom gets about the submitted week">
+            <div class="ui-head"><span class="ui-app">Logbook</span><span class="ui-tag">APP</span><span class="ui-time">17:30</span></div>
+            <p>📥 <b>Anna Kowalska</b> submitted <b>6 time entries</b> (22h 30m) for your approval: Mobile app (18h 30m), Hiring (4h).</p>
+            <p>They wait for you in Logbook → ✅ Approvals.</p>
+          </figure>
+        </li>
+        <li class="step">
+          <p class="label">Mon 22 Jun, 09:00 · Mark</p>
+          <h4>Forgot, gets a reminder</h4>
+          <figure class="ui" aria-label="The Monday reminder">
+            <div class="ui-head"><span class="ui-app">Logbook</span><span class="ui-tag">APP</span><span class="ui-time">09:00</span></div>
+            <p>⏰ You have <b>3 time entries</b> (7h 30m) from 16–18 Jun 2026 not submitted yet.</p>
+            <p>Your approvers see time only once you submit it: Home → 📤 Submit for Approval.</p>
+          </figure>
+        </li>
+        <li class="step">
+          <p class="label">Mon 22 Jun, 09:40 · Tom</p>
+          <h4>Approves the lot in one place</h4>
+          <figure class="ui" aria-label="The Approvals screen in Logbook's App Home">
+            <div class="ui-buttons ui-nav"><span class="ui-button">🏠 Home</span><span class="ui-button">🕒 My time</span><span class="ui-button ui-button--approve">✅ Approvals (9)</span></div>
+            <div class="ui-row"><b>⏱ Time entries (9)</b><span class="ui-button ui-button--approve">Approve all (9)</span></div>
+            <div class="ui-item">
+              <b>Anna Kowalska</b>
+              <span>Project: Mobile app · Client: Acme Corp</span>
+              <span>Date: 15 Jun 2026 · Time: 6h</span>
+              <div class="ui-buttons"><span class="ui-button">Approve</span><span class="ui-button ui-button--reject">Reject</span></div>
+            </div>
+          </figure>
+        </li>
+      </ol>
+    </article>
+
+    <article class="story" aria-labelledby="story-billing">
+      <p class="label label--accent">03 · Billing</p>
+      <h3 id="story-billing">From approved hours to the numbers for an invoice</h3>
+      <p>At the start of the month, finance locks a client's approved hours with their rates and takes a CSV to the accounting tool. Logbook doesn't make the invoice itself.</p>
+      <ol class="steps">
+        <li class="step">
+          <p class="label">Wed 1 Jul · Olga, finance</p>
+          <h4>Opens the client's month</h4>
+          <figure class="ui" aria-label="The billing report in Logbook's App Home">
+            <p><b>Billing report: Acme Corp</b> · 1–30 Jun 2026<br>Approved: <b>162h</b>, billable <b>150h</b> · Amount: <b>$18,000.00</b></p>
+            <table class="ui-table">
+              <thead><tr><th scope="col">Person</th><th scope="col">Billable</th><th scope="col">Rate</th><th scope="col">Amount</th></tr></thead>
+              <tbody>
+                <tr><td>Anna Kowalska</td><td>74h</td><td>$120/h</td><td>$8,880</td></tr>
+                <tr><td>Mark Rees</td><td>52h</td><td>$120/h</td><td>$6,240</td></tr>
+                <tr><td>Lea Novak</td><td>24h</td><td>$120/h</td><td>$2,880</td></tr>
+              </tbody>
+            </table>
+            <div class="ui-buttons"><span class="ui-button">🔒 Lock in a snapshot</span></div>
+          </figure>
+        </li>
+        <li class="step">
+          <p class="label">Wed 1 Jul · Olga</p>
+          <h4>Locks it in a snapshot</h4>
+          <figure class="ui" aria-label="The confirmation before locking a snapshot">
+            <div class="ui-title">Lock in a snapshot</div>
+            <p><b>Acme Corp</b> · 1–30 Jun 2026: the approved time that isn't in a snapshot yet.</p>
+            <p>• 96 entries, <b>162h</b>, billable <b>150h</b><br>• Amount: <b>$18,000.00</b> at today's rates, kept with the snapshot</p>
+            <p>Nobody can change these entries until an admin unlocks the snapshot.</p>
+            <div class="ui-buttons ui-foot"><span class="ui-button">Cancel</span><span class="ui-button ui-button--approve">Lock</span></div>
+          </figure>
+        </li>
+        <li class="step">
+          <p class="label">Wed 1 Jul · Olga</p>
+          <h4>Takes the CSV to accounting</h4>
+          <figure class="ui" aria-label="The CSV file Logbook sends in a DM">
+            <div class="ui-head"><span class="ui-app">Logbook</span><span class="ui-tag">APP</span><span class="ui-time">11:15</span></div>
+            <p>📄 Billing snapshot, Acme Corp, 1–30 Jun 2026: 96 entries, 162h, $18,000.00.</p>
+            <div class="ui-file"><b>CSV</b><span>Billing snapshot, Acme Corp, 1–30 Jun 2026</span></div>
+          </figure>
+          <p class="step-note">A line per entry: date, person, project, hours, the rate and the amount it was locked with.</p>
+        </li>
+        <li class="step">
+          <p class="label">Fri 3 Jul · Olga</p>
+          <h4>Marks it invoiced</h4>
+          <figure class="ui" aria-label="The snapshot in the Billing snapshots list">
+            <p><b>Acme Corp · 1–30 Jun 2026</b></p>
+            <p class="ui-lines">Time: 162h · Billable: 150h · Amount: $18,000.00<br>Entries: 96<br>Status: ✅ Invoiced 3 Jul 2026 by Olga Berg<br>Created: 1 Jul 2026 by Olga Berg</p>
+          </figure>
+          <p class="step-note">The uninvoiced report shows what's left: approved hours in no snapshot, per client.</p>
+        </li>
+      </ol>
+    </article>
+
+  </div>
+</section>
+
+<section class="section" id="features" aria-labelledby="features-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="label">Features</p>
+      <h2 id="features-title">Policies, rates, reminders and reports</h2>
+    </div>
+
+    <dl class="ledger">
+      <div><dt>Leave policies</dt><dd>Days per year, bonus days and carryover per team. The year runs from each person's contract start date, or over the calendar year. Without a policy, Logbook records time off and checks no limits.</dd></div>
+      <div><dt>Holidays</dt><dd>Public holidays imported by country. Add your company's own days, or turn off the ones you work on. Working days skip weekends and holidays.</dd></div>
+      <div><dt>Approval levels</dt><dd>The team's managers first, then HR. A level needs one approver or all of them. When an approver is away, HR or an admin can approve for them.</dd></div>
+      <div><dt>Roles</dt><dd>Admin, HR, manager, finance and member. Managers see their teams. Only admins and finance see rates and amounts.</dd></div>
+      <div><dt>Reminders</dt><dd>On Monday, people with drafts or rejected time from earlier weeks get a message that names the week.</dd></div>
+      <div><dt>Who hasn't submitted</dt><dd>For any period, the people who logged nothing or still have drafts or rejected time. Managers see their own teams.</dd></div>
+      <div><dt>Time reports</dt><dd>Hours by client, project, person or team: billable, approved, and amounts for those allowed to see them. The report's entries come to you as a CSV file in a DM.</dd></div>
+      <div><dt>Rates</dt><dd>An hourly rate per project, or a person's own rate on a project. One currency per workspace.</dd></div>
+      <div><dt>Uninvoiced time</dt><dd>Per client, the approved billable hours that are in no snapshot yet, and the snapshots not marked invoiced.</dd></div>
+      <div><dt>CSV import</dt><dd>Load past vacations and team lists from a file when you move over from spreadsheets.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="section" id="self-hosting" aria-labelledby="host-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="label">Self-hosting</p>
+      <h2 id="host-title">Runs on your server</h2>
+      <p>There is no hosted version yet. You run Logbook yourself, and the data stays in your database.</p>
+    </div>
+
+    <div class="host">
+      <div>
+        <ul>
+          <li>A Postgres database. Supabase works, its free plan too.</li>
+          <li>A server with Docker or Node 26 that Slack can reach over HTTPS.</li>
+          <li>A Slack app created from the manifest in the repository.</li>
+          <li>One deployment serves several Slack workspaces, each with its own data.</li>
+          <li>Uninstalling the app removes its token at once. The workspace's data is deleted 30 days later (you can change that), and installing again before then restores it.</li>
+        </ul>
+        <div class="actions">
+          <a class="button button--main" href="https://github.com/dvovna/logbook#self-hosting">Self-hosting guide</a>
+          <a class="button" href="https://github.com/dvovna/logbook/blob/main/CHANGELOG.md">Changelog</a>
+        </div>
+      </div>
+      <pre class="terminal" aria-label="Running the Docker image"><span class="c"># amd64 and arm64, tagged per version</span>
+docker run -d --name logbook --restart always \
+  --env-file .env -p 3000:10000 \
+  ghcr.io/dvovna/logbook:0.2</pre>
+    </div>
+  </div>
+</section>
+
+<section class="section contact" id="contact" aria-labelledby="contact-title">
+  <div class="wrap">
+    <p class="label">Contact</p>
+    <h2 id="contact-title">Want to try it on your team?</h2>
+    <p>I'm Dzmitry, and I build Logbook. Write to me on LinkedIn if you'd like to try it at your company, or if it lacks something your team needs.</p>
+    <div class="actions">
+      <a class="button button--main" href="https://www.linkedin.com/in/dvovna/">Write to me on LinkedIn</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>Logbook · AGPL-3.0 · Slack is a trademark of Slack Technologies, LLC.</p>
+    <ul>
+      <li><a href="https://github.com/dvovna/logbook">GitHub</a></li>
+      <li><a href="https://github.com/dvovna/logbook/blob/main/CHANGELOG.md">Changelog</a></li>
+      <li><a href="https://github.com/dvovna/logbook/blob/main/SECURITY.md">Security</a></li>
+    </ul>
+  </div>
+</footer>
+
+</body>
+</html>
