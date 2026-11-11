@@ -49,11 +49,13 @@ export class TimeEntriesValidationService {
   ) {
     this.checkCreate(params, actor);
 
-    await this.validateTotalDailyTime(
-      params.userId,
-      params.projectId,
-      params.workDate,
-      actor.slack_team_id,
+    this.checkDailyTotal(
+      await this.loggedMinutes(
+        params.userId,
+        params.projectId,
+        params.workDate,
+        actor.slack_team_id,
+      ),
       params.minutes,
     );
   }
@@ -63,30 +65,29 @@ export class TimeEntriesValidationService {
     update: IUpdateCheckParams,
     actor: IUserViewModel,
   ) {
-    this.validateEditPermissions(existing, actor);
-    await this.validateNotBilled(existing);
-    this.checkUpdateValues(existing, update, actor);
-
-    const targetUserId = update.userId ?? existing.user_id;
-    const targetProjectId = update.projectId ?? existing.project_id;
-    const targetWorkDate = update.workDate
-      ? update.workDate
-      : new Date(existing.work_date);
-
-    if (
+    const changesDay =
       update.userId ||
       update.projectId ||
       update.workDate ||
-      update.minutes !== undefined
-    ) {
-      await this.validateTotalDailyTime(
-        targetUserId,
-        targetProjectId,
-        targetWorkDate,
-        actor.slack_team_id,
-        update.minutes ?? existing.minutes,
-        existing.id,
-      );
+      update.minutes !== undefined;
+
+    const [billed, loggedMinutes] = await Promise.all([
+      this.isBilled(existing),
+      changesDay
+        ? this.loggedMinutes(
+            update.userId ?? existing.user_id,
+            update.projectId ?? existing.project_id,
+            update.workDate ?? new Date(existing.work_date),
+            actor.slack_team_id,
+            existing.id,
+          )
+        : undefined,
+    ]);
+
+    this.checkUpdate(existing, update, actor, billed);
+
+    if (loggedMinutes !== undefined) {
+      this.checkDailyTotal(loggedMinutes, update.minutes ?? existing.minutes);
     }
   }
 
@@ -94,14 +95,12 @@ export class TimeEntriesValidationService {
     existing: ITimeEntryViewModel,
     actor: IUserViewModel,
   ) {
-    this.validateEditPermissions(existing, actor, 'delete');
-    await this.validateNotBilled(existing);
+    this.checkDelete(existing, actor, await this.isBilled(existing));
   }
 
-  // The checks below are those of validateCreate, validateUpdate and
-  // validateDelete without their reads, for a caller that has read what they
-  // need for many entries at once (the week form): whether an entry is
-  // billed, and the time on its project and day (checkDailyTotal).
+  // The rules. The validate* methods above read what they need (whether the
+  // entry is billed, the time on its project and day) and call these; the week
+  // form reads that for many entries at once and calls them itself.
 
   public checkCreate(params: ICreateCheckParams, actor: IUserViewModel) {
     this.validateMinutes(params.minutes);
@@ -157,16 +156,16 @@ export class TimeEntriesValidationService {
     }
   }
 
-  // Whoever asks, Admin included: an admin unlocks the snapshot first.
-  private async validateNotBilled(entry: ITimeEntryViewModel) {
+  private async isBilled(entry: ITimeEntryViewModel) {
     const billed = await this.timeEntriesRepository.findBilledIds(
       entry.slack_team_id,
       [entry.id],
     );
 
-    this.refuseBilled(billed.has(entry.id));
+    return billed.has(entry.id);
   }
 
+  // Whoever asks, Admin included: an admin unlocks the snapshot first.
   private refuseBilled(billed: boolean) {
     if (billed) {
       throw new ValidationError(BILLED_ENTRY_MESSAGE);
@@ -266,12 +265,11 @@ export class TimeEntriesValidationService {
     }
   }
 
-  private async validateTotalDailyTime(
+  private async loggedMinutes(
     userId: string,
     projectId: string,
     workDate: Date,
     slackTeamId: string,
-    newLogDurationMinutes: number,
     excludeId?: string,
   ) {
     const existingLogs = await this.timeEntriesRepository.findMany({
@@ -282,11 +280,9 @@ export class TimeEntriesValidationService {
       deleted_at: { operator: 'is', value: null },
     });
 
-    const totalMinutes = existingLogs
+    return existingLogs
       .filter((log) => log.id !== excludeId)
       .reduce((sum, log) => sum + (log.minutes || 0), 0);
-
-    this.checkDailyTotal(totalMinutes, newLogDurationMinutes);
   }
 
   private isAdmin(user: IUserViewModel): boolean {

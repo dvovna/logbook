@@ -11,215 +11,40 @@ import {
   isBilledEntryError,
 } from 'src/time-entries/constants/billed-time-entries';
 
-const member: IUserViewModel = {
-  id: 'user-1',
-  email: 'member@example.com',
-  name: 'Member',
-  role: UserRole.Member,
-  is_active: true,
-  team_id: null,
-  slack_team_id: 'slack-team-1',
-  slack_id: 'U_MEMBER',
-  created_at: '2026-01-01T00:00:00Z',
-};
+const SLACK_TEAM_ID = 'slack-team-1';
+const PROJECT_ID = 'project-1';
+const WORK_DATE = new Date('2026-06-17');
+
+const user = (id: string, role: UserRole) =>
+  ({ id, role, slack_team_id: SLACK_TEAM_ID }) as IUserViewModel;
+
+const member = user('member-1', UserRole.Member);
+const otherMember = user('member-2', UserRole.Member);
+const manager = user('manager-1', UserRole.Manager);
+const hr = user('hr-1', UserRole.HR);
+const admin = user('admin-1', UserRole.Admin);
+
+const entry = (overrides: Partial<ITimeEntryViewModel> = {}) =>
+  ({
+    id: 'entry-1',
+    user_id: member.id,
+    project_id: PROJECT_ID,
+    work_date: '2026-06-17',
+    minutes: 60,
+    status: TimeEntryStatus.Draft,
+    slack_team_id: SLACK_TEAM_ID,
+    ...overrides,
+  }) as ITimeEntryViewModel;
 
 const entryParams = {
   userId: member.id,
-  projectId: 'project-1',
-  workDate: new Date('2026-06-17'),
+  projectId: PROJECT_ID,
+  workDate: WORK_DATE,
   minutes: 60,
   status: TimeEntryStatus.Draft,
 };
 
 describe('TimeEntriesValidationService', () => {
-  let service: TimeEntriesValidationService;
-
-  beforeEach(() => {
-    service = new TimeEntriesValidationService({
-      findMany: jest.fn().mockResolvedValue([]),
-      findBilledIds: jest.fn().mockResolvedValue(new Set()),
-    } as unknown as TimeEntriesRepository);
-  });
-
-  describe('the status a member creates an entry with', () => {
-    it.each([TimeEntryStatus.Draft, TimeEntryStatus.Submitted])(
-      'may be %s',
-      async (status) => {
-        await expect(
-          service.validateCreate({ ...entryParams, status }, member),
-        ).resolves.toBeUndefined();
-      },
-    );
-
-    it.each([TimeEntryStatus.Rejected, TimeEntryStatus.Cancelled])(
-      'may not be %s',
-      async (status) => {
-        await expect(
-          service.validateCreate({ ...entryParams, status }, member),
-        ).rejects.toThrow(ForbiddenException);
-      },
-    );
-  });
-
-  describe('a description over 200 characters', () => {
-    const description = 'x'.repeat(201);
-
-    it('is refused on create', async () => {
-      const error: unknown = await service
-        .validateCreate({ ...entryParams, description }, member)
-        .catch((caught: unknown) => caught);
-
-      expect(error).toBeInstanceOf(ValidationError);
-      expect(error).toMatchObject({ field: 'description' });
-    });
-
-    it('is refused on edit', async () => {
-      const existing = {
-        id: 'entry-1',
-        user_id: member.id,
-        project_id: 'project-1',
-        work_date: '2026-06-17',
-        minutes: 60,
-        status: TimeEntryStatus.Draft,
-      } as ITimeEntryViewModel;
-
-      const error: unknown = await service
-        .validateUpdate(existing, { description }, member)
-        .catch((caught: unknown) => caught);
-
-      expect(error).toBeInstanceOf(ValidationError);
-      expect(error).toMatchObject({ field: 'description' });
-    });
-  });
-});
-
-const SLACK_TEAM_ID = 'slack-team-1';
-
-const userWith = (role: UserRole, id = 'admin') =>
-  ({ id, role, slack_team_id: SLACK_TEAM_ID }) as IUserViewModel;
-
-const approvedEntry = {
-  id: 'entry-1',
-  user_id: 'owner',
-  project_id: 'web',
-  work_date: '2026-10-05',
-  minutes: 60,
-  status: TimeEntryStatus.Approved,
-  slack_team_id: SLACK_TEAM_ID,
-} as ITimeEntryViewModel;
-
-describe('TimeEntriesValidationService and billing snapshots', () => {
-  let billed: Set<string>;
-  let repository: { findBilledIds: jest.Mock; findMany: jest.Mock };
-  let service: TimeEntriesValidationService;
-
-  beforeEach(() => {
-    billed = new Set(['entry-1']);
-    repository = {
-      findBilledIds: jest.fn(async () => billed),
-      findMany: jest.fn().mockResolvedValue([]),
-    };
-    service = new TimeEntriesValidationService(
-      repository as unknown as TimeEntriesRepository,
-    );
-  });
-
-  describe('an entry in a billing snapshot', () => {
-    it.each([UserRole.Admin, UserRole.HR])(
-      'is not edited or un-approved by %s',
-      async (role) => {
-        for (const update of [
-          { minutes: 30 },
-          { status: TimeEntryStatus.Draft },
-          { description: 'Fixed' },
-        ]) {
-          await expect(
-            service.validateUpdate(approvedEntry, update, userWith(role)),
-          ).rejects.toThrow(new ValidationError(BILLED_ENTRY_MESSAGE));
-        }
-
-        expect(repository.findBilledIds).toHaveBeenCalledWith(SLACK_TEAM_ID, [
-          'entry-1',
-        ]);
-      },
-    );
-
-    it('is not deleted, by an admin either', async () => {
-      await expect(
-        service.validateDelete(approvedEntry, userWith(UserRole.Admin)),
-      ).rejects.toThrow(new ValidationError(BILLED_ENTRY_MESSAGE));
-    });
-
-    it("tells its owner first that approved entries don't change", async () => {
-      await expect(
-        service.validateDelete(
-          approvedEntry,
-          userWith(UserRole.Member, 'owner'),
-        ),
-      ).rejects.toThrow(ForbiddenException);
-    });
-  });
-
-  it('lets an admin change an approved entry that no snapshot holds', async () => {
-    billed.clear();
-
-    await expect(
-      service.validateUpdate(
-        approvedEntry,
-        { minutes: 30 },
-        userWith(UserRole.Admin),
-      ),
-    ).resolves.toBeUndefined();
-    await expect(
-      service.validateDelete(approvedEntry, userWith(UserRole.HR)),
-    ).resolves.toBeUndefined();
-  });
-});
-
-describe('isBilledEntryError', () => {
-  it("knows the trigger's error, as the driver throws it or wrapped", () => {
-    const fromDriver = Object.assign(new Error('in a billing snapshot'), {
-      code: 'LB001',
-    });
-    const wrapped = Object.assign(new Error('[time_entries] update error'), {
-      cause: fromDriver,
-    });
-
-    expect(isBilledEntryError(fromDriver)).toBe(true);
-    expect(isBilledEntryError(wrapped)).toBe(true);
-    expect(
-      isBilledEntryError(Object.assign(new Error('dup'), { code: '23505' })),
-    ).toBe(false);
-    expect(isBilledEntryError(undefined)).toBe(false);
-  });
-});
-
-describe('TimeEntriesValidationService permissions and limits', () => {
-  const SLACK_TEAM_ID = 'slack-team-1';
-  const PROJECT_ID = 'project-1';
-  const WORK_DATE = new Date('2026-06-17');
-
-  const user = (id: string, role: UserRole) =>
-    ({ id, role, slack_team_id: SLACK_TEAM_ID }) as IUserViewModel;
-
-  const member = user('member-1', UserRole.Member);
-  const otherMember = user('member-2', UserRole.Member);
-  const manager = user('manager-1', UserRole.Manager);
-  const hr = user('hr-1', UserRole.HR);
-  const admin = user('admin-1', UserRole.Admin);
-
-  const entry = (overrides: Partial<ITimeEntryViewModel> = {}) =>
-    ({
-      id: 'entry-1',
-      user_id: member.id,
-      project_id: PROJECT_ID,
-      work_date: '2026-06-17',
-      minutes: 60,
-      status: TimeEntryStatus.Draft,
-      slack_team_id: SLACK_TEAM_ID,
-      ...overrides,
-    }) as ITimeEntryViewModel;
-
   let repository: { findMany: jest.Mock; findBilledIds: jest.Mock };
   let service: TimeEntriesValidationService;
 
@@ -235,21 +60,10 @@ describe('TimeEntriesValidationService permissions and limits', () => {
 
   const create = (
     actor: IUserViewModel,
-    overrides: Partial<{
-      userId: string;
-      minutes: number;
-      status: TimeEntryStatus;
-    }> = {},
+    overrides: Partial<typeof entryParams & { description: string }> = {},
   ) =>
-    service.validateCreate(
-      {
-        userId: actor.id,
-        projectId: PROJECT_ID,
-        workDate: WORK_DATE,
-        minutes: 60,
-        status: TimeEntryStatus.Draft,
-        ...overrides,
-      },
+    service.checkCreate(
+      { ...entryParams, userId: actor.id, ...overrides },
       actor,
     );
 
@@ -259,88 +73,105 @@ describe('TimeEntriesValidationService permissions and limits', () => {
       [-15, 'Logged minutes must be greater than 0'],
       [24 * 60 + 15, 'Logged minutes cannot exceed 1440'],
       [20, 'Logged minutes must be in 15 - minute increments'],
-    ])('rejects %i minutes at the minutes field', async (minutes, message) => {
-      const error = await create(member, { minutes }).catch((e) => e);
-
-      expect(error).toEqual(new ValidationError(message, 'minutes'));
-      expect(error.field).toBe('minutes');
-    });
-
-    it('accepts a whole day in 15-minute steps', async () => {
-      await expect(create(member, { minutes: 24 * 60 })).resolves.toBe(
-        undefined,
+    ])('rejects %i minutes at the minutes field', (minutes, message) => {
+      expect(() => create(member, { minutes })).toThrow(
+        new ValidationError(message, 'minutes'),
       );
+      expect(() =>
+        service.checkUpdate(entry(), { minutes }, member, false),
+      ).toThrow(new ValidationError(message, 'minutes'));
     });
 
-    it('checks the minutes of an update too', async () => {
-      await expect(
-        service.validateUpdate(entry(), { minutes: 50 }, member),
-      ).rejects.toThrow(ValidationError);
+    it('accepts a whole day in 15-minute steps', () => {
+      expect(() => create(member, { minutes: 24 * 60 })).not.toThrow();
     });
   });
 
+  describe('a description over 200 characters', () => {
+    const description = 'x'.repeat(201);
+
+    it('is refused on create and on edit', () => {
+      for (const act of [
+        () => create(member, { description }),
+        () => service.checkUpdate(entry(), { description }, member, false),
+      ]) {
+        expect(act).toThrow(ValidationError);
+        expect(act).toThrow(expect.objectContaining({ field: 'description' }));
+      }
+    });
+  });
+
+  describe('the status a member creates an entry with', () => {
+    it.each([TimeEntryStatus.Draft, TimeEntryStatus.Submitted])(
+      'may be %s',
+      (status) => {
+        expect(() => create(member, { status })).not.toThrow();
+      },
+    );
+
+    it.each([TimeEntryStatus.Rejected, TimeEntryStatus.Cancelled])(
+      'may not be %s',
+      (status) => {
+        expect(() => create(member, { status })).toThrow(ForbiddenException);
+      },
+    );
+  });
+
   describe('logging time for someone else', () => {
-    it.each([member, manager])('is forbidden to a $role', async (actor) => {
-      await expect(create(actor, { userId: otherMember.id })).rejects.toThrow(
+    it.each([member, manager])('is forbidden to a $role', (actor) => {
+      expect(() => create(actor, { userId: otherMember.id })).toThrow(
         new ForbiddenException('You cannot log time for another user'),
       );
-      expect(repository.findMany).not.toHaveBeenCalled();
     });
 
-    it.each([hr, admin])('is allowed to $role', async (actor) => {
-      await expect(create(actor, { userId: member.id })).resolves.toBe(
-        undefined,
-      );
+    it.each([hr, admin])('is allowed to $role', (actor) => {
+      expect(() => create(actor, { userId: member.id })).not.toThrow();
     });
   });
 
   describe('approved entries', () => {
-    it.each([member, manager])('a $role cannot create one', async (actor) => {
-      await expect(
-        create(actor, { status: TimeEntryStatus.Approved }),
-      ).rejects.toThrow(
+    it.each([member, manager])('a $role cannot create one', (actor) => {
+      expect(() => create(actor, { status: TimeEntryStatus.Approved })).toThrow(
         new ForbiddenException('Only admins can create approved entries'),
       );
     });
 
-    it.each([hr, admin])('$role can create one', async (actor) => {
-      await expect(
+    it.each([hr, admin])('$role can create one', (actor) => {
+      expect(() =>
         create(actor, { status: TimeEntryStatus.Approved }),
-      ).resolves.toBe(undefined);
+      ).not.toThrow();
     });
 
-    it('the owner cannot approve their own entry by updating its status', async () => {
-      await expect(
-        service.validateUpdate(
-          entry({ status: TimeEntryStatus.Draft }),
+    it('the owner cannot approve their own entry by updating its status', () => {
+      expect(() =>
+        service.checkUpdate(
+          entry(),
           { status: TimeEntryStatus.Approved },
           member,
+          false,
         ),
-      ).rejects.toThrow(
-        new ForbiddenException('Only admins can approve entries'),
-      );
+      ).toThrow(new ForbiddenException('Only admins can approve entries'));
     });
 
-    it('the owner may submit a draft', async () => {
-      await expect(
-        service.validateUpdate(
-          entry({ status: TimeEntryStatus.Draft }),
+    it('the owner may submit a draft', () => {
+      expect(() =>
+        service.checkUpdate(
+          entry(),
           { status: TimeEntryStatus.Submitted },
           member,
+          false,
         ),
-      ).resolves.toBe(undefined);
+      ).not.toThrow();
     });
   });
 
   describe('editing and deleting', () => {
-    it('nobody but Admin and HR edits or deletes another user’s entry', async () => {
+    it('nobody but Admin and HR edits or deletes another user’s entry', () => {
       for (const actor of [otherMember, manager]) {
-        await expect(
-          service.validateUpdate(entry(), { minutes: 30 }, actor),
-        ).rejects.toThrow(
-          new ForbiddenException('You cannot edit this time entry'),
-        );
-        await expect(service.validateDelete(entry(), actor)).rejects.toThrow(
+        expect(() =>
+          service.checkUpdate(entry(), { minutes: 30 }, actor, false),
+        ).toThrow(new ForbiddenException('You cannot edit this time entry'));
+        expect(() => service.checkDelete(entry(), actor, false)).toThrow(
           new ForbiddenException('You cannot delete this time entry'),
         );
       }
@@ -348,17 +179,22 @@ describe('TimeEntriesValidationService permissions and limits', () => {
 
     it.each([TimeEntryStatus.Submitted, TimeEntryStatus.Approved])(
       'the owner can no longer change a %s entry',
-      async (status) => {
+      (status) => {
         const label = status.charAt(0).toUpperCase() + status.slice(1);
 
-        await expect(
-          service.validateUpdate(entry({ status }), { minutes: 30 }, member),
-        ).rejects.toThrow(
+        expect(() =>
+          service.checkUpdate(
+            entry({ status }),
+            { minutes: 30 },
+            member,
+            false,
+          ),
+        ).toThrow(
           new ForbiddenException(`${label} time entries cannot be edited`),
         );
-        await expect(
-          service.validateDelete(entry({ status }), member),
-        ).rejects.toThrow(
+        expect(() =>
+          service.checkDelete(entry({ status }), member, false),
+        ).toThrow(
           new ForbiddenException(`${label} time entries cannot be deleted`),
         );
       },
@@ -366,43 +202,101 @@ describe('TimeEntriesValidationService permissions and limits', () => {
 
     it.each([TimeEntryStatus.Draft, TimeEntryStatus.Rejected])(
       'the owner changes and deletes a %s entry',
-      async (status) => {
-        await expect(
-          service.validateUpdate(entry({ status }), { minutes: 30 }, member),
-        ).resolves.toBe(undefined);
-        await expect(
-          service.validateDelete(entry({ status }), member),
-        ).resolves.toBeUndefined();
+      (status) => {
+        expect(() =>
+          service.checkUpdate(
+            entry({ status }),
+            { minutes: 30 },
+            member,
+            false,
+          ),
+        ).not.toThrow();
+        expect(() =>
+          service.checkDelete(entry({ status }), member, false),
+        ).not.toThrow();
       },
     );
 
     it.each([hr, admin])(
       '$role changes and deletes anyone’s submitted or approved entry',
-      async (actor) => {
+      (actor) => {
         for (const status of [
           TimeEntryStatus.Submitted,
           TimeEntryStatus.Approved,
         ]) {
-          await expect(
-            service.validateUpdate(
+          expect(() =>
+            service.checkUpdate(
               entry({ status }),
               { minutes: 30, status: TimeEntryStatus.Draft },
               actor,
+              false,
             ),
-          ).resolves.toBe(undefined);
-          await expect(
-            service.validateDelete(entry({ status }), actor),
-          ).resolves.toBeUndefined();
+          ).not.toThrow();
+          expect(() =>
+            service.checkDelete(entry({ status }), actor, false),
+          ).not.toThrow();
         }
       },
     );
   });
 
+  describe('an entry in a billing snapshot', () => {
+    const approved = entry({
+      user_id: 'owner',
+      status: TimeEntryStatus.Approved,
+    });
+
+    it.each([admin, hr])('is not edited or un-approved by $role', (actor) => {
+      for (const update of [
+        { minutes: 30 },
+        { status: TimeEntryStatus.Draft },
+        { description: 'Fixed' },
+      ]) {
+        expect(() =>
+          service.checkUpdate(approved, update, actor, true),
+        ).toThrow(new ValidationError(BILLED_ENTRY_MESSAGE));
+      }
+    });
+
+    it('is not deleted, by an admin either', () => {
+      expect(() => service.checkDelete(approved, admin, true)).toThrow(
+        new ValidationError(BILLED_ENTRY_MESSAGE),
+      );
+    });
+
+    it("tells its owner first that approved entries don't change", () => {
+      expect(() =>
+        service.checkDelete(approved, user('owner', UserRole.Member), true),
+      ).toThrow(ForbiddenException);
+    });
+
+    it('lets an admin change an approved entry that no snapshot holds', () => {
+      expect(() =>
+        service.checkUpdate(approved, { minutes: 30 }, admin, false),
+      ).not.toThrow();
+      expect(() => service.checkDelete(approved, hr, false)).not.toThrow();
+    });
+  });
+
   describe('at most 24 hours per user, project and day', () => {
-    it('counts the user’s other entries of that project and day', async () => {
+    it('adds the new minutes to the logged ones', () => {
+      expect(() => service.checkDailyTotal(23 * 60, 60)).not.toThrow();
+      expect(() => service.checkDailyTotal(23 * 60, 75)).toThrow(
+        new ValidationError(
+          'Total logged time for this project and date cannot exceed 24 hours',
+          'minutes',
+        ),
+      );
+    });
+  });
+
+  describe('validateCreate', () => {
+    it('checks the entry, then the user’s time on its project and day', async () => {
       repository.findMany.mockResolvedValue([{ id: 'a', minutes: 23 * 60 }]);
 
-      await expect(create(member, { minutes: 60 })).resolves.toBe(undefined);
+      await expect(
+        service.validateCreate(entryParams, member),
+      ).resolves.toBeUndefined();
       expect(repository.findMany).toHaveBeenCalledWith({
         user_id: member.id,
         project_id: PROJECT_ID,
@@ -411,15 +305,35 @@ describe('TimeEntriesValidationService permissions and limits', () => {
         deleted_at: { operator: 'is', value: null },
       });
 
-      await expect(create(member, { minutes: 75 })).rejects.toThrow(
-        new ValidationError(
-          'Total logged time for this project and date cannot exceed 24 hours',
-          'minutes',
-        ),
-      );
+      await expect(
+        service.validateCreate({ ...entryParams, minutes: 75 }, member),
+      ).rejects.toThrow(ValidationError);
     });
 
-    it('leaves the entry being updated out of the total', async () => {
+    it('reads nothing for an entry the checks refuse', async () => {
+      await expect(
+        service.validateCreate(
+          { ...entryParams, userId: otherMember.id },
+          member,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(repository.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('validateUpdate', () => {
+    it('reads whether the entry is billed and refuses it', async () => {
+      repository.findBilledIds.mockResolvedValue(new Set(['entry-1']));
+
+      await expect(
+        service.validateUpdate(entry(), { description: 'Fixed' }, member),
+      ).rejects.toThrow(new ValidationError(BILLED_ENTRY_MESSAGE));
+      expect(repository.findBilledIds).toHaveBeenCalledWith(SLACK_TEAM_ID, [
+        'entry-1',
+      ]);
+    });
+
+    it('leaves the entry being updated out of the day’s total', async () => {
       repository.findMany.mockResolvedValue([
         { id: 'entry-1', minutes: 8 * 60 },
         { id: 'other', minutes: 15 * 60 },
@@ -427,7 +341,7 @@ describe('TimeEntriesValidationService permissions and limits', () => {
 
       await expect(
         service.validateUpdate(entry(), { minutes: 9 * 60 }, member),
-      ).resolves.toBe(undefined);
+      ).resolves.toBeUndefined();
       await expect(
         service.validateUpdate(entry(), { minutes: 9 * 60 + 15 }, member),
       ).rejects.toThrow(ValidationError);
@@ -461,5 +375,42 @@ describe('TimeEntriesValidationService permissions and limits', () => {
 
       expect(repository.findMany).not.toHaveBeenCalled();
     });
+  });
+
+  describe('validateDelete', () => {
+    it('reads whether the entry is billed and refuses it, an admin too', async () => {
+      repository.findBilledIds.mockResolvedValue(new Set(['entry-1']));
+
+      await expect(service.validateDelete(entry(), admin)).rejects.toThrow(
+        new ValidationError(BILLED_ENTRY_MESSAGE),
+      );
+      await expect(
+        service.validateDelete(entry(), otherMember),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('passes an entry that is not billed', async () => {
+      await expect(
+        service.validateDelete(entry(), member),
+      ).resolves.toBeUndefined();
+    });
+  });
+});
+
+describe('isBilledEntryError', () => {
+  it("knows the trigger's error, as the driver throws it or wrapped", () => {
+    const fromDriver = Object.assign(new Error('in a billing snapshot'), {
+      code: 'LB001',
+    });
+    const wrapped = Object.assign(new Error('[time_entries] update error'), {
+      cause: fromDriver,
+    });
+
+    expect(isBilledEntryError(fromDriver)).toBe(true);
+    expect(isBilledEntryError(wrapped)).toBe(true);
+    expect(
+      isBilledEntryError(Object.assign(new Error('dup'), { code: '23505' })),
+    ).toBe(false);
+    expect(isBilledEntryError(undefined)).toBe(false);
   });
 });
