@@ -4,6 +4,8 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
+import { decisionNotice } from '@modules/slack/approvals/utils/decision-notice';
+import { WorkflowStepStatus } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import { RejectStepModalView } from '@modules/slack/approvals/views/reject-step-modal.view';
 import UserRole from '@common/enums/user-role.enum';
@@ -71,7 +73,15 @@ export class RejectRequestStepFormSubmitHandler extends BaseModalFormSubmitHandl
         this.tabNavigationService.navigate(TabId.Approvals, {
           user,
           metadata: JSON.parse(pageMetadata || '{}'),
-          notice: '❌ Rejected. The requester gets a message about it.',
+          notice: decisionNotice(
+            await this.requestWorkflowStepsService.findOne({
+              id: stepId,
+              slackTeamId: user.slack_team_id,
+            }),
+            user,
+            WorkflowStepStatus.Rejected,
+            '❌ Rejected. The requester gets a message about it.',
+          ),
         });
       }
     });

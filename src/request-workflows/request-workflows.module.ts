@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
+import { ApproverAccessService } from '@modules/request-workflows/services/approver-access.service';
 import { UsersModule } from '@modules/users/users.module';
 import { WorkflowStepProcessorService } from '@modules/request-workflows/services/workflow-step-processor.service';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
@@ -19,6 +20,7 @@ import { RequestWorkflowStepCommentsRepository } from '@modules/request-workflow
   providers: [
     RequestWorkflowService,
     WorkflowDecisionsService,
+    ApproverAccessService,
     RequestWorkflowStepsRepository,
     RequestWorkflowStepsService,
     WorkflowStepProcessorService,

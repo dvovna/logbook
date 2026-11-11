@@ -23,6 +23,7 @@ import {
 import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { TransactionService } from 'src/database/transaction.service';
+import { UsersService } from 'src/users/services/users.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 const REQUEST_ID = 'request-1';
@@ -103,6 +104,7 @@ describe('RequestWorkflowService', () => {
   >;
   let commentsService: { findMany: jest.Mock };
   let eventEmitter: { emitAsync: jest.Mock };
+  let usersService: { findBySlackId: jest.Mock };
   let service: RequestWorkflowService;
   // What ran inside TransactionService.transaction().
   let inTransaction: boolean;
@@ -135,6 +137,7 @@ describe('RequestWorkflowService', () => {
     };
     commentsService = { findMany: jest.fn().mockResolvedValue(comments) };
     eventEmitter = { emitAsync: jest.fn().mockResolvedValue([]) };
+    usersService = { findBySlackId: jest.fn().mockResolvedValue(null) };
     inTransaction = false;
 
     service = new RequestWorkflowService(
@@ -143,6 +146,7 @@ describe('RequestWorkflowService', () => {
       commentsService as unknown as RequestWorkflowStepCommentsService,
       eventEmitter as unknown as EventEmitter2,
       transactions as unknown as TransactionService,
+      usersService as unknown as UsersService,
     );
   });
 
@@ -168,6 +172,7 @@ describe('RequestWorkflowService', () => {
       await service.create({
         requestId: REQUEST_ID,
         slackTeamId: SLACK_TEAM_ID,
+        run: REQUEST_ID,
         snapshot,
         levels: [
           {
@@ -196,6 +201,7 @@ describe('RequestWorkflowService', () => {
             snapshot,
             rule: ApprovalRule.Any,
             status: WorkflowStepStatus.Pending,
+            run: REQUEST_ID,
           },
         },
         {
@@ -208,6 +214,7 @@ describe('RequestWorkflowService', () => {
             snapshot,
             rule: ApprovalRule.All,
             status: WorkflowStepStatus.Pending,
+            run: REQUEST_ID,
           },
         },
       ]);
@@ -218,8 +225,66 @@ describe('RequestWorkflowService', () => {
       await service.create({
         requestId: REQUEST_ID,
         slackTeamId: SLACK_TEAM_ID,
+        run: REQUEST_ID,
         snapshot,
         levels: [],
+      });
+
+      expect(stepsService.createMany).not.toHaveBeenCalled();
+      expect(processorService.processSteps).not.toHaveBeenCalled();
+    });
+
+    const oneLevel = [
+      {
+        rule: ApprovalRule.Any,
+        steps: [
+          { slackUserId: 'U_MANAGER', stepType: WorkflowStepType.Approver },
+        ],
+      },
+    ];
+
+    it('makes a new run once the steps of the run before are closed', async () => {
+      stepsService.findMany.mockResolvedValue([
+        buildStep({ completed_at: '2026-01-02T00:00:00Z' }),
+      ]);
+      stepsService.createMany.mockImplementation(async (steps) =>
+        steps.map(() => buildStep({ id: 'step-new' })),
+      );
+
+      await service.create({
+        requestId: REQUEST_ID,
+        slackTeamId: SLACK_TEAM_ID,
+        run: 'run-2',
+        snapshot,
+        levels: oneLevel,
+      });
+
+      expect(stepsService.createMany).toHaveBeenCalledWith([
+        expect.objectContaining({
+          stepData: expect.objectContaining({ run: 'run-2' }),
+        }),
+      ]);
+    });
+
+    // Its run was started for a later edit and read the request since.
+    it('makes no run while another one is open', async () => {
+      stepsService.findMany.mockResolvedValue([
+        buildStep({
+          step_data: {
+            snapshot,
+            rule: ApprovalRule.Any,
+            status: WorkflowStepStatus.Pending,
+            run: 'run-3',
+          },
+        }),
+      ]);
+
+      await service.create({
+        requestId: REQUEST_ID,
+        slackTeamId: SLACK_TEAM_ID,
+        run: 'run-2',
+        snapshot,
+        levels: oneLevel,
       });
 
       expect(stepsService.createMany).not.toHaveBeenCalled();
@@ -259,7 +324,10 @@ describe('RequestWorkflowService', () => {
         slackTeamId: SLACK_TEAM_ID,
         completed: false,
       };
-      expect(stepsService.findMany).toHaveBeenCalledWith(nextLevel);
+      expect(stepsService.findMany).toHaveBeenCalledWith({
+        requestId: REQUEST_ID,
+        slackTeamId: SLACK_TEAM_ID,
+      });
       expect(stepsService.claimUnprocessed).toHaveBeenCalledWith(nextLevel);
       expect(processorService.processSteps).toHaveBeenCalledWith([
         nextLevelStep,
@@ -268,7 +336,7 @@ describe('RequestWorkflowService', () => {
       expect(eventEmitter.emitAsync).toHaveBeenCalledTimes(1);
       expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
         VacationWorkflowEventEnum.LevelCompleted,
-        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1),
+        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1, 2),
       );
     });
 
@@ -383,7 +451,7 @@ describe('RequestWorkflowService', () => {
       expect(processorService.processSteps).toHaveBeenCalledWith(level2);
       expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
         VacationWorkflowEventEnum.LevelCompleted,
-        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1),
+        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1, 2),
       );
     });
 

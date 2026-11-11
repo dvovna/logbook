@@ -95,7 +95,8 @@ describe('VacationRequestProcessingService', () => {
   beforeEach(() => {
     teamRules = { forTeam: jest.fn().mockResolvedValue(rules()) };
     workflowService = { create: jest.fn(), cancel: jest.fn() };
-    usersByRole = {};
+    // The active people with an approving role.
+    usersByRole = { [UserRole.Manager]: ['U_MANAGER'] };
     usersService = {
       // The requester's Slack ID stands for them: their id is user-1.
       findMany: jest.fn(async ({ roles }: { roles: UserRole[] }) =>
@@ -243,7 +244,7 @@ describe('VacationRequestProcessingService', () => {
         hrApproversRule: ApprovalRule.All,
       }),
     );
-    usersByRole = { [UserRole.HR]: ['U_HR_2'] };
+    usersByRole = { [UserRole.HR]: ['U_HR_1', 'U_HR_2'] };
 
     await onCreated(VacationRequestStatus.Pending);
 
@@ -258,6 +259,35 @@ describe('VacationRequestProcessingService', () => {
       VacationRequestEvent.SentForApproval,
       expect.objectContaining({ fallback: null }),
     );
+  });
+
+  it('calls level 2 an admin approval when only admins are on it', async () => {
+    teamRules.forTeam.mockResolvedValue(
+      rules({ managerApprovers: [], hrApprovers: ['U_ADMIN'] }),
+    );
+    usersByRole = { [UserRole.Admin]: ['U_ADMIN'] };
+
+    await onCreated(VacationRequestStatus.Pending);
+
+    expect(workflowService.create.mock.calls[0][0].levels).toEqual([
+      expect.objectContaining({ name: 'Admin approval' }),
+    ]);
+  });
+
+  // Deactivated, or without an approving role since the team named them:
+  // findMany doesn't return them.
+  it('leaves out an approver who can no longer decide, and goes to HR', async () => {
+    usersByRole = { [UserRole.HR]: ['U_HR'] };
+
+    await onCreated(VacationRequestStatus.Pending);
+
+    expect(workflowService.create.mock.calls[0][0].levels).toEqual([
+      {
+        rule: ApprovalRule.Any,
+        name: 'HR approval',
+        steps: [{ slackUserId: 'U_HR', stepType: 'approver' }],
+      },
+    ]);
   });
 
   describe('when nobody on the team can approve it', () => {
@@ -347,5 +377,38 @@ describe('VacationRequestProcessingService', () => {
     );
 
     expect(workflowService.cancel).toHaveBeenCalledWith('request-1', requester);
+    expect(workflowService.create).not.toHaveBeenCalled();
+  });
+
+  describe('when HR edits a pending request that stays pending', () => {
+    const hr = { id: 'hr-1' } as IUserViewModel;
+    const pending = buildRequest(VacationRequestStatus.Pending);
+
+    const onEdited = async (after: IVacationRequestViewModel) => {
+      requestsService.findOne.mockResolvedValue(after);
+      await service.handleRequestUpdated(
+        new VacationRequestUpdatedEvent(after, hr, pending),
+      );
+      await jobs.done();
+    };
+
+    it('starts the approval again, as a new run, for new dates', async () => {
+      await onEdited({ ...pending, end_date: '2026-02-09' });
+
+      expect(workflowService.cancel).toHaveBeenCalledWith('request-1', hr);
+      expect(workflowService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: 'request-1',
+          run: expect.not.stringMatching(/^request-1$/),
+        }),
+      );
+    });
+
+    it('leaves the approval alone when only the comment changed', async () => {
+      await onEdited({ ...pending, user_comment: 'Back on Monday' });
+
+      expect(workflowService.cancel).not.toHaveBeenCalled();
+      expect(workflowService.create).not.toHaveBeenCalled();
+    });
   });
 });

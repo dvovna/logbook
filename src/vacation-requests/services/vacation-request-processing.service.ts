@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -15,6 +16,7 @@ import {
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { UsersService } from '@modules/users/services/users.service';
 import UserRole from '@common/enums/user-role.enum';
+import { MANAGER_ROLES } from '@common/constants/role-groups';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { WorkflowStepType } from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
@@ -32,6 +34,8 @@ export const START_WORKFLOW_JOB = 'vacation-request-start-workflow';
 interface IStartWorkflowJob {
   requestId: string;
   slackTeamId: string;
+  // The run to start (workflow-runs.ts); the first one when missing.
+  run?: string;
 }
 
 @Injectable()
@@ -69,7 +73,11 @@ export class VacationRequestProcessingService implements OnModuleInit {
     });
   }
 
-  private async startWorkflow({ requestId, slackTeamId }: IStartWorkflowJob) {
+  private async startWorkflow({
+    requestId,
+    slackTeamId,
+    run = requestId,
+  }: IStartWorkflowJob) {
     const request = await this.vacationRequestsService.findOne({
       id: requestId,
       slackTeamId,
@@ -80,14 +88,23 @@ export class VacationRequestProcessingService implements OnModuleInit {
       return;
     }
 
-    const rules = await this.teamRulesService.forTeam(
-      request.team?.id,
-      request.slack_team_id,
+    const [rules, approvers] = await Promise.all([
+      this.teamRulesService.forTeam(request.team?.id, request.slack_team_id),
+      // Everyone who can decide a step: active, with an approving role.
+      this.usersService.findMany({
+        slackTeamId: request.slack_team_id,
+        roles: [...MANAGER_ROLES],
+      }),
+    ]);
+    const roleOf = new Map(
+      approvers.map(({ slack_id, role }) => [slack_id, role]),
     );
+    const canDecide = new Set(roleOf.keys());
 
     const workflow: ICreateWorkflowParams = {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
+      run,
       snapshot: {
         user_id: request.user!.id,
         slack_user_id: request.user!.slack_id,
@@ -105,21 +122,34 @@ export class VacationRequestProcessingService implements OnModuleInit {
     };
 
     // Nobody approves their own request: a team lead who is one of the
-    // team's approvers is left out of their own request's levels, and a
-    // level with no one left is skipped. A person in no team has no level 1.
-    const notRequester = (approvers: string[]) =>
-      approvers.filter((slackId) => slackId !== request.user!.slack_id);
+    // team's approvers is left out of their own request's levels. Neither
+    // is anyone deactivated or without an approving role since the rules
+    // named them: they couldn't decide. A level with no one left is skipped.
+    // A person in no team has no level 1.
+    const whoCanDecide = (listed: string[]) => [
+      ...new Set(
+        listed.filter(
+          (slackId) =>
+            slackId !== request.user!.slack_id && canDecide.has(slackId),
+        ),
+      ),
+    ];
 
     const levels: ICreateWorkflowLevelParams[] = [
       this.buildApproverLevel(
-        notRequester(rules.managerApprovers),
+        whoCanDecide(rules.managerApprovers),
         rules.managerApproversRule,
         'Manager approval',
       ),
       this.buildApproverLevel(
-        notRequester(rules.hrApprovers),
+        whoCanDecide(rules.hrApprovers),
         rules.hrApproversRule,
-        'HR approval',
+        // Named by who decides it: level 2 takes HR and admins.
+        whoCanDecide(rules.hrApprovers).every(
+          (slackId) => roleOf.get(slackId) === UserRole.Admin,
+        )
+          ? 'Admin approval'
+          : 'HR approval',
       ),
     ].filter((level): level is ICreateWorkflowLevelParams => level !== null);
 
@@ -137,7 +167,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     // Nobody its rules name can approve it, so it would wait forever: it goes
     // to HR instead, or to the admins when there is no HR, and the requester
     // is told so.
-    const fallback = await this.findFallbackApprovers(request);
+    const fallback = this.findFallbackApprovers(request, approvers);
 
     if (fallback) {
       await this.requestWorkflowService.create({
@@ -164,14 +194,11 @@ export class VacationRequestProcessingService implements OnModuleInit {
 
   // Everyone with the HR role, else every admin; never the requester
   // (fallbackApprovers, as for time entries).
-  private async findFallbackApprovers(request: IVacationRequestViewModel) {
-    const fallback = fallbackApprovers(
-      await this.usersService.findMany({
-        slackTeamId: request.slack_team_id,
-        roles: [UserRole.HR, UserRole.Admin],
-      }),
-      request.user!.id,
-    );
+  private findFallbackApprovers(
+    request: IVacationRequestViewModel,
+    approvers: IUserViewModel[],
+  ) {
+    const fallback = fallbackApprovers(approvers, request.user!.id);
 
     return (
       fallback && {
@@ -181,12 +208,35 @@ export class VacationRequestProcessingService implements OnModuleInit {
     );
   }
 
+  // An edit that changes what the approvers decide on closes the steps
+  // asked so far; when the request is still pending, its approval starts
+  // again with the request as it is now. A comment changes nothing they
+  // decide on.
   @OnEvent(VacationRequestEvent.Updated)
   public async handleRequestUpdated({
     request,
     user: updatedBy,
+    previous,
   }: VacationRequestUpdatedEvent) {
+    const isPending = request.status === VacationRequestStatus.Pending;
+
+    if (
+      isPending &&
+      previous?.status === VacationRequestStatus.Pending &&
+      !changesWhatApproversDecide(previous, request)
+    ) {
+      return;
+    }
+
     await this.requestWorkflowService.cancel(request.id, updatedBy);
+
+    if (isPending) {
+      this.jobs.run<IStartWorkflowJob>(START_WORKFLOW_JOB, {
+        requestId: request.id,
+        slackTeamId: request.slack_team_id,
+        run: randomUUID(),
+      });
+    }
   }
 
   private buildApproverLevel(
@@ -261,3 +311,12 @@ export class VacationRequestProcessingService implements OnModuleInit {
     }
   }
 }
+
+const changesWhatApproversDecide = (
+  before: IVacationRequestViewModel,
+  after: IVacationRequestViewModel,
+) =>
+  before.start_date !== after.start_date ||
+  before.end_date !== after.end_date ||
+  before.type !== after.type ||
+  before.user_id !== after.user_id;

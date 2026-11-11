@@ -45,6 +45,9 @@ export interface IApproverStepData {
   rule: ApprovalRule;
   // The level's name, e.g. "Manager approval"; missing in older workflows.
   level_name?: string;
+  // The run of the workflow (workflow-runs.ts): an edit of a pending request
+  // starts a new one. Missing in the first run of older workflows.
+  run?: string;
   decided_at?: string | null;
   decided_by_slack_id?: string | null;
   rejection_reason?: string | null;
@@ -61,6 +64,8 @@ export interface IRequestWorkflowStepViewModel {
   created_at: string;
   updated_at: string;
   processed_at?: string;
+  // Set when the step was decided or closed.
+  completed_at?: string | null;
   step_type: WorkflowStepType.Approver;
   step_data: IApproverStepData;
 }

@@ -1,3 +1,4 @@
+import { currentRunOf } from '@modules/request-workflows/utils/workflow-runs';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import TeamsService from '@modules/teams/services/teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -57,7 +58,8 @@ export class VacationDetailsModalService {
       {
         errorMessage,
         request,
-        steps,
+        // The steps of an earlier run decided on the request before an edit.
+        steps: currentRunOf(steps),
         reviewComments,
       },
       { pageMetadata },

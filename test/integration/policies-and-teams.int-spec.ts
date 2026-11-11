@@ -373,6 +373,43 @@ describe('Vacation policies and teams', () => {
       });
     });
 
+    // Slack takes the chosen options from the client.
+    it('refuses a level 1 approver the form never offered', async () => {
+      const member = await workspace.addUser({ role: UserRole.Member });
+      const form = await openModal(TEAMS_TAB, TeamsTabViewActionId.AddTeam);
+
+      const response = await t.slack
+        .submitView(
+          workspace,
+          admin,
+          form,
+          { name: 'Design' },
+          {
+            manager_approvers_block: {
+              manager_approvers: {
+                type: 'multi_static_select',
+                selected_options: [
+                  {
+                    text: { type: 'plain_text', text: member.name },
+                    value: member.slack_id,
+                  },
+                ],
+              },
+            },
+          },
+        )
+        .expect(200);
+
+      expect(response.body).toEqual({
+        response_action: 'errors',
+        errors: {
+          manager_approvers_block:
+            'Level 1 approvers need the Manager, HR or Admin role.',
+        },
+      });
+      expect(await workspace.rows('teams')).toEqual([]);
+    });
+
     // "No Policy" is the one way to have none: the field is required, so
     // Slack adds no "Clear selection" that would mean the same.
     it('takes a policy away with No Policy', async () => {

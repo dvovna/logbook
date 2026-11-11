@@ -9,5 +9,7 @@ export class VacationWorkflowLevelCompleted {
     public readonly requestId: string,
     public readonly slackTeamId: string,
     public readonly level: number,
+    // The level asked now: a level left with nobody is passed over.
+    public readonly nextLevel: number,
   ) {}
 }
