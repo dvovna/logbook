@@ -42,7 +42,7 @@ const LAST_WEEK = '2026-06-08';
 // and one after another show apart in the timings.
 const LATENCY_MS = 5;
 
-// The app's pool (DATABASE_POOL_SIZE's default).
+// The app's pool in the tests (DATABASE_POOL_SIZE in support/test-env.ts).
 const POOL_SIZE = 5;
 
 // The most round trips one after another each action may take before its
