@@ -2,6 +2,7 @@ import { actionIdsOf, modalError, noticeOf } from './support/tab-readers';
 import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationType from '@common/enums/vacation-type.enum';
+import { formatDateRange } from '@common/utils/date.utils';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
@@ -159,6 +160,129 @@ describe('Requests HR and admins manage for someone else', () => {
 
     expect(blockIds).not.toContain('user_id_block');
     expect(blockIds).not.toContain('status_block');
+  });
+
+  describe('when HR edits a pending request', () => {
+    let member: Tables<'users'>;
+    let request: Tables<'vacation_requests'>;
+    let approval: Awaited<ReturnType<typeof approvalMessageTo>>;
+
+    beforeEach(async () => {
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+      });
+      member = await workspace.addUser({ team_id: team.id });
+      request = await requestVacation(t, workspace, member, workWeek(2));
+      approval = await approvalMessageTo(t, workspace, manager);
+    });
+
+    // Edit Request, filled in with the request's values and `changes`.
+    const edit = async (changes: Record<string, string>) => {
+      const form = await openModalFrom(
+        t,
+        workspace,
+        hr,
+        await openRequestsTab(),
+        VacationRequestsTabViewActionId.ManageRequestMenu,
+        `${VacationRequestsTabViewActionId.EditRequest}:${request.id}`,
+      );
+      const response = await t.slack
+        .submitView(workspace, hr, form, {
+          [VacationRequestsTabViewActionId.UserField]: member.id,
+          status: VacationRequestStatus.Pending,
+          start_date: request.start_date,
+          end_date: request.end_date,
+          type_option: VacationType.AnnualLeave,
+          ...changes,
+        })
+        .expect(200);
+
+      expect(response.body).toEqual({ response_action: 'clear' });
+      await t.idle();
+    };
+
+    const messagesToManager = () =>
+      t.slackApi.postedMessages(workspace.token, manager.slack_id);
+
+    it('asks the approvers again about the new dates', async () => {
+      const moved = workWeek(3);
+
+      await edit({ start_date: moved.start, end_date: moved.end });
+
+      const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+      expect(textOf(update)).toContain(`Canceled by <@${hr.slack_id}>`);
+      const asked = messagesToManager();
+      expect(asked).toHaveLength(2);
+      expect(textOf(asked[1])).toContain(
+        formatDateRange(moved.start, moved.end),
+      );
+      expect(
+        (await workspace.row('vacation_requests', request.id)).status,
+      ).toBe(VacationRequestStatus.Pending);
+
+      // The new message decides the request.
+      await t.slack
+        .actOnMessage(
+          workspace,
+          manager,
+          asked[1],
+          ApproverMessageActionId.Approve,
+        )
+        .expect(200);
+      await t.idle();
+      expect(
+        (await workspace.row('vacation_requests', request.id)).status,
+      ).toBe(VacationRequestStatus.Approved);
+    });
+
+    it('leaves the approval as it is when only the comment changes', async () => {
+      await edit({ comment: 'Back on Monday' });
+
+      expect(t.slackApi.messageUpdates(workspace.token, approval)).toEqual([]);
+      expect(messagesToManager()).toHaveLength(1);
+
+      await t.slack
+        .actOnMessage(
+          workspace,
+          manager,
+          approval,
+          ApproverMessageActionId.Approve,
+        )
+        .expect(200);
+      await t.idle();
+      expect(
+        (await workspace.row('vacation_requests', request.id)).status,
+      ).toBe(VacationRequestStatus.Approved);
+    });
+
+    it('asks again when a rejected request is made pending again', async () => {
+      const since = t.slackApi.mark();
+      await t.slack
+        .actOnMessage(
+          workspace,
+          manager,
+          approval,
+          ApproverMessageActionId.Reject,
+        )
+        .expect(200);
+      await t.idle();
+      await t.slack
+        .submitView(
+          workspace,
+          manager,
+          t.slackApi.openedModal(workspace.token, { since }),
+          {},
+        )
+        .expect(200);
+      await t.idle();
+      expect(
+        (await workspace.row('vacation_requests', request.id)).status,
+      ).toBe(VacationRequestStatus.Rejected);
+
+      await edit({});
+
+      expect(messagesToManager()).toHaveLength(2);
+    });
   });
 
   describe('when an admin deletes a pending request', () => {

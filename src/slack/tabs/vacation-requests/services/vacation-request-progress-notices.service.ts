@@ -19,6 +19,7 @@ import {
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import { VacationWorkflowLevelCompleted } from '@modules/request-workflows/events/vacation-workflow.events';
+import { currentRunOf } from '@modules/request-workflows/utils/workflow-runs';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepStatus,
@@ -160,10 +161,12 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
       return;
     }
 
-    const steps = await this.requestWorkflowStepsService.findMany({
-      requestId,
-      slackTeamId,
-    });
+    const steps = currentRunOf(
+      await this.requestWorkflowStepsService.findMany({
+        requestId,
+        slackTeamId,
+      }),
+    );
     const completed = steps.filter(({ step_level }) => step_level === level);
     const next = steps.filter(({ step_level }) => step_level === level + 1);
 
@@ -258,11 +261,13 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
   }
 
   private async getSentToText(request: IVacationRequestViewModel) {
-    const firstLevel = await this.requestWorkflowStepsService.findMany({
-      requestId: request.id,
-      slackTeamId: request.slack_team_id,
-      stepLevel: 1,
-    });
+    const firstLevel = currentRunOf(
+      await this.requestWorkflowStepsService.findMany({
+        requestId: request.id,
+        slackTeamId: request.slack_team_id,
+        stepLevel: 1,
+      }),
+    );
 
     if (!firstLevel.length) {
       return null;

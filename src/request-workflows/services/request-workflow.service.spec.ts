@@ -168,6 +168,7 @@ describe('RequestWorkflowService', () => {
       await service.create({
         requestId: REQUEST_ID,
         slackTeamId: SLACK_TEAM_ID,
+        run: REQUEST_ID,
         snapshot,
         levels: [
           {
@@ -196,6 +197,7 @@ describe('RequestWorkflowService', () => {
             snapshot,
             rule: ApprovalRule.Any,
             status: WorkflowStepStatus.Pending,
+            run: REQUEST_ID,
           },
         },
         {
@@ -208,6 +210,7 @@ describe('RequestWorkflowService', () => {
             snapshot,
             rule: ApprovalRule.All,
             status: WorkflowStepStatus.Pending,
+            run: REQUEST_ID,
           },
         },
       ]);
@@ -218,8 +221,66 @@ describe('RequestWorkflowService', () => {
       await service.create({
         requestId: REQUEST_ID,
         slackTeamId: SLACK_TEAM_ID,
+        run: REQUEST_ID,
         snapshot,
         levels: [],
+      });
+
+      expect(stepsService.createMany).not.toHaveBeenCalled();
+      expect(processorService.processSteps).not.toHaveBeenCalled();
+    });
+
+    const oneLevel = [
+      {
+        rule: ApprovalRule.Any,
+        steps: [
+          { slackUserId: 'U_MANAGER', stepType: WorkflowStepType.Approver },
+        ],
+      },
+    ];
+
+    it('makes a new run once the steps of the run before are closed', async () => {
+      stepsService.findMany.mockResolvedValue([
+        buildStep({ completed_at: '2026-01-02T00:00:00Z' }),
+      ]);
+      stepsService.createMany.mockImplementation(async (steps) =>
+        steps.map(() => buildStep({ id: 'step-new' })),
+      );
+
+      await service.create({
+        requestId: REQUEST_ID,
+        slackTeamId: SLACK_TEAM_ID,
+        run: 'run-2',
+        snapshot,
+        levels: oneLevel,
+      });
+
+      expect(stepsService.createMany).toHaveBeenCalledWith([
+        expect.objectContaining({
+          stepData: expect.objectContaining({ run: 'run-2' }),
+        }),
+      ]);
+    });
+
+    // Its run was started for a later edit and read the request since.
+    it('makes no run while another one is open', async () => {
+      stepsService.findMany.mockResolvedValue([
+        buildStep({
+          step_data: {
+            snapshot,
+            rule: ApprovalRule.Any,
+            status: WorkflowStepStatus.Pending,
+            run: 'run-3',
+          },
+        }),
+      ]);
+
+      await service.create({
+        requestId: REQUEST_ID,
+        slackTeamId: SLACK_TEAM_ID,
+        run: 'run-2',
+        snapshot,
+        levels: oneLevel,
       });
 
       expect(stepsService.createMany).not.toHaveBeenCalled();

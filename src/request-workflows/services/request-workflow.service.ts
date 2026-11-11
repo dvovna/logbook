@@ -33,6 +33,7 @@ import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows
 import { ValidationError } from '@common/errors/validation.error';
 import { MAX_REJECTION_REASON_LENGTH } from '@common/constants/text-limits';
 import { TransactionService } from 'src/database/transaction.service';
+import { runOf } from '@modules/request-workflows/utils/workflow-runs';
 
 export interface ICreateWorkflowLevelParams {
   rule: ApprovalRule;
@@ -47,6 +48,8 @@ export interface ICreateWorkflowLevelParams {
 export interface ICreateWorkflowParams {
   requestId: string;
   slackTeamId: string;
+  // The run to make (workflow-runs.ts): the request's ID for its first one.
+  run: string;
   snapshot: IRequestSnapshotData;
   levels: ICreateWorkflowLevelParams[];
 }
@@ -65,10 +68,13 @@ export class RequestWorkflowService {
     private readonly transactions: TransactionService,
   ) {}
 
-  // Safe to repeat: when an earlier run made the steps, only the first
-  // level's approvers who got no message yet are asked.
+  // Safe to repeat: when an earlier try made the run's steps, only the first
+  // level's approvers who got no message yet are asked. A run is made only
+  // while no other is open: one started for an edit made since reads the
+  // request as it is now.
   public create({
     requestId,
+    run,
     levels,
     slackTeamId,
     snapshot,
@@ -80,12 +86,17 @@ export class RequestWorkflowService {
         requestId,
         slackTeamId,
       });
+      const stepsOfRun = existingSteps.filter((step) => runOf(step) === run);
 
-      if (existingSteps.length) {
+      if (stepsOfRun.length) {
         await this.workflowStepProcessorService.processSteps(
-          existingSteps.filter((step) => step.step_level === 1),
+          stepsOfRun.filter((step) => step.step_level === 1),
         );
 
+        return;
+      }
+
+      if (existingSteps.some((step) => !step.completed_at)) {
         return;
       }
 
@@ -101,6 +112,7 @@ export class RequestWorkflowService {
               snapshot,
               rule,
               status: INITIAL_STEP_STATUS,
+              run,
               ...(name ? { level_name: name } : {}),
             },
           })),

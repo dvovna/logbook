@@ -347,5 +347,38 @@ describe('VacationRequestProcessingService', () => {
     );
 
     expect(workflowService.cancel).toHaveBeenCalledWith('request-1', requester);
+    expect(workflowService.create).not.toHaveBeenCalled();
+  });
+
+  describe('when HR edits a pending request that stays pending', () => {
+    const hr = { id: 'hr-1' } as IUserViewModel;
+    const pending = buildRequest(VacationRequestStatus.Pending);
+
+    const onEdited = async (after: IVacationRequestViewModel) => {
+      requestsService.findOne.mockResolvedValue(after);
+      await service.handleRequestUpdated(
+        new VacationRequestUpdatedEvent(after, hr, pending),
+      );
+      await jobs.done();
+    };
+
+    it('starts the approval again, as a new run, for new dates', async () => {
+      await onEdited({ ...pending, end_date: '2026-02-09' });
+
+      expect(workflowService.cancel).toHaveBeenCalledWith('request-1', hr);
+      expect(workflowService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: 'request-1',
+          run: expect.not.stringMatching(/^request-1$/),
+        }),
+      );
+    });
+
+    it('leaves the approval alone when only the comment changed', async () => {
+      await onEdited({ ...pending, user_comment: 'Back on Monday' });
+
+      expect(workflowService.cancel).not.toHaveBeenCalled();
+      expect(workflowService.create).not.toHaveBeenCalled();
+    });
   });
 });

@@ -11,6 +11,7 @@ import SlackCommunicationService from '@modules/slack-communication/services/sla
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import { ApproverMessageView } from '@modules/slack/approvals/views/approver-message.view';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+import { runOf } from '@modules/request-workflows/utils/workflow-runs';
 
 @Injectable()
 @WorkflowStepProcessor(WorkflowStepType.Approver)
@@ -88,10 +89,12 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
       return undefined;
     }
 
-    const steps = await this.requestWorkflowStepsService.findMany({
-      requestId: step.request_id,
-      slackTeamId: step.slack_team_id,
-    });
+    const steps = (
+      await this.requestWorkflowStepsService.findMany({
+        requestId: step.request_id,
+        slackTeamId: step.slack_team_id,
+      })
+    ).filter((other) => runOf(other) === runOf(step));
     const approvedBy = steps
       .filter(
         ({ step_level, step_data }) =>

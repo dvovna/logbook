@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -32,6 +33,8 @@ export const START_WORKFLOW_JOB = 'vacation-request-start-workflow';
 interface IStartWorkflowJob {
   requestId: string;
   slackTeamId: string;
+  // The run to start (workflow-runs.ts); the first one when missing.
+  run?: string;
 }
 
 @Injectable()
@@ -69,7 +72,11 @@ export class VacationRequestProcessingService implements OnModuleInit {
     });
   }
 
-  private async startWorkflow({ requestId, slackTeamId }: IStartWorkflowJob) {
+  private async startWorkflow({
+    requestId,
+    slackTeamId,
+    run = requestId,
+  }: IStartWorkflowJob) {
     const request = await this.vacationRequestsService.findOne({
       id: requestId,
       slackTeamId,
@@ -88,6 +95,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     const workflow: ICreateWorkflowParams = {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
+      run,
       snapshot: {
         user_id: request.user!.id,
         slack_user_id: request.user!.slack_id,
@@ -181,12 +189,35 @@ export class VacationRequestProcessingService implements OnModuleInit {
     );
   }
 
+  // An edit that changes what the approvers decide on closes the steps
+  // asked so far; when the request is still pending, its approval starts
+  // again with the request as it is now. A comment changes nothing they
+  // decide on.
   @OnEvent(VacationRequestEvent.Updated)
   public async handleRequestUpdated({
     request,
     user: updatedBy,
+    previous,
   }: VacationRequestUpdatedEvent) {
+    const isPending = request.status === VacationRequestStatus.Pending;
+
+    if (
+      isPending &&
+      previous?.status === VacationRequestStatus.Pending &&
+      !changesWhatApproversDecide(previous, request)
+    ) {
+      return;
+    }
+
     await this.requestWorkflowService.cancel(request.id, updatedBy);
+
+    if (isPending) {
+      this.jobs.run<IStartWorkflowJob>(START_WORKFLOW_JOB, {
+        requestId: request.id,
+        slackTeamId: request.slack_team_id,
+        run: randomUUID(),
+      });
+    }
   }
 
   private buildApproverLevel(
@@ -261,3 +292,12 @@ export class VacationRequestProcessingService implements OnModuleInit {
     }
   }
 }
+
+const changesWhatApproversDecide = (
+  before: IVacationRequestViewModel,
+  after: IVacationRequestViewModel,
+) =>
+  before.start_date !== after.start_date ||
+  before.end_date !== after.end_date ||
+  before.type !== after.type ||
+  before.user_id !== after.user_id;
