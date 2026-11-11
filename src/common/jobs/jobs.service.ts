@@ -6,13 +6,16 @@ import {
   Logger,
   OnApplicationBootstrap,
   OnApplicationShutdown,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import PgBoss from 'pg-boss';
+import { CLOSE_TIMEOUT_MS } from '@common/constants/shutdown';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { IEnqueueManyOptions, ISavedJob } from '@common/jobs/types/jobs.types';
 import { ConcurrencyLimit } from '@common/utils/concurrency-limit';
 import delay from '@common/utils/delay';
+import { finishesWithin } from '@common/utils/finishes-within';
 import {
   startInBackground,
   trackInBackground,
@@ -119,7 +122,7 @@ export const createJobQueue = (
 // them holding their slots would wait for each other for ever.
 @Injectable()
 export class JobsService
-  implements OnApplicationBootstrap, OnApplicationShutdown
+  implements OnApplicationBootstrap, OnModuleDestroy, OnApplicationShutdown
 {
   private readonly logger = new Logger(JobsService.name);
 
@@ -286,18 +289,33 @@ export class JobsService
     return this.started;
   }
 
+  // No retry starts once the app shuts down (onModuleDestroy comes first);
+  // the ones running are background work, which the shutdown waits for.
+  public onModuleDestroy() {
+    if (this.poller) {
+      clearInterval(this.poller);
+      this.poller = null;
+    }
+  }
+
   public async onApplicationShutdown() {
     // The first runs that still wait for a slot or their turn: their saved
     // copies are retried, by the next process if need be.
     this.stopped = true;
 
-    if (this.poller) {
-      clearInterval(this.poller);
-    }
-
     // The background work, saved jobs included, was waited for before
     // (BackgroundWorkShutdownService); what still runs is retried later.
-    await this.boss.stop({ graceful: false, wait: true, timeout: 5_000 });
+    // Closing pg-boss's pool waits for its queries in flight.
+    const stopped = await finishesWithin(
+      this.boss.stop({ graceful: false, wait: true }),
+      CLOSE_TIMEOUT_MS,
+    );
+
+    if (!stopped) {
+      this.logger.warn(
+        `The job queue was still stopping after ${CLOSE_TIMEOUT_MS} ms`,
+      );
+    }
   }
 
   private async start(boss: JobQueue) {

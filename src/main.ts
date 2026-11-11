@@ -10,8 +10,11 @@ async function bootstrap() {
 
   configureApp(app);
   // SIGTERM on a deploy closes the app through its shutdown hooks, which
-  // finish the background work first (BackgroundWorkShutdownService).
-  app.enableShutdownHooks();
+  // stop taking requests and finish the background work first
+  // (BackgroundWorkShutdownService), then exits. In a container the process
+  // is PID 1, which ignores the signal Nest otherwise sends itself again
+  // after the hooks: anything left open would keep it running until killed.
+  app.enableShutdownHooks([], { useProcessExit: true });
 
   const port = process.env[EnvironmentVariable.Port] || 3000;
 

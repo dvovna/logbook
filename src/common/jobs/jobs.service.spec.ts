@@ -7,6 +7,7 @@ import {
   JobsService,
 } from '@common/jobs/jobs.service';
 import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
+import { CLOSE_TIMEOUT_MS } from '@common/constants/shutdown';
 import * as errorReporter from '@common/errors/error-reporter';
 import { TransactionService } from 'src/database/transaction.service';
 
@@ -196,6 +197,35 @@ describe('JobsService', () => {
     );
 
     expect(transactions.afterCommit).not.toHaveBeenCalled();
+  });
+
+  describe('shutdown', () => {
+    afterEach(() => jest.useRealTimers());
+
+    it('stops polling for retries before the app waits for its work', async () => {
+      jest.useFakeTimers();
+      const polling = createJobs({ pollIntervalSeconds: 30 });
+      await jest.advanceTimersByTimeAsync(0);
+
+      polling.onModuleDestroy();
+      await jest.advanceTimersByTimeAsync(60_000);
+
+      expect(queue.fetch).not.toHaveBeenCalled();
+    });
+
+    it('goes on when the queue takes too long to stop, and says so', async () => {
+      jest.useFakeTimers();
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      queue.stop.mockReturnValue(new Promise(() => {}));
+
+      const shutdown = jobs.onApplicationShutdown();
+      await jest.advanceTimersByTimeAsync(CLOSE_TIMEOUT_MS);
+      await shutdown;
+
+      expect(warn).toHaveBeenCalledWith(
+        `The job queue was still stopping after ${CLOSE_TIMEOUT_MS} ms`,
+      );
+    });
   });
 
   describe('enqueueMany', () => {
