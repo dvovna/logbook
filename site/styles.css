@@ -442,6 +442,11 @@ code {
     gap: 1.25rem;
   }
 
+  /* Room for the billing report's six columns. */
+  .steps--wide-first {
+    grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+  }
+
   .step {
     padding-left: 0;
     padding-top: 1.6rem;
@@ -521,8 +526,11 @@ code {
   font-size: 0.78rem;
 }
 
+/* Slack's "danger" button style. */
 .ui-button--reject {
-  color: #b42318;
+  background: #b8323e;
+  border-color: #b8323e;
+  color: var(--white);
 }
 
 .step-note {
@@ -645,39 +653,39 @@ code {
   transform: rotate(45deg);
 }
 
-.ui-grid {
-  width: 100%;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.75rem;
+.ui-section {
+  margin-top: 0.6rem;
 }
 
-.ui-grid th,
-.ui-grid td {
-  padding: 0.2rem 0.15rem;
-  text-align: center;
+.ui-field small {
   font-weight: 400;
-}
-
-.ui-grid th:first-child {
-  text-align: left;
-}
-
-.ui-grid thead th {
-  color: var(--muted);
-  font-size: 0.68rem;
-}
-
-.ui-grid .locked td {
   color: var(--muted);
 }
 
-.ui-grid td span {
-  display: block;
-  border: 1px solid #c9c0ad;
-  border-radius: 3px;
-  min-width: 1.6rem;
-  padding: 0.05rem 0;
+.ui-days .ui-field {
+  margin-top: 0.3rem;
+}
+
+.ui-cut {
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.2em;
+  line-height: 1;
+  margin-top: 0.4rem;
+}
+
+.ui-scroll {
+  overflow-x: auto;
+  margin-block: 0.4rem;
+}
+
+.ui-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ui-scroll .ui-table {
+  white-space: nowrap;
 }
 
 .ui-file {
@@ -702,7 +710,7 @@ code {
 
 .ui-file span {
   font-size: 0.78rem;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .ui-table {
