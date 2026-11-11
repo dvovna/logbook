@@ -11,7 +11,10 @@ import {
   planDigest,
   planTeamFile,
 } from 'src/team-file/services/team-file-planner';
-import { ITeamFilePlan } from 'src/team-file/types/team-file-plan.interface';
+import {
+  ITeamFilePlan,
+  ITeamFileState,
+} from 'src/team-file/types/team-file-plan.interface';
 import { ITeamFileRow } from 'src/team-file/types/team-file-row.interface';
 import { ITeamFileUpload } from 'src/team-file/types/team-file-upload.interface';
 
@@ -33,15 +36,20 @@ export class TeamFileUploadsService {
     rows: ITeamFileRow[],
     fileName: string,
     user: IUserViewModel,
-  ): Promise<{ upload: ITeamFileUpload; plan: ITeamFilePlan }> {
+  ): Promise<{
+    upload: ITeamFileUpload;
+    plan: ITeamFilePlan;
+    state: ITeamFileState;
+  }> {
     const slackTeamId = user.slack_team_id;
     const [people, teams] = await Promise.all([
       this.usersService.findMany({ slackTeamId, includeInactive: true }),
       this.teamsService.findMany({ slackTeamId }),
     ]);
+    const state = { people, teams };
     const plan = planTeamFile(
       rows,
-      { people, teams },
+      state,
       this.config.getOrThrow<number>(EnvironmentVariable.MaxTeamsPerSlackTeam),
     );
 
@@ -59,7 +67,7 @@ export class TeamFileUploadsService {
       });
     });
 
-    return { upload, plan };
+    return { upload, plan, state };
   }
 
   public setMessage(

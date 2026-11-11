@@ -128,13 +128,13 @@ export default class FileUploadService {
       return this.reply(user, this.getUnknownFileUploadPromptMessage());
     }
 
-    const { upload, plan } = await this.teamFileUploadsService.receive(
+    const { upload, plan, state } = await this.teamFileUploadsService.receive(
       rows,
       fileName,
       user,
     );
 
-    await this.teamFileMessagesService.postPreview(user, upload, plan);
+    await this.teamFileMessagesService.postPreview(user, upload, plan, state);
   }
 
   private reply(

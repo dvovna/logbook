@@ -3,6 +3,7 @@ import { KnownBlock } from '@slack/types';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TeamFileMessageActionId } from '@modules/slack/team-file/enums/team-file-message-action-id.enum';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
 import { ITeamFilePlan } from 'src/team-file/types/team-file-plan.interface';
 
@@ -20,6 +21,12 @@ const safe = (text: string, max = MAX_NAME_CHARACTERS) =>
   escapeMrkdwn(clip(text, max));
 const people = (count: number) =>
   count === 1 ? '1 person' : `${count} people`;
+
+// "Anna", "Anna and Bo", "Anna, Bo and Cy".
+const joinNames = (names: string[]) =>
+  names.length < 2
+    ? names.join('')
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 
 const section = (text: string): KnownBlock => ({
   type: 'section',
@@ -65,7 +72,7 @@ export class TeamFileMessageView {
     const unusable = plan.unusable.length
       ? [
           list(
-            `*Rows it can't use (${plan.unusable.length})*`,
+            `⚠️ *Rows it can't use (${plan.unusable.length})*`,
             plan.unusable.map(
               ({ row, reason }) =>
                 `Row ${row}: ${safe(reason, MAX_REASON_CHARACTERS)}`,
@@ -82,7 +89,11 @@ export class TeamFileMessageView {
 
     if (!changes) {
       return [
-        section('Nothing to change: the file matches Logbook.'),
+        section(
+          unusable.length
+            ? 'Nothing to change.'
+            : 'Nothing to change: the file matches Logbook.',
+        ),
         ...unusable,
       ];
     }
@@ -97,27 +108,33 @@ export class TeamFileMessageView {
           `*Teams to create (${plan.createTeams.length})*`,
           plan.createTeams.map((team) => {
             const leads = team.leadIds.map(name);
-            const lead = leads.length
-              ? `${leads.join(' and ')} ${leads.length === 1 ? 'leads' : 'lead'}`
-              : 'no lead, so requests go straight to the second approval';
+            const count = people(team.memberIds.length);
 
-            return `*${safe(team.name)}* : ${lead}, ${people(team.memberIds.length)}`;
+            return leads.length
+              ? `*${safe(team.name)}*: ${joinNames(leads)} ${leads.length === 1 ? 'leads' : 'lead'}, ${count}`
+              : `*${safe(team.name)}*: ${count}, no lead, so requests go straight to the second approval`;
           }),
         ),
       );
     }
 
-    if (plan.assignments.length) {
+    const target = (a: ITeamFilePlan['assignments'][number]) =>
+      a.toTeamKey
+        ? safe(teamKeyNames.get(a.toTeamKey) ?? a.toTeamKey)
+        : name(a.toTeamId);
+    const moves = plan.assignments.filter(
+      (a) => a.fromTeamId && (a.toTeamId || a.toTeamKey),
+    );
+    const placements = plan.assignments.filter(
+      (a) => !a.fromTeamId && (a.toTeamId || a.toTeamKey),
+    );
+
+    if (moves.length) {
       sections.push(
         list(
-          `*People changing team (${plan.assignments.length})*`,
-          plan.assignments.map(
-            ({ userId, fromTeamId, toTeamId, toTeamKey }) =>
-              `${name(userId)}: ${name(fromTeamId)} → ${
-                toTeamKey
-                  ? safe(teamKeyNames.get(toTeamKey) ?? toTeamKey)
-                  : name(toTeamId)
-              }`,
+          `*Moves between teams (${moves.length})*`,
+          moves.map(
+            (a) => `${name(a.userId)}: ${name(a.fromTeamId)} → ${target(a)}`,
           ),
         ),
       );
@@ -137,6 +154,15 @@ export class TeamFileMessageView {
         list(
           '*Becoming Managers because they lead a team*',
           plan.promotions.map(name),
+        ),
+      );
+    }
+
+    if (placements.length) {
+      sections.push(
+        list(
+          `*Placed in a team (${placements.length})*`,
+          placements.map((a) => `${name(a.userId)}: ${target(a)}`),
         ),
       );
     }
@@ -200,6 +226,10 @@ export class TeamFileMessageView {
     return sections;
   }
 
+  public previewText(fileName: string) {
+    return `Here's what ${safe(fileName)} will do`;
+  }
+
   public canceled(): KnownBlock[] {
     return [section('Canceled. Nothing changed.')];
   }
@@ -208,10 +238,14 @@ export class TeamFileMessageView {
     const policy = rules.vacation_policy
       ? `vacation policy ${safe(rules.vacation_policy.name)}`
       : 'no vacation policy';
+    const mentions = (ids: string[]) => ids.map((id) => `<@${id}>`).join(', ');
     const approvers = rules.hr_approvers.length
-      ? `second approval by ${rules.hr_approvers.map((id) => `<@${id}>`).join(', ')}`
+      ? `second approval by ${mentions(rules.hr_approvers)} (${rules.hr_approvers_rule === ApprovalRule.All ? 'all of them' : 'any one'})`
       : 'no second approvers yet';
+    const notified = rules.approval_notification_recipients.length
+      ? `${mentions(rules.approval_notification_recipients)} notified of decisions`
+      : 'nobody notified of decisions';
 
-    return `New teams follow the company rules (${policy}; ${approvers}).`;
+    return `New teams follow the company rules (${policy}; ${approvers}; ${notified}).`;
   }
 }

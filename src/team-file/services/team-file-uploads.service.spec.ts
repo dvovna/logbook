@@ -88,7 +88,11 @@ describe('TeamFileUploadsService', () => {
       const { service, repository, usersService, teamsService } = build();
       const rows = [row(2, 'ann@x.test', 'Acme'), row(3, 'old@x.test', 'Acme')];
 
-      const { upload, plan } = await service.receive(rows, 'file.csv', user);
+      const { upload, plan, state } = await service.receive(
+        rows,
+        'file.csv',
+        user,
+      );
 
       expect(usersService.findMany).toHaveBeenCalledWith({
         slackTeamId: 'workspace-1',
@@ -98,6 +102,8 @@ describe('TeamFileUploadsService', () => {
         slackTeamId: 'workspace-1',
       });
       expect(upload).toBe(stored);
+      expect(state.people.map(({ id }) => id)).toEqual(['ann', 'old']);
+      expect(state.teams).toEqual([]);
       expect(plan.createTeams).toMatchObject([{ name: 'Acme' }]);
       expect(plan.unusable).toEqual([
         { row: 3, reason: 'old@x.test is deactivated' },

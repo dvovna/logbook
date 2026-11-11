@@ -5,6 +5,9 @@ import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { openAppHomeTab } from './support/app-home';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { acknowledged } from './support/slack-test-client';
 import { actionIdsOf, sectionTexts } from './support/tab-readers';
 import { ModalView, View } from '@slack/types/dist/views';
@@ -141,18 +144,13 @@ describe('Team file', () => {
         "*Here's what team-setup.csv will do*",
         [
           '*Teams to create (2)*',
-          '• *Acme* : Anna Novak leads, 2 people',
-          '• *Beta* : no lead, so requests go straight to the second approval, 1 person',
+          '• *Acme*: Anna Novak leads, 2 people',
+          '• *Beta*: 1 person, no lead, so requests go straight to the second approval',
         ].join('\n'),
-        [
-          '*People changing team (4)*',
-          '• Anna Novak: no team → Acme',
-          '• Bo Brown: no team → Beta',
-          '• Cy Clark: Backend → Acme',
-          '• Dee Dunn: Backend → no team',
-        ].join('\n'),
+        '*Moves between teams (1)*\n• Cy Clark: Backend → Acme',
         '*Lead changes*\n• Lee Lead no longer leads Backend',
         '*Becoming Managers because they lead a team*\n• Anna Novak',
+        '*Placed in a team (2)*\n• Anna Novak: Acme\n• Bo Brown: Beta',
         '*Left without a team (1)*\n• Dee Dunn',
         [
           '*Teams with no lead (2)*',
@@ -161,8 +159,8 @@ describe('Team file', () => {
           '• Beta',
         ].join('\n'),
         '*Team names matched*\n• acme → Acme',
-        "*Rows it can't use (1)*\n• Row 7: nobody@example.test isn't in this Slack workspace",
-        'New teams follow the company rules (no vacation policy; no second approvers yet).',
+        "⚠️ *Rows it can't use (1)*\n• Row 7: nobody@example.test isn't in this Slack workspace",
+        'New teams follow the company rules (no vacation policy; no second approvers yet; nobody notified of decisions).',
       ]);
       expect(actionIdsOf(preview as unknown as View)).toEqual([
         'apply',
@@ -195,10 +193,72 @@ describe('Team file', () => {
         "*Here's what team &lt;setup&gt; &amp; co.csv will do*",
         [
           '*Teams to create (1)*',
-          '• *&lt;!channel&gt; &amp; Co* : Eve &lt;!here&gt; &amp; Co leads, 1 person',
+          '• *&lt;!channel&gt; &amp; Co*: Eve &lt;!here&gt; &amp; Co leads, 1 person',
         ].join('\n'),
-        '*People changing team (1)*\n• Eve &lt;!here&gt; &amp; Co: no team → &lt;!channel&gt; &amp; Co',
+        '*Becoming Managers because they lead a team*\n• Eve &lt;!here&gt; &amp; Co',
       ]);
+      expect(preview.text).toBe(
+        "Here's what team &lt;setup&gt; &amp; co.csv will do",
+      );
+    });
+
+    it('shows markup in unusable reasons and in matched team spellings escaped', async () => {
+      const backend = await workspace.addTeam({ name: 'Back <end>' });
+      const ann = await workspace.addUser({ name: 'Ann', team_id: null });
+
+      const [preview] = await share(
+        hr,
+        csv(
+          `Ann,${ann.email},back  <END>,`,
+          '<!channel>,x<!channel>@example.test,Back <end>,',
+        ),
+      );
+
+      expect(backend.name).toBe('Back <end>');
+      expect(sectionTexts(preview as unknown as View).slice(1)).toEqual([
+        '*Placed in a team (1)*\n• Ann: Back &lt;end&gt;',
+        [
+          '*Teams with no lead (1)*',
+          'Their requests go straight to the second approval.',
+          '• Back &lt;end&gt;',
+        ].join('\n'),
+        '*Team names matched*\n• back  &lt;END&gt; → Back &lt;end&gt;',
+        "⚠️ *Rows it can't use (1)*\n• Row 3: x&lt;!channel&gt;@example.test isn't in this Slack workspace",
+        'New teams follow the company rules (no vacation policy; no second approvers yet; nobody notified of decisions).',
+      ]);
+    });
+
+    it('lists three leads as "A, B and C lead" and the company rules in one line', async () => {
+      const [a, b, c] = await Promise.all(
+        ['Ann', 'Bo', 'Cy'].map((name) => workspace.addUser({ name })),
+      );
+      await t.app.get(CompanyRulesService).update(
+        workspace.id,
+        {
+          hrApprovers: [hr.slack_id],
+          hrApproversRule: ApprovalRule.All,
+          notificationRecipients: [c.slack_id],
+          vacationPolicyId: null,
+        },
+        hr as unknown as IUserViewModel,
+      );
+
+      const [preview] = await share(
+        hr,
+        csv(
+          `Ann,${a.email},Acme,yes`,
+          `Bo,${b.email},Acme,yes`,
+          `Cy,${c.email},Acme,yes`,
+        ),
+      );
+      const texts = sectionTexts(preview as unknown as View);
+
+      expect(texts[1]).toBe(
+        '*Teams to create (1)*\n• *Acme*: Ann, Bo and Cy lead, 3 people',
+      );
+      expect(texts[texts.length - 1]).toBe(
+        `New teams follow the company rules (no vacation policy; second approval by <@${hr.slack_id}> (all of them); <@${c.slack_id}> notified of decisions).`,
+      );
     });
 
     it('a newer file replaces the open preview', async () => {
@@ -290,6 +350,55 @@ describe('Team file', () => {
       ]);
       expect(actionIdsOf(preview as unknown as View)).toEqual([]);
     });
+
+    it('does not say the file matches Logbook when rows were unusable', async () => {
+      const [preview] = await share(
+        hr,
+        csv('Nobody,nobody@example.test,Acme,'),
+      );
+
+      expect(sectionTexts(preview as unknown as View)).toEqual([
+        'Nothing to change.',
+        "⚠️ *Rows it can't use (1)*\n• Row 2: nobody@example.test isn't in this Slack workspace",
+      ]);
+      expect(actionIdsOf(preview as unknown as View)).toEqual([]);
+    });
+
+    it('lets an Admin share a team file and get a preview', async () => {
+      const admin = await workspace.addUser({ role: UserRole.Admin });
+      const anna = await workspace.addUser({ name: 'Anna Novak' });
+
+      const [preview] = await share(admin, csv(`Anna,${anna.email},Acme,`));
+
+      expect(sectionTexts(preview as unknown as View)[0]).toBe(
+        "*Here's what team-setup.csv will do*",
+      );
+    });
+
+    it.each([UserRole.Member, UserRole.Manager])(
+      'refuses a %s who clicks Cancel or Company rules',
+      async (role) => {
+        const anna = await workspace.addUser({ name: 'Anna Novak' });
+        const [preview] = await share(hr, csv(`Anna,${anna.email},Acme,`));
+        const intruder = await workspace.addUser({ role });
+        const since = t.slackApi.mark();
+
+        for (const action of ['cancel', 'rules']) {
+          await t.slack
+            .actOnMessage(workspace, intruder, preview, action)
+            .expect(200);
+        }
+        await t.idle();
+
+        expect((await uploads()).map(({ status }) => status)).toEqual([
+          'previewed',
+        ]);
+        expect(t.slackApi.messageUpdates(workspace.token, preview)).toEqual([]);
+        expect(() =>
+          t.slackApi.openedModal(workspace.token, { since }),
+        ).toThrow('No modal was opened');
+      },
+    );
 
     it('refuses a manager who shares a team file and stores nothing', async () => {
       const manager = await workspace.addUser({ role: UserRole.Manager });
