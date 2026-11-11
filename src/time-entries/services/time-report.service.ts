@@ -136,7 +136,8 @@ export const rateOf = (
 // not deleted ones), by client, project, person or team, and who has not
 // sent their time for approval. Each person sees only the time of their
 // scope (TimeEntriesScopeService); amounts, at today's rates, only Admin
-// and HR. The billing report, by contrast, counts approved time only.
+// and Finance (RATE_ROLES). The billing report, by contrast, counts approved
+// time only.
 @Injectable()
 export class TimeReportService {
   public constructor(

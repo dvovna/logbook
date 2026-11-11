@@ -28,7 +28,7 @@ Company rules, and teams set up from a file. Update step: three database migrati
 A weekly timesheet and time off logged as time. Update step: two database migrations, see Running it.
 
 ### Time tracking
-- My time shows a week: a table of every project with your time on each day, a status line, previous and next week, and "Submit week" for the week's drafts and rejected entries. A line counts the drafts and rejected entries of earlier weeks, with a button to the oldest of them; the rejection message and the Monday reminder name the week.
+- My time shows a week: a table of every project with your time on each day, a status line, previous and next week, and "Submit week" for the week's drafts and rejected entries. A line counts the drafts and rejected entries of earlier weeks, with a button to the oldest of them; the rejection message names the week, and so does the Monday reminder for rejected entries.
 - Fill in a whole week, or a single day with a comment, in one form: a row per project (your recent ones, and any you add), one input per day. Time that waits for approval, is approved or is billed stays read-only, and a day changed since the form opened is refused instead of overwritten.
 - After sending time for approval, the tab says how much went ("6 time entries (13h 30m) sent for approval").
 - The week and day forms open and save well inside Slack's 3 seconds even with the database far away: a full week is read once and written in a few statements. Adding a project, showing the weekend and changing the day answer at once.

@@ -7,7 +7,7 @@ import { TimeEntriesService } from 'src/time-entries/services/time-entries.servi
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 
 // Whose time a person sees in reports and exports:
-// - workspace: Admin and HR, everyone's;
+// - workspace: Admin, HR and Finance (COMPANY_TIME_ROLES), everyone's;
 // - teams: a manager, the time logged in the teams that list them among
 //   their manager approvers, and their own;
 // - own: everyone else, and a manager of no team, only their own.
