@@ -5,11 +5,9 @@ import SlackViewResponseFactory from '@modules/slack/factories/slack-response.fa
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
 import { IViewParseResult } from '@modules/slack/services/slack-view-values.parser';
-import PrimaryEntityDeleteError from '@common/errors/primary-entity-delete.error';
-import { ForbiddenException, Logger } from '@nestjs/common';
-import EntityHasDependenciesError from '@common/errors/entity-has-dependencies.error';
-import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
+import { Logger, NotFoundException } from '@nestjs/common';
 import { ValidationError } from '@common/errors/validation.error';
+import { classifyActionError } from '@modules/slack/common/utils/action-errors';
 import { DuplicatedRecordError } from '@common/errors/duplicated-record.error';
 
 export abstract class BaseModalFormSubmitHandler<
@@ -50,24 +48,22 @@ export abstract class BaseModalFormSubmitHandler<
         return SlackViewResponseFactory.errors(fieldErrors);
       }
 
-      const isKnownError =
-        error instanceof PrimaryEntityDeleteError ||
-        error instanceof ForbiddenException ||
-        error instanceof ValidationError ||
-        error instanceof DuplicatedRecordError ||
-        error instanceof MaxItemsCountReachedError ||
-        error instanceof EntityHasDependenciesError;
+      // Some not-found messages name a record by its internal ID ('Client
+      // with id … not found'), so a form takes them all as unexpected.
+      const unexpected =
+        error instanceof NotFoundException ||
+        classifyActionError(error) === 'unexpected';
 
-      if (!isKnownError) {
+      if (unexpected) {
         this.logger.error(
           `Unexpected error in modal form submission: ${error.message}`,
           error,
         );
       }
 
-      const errorMessage = isKnownError
-        ? error.message
-        : 'Something went wrong. Please try again later.';
+      const errorMessage = unexpected
+        ? 'Something went wrong. Please try again later.'
+        : error.message;
 
       return this.errorResponse(errorMessage, data, metadata, user);
     }

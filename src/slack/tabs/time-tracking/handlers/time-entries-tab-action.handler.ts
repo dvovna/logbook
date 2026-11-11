@@ -8,13 +8,13 @@ import {
 } from '@common/utils/period-presets';
 import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 import { rolesOfTab } from '@modules/slack/common/navigation/screens';
-import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   ISlackBlockActionPayload,
   ISlackInteractionPayload,
 } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
-import { ValidationError } from '@common/errors/validation.error';
+import { classifyActionError } from '@modules/slack/common/utils/action-errors';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
@@ -209,9 +209,11 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
         ),
       );
     } catch (error) {
-      if (!(
-        error instanceof ValidationError || error instanceof ForbiddenException
-      )) {
+      // An entry that is gone fails the click.
+      if (
+        error instanceof NotFoundException ||
+        classifyActionError(error) === 'unexpected'
+      ) {
         throw error;
       }
 

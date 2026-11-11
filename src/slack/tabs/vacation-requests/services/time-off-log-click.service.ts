@@ -1,13 +1,8 @@
-import {
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import { ValidationError } from '@common/errors/validation.error';
+import { Injectable, Logger } from '@nestjs/common';
 import { runInBackground } from '@common/utils/run-in-background';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
+import { classifyActionError } from '@modules/slack/common/utils/action-errors';
 import { IOfferMessage } from '@modules/slack/tabs/vacation-requests/types/time-off-offer.types';
 import { TimeOffOfferView } from '@modules/slack/tabs/vacation-requests/views/time-off-offer.view';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
@@ -79,22 +74,18 @@ export class TimeOffLogClickService {
     user: IUserViewModel,
     channel: string | undefined,
   ): Promise<boolean> {
-    if (
-      error instanceof ValidationError ||
-      error instanceof NotFoundException
-    ) {
-      await this.tell(user, channel, error.message);
+    switch (classifyActionError(error)) {
+      case 'refusal':
+        await this.tell(user, channel, (error as Error).message);
 
-      return true;
+        return true;
+      case 'forbidden':
+        this.logger.warn(`Time off not logged: ${(error as Error).message}`);
+
+        return true;
+      case 'unexpected':
+        return false;
     }
-
-    if (error instanceof ForbiddenException) {
-      this.logger.warn(`Time off not logged: ${error.message}`);
-
-      return true;
-    }
-
-    return false;
   }
 
   private async tell(
