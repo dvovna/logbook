@@ -327,7 +327,6 @@ describe('RequestWorkflowService', () => {
       expect(stepsService.findMany).toHaveBeenCalledWith({
         requestId: REQUEST_ID,
         slackTeamId: SLACK_TEAM_ID,
-        completed: false,
       });
       expect(stepsService.claimUnprocessed).toHaveBeenCalledWith(nextLevel);
       expect(processorService.processSteps).toHaveBeenCalledWith([

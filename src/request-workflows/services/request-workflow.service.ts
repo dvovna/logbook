@@ -467,29 +467,79 @@ export class RequestWorkflowService {
 
   // Asks the lowest level above `step`'s that has open steps: a level whose
   // approvers all lost the right to decide since the workflow started is
-  // passed over, as it would be for a request made now. With none left the
-  // request is approved.
+  // passed over, as it would be for a request made now. Someone on it who
+  // approved this run already isn't asked again: their step is approved as
+  // them, which with the ANY rule (or nobody else left) completes the level,
+  // and the next one opens the same way. With no level left the request is
+  // approved.
   private async activateNextLevel(
     step: IRequestWorkflowStepViewModel,
     approvedBy: IUserViewModel,
   ) {
-    const openAbove = (
-      await this.requestWorkflowStepsService.findMany({
-        requestId: step.request_id,
-        slackTeamId: step.slack_team_id,
-        completed: false,
-      })
-    ).filter((other) => other.step_level > step.step_level);
+    const { request_id: requestId, slack_team_id: slackTeamId } = step;
+    let completedLevel = step.step_level;
 
-    if (openAbove.length > 0) {
+    for (;;) {
+      const steps = currentRunOf(
+        await this.requestWorkflowStepsService.findMany({
+          requestId,
+          slackTeamId,
+        }),
+      );
+      const openAbove = steps.filter(
+        (other) => !other.completed_at && other.step_level > completedLevel,
+      );
+
+      if (!openAbove.length) {
+        break;
+      }
+
       const nextLevel = Math.min(...openAbove.map((other) => other.step_level));
+      const levelSteps = openAbove.filter(
+        (other) => other.step_level === nextLevel,
+      );
+      const approvedAlready = new Set(
+        steps
+          .filter(
+            ({ step_data }) => step_data.status === WorkflowStepStatus.Approved,
+          )
+          .map(
+            ({ step_data, slack_user_id }) =>
+              step_data.decided_by_slack_id ?? slack_user_id,
+          ),
+      );
+      const theirs = levelSteps.filter((other) =>
+        approvedAlready.has(other.slack_user_id),
+      );
+
+      if (theirs.length) {
+        const isAnyRule = theirs[0].step_data.rule === ApprovalRule.Any;
+
+        for (const own of isAnyRule ? [theirs[0]] : theirs) {
+          await this.requestWorkflowStepsService.decide(
+            {
+              requestId,
+              slackTeamId,
+              ...(isAnyRule ? { stepLevel: nextLevel } : { stepId: own.id }),
+            },
+            RequestWorkflowStatus.Approved,
+            { slack_id: own.slack_user_id },
+          );
+        }
+
+        if (isAnyRule || theirs.length === levelSteps.length) {
+          completedLevel = nextLevel;
+          continue;
+        }
+      }
+
       // Two approvers who complete the level at the same time both get here;
       // only the first one asks the next level.
       const claimedSteps =
         await this.requestWorkflowStepsService.claimUnprocessed({
-          requestId: step.request_id,
+          requestId,
           stepLevel: nextLevel,
-          slackTeamId: step.slack_team_id,
+          slackTeamId,
           completed: false,
         });
 
@@ -501,9 +551,9 @@ export class RequestWorkflowService {
         await this.eventEmitter.emitAsync(
           VacationWorkflowEventEnum.LevelCompleted,
           new VacationWorkflowLevelCompleted(
-            step.request_id,
-            step.slack_team_id,
-            step.step_level,
+            requestId,
+            slackTeamId,
+            completedLevel,
             nextLevel,
           ),
         );
@@ -513,13 +563,13 @@ export class RequestWorkflowService {
     }
 
     await this.finishWorkflow({
-      requestId: step.request_id,
+      requestId,
       status: RequestWorkflowStatus.Approved,
-      slackTeamId: step.slack_team_id,
+      slackTeamId,
       approvedBy: approvedBy.id,
       reviewComments: await this.requestWorkflowStepCommentsService.findMany({
-        requestId: step.request_id,
-        slackTeamId: step.slack_team_id,
+        requestId,
+        slackTeamId,
       }),
     });
   }

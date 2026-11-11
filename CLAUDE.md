@@ -201,6 +201,7 @@ Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `hol
    - The DM carries a context line: the requester's balance after the request and teammates off on those days (put into the workflow snapshot when it starts), the level and who approved earlier levels. Levels have names ("Manager approval", "HR approval", "Admin approval") in `step_data.level_name`, which the Details timeline shows.
    - `ANY`: one approval completes the level.
    - `ALL`: the level waits until there are no pending steps.
+   - Someone who approved an earlier level of the run isn't asked again: when a level opens, their step is approved as them (`activateNextLevel`), which completes an `ANY` level, or an `ALL` one with nobody else on it.
    - A reject at any level ends the workflow.
    - Comments re-render the messages of all pending steps, and the requester gets each one at once in a DM with View Details and Cancel buttons (`VacationRequestProgressNoticesService`, buttons in `RequesterNoticeMessageHandler`).
    - By design a step is not tied to the user who clicks: HR and admins may decide for an approver who is away, so a request doesn't get stuck. In the UI they do it with "Approve for Approvers" in All requests (Approvals → All pending requests) (`ApproveVacationRequestOnBehalfHandler` → `RequestWorkflowService.approveCurrentLevel`), which approves every open step of the current level and moves on.

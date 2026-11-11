@@ -272,6 +272,63 @@ describe('Vacation request approval', () => {
     expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
   });
 
+  describe('someone on both levels', () => {
+    let admin: Tables<'users'>;
+
+    beforeEach(async () => {
+      admin = await workspace.addUser({ role: UserRole.Admin });
+    });
+
+    it('is asked once, and their approval covers both', async () => {
+      const team = await workspace.addTeam({
+        manager_approvers: [admin.slack_id],
+        hr_approvers: [admin.slack_id],
+        rule_set_id: null,
+      });
+      await addMember(team);
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+
+      await click(
+        admin,
+        await approvalMessageTo(t, workspace, admin),
+        ApproverMessageActionId.Approve,
+      );
+      await t.idle();
+
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      expect(
+        t.slackApi.postedMessages(workspace.token, admin.slack_id),
+      ).toHaveLength(1);
+    });
+
+    it('leaves the others of an ALL level to decide', async () => {
+      const hr = await workspace.addUser({ role: UserRole.HR });
+      const team = await workspace.addTeam({
+        manager_approvers: [admin.slack_id],
+        hr_approvers: [admin.slack_id, hr.slack_id],
+        hr_approvers_rule: ApprovalRule.All,
+        rule_set_id: null,
+      });
+      await addMember(team);
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+
+      await click(
+        admin,
+        await approvalMessageTo(t, workspace, admin),
+        ApproverMessageActionId.Approve,
+      );
+      const hrApproval = await approvalMessageTo(t, workspace, hr);
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+
+      await click(hr, hrApproval, ApproverMessageActionId.Approve);
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      expect(
+        t.slackApi.postedMessages(workspace.token, admin.slack_id),
+      ).toHaveLength(1);
+    });
+  });
+
   it('tells approvers the balance after, who else is off and where the request stands', async () => {
     const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
     const policy = await workspace.addVacationPolicy({
