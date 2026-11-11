@@ -175,6 +175,23 @@ export class TimeEntriesRepository extends BaseRepository<
     return { count: Number(count), oldest };
   }
 
+  // Who has drafts or rejected entries up to `dateTo`, each once, without
+  // loading the entries.
+  public async findUserIdsWithOpenUpTo(
+    slackTeamId: string,
+    dateTo: string,
+  ): Promise<string[]> {
+    const rows = await this.selectInWorkspace(slackTeamId)
+      .select('user_id')
+      .distinct()
+      .where('status', 'in', OPEN_TIME_ENTRY_STATUSES)
+      .where('deleted_at', 'is', null)
+      .where('work_date', '<=', dateTo)
+      .execute();
+
+    return rows.map(({ user_id }) => user_id);
+  }
+
   // Gives each entry of `minutesById` its minutes, and all of them
   // `changes`, in one statement, but only those still not deleted and, with
   // `statuses`, in one of them. Returns the IDs it changed.

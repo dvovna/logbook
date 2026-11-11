@@ -17,6 +17,7 @@ const fakeQueue = () => {
 
   return {
     send: jest.fn(() => Promise.resolve(`job-${(saved += 1)}`)),
+    insert: jest.fn(() => Promise.resolve()),
     deleteJob: jest.fn(() => Promise.resolve()),
     fetch: jest.fn(() => Promise.resolve([] as object[])),
     complete: jest.fn(() => Promise.resolve()),
@@ -177,6 +178,126 @@ describe('JobsService', () => {
       { startAfter: FIRST_RETRY_AFTER_SECONDS },
     );
     expect(transactions.afterCommit).not.toHaveBeenCalled();
+  });
+
+  describe('enqueueMany', () => {
+    const commit = async () => {
+      const [[afterCommit]] = transactions.afterCommit.mock.calls as [
+        [() => Promise<void>],
+      ];
+
+      await afterCommit();
+    };
+
+    it('saves the jobs in one statement on the transaction, waiting as enqueue() saves one, and runs them after the commit', async () => {
+      transactions.inTransaction = true;
+
+      await jobs.enqueueMany('notify', [{ to: 'U1' }, { to: 'U2' }]);
+
+      expect(queue.send).not.toHaveBeenCalled();
+      expect(queue.insert).toHaveBeenCalledTimes(1);
+      expect(queue.insert).toHaveBeenCalledWith(
+        [
+          {
+            id: expect.any(String),
+            name: 'notify',
+            data: { to: 'U1' },
+            startAfter: String(FIRST_RETRY_AFTER_SECONDS),
+          },
+          {
+            id: expect.any(String),
+            name: 'notify',
+            data: { to: 'U2' },
+            startAfter: String(FIRST_RETRY_AFTER_SECONDS),
+          },
+        ],
+        { db: executor },
+      );
+      expect(sent).toEqual([]);
+
+      await commit();
+
+      const [[saved]] = queue.insert.mock.calls as unknown as [
+        [{ id: string }[]],
+      ];
+      expect(sent).toEqual(['U1', 'U2']);
+      expect(queue.deleteJob.mock.calls).toEqual(
+        saved.map(({ id }) => ['notify', id]),
+      );
+    });
+
+    it('saves nothing for no jobs', async () => {
+      transactions.inTransaction = true;
+
+      await jobs.enqueueMany('notify', []);
+
+      expect(queue.insert).not.toHaveBeenCalled();
+      expect(transactions.afterCommit).not.toHaveBeenCalled();
+    });
+
+    describe('with perSecond', () => {
+      beforeEach(() => jest.useFakeTimers());
+
+      afterEach(() => jest.useRealTimers());
+
+      it('starts the first runs at most that many a second, and saves each copy for after its turn', async () => {
+        const startedAt: number[] = [];
+        const begin = performance.now();
+        jobs.define('remind', () => {
+          startedAt.push(performance.now() - begin);
+
+          return Promise.resolve();
+        });
+        transactions.inTransaction = true;
+
+        await jobs.enqueueMany(
+          'remind',
+          Array.from({ length: 12 }, (_, index) => ({ index })),
+          { perSecond: 5 },
+        );
+        const done = commit();
+        await jest.advanceTimersByTimeAsync(5_000);
+        await done;
+
+        expect(startedAt).toEqual([
+          0, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200,
+        ]);
+        const [[saved]] = queue.insert.mock.calls as unknown as [
+          [{ startAfter: string }[]],
+        ];
+        // A copy becomes due 5 minutes after its own turn at the latest.
+        expect(saved.map(({ startAfter }) => Number(startAfter))).toEqual(
+          [0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3].map(
+            (seconds) => FIRST_RETRY_AFTER_SECONDS + seconds,
+          ),
+        );
+      });
+
+      it('keeps them apart after a wait for a free slot', async () => {
+        const slow = createJobs({ concurrency: 1 });
+        const startedAt: number[] = [];
+        const begin = performance.now();
+        slow.define<{ index: number }>('remind', async ({ index }) => {
+          startedAt.push(performance.now() - begin);
+
+          if (index === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 1_000));
+          }
+        });
+        transactions.inTransaction = true;
+
+        await slow.enqueueMany(
+          'remind',
+          Array.from({ length: 4 }, (_, index) => ({ index })),
+          { perSecond: 5 },
+        );
+        const done = commit();
+        await jest.advanceTimersByTimeAsync(5_000);
+        await done;
+
+        expect(startedAt).toEqual([0, 1000, 1200, 1400]);
+      });
+    });
   });
 
   describe('concurrency', () => {

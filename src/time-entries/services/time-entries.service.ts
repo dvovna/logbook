@@ -261,6 +261,16 @@ export class TimeEntriesService {
     );
   }
 
+  public findUserIdsWithOpenUpTo(params: {
+    slackTeamId: string;
+    dateTo: string;
+  }): Promise<string[]> {
+    return this.timeEntriesRepository.findUserIdsWithOpenUpTo(
+      params.slackTeamId,
+      params.dateTo,
+    );
+  }
+
   public count(params: IFindParams): Promise<number> {
     return this.timeEntriesRepository.count(this.getFindQuery(params));
   }

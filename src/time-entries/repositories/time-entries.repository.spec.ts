@@ -28,6 +28,25 @@ describe('TimeEntriesRepository', () => {
     ]);
   });
 
+  it('finds who has open entries up to a day, each once, without the entries', async () => {
+    const { database, sqlOf, parametersOf } = recordingDatabase([
+      [{ user_id: 'u1' }, { user_id: 'u2' }],
+    ]);
+
+    await expect(
+      new TimeEntriesRepository(database).findUserIdsWithOpenUpTo(
+        'w1',
+        '2026-06-14',
+      ),
+    ).resolves.toEqual(['u1', 'u2']);
+    expect(sqlOf(0)).toBe(
+      'select distinct "user_id" from "time_entries" ' +
+        'where "time_entries"."slack_team_id" = $1 and "status" in ($2, $3) ' +
+        'and "deleted_at" is null and "work_date" <= $4',
+    );
+    expect(parametersOf(0)).toEqual(['w1', 'draft', 'rejected', '2026-06-14']);
+  });
+
   it("keeps a vacation's billed entries by their own snapshot row", async () => {
     const { database, sqlOf } = recordingDatabase([[]]);
 

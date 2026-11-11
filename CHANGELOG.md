@@ -12,6 +12,9 @@ Company rules, and teams set up from a file. Update step: three database migrati
 - When someone joins Slack after the app is set up, HR (the admins when nobody has the HR role) get a message asking which team they are on, with a list of teams and Not yet. The first answer places them and updates everyone's message; placing them any other way (the team form, People, the file) does too.
 - Home's setup checklist now has the company rules and the team file as steps, and the welcome message to the installing admin lists the steps in the same order.
 
+### Time tracking
+- The Monday reminder of unsubmitted time goes out within 10 minutes of 09:00 UTC, a few messages a second per workspace so that Slack doesn't refuse them, and a workspace where it fails no longer keeps the others from getting theirs.
+
 ### Running it
 - `DATABASE_POOL_SIZE` defaults to 10 (was 5), and the job queue holds 3 connections (was 2): together they must stay under your Supabase project's "Pool Size" (15 on the smaller compute sizes). A query that gets no connection within 2 seconds now fails instead of waiting.
 - `JOBS_CONCURRENCY` (optional, default 4): how many background jobs run at once, so that a burst of them leaves connections to people's clicks.

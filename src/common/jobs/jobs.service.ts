@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { reportError } from '@common/errors/error-reporter';
 import {
   Inject,
@@ -9,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import PgBoss from 'pg-boss';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
-import { ISavedJob } from '@common/jobs/types/jobs.types';
+import { IEnqueueManyOptions, ISavedJob } from '@common/jobs/types/jobs.types';
 import { ConcurrencyLimit } from '@common/utils/concurrency-limit';
 import delay from '@common/utils/delay';
 import {
@@ -74,6 +75,7 @@ export type JobQueue = Pick<
   | 'stop'
   | 'createQueue'
   | 'send'
+  | 'insert'
   | 'fetch'
   | 'complete'
   | 'fail'
@@ -188,6 +190,58 @@ export class JobsService
     );
   }
 
+  // enqueue() for many jobs of one kind, saved in one statement: a
+  // transaction that enqueues hundreds holds its connection for one round
+  // trip. Outside a transaction it saves them on the pool and starts them.
+  // With `perSecond`, their first runs start at most that many a second.
+  public async enqueueMany<Payload extends object>(
+    name: string,
+    payloads: Payload[],
+    { perSecond }: IEnqueueManyOptions = {},
+  ): Promise<void> {
+    const handler = this.handlerOf(name);
+
+    if (!payloads.length) {
+      return;
+    }
+
+    await this.started;
+
+    const intervalMs = perSecond ? 1000 / perSecond : 0;
+    const savedAt = performance.now();
+    const jobs = payloads.map((payload, index) => ({
+      id: randomUUID(),
+      payload,
+      // A saved copy waits for its first run's turn too, so that no worker
+      // takes it before the first run had its chance.
+      waitSeconds:
+        FIRST_RETRY_AFTER_SECONDS + Math.ceil((index * intervalMs) / 1000),
+    }));
+
+    await this.boss.insert(
+      jobs.map(({ id, payload, waitSeconds }) => ({
+        id,
+        name,
+        data: payload,
+        // Seconds after Postgres's now(), as send() counts them.
+        startAfter: String(waitSeconds),
+      })),
+      { db: this.transactions.sqlExecutor() },
+    );
+
+    this.transactions.afterCommit(() =>
+      this.runSpaced(
+        name,
+        handler,
+        jobs.map(({ id, payload, waitSeconds }) => ({
+          payload,
+          saved: { id, dueAt: savedAt + waitSeconds * 1000 },
+        })),
+        intervalMs,
+      ),
+    );
+  }
+
   // Runs the saved jobs whose time has come: retries, and jobs a stopped
   // process left. `includeNotDue` runs the waiting ones as well (tests).
   public async runDueJobs({ includeNotDue = false } = {}) {
@@ -230,8 +284,8 @@ export class JobsService
   }
 
   public async onApplicationShutdown() {
-    // The first runs that still wait for a slot: their saved copies are
-    // retried, by the next process if need be.
+    // The first runs that still wait for a slot or their turn: their saved
+    // copies are retried, by the next process if need be.
     this.stopped = true;
 
     if (this.poller) {
@@ -328,6 +382,39 @@ export class JobsService
     saved: ISavedJob | null,
   ) {
     return this.slots.run(() => this.runFirst(name, handler, payload, saved));
+  }
+
+  // Starts the first runs one after another, `intervalMs` apart at least,
+  // each once it has a slot: waiting for slots can't bunch them up.
+  private async runSpaced(
+    name: string,
+    handler: JobHandler<object>,
+    runs: { payload: object; saved: ISavedJob }[],
+    intervalMs: number,
+  ) {
+    const started: Promise<void>[] = [];
+    let nextAt = 0;
+
+    for (const { payload, saved } of runs) {
+      const wait = nextAt - performance.now();
+
+      if (wait > 0) {
+        await delay(wait);
+      }
+
+      if (this.stopped) {
+        break;
+      }
+
+      const release = await this.slots.acquire();
+
+      nextAt = performance.now() + intervalMs;
+      started.push(
+        this.runFirst(name, handler, payload, saved).finally(release),
+      );
+    }
+
+    await Promise.all(started);
   }
 
   // The first run of a job saved as `saved` (null: not saved, its only run),
