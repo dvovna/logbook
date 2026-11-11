@@ -60,6 +60,10 @@ const ROUND_TRIPS: Record<string, { roundTrips: number; statements: number }> =
     'go to the previous week on My time': { roundTrips: 2, statements: 6 },
     "change a logged vacation's dates": { roundTrips: 10, statements: 15 },
     "change a vacation's comment": { roundTrips: 9, statements: 10 },
+    'change the dates of a vacation, the team following the company rules': {
+      roundTrips: 10,
+      statements: 15,
+    },
     'delete a logged vacation': { roundTrips: 9, statements: 9 },
     'log time off from the offer': { roundTrips: 2, statements: 2 },
     'save the time off settings': { roundTrips: 7, statements: 7 },
@@ -418,6 +422,41 @@ describe('Round trips to the database before the answer', () => {
         working_days: 4,
         user_comment: 'Family trip',
       });
+    });
+
+    it('changes the dates of a logged vacation of a team that follows the company rules', async () => {
+      await t.db
+        .insertInto('rule_sets')
+        .values({ slack_team_id: workspace.id, is_default: true })
+        .onConflict((conflict) => conflict.doNothing())
+        .execute();
+      const defaultSet = await t.db
+        .selectFrom('rule_sets')
+        .select('id')
+        .where('slack_team_id', '=', workspace.id)
+        .where('is_default', '=', true)
+        .executeTakeFirstOrThrow();
+      await t.db
+        .updateTable('teams')
+        .set({ rule_set_id: defaultSet.id })
+        .where('id', '=', design.id)
+        .execute();
+      const request = await loggedVacation();
+
+      await submit(
+        'change the dates of a vacation, the team following the company rules',
+        await requestForm(
+          hr,
+          request,
+          VacationRequestsTabViewActionId.EditRequest,
+        ),
+        { start_date: '2026-06-22', end_date: '2026-06-26' },
+        hr,
+      );
+
+      expect(
+        await workspace.row('vacation_requests', request.id),
+      ).toMatchObject({ start_date: '2026-06-22', working_days: 5 });
     });
 
     it('deletes a logged vacation', async () => {

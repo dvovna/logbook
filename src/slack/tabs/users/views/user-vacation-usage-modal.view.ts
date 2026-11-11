@@ -99,8 +99,6 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
       usedText += ` (*${workingUsed}* working)`;
     }
 
-    // Without a vacation policy (the team's or the company rules') nothing is
-    // limited.
     let availableText = NO_LIMIT_TEXT;
 
     if (limits) {

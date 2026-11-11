@@ -42,19 +42,23 @@ export class RuleSetsRepository extends BaseRepository<
     };
   };
 
-  // The workspace's company rules. Two calls at once give one row: the
-  // insert yields to the unique index on the default set, whoever was first.
+  // Reading is the common case, so it comes first. Two first calls at once
+  // both insert and the unique index on the default set keeps one row.
   public async ensureDefault(slackTeamId: string): Promise<IRuleSetViewModel> {
+    const filter = { slack_team_id: slackTeamId, is_default: true };
+    const existing = await this.findOne(filter);
+
+    if (existing) {
+      return existing;
+    }
+
     await this.db
       .insertInto('rule_sets')
       .values({ slack_team_id: slackTeamId, is_default: true })
       .onConflict((conflict) => conflict.doNothing())
       .execute();
 
-    const ruleSet = await this.findOne({
-      slack_team_id: slackTeamId,
-      is_default: true,
-    });
+    const ruleSet = await this.findOne(filter);
 
     if (!ruleSet) {
       throw new Error(

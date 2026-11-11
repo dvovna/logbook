@@ -80,8 +80,6 @@ export class VacationRequestProcessingService implements OnModuleInit {
       return;
     }
 
-    // The rules of the request's team, or the company rules: a team that
-    // follows them, and a person in no team, get the company's level 2.
     const rules = await this.teamRulesService.forTeam(
       request.team?.id,
       request.slack_team_id,
@@ -191,11 +189,11 @@ export class VacationRequestProcessingService implements OnModuleInit {
   }
 
   private buildApproverLevel(
-    approvers: string[] | null,
+    approvers: string[],
     rule: ApprovalRule,
     name: string,
   ): ICreateWorkflowLevelParams | null {
-    if (!approvers || approvers.length === 0) {
+    if (approvers.length === 0) {
       return null;
     }
 

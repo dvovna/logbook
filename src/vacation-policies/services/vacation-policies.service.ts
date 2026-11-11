@@ -191,7 +191,6 @@ export default class VacationPoliciesService implements IVacationPoliciesService
       );
     }
 
-    // A team that follows the company rules doesn't use the policy it had.
     const teamsCount = await this.teamsService.count({
       slackTeamId: policy.slack_team_id,
       vacationPolicyId: policy.id,

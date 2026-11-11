@@ -106,8 +106,6 @@ export class VacationsUsageService implements IVacationsUsageService {
     );
   }
 
-  // The policy of the user's team, or of the company rules for a team that
-  // follows them and for someone in no team.
   private async getVacationPolicyIfExists(user: IUserViewModel) {
     const { vacationPolicyId } = await this.teamRulesService.forTeam(
       user.team_id,

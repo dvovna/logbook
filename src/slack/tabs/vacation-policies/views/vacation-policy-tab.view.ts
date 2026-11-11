@@ -22,8 +22,7 @@ import { ISearchResult } from '@common/types/pagination.types';
 
 interface IGetViewParams extends IBaseTabViewParams {
   policies: ISearchResult<IVacationPolicyViewModel>;
-  // What follows each policy: "Company rules" and the names of the teams.
-  teamsByPolicy: Record<string, string[]>;
+  usedByPolicy: Record<string, string[]>;
 }
 
 export interface IVacationPoliciesTabMetaData {
@@ -65,13 +64,13 @@ export class VacationPolicyTabView extends BaseTabView<
     };
   }
 
-  protected getContentBlocks({ policies, teamsByPolicy }): AnyBlock[] {
+  protected getContentBlocks({ policies, usedByPolicy }): AnyBlock[] {
     const blocks: AnyBlock[] = [];
 
     const listBlocks = PaginatedListView.getBlocks<IVacationPolicyViewModel>({
       itemsData: policies,
       getItemBlocks: (item: IVacationPolicyViewModel) =>
-        this.getPolicyListItemBlocks(item, teamsByPolicy[item.id] ?? []),
+        this.getPolicyListItemBlocks(item, usedByPolicy[item.id] ?? []),
       prevPageActionId: PolicyTabViewActionId.PaginationPrev,
       nextPageActionId: PolicyTabViewActionId.PaginationNext,
       emptyText:

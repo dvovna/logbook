@@ -13,8 +13,7 @@ export class TeamRulesService {
     private readonly ruleSetsRepository: RuleSetsRepository,
   ) {}
 
-  // The rules for a team, or for a person in no team (also a team ID that is
-  // not the workspace's).
+  // Also for a person in no team, or a team ID that is not the workspace's.
   public async forTeam(
     teamId: string | null | undefined,
     slackTeamId: string,
@@ -30,25 +29,34 @@ export class TeamRulesService {
       return ownRules(team);
     }
 
-    return companyRules(
+    return ruleSetRules(
       team,
       await this.ruleSetsRepository.ensureDefault(slackTeamId),
     );
   }
 
-  // The rules of every team of the workspace, with the company rules read
-  // once.
   public async forAllTeams(
     slackTeamId: string,
   ): Promise<IEffectiveTeamRules[]> {
-    const [teams, ruleSet] = await Promise.all([
+    return (await this.forWorkspace(slackTeamId)).teams;
+  }
+
+  // The company rules and the rules of every team, read together.
+  public async forWorkspace(slackTeamId: string): Promise<{
+    companyRules: IRuleSetViewModel;
+    teams: IEffectiveTeamRules[];
+  }> {
+    const [teams, companyRules] = await Promise.all([
       this.teamsRepository.findMany({ slack_team_id: slackTeamId }),
       this.ruleSetsRepository.ensureDefault(slackTeamId),
     ]);
 
-    return teams.map((team) =>
-      team.rule_set_id ? companyRules(team, ruleSet) : ownRules(team),
-    );
+    return {
+      companyRules,
+      teams: teams.map((team) =>
+        team.rule_set_id ? ruleSetRules(team, companyRules) : ownRules(team),
+      ),
+    };
   }
 }
 
@@ -64,7 +72,7 @@ const ownRules = (team: ITeamViewModel): IEffectiveTeamRules => ({
 });
 
 // Level 1 always comes from the team.
-const companyRules = (
+const ruleSetRules = (
   team: ITeamViewModel | null,
   ruleSet: IRuleSetViewModel,
 ): IEffectiveTeamRules => ({
