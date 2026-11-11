@@ -588,7 +588,7 @@ describe('RequestWorkflowService', () => {
   describe('closeBeforeDelete', () => {
     const admin = { ...approver, id: 'admin-1', slack_id: 'U_ADMIN' };
 
-    it('marks every open step as deleted and closes their messages from what it read', async () => {
+    it('closes every open step and their messages from what it read', async () => {
       const openSteps = [
         buildStep({ id: 'step-1' }),
         buildStep({ id: 'step-2', step_level: 2 }),
