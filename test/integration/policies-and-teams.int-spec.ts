@@ -145,6 +145,38 @@ describe('Vacation policies and teams', () => {
       expect(await workspace.rows('vacation_policies')).toEqual([]);
     });
 
+    it('takes a generous policy, up to 60 days a field', async () => {
+      const submit = async (vacationDays: string) =>
+        t.slack
+          .submitView(
+            workspace,
+            admin,
+            await openModal(POLICIES_TAB, PolicyTabViewActionId.AddPolicy),
+            {
+              name: `Generous ${vacationDays}`,
+              vacation_days: vacationDays,
+              working_days: '33',
+              bonus_days: '10',
+              carryover_days: '35',
+            },
+          )
+          .expect(200);
+
+      expect((await submit('45')).body).toEqual({ response_action: 'clear' });
+      expect((await submit('61')).body).toEqual({
+        response_action: 'errors',
+        errors: { vacation_days_block: 'Calendar days cannot exceed 60' },
+      });
+      expect(await workspace.rows('vacation_policies')).toEqual([
+        expect.objectContaining({
+          vacation_days: 45,
+          working_days: 33,
+          bonus_days: 10,
+          carryover_days: 35,
+        }),
+      ]);
+    });
+
     it('asks for at least one working day, as the database does', async () => {
       const form = await openModal(
         POLICIES_TAB,

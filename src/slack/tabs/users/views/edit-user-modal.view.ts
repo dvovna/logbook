@@ -1,3 +1,4 @@
+import { MAX_POLICY_DAYS } from '@modules/vacation-policies/constants/policy-limits';
 import { getJoinedVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
 import { formatDate } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
@@ -126,7 +127,7 @@ export class EditUserModalView extends BaseModalView<
         action_id: 'carryover_days',
         is_decimal_allowed: false,
         min_value: '0',
-        max_value: '30',
+        max_value: String(MAX_POLICY_DAYS),
         initial_value: daysUnused !== null ? daysUnused.toString() : '0',
       },
       label: {

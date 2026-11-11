@@ -1,3 +1,4 @@
+import { MAX_POLICY_DAYS } from '@modules/vacation-policies/constants/policy-limits';
 import { z } from 'zod';
 import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
 import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
@@ -17,22 +18,22 @@ const policyFormSchema = z
     vacation_days: z.coerce
       .number()
       .min(0, 'Calendar days cannot be negative')
-      .max(30, 'Calendar days cannot exceed 30')
+      .max(MAX_POLICY_DAYS, `Calendar days cannot exceed ${MAX_POLICY_DAYS}`)
       .default(0),
     working_days: z.coerce
       .number()
       .min(1, 'Working days must be at least 1')
-      .max(30, 'Working days cannot exceed 30')
+      .max(MAX_POLICY_DAYS, `Working days cannot exceed ${MAX_POLICY_DAYS}`)
       .default(0),
     carryover_days: z.coerce
       .number()
       .min(0, 'Carryover days cannot be negative')
-      .max(30, 'Carryover days cannot exceed 30')
+      .max(MAX_POLICY_DAYS, `Carryover days cannot exceed ${MAX_POLICY_DAYS}`)
       .default(0),
     bonus_days: z.coerce
       .number()
       .min(0, 'Bonus days cannot be negative')
-      .max(30, 'Bonus days cannot exceed 30')
+      .max(MAX_POLICY_DAYS, `Bonus days cannot exceed ${MAX_POLICY_DAYS}`)
       .default(0),
   })
   .refine((data) => data.working_days <= data.vacation_days, {
