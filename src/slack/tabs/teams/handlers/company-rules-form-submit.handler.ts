@@ -79,13 +79,19 @@ export class CompanyRulesFormSubmitHandler extends BaseModalFormSubmitHandler<
     user: IUserViewModel,
     metadata: ICompanyRulesModalMetadata,
   ) {
-    this.tabNavigationService.navigate(TabId.Teams, {
-      user,
-      metadata: metadata.pageMetadata
-        ? (JSON.parse(metadata.pageMetadata) as ITeamsTabMetaData)
-        : {},
-      notice: '✅ Company rules saved.',
-    });
+    const notice = '✅ Company rules saved.';
+
+    if (metadata.openedFrom === TabId.Home) {
+      this.tabNavigationService.navigate(TabId.Home, { user, notice });
+    } else {
+      this.tabNavigationService.navigate(TabId.Teams, {
+        user,
+        metadata: metadata.pageMetadata
+          ? (JSON.parse(metadata.pageMetadata) as ITeamsTabMetaData)
+          : {},
+        notice,
+      });
+    }
 
     return SlackViewResponseFactory.success();
   }
@@ -101,6 +107,7 @@ export class CompanyRulesFormSubmitHandler extends BaseModalFormSubmitHandler<
         errorMessage,
         user,
         pageMetadata: metadata.pageMetadata,
+        openedFrom: metadata.openedFrom,
       }),
     );
   }

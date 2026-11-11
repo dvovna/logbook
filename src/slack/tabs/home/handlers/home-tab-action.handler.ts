@@ -17,6 +17,14 @@ import {
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
 import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
+import { runInBackground } from '@common/utils/run-in-background';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
+import {
+  TeamsTabModalName,
+  TeamsTabService,
+} from '@modules/slack/tabs/teams/services/teams-tab.service';
+import { TeamFileDmService } from '@modules/slack/team-file/services/team-file-dm.service';
+import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { submittedNotice } from '@modules/slack/tabs/time-tracking/utils/submitted-notice.utils';
 
 @Injectable()
@@ -33,6 +41,8 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
   public constructor(
     private readonly homeTabService: HomeTabService,
     private readonly timeEntriesService: TimeEntriesService,
+    private readonly teamsTabService: TeamsTabService,
+    private readonly teamFileDmService: TeamFileDmService,
     protected readonly tabNavigationService: TabNavigationService,
   ) {
     super(tabNavigationService);
@@ -46,6 +56,8 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
       ),
       [HomeTabActionId.LogTime]: this.handleLogTime,
       [HomeTabActionId.SubmitTimeEntries]: this.handleSubmitTimeEntries,
+      [TeamsTabViewActionId.CompanyRules]: this.handleCompanyRules,
+      [TeamsTabViewActionId.TeamFile]: this.handleTeamFile,
     };
   }
 
@@ -57,6 +69,40 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
       payload.trigger_id || user.slack_id,
       HomeTabModalName.CreateVacationRequest,
       { user },
+    );
+  };
+
+  // The setup checklist's buttons. Home is open to every role, so these
+  // check the role themselves.
+  private handleCompanyRules = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
+      return;
+    }
+
+    await this.teamsTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      TeamsTabModalName.CompanyRules,
+      {
+        user,
+        pageMetadata: payload.view.private_metadata,
+        openedFrom: TabId.Home,
+      },
+    );
+  };
+
+  private handleTeamFile = (
+    _payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
+      return;
+    }
+
+    runInBackground(this.logger, 'send the team file', () =>
+      this.teamFileDmService.sendTemplate(user),
     );
   };
 

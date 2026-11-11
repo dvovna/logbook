@@ -35,8 +35,8 @@ interface IWelcomeJob {
 export const WELCOME_TEXT = [
   "👋 *Logbook is installed, and you're its admin.* Set it up in the app's *Home* tab, in this order:",
   '1. *More → Policies*: a vacation policy, with its days and holidays. Without one, time off is tracked with no limits.',
-  "2. *More → Teams*: teams and their approvers. Approvers need the Manager or HR role: change people's roles under *More → People* first.",
-  "3. *More → People*, or a team's form: put everyone in a team, so their requests reach its approvers.",
+  '2. *More → Teams → Company rules*: who approves after the team lead (HR, leadership), who hears of decisions, and the policy.',
+  "3. *More → Teams → Set up from a file*: fill in everyone's team and team lead, then send the file back.",
   '4. *More → Projects*: projects, if you track time.',
   'Until that is done, Home shows a checklist.',
 ].join('\n');

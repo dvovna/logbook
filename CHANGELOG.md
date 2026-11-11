@@ -2,6 +2,21 @@
 
 Notable changes per release. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a minor version may need a step when you update; its section says which.
 
+## [Unreleased]
+
+Company rules, and teams set up from a file. Update step: three database migrations, see Running it.
+
+### Teams and approvers
+- Company rules, opened from Teams: the level 2 approvers and their rule, who hears of decisions, and the vacation policy. A team follows them or keeps rules of its own, chosen in the team form; people in no team follow them. Level 1 always comes from the team.
+- Teams → "Set up from a file": the bot sends a template with everyone's team and team lead, you fill it in and send it back as CSV or Excel, and it answers with a preview of what changes. Apply it within 7 days, and Undo it for 7 days after. For Admin and HR.
+- When someone joins later, HR gets a message asking which team they are on. It waits until the daily member import, so people who arrive together are asked about at once.
+- Home's setup checklist now has the company rules and the team file as steps, and the welcome message to the installing admin lists the steps in the same order.
+
+### Running it
+- **Update step:** this release adds three database migrations (`20261112100000_company_rules.sql`, `20261112110000_team_file_uploads.sql`, `20261112120000_new_person_prompts.sql`). Apply them as 0.2.0 describes, with `pnpm supabase db push --remote "<connection string>"`; the app refuses to start without them.
+- The `/user-team-mapping` command and `user-team-mapping.csv` are gone, replaced by the team file. Apply `slack-app-manifest.yml` again to drop the command from an installed app.
+- HR may now share files with the bot (the team file); `user-vacations.csv` stays Admin only.
+
 ## [0.2.0] - 2026-11-10
 
 A weekly timesheet and time off logged as time. Update step: two database migrations, see Running it.

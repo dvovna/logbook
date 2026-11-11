@@ -4,6 +4,7 @@ import { IOption } from '@common/types/option.interface';
 import BaseModalView, {
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
+import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { IRuleFieldValues } from '@modules/slack/tabs/teams/types/rule-field-values.interface';
 import { ruleFields } from '@modules/slack/tabs/teams/views/rule-fields';
@@ -16,6 +17,8 @@ interface IGetViewParams extends IBaseModalViewParams {
 
 export interface ICompanyRulesModalMetadata {
   pageMetadata: string;
+  // Set when the modal was opened from Home, which a save re-renders.
+  openedFrom?: TabId;
 }
 
 @Injectable()

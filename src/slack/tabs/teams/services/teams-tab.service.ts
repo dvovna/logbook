@@ -47,6 +47,10 @@ interface IGetTeamsTabViewParams extends IPublishBaseParams {
   metadata?: ITeamsTabMetaData;
 }
 
+interface ICompanyRulesModalViewParams extends IOpenModalBaseParams<string> {
+  openedFrom?: TabId;
+}
+
 const TEAMS_TAB_PAGE_SIZE = 10;
 
 type TeamsTabModalViewResolversMapType = {
@@ -60,7 +64,7 @@ type TeamsTabModalViewResolversMapType = {
     params: ITeamModalViewParams,
   ) => Promise<View>;
   [TeamsTabModalName.CompanyRules]: (
-    params: IOpenModalBaseParams<string>,
+    params: ICompanyRulesModalViewParams,
   ) => Promise<View>;
 };
 
@@ -226,7 +230,8 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
     user,
     errorMessage,
     pageMetadata,
-  }: IOpenModalBaseParams<string>) {
+    openedFrom,
+  }: ICompanyRulesModalViewParams) {
     const [companyRules, formData] = await Promise.all([
       this.companyRulesService.get(user.slack_team_id),
       this.readTeamFormData(user),
@@ -247,7 +252,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
         hrUsers,
         errorMessage,
       },
-      { pageMetadata },
+      { pageMetadata, openedFrom },
     );
   }
 
