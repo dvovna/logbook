@@ -14,6 +14,7 @@ Company rules, and teams set up from a file. Update step: four database migratio
 
 ### Time tracking
 - The Monday reminder of unsubmitted time goes out within 10 minutes of 09:00 UTC, a few messages a second per workspace so that Slack doesn't refuse them, and a workspace where it fails no longer keeps the others from getting theirs.
+- Time reports and "Who hasn't submitted" are added up in the database, and the time report's CSV is read a page at a time: a year's report of a 400-person workspace takes a tenth of a second instead of three seconds and half a gigabyte of the app's memory, during which other people's clicks waited. Sending the CSV no longer works the report out twice. A CSV holds at most 200,000 entries; above that the DM asks for a shorter period or a narrower report.
 
 ### Running it
 - `DATABASE_POOL_SIZE` defaults to 10 (was 5), and the job queue holds 3 connections (was 2): together they must stay under your Supabase project's "Pool Size" (15 on the smaller compute sizes). A query that gets no connection within 2 seconds now fails instead of waiting.
