@@ -10,6 +10,7 @@ import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
 import { CLOSE_TIMEOUT_MS } from '@common/constants/shutdown';
 import * as errorReporter from '@common/errors/error-reporter';
 import { TransactionService } from 'src/database/transaction.service';
+import { isInJob } from '@common/jobs/job-context';
 
 // pg-boss without Postgres: it saves nothing and answers with job IDs. The
 // integration tests cover the queue in Postgres (job-retries.int-spec.ts).
@@ -602,6 +603,27 @@ describe('JobsService', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+
+    it('runs handlers as jobs, first runs and retries alike', async () => {
+      const inJob: boolean[] = [];
+      jobs.define('check', () => {
+        inJob.push(isInJob());
+
+        return Promise.resolve();
+      });
+
+      void jobs.run('check', {});
+      await whenBackgroundWorkIsDone();
+      queue.fetch
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { id: 'j1', data: {}, retryCount: 1, retryLimit: 8 },
+        ]);
+      await jobs.runDueJobs();
+
+      expect(inJob).toEqual([true, true]);
+      expect(isInJob()).toBe(false);
     });
 
     it('starts no waiting job once the app shuts down', async () => {

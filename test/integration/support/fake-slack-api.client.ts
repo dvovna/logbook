@@ -1,11 +1,13 @@
 import { randomUUID } from 'crypto';
 import { View } from '@slack/types/dist/views';
+import { WebAPIRateLimitedError } from '@slack/web-api';
 import {
   ViewsOpenArguments,
   ViewsPublishArguments,
   ViewsUpdateArguments,
 } from '@slack/web-api/dist/types/request/views';
 import SlackApiClient from 'src/api-clients/third-party/slack-api.client';
+import { SlackRateLimits } from 'src/api-clients/third-party/slack-rate-limits';
 import { SlackJson } from './block-kit';
 import {
   completeUploadProblems,
@@ -86,6 +88,9 @@ type FailingMethod =
 
 type PublicMethods<T> = Pick<T, keyof T>;
 
+// Slack's Retry-After when the fake answers `ratelimited`.
+export const FAKE_RETRY_AFTER_SECONDS = 1;
+
 // The real client returns Slack's response types; the fake answers with plain
 // JSON of the same shape.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,6 +120,9 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   private messageCount = 0;
   // The version of each open modal, by view ID, as Slack keeps it.
   private readonly viewHashes = new Map<string, string>();
+  // A rate limit is waited out as SlackApiClient waits it out, per method
+  // and token.
+  private readonly rateLimits = new SlackRateLimits();
 
   // --- test setup -----------------------------------------------------------
 
@@ -141,13 +149,21 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   // --- assertions -----------------------------------------------------------
 
   // The next `times` calls of `method` fail as when Slack is down, or with
-  // `error` (e.g. missing_scope); they are not recorded.
+  // `error` (e.g. missing_scope); they are not recorded. With `ratelimited`
+  // Slack asks to wait FAKE_RETRY_AFTER_SECONDS: the call waits, with the
+  // other calls of the method in the workspace, and tries again, as the real
+  // client does (SlackRateLimits).
   public failNext(
     method: FailingMethod,
     times = 1,
     error = 'service_unavailable',
   ) {
     this.failures.set(method, { times, error });
+  }
+
+  // How many of the failures failNext() asked for are still to come.
+  public failuresLeft(method: FailingMethod) {
+    return this.failures.get(method)?.times ?? 0;
   }
 
   // As failNext, for the messages to one channel or user only: an action
@@ -289,52 +305,63 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
 
   // --- SlackApiClient -------------------------------------------------------
 
-  public async postEphemeral({ accessToken, ...params }) {
-    this.refuseInvalid('chat.postEphemeral', messageProblems(params));
-    reportDisplayProblems('chat.postEphemeral', messageDisplayProblems(params));
-    this.record('chat.postEphemeral', params, accessToken);
+  public postEphemeral({ accessToken, ...params }) {
+    return this.rateLimits.call('chat.postEphemeral', accessToken, async () => {
+      this.refuseInvalid('chat.postEphemeral', messageProblems(params));
+      reportDisplayProblems(
+        'chat.postEphemeral',
+        messageDisplayProblems(params),
+      );
+      this.record('chat.postEphemeral', params, accessToken);
+    });
   }
 
-  public async postMessage({ accessToken, ...params }) {
-    this.failIfAsked('chat.postMessage', params.channel);
-    this.refuseInvalid('chat.postMessage', messageProblems(params));
-    reportDisplayProblems('chat.postMessage', messageDisplayProblems(params));
-    // Like Slack: a message to a user ID goes to the DM channel with them.
-    const channel = params.channel.startsWith('U')
-      ? `D${params.channel.slice(1)}`
-      : params.channel;
-    const result = { ok: true, channel, ts: this.nextTs() };
+  public postMessage({ accessToken, ...params }) {
+    return this.rateLimits.call('chat.postMessage', accessToken, async () => {
+      this.failIfAsked('chat.postMessage', params.channel);
+      this.refuseInvalid('chat.postMessage', messageProblems(params));
+      reportDisplayProblems('chat.postMessage', messageDisplayProblems(params));
+      // Like Slack: a message to a user ID goes to the DM channel with them.
+      const channel = params.channel.startsWith('U')
+        ? `D${params.channel.slice(1)}`
+        : params.channel;
+      const result = { ok: true, channel, ts: this.nextTs() };
 
-    this.record('chat.postMessage', params, accessToken, result);
+      this.record('chat.postMessage', params, accessToken, result);
 
-    return result;
+      return result;
+    });
   }
 
-  public async updateMessage({ accessToken, ...params }) {
-    this.failIfAsked('chat.update', params.channel);
-    this.refuseInvalid('chat.update', messageProblems(params));
-    reportDisplayProblems('chat.update', messageDisplayProblems(params));
-    this.record('chat.update', params, accessToken);
+  public updateMessage({ accessToken, ...params }) {
+    return this.rateLimits.call('chat.update', accessToken, async () => {
+      this.failIfAsked('chat.update', params.channel);
+      this.refuseInvalid('chat.update', messageProblems(params));
+      reportDisplayProblems('chat.update', messageDisplayProblems(params));
+      this.record('chat.update', params, accessToken);
 
-    return { ok: true, channel: params.channel, ts: params.ts };
+      return { ok: true, channel: params.channel, ts: params.ts };
+    });
   }
 
   // Like Slack, it needs the conversation (D… for a DM, as postMessage
   // answered) and a message the app posted there.
-  public async deleteMessage({
+  public deleteMessage({
     accessToken,
     channel,
     ts,
   }: Parameters<SlackApiClient['deleteMessage']>[0]) {
-    const posted = this.callsWith(accessToken, 'chat.postMessage').some(
-      ({ result }) => result?.channel === channel && result?.ts === ts,
-    );
+    return this.rateLimits.call('chat.delete', accessToken, async () => {
+      const posted = this.callsWith(accessToken, 'chat.postMessage').some(
+        ({ result }) => result?.channel === channel && result?.ts === ts,
+      );
 
-    this.refuseInvalid(
-      'chat.delete',
-      posted ? [] : [`no message ${ts} in ${channel}`],
-    );
-    this.record('chat.delete', { channel, ts }, accessToken);
+      this.refuseInvalid(
+        'chat.delete',
+        posted ? [] : [`no message ${ts} in ${channel}`],
+      );
+      this.record('chat.delete', { channel, ts }, accessToken);
+    });
   }
 
   public async openView(
@@ -358,76 +385,82 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   // Like Slack, it needs the ID of the open view (the interaction's
   // view.id), checks the view as views.open does, and refuses an update with
   // a `hash` that is no longer the view's (hash_conflict, not recorded).
-  public async updateView(
+  public updateView(
     args: ViewsUpdateArguments,
     accessToken: string,
   ): Promise<SlackResponse> {
-    const { view_id: viewId, hash } = args as {
-      view_id?: string;
-      hash?: string;
-    };
+    return this.rateLimits.call('views.update', accessToken, async () => {
+      const { view_id: viewId, hash } = args as {
+        view_id?: string;
+        hash?: string;
+      };
 
-    if (hash && viewId && this.viewHashes.get(viewId) !== hash) {
-      throw Object.assign(
-        new Error('An API error occurred: hash_conflict (views.update)'),
-        {
-          code: 'slack_webapi_platform_error',
-          data: { ok: false, error: 'hash_conflict' },
-        },
+      if (hash && viewId && this.viewHashes.get(viewId) !== hash) {
+        throw Object.assign(
+          new Error('An API error occurred: hash_conflict (views.update)'),
+          {
+            code: 'slack_webapi_platform_error',
+            data: { ok: false, error: 'hash_conflict' },
+          },
+        );
+      }
+
+      this.refuseInvalid('views.update', [
+        ...(viewId ? [] : ['no view_id']),
+        ...viewProblems(args.view),
+      ]);
+      reportDisplayProblems(
+        `views.update ${args.view.callback_id ?? ''}`,
+        viewDisplayProblems(args.view),
       );
-    }
+      const result = {
+        ok: true,
+        view: {
+          id: viewId,
+          hash: viewId && this.nextViewHash(viewId),
+          ...args.view,
+        },
+      };
 
-    this.refuseInvalid('views.update', [
-      ...(viewId ? [] : ['no view_id']),
-      ...viewProblems(args.view),
-    ]);
-    reportDisplayProblems(
-      `views.update ${args.view.callback_id ?? ''}`,
-      viewDisplayProblems(args.view),
-    );
-    const result = {
-      ok: true,
-      view: {
-        id: viewId,
-        hash: viewId && this.nextViewHash(viewId),
-        ...args.view,
-      },
-    };
+      this.record('views.update', args, accessToken, result);
 
-    this.record('views.update', args, accessToken, result);
-
-    return result;
+      return result;
+    });
   }
 
-  public async publishView(
+  public publishView(
     args: ViewsPublishArguments,
     accessToken: string,
   ): Promise<SlackResponse> {
-    this.refuseInvalid('views.publish', viewProblems(args.view));
-    reportDisplayProblems(
-      `views.publish ${args.view.callback_id ?? ''}`,
-      viewDisplayProblems(args.view),
-    );
-    this.record('views.publish', args, accessToken);
+    return this.rateLimits.call('views.publish', accessToken, async () => {
+      this.refuseInvalid('views.publish', viewProblems(args.view));
+      reportDisplayProblems(
+        `views.publish ${args.view.callback_id ?? ''}`,
+        viewDisplayProblems(args.view),
+      );
+      this.record('views.publish', args, accessToken);
 
-    return { ok: true, view: { id: this.nextViewId(), ...args.view } };
+      return { ok: true, view: { id: this.nextViewId(), ...args.view } };
+    });
   }
 
-  public async getFileInfo(fileId: string, accessToken: string) {
-    this.record('files.info', { file: fileId }, accessToken);
+  public getFileInfo(fileId: string, accessToken: string) {
+    return this.rateLimits.call('files.info', accessToken, async () => {
+      this.record('files.info', { file: fileId }, accessToken);
 
-    const file = this.files.get(fileId);
+      const file = this.files.get(fileId);
 
-    if (!file) {
-      throw new Error('file_not_found');
-    }
+      if (!file) {
+        throw new Error('file_not_found');
+      }
 
-    return {
-      id: fileId,
-      name: file.name,
-      size: file.size,
-      url_private_download: `https://files.slack.com/files-pri/T_TEST-${fileId}/download/${file.name}`,
-    };
+      return {
+        id: fileId,
+        name: file.name,
+        size: file.size,
+        url_private_download: `https://files.slack.com/files-pri/T_TEST-${fileId}/download/${file.name}`,
+      };
+    });
   }
 
   public async downloadFileBytes(url: string, accessToken: string) {
@@ -445,81 +478,99 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
 
   // Slack's first two steps: files.getUploadURLExternal, then the bytes to
   // the upload URL (kept here with the file). shareFile() is the third.
-  public async uploadFile({
+  public uploadFile({
     accessToken,
     filename,
     content,
   }: Parameters<SlackApiClient['uploadFile']>[0]): Promise<string> {
     const length = Buffer.byteLength(content);
 
-    this.failIfAsked('files.getUploadURLExternal');
-    this.refuseInvalid(
+    return this.rateLimits.call(
       'files.getUploadURLExternal',
-      uploadUrlProblems({ filename, length }),
-    );
-
-    const fileId = `F${randomUUID().slice(0, 8).toUpperCase()}`;
-
-    this.record(
-      'files.getUploadURLExternal',
-      { filename, length },
       accessToken,
-      {
-        ok: true,
-        upload_url: `https://files.slack.com/upload/v1/${fileId}`,
-        file_id: fileId,
+      async () => {
+        this.failIfAsked('files.getUploadURLExternal');
+        this.refuseInvalid(
+          'files.getUploadURLExternal',
+          uploadUrlProblems({ filename, length }),
+        );
+
+        const fileId = `F${randomUUID().slice(0, 8).toUpperCase()}`;
+
+        this.record(
+          'files.getUploadURLExternal',
+          { filename, length },
+          accessToken,
+          {
+            ok: true,
+            upload_url: `https://files.slack.com/upload/v1/${fileId}`,
+            file_id: fileId,
+          },
+        );
+        this.uploads.set(fileId, { filename, content });
+
+        return fileId;
       },
     );
-    this.uploads.set(fileId, { filename, content });
-
-    return fileId;
   }
 
   // files.completeUploadExternal, into a conversation.
-  public async shareFile({
+  public shareFile({
     accessToken,
     fileId,
     channelId,
     title,
   }: Parameters<SlackApiClient['shareFile']>[0]): Promise<SlackResponse> {
-    const { filename } = this.uploads.get(fileId) ?? {};
-    const params = { files: [{ id: fileId, title }], channel_id: channelId };
-
-    this.failIfAsked('files.completeUploadExternal');
-    this.refuseInvalid(
+    return this.rateLimits.call(
       'files.completeUploadExternal',
-      completeUploadProblems(params, new Set(this.uploads.keys())),
-    );
-    this.record('files.completeUploadExternal', params, accessToken);
+      accessToken,
+      async () => {
+        const { filename } = this.uploads.get(fileId) ?? {};
+        const params = {
+          files: [{ id: fileId, title }],
+          channel_id: channelId,
+        };
 
-    return { ok: true, files: [{ id: fileId, title, name: filename }] };
+        this.failIfAsked('files.completeUploadExternal');
+        this.refuseInvalid(
+          'files.completeUploadExternal',
+          completeUploadProblems(params, new Set(this.uploads.keys())),
+        );
+        this.record('files.completeUploadExternal', params, accessToken);
+
+        return { ok: true, files: [{ id: fileId, title, name: filename }] };
+      },
+    );
   }
 
-  public async makeCall<ResponseData>(
+  public makeCall<ResponseData>(
     method: string,
     params: Record<string, unknown>,
     accessToken?: string,
   ): Promise<SlackResponse> {
-    this.record(method, params, accessToken);
+    return this.rateLimits.call(method, accessToken, async () => {
+      this.record(method, params, accessToken);
 
-    switch (method) {
-      case 'oauth.v2.access':
-        return this.oauthAccess(params) as ResponseData;
-      case 'users.info':
-        return this.usersInfo(params.user as string) as ResponseData;
-      case 'users.list':
-        return this.usersList(accessToken) as ResponseData;
-      case 'auth.revoke':
-        return { ok: true, revoked: true } as ResponseData;
-      default:
-        throw new Error(`FakeSlackApiClient does not implement ${method}`);
-    }
+      switch (method) {
+        case 'oauth.v2.access':
+          return this.oauthAccess(params) as ResponseData;
+        case 'users.info':
+          return this.usersInfo(params.user as string) as ResponseData;
+        case 'users.list':
+          return this.usersList(accessToken) as ResponseData;
+        case 'auth.revoke':
+          return { ok: true, revoked: true } as ResponseData;
+        default:
+          throw new Error(`FakeSlackApiClient does not implement ${method}`);
+      }
+    });
   }
 
   // --- fake Slack -----------------------------------------------------------
 
   // Thrown as @slack/web-api throws a platform error, with the code in
-  // `data.error` (slackErrorOf).
+  // `data.error` (slackErrorOf), and Slack's rate limit (an HTTP 429 with
+  // Retry-After) as it throws one with rejectRateLimitedCalls.
   private failIfAsked(method: string, channel?: string) {
     const failure = this.failures.get(method);
 
@@ -529,6 +580,10 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
       (!failure.channel || failure.channel === channel)
     ) {
       this.failures.set(method, { ...failure, times: failure.times - 1 });
+
+      if (failure.error === 'ratelimited') {
+        throw new WebAPIRateLimitedError(FAKE_RETRY_AFTER_SECONDS);
+      }
 
       throw Object.assign(
         new Error(`An API error occurred: ${failure.error} (${method})`),

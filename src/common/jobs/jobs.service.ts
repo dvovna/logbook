@@ -19,6 +19,7 @@ import {
   ISavedJob,
   JobHandler,
 } from '@common/jobs/types/jobs.types';
+import { runAsJob } from '@common/jobs/job-context';
 import { ConcurrencyLimit } from '@common/utils/concurrency-limit';
 import delay from '@common/utils/delay';
 import { finishesWithin } from '@common/utils/finishes-within';
@@ -438,7 +439,7 @@ export class JobsService
     job: PgBoss.JobWithMetadata<object>,
   ) {
     try {
-      await handler(job.data);
+      await runAsJob(() => handler(job.data));
       await this.boss.complete(queue, job.id);
     } catch (error) {
       const isLastTry = job.retryCount >= job.retryLimit;
@@ -625,7 +626,7 @@ export class JobsService
     }
 
     try {
-      await handler(payload);
+      await runAsJob(() => handler(payload));
     } catch (error) {
       // Without a saved copy nothing retries it: that was its only try.
       this.logFailure(

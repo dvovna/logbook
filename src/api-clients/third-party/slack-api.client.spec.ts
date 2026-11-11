@@ -1,12 +1,17 @@
-import { WebClient } from '@slack/web-api';
+import { WebAPIRateLimitedError, WebClient } from '@slack/web-api';
 import SlackApiClient, {
   CALL_OPTIONS,
+  IDLE_CLIENT_MS,
   INTERACTIVE_CALL_OPTIONS,
   slackErrorOf,
   uploadTimeoutMs,
 } from 'src/api-clients/third-party/slack-api.client';
+import { RESUME_JITTER_MS } from 'src/api-clients/third-party/slack-rate-limits';
 
-jest.mock('@slack/web-api', () => ({ WebClient: jest.fn() }));
+jest.mock('@slack/web-api', () => ({
+  ...jest.requireActual('@slack/web-api'),
+  WebClient: jest.fn(),
+}));
 
 // The integration tests replace this client with a fake, so what it sends to
 // the Slack Web API is checked here: the method, the token and how the
@@ -82,6 +87,73 @@ describe('SlackApiClient', () => {
     });
 
     expect(WebClient).toHaveBeenCalledTimes(1);
+  });
+
+  // A client used no more (with token rotation each workspace gets a new
+  // token every 12 hours) is dropped.
+  it('drops the clients of a token unused for an hour', async () => {
+    jest.useFakeTimers();
+
+    try {
+      const send = (accessToken: string) =>
+        client.postMessage({ channel: 'U1', text: 'Hi', accessToken });
+
+      client = new SlackApiClient();
+      await send('xoxb-old');
+      await jest.advanceTimersByTimeAsync(IDLE_CLIENT_MS / 2);
+      await send('xoxb-new');
+      await jest.advanceTimersByTimeAsync(IDLE_CLIENT_MS / 2 + 1);
+      await send('xoxb-new');
+      expect(WebClient).toHaveBeenCalledTimes(2);
+
+      await jest.advanceTimersByTimeAsync(IDLE_CLIENT_MS / 2);
+      await send('xoxb-new');
+      await send('xoxb-old');
+
+      // The new token's client stayed, the old one's was made again.
+      expect((WebClient as unknown as jest.Mock).mock.calls).toEqual([
+        ['xoxb-old', CALL_OPTIONS],
+        ['xoxb-new', CALL_OPTIONS],
+        ['xoxb-old', CALL_OPTIONS],
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // @slack/web-api would pause all of a client's calls for a rate limit on
+  // one of them: the client refuses rate-limited calls, and SlackRateLimits
+  // pauses only the method Slack limited.
+  it('waits out a rate limit on DMs without holding up the screens', async () => {
+    jest.useFakeTimers();
+
+    try {
+      const home = {
+        user_id: 'U1',
+        view: { type: 'home' as const, blocks: [] },
+      };
+      slack.chat.postMessage.mockRejectedValueOnce(
+        new WebAPIRateLimitedError(2),
+      );
+
+      const posting = client.postMessage({
+        channel: 'U1',
+        text: 'Hi',
+        accessToken: 'xoxb-1',
+      });
+      await jest.advanceTimersByTimeAsync(0);
+      await client.publishView(home, 'xoxb-1');
+
+      expect(slack.views.publish).toHaveBeenCalledWith(home);
+      expect(slack.chat.postMessage).toHaveBeenCalledTimes(1);
+
+      await jest.advanceTimersByTimeAsync(2_000 + RESUME_JITTER_MS);
+      await expect(posting).resolves.toEqual({ ok: true, ts: '1.0' });
+      expect(slack.chat.postMessage).toHaveBeenCalledTimes(2);
+      expect(CALL_OPTIONS.rejectRateLimitedCalls).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   // A modal has to open while its trigger_id lives, so views.open is not

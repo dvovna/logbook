@@ -6,6 +6,7 @@ import {
   ViewsPublishArguments,
   ViewsUpdateArguments,
 } from '@slack/web-api/dist/types/request/views';
+import { SlackRateLimits } from 'src/api-clients/third-party/slack-rate-limits';
 
 interface ISendMessageParams {
   channel: string;
@@ -42,11 +43,20 @@ export const INTERACTIVE_CALL_OPTIONS: WebClientOptions = {
 };
 
 // The other calls mostly run after Slack got its answer: a few quick
-// retries instead of the library's ten over about half an hour.
+// retries instead of the library's ten over about half an hour. A rate limit
+// is waited out by SlackRateLimits, which pauses only the method Slack
+// limited.
 export const CALL_OPTIONS: WebClientOptions = {
   retryConfig: { retries: 3, factor: 2, minTimeout: 500, maxTimeout: 4_000 },
+  rejectRateLimitedCalls: true,
   timeout: 10_000,
 };
+
+// The clients of a token unused this long are dropped: with token rotation
+// every workspace gets a new token every 12 hours, and the old one is never
+// used again.
+export const IDLE_CLIENT_MS = 60 * 60_000;
+const SWEEP_EVERY_MS = 10 * 60_000;
 
 // Where Slack serves files from and takes uploads (GovSlack has its own
 // domain).
@@ -84,7 +94,14 @@ export const slackErrorOf = (error: unknown): string | undefined =>
 @Injectable()
 export default class SlackApiClient {
   // One client per workspace token and kind of call, reused across calls.
-  private readonly clients = new Map<string, WebClient>();
+  private readonly clients = new Map<
+    string,
+    { client: WebClient; lastUsedAt: number }
+  >();
+
+  private lastSweepAt = performance.now();
+
+  private readonly rateLimits = new SlackRateLimits();
 
   public async postEphemeral({
     channel,
@@ -93,14 +110,12 @@ export default class SlackApiClient {
     blocks = [],
     accessToken,
   }: ISendEphemeralMessageParams) {
-    const client = this.getClient(accessToken);
-
-    const result = await client.chat.postEphemeral({
-      channel,
-      user: userId,
-      text,
-      blocks,
-    });
+    const result = await this.send(
+      'chat.postEphemeral',
+      accessToken,
+      (client) =>
+        client.chat.postEphemeral({ channel, user: userId, text, blocks }),
+    );
 
     if (!result.ok) {
       throw new Error(result.error || 'Failed to send message');
@@ -113,13 +128,9 @@ export default class SlackApiClient {
     blocks = [],
     accessToken,
   }: ISendMessageParams) {
-    const client = this.getClient(accessToken);
-
-    const result = await client.chat.postMessage({
-      channel,
-      text,
-      blocks,
-    });
+    const result = await this.send('chat.postMessage', accessToken, (client) =>
+      client.chat.postMessage({ channel, text, blocks }),
+    );
 
     if (!result.ok) {
       throw new Error(result.error || 'Failed to send message');
@@ -135,14 +146,9 @@ export default class SlackApiClient {
     blocks = [],
     accessToken,
   }: ISendMessageParams & { ts: string }) {
-    const client = this.getClient(accessToken);
-
-    const result = await client.chat.update({
-      channel,
-      ts,
-      text,
-      blocks,
-    });
+    const result = await this.send('chat.update', accessToken, (client) =>
+      client.chat.update({ channel, ts, text, blocks }),
+    );
 
     if (!result.ok) {
       throw new Error(result.error || 'Failed to update message');
@@ -160,9 +166,9 @@ export default class SlackApiClient {
     ts: string;
     accessToken: string;
   }) {
-    const client = this.getClient(accessToken);
-
-    const result = await client.chat.delete({ channel, ts });
+    const result = await this.send('chat.delete', accessToken, (client) =>
+      client.chat.delete({ channel, ts }),
+    );
 
     if (!result.ok) {
       throw new Error(result.error || 'Failed to delete message');
@@ -186,9 +192,9 @@ export default class SlackApiClient {
     viewUpdateArguments: ViewsUpdateArguments,
     accessToken: string,
   ) {
-    const client = this.getClient(accessToken);
-
-    const result = await client.views.update(viewUpdateArguments);
+    const result = await this.send('views.update', accessToken, (client) =>
+      client.views.update(viewUpdateArguments),
+    );
 
     if (!result.ok) {
       throw new Error(result.error || 'Failed to update view');
@@ -201,9 +207,9 @@ export default class SlackApiClient {
     viewPublishArguments: ViewsPublishArguments,
     accessToken: string,
   ) {
-    const client = this.getClient(accessToken);
-
-    const result = await client.views.publish(viewPublishArguments);
+    const result = await this.send('views.publish', accessToken, (client) =>
+      client.views.publish(viewPublishArguments),
+    );
 
     if (!result.ok) {
       throw new Error(result.error || 'Failed to publish view');
@@ -213,9 +219,9 @@ export default class SlackApiClient {
   }
 
   public async getFileInfo(fileId: string, accessToken: string) {
-    const client = this.getClient(accessToken);
-
-    const result = await client.files.info({ file: fileId });
+    const result = await this.send('files.info', accessToken, (client) =>
+      client.files.info({ file: fileId }),
+    );
 
     if (!result.ok) {
       throw new Error(result.error || 'Failed to fetch file info');
@@ -261,14 +267,17 @@ export default class SlackApiClient {
     content,
     accessToken,
   }: IUploadFileParams): Promise<string> {
-    const client = this.getClient(accessToken);
     const bytes = Buffer.from(content);
 
-    const { upload_url: uploadUrl, file_id: fileId } =
-      await client.files.getUploadURLExternal({
-        filename,
-        length: bytes.byteLength,
-      });
+    const { upload_url: uploadUrl, file_id: fileId } = await this.send(
+      'files.getUploadURLExternal',
+      accessToken,
+      (client) =>
+        client.files.getUploadURLExternal({
+          filename,
+          length: bytes.byteLength,
+        }),
+    );
 
     // The URL comes from Slack, and only the file goes there.
     if (!uploadUrl || !fileId || !isSlackFileUrl(uploadUrl)) {
@@ -296,12 +305,15 @@ export default class SlackApiClient {
     title,
     accessToken,
   }: IShareFileParams) {
-    const client = this.getClient(accessToken);
-
-    const result = await client.files.completeUploadExternal({
-      files: [{ id: fileId, title }],
-      channel_id: channelId,
-    });
+    const result = await this.send(
+      'files.completeUploadExternal',
+      accessToken,
+      (client) =>
+        client.files.completeUploadExternal({
+          files: [{ id: fileId, title }],
+          channel_id: channelId,
+        }),
+    );
 
     if (!result.ok) {
       throw new Error(result.error || 'Failed to share the file');
@@ -315,11 +327,10 @@ export default class SlackApiClient {
     params: Record<string, unknown>,
     accessToken?: string,
   ) {
-    const client = this.getClient(accessToken);
-
-    const result: WebAPICallResult & { error?: string } = await client.apiCall(
+    const result: WebAPICallResult & { error?: string } = await this.send(
       method,
-      params,
+      accessToken,
+      (client) => client.apiCall(method, params),
     );
 
     if (!result.ok) {
@@ -329,18 +340,52 @@ export default class SlackApiClient {
     return result as ResponseData & WebAPICallResult;
   }
 
-  private getClient(token?: string, { interactive = false } = {}) {
-    const key = `${interactive ? 'interactive' : 'other'}:${token ?? ''}`;
-    let client = this.clients.get(key);
+  // `method` with the token's client, waiting out Slack's rate limits on it.
+  private send<T>(
+    method: string,
+    token: string | undefined,
+    call: (client: WebClient) => Promise<T>,
+  ) {
+    return this.rateLimits.call(method, token, () =>
+      call(this.getClient(token)),
+    );
+  }
 
-    if (!client) {
-      client = new WebClient(
-        token,
-        interactive ? INTERACTIVE_CALL_OPTIONS : CALL_OPTIONS,
-      );
-      this.clients.set(key, client);
+  private getClient(token?: string, { interactive = false } = {}) {
+    const now = performance.now();
+    const key = `${interactive ? 'interactive' : 'other'}:${token ?? ''}`;
+
+    this.dropIdleClients(now);
+
+    let entry = this.clients.get(key);
+
+    if (!entry) {
+      entry = {
+        client: new WebClient(
+          token,
+          interactive ? INTERACTIVE_CALL_OPTIONS : CALL_OPTIONS,
+        ),
+        lastUsedAt: now,
+      };
+      this.clients.set(key, entry);
     }
 
-    return client;
+    entry.lastUsedAt = now;
+
+    return entry.client;
+  }
+
+  private dropIdleClients(now: number) {
+    if (now - this.lastSweepAt < SWEEP_EVERY_MS) {
+      return;
+    }
+
+    this.lastSweepAt = now;
+
+    for (const [key, { lastUsedAt }] of this.clients) {
+      if (now - lastUsedAt > IDLE_CLIENT_MS) {
+        this.clients.delete(key);
+      }
+    }
   }
 }
