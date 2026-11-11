@@ -12,14 +12,14 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 **Vacations**
 - Request annual leave, sick leave, bonus days, unpaid leave and other time off from the App Home or with `/vacations request`.
 - Overlapping dates are refused. You can cancel a pending request with `/vacations cancel`, and see your balance with `/vacations usage`.
-- Two-level approval: the team's managers first, then HR. Each level is approved by any one approver or by all of them.
+- Two-level approval: the team's managers first, then the second level, such as HR, from the company rules or the team's own rules. Each level is approved by any one approver or by all of them.
 - Approvers get a Slack message with Approve / Reject / Comment buttons. They can also decide in the App Home's Approvals inbox, which holds time off and time entries waiting for them. A rejection can say why, and the requester and the approvers' messages show the reason. The requester hears of an approver's comment when it is made.
 - When an approver is away, HR or an admin can approve the waiting level for them, so the request moves on instead of getting stuck.
 - When nobody on the team can approve a request (no team, no approvers, or the requester is the only one), it goes to HR, or to the admins when there is no HR. Nobody approves their own request.
 - The requester and the team's notification recipients are told about the decision.
 
 **Policies and balances**
-- Vacation policies per team: vacation days, working days, bonus days, and the most days a person may carry over. Each person's carryover is set on their profile, up to that limit.
+- Vacation policies: vacation days, working days, bonus days, and the most days a person may carry over. The company rules name the policy for everyone; a team can keep its own instead. Each person's carryover is set on their profile, up to the policy's limit.
 - The vacation year runs from the employee's contract start date, or over the calendar year when the employee has none.
 - Calendar and working days are counted separately. Working days skip weekends and the policy's holidays.
 - Public holidays can be imported per country (from [Nager.Date](https://date.nager.at)). You can add company holidays and turn individual ones off.
