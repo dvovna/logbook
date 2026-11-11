@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { isBackgroundWork } from '@common/utils/run-in-background';
 import { SESSION_SETUP } from 'src/database/database.service';
 
@@ -9,7 +9,11 @@ export interface ISqlStatement {
   // waits for it before answering Slack.
   background: boolean;
   client: Client;
+  // When the app sent it: for the first statement on a connection taken
+  // from the pool, when it asked the pool for one (see askedAt).
   calledAt: number;
+  // The first statement on a connection the pool handed out.
+  fromPool: boolean;
   endedAt: number | null;
   // How many rows it returned; null until it came back, or when it failed.
   rows: number | null;
@@ -38,6 +42,16 @@ export interface ISqlLog {
 const log: ISqlStatement[] = [];
 let installed = false;
 
+// When the pool was asked for the connection, until its first statement.
+// pg calls Client.query only once the pool hands a connection out. When the
+// pool's connections are all in use (statements run at once, the app's
+// background work: a job's first run, an event listener), a statement waits
+// for one, and would seem sent after every statement that ended meanwhile,
+// the one before it on that connection included: a round trip more,
+// although it went out beside them. How often that happens depends on how
+// fast the database answers, so on the other test files running at once.
+const askedAt = new WeakMap<Client, number>();
+
 // SQL_LATENCY_MS=100 makes every statement come back that much later, as on
 // a laptop talking to a database in another region, and so does
 // setLatency(). Off by default.
@@ -63,6 +77,39 @@ const rowsOf = (result: unknown): number | null => {
     : null;
 };
 
+// Remembers when each connection was asked of a pool (pg-pool's connect,
+// as a promise or with a callback).
+const watchPools = () => {
+  type Connect = (this: Pool, ...args: unknown[]) => unknown;
+  const connect = Pool.prototype.connect as Connect;
+
+  Pool.prototype.connect = function (this: Pool, ...args: unknown[]) {
+    const asked = performance.now();
+    const remember = (client: unknown) => {
+      if (client) {
+        askedAt.set(client as Client, asked);
+      }
+    };
+    const callback = args[0];
+
+    if (typeof callback === 'function') {
+      return connect.call(
+        this,
+        (error: unknown, client: unknown, ...rest: unknown[]) => {
+          remember(client);
+          (callback as (...values: unknown[]) => void)(error, client, ...rest);
+        },
+      );
+    }
+
+    return (connect.call(this) as Promise<Client>).then((client) => {
+      remember(client);
+
+      return client;
+    });
+  } as typeof Pool.prototype.connect;
+};
+
 // Wraps pg's Client.query, which every statement of the app's pool, its
 // transactions and pg-boss goes through, to keep a log of them.
 const install = () => {
@@ -71,6 +118,7 @@ const install = () => {
   }
 
   installed = true;
+  watchPools();
 
   const query = Client.prototype.query as (...args: unknown[]) => unknown;
 
@@ -82,11 +130,20 @@ const install = () => {
       background: isBackgroundWork(),
       client: this,
       calledAt: performance.now(),
+      fromPool: false,
       endedAt: null,
       rows: null,
     };
 
     if (!isSessionSetting(text)) {
+      const asked = askedAt.get(this);
+
+      if (asked !== undefined) {
+        statement.calledAt = asked;
+        statement.fromPool = true;
+        askedAt.delete(this);
+      }
+
       log.push(statement);
     }
 
@@ -132,13 +189,17 @@ const install = () => {
 
 // The longest chain of statements where each was sent after another came
 // back. A connection runs one statement at a time, so a statement waits for
-// the one called before it on the same connection.
+// the one called before it on the same connection; but the first statement
+// on a connection from the pool waits for nothing there: the statement
+// before it was another caller's, which gave the connection back.
 const roundTripsOf = (statements: ISqlStatement[]): number => {
   const sentAt = new Map<ISqlStatement, number>();
   const lastOnClient = new Map<Client, ISqlStatement>();
 
   for (const statement of log) {
-    const before = lastOnClient.get(statement.client);
+    const before = statement.fromPool
+      ? undefined
+      : lastOnClient.get(statement.client);
 
     sentAt.set(
       statement,
