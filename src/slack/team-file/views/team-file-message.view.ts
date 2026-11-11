@@ -4,9 +4,14 @@ import { NavigationActionId } from '@modules/slack/common/enums/navigation-actio
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TeamFileMessageActionId } from '@modules/slack/team-file/enums/team-file-message-action-id.enum';
+import { ITeamFileMessage } from '@modules/slack/team-file/types/team-file-message.interface';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
 import { TeamFileUploadStatus } from 'src/team-file/enums/team-file-upload-status.enum';
+import {
+  planChangesNothing,
+  planDigest,
+} from 'src/team-file/services/team-file-planner';
 import { ITeamFileClosedStatus } from 'src/team-file/types/team-file-apply-result.interface';
 import { ITeamFilePlan } from 'src/team-file/types/team-file-plan.interface';
 
@@ -83,11 +88,12 @@ export class TeamFileMessageView {
     uploadId: string,
     fileName: string,
   ): KnownBlock[] {
-    const changes = this.changes(plan, names, companyRules, uploadId);
-
-    return changes
-      ? [section(`*Here's what ${safe(fileName)} will do*`), ...changes]
-      : this.nothingToChange(plan);
+    return planChangesNothing(plan)
+      ? this.nothingToChange(plan).blocks
+      : [
+          section(`*Here's what ${safe(fileName)} will do*`),
+          ...this.changes(plan, names, companyRules, uploadId),
+        ];
   }
 
   // Apply found the workspace changed since the preview: what the file will
@@ -97,28 +103,41 @@ export class TeamFileMessageView {
     names: Map<string, string>,
     companyRules: IRuleSetViewModel,
     uploadId: string,
-  ): KnownBlock[] {
-    return [
-      section(CHANGED_SINCE_PREVIEW),
-      ...(this.changes(plan, names, companyRules, uploadId) ??
-        this.nothingToChange(plan)),
-    ];
+  ): ITeamFileMessage {
+    return {
+      text: CHANGED_SINCE_PREVIEW,
+      blocks: [
+        section(CHANGED_SINCE_PREVIEW),
+        ...(planChangesNothing(plan)
+          ? this.nothingToChange(plan).blocks
+          : this.changes(plan, names, companyRules, uploadId)),
+      ],
+    };
   }
 
   public previewText(fileName: string) {
     return `Here's what ${safe(fileName)} will do`;
   }
 
-  public canceled(): KnownBlock[] {
-    return [section(CLOSED_TEXTS[TeamFileUploadStatus.Canceled]!)];
+  public nothingToChange(plan: ITeamFilePlan): ITeamFileMessage {
+    const unusable = this.unusable(plan, "Rows it can't use");
+    const text = unusable.length
+      ? 'Nothing to change.'
+      : 'Nothing to change: the file matches Logbook.';
+
+    return { text, blocks: [section(text), ...unusable] };
+  }
+
+  public canceled(): ITeamFileMessage {
+    return this.closed(TeamFileUploadStatus.Canceled)!;
   }
 
   // Why Apply did nothing, or null when the message already says what
   // happened (a second click on an applied file).
-  public closed(status: ITeamFileClosedStatus): KnownBlock[] | null {
+  public closed(status: ITeamFileClosedStatus): ITeamFileMessage | null {
     const text = CLOSED_TEXTS[status];
 
-    return text ? [section(text)] : null;
+    return text ? { text, blocks: [section(text)] } : null;
   }
 
   // What Apply did, in counts, with the rows it left out, since the preview
@@ -127,28 +146,33 @@ export class TeamFileMessageView {
     plan: ITeamFilePlan,
     names: Map<string, string>,
     uploadId: string,
-  ): KnownBlock[] {
-    return [
-      section(this.appliedText(plan, names)),
-      ...this.unusable(plan, "Rows it didn't use"),
-      {
-        type: 'actions',
-        block_id: ViewCallbackId.TeamFileMessage,
-        elements: [
-          {
-            type: 'button',
-            action_id: NavigationActionId.Teams,
-            text: { type: 'plain_text', text: 'Open Teams' },
-          },
-          {
-            type: 'button',
-            action_id: TeamFileMessageActionId.Undo,
-            text: { type: 'plain_text', text: 'Undo' },
-            value: `${TeamFileMessageActionId.Undo}:${uploadId}`,
-          },
-        ],
-      },
-    ];
+  ): ITeamFileMessage {
+    const text = this.appliedText(plan, names);
+
+    return {
+      text,
+      blocks: [
+        section(text),
+        ...this.unusable(plan, "Rows it didn't use"),
+        {
+          type: 'actions',
+          block_id: ViewCallbackId.TeamFileMessage,
+          elements: [
+            {
+              type: 'button',
+              action_id: NavigationActionId.Teams,
+              text: { type: 'plain_text', text: 'Open Teams' },
+            },
+            {
+              type: 'button',
+              action_id: TeamFileMessageActionId.Undo,
+              text: { type: 'plain_text', text: 'Undo' },
+              value: `${TeamFileMessageActionId.Undo}:${uploadId}`,
+            },
+          ],
+        },
+      ],
+    };
   }
 
   // E.g. "✅ Created 3 teams and placed 14 people. Maria Volkova has no team
@@ -174,9 +198,7 @@ export class TeamFileMessageView {
           ? 'made 1 person a Manager'
           : `made ${promoted} people Managers`),
     ].filter((part): part is string => !!part);
-    const summary = done.length
-      ? `✅ ${capitalize(joinNames(done))}.`
-      : '✅ Nothing needed to change.';
+    const summary = `✅ ${capitalize(joinNames(done))}.`;
 
     const withoutTeam = plan.leftWithoutTeam.map((id) =>
       safe(names.get(id) ?? 'Unknown'),
@@ -195,19 +217,6 @@ export class TeamFileMessageView {
     return `${summary} ${who} ${withoutTeam.length === 1 ? 'has' : 'have'} no team yet.`;
   }
 
-  private nothingToChange(plan: ITeamFilePlan): KnownBlock[] {
-    const unusable = this.unusable(plan, "Rows it can't use");
-
-    return [
-      section(
-        unusable.length
-          ? 'Nothing to change.'
-          : 'Nothing to change: the file matches Logbook.',
-      ),
-      ...unusable,
-    ];
-  }
-
   private unusable(plan: ITeamFilePlan, title: string): KnownBlock[] {
     return plan.unusable.length
       ? [
@@ -222,22 +231,13 @@ export class TeamFileMessageView {
       : [];
   }
 
-  // The preview after its heading, or null when the plan changes nothing.
+  // The preview after its heading, of a plan that changes something.
   private changes(
     plan: ITeamFilePlan,
     names: Map<string, string>,
     companyRules: IRuleSetViewModel,
     uploadId: string,
-  ): KnownBlock[] | null {
-    if (
-      !plan.createTeams.length &&
-      !plan.assignments.length &&
-      !plan.leadChanges.length &&
-      !plan.promotions.length
-    ) {
-      return null;
-    }
-
+  ): KnownBlock[] {
     const name = (id: string | null) =>
       id ? safe(names.get(id) ?? 'Unknown') : 'no team';
     const teamKeyNames = new Map(plan.createTeams.map((t) => [t.key, t.name]));
@@ -350,7 +350,8 @@ export class TeamFileMessageView {
             action_id: TeamFileMessageActionId.Apply,
             text: { type: 'plain_text', text: 'Apply' },
             style: 'primary',
-            value: `${TeamFileMessageActionId.Apply}:${uploadId}`,
+            // Apply does only the plan this preview shows.
+            value: `${TeamFileMessageActionId.Apply}:${uploadId}:${planDigest(plan)}`,
           },
           {
             type: 'button',

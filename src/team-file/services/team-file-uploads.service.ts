@@ -12,6 +12,7 @@ import { TEAM_FILE_PREVIEW_DAYS } from 'src/team-file/constants/team-file-limits
 import { TeamFileUploadStatus } from 'src/team-file/enums/team-file-upload-status.enum';
 import { TeamFileUploadsRepository } from 'src/team-file/repositories/team-file-uploads.repository';
 import {
+  planChangesNothing,
   planDigest,
   planTeamFile,
 } from 'src/team-file/services/team-file-planner';
@@ -104,12 +105,14 @@ export class TeamFileUploadsService {
     return upload;
   }
 
-  // Does what the preview showed, or nothing: the plan is made again from
-  // the stored rows against the workspace as it is under the lock, and a
-  // different plan is shown as a new preview instead. The ID comes from a
-  // button value, so only an upload of the user's workspace is found.
+  // Does what the clicked preview showed, or nothing: the plan is made again
+  // from the stored rows against the workspace as it is under the lock, and
+  // a plan other than `shownDigest` names is shown as a new preview instead.
+  // Both come from the button value: only an upload of the user's workspace
+  // is found, and a wrong digest only shows the preview again.
   public async apply(
     uploadId: string,
+    shownDigest: string,
     user: IUserViewModel,
   ): Promise<ITeamFileApplyResult> {
     const slackTeamId = user.slack_team_id;
@@ -147,8 +150,17 @@ export class TeamFileUploadsService {
       const plan = this.plan(upload.rows, state);
       const digest = planDigest(plan);
 
-      if (digest !== upload.plan_digest) {
-        await this.uploadsRepository.setDigest(upload.id, slackTeamId, digest);
+      // Against the clicked preview, not the stored digest: a second click
+      // on an old preview, or one whose new preview never reached Slack,
+      // must not apply a plan nobody saw.
+      if (digest !== shownDigest) {
+        if (digest !== upload.plan_digest) {
+          await this.uploadsRepository.setDigest(
+            upload.id,
+            slackTeamId,
+            digest,
+          );
+        }
 
         return {
           kind: 'changed',
@@ -156,6 +168,12 @@ export class TeamFileUploadsService {
           state,
           upload: { ...upload, plan_digest: digest },
         };
+      }
+
+      // An applied upload is what Undo works on, so one that changed nothing
+      // must not hide the Apply before it.
+      if (planChangesNothing(plan)) {
+        return { kind: 'nothing', plan, state, upload };
       }
 
       const undo = await this.applyPlan(plan, state, user);

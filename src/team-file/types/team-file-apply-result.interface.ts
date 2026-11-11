@@ -11,13 +11,9 @@ export type ITeamFileClosedStatus = TeamFileUploadStatus | 'expired';
 // `state` is the workspace the plan was made against, before Apply.
 export type ITeamFileApplyResult =
   | {
-      kind: 'applied';
-      plan: ITeamFilePlan;
-      state: ITeamFileState;
-      upload: ITeamFileUpload;
-    }
-  | {
-      kind: 'changed';
+      // changed: the plan is not the clicked preview's, and is shown instead.
+      // nothing: it is, and it changes nothing, so nothing was applied.
+      kind: 'applied' | 'changed' | 'nothing';
       plan: ITeamFilePlan;
       state: ITeamFileState;
       upload: ITeamFileUpload;

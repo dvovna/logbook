@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { ButtonAction } from '@slack/bolt';
 import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { runInBackground } from '@common/utils/run-in-background';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
@@ -43,18 +44,26 @@ export class TeamFileMessageHandler extends BaseActionHandler {
     super();
 
     this.actionMap = {
-      [TeamFileMessageActionId.Apply]: withButtonAction(this.handleApply),
+      [TeamFileMessageActionId.Apply]: this.handleApply,
       [TeamFileMessageActionId.Cancel]: withButtonAction(this.handleCancel),
       [TeamFileMessageActionId.Rules]: withButtonAction(this.handleRules),
       [NavigationActionId.Teams]: this.handleOpenTeams,
     };
   }
 
-  // Applying takes many statements and Slack calls, longer than Slack waits
-  // for the answer.
-  private handleApply = (uploadId: string, user: IUserViewModel) => {
+  // The value is `apply:<upload id>:<digest of the plan shown>`; a missing
+  // part reads as an unknown upload or another plan. Applying takes many
+  // statements and Slack calls, longer than Slack waits for the answer.
+  private handleApply = (
+    payload: ISlackBlockActionPayload,
+    user: IUserViewModel,
+  ) => {
+    const [, uploadId = '', digest = ''] = (
+      (payload.actions[0] as ButtonAction).value ?? ''
+    ).split(':');
+
     runInBackground(this.logger, 'apply a team file', () =>
-      this.messagesService.apply(uploadId, user),
+      this.messagesService.apply(uploadId, digest, user),
     );
   };
 

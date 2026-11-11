@@ -256,6 +256,14 @@ export function planTeamFile(
   };
 }
 
+// Unusable rows, people left without a team and names matched are only
+// what the file says, not changes.
+export const planChangesNothing = (plan: ITeamFilePlan) =>
+  !plan.createTeams.length &&
+  !plan.assignments.length &&
+  !plan.leadChanges.length &&
+  !plan.promotions.length;
+
 const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 function canonical(value: unknown): unknown {

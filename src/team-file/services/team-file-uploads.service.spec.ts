@@ -271,7 +271,7 @@ describe('TeamFileUploadsService', () => {
         return [person('ann', true, { role: UserRole.Manager })];
       });
 
-      const result = await service.apply(UPLOAD_ID, user);
+      const result = await service.apply(UPLOAD_ID, digest, user);
 
       expect(calls).toEqual([
         'begin',
@@ -346,14 +346,30 @@ describe('TeamFileUploadsService', () => {
       ]);
     });
 
-    it('stores the new digest and changes nothing else when the workspace changed since the preview', async () => {
-      const { service, repository, usersService, teamsService } = buildWith(
+    const expectNothingWritten = ({
+      repository,
+      usersService,
+      teamsService,
+    }: ReturnType<typeof buildWith>) => {
+      expect(teamsService.create).not.toHaveBeenCalled();
+      expect(teamsService.update).not.toHaveBeenCalled();
+      expect(usersService.assignTeams).not.toHaveBeenCalled();
+      expect(usersService.makeManagers).not.toHaveBeenCalled();
+      expect(repository.markApplied).not.toHaveBeenCalled();
+    };
+
+    it('stores the new digest and applies nothing when the workspace changed since the preview', async () => {
+      const built = buildWith(
         upload({ plan_digest: 'what the preview showed' }),
       );
 
-      const result = await service.apply(UPLOAD_ID, user);
+      const result = await built.service.apply(
+        UPLOAD_ID,
+        'what the preview showed',
+        user,
+      );
 
-      expect(repository.setDigest).toHaveBeenCalledWith(
+      expect(built.repository.setDigest).toHaveBeenCalledWith(
         UPLOAD_ID,
         'workspace-1',
         digest,
@@ -363,11 +379,51 @@ describe('TeamFileUploadsService', () => {
         upload: { id: UPLOAD_ID, plan_digest: digest },
         state: { people, teams: [backend] },
       });
-      expect(teamsService.create).not.toHaveBeenCalled();
-      expect(teamsService.update).not.toHaveBeenCalled();
-      expect(usersService.assignTeams).not.toHaveBeenCalled();
-      expect(usersService.makeManagers).not.toHaveBeenCalled();
-      expect(repository.markApplied).not.toHaveBeenCalled();
+      expectNothingWritten(built);
+    });
+
+    it('applies nothing on a click on an older preview, even when the stored digest is the current plan', async () => {
+      const built = buildWith(upload());
+
+      const result = await built.service.apply(
+        UPLOAD_ID,
+        'what an older preview showed',
+        user,
+      );
+
+      expect(result).toMatchObject({
+        kind: 'changed',
+        upload: { id: UPLOAD_ID },
+      });
+      expect(built.repository.setDigest).not.toHaveBeenCalled();
+      expectNothingWritten(built);
+    });
+
+    it.each([
+      ['a missing digest', ''],
+      ['a digest of no plan', 'not-a-digest'],
+    ])('treats %s as another plan', async (_case, clicked) => {
+      const built = buildWith(upload());
+
+      await expect(
+        built.service.apply(UPLOAD_ID, clicked, user),
+      ).resolves.toMatchObject({ kind: 'changed' });
+      expectNothingWritten(built);
+    });
+
+    it('marks nothing applied when the plan changes nothing', async () => {
+      const unchanged = [row(3, 'bo@x.test', 'Backend')];
+      const unchangedDigest = planDigest(
+        planTeamFile(unchanged, { people, teams: [backend] }, 5),
+      );
+      const stored = upload({ rows: unchanged, plan_digest: unchangedDigest });
+      const built = buildWith(stored);
+
+      await expect(
+        built.service.apply(UPLOAD_ID, unchangedDigest, user),
+      ).resolves.toMatchObject({ kind: 'nothing', upload: stored });
+      expect(built.repository.setDigest).not.toHaveBeenCalled();
+      expectNothingWritten(built);
     });
 
     it.each([
@@ -378,7 +434,7 @@ describe('TeamFileUploadsService', () => {
       const stored = upload({ status });
       const { service, repository, usersService } = buildWith(stored);
 
-      await expect(service.apply(UPLOAD_ID, user)).resolves.toEqual({
+      await expect(service.apply(UPLOAD_ID, digest, user)).resolves.toEqual({
         kind: 'closed',
         status,
         upload: stored,
@@ -395,7 +451,7 @@ describe('TeamFileUploadsService', () => {
       });
       const { service, repository } = buildWith(stored);
 
-      await expect(service.apply(UPLOAD_ID, user)).resolves.toEqual({
+      await expect(service.apply(UPLOAD_ID, digest, user)).resolves.toEqual({
         kind: 'closed',
         status: 'expired',
         upload: stored,
@@ -407,7 +463,7 @@ describe('TeamFileUploadsService', () => {
     it("refuses an ID that is not one of the workspace's uploads", async () => {
       const { service } = buildWith(null);
 
-      await expect(service.apply(UPLOAD_ID, user)).rejects.toThrow(
+      await expect(service.apply(UPLOAD_ID, digest, user)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -415,7 +471,7 @@ describe('TeamFileUploadsService', () => {
     it('refuses an ID that is no UUID without asking the database', async () => {
       const { service, repository } = buildWith(upload());
 
-      await expect(service.apply('not-an-id', user)).rejects.toThrow(
+      await expect(service.apply('not-an-id', digest, user)).rejects.toThrow(
         NotFoundException,
       );
       expect(repository.findOne).not.toHaveBeenCalled();

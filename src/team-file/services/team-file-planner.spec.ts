@@ -3,6 +3,7 @@ import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
+  planChangesNothing,
   planDigest,
   planTeamFile,
 } from 'src/team-file/services/team-file-planner';
@@ -620,5 +621,41 @@ describe('planDigest', () => {
     expect(planDigest(emptyPlan)).not.toBe(
       planDigest({ ...emptyPlan, promotions: ['x'] }),
     );
+  });
+});
+
+describe('planChangesNothing', () => {
+  it('is true for a plan that only lists unusable rows, people without a team and matched names', () => {
+    expect(
+      planChangesNothing({
+        ...emptyPlan,
+        unusable: [{ row: 2, reason: 'Row has no email' }],
+        leftWithoutTeam: ['a'],
+        nameMatches: [{ written: 'acme', teamName: 'Acme' }],
+        teamsWithoutLead: ['Acme'],
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      'a team to create',
+      { createTeams: [{ key: 'k', name: 'K', leadIds: [], memberIds: [] }] },
+    ],
+    [
+      'an assignment',
+      {
+        assignments: [
+          { userId: 'a', fromTeamId: null, toTeamId: 't', toTeamKey: null },
+        ],
+      },
+    ],
+    [
+      'a lead change',
+      { leadChanges: [{ teamId: 't', add: ['a'], remove: [] }] },
+    ],
+    ['a promotion', { promotions: ['a'] }],
+  ])('is false for a plan with %s', (_case, fields) => {
+    expect(planChangesNothing({ ...emptyPlan, ...fields })).toBe(false);
   });
 });
