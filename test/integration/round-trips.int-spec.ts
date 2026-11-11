@@ -10,7 +10,7 @@ import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/proj
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
-import { LOG_TIME_OFF_ACTION_ID } from '@modules/slack/tabs/vacation-requests/services/time-off-offer.service';
+import { LOG_TIME_OFF_ACTION_ID } from '@modules/slack/tabs/vacation-requests/constants/time-off-offer';
 import { UsersService } from '@modules/users/services/users.service';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
 import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';

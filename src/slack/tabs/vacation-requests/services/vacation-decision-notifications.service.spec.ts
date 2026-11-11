@@ -8,7 +8,7 @@ import {
   DecisionNotificationJob,
   VacationDecisionNotificationsService,
 } from 'src/slack/tabs/vacation-requests/services/vacation-decision-notifications.service';
-import { TimeOffOfferService } from 'src/slack/tabs/vacation-requests/services/time-off-offer.service';
+import { TimeOffOfferView } from 'src/slack/tabs/vacation-requests/views/time-off-offer.view';
 import TeamsService from 'src/teams/services/teams.service';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
 import { UsersService } from 'src/users/services/users.service';
@@ -34,14 +34,14 @@ describe('VacationDecisionNotificationsService', () => {
   let handlers: Map<string, (job: unknown) => Promise<void>>;
   let postMessage: jest.Mock;
   let offerFor: jest.Mock;
-  let getBlocks: jest.Mock;
+  let getButtonBlocks: jest.Mock;
   let warn: jest.SpyInstance;
 
   beforeEach(() => {
     handlers = new Map();
     postMessage = jest.fn().mockResolvedValue(undefined);
     offerFor = jest.fn();
-    getBlocks = jest
+    getButtonBlocks = jest
       .fn()
       .mockReturnValue([{ type: 'actions', block_id: 'offer', elements: [] }]);
     warn = jest
@@ -67,7 +67,7 @@ describe('VacationDecisionNotificationsService', () => {
           handlers.set(name, handler),
       } as unknown as JobsService,
       { offerFor } as unknown as TimeOffLoggingService,
-      { getBlocks } as unknown as TimeOffOfferService,
+      { getButtonBlocks } as unknown as TimeOffOfferView,
     ).onModuleInit();
   });
 
@@ -109,7 +109,7 @@ describe('VacationDecisionNotificationsService', () => {
       'Your Annual leave request for 22–26 Jun 2026 was approved',
     );
     expect(message.blocks).toHaveLength(2);
-    expect(getBlocks).not.toHaveBeenCalled();
+    expect(getButtonBlocks).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledWith(
       'No offer to log time off r1 as time: connection lost',
     );
