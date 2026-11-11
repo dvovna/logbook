@@ -1,5 +1,5 @@
 export interface ITeamFileRow {
-  // The line in the file; the header is 1.
+  // The line (a CSV) or row (a sheet) number as the person sees it in the file.
   row: number;
   name: string;
   email: string;

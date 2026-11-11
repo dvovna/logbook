@@ -120,4 +120,85 @@ describe('parseTeamFile', () => {
       new BadRequestException('A team file can have up to 1000 rows.'),
     );
   });
+
+  it('counts delimiters outside quotes when it picks one', async () => {
+    expect(
+      await csv(
+        'Name;Email;Team;"Notes, a, b, c"\nAda;ada@example.test;Platform;x',
+      ),
+    ).toEqual([
+      {
+        row: 2,
+        name: 'Ada',
+        email: 'ada@example.test',
+        team: 'Platform',
+        lead: '',
+      },
+    ]);
+  });
+
+  it("refuses a file that can't be read", async () => {
+    const unreadable = new BadRequestException(
+      "The file can't be read: save it as CSV or Excel and send it again.",
+    );
+
+    await expect(csv('Email,Team\n"ada@example.test,Platform')).rejects.toEqual(
+      unreadable,
+    );
+    await expect(
+      parseTeamFile(Buffer.from('PK not a workbook'), 'team.xlsx'),
+    ).rejects.toEqual(unreadable);
+  });
+
+  it('numbers the lines of a CRLF CSV with a quoted multi-line cell', async () => {
+    const text =
+      'Name,Email,Team\r\n"Ada\r\nL.",ada@example.test,Platform\r\nBob,bob@example.test,Design\r\n';
+
+    expect(await csv(text)).toEqual([
+      {
+        row: 2,
+        name: 'Ada\nL.',
+        email: 'ada@example.test',
+        team: 'Platform',
+        lead: '',
+      },
+      {
+        row: 4,
+        name: 'Bob',
+        email: 'bob@example.test',
+        team: 'Design',
+        lead: '',
+      },
+    ]);
+  });
+
+  it('keeps the sheet row number after a blank row and reads formula, rich text and hyperlink cells as text', async () => {
+    const workbook = new Workbook();
+    const sheet = workbook.addWorksheet('Team');
+    sheet.addRow(['Name', 'Email', 'Team']);
+    sheet.addRow([
+      { richText: [{ text: 'Ada ' }, { text: 'L.', font: { bold: true } }] },
+      { text: 'ada@example.test', hyperlink: 'mailto:ada@example.test' },
+      { formula: '"Plat"&"form"', result: 'Platform' },
+    ]);
+    sheet.getRow(4).values = ['Bob', 'bob@example.test', 'Design'];
+    const content = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    expect(await parseTeamFile(content, 'team.xlsx')).toEqual([
+      {
+        row: 2,
+        name: 'Ada L.',
+        email: 'ada@example.test',
+        team: 'Platform',
+        lead: '',
+      },
+      {
+        row: 4,
+        name: 'Bob',
+        email: 'bob@example.test',
+        team: 'Design',
+        lead: '',
+      },
+    ]);
+  });
 });

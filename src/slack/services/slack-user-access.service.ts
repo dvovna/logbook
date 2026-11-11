@@ -4,6 +4,9 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import capitalize from '@common/utils/capitalize';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 
+const roleLabel = (role: UserRole) =>
+  role === UserRole.HR ? 'HR' : capitalize(role);
+
 @Injectable()
 export default class SlackUserAccessService {
   public constructor(
@@ -23,7 +26,7 @@ export default class SlackUserAccessService {
     await this.slackCommunicationService.postEphemeral(
       user.slack_id,
       {
-        text: `⛔ Only user with role ${userRoles.map(capitalize).join(' or ')} can use this command.`,
+        text: `⛔ Only ${userRoles.map(roleLabel).join(' or ')} can use this command.`,
       },
       user.slack_team_id,
     );

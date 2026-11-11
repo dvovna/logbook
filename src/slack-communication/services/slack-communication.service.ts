@@ -160,8 +160,9 @@ export default class SlackCommunicationService {
     teamId: string,
     maxBytes: number,
   ) {
-    return (await this.fetchFileBytes(fileUrl, teamId, maxBytes)).toString(
-      'utf8',
+    // TextDecoder drops a leading byte order mark, as Response.text() did.
+    return new TextDecoder('utf-8').decode(
+      await this.fetchFileBytes(fileUrl, teamId, maxBytes),
     );
   }
 }

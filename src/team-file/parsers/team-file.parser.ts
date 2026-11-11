@@ -9,14 +9,22 @@ type Column = 'name' | 'email' | 'team' | 'lead';
 
 const normalize = (header: string) => header.replace(/\s/g, '').toLowerCase();
 
+const FIELD_OF_HEADER: Record<(typeof TEAM_FILE_HEADERS)[number], Column> = {
+  Name: 'name',
+  Email: 'email',
+  Team: 'team',
+  'Team lead': 'lead',
+};
+
 const COLUMN_OF_HEADER = new Map<string, Column>(
-  TEAM_FILE_HEADERS.map((header, i) => [
+  Object.entries(FIELD_OF_HEADER).map(([header, column]) => [
     normalize(header),
-    (['name', 'email', 'team', 'lead'] as const)[i],
+    column,
   ]),
 );
 
-const BYTE_ORDER_MARK = '﻿';
+const UNREADABLE_FILE =
+  "The file can't be read: save it as CSV or Excel and send it again.";
 
 // Reads a team file, a CSV or an Excel workbook, into rows. Null when its
 // header has no Email and Team columns, i.e. it is not a team file.
@@ -35,22 +43,43 @@ export const parseTeamFile = async (
 // Each line with its number in the file.
 type Line = { row: number; cells: string[] };
 
+interface ICsvRecord {
+  record: string[];
+  raw: string;
+  info: { lines: number };
+}
+
 const readCsv = (content: Buffer): Line[] => {
-  const text = content.toString('utf8').replace(BYTE_ORDER_MARK, '');
-  const header = text.split(/\r\n|\n|\r/, 1)[0];
+  // One kind of line end, because csv-parse counts a CRLF inside a quoted
+  // cell as two lines.
+  const text = content
+    .toString('utf8')
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n?/g, '\n');
+  const header = text.split(/\r\n|\n|\r/, 1)[0].replace(/"[^"]*"/g, '');
   const semicolons = header.split(';').length;
   const commas = header.split(',').length;
 
-  const records = parse(text, {
-    delimiter: semicolons > commas ? ';' : ',',
-    relax_column_count: true,
-    skip_empty_lines: true,
-    trim: true,
-    info: true,
-  }) as unknown as { record: string[]; info: { lines: number } }[];
+  let records: ICsvRecord[];
 
-  return records.map(({ record, info }) => ({
-    row: info.lines,
+  try {
+    records = parse(text, {
+      delimiter: semicolons > commas ? ';' : ',',
+      relax_column_count: true,
+      skip_empty_lines: true,
+      trim: true,
+      info: true,
+      raw: true,
+    }) as unknown as ICsvRecord[];
+  } catch {
+    throw new BadRequestException(UNREADABLE_FILE);
+  }
+
+  // `lines` is where the record ends; a row's number is where it starts.
+  return records.map(({ record, raw, info }) => ({
+    row:
+      info.lines -
+      ((raw.match(/\n/g) ?? []).length - (raw.endsWith('\n') ? 1 : 0)),
     cells: record,
   }));
 };
@@ -61,7 +90,7 @@ const readExcel = async (content: Buffer): Promise<Line[] | null> => {
   try {
     await workbook.xlsx.load(content as unknown as ArrayBuffer);
   } catch {
-    return null;
+    throw new BadRequestException(UNREADABLE_FILE);
   }
 
   const lines: Line[] = [];

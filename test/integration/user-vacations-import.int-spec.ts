@@ -399,7 +399,7 @@ describe('user-vacations.csv', () => {
     it('ignores a file shared by a member', async () => {
       const reply = await share(ada, 'user-vacations.csv', csv().join('\n'));
 
-      expect(reply).toContain('Only user with role Admin');
+      expect(reply).toBe('⛔ Only Admin or HR can use this command.');
       expect(downloads()).toEqual([]);
       expect(await vacationsOf(ada)).toEqual([]);
     });
