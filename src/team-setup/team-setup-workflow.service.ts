@@ -12,6 +12,8 @@ import {
 import { UsersService } from '@modules/users/services/users.service';
 import SlackUsersService from '@modules/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from '@modules/team-setup/team-users-sync.service';
+import { NEW_PERSON_PROMPT_JOB } from 'src/team-file/constants/jobs';
+import { INewPersonPromptJob } from 'src/team-file/types/new-person-prompt-job.interface';
 import { TransactionService } from 'src/database/transaction.service';
 
 interface ITeamSetupWorkflowParams {
@@ -80,7 +82,24 @@ export class TeamSetupWorkflowService implements OnModuleInit {
         await delay(5000);
       }
 
-      await this.teamUsersSyncService.syncUsers(job);
+      // Before the first import finished, everyone is new: nobody is asked
+      // about. After it, the people this run adds joined Slack since.
+      const { members_imported_at } =
+        await this.slackTeamsService.findOneWithValidation({
+          id: job.slackTeamId,
+        });
+      const created = await this.teamUsersSyncService.syncUsers(job);
+
+      if (members_imported_at) {
+        for (const { id } of created) {
+          await this.jobs.run<INewPersonPromptJob>(NEW_PERSON_PROMPT_JOB, {
+            slackTeamId: job.slackTeamId,
+            userId: id,
+          });
+        }
+      }
+
+      await this.slackTeamsService.markMembersImported(job.slackTeamId);
     });
   }
 

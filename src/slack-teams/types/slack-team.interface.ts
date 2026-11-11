@@ -8,6 +8,9 @@ interface ISlackTeamViewModel {
   time_off_minutes_per_day: number;
   // Set while the app is uninstalled: the data waits for a reinstall.
   uninstalled_at: string | null;
+  // Set when the first member import finished; people added after it are
+  // new, and HR is asked which team they are on.
+  members_imported_at: string | null;
 }
 
 export default ISlackTeamViewModel;

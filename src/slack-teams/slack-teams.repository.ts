@@ -45,6 +45,7 @@ export class SlackTeamsRepository extends BaseRepository<
       currency: row.currency,
       time_off_minutes_per_day: row.time_off_minutes_per_day,
       uninstalled_at: row.uninstalled_at,
+      members_imported_at: row.members_imported_at,
     };
   };
 

@@ -287,6 +287,55 @@ export type Database = {
           },
         ];
       };
+      new_person_prompts: {
+        Row: {
+          channel: string;
+          closed_at: string | null;
+          created_at: string;
+          id: string;
+          recipient_slack_id: string;
+          slack_team_id: string;
+          ts: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          channel: string;
+          closed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          recipient_slack_id: string;
+          slack_team_id: string;
+          ts: string;
+          user_id: string;
+        };
+        Update: {
+          channel?: string;
+          closed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          recipient_slack_id?: string;
+          slack_team_id?: string;
+          ts?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'new_person_prompts_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'new_person_prompts_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       project_teams: {
         Row: {
           project_id: string;
@@ -727,6 +776,7 @@ export type Database = {
           created_at: string;
           currency: string;
           id: string;
+          members_imported_at: string | null;
           name: string;
           slack_id: string;
           slack_refresh_token: string | null;
@@ -741,6 +791,7 @@ export type Database = {
           created_at?: string;
           currency?: string;
           id?: string;
+          members_imported_at?: string | null;
           name: string;
           slack_id: string;
           slack_refresh_token?: string | null;
@@ -754,6 +805,7 @@ export type Database = {
           created_at?: string;
           currency?: string;
           id?: string;
+          members_imported_at?: string | null;
           name?: string;
           slack_id?: string;
           slack_refresh_token?: string | null;

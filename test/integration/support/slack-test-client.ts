@@ -148,8 +148,9 @@ export class SlackTestClient {
     user: ISlackActor,
     message: IPostedMessage,
     actionId: string,
+    value?: string,
   ) {
-    const action = findAction(message.blocks ?? [], actionId);
+    const action = findAction(message.blocks ?? [], actionId, value);
 
     return this.interaction({
       type: 'block_actions',
@@ -159,7 +160,7 @@ export class SlackTestClient {
       container: { type: 'message', message_ts: message.ts },
       channel: { id: message.channel },
       message: { ts: message.ts, text: message.text, blocks: message.blocks },
-      actions: [actionPayload(action)],
+      actions: [actionPayload(action, value)],
     });
   }
 

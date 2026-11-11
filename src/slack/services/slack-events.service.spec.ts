@@ -29,6 +29,7 @@ const slackTeam: ISlackTeamViewModel = {
   currency: 'USD',
   time_off_minutes_per_day: 480,
   uninstalled_at: null,
+  members_imported_at: null,
 };
 
 const slackUser = {

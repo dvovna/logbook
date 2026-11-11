@@ -15,6 +15,8 @@ import { UsersService } from '@modules/users/services/users.service';
 import { SlackAppUninstallService } from '@modules/slack/services/slack-app-uninstall.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { getRequestWorkspaceSlackId } from '@common/utils/slack-request.utils';
+import { NEW_PERSON_PROMPT_JOB } from 'src/team-file/constants/jobs';
+import { INewPersonPromptJob } from 'src/team-file/types/new-person-prompt-job.interface';
 
 interface IFileSharedEvent {
   type: SlackEventType.FileShared;
@@ -308,7 +310,7 @@ export default class SlackEventsService implements OnModuleInit {
       slackTeamId: slackTeam.slack_id,
     });
 
-    await this.usersService.upsert({
+    const created = (await this.usersService.upsert({
       slackId: event.user.id,
       role:
         event.user.is_admin || event.user.is_owner
@@ -319,7 +321,16 @@ export default class SlackEventsService implements OnModuleInit {
       name: event.user.real_name,
       isActive: !event.user.deleted,
       slackTeamId: slackTeam.id,
-    });
+    })) as IUserViewModel;
+
+    // Before the first member import finished, the import brings everyone
+    // in and asks about nobody.
+    if (slackTeam.members_imported_at) {
+      await this.jobs.run<INewPersonPromptJob>(NEW_PERSON_PROMPT_JOB, {
+        slackTeamId: slackTeam.id,
+        userId: created.id,
+      });
+    }
   }
 
   public async handleFileShared(

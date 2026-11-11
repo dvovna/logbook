@@ -163,6 +163,17 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     });
   }
 
+  // True when this call set it: the first import is done, and the one that
+  // did it asks about nobody. It never overwrites.
+  public async markMembersImported(slackTeamId: string): Promise<boolean> {
+    const marked = await this.slackTeamsRepository.updateMany(
+      { id: slackTeamId, members_imported_at: null },
+      { members_imported_at: new Date().toISOString() },
+    );
+
+    return marked.length > 0;
+  }
+
   public async findAccessToken(id: string): Promise<string | null> {
     return (await this.findTokens(id))?.token ?? null;
   }
