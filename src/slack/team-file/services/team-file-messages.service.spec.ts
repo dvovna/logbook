@@ -152,7 +152,6 @@ describe('TeamFileMessagesService', () => {
         kind: 'undone',
         restored: 2,
         kept: ["Bo's team, changed since"],
-        deletedTeams: [],
         upload,
       }));
 
@@ -162,6 +161,35 @@ describe('TeamFileMessagesService', () => {
         'DHR',
         '1.0001',
         expect.objectContaining({ text: '↩️ Undone: 2 changes restored.' }),
+        'workspace-1',
+      );
+    });
+
+    it('tells the clicker what was kept when the message could not be updated', async () => {
+      const failure = new Error('service_unavailable');
+      const { service, slack } = buildUndo(async () => ({
+        kind: 'undone',
+        restored: 2,
+        kept: ["Bo's team, changed since"],
+        upload,
+      }));
+      slack.updateMessage.mockRejectedValue(failure);
+
+      await expect(service.undo('upload-1', hr)).rejects.toBe(failure);
+      expect(slack.postEphemeral).toHaveBeenCalledWith(
+        'UHR',
+        {
+          text: '↩️ Undone: 2 changes restored.',
+          blocks: [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: "↩️ Undone: 2 changes restored.\nKept as they are:\n• Bo's team, changed since",
+              },
+            },
+          ],
+        },
         'workspace-1',
       );
     });

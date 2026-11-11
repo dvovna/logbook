@@ -166,6 +166,29 @@ export class UsersService implements IUsersService {
     });
   }
 
+  // Puts people back in the team they had, each only while they are still
+  // in `from`. Returns the users that moved.
+  public async restoreTeams(
+    restores: { userId: string; from: string | null; to: string | null }[],
+    updatedBy: IUserViewModel,
+  ): Promise<IUserViewModel[]> {
+    if (restores.length === 0) {
+      return [];
+    }
+
+    return this.transactions.transaction(async () => {
+      const moved = await this.userRepository.restoreTeams({
+        slackTeamId: updatedBy.slack_team_id,
+        restores,
+        updatedBy: updatedBy.id,
+      });
+
+      this.tellTeamChanges(moved, updatedBy.id);
+
+      return moved;
+    });
+  }
+
   // A Member who leads a team can't approve until they are a Manager. Only
   // Members change: anyone else already approves, or may not lead at all.
   public async makeManagers(

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { sql } from 'kysely';
 import {
   IRelation,
   BaseRepository,
@@ -45,4 +46,63 @@ export class TeamsRepository extends BaseRepository<'teams', ITeamViewModel> {
       updated_by: extendedRow.updated_by,
     };
   };
+
+  // One statement: `teamIds` that requests or time entries (which would lose
+  // their team) or project assignments (which would be deleted) refer to.
+  // A team with both counts as 'records'.
+  public async findReferenced(
+    teamIds: string[],
+    slackTeamId: string,
+  ): Promise<Map<string, 'records' | 'projects'>> {
+    if (!teamIds.length) {
+      return new Map();
+    }
+
+    const referencing = (
+      table: 'project_teams' | 'time_entries' | 'vacation_requests',
+      kind: 'records' | 'projects',
+    ) =>
+      this.db
+        .selectFrom(table)
+        .select(['team_id', sql<string>`${kind}`.as('kind')])
+        .where('slack_team_id', '=', slackTeamId)
+        .where('team_id', 'in', teamIds);
+    const rows = await referencing('project_teams', 'projects')
+      .union(referencing('time_entries', 'records'))
+      .union(referencing('vacation_requests', 'records'))
+      .execute();
+    const found = new Map<string, 'records' | 'projects'>();
+
+    for (const { team_id, kind } of rows) {
+      if (found.get(team_id!) !== 'records') {
+        found.set(team_id!, kind as 'records' | 'projects');
+      }
+    }
+
+    return found;
+  }
+
+  // The leads change only while the team's leads are still `expected`: null
+  // when they are not.
+  public async replaceApprovers(
+    id: string,
+    slackTeamId: string,
+    expected: string[],
+    approvers: string[],
+    updatedBy: string,
+  ) {
+    const row = await this.updateInWorkspace(slackTeamId)
+      .set({
+        manager_approvers: approvers,
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy,
+      })
+      .where('id', '=', id)
+      // sql.val: a plain array would be read as a list of values.
+      .where(sql<boolean>`manager_approvers = ${sql.val(expected)}`)
+      .returningAll()
+      .executeTakeFirst();
+
+    return row ? this.toViewModel(row) : null;
+  }
 }

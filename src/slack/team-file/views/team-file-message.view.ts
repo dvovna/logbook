@@ -177,7 +177,7 @@ export class TeamFileMessageView {
 
   // What Undo put back, and what it left because it changed since.
   public undone(restored: number, kept: string[]): ITeamFileMessage {
-    const text = `↩️ Undone: ${restored} ${restored === 1 ? 'change' : 'changes'} restored.`;
+    const text = `↩️ Undone: ${counted(restored, 'change', 'changes')} restored.`;
 
     return {
       text,

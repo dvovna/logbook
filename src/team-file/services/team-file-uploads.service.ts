@@ -8,6 +8,7 @@ import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import TeamsService from '@modules/teams/services/teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
+import { UPLOAD_ID_PATTERN } from 'src/team-file/constants/team-file-upload-id';
 import { TEAM_FILE_PREVIEW_DAYS } from 'src/team-file/constants/team-file-limits';
 import { TeamFileUploadStatus } from 'src/team-file/enums/team-file-upload-status.enum';
 import { TeamFileUploadsRepository } from 'src/team-file/repositories/team-file-uploads.repository';
@@ -26,8 +27,6 @@ import { TeamFileUndoService } from 'src/team-file/services/team-file-undo.servi
 import { ITeamFileUndoResult } from 'src/team-file/types/team-file-undo-result.interface';
 import { ITeamFileUndo } from 'src/team-file/types/team-file-undo.interface';
 import { ITeamFileUpload } from 'src/team-file/types/team-file-upload.interface';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class TeamFileUploadsService {
@@ -94,7 +93,7 @@ export class TeamFileUploadsService {
     uploadId: string,
     user: IUserViewModel,
   ): Promise<ITeamFileUpload> {
-    const upload = UUID.test(uploadId)
+    const upload = UPLOAD_ID_PATTERN.test(uploadId)
       ? await this.uploadsRepository.cancelPreviewed(
           uploadId,
           user.slack_team_id,
@@ -120,7 +119,7 @@ export class TeamFileUploadsService {
   ): Promise<ITeamFileApplyResult> {
     const slackTeamId = user.slack_team_id;
 
-    if (!UUID.test(uploadId)) {
+    if (!UPLOAD_ID_PATTERN.test(uploadId)) {
       throw new NotFoundException('This preview is no longer open.');
     }
 

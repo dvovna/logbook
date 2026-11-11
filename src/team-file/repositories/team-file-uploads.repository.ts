@@ -110,41 +110,4 @@ export class TeamFileUploadsRepository extends BaseRepository<
       },
     );
   }
-
-  // Why each of `teamIds` that has records can't just be deleted. Requests
-  // and time entries would lose their team, project assignments would go.
-  public async findTeamsHeldByRecords(
-    teamIds: string[],
-    slackTeamId: string,
-  ): Promise<Map<string, string>> {
-    if (!teamIds.length) {
-      return new Map();
-    }
-
-    const held = new Map<string, string>();
-    const reasons = [
-      ['it is assigned to projects', ['project_teams']],
-      ['it has requests or time', ['time_entries', 'vacation_requests']],
-    ] as const;
-
-    for (const [reason, tables] of reasons) {
-      const found = await Promise.all(
-        tables.map((table) =>
-          this.db
-            .selectFrom(table)
-            .select('team_id')
-            .distinct()
-            .where('slack_team_id', '=', slackTeamId)
-            .where('team_id', 'in', teamIds)
-            .execute(),
-        ),
-      );
-
-      for (const { team_id } of found.flat()) {
-        held.set(team_id!, reason);
-      }
-    }
-
-    return held;
-  }
 }

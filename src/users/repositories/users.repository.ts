@@ -152,6 +152,54 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
     return moved;
   }
 
+  // Each user moves from `from` to `to` only while they are still in `from`.
+  // Returns the users that moved.
+  public async restoreTeams(params: {
+    slackTeamId: string;
+    restores: { userId: string; from: string | null; to: string | null }[];
+    updatedBy: string;
+  }): Promise<IUserViewModel[]> {
+    const { slackTeamId, restores, updatedBy } = params;
+    const groups = new Map<
+      string,
+      { from: string | null; to: string | null; userIds: string[] }
+    >();
+
+    for (const { userId, from, to } of restores) {
+      const key = `${from}>${to}`;
+      const group = groups.get(key) ?? { from, to, userIds: [] };
+
+      group.userIds.push(userId);
+      groups.set(key, group);
+    }
+
+    await this.assertTeamsInWorkspace(
+      slackTeamId,
+      [...new Set(restores.map(({ to }) => to))].filter(
+        (teamId): teamId is string => teamId !== null,
+      ),
+    );
+
+    const moved: IUserViewModel[] = [];
+
+    for (const { from, to, userIds } of groups.values()) {
+      const rows = await this.updateInWorkspace(slackTeamId)
+        .set({
+          team_id: to,
+          updated_at: new Date().toISOString(),
+          updated_by: updatedBy,
+        })
+        .where('id', 'in', userIds)
+        .where('team_id', 'is not distinct from', from)
+        .returningAll()
+        .execute();
+
+      moved.push(...rows.map(this.mapToViewModel));
+    }
+
+    return moved;
+  }
+
   // The foreign key lets a user point at another workspace's team.
   private async assertTeamsInWorkspace(slackTeamId: string, teamIds: string[]) {
     if (teamIds.length === 0) {

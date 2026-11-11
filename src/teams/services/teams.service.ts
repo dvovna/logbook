@@ -278,6 +278,27 @@ export default class TeamsService implements ITeamsService {
     return team;
   }
 
+  // What stops a team from being deleted without a loss, by team ID.
+  public findReferenced(teamIds: string[], slackTeamId: string) {
+    return this.teamsRepository.findReferenced(teamIds, slackTeamId);
+  }
+
+  // Sets the leads only if they are still `expected`; false when they are not.
+  public async replaceApprovers(
+    teamId: string,
+    expected: string[],
+    approvers: string[],
+    user: IUserViewModel,
+  ) {
+    return !!(await this.teamsRepository.replaceApprovers(
+      teamId,
+      user.slack_team_id,
+      expected,
+      approvers,
+      user.id,
+    ));
+  }
+
   public count(params: IFindParams) {
     return this.teamsRepository.count(this.getFindQuery(params));
   }

@@ -4,6 +4,7 @@ import { TransactionService } from 'src/database/transaction.service';
 import TeamsService from '@modules/teams/services/teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
+import { UPLOAD_ID_PATTERN } from 'src/team-file/constants/team-file-upload-id';
 import { TEAM_FILE_UNDO_DAYS } from 'src/team-file/constants/team-file-limits';
 import { TeamFileUploadStatus } from 'src/team-file/enums/team-file-upload-status.enum';
 import { TeamFileUploadsRepository } from 'src/team-file/repositories/team-file-uploads.repository';
@@ -12,10 +13,10 @@ import { ITeamFileUndoResult } from 'src/team-file/types/team-file-undo-result.i
 import { ITeamFileUpload } from 'src/team-file/types/team-file-upload.interface';
 import UserRole from '@common/enums/user-role.enum';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const sameSet = (a: string[], b: string[]) =>
-  new Set(a).size === new Set(b).size && a.every((id) => b.includes(id));
+const WHY_KEPT = {
+  records: 'it has requests or time',
+  projects: 'it is assigned to projects',
+};
 
 @Injectable()
 export class TeamFileUndoService {
@@ -28,15 +29,16 @@ export class TeamFileUndoService {
 
   // Puts back what Apply changed, wherever it is still as Apply left it, and
   // says what it left. The ID comes from a button value: only an upload of the
-  // user's workspace is found. Under Apply's lock, so the checks below hold
-  // until the commit and two clicks undo once.
+  // user's workspace is found. Under Apply's lock, so two clicks undo once.
+  // The lock orders only team file work: each value is put back by a write
+  // that holds only while the value is still the one Apply left.
   public async undo(
     uploadId: string,
     user: IUserViewModel,
   ): Promise<ITeamFileUndoResult> {
     const slackTeamId = user.slack_team_id;
 
-    if (!UUID.test(uploadId)) {
+    if (!UPLOAD_ID_PATTERN.test(uploadId)) {
       throw new NotFoundException('This preview is no longer open.');
     }
 
@@ -58,16 +60,13 @@ export class TeamFileUndoService {
         return { kind: 'closed', reason };
       }
 
-      const { restored, kept, deletedTeams } = await this.restore(
-        upload.undo!,
-        user,
-      );
+      const { restored, kept } = await this.restore(upload.undo!, user);
       const undone = await this.uploadsRepository.markUndone(
         upload.id,
         slackTeamId,
       );
 
-      return { kind: 'undone', restored, kept, deletedTeams, upload: undone };
+      return { kind: 'undone', restored, kept, upload: undone };
     });
   }
 
@@ -104,7 +103,6 @@ export class TeamFileUndoService {
   private async restore(undo: ITeamFileUndo, user: IUserViewModel) {
     const slackTeamId = user.slack_team_id;
     const kept: string[] = [];
-    let restored = 0;
 
     const [people, teams] = await Promise.all([
       this.usersService.findMany({ slackTeamId, includeInactive: true }),
@@ -115,58 +113,66 @@ export class TeamFileUndoService {
     const nameOf = (id: string) =>
       peopleById.get(id)?.name || peopleById.get(id)?.email || 'Someone';
 
-    const restorable: ITeamFileUndo['assignments'] = [];
+    const candidates: ITeamFileUndo['assignments'] = [];
 
     for (const assignment of undo.assignments) {
-      const person = peopleById.get(assignment.userId);
+      if (!peopleById.has(assignment.userId)) continue;
 
-      if (!person) continue;
-
-      if (person.team_id !== assignment.after) {
-        kept.push(`${nameOf(assignment.userId)}'s team, changed since`);
-      } else if (assignment.before && !teamsById.has(assignment.before)) {
+      if (assignment.before && !teamsById.has(assignment.before)) {
         kept.push(`${nameOf(assignment.userId)}'s earlier team was deleted`);
       } else {
-        restorable.push(assignment);
+        candidates.push(assignment);
       }
     }
 
-    await this.usersService.assignTeams(
-      restorable.map(({ userId, before }) => ({ userId, teamId: before })),
-      user,
+    const movedBack = new Set(
+      (
+        await this.usersService.restoreTeams(
+          candidates.map(({ userId, after, before }) => ({
+            userId,
+            from: after,
+            to: before,
+          })),
+          user,
+        )
+      ).map(({ id }) => id),
     );
-    restored += restorable.length;
+    let restored = movedBack.size;
+
+    for (const { userId } of candidates) {
+      if (!movedBack.has(userId)) {
+        kept.push(`${nameOf(userId)}'s team, changed since`);
+      }
+    }
 
     for (const { teamId, before, after } of undo.approvers) {
       const team = teamsById.get(teamId);
 
       if (!team) continue;
 
-      if (sameSet(team.manager_approvers ?? [], after)) {
-        await this.teamsService.update(
-          { id: teamId, slackTeamId },
-          { managerApprovers: before },
-          user,
-        );
+      if (
+        await this.teamsService.replaceApprovers(teamId, after, before, user)
+      ) {
         restored += 1;
       } else {
         kept.push(`${team.name}'s leads, changed since`);
       }
     }
 
-    const deletedTeams = await this.deleteEmptyCreatedTeams(
+    restored += await this.deleteEmptyCreatedTeams(
       undo.createdTeamIds,
       teamsById,
       kept,
       user,
     );
-    restored += await this.restoreRoles(undo, nameOf, kept, user);
+    restored += await this.restoreRoles(undo, peopleById, kept, user);
 
-    return { restored, kept, deletedTeams };
+    return { restored, kept };
   }
 
   // Only a team that has nothing left: what deleting would refuse or lose
-  // is checked first, since a failed statement ends the transaction.
+  // is checked first, since a failed statement ends the transaction. Returns
+  // how many were deleted.
   private async deleteEmptyCreatedTeams(
     createdTeamIds: string[],
     teamsById: Map<string, { name: string }>,
@@ -175,26 +181,30 @@ export class TeamFileUndoService {
   ) {
     const slackTeamId = user.slack_team_id;
     const existing = createdTeamIds.filter((id) => teamsById.has(id));
-    const [members, held] = await Promise.all([
+    const [members, referenced] = await Promise.all([
       this.usersService.findMany({
         slackTeamId,
         teamIds: existing,
         includeInactive: true,
       }),
-      this.uploadsRepository.findTeamsHeldByRecords(existing, slackTeamId),
+      this.teamsService.findReferenced(existing, slackTeamId),
     ]);
     const withMembers = new Set(members.map(({ team_id }) => team_id));
-    const deleted: string[] = [];
+    let deleted = 0;
 
     for (const id of existing) {
       const name = teamsById.get(id)!.name;
-      const reason = withMembers.has(id) ? 'it still has people' : held.get(id);
+      const why = withMembers.has(id)
+        ? 'it still has people'
+        : referenced.has(id)
+          ? WHY_KEPT[referenced.get(id)!]
+          : null;
 
-      if (reason) {
-        kept.push(`${name} kept: ${reason}`);
+      if (why) {
+        kept.push(`${name} kept: ${why}`);
       } else {
         await this.teamsService.delete(id, user);
-        deleted.push(name);
+        deleted += 1;
       }
     }
 
@@ -205,7 +215,7 @@ export class TeamFileUndoService {
   // them a Manager any more: no team lists them as a lead.
   private async restoreRoles(
     undo: ITeamFileUndo,
-    nameOf: (id: string) => string,
+    peopleById: Map<string, IUserViewModel>,
     kept: string[],
     user: IUserViewModel,
   ) {
@@ -213,12 +223,9 @@ export class TeamFileUndoService {
       return 0;
     }
 
-    const slackTeamId = user.slack_team_id;
-    const [people, teams] = await Promise.all([
-      this.usersService.findMany({ slackTeamId, includeInactive: true }),
-      this.teamsService.findMany({ slackTeamId }),
-    ]);
-    const peopleById = new Map(people.map((p) => [p.id, p]));
+    const teams = await this.teamsService.findMany({
+      slackTeamId: user.slack_team_id,
+    });
     const reversible: { userId: string; role: UserRole }[] = [];
 
     for (const { userId, before } of undo.promotions) {
@@ -226,14 +233,15 @@ export class TeamFileUndoService {
 
       if (!person) continue;
 
+      const name = person.name || person.email;
       const led = teams.find((t) =>
         t.manager_approvers?.includes(person.slack_id),
       );
 
       if (person.role !== UserRole.Manager) {
-        kept.push(`${nameOf(userId)}'s role, changed since`);
+        kept.push(`${name}'s role, changed since`);
       } else if (led) {
-        kept.push(`${nameOf(userId)} stays a Manager: still leads ${led.name}`);
+        kept.push(`${name} stays a Manager: still leads ${led.name}`);
       } else {
         reversible.push({ userId, role: before });
       }

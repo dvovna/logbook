@@ -95,8 +95,8 @@ describe('Team file Undo', () => {
 
     const update = await click(applied, 'undo');
 
-    expect(messageTexts(update)).toEqual(['↩️ Undone: 5 changes restored.']);
-    expect(update!.text).toBe('↩️ Undone: 5 changes restored.');
+    expect(messageTexts(update)).toEqual(['↩️ Undone: 6 changes restored.']);
+    expect(update!.text).toBe('↩️ Undone: 6 changes restored.');
     expect(actionIdsOf(update!)).toEqual([]);
     expect(await people()).toEqual(peopleBefore);
     expect(await teams()).toEqual(teamsBefore);
@@ -119,7 +119,7 @@ describe('Team file Undo', () => {
     const update = await click(applied, 'undo');
 
     expect(messageTexts(update)).toEqual([
-      "↩️ Undone: 2 changes restored.\nKept as they are:\n• Bo Brown's team, changed since",
+      "↩️ Undone: 3 changes restored.\nKept as they are:\n• Bo Brown's team, changed since",
     ]);
     expect(await people()).toEqual([
       { name: 'Anna Novak', team_id: null, role: UserRole.Member },
@@ -189,7 +189,7 @@ describe('Team file Undo', () => {
     await click(second, 'undo');
     const update = await click(first, 'undo');
 
-    expect(messageTexts(update)).toEqual(['↩️ Undone: 1 change restored.']);
+    expect(messageTexts(update)).toEqual(['↩️ Undone: 2 changes restored.']);
     expect(await teams()).toEqual([]);
     expect((await uploads()).map(({ status }) => status).sort()).toEqual([
       'undone',
@@ -235,7 +235,7 @@ describe('Team file Undo', () => {
         .map((update) => messageTexts(update)[0]),
     ).toEqual([
       '✅ Created 1 team and placed 1 person.',
-      '↩️ Undone: 1 change restored.',
+      '↩️ Undone: 2 changes restored.',
     ]);
   });
 
@@ -267,7 +267,7 @@ describe('Team file Undo', () => {
     await click(forged('undo'), 'undo');
 
     expect(told(since)).toEqual(
-      Array(3).fill('This preview is no longer open. Nothing changed.'),
+      Array(3).fill('This Undo is no longer available. Nothing changed.'),
     );
     expect(await people()).toEqual(before);
     expect((await uploads())[0].status).toBe('applied');

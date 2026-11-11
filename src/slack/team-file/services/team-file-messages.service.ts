@@ -122,7 +122,11 @@ export class TeamFileMessagesService {
       result = await this.uploadsService.undo(uploadId, user);
     } catch (error) {
       if (error instanceof NotFoundException) {
-        return this.tellClosed(user);
+        return this.slackCommunicationService.postEphemeral(
+          user.slack_id,
+          { text: 'This Undo is no longer available. Nothing changed.' },
+          user.slack_team_id,
+        );
       }
 
       await this.tellQuietly(user, NOT_UNDONE);
@@ -145,7 +149,7 @@ export class TeamFileMessagesService {
         throw new Error(`Upload ${result.upload.id} has no message`);
       }
     } catch (error) {
-      await this.tellQuietly(user, message.text);
+      await this.tellQuietly(user, message.text, message.blocks);
       throw error;
     }
   }
@@ -204,11 +208,15 @@ export class TeamFileMessagesService {
 
   // Its own failure is only logged, so that the error which led here is the
   // one reported.
-  private async tellQuietly(user: IUserViewModel, text: string) {
+  private async tellQuietly(
+    user: IUserViewModel,
+    text: string,
+    blocks?: ITeamFileMessage['blocks'],
+  ) {
     try {
       await this.slackCommunicationService.postEphemeral(
         user.slack_id,
-        { text },
+        { text, ...(blocks ? { blocks } : {}) },
         user.slack_team_id,
       );
     } catch (error) {

@@ -47,13 +47,13 @@ describe('TeamFileUndoService', () => {
     {
       people,
       teams,
-      held = new Map<string, string>(),
+      referenced = new Map<string, 'records' | 'projects'>(),
       upload = {},
       latestId = UPLOAD_ID,
     }: {
       people: IUserViewModel[];
       teams: ITeamViewModel[];
-      held?: Map<string, string>;
+      referenced?: Map<string, 'records' | 'projects'>;
       upload?: Partial<ITeamFileUpload>;
       latestId?: string;
     },
@@ -69,7 +69,6 @@ describe('TeamFileUndoService', () => {
     const repository = {
       findOne: jest.fn().mockResolvedValue(stored),
       findLatestApplied: jest.fn().mockResolvedValue({ id: latestId }),
-      findTeamsHeldByRecords: jest.fn().mockResolvedValue(held),
       markUndone: jest.fn().mockResolvedValue(stored),
     };
     // Reads the current state: what the service changes is not reflected.
@@ -79,12 +78,28 @@ describe('TeamFileUndoService', () => {
           ? people.filter((p) => p.team_id && teamIds.includes(p.team_id))
           : people,
       ),
-      assignTeams: jest.fn(),
+      restoreTeams: jest.fn(
+        async (
+          restores: {
+            userId: string;
+            from: string | null;
+            to: string | null;
+          }[],
+        ) =>
+          people.filter((p) =>
+            restores.some((r) => r.userId === p.id && r.from === p.team_id),
+          ),
+      ),
       restoreRoles: jest.fn(async (roles: unknown[]) => roles),
     };
     const teamsService = {
       findMany: jest.fn().mockResolvedValue(teams),
-      update: jest.fn(),
+      replaceApprovers: jest.fn(
+        async (teamId: string, expected: string[]) =>
+          teams.find((t) => t.id === teamId)!.manager_approvers?.join() ===
+          expected.join(),
+      ),
+      findReferenced: jest.fn().mockResolvedValue(referenced),
       delete: jest.fn(),
     };
     const transactions = {
@@ -98,7 +113,14 @@ describe('TeamFileUndoService', () => {
       transactions as unknown as TransactionService,
     );
 
-    return { service, repository, usersService, teamsService, transactions };
+    return {
+      service,
+      stored,
+      repository,
+      usersService,
+      teamsService,
+      transactions,
+    };
   };
 
   it('takes the workspace lock and finds the upload only in the clicker’s workspace', async () => {
@@ -163,11 +185,11 @@ describe('TeamFileUndoService', () => {
       reason,
     });
     expect(repository.markUndone).not.toHaveBeenCalled();
-    expect(usersService.assignTeams).not.toHaveBeenCalled();
+    expect(usersService.restoreTeams).not.toHaveBeenCalled();
   });
 
   it('restores each value that is still as Apply left it and keeps the rest', async () => {
-    const { service, usersService, teamsService } = build(
+    const { service, stored, usersService, teamsService } = build(
       {
         assignments: [
           { userId: 'ann', before: 'old', after: 'new' },
@@ -194,62 +216,74 @@ describe('TeamFileUndoService', () => {
 
     const result = await service.undo(UPLOAD_ID, hr);
 
-    expect(usersService.assignTeams).toHaveBeenCalledWith(
-      [{ userId: 'ann', teamId: 'old' }],
+    expect(usersService.restoreTeams).toHaveBeenCalledWith(
+      [
+        { userId: 'ann', from: 'new', to: 'old' },
+        { userId: 'bo', from: 'new', to: null },
+      ],
       hr,
     );
-    expect(teamsService.update).toHaveBeenCalledTimes(1);
-    expect(teamsService.update).toHaveBeenCalledWith(
-      { id: 'old', slackTeamId: 'ws' },
-      { managerApprovers: ['SX', 'SY'] },
+    expect(teamsService.replaceApprovers).toHaveBeenCalledWith(
+      'old',
+      ['SX'],
+      ['SX', 'SY'],
       hr,
     );
-    expect(result).toMatchObject({
+    expect(teamsService.replaceApprovers).toHaveBeenCalledWith(
+      'new',
+      ['SA'],
+      [],
+      hr,
+    );
+    expect(result).toEqual({
       kind: 'undone',
       restored: 2,
       kept: [
-        "Name bo's team, changed since",
         "Name cy's earlier team was deleted",
+        "Name bo's team, changed since",
         "Team new's leads, changed since",
       ],
+      upload: stored,
     });
   });
 
   it('deletes a created team with no people and no records, and keeps the others with the reason', async () => {
-    const { service, teamsService, repository } = build(
+    const { service, stored, teamsService } = build(
       { createdTeamIds: ['empty', 'people', 'requests', 'projects', 'gone'] },
       {
         people: [person('ann', { team_id: 'people' })],
         teams: ['empty', 'people', 'requests', 'projects'].map((id) =>
           team(id),
         ),
-        held: new Map([
-          ['requests', 'it has requests or time'],
-          ['projects', 'it is assigned to projects'],
+        referenced: new Map([
+          ['requests', 'records'],
+          ['projects', 'projects'],
         ]),
       },
     );
 
     const result = await service.undo(UPLOAD_ID, hr);
 
-    expect(repository.findTeamsHeldByRecords).toHaveBeenCalledWith(
+    expect(teamsService.findReferenced).toHaveBeenCalledWith(
       ['empty', 'people', 'requests', 'projects'],
       'ws',
     );
     expect(teamsService.delete).toHaveBeenCalledTimes(1);
     expect(teamsService.delete).toHaveBeenCalledWith('empty', hr);
-    expect(result).toMatchObject({
-      deletedTeams: ['Team empty'],
+    expect(result).toEqual({
+      kind: 'undone',
+      restored: 1,
       kept: [
         'Team people kept: it still has people',
         'Team requests kept: it has requests or time',
         'Team projects kept: it is assigned to projects',
       ],
+      upload: stored,
     });
   });
 
   it('reverses a promotion only for a Manager who leads no team', async () => {
-    const { service, usersService } = build(
+    const { service, stored, usersService } = build(
       {
         promotions: [
           { userId: 'free', before: UserRole.Member },
@@ -273,12 +307,14 @@ describe('TeamFileUndoService', () => {
       [{ userId: 'free', role: UserRole.Member }],
       hr,
     );
-    expect(result).toMatchObject({
+    expect(result).toEqual({
+      kind: 'undone',
       restored: 1,
       kept: [
         'Name leads stays a Manager: still leads Team t',
         "Name changed's role, changed since",
       ],
+      upload: stored,
     });
   });
 });
