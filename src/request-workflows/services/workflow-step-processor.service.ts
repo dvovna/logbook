@@ -130,7 +130,7 @@ export class WorkflowStepProcessorService implements OnModuleInit {
   }
 
   private async closeDeletedMessage({ step, comments }: IDeletedStepJob) {
-    await this.getHandler(step.step_type).updateMessage(step, comments);
+    await this.getHandler(step.step_type).updateMessage(step, comments, true);
   }
 
   private commentsOf(step: IRequestWorkflowStepViewModel) {

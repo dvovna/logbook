@@ -58,6 +58,7 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
   public async updateMessage(
     step: IRequestWorkflowStepViewModel,
     comments?: IWorkflowStepCommentViewModel[],
+    requestDeleted?: boolean,
   ): Promise<void> {
     if (!step.slack_message_ts || !step.slack_channel_id) {
       this.logger.error(`Step ${step.id} has no message to update`);
@@ -71,6 +72,7 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
         step,
         comments,
         progress: await this.findProgress(step),
+        requestDeleted,
       }),
       step.slack_team_id,
     );

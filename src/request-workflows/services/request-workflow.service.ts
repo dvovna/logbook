@@ -156,7 +156,7 @@ export class RequestWorkflowService {
 
       const closedSteps = await this.requestWorkflowStepsService.decide(
         { requestId, slackTeamId: deletedBy.slack_team_id },
-        RequestWorkflowStatus.Deleted,
+        RequestWorkflowStatus.Canceled,
         deletedBy,
       );
       // For the messages of the closed steps; a decided request has none.

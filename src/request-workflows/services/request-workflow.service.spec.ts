@@ -599,7 +599,7 @@ describe('RequestWorkflowService', () => {
 
       expect(stepsService.decide).toHaveBeenCalledWith(
         { requestId: REQUEST_ID, slackTeamId: SLACK_TEAM_ID },
-        RequestWorkflowStatus.Deleted,
+        RequestWorkflowStatus.Canceled,
         admin,
       );
       expect(commentsService.findMany).toHaveBeenCalledWith({
