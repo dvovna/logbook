@@ -280,6 +280,24 @@ describe('Vacation balance under a policy', () => {
       });
     });
 
+    it('counts bonus days in working days', async () => {
+      await setUp({ bonus_days: 2 });
+      const { start } = workWeek(1);
+
+      // Friday to Monday: two working days.
+      const response = await submitVacationRequest(t, workspace, member, {
+        start: addDays(start, 4),
+        end: addDays(start, 7),
+        type: VacationType.BonusDay,
+      });
+
+      expect(response).toEqual({ response_action: 'clear' });
+      expect(await usageOnHome()).toEqual([
+        expect.stringMatching(/^Annual leave/),
+        'Bonus days: *0 available* / 2 total (*2* used)',
+      ]);
+    });
+
     it('does not limit sick leave', async () => {
       await setUp({ vacation_days: 0, working_days: 1 });
 

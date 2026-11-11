@@ -196,7 +196,7 @@ export class VacationPeriodUsageService {
             acc.annualLeaveWorkingDaysUsed += vacation.working_days;
             break;
           case VacationType.BonusDay:
-            acc.bonusUsed += vacation.days;
+            acc.bonusUsed += vacation.working_days;
             break;
           case VacationType.SickLeave:
             acc.sickUsed += vacation.days;

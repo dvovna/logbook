@@ -183,11 +183,12 @@ export class VacationRequestsValidationService {
 
           break;
         }
+        // Bonus days are working days: a Friday to Monday request takes 2.
         case VacationType.BonusDay: {
           const usageByType = usage[vacationType];
 
           this.validateVacationDaysUsage(
-            calendarDays,
+            workingDays,
             usageByType.available,
             'bonus',
             year,

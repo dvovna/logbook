@@ -105,6 +105,10 @@ export class VacationPolicyModalView extends BaseModalView<
           type: 'plain_text',
           text: 'Bonus Days',
         },
+        hint: {
+          type: 'plain_text',
+          text: "Days off on top of annual leave, in working days: weekends and this policy's enabled holidays don't count.",
+        },
       },
       {
         type: 'input',
