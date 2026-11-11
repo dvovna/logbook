@@ -21,6 +21,7 @@ import { SlackCommunicationModule } from '@modules/slack-communication/slack-com
 import { TimesheetFormModalView } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 import { TimesheetFormSubmitHandler } from '@modules/slack/tabs/time-tracking/handlers/timesheet-form-submit.handler';
 import { TimesheetFormActionHandler } from '@modules/slack/tabs/time-tracking/handlers/timesheet-form-action.handler';
+import { TimesheetFormParser } from '@modules/slack/tabs/time-tracking/parsers/timesheet-form.parser';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { TimesheetFormActionHandler } from '@modules/slack/tabs/time-tracking/ha
     TimeEntriesTabActionHandler,
     TimeEntryRemindersService,
     TimesheetFormModalView,
+    TimesheetFormParser,
     TimesheetFormSubmitHandler,
     TimesheetFormActionHandler,
   ],

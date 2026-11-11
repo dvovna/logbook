@@ -11,17 +11,13 @@ import {
   TabId,
   TabNavigationService,
 } from '@modules/slack/common/services/tab-navigation.service';
-import { ISlackViewSubmissionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import {
   ITimesheetFormData,
-  parseTimesheetForm,
+  TimesheetFormParser,
 } from '@modules/slack/tabs/time-tracking/parsers/timesheet-form.parser';
 import { TimeEntriesTabModalName } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-modal-name.enum';
 import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
-import {
-  COMMENT_BLOCK_ID,
-  TimesheetFormMetadata,
-} from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
+import { TimesheetFormMetadata } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 import { weekLabel } from '@common/utils/date.utils';
 import { dayLabel } from '@modules/slack/tabs/time-tracking/views/timesheet-table.view';
 import { ITimeEntriesTabMetaData } from '@modules/slack/tabs/time-tracking/views/time-entries-tab.view';
@@ -49,29 +45,9 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
     private readonly timesheetSaveService: TimesheetSaveService,
     private readonly timeEntriesTabService: TimeEntriesTabService,
     private readonly tabNavigationService: TabNavigationService,
+    formParser: TimesheetFormParser,
   ) {
-    super();
-  }
-
-  // The cells differ from form to form: no fixed field config fits them.
-  protected getFormData(payload: ISlackViewSubmissionPayload) {
-    return parseTimesheetForm(payload.view);
-  }
-
-  // An error about a cell shows at its input, one about the comment at the
-  // comment. A cell the form has no input for came from the client: its
-  // error shows in the modal.
-  protected blockIdOfField(
-    field: string,
-    payload: ISlackViewSubmissionPayload,
-  ): string | null {
-    const blockId = field === 'comment' ? COMMENT_BLOCK_ID : field;
-
-    return (payload.view.blocks ?? []).some(
-      (block) => block.type === 'input' && block.block_id === blockId,
-    )
-      ? blockId
-      : null;
+    super(formParser);
   }
 
   protected async onSubmit(
