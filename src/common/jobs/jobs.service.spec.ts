@@ -41,6 +41,8 @@ describe('JobsService', () => {
     inTransaction: boolean;
     afterCommit: jest.Mock;
     sqlExecutor: () => typeof executor;
+    transaction: (work: () => Promise<unknown>) => Promise<unknown>;
+    lock: jest.Mock;
   };
   const sent: string[] = [];
   const notify = ({ to }: { to: string }) => {
@@ -56,10 +58,13 @@ describe('JobsService', () => {
     report = jest.spyOn(errorReporter, 'reportError').mockImplementation();
     sent.length = 0;
     queue = fakeQueue();
+    executor.executeSql.mockReset().mockResolvedValue({ rows: [] });
     transactions = {
       inTransaction: false,
       afterCommit: jest.fn(),
       sqlExecutor: () => executor,
+      transaction: (work) => work(),
+      lock: jest.fn(() => Promise.resolve()),
     };
     jobs = new JobsService(
       queue as unknown as JobQueue,
@@ -197,6 +202,113 @@ describe('JobsService', () => {
     );
 
     expect(transactions.afterCommit).not.toHaveBeenCalled();
+  });
+
+  describe('enqueueSingleton', () => {
+    const runAfterCommit = async () => {
+      const [[afterCommit]] = transactions.afterCommit.mock.calls as [
+        [() => Promise<void>],
+      ];
+
+      await afterCommit();
+    };
+
+    it('saves the job with its key under a lock, and runs its first run instead of the handler', async () => {
+      const firstRun = jest.fn(() => Promise.resolve());
+
+      expect(
+        await jobs.enqueueSingleton(
+          'notify',
+          'U1:june',
+          { to: 'U1' },
+          {
+            firstRun,
+          },
+        ),
+      ).toBe(true);
+
+      expect(transactions.lock).toHaveBeenCalledWith({
+        key: 'job:notify:U1:june',
+        rank: expect.any(Number),
+      });
+      expect(executor.executeSql).toHaveBeenCalledWith(
+        expect.stringContaining(`"pgboss".job where name = $1`),
+        ['notify', 'U1:june'],
+      );
+      expect(queue.send).toHaveBeenCalledWith(
+        'notify',
+        { to: 'U1' },
+        {
+          singletonKey: 'U1:june',
+          startAfter: FIRST_RETRY_AFTER_SECONDS,
+          db: executor,
+        },
+      );
+
+      await runAfterCommit();
+
+      expect(firstRun).toHaveBeenCalledWith({ to: 'U1' });
+      expect(sent).toEqual([]);
+      expect(queue.deleteJob).toHaveBeenCalledWith('notify', 'job-1');
+    });
+
+    it('saves and runs nothing while a job with the key is pending', async () => {
+      executor.executeSql.mockResolvedValueOnce({ rows: [{}] });
+
+      expect(
+        await jobs.enqueueSingleton('notify', 'U1:june', { to: 'U1' }),
+      ).toBe(false);
+
+      expect(queue.send).not.toHaveBeenCalled();
+      expect(transactions.afterCommit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onGiveUp', () => {
+    const givenUp: object[] = [];
+
+    beforeEach(() => {
+      givenUp.length = 0;
+      jobs.define('export', notify, {
+        onGiveUp: (payload) => {
+          givenUp.push(payload);
+
+          return Promise.resolve();
+        },
+      });
+    });
+
+    it('runs once the last retry failed, not before', async () => {
+      queue.fetch.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        { id: 'j1', data: { to: 'U_DOWN' }, retryCount: 7, retryLimit: 8 },
+        {
+          id: 'j2',
+          data: { to: 'U_DOWN', last: true },
+          retryCount: 8,
+          retryLimit: 8,
+        },
+      ]);
+
+      await jobs.runDueJobs();
+
+      expect(givenUp).toEqual([{ to: 'U_DOWN', last: true }]);
+    });
+
+    it('runs when a job that could not be saved failed its only run', async () => {
+      queue.send.mockRejectedValue(new Error('connection refused'));
+
+      void jobs.run('export', { to: 'U_DOWN' });
+      await whenBackgroundWorkIsDone();
+
+      expect(givenUp).toEqual([{ to: 'U_DOWN' }]);
+    });
+
+    it('does not run when a first run with a saved copy fails', async () => {
+      void jobs.run('export', { to: 'U_DOWN' });
+      await whenBackgroundWorkIsDone();
+
+      expect(givenUp).toEqual([]);
+    });
   });
 
   describe('shutdown', () => {

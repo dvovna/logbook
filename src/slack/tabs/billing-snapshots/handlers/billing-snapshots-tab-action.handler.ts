@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { runInBackground } from '@common/utils/run-in-background';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -15,6 +14,10 @@ import {
 } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
+import {
+  CSV_ALREADY_SENDING_NOTICE,
+  CSV_SENDING_NOTICE,
+} from '@modules/slack/common/constants/csv-export';
 import {
   BillingSnapshotsModalName,
   BillingSnapshotsTabActionId,
@@ -121,8 +124,9 @@ export default class BillingSnapshotsTabActionHandler extends BaseTabActionHandl
     );
   }
 
-  // The upload takes longer than Slack waits for an answer, so it runs after
-  // it; the snapshot is looked up first, so that a wrong one fails here.
+  // The upload takes longer than Slack waits for an answer, so it is a job,
+  // saved before the answer; the snapshot is looked up first, so that a
+  // wrong one fails here.
   private async handleExport(
     snapshotId: string,
     payload: ISlackInteractionPayload,
@@ -130,14 +134,12 @@ export default class BillingSnapshotsTabActionHandler extends BaseTabActionHandl
   ) {
     await this.billingSnapshotsService.findOne(snapshotId, user);
 
-    runInBackground(this.logger, 'send a billing snapshot as CSV', () =>
-      this.billingSnapshotDmService.send(user, snapshotId),
-    );
+    const sending = await this.billingSnapshotDmService.start(user, snapshotId);
 
     this.tabNavigationService.navigate(TabId.BillingSnapshots, {
       user,
       metadata: parseMetadata<IBillingSnapshotsTabMetadata>(payload),
-      notice: '📨 Sending the CSV to your DMs.',
+      notice: sending ? CSV_SENDING_NOTICE : CSV_ALREADY_SENDING_NOTICE,
     });
   }
 }

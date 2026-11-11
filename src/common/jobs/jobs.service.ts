@@ -12,7 +12,13 @@ import { ConfigService } from '@nestjs/config';
 import PgBoss from 'pg-boss';
 import { CLOSE_TIMEOUT_MS } from '@common/constants/shutdown';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
-import { IEnqueueManyOptions, ISavedJob } from '@common/jobs/types/jobs.types';
+import {
+  IEnqueueManyOptions,
+  IEnqueueSingletonOptions,
+  IJobDefinitionOptions,
+  ISavedJob,
+  JobHandler,
+} from '@common/jobs/types/jobs.types';
 import { ConcurrencyLimit } from '@common/utils/concurrency-limit';
 import delay from '@common/utils/delay';
 import { finishesWithin } from '@common/utils/finishes-within';
@@ -21,6 +27,7 @@ import {
   trackInBackground,
 } from '@common/utils/run-in-background';
 import { TransactionService } from 'src/database/transaction.service';
+import { singletonJobLock } from 'src/database/advisory-locks';
 
 export interface IJobsOptions {
   // The Postgres schema of pg-boss's tables. The integration tests give each
@@ -65,8 +72,6 @@ const EXPIRE_IN_SECONDS = 15 * 60;
 const FIRST_RUN_GIVES_WAY_MS = 60_000;
 
 const DEADLOCK_DETECTED = '40P01';
-
-type JobHandler<Payload> = (payload: Payload) => Promise<void>;
 
 // The pg-boss instance, from JobsModule; the unit tests give a fake.
 export const JOB_QUEUE = Symbol('JOB_QUEUE');
@@ -128,6 +133,11 @@ export class JobsService
 
   private readonly handlers = new Map<string, JobHandler<object>>();
 
+  private readonly giveUps = new Map<
+    string,
+    (payload: object) => Promise<void>
+  >();
+
   private started: Promise<void> | null = null;
 
   private poller: NodeJS.Timeout | null = null;
@@ -149,12 +159,17 @@ export class JobsService
   public define<Payload extends object>(
     name: string,
     handler: JobHandler<Payload>,
+    { onGiveUp }: IJobDefinitionOptions<Payload> = {},
   ) {
     if (this.handlers.has(name)) {
       throw new Error(`Job ${name} is defined twice`);
     }
 
     this.handlers.set(name, handler as JobHandler<object>);
+
+    if (onGiveUp) {
+      this.giveUps.set(name, onGiveUp as (payload: object) => Promise<void>);
+    }
   }
 
   // Callers needn't wait: the job counts as background work, which the
@@ -184,16 +199,40 @@ export class JobsService
     const handler = this.handlerOf(name);
 
     await this.started;
+    await this.saveToRunAfterCommit(name, handler, payload);
+  }
 
-    const dueAt = performance.now() + FIRST_RETRY_AFTER_SECONDS * 1000;
-    const id = await this.boss.send(name, payload, {
-      startAfter: FIRST_RETRY_AFTER_SECONDS,
-      db: this.transactions.sqlExecutor(),
+  // enqueue() for work that must not run twice at once, such as a person's
+  // export of one report: while a job of `name` with `singletonKey` is
+  // saved (waiting for its first run or a retry) or runs, it saves and runs
+  // nothing and resolves false. The check and the save are one transaction
+  // under a lock, so that two clicks at once save one job.
+  public async enqueueSingleton<Payload extends object>(
+    name: string,
+    singletonKey: string,
+    payload: Payload,
+    { firstRun }: IEnqueueSingletonOptions<Payload> = {},
+  ): Promise<boolean> {
+    const handler = this.handlerOf(name);
+
+    await this.started;
+
+    return this.transactions.transaction(async () => {
+      await this.transactions.lock(singletonJobLock(name, singletonKey));
+
+      if (await this.isPending(name, singletonKey)) {
+        return false;
+      }
+
+      await this.saveToRunAfterCommit(
+        name,
+        (firstRun as JobHandler<object> | undefined) ?? handler,
+        payload,
+        { singletonKey },
+      );
+
+      return true;
     });
-
-    this.transactions.afterCommit(() =>
-      this.runInSlot(name, handler, payload, id ? { id, dueAt } : null),
-    );
   }
 
   // enqueue() for many jobs of one kind, saved in one statement: a
@@ -277,6 +316,10 @@ export class JobsService
             await this.boss.fail(queue, job.id, {
               message: (error as Error).message,
             });
+
+            if (isLastTry) {
+              await this.giveUp(queue, job.data);
+            }
           }
         });
       }
@@ -371,6 +414,39 @@ export class JobsService
         await delay(100 * attempt + Math.random() * 100);
       }
     }
+  }
+
+  // Saves the job on the current transaction (or the pool) and runs it with
+  // `handler` once that commits.
+  private async saveToRunAfterCommit(
+    name: string,
+    handler: JobHandler<object>,
+    payload: object,
+    options: { singletonKey?: string } = {},
+  ) {
+    const dueAt = performance.now() + FIRST_RETRY_AFTER_SECONDS * 1000;
+    const id = await this.boss.send(name, payload, {
+      ...options,
+      startAfter: FIRST_RETRY_AFTER_SECONDS,
+      db: this.transactions.sqlExecutor(),
+    });
+
+    this.transactions.afterCommit(() =>
+      this.runInSlot(name, handler, payload, id ? { id, dueAt } : null),
+    );
+  }
+
+  // Waiting for its first run or a retry (created, retry), or running
+  // (active): pg-boss's job_state enum is in that order.
+  private async isPending(name: string, singletonKey: string) {
+    const { rows } = await this.transactions
+      .sqlExecutor()
+      .executeSql(
+        `select 1 from "${this.options.schema}".job where name = $1 and singleton_key = $2 and state < 'completed' limit 1`,
+        [name, singletonKey],
+      );
+
+    return rows.length > 0;
   }
 
   private handlerOf(name: string) {
@@ -469,6 +545,10 @@ export class JobsService
         !saved,
       );
 
+      if (!saved) {
+        await this.giveUp(name, payload);
+      }
+
       return;
     }
 
@@ -501,6 +581,17 @@ export class JobsService
 
       return null;
     }
+  }
+
+  private async giveUp(name: string, payload: object) {
+    await this.giveUps
+      .get(name)?.(payload)
+      .catch((error: Error) =>
+        this.logger.error(
+          `Job ${name} gave up and failed to say so: ${error.message}`,
+          error.stack,
+        ),
+      );
   }
 
   // A job that won't run again is reported (error tracking); one that will

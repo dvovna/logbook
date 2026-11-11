@@ -9,12 +9,13 @@ import { UnlockBillingSnapshotFormSubmitHandler } from '@modules/slack/tabs/bill
 import { BillingSnapshotsTabService } from '@modules/slack/tabs/billing-snapshots/services/billing-snapshots-tab.service';
 import { BillingSnapshotDmService } from '@modules/slack/tabs/billing-snapshots/services/billing-snapshot-dm.service';
 import { BillingSnapshotsTabView } from '@modules/slack/tabs/billing-snapshots/views/billing-snapshots-tab.view';
+import { UsersModule } from '@modules/users/users.module';
 
 // Billing snapshots (Reports → Billing snapshots): the list, each one's CSV,
 // the invoiced mark and unlocking. Snapshots are made on Reports, from a
 // billing report.
 @Module({
-  imports: [SlackCommonModule, BillingModule, ClientsModule],
+  imports: [SlackCommonModule, BillingModule, ClientsModule, UsersModule],
   providers: [
     BillingSnapshotsTabActionHandler,
     MarkBillingSnapshotInvoicedFormSubmitHandler,

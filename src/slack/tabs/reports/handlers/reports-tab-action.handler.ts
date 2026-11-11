@@ -1,5 +1,6 @@
 import { assertCanSeeRates } from 'src/projects/constants/rate-roles';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { once } from 'lodash';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
@@ -20,7 +21,10 @@ import {
 import { groupingOf } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
 import { IReportsTabMetadata } from '@modules/slack/tabs/reports/views/reports-tab.view';
 import { TimeReportExportService } from '@modules/slack/tabs/reports/services/time-report-export.service';
-import { runInBackground } from '@common/utils/run-in-background';
+import {
+  CSV_ALREADY_SENDING_NOTICE,
+  CSV_SENDING_NOTICE,
+} from '@modules/slack/common/constants/csv-export';
 import { ValidationError } from '@common/errors/validation.error';
 import { assertReportPeriod } from 'src/time-entries/utils/report-period';
 import { assertCanManageSnapshots } from 'src/billing/constants/snapshot-roles';
@@ -43,7 +47,6 @@ const metadataOf = (payload: ISlackInteractionPayload): IReportsTabMetadata => {
 })
 export default class ReportsTabActionHandler extends BaseTabActionHandler {
   protected actionMap: ActionMapType;
-  private readonly logger = new Logger(ReportsTabActionHandler.name);
 
   public constructor(
     tabNavigationService: TabNavigationService,
@@ -120,10 +123,10 @@ export default class ReportsTabActionHandler extends BaseTabActionHandler {
   };
 
   // Sends the entries of the time report on show as a CSV file in a DM. The
-  // upload takes longer than Slack waits for an answer, so it runs after it;
-  // the export keeps to the user's own scope whatever the metadata says. The
-  // report is made once, for the CSV and for Reports shown again with the
-  // notice.
+  // upload takes longer than Slack waits for an answer, so it is a job,
+  // saved before the answer; the export keeps to the user's own scope
+  // whatever the metadata says. The report is made once, for the CSV and for
+  // Reports shown again with the notice.
   private handleExportTimeReport = async (
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
@@ -137,29 +140,29 @@ export default class ReportsTabActionHandler extends BaseTabActionHandler {
     }
 
     const { fromDate, toDate, clientId, projectId, userId } = timeReport;
-    const filters = { clientId, projectId, userId };
+    const params = {
+      groupBy,
+      fromDate,
+      toDate,
+      filters: { clientId, projectId, userId },
+    };
 
     assertReportPeriod(fromDate, toDate);
 
-    runInBackground(this.logger, 'send a time report as CSV', () => {
-      const report = this.timeReportService.getReport({
-        user,
-        groupBy,
-        fromDate,
-        toDate,
-        filters,
-      });
+    const report = once(() =>
+      this.timeReportService.getReport({ user, ...params }),
+    );
+    const sending = await this.timeReportExportService.start(
+      user,
+      params,
+      report,
+    );
 
-      this.tabNavigationService.navigate<IReportsPublishParams>(TabId.Reports, {
-        user,
-        metadata,
-        notice: '📨 Sending the CSV to your DMs.',
-        timeReport: report,
-      });
-
-      return report.then((made) =>
-        this.timeReportExportService.send(user, made, filters),
-      );
+    this.tabNavigationService.navigate<IReportsPublishParams>(TabId.Reports, {
+      user,
+      metadata,
+      notice: sending ? CSV_SENDING_NOTICE : CSV_ALREADY_SENDING_NOTICE,
+      timeReport: report(),
     });
   };
 }

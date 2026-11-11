@@ -22,9 +22,16 @@ import {
   UninvoicedReportPresetHandler,
 } from '@modules/slack/tabs/reports/handlers/report-form-preset.handler';
 import { BillingModule } from 'src/billing/billing.module';
+import { UsersModule } from '@modules/users/users.module';
 
 @Module({
-  imports: [SlackCommonModule, TimeEntriesModule, ClientsModule, BillingModule],
+  imports: [
+    SlackCommonModule,
+    TimeEntriesModule,
+    ClientsModule,
+    BillingModule,
+    UsersModule,
+  ],
   providers: [
     ReportsTabActionHandler,
     ReportsTabService,
