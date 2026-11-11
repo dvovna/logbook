@@ -299,7 +299,9 @@ export class TimeEntriesRepository extends BaseRepository<
   }
 
   // Which of the entries are in a billing snapshot, and so can't change
-  // until an admin unlocks it.
+  // until an admin unlocks it. The IDs go as one array parameter: the billing
+  // report passes every approved entry of a period, and a statement takes at
+  // most 65535 parameters.
   public async findBilledIds(
     slackTeamId: string,
     ids: string[],
@@ -316,7 +318,7 @@ export class TimeEntriesRepository extends BaseRepository<
       .selectFrom('billing_snapshot_entries')
       .select('time_entry_id')
       .where('slack_team_id', '=', slackTeamId)
-      .where('time_entry_id', 'in', ids)
+      .where(sql<boolean>`time_entry_id = any(${ids}::uuid[])`)
       .execute();
 
     return new Set(rows.map(({ time_entry_id }) => time_entry_id));

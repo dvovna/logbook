@@ -47,6 +47,22 @@ describe('TimeEntriesRepository', () => {
     expect(parametersOf(0)).toEqual(['w1', 'draft', 'rejected', '2026-06-14']);
   });
 
+  it('sends the IDs to find billed entries as one parameter, however many', async () => {
+    const ids = Array.from({ length: 70000 }, (_, index) => `e${index}`);
+    const { database, sqlOf, parametersOf } = recordingDatabase([
+      [{ time_entry_id: 'e1' }],
+    ]);
+
+    await expect(
+      new TimeEntriesRepository(database).findBilledIds('w1', ids),
+    ).resolves.toEqual(new Set(['e1']));
+    expect(sqlOf(0)).toBe(
+      'select "time_entry_id" from "billing_snapshot_entries" ' +
+        'where "slack_team_id" = $1 and time_entry_id = any($2::uuid[])',
+    );
+    expect(parametersOf(0)).toEqual(['w1', ids]);
+  });
+
   it("keeps a vacation's billed entries by their own snapshot row", async () => {
     const { database, sqlOf } = recordingDatabase([[]]);
 

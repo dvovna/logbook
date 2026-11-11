@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import { ReportsTabActionId } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
@@ -282,6 +283,58 @@ describe('Billing reports', () => {
         '$25,025.00',
       ],
       ['Total', '–', '250h 15m', '250h 15m', '–', '$25,025.00'],
+    ]);
+  });
+
+  // A statement takes at most 65535 parameters, and the report checks every
+  // approved entry against the billing snapshots.
+  it('reports more approved entries than a statement takes parameters', async () => {
+    await setProjectRate(website, 100);
+    await sql`
+      insert into time_entries (
+        slack_team_id, user_id, project_id, client_id, work_date, minutes,
+        status, created_by, updated_by
+      )
+      select ${workspace.id}::uuid, ${member.id}::uuid, ${website.id}::uuid,
+        ${acme.id}::uuid, date '2026-10-01' + g % 31, 15,
+        ${TimeEntryStatus.Approved}, ${member.id}::uuid, ${member.id}::uuid
+      from generate_series(1, 65536) g
+    `.execute(t.db);
+    // 1 October's 2114 entries are in a snapshot.
+    const snapshot = await t.db
+      .insertInto('billing_snapshots')
+      .values({
+        slack_team_id: workspace.id,
+        client_id: acme.id,
+        period_start: '2026-10-01',
+        period_end: '2026-10-01',
+        currency: 'USD',
+        total_minutes: 2114 * 15,
+        billable_minutes: 2114 * 15,
+        total_amount: 2114 * 25,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    await sql`
+      insert into billing_snapshot_entries (
+        slack_team_id, snapshot_id, time_entry_id, minutes, billable,
+        hourly_rate, amount
+      )
+      select slack_team_id, ${snapshot.id}::uuid, id, minutes, billable, 100, 25
+      from time_entries
+      where slack_team_id = ${workspace.id}::uuid and work_date = '2026-10-01'
+    `.execute(t.db);
+
+    const reports = await submitReport(await openReportForm(), {
+      clientId: acme.id,
+      fromDate: '2026-10-01',
+      toDate: '2026-10-31',
+    });
+
+    expect(reportTexts(reports)).toEqual([
+      '*Billing report: Acme* · 1–31 Oct 2026\nApproved: *16384h*, billable *16384h* · Amount: *$1,638,400.00*\n_In billing snapshots already: 528h 30m of the approved time_',
+      '*By project*\n• Website — 16384h · $1,638,400.00',
+      '*By person*\n• Mia Member — 16384h · $1,638,400.00',
     ]);
   });
 
