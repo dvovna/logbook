@@ -12,3 +12,14 @@ export class UserTeamChangedEvent {
     public readonly changedBy: string | null,
   ) {}
 }
+
+export const USER_ACCESS_CHANGED = 'users.access_changed';
+
+// A person was deactivated or their role changed, by whatever route: their
+// open approval steps may need someone else.
+export class UserAccessChangedEvent {
+  public constructor(
+    public readonly userId: string,
+    public readonly slackTeamId: string,
+  ) {}
+}

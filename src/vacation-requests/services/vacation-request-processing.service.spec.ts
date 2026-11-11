@@ -95,7 +95,8 @@ describe('VacationRequestProcessingService', () => {
   beforeEach(() => {
     teamRules = { forTeam: jest.fn().mockResolvedValue(rules()) };
     workflowService = { create: jest.fn(), cancel: jest.fn() };
-    usersByRole = {};
+    // The active people with an approving role.
+    usersByRole = { [UserRole.Manager]: ['U_MANAGER'] };
     usersService = {
       // The requester's Slack ID stands for them: their id is user-1.
       findMany: jest.fn(async ({ roles }: { roles: UserRole[] }) =>
@@ -243,7 +244,7 @@ describe('VacationRequestProcessingService', () => {
         hrApproversRule: ApprovalRule.All,
       }),
     );
-    usersByRole = { [UserRole.HR]: ['U_HR_2'] };
+    usersByRole = { [UserRole.HR]: ['U_HR_1', 'U_HR_2'] };
 
     await onCreated(VacationRequestStatus.Pending);
 
@@ -258,6 +259,22 @@ describe('VacationRequestProcessingService', () => {
       VacationRequestEvent.SentForApproval,
       expect.objectContaining({ fallback: null }),
     );
+  });
+
+  // Deactivated, or without an approving role since the team named them:
+  // findMany doesn't return them.
+  it('leaves out an approver who can no longer decide, and goes to HR', async () => {
+    usersByRole = { [UserRole.HR]: ['U_HR'] };
+
+    await onCreated(VacationRequestStatus.Pending);
+
+    expect(workflowService.create.mock.calls[0][0].levels).toEqual([
+      {
+        rule: ApprovalRule.Any,
+        name: 'HR approval',
+        steps: [{ slackUserId: 'U_HR', stepType: 'approver' }],
+      },
+    ]);
   });
 
   describe('when nobody on the team can approve it', () => {

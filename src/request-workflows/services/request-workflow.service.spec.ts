@@ -23,6 +23,7 @@ import {
 import { IWorkflowStepCommentViewModel } from 'src/request-workflows/types/workflow-step-comment.interface';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { TransactionService } from 'src/database/transaction.service';
+import { UsersService } from 'src/users/services/users.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 const REQUEST_ID = 'request-1';
@@ -103,6 +104,7 @@ describe('RequestWorkflowService', () => {
   >;
   let commentsService: { findMany: jest.Mock };
   let eventEmitter: { emitAsync: jest.Mock };
+  let usersService: { findBySlackId: jest.Mock };
   let service: RequestWorkflowService;
   // What ran inside TransactionService.transaction().
   let inTransaction: boolean;
@@ -135,6 +137,7 @@ describe('RequestWorkflowService', () => {
     };
     commentsService = { findMany: jest.fn().mockResolvedValue(comments) };
     eventEmitter = { emitAsync: jest.fn().mockResolvedValue([]) };
+    usersService = { findBySlackId: jest.fn().mockResolvedValue(null) };
     inTransaction = false;
 
     service = new RequestWorkflowService(
@@ -143,6 +146,7 @@ describe('RequestWorkflowService', () => {
       commentsService as unknown as RequestWorkflowStepCommentsService,
       eventEmitter as unknown as EventEmitter2,
       transactions as unknown as TransactionService,
+      usersService as unknown as UsersService,
     );
   });
 
@@ -320,7 +324,11 @@ describe('RequestWorkflowService', () => {
         slackTeamId: SLACK_TEAM_ID,
         completed: false,
       };
-      expect(stepsService.findMany).toHaveBeenCalledWith(nextLevel);
+      expect(stepsService.findMany).toHaveBeenCalledWith({
+        requestId: REQUEST_ID,
+        slackTeamId: SLACK_TEAM_ID,
+        completed: false,
+      });
       expect(stepsService.claimUnprocessed).toHaveBeenCalledWith(nextLevel);
       expect(processorService.processSteps).toHaveBeenCalledWith([
         nextLevelStep,
@@ -329,7 +337,7 @@ describe('RequestWorkflowService', () => {
       expect(eventEmitter.emitAsync).toHaveBeenCalledTimes(1);
       expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
         VacationWorkflowEventEnum.LevelCompleted,
-        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1),
+        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1, 2),
       );
     });
 
@@ -444,7 +452,7 @@ describe('RequestWorkflowService', () => {
       expect(processorService.processSteps).toHaveBeenCalledWith(level2);
       expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
         VacationWorkflowEventEnum.LevelCompleted,
-        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1),
+        new VacationWorkflowLevelCompleted(REQUEST_ID, SLACK_TEAM_ID, 1, 2),
       );
     });
 

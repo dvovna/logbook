@@ -48,6 +48,8 @@ interface ILevelNoticeJob {
   requestId: string;
   slackTeamId: string;
   level: number;
+  // The level asked now; the one after `level` in jobs saved before.
+  nextLevel?: number;
 }
 
 interface ICommentNoticeJob {
@@ -112,11 +114,13 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
     requestId,
     slackTeamId,
     level,
+    nextLevel,
   }: VacationWorkflowLevelCompleted) {
     await this.jobs.enqueue<ILevelNoticeJob>(LEVEL_NOTICE_JOB, {
       requestId,
       slackTeamId,
       level,
+      nextLevel,
     });
   }
 
@@ -154,6 +158,7 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
     requestId,
     slackTeamId,
     level,
+    nextLevel = level + 1,
   }: ILevelNoticeJob) {
     const request = await this.findWaiting(requestId, slackTeamId);
 
@@ -168,12 +173,7 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
       }),
     );
     const completed = steps.filter(({ step_level }) => step_level === level);
-    const next = steps.filter(({ step_level }) => step_level === level + 1);
-
-    if (!completed.length || !next.length) {
-      return;
-    }
-
+    const next = steps.filter(({ step_level }) => step_level === nextLevel);
     const approvedBy = completed
       .filter(
         ({ step_data }) => step_data.status === WorkflowStepStatus.Approved,
@@ -182,6 +182,13 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
         ({ step_data, slack_user_id }) =>
           step_data.decided_by_slack_id ?? slack_user_id,
       );
+
+    // A level passed over because nobody on it could decide any more was
+    // approved by no one: the next level's own DM is what the requester
+    // needs, and the request's details show the rest.
+    if (!approvedBy.length || !next.length) {
+      return;
+    }
 
     await this.post(
       request,

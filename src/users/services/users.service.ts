@@ -8,7 +8,9 @@ import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import { RepositoryFilter } from '@common/repositories/repository.types';
 import { UserUpdateValidatorService } from '@modules/users/services/user-update-validator.service';
 import {
+  USER_ACCESS_CHANGED,
   USER_TEAM_CHANGED,
+  UserAccessChangedEvent,
   UserTeamChangedEvent,
 } from '@modules/users/events/users.events';
 import { ITeamAssignment } from '@modules/users/types/team-assignment.interface';
@@ -37,6 +39,7 @@ interface IFindParams {
   role?: UserRole;
   roles?: UserRole[];
   slackId?: string;
+  slackIds?: string[];
   isActive?: boolean;
   includeInactive?: boolean;
   email?: string;
@@ -94,7 +97,7 @@ export class UsersService implements IUsersService {
     slackTeamId,
     contractStartDate,
   }: Omit<ICreateUserParams, 'teamId'>) {
-    return await this.userRepository.upsert(
+    const user = await this.userRepository.upsert(
       {
         email,
         name,
@@ -108,6 +111,14 @@ export class UsersService implements IUsersService {
       },
       ['slack_team_id', 'slack_id'],
     );
+
+    // A deleted Slack account deactivates the user; telling of one that was
+    // inactive already only makes the listener look again.
+    if (isActive === false) {
+      this.tellAccessChanges([user as IUserViewModel]);
+    }
+
+    return user;
   }
 
   public async search(
@@ -243,6 +254,8 @@ export class UsersService implements IUsersService {
       );
     }
 
+    this.tellAccessChanges(restored);
+
     return restored;
   }
 
@@ -270,6 +283,13 @@ export class UsersService implements IUsersService {
 
     if (user.team_id !== userBeforeUpdate.team_id) {
       this.tellTeamChanges([user], updatedBy?.id ?? null);
+    }
+
+    if (
+      user.role !== userBeforeUpdate.role ||
+      user.is_active !== userBeforeUpdate.is_active
+    ) {
+      this.tellAccessChanges([user]);
     }
 
     return user;
@@ -360,6 +380,15 @@ export class UsersService implements IUsersService {
     }
   }
 
+  private tellAccessChanges(users: IUserViewModel[]) {
+    for (const user of users) {
+      this.eventEmitter.emit(
+        USER_ACCESS_CHANGED,
+        new UserAccessChangedEvent(user.id, user.slack_team_id),
+      );
+    }
+  }
+
   private getFindQuery(findParams: IFindParams): RepositoryFilter {
     return {
       slack_team_id: findParams.slackTeamId,
@@ -389,6 +418,9 @@ export class UsersService implements IUsersService {
         ? { team_id: { operator: 'in', value: findParams.teamIds } }
         : {}),
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
+      ...(findParams.slackIds
+        ? { slack_id: { operator: 'in', value: findParams.slackIds } }
+        : {}),
       ...(findParams.isActive !== undefined
         ? { is_active: findParams.isActive }
         : { is_active: findParams.includeInactive ? undefined : true }),

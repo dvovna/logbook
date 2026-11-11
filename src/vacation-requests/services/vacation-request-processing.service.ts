@@ -16,6 +16,7 @@ import {
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { UsersService } from '@modules/users/services/users.service';
 import UserRole from '@common/enums/user-role.enum';
+import { MANAGER_ROLES } from '@common/constants/role-groups';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { WorkflowStepType } from '@modules/request-workflows/types/request-workflow-step.interface';
 import {
@@ -87,10 +88,15 @@ export class VacationRequestProcessingService implements OnModuleInit {
       return;
     }
 
-    const rules = await this.teamRulesService.forTeam(
-      request.team?.id,
-      request.slack_team_id,
-    );
+    const [rules, approvers] = await Promise.all([
+      this.teamRulesService.forTeam(request.team?.id, request.slack_team_id),
+      // Everyone who can decide a step: active, with an approving role.
+      this.usersService.findMany({
+        slackTeamId: request.slack_team_id,
+        roles: [...MANAGER_ROLES],
+      }),
+    ]);
+    const canDecide = new Set(approvers.map(({ slack_id }) => slack_id));
 
     const workflow: ICreateWorkflowParams = {
       requestId: request.id,
@@ -113,19 +119,27 @@ export class VacationRequestProcessingService implements OnModuleInit {
     };
 
     // Nobody approves their own request: a team lead who is one of the
-    // team's approvers is left out of their own request's levels, and a
-    // level with no one left is skipped. A person in no team has no level 1.
-    const notRequester = (approvers: string[]) =>
-      approvers.filter((slackId) => slackId !== request.user!.slack_id);
+    // team's approvers is left out of their own request's levels. Neither
+    // is anyone deactivated or without an approving role since the rules
+    // named them: they couldn't decide. A level with no one left is skipped.
+    // A person in no team has no level 1.
+    const whoCanDecide = (listed: string[]) => [
+      ...new Set(
+        listed.filter(
+          (slackId) =>
+            slackId !== request.user!.slack_id && canDecide.has(slackId),
+        ),
+      ),
+    ];
 
     const levels: ICreateWorkflowLevelParams[] = [
       this.buildApproverLevel(
-        notRequester(rules.managerApprovers),
+        whoCanDecide(rules.managerApprovers),
         rules.managerApproversRule,
         'Manager approval',
       ),
       this.buildApproverLevel(
-        notRequester(rules.hrApprovers),
+        whoCanDecide(rules.hrApprovers),
         rules.hrApproversRule,
         'HR approval',
       ),
@@ -145,7 +159,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     // Nobody its rules name can approve it, so it would wait forever: it goes
     // to HR instead, or to the admins when there is no HR, and the requester
     // is told so.
-    const fallback = await this.findFallbackApprovers(request);
+    const fallback = this.findFallbackApprovers(request, approvers);
 
     if (fallback) {
       await this.requestWorkflowService.create({
@@ -172,14 +186,11 @@ export class VacationRequestProcessingService implements OnModuleInit {
 
   // Everyone with the HR role, else every admin; never the requester
   // (fallbackApprovers, as for time entries).
-  private async findFallbackApprovers(request: IVacationRequestViewModel) {
-    const fallback = fallbackApprovers(
-      await this.usersService.findMany({
-        slackTeamId: request.slack_team_id,
-        roles: [UserRole.HR, UserRole.Admin],
-      }),
-      request.user!.id,
-    );
+  private findFallbackApprovers(
+    request: IVacationRequestViewModel,
+    approvers: IUserViewModel[],
+  ) {
+    const fallback = fallbackApprovers(approvers, request.user!.id);
 
     return (
       fallback && {
