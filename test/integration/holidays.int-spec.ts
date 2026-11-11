@@ -15,6 +15,8 @@ import {
   publishedHome,
 } from './support/app-home';
 import { listItems, sectionTexts, noticeOf } from './support/tab-readers';
+import { travelTo } from './support/clock';
+import { findAction } from './support/block-kit';
 
 // Home → Vacations → Vacation Policies.
 const POLICIES_TAB = [NavigationActionId.Policies];
@@ -91,6 +93,12 @@ describe('Holidays', () => {
   const named = (view: View, name: string) =>
     listItems(view).find(({ title }) => title === name);
 
+  // The texts of the options of a modal's select.
+  const selectOptionsOf = (view: View, actionId: string) =>
+    findAction(view.blocks, actionId).element.options.map(
+      (option: { text: { text: string } }) => option.text.text,
+    );
+
   describe('custom holidays', () => {
     it('adds a holiday to the policy', async () => {
       const form = await openModalFrom(
@@ -154,6 +162,37 @@ describe('Holidays', () => {
       expect((await workspace.row('holidays', holiday.id)).is_disabled).toBe(
         false,
       );
+    });
+
+    it('moves a holiday to the next year, where it is listed', async () => {
+      const holiday = await addHoliday({ date: '2026-12-31' });
+      const holidaysTab = await openHolidaysTab();
+      const form = await openModalFrom(
+        t,
+        workspace,
+        admin,
+        holidaysTab,
+        HolidaysTabViewActionId.ManageHolidayMenu,
+        `${HolidaysTabViewActionId.EditHoliday}:${holiday.id}`,
+      );
+
+      await t.slack
+        .submitView(workspace, admin, form, { date: '2027-01-01' })
+        .expect(200);
+
+      expect(await workspace.row('holidays', holiday.id)).toMatchObject({
+        date: '2027-01-01',
+        year: 2027,
+      });
+      const nextYear = await actOnTab(
+        t,
+        workspace,
+        admin,
+        await openHolidaysTab(),
+        HolidaysTabViewActionId.ChangeYear,
+        '2027',
+      );
+      expect(named(nextYear, 'Founders Day')).toBeDefined();
     });
 
     it('deletes a holiday', async () => {
@@ -272,6 +311,29 @@ describe('Holidays', () => {
       ]);
     });
 
+    it('keeps a holiday switched off when it comes again', async () => {
+      await addHoliday({
+        name: 'Labour Day',
+        date: '2026-05-01',
+        is_company_custom: false,
+        is_disabled: true,
+        country_code: 'IT',
+      });
+      t.nager.addHolidays('IT', 2026, [
+        ['2026-05-01', 'Labour Day'],
+        ['2026-06-02', 'Republic Day'],
+      ]);
+
+      await importCountry('IT');
+
+      expect(
+        (await holidays()).map(({ name, is_disabled }) => [name, is_disabled]),
+      ).toEqual([
+        ['Labour Day', true],
+        ['Republic Day', false],
+      ]);
+    });
+
     it('keeps the custom holidays', async () => {
       await addHoliday({ name: 'Founders Day' });
       t.nager.addHolidays('FR', 2026, [['2026-07-14', 'Bastille Day']]);
@@ -282,6 +344,100 @@ describe('Holidays', () => {
         'Founders Day',
         'Bastille Day',
       ]);
+    });
+
+    it("imports only the whole country's days off, one a day, without a region", async () => {
+      t.nager.addHolidays('ES', 2026, [
+        ['2026-01-01', "New Year's Day"],
+        ['2026-03-19', "Saint Joseph's Day", { counties: ['ES-VC'] }],
+        ['2026-05-04', 'Bank Day', { types: ['Bank'] }],
+        ['2026-10-12', 'Fiesta Nacional', { types: ['Public', 'Bank'] }],
+        ['2026-12-25', 'Christmas Day'],
+        ['2026-12-25', 'Navidad'],
+      ]);
+
+      await importCountry('ES');
+
+      expect((await holidays()).map(({ name }) => name)).toEqual([
+        "New Year's Day",
+        'Fiesta Nacional',
+        'Christmas Day',
+      ]);
+    });
+
+    describe('with a region', () => {
+      beforeEach(() => {
+        t.nager.addHolidays('CH', 2026, [
+          ['2026-01-02', "Berchtold's Day", { counties: ['CH-ZH', 'CH-BE'] }],
+          ['2026-08-01', 'Swiss National Day'],
+          ['2026-09-10', 'Jeûne genevois', { counties: ['CH-GE'] }],
+        ]);
+        t.nager.addHolidays('AT', 2026, [['2026-10-26', 'National Day']]);
+      });
+
+      // The form once the country is chosen: Slack sends the choice, the app
+      // rebuilds the form with the country's regions after its answer.
+      const chooseCountry = async (country: string) => {
+        const form = await openModalFrom(
+          t,
+          workspace,
+          admin,
+          await openHolidaysTab(),
+          HolidaysTabViewActionId.UploadHolidaysFromCountry,
+        );
+        const since = t.slackApi.mark();
+
+        await t.slack
+          .actOnView(workspace, admin, form, 'country', country)
+          .expect(200);
+        await t.idle();
+
+        return t.slackApi.updatedModal(workspace.token, { since });
+      };
+
+      it('offers the regions of the country chosen', async () => {
+        const form = await chooseCountry('CH');
+
+        expect(selectOptionsOf(form, 'region')).toEqual([
+          'Only the whole country',
+          'CH-BE',
+          'CH-GE',
+          'CH-ZH',
+        ]);
+      });
+
+      it("imports the region's holidays with the whole country's", async () => {
+        const form = await chooseCountry('CH');
+
+        await t.slack
+          .submitView(workspace, admin, form, {
+            country: 'CH',
+            region: 'CH-ZH',
+          })
+          .expect(200);
+
+        expect((await holidays()).map(({ name }) => name)).toEqual([
+          "Berchtold's Day",
+          'Swiss National Day',
+        ]);
+      });
+
+      it('refuses a region of the country chosen before', async () => {
+        const form = await chooseCountry('CH');
+
+        const response = await t.slack
+          .submitView(workspace, admin, form, {
+            country: 'AT',
+            region: 'CH-ZH',
+          })
+          .expect(200);
+
+        expect(response.body.response_action).toBe('errors');
+        expect(Object.values(response.body.errors)).toEqual([
+          'This region has no holidays of its own in this country. Choose the region again.',
+        ]);
+        expect(await holidays()).toEqual([]);
+      });
     });
 
     it('keeps the holidays when Nager.Date is down', async () => {
@@ -299,6 +455,17 @@ describe('Holidays', () => {
         'Old Holiday',
       ]);
     });
+  });
+
+  it('opens on the year it is now, also after New Year', async () => {
+    travelTo('2027-01-05');
+
+    const holidaysTab = await openHolidaysTab();
+
+    expect(
+      findAction(holidaysTab.blocks, HolidaysTabViewActionId.ChangeYear).element
+        .initial_option.value,
+    ).toBe('2027');
   });
 
   it('shows the holidays of the year chosen', async () => {

@@ -228,13 +228,16 @@ export class VacationRequestProcessingService implements OnModuleInit {
   }
 
   // A pending request already counts as used, so what is available now is
-  // what is left after it.
+  // what is left after it, in the vacation year of its first day.
   private async findBalanceAfter(
     owner: IUserViewModel,
     request: IVacationRequestViewModel,
   ): Promise<IRequestContext['balance_after']> {
     const { limits, usage } =
-      await this.vacationsUsageService.getCurrentVacationPeriodUsage(owner);
+      await this.vacationsUsageService.getVacationPeriodUsage(
+        owner,
+        new Date(request.start_date),
+      );
 
     if (!limits) {
       return null;

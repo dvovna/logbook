@@ -8,6 +8,9 @@ import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 export interface ICountryHoliday {
   date: string;
   name: string;
+  // The regions it is a day off in (ISO 3166-2, e.g. 'GB-SCT'), or null for
+  // the whole country.
+  regions: string[] | null;
 }
 
 export interface ICountryHolidaysProvider {
@@ -43,7 +46,15 @@ export class CountryHolidaysProvider implements ICountryHolidaysProvider {
     return holidays;
   }
 
+  // Days off only: bank, school and authority holidays, optional days and
+  // observances are working days for most people.
   private mapHolidays(data: INagerDateHoliday[]): ICountryHoliday[] {
-    return data.map(({ date, name }) => ({ date, name }));
+    return data
+      .filter(({ types }) => types?.includes('Public'))
+      .map(({ date, name, global, counties }) => ({
+        date,
+        name,
+        regions: !global && counties?.length ? counties : null,
+      }));
   }
 }

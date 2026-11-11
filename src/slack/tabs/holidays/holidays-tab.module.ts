@@ -5,6 +5,7 @@ import HolidaysTabActionHandler from '@modules/slack/tabs/holidays/handlers/holi
 import { HolidayFormSubmitHandler } from '@modules/slack/tabs/holidays/handlers/holiday-form-submit.handler';
 import { ToggleHolidayStatusFormSubmitHandler } from '@modules/slack/tabs/holidays/handlers/toggle-holiday-status-form-submit.handler';
 import { ImportHolidaysFormSubmitHandler } from '@modules/slack/tabs/holidays/handlers/import-holidays-form-submit.handler';
+import { ImportHolidaysFormActionHandler } from '@modules/slack/tabs/holidays/handlers/import-holidays-form-action.handler';
 import HolidayModalViewValuesParser from '@modules/slack/tabs/holidays/parsers/holiday-modal-view-values.parser';
 import ImportHolidaysModalViewValuesParser from '@modules/slack/tabs/holidays/parsers/import-holidays-modal-view-values.parser';
 import { DeleteHolidayHandler } from '@modules/slack/tabs/holidays/handlers/delete-holiday.handler';
@@ -22,6 +23,7 @@ import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
     HolidayFormSubmitHandler,
     ToggleHolidayStatusFormSubmitHandler,
     ImportHolidaysFormSubmitHandler,
+    ImportHolidaysFormActionHandler,
     DeleteHolidayHandler,
     HolidayModalViewValuesParser,
     ImportHolidaysModalViewValuesParser,

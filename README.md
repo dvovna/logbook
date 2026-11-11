@@ -19,10 +19,10 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - The requester and the team's notification recipients are told about the decision.
 
 **Policies and balances**
-- Vacation policies: vacation days, working days, bonus days, and the most days a person may carry over. The company rules name the policy for everyone; a team can keep its own instead. Each person's carryover is set on their profile, up to the policy's limit.
+- Vacation policies: vacation days, working days, bonus days, and the most days a person may carry over. The company rules name the policy for everyone; a team can keep its own instead. Unused days carry over to the next year on their own, up to the policy's limit; for the year a person joins, HR enters what they bring on their profile.
 - The vacation year runs from the employee's contract start date, or over the calendar year when the employee has none.
 - Calendar and working days are counted separately. Working days skip weekends and the policy's holidays.
-- Public holidays can be imported per country (from [Nager.Date](https://date.nager.at)). You can add company holidays and turn individual ones off.
+- Public holidays can be imported per country (from [Nager.Date](https://date.nager.at)), with a region's own holidays if you choose one. You can add company holidays and turn individual ones off.
 - No-setup mode: without a policy, the bot just keeps track of time off and enforces no limits.
 
 **People**

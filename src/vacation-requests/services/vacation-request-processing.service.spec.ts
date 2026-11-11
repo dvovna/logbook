@@ -87,7 +87,7 @@ describe('VacationRequestProcessingService', () => {
   let eventEmitter: { emit: jest.Mock };
   let requestsService: { findOne: jest.Mock; findMany: jest.Mock };
   let usersService: { findMany: jest.Mock; findOne: jest.Mock };
-  let usageService: { getCurrentVacationPeriodUsage: jest.Mock };
+  let usageService: { getVacationPeriodUsage: jest.Mock };
   let timeOffContext: { findColleaguesOff: jest.Mock };
   let jobs: ReturnType<typeof inlineJobs>;
   let service: VacationRequestProcessingService;
@@ -109,7 +109,7 @@ describe('VacationRequestProcessingService', () => {
       ),
       findOne: jest.fn().mockResolvedValue(null),
     };
-    usageService = { getCurrentVacationPeriodUsage: jest.fn() };
+    usageService = { getVacationPeriodUsage: jest.fn() };
     timeOffContext = { findColleaguesOff: jest.fn().mockResolvedValue([]) };
     eventEmitter = { emit: jest.fn() };
     requestsService = {
@@ -161,7 +161,7 @@ describe('VacationRequestProcessingService', () => {
 
   it("tells the approvers the requester's balance after it and who else is off", async () => {
     usersService.findOne.mockResolvedValue({ id: 'user-1' });
-    usageService.getCurrentVacationPeriodUsage.mockResolvedValue({
+    usageService.getVacationPeriodUsage.mockResolvedValue({
       limits: { daysTotal: 20, bonusDays: 2 },
       usage: { [VacationType.AnnualLeave]: { available: 10 } },
     });
@@ -174,6 +174,11 @@ describe('VacationRequestProcessingService', () => {
     expect(timeOffContext.findColleaguesOff).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'request-1' }),
       { forRequester: false },
+    );
+    // The balance of the vacation year the request starts in.
+    expect(usageService.getVacationPeriodUsage).toHaveBeenCalledWith(
+      { id: 'user-1' },
+      new Date('2026-02-02'),
     );
     expect(workflowService.create.mock.calls[0][0].snapshot.context).toEqual({
       balance_after: { available: 10, total: 20, unit: 'vacation' },

@@ -113,26 +113,27 @@ export class VacationRequestsService implements IVacationRequestsService {
       });
     }
 
-    const workingDays = await this.countWorkingDays(
+    const workingDates = await this.findWorkingDates(
       startDate,
       endDate,
       teamId,
       user,
     );
+    const workingDays = workingDates.length;
 
     const calendarDays = getDaysBetweenDates(
       createParams.startDate,
       createParams.endDate,
     );
 
-    await this.vacationRequestsValidator.validateDaysRequested(
-      {
-        calendarDays,
-        workingDays,
-      },
-      type,
-      await this.getRequestOwner(userId, user),
-    );
+    // HR may record a rejected or canceled request, which uses no days.
+    if (ACTIVE_REQUEST_STATUSES.includes(createParams.status)) {
+      await this.vacationRequestsValidator.validateDaysRequested(
+        { startDate, endDate, workingDates },
+        type,
+        await this.getRequestOwner(userId, user),
+      );
+    }
 
     const now = new Date().toISOString();
     const vacationRecord = {
@@ -220,11 +221,21 @@ export class VacationRequestsService implements IVacationRequestsService {
       status !== undefined && status !== existingRequest.status;
     const isUserChanged =
       userId !== undefined && userId !== existingRequest.user_id;
+    const isTypeChanged =
+      updateParams.type !== undefined && type !== existingRequest.type;
     const userTeamId = teamId || existingRequest.team?.id;
+    // The balance counts active requests: one that becomes active, or whose
+    // days, type or person change, is checked against it.
+    const checksBalance =
+      ACTIVE_REQUEST_STATUSES.includes(finalStatus) &&
+      (hasDatesChanged ||
+        isTypeChanged ||
+        isUserChanged ||
+        !ACTIVE_REQUEST_STATUSES.includes(existingRequest.status));
 
-    const [workingDaysResult, overlapResult, usageResult] =
+    const [workingDatesResult, overlapResult, usageResult] =
       await Promise.allSettled([
-        this.countWorkingDays(startDate, endDate, userTeamId, user),
+        this.findWorkingDates(startDate, endDate, userTeamId, user),
         ACTIVE_REQUEST_STATUSES.includes(finalStatus) &&
         (hasDatesChanged || isStatusChanged || isUserChanged)
           ? this.vacationRequestsValidator.validateNoOverlap({
@@ -235,20 +246,27 @@ export class VacationRequestsService implements IVacationRequestsService {
               excludeRequestId: existingRequest.id,
             })
           : null,
-        hasDatesChanged
+        checksBalance
           ? Promise.resolve(
               chosenOwner ??
                 this.getRequestOwner(existingRequest.user_id, user),
-            ).then((owner) => this.vacationRequestsValidator.getUsage(owner))
+            ).then((owner) =>
+              this.vacationRequestsValidator.getUsage(
+                owner,
+                { startDate, endDate },
+                { excludeRequestId: existingRequest.id },
+              ),
+            )
           : null,
       ]);
-    const workingDays = settled(workingDaysResult);
+    const workingDates = settled(workingDatesResult);
+    const workingDays = workingDates.length;
 
     settled(overlapResult);
 
-    if (hasDatesChanged) {
+    if (checksBalance) {
       this.vacationRequestsValidator.checkDaysRequested(
-        { calendarDays, workingDays },
+        { startDate, endDate, workingDates },
         type,
         settled(usageResult)!,
       );
@@ -569,7 +587,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     }
   }
 
-  private async countWorkingDays(
+  private async findWorkingDates(
     startDate: Date,
     endDate: Date,
     teamId: string | null | undefined,
@@ -580,7 +598,7 @@ export class VacationRequestsService implements IVacationRequestsService {
       user.slack_team_id,
     );
 
-    return this.workingDaysCalculationService.calculate(
+    return this.workingDaysCalculationService.workingDates(
       startDate,
       endDate,
       vacationPolicyId,
