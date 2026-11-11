@@ -9,8 +9,10 @@ import TeamsService from '@modules/teams/services/teams.service';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
-import { vacationTimeLock } from '@modules/vacation-requests/utils/vacation-time.utils';
-import { timesheetLock } from 'src/time-entries/utils/timesheet-lock';
+import {
+  timesheetLock,
+  vacationRequestLock,
+} from 'src/database/advisory-locks';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
@@ -89,9 +91,8 @@ export class TimeOffLoggingService {
   // the project is skipped, so a second run, or a second click at the same
   // moment, writes nothing more; so is a day that has time of this request
   // on another project, so a changed type never logs a day twice.
-  // It takes the request's lock, then the lock on the user's time that a
-  // timesheet save takes (in that order only, timesheetLock), so a save of
-  // the same days waits for it.
+  // It takes the request's lock and the one on the user's time that a
+  // timesheet save takes, so a save of the same days waits for it.
   public async log(
     user: IUserViewModel,
     requestId: string,
@@ -99,8 +100,10 @@ export class TimeOffLoggingService {
     const slackTeamId = user.slack_team_id;
 
     return this.transactions.transaction(async () => {
-      await this.transactions.lock(vacationTimeLock(requestId));
-      await this.transactions.lock(timesheetLock(user.id));
+      await this.transactions.lockInOrder(
+        vacationRequestLock(requestId),
+        timesheetLock(user.id),
+      );
 
       const request = await this.vacationRequestsService.findOneWithValidation({
         id: requestId,

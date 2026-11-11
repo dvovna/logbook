@@ -1,0 +1,43 @@
+export interface IAdvisoryLock {
+  key: string;
+  rank: number;
+}
+
+// A transaction takes the locks it needs in rank order, lowest first
+// (TransactionService.lock refuses the other order): two transactions that
+// each hold one lock and wait for the other's would never finish. A request
+// is changed under its own lock, then its approval workflow under the
+// workflow's; logging time off as time and a timesheet save both take the
+// person's time last. The workspace locks are taken alone.
+const RANK = {
+  vacationRequest: 10,
+  workflow: 20,
+  timesheet: 30,
+  clients: 40,
+  billingSnapshots: 50,
+} as const;
+
+export const vacationRequestLock = (requestId: string): IAdvisoryLock => ({
+  key: `vacation-request:${requestId}`,
+  rank: RANK.vacationRequest,
+});
+
+export const workflowLock = (requestId: string): IAdvisoryLock => ({
+  key: `workflow:${requestId}`,
+  rank: RANK.workflow,
+});
+
+export const timesheetLock = (userId: string): IAdvisoryLock => ({
+  key: `timesheet:${userId}`,
+  rank: RANK.timesheet,
+});
+
+export const clientsLock = (slackTeamId: string): IAdvisoryLock => ({
+  key: `clients:${slackTeamId}`,
+  rank: RANK.clients,
+});
+
+export const billingSnapshotsLock = (slackTeamId: string): IAdvisoryLock => ({
+  key: `billing-snapshots:${slackTeamId}`,
+  rank: RANK.billingSnapshots,
+});

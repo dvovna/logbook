@@ -9,6 +9,9 @@ export interface ITransactionScope {
   // that runs longer (background work inherits the async context) then uses
   // the pool instead of a connection that is no longer in a transaction.
   done: boolean;
+  // The advisory locks held, by key, and the highest rank among them.
+  heldLocks: Set<string>;
+  highestLockRank: number;
 }
 
 // The transaction of the current async context: TransactionService starts it,

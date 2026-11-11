@@ -1,3 +1,4 @@
+import { vacationRequestLock } from 'src/database/advisory-locks';
 import { ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
@@ -502,7 +503,9 @@ describe('VacationRequestsService', () => {
           hr,
         );
 
-        expect(transactions.lock).toHaveBeenCalledWith('time-off:request-1');
+        expect(transactions.lock).toHaveBeenCalledWith(
+          vacationRequestLock('request-1'),
+        );
         expect(timeEntriesService.deleteVacationTime).toHaveBeenCalledWith(
           'request-1',
           SLACK_TEAM_ID,

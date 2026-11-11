@@ -1,3 +1,4 @@
+import { workflowLock } from 'src/database/advisory-locks';
 import {
   IRequestSnapshotData,
   IRequestWorkflowStepViewModel,
@@ -378,7 +379,7 @@ export class RequestWorkflowService {
   // approvers deciding at once would each miss the other's decision, not yet
   // committed, and neither would ask the next level.
   private lockRequest(requestId: string) {
-    return this.transactions.lock(`workflow:${requestId}`);
+    return this.transactions.lock(workflowLock(requestId));
   }
 
   // A step belongs to its approver. HR and admins may decide for an approver

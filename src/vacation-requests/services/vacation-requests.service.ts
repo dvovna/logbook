@@ -1,3 +1,4 @@
+import { vacationRequestLock } from 'src/database/advisory-locks';
 import {
   Injectable,
   NotFoundException,
@@ -34,10 +35,7 @@ import {
   assertDatesInOrder,
   assertVacationType,
 } from '@modules/vacation-requests/utils/vacation-request-input.utils';
-import {
-  changesLoggedTime,
-  vacationTimeLock,
-} from '@modules/vacation-requests/utils/vacation-time.utils';
+import { changesLoggedTime } from '@modules/vacation-requests/utils/vacation-time.utils';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 
@@ -292,7 +290,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     }
 
     const change = await this.transactions.transaction(async () => {
-      await this.transactions.lock(vacationTimeLock(existingRequest.id));
+      await this.transactions.lock(vacationRequestLock(existingRequest.id));
 
       // The request as it is under the lock: a workflow approval or another
       // edit may have changed it since it was read above, and what this edit
@@ -424,7 +422,7 @@ export class VacationRequestsService implements IVacationRequestsService {
     const request = await this.findOneWithValidation(findParams);
 
     const removedTime = await this.transactions.transaction(async () => {
-      await this.transactions.lock(vacationTimeLock(request.id));
+      await this.transactions.lock(vacationRequestLock(request.id));
 
       // Before the request goes: deleting it unlinks its entries.
       const removed = await this.timeEntriesService.deleteVacationTime(
@@ -435,8 +433,7 @@ export class VacationRequestsService implements IVacationRequestsService {
 
       // Its approval workflow is deleted with it; the approvers' messages lose
       // their buttons, as on a cancel, once the delete has committed. The
-      // workflow's lock comes after the request's (vacationTimeLock), and
-      // nothing that holds it takes the request's.
+      // workflow's lock comes after the request's.
       await this.requestWorkflowService.closeBeforeDelete(request.id, user);
       await this.vacationRequestsRepository.deleteMany(
         this.getFindQuery(findParams),

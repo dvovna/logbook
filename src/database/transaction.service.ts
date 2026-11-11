@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CompiledQuery, sql } from 'kysely';
 import { runInBackground } from '@common/utils/run-in-background';
+import { IAdvisoryLock } from 'src/database/advisory-locks';
 import { DatabaseService } from 'src/database/database.service';
 import {
   currentTransaction,
@@ -34,6 +35,8 @@ export class TransactionService {
       trx: this.database.db,
       afterCommit: [],
       done: false,
+      heldLocks: new Set(),
+      highestLockRank: -Infinity,
     };
     let result: T;
 
@@ -71,15 +74,39 @@ export class TransactionService {
   }
 
   // Serializes the transactions that take the same key until they end, e.g.
-  // the checks of a per-workspace limit and the insert after them.
-  public async lock(key: string) {
-    if (!this.inTransaction) {
-      throw new Error(`lock(${key}) outside a transaction holds nothing`);
+  // the checks of a per-workspace limit and the insert after them. A lock
+  // whose rank is not above the highest one held throws before any SQL (see
+  // advisory-locks.ts); one already held is a no-op.
+  public async lock(lock: IAdvisoryLock) {
+    const scope = currentTransaction();
+
+    if (!scope) {
+      throw new Error(`lock(${lock.key}) outside a transaction holds nothing`);
     }
 
-    await sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`.execute(
+    if (scope.heldLocks.has(lock.key)) {
+      return;
+    }
+
+    if (lock.rank <= scope.highestLockRank) {
+      throw new Error(
+        `lock(${lock.key}) is out of order: a lock of the same or a higher rank is held`,
+      );
+    }
+
+    await sql`select pg_advisory_xact_lock(hashtextextended(${lock.key}, 0))`.execute(
       this.database.db,
     );
+
+    scope.heldLocks.add(lock.key);
+    scope.highestLockRank = lock.rank;
+  }
+
+  // Takes the locks lowest rank first, whatever order they are given in.
+  public async lockInOrder(...locks: IAdvisoryLock[]) {
+    for (const lock of [...locks].sort((a, b) => a.rank - b.rank)) {
+      await this.lock(lock);
+    }
   }
 
   // Lets every statement of the current transaction run up to `seconds`

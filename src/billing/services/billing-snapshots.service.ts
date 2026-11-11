@@ -1,3 +1,4 @@
+import { billingSnapshotsLock } from 'src/database/advisory-locks';
 import { Injectable } from '@nestjs/common';
 import { ValidationError } from '@common/errors/validation.error';
 import { ISearchResult } from '@common/types/pagination.types';
@@ -85,7 +86,7 @@ export class BillingSnapshotsService {
     const { user } = params;
 
     return this.transactions.transaction(async () => {
-      await this.transactions.lock(`billing-snapshots:${user.slack_team_id}`);
+      await this.transactions.lock(billingSnapshotsLock(user.slack_team_id));
 
       const { client, currency, lines } = await this.collect(params, {
         lock: true,

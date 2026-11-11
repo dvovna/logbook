@@ -1,3 +1,4 @@
+import { timesheetLock } from 'src/database/advisory-locks';
 import UserRole from 'src/common/enums/user-role.enum';
 import { weekDays, weekStartOf } from 'src/common/utils/period-presets';
 import { GetUserProjectsQuery } from 'src/projects/queries/get-user-projects.query';
@@ -484,7 +485,7 @@ describe('TimesheetService.saveCells', () => {
       { projectId: 'web', date: MONDAY, minutes: 60, shownMinutes: null },
     ]);
 
-    expect(lock).toHaveBeenCalledWith('timesheet:me');
+    expect(lock).toHaveBeenCalledWith(timesheetLock('me'));
   });
 
   it('refuses a cell whose entry was submitted between the check and the write', async () => {

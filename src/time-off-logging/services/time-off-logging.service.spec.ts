@@ -1,4 +1,8 @@
 import { ForbiddenException } from '@nestjs/common';
+import {
+  timesheetLock,
+  vacationRequestLock,
+} from 'src/database/advisory-locks';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
@@ -84,7 +88,7 @@ describe('TimeOffLoggingService', () => {
       entries as unknown as TimeEntriesService,
       {
         transaction: (work: () => Promise<unknown>) => work(),
-        lock,
+        lockInOrder: lock,
       } as unknown as TransactionService,
     );
   });
@@ -142,8 +146,10 @@ describe('TimeOffLoggingService', () => {
 
     const result = await service.log(user, 'r1');
 
-    // The request's lock, then the one a timesheet save of the user takes.
-    expect(lock.mock.calls).toEqual([['time-off:r1'], ['timesheet:u1']]);
+    // The request's lock and the one a timesheet save of the user takes.
+    expect(lock.mock.calls).toEqual([
+      [vacationRequestLock('r1'), timesheetLock('u1')],
+    ]);
     expect(entries.findMany).toHaveBeenCalledWith({
       userId: 'u1',
       dateFrom: '2026-06-19',

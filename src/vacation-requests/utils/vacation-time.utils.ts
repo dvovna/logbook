@@ -13,7 +13,3 @@ export const changesLoggedTime = (
   previous.end_date !== current.end_date ||
   previous.type !== current.type ||
   previous.status !== current.status;
-
-// The lock that logging a vacation as time and changing the vacation both
-// take, so neither works on what the other is about to change.
-export const vacationTimeLock = (requestId: string) => `time-off:${requestId}`;

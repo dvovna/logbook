@@ -28,7 +28,7 @@ import {
 } from 'src/time-entries/types/timesheet.types';
 import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/max-timesheet-rows';
 import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
-import { timesheetLock } from 'src/time-entries/utils/timesheet-lock';
+import { timesheetLock } from 'src/database/advisory-locks';
 
 // The week form offers the projects of the shown week and of the 4 before.
 const RECENT_WEEKS = 4;
