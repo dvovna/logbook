@@ -167,16 +167,34 @@ describe('JobsService', () => {
     expect(queue.deleteJob).toHaveBeenCalledWith('notify', 'job-1');
   });
 
-  it('runs a job enqueued outside a transaction at once, as run() does', async () => {
+  // Outside a transaction sqlExecutor() is the pool, and afterCommit runs
+  // the work at once.
+  it('saves a job enqueued outside a transaction on the pool before it resolves, then runs it', async () => {
     await jobs.enqueue('notify', { to: 'U1' });
-    await whenBackgroundWorkIsDone();
 
-    expect(sent).toEqual(['U1']);
     expect(queue.send).toHaveBeenCalledWith(
       'notify',
       { to: 'U1' },
-      { startAfter: FIRST_RETRY_AFTER_SECONDS },
+      { startAfter: FIRST_RETRY_AFTER_SECONDS, db: executor },
     );
+    expect(sent).toEqual([]);
+
+    const [[runNow]] = transactions.afterCommit.mock.calls as [
+      [() => Promise<void>],
+    ];
+    await runNow();
+
+    expect(sent).toEqual(['U1']);
+    expect(queue.deleteJob).toHaveBeenCalledWith('notify', 'job-1');
+  });
+
+  it('throws when it cannot save an enqueued job, and runs nothing', async () => {
+    queue.send.mockRejectedValueOnce(new Error('connection refused'));
+
+    await expect(jobs.enqueue('notify', { to: 'U1' })).rejects.toThrow(
+      'connection refused',
+    );
+
     expect(transactions.afterCommit).not.toHaveBeenCalled();
   });
 

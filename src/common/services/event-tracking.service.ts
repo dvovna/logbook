@@ -12,7 +12,10 @@ import { TransactionService } from 'src/database/transaction.service';
 // An event emitted inside a transaction reaches its listeners once the
 // transaction has committed, and never when it rolls back: a listener started
 // inside would run on the transaction's connection, on data that may still
-// go away.
+// go away. A listener that saves the job following the change has to run
+// inside, so that the two commit together: its emitter awaits emitAsync,
+// which this leaves alone, and the listener (`suppressErrors: false`, so
+// that a failure rolls the change back) enqueues the job (JobsService).
 @Injectable()
 export class EventTrackingService implements OnModuleInit {
   private readonly logger = new Logger(EventTrackingService.name);

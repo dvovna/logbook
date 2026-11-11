@@ -108,6 +108,12 @@ export const createJobQueue = (
 // a retry sees the current data, and must be safe to run twice: a retry can
 // follow a run that did part of the work.
 //
+// run() saves the job in the background, after its caller went on. A job
+// that follows a change is enqueue()d instead, in the change's transaction
+// (or, for a job that starts another, before the first one ends): a crash
+// between the commit and a later save would leave the change without its
+// job, and nothing to retry.
+//
 // At most `concurrency` runs go on at once; a job waits for a slot after it
 // was saved. So a job must not await another job's run (run()): enough of
 // them holding their slots would wait for each other for ever.
@@ -163,19 +169,16 @@ export class JobsService
 
   // Inside a transaction (TransactionService), saves the job in it, so that
   // the job exists exactly when the data it is about was committed, and runs
-  // it first once the transaction has committed: await it there. Outside one,
-  // it starts the job as run() does, without waiting for the first run.
+  // it first once the transaction has committed. Outside one, saves it on the
+  // pool and runs it at once. Either way it resolves once the job is saved,
+  // not run, and throws when it couldn't be saved: a caller that finishes
+  // after it (a job, an answer to Slack) leaves nothing that a crash could
+  // lose.
   public async enqueue<Payload extends object>(
     name: string,
     payload: Payload,
   ): Promise<void> {
     const handler = this.handlerOf(name);
-
-    if (!this.transactions.inTransaction) {
-      void this.run(name, payload);
-
-      return;
-    }
 
     await this.started;
 

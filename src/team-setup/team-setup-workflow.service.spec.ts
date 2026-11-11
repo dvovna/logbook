@@ -4,6 +4,7 @@ import {
   JobsService,
 } from '@common/jobs/jobs.service';
 import { TransactionService } from 'src/database/transaction.service';
+import { startInBackground } from '@common/utils/run-in-background';
 import { Logger } from '@nestjs/common';
 import { NEW_PERSON_PROMPT_JOB } from 'src/team-file/constants/jobs';
 import {
@@ -58,7 +59,13 @@ describe('TeamSetupWorkflowService', () => {
     jobs = new JobsService(
       { send: () => Promise.resolve(null) } as unknown as JobQueue,
       DEFAULT_JOBS_OPTIONS,
-      {} as TransactionService,
+      // No transaction: a job enqueued is saved on the pool and starts at
+      // once.
+      {
+        sqlExecutor: () => ({}),
+        afterCommit: (work: () => Promise<unknown>) =>
+          void startInBackground(work),
+      } as unknown as TransactionService,
     );
 
     service = new TeamSetupWorkflowService(
