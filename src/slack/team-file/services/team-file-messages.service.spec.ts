@@ -119,6 +119,29 @@ describe('TeamFileMessagesService', () => {
     },
   );
 
+  it("shows the clicker what Apply did, with its Undo, when the message can't", async () => {
+    const { service, slack } = build(async () => ({
+      kind: 'applied',
+      plan,
+      state: { people: [], teams: [] },
+      upload,
+    }));
+    slack.updateMessage.mockRejectedValue(new Error('message_not_found'));
+
+    await expect(service.apply('upload-1', 'digest', hr)).rejects.toThrow(
+      'message_not_found',
+    );
+    const [[, told]] = slack.postEphemeral.mock.calls as [
+      unknown,
+      { blocks: { type: string; elements?: { action_id: string }[] }[] },
+    ][];
+    expect(
+      told.blocks
+        .flatMap(({ elements = [] }) => elements)
+        .map(({ action_id }) => action_id),
+    ).toEqual(['nav_teams', 'undo']);
+  });
+
   describe('undo', () => {
     const buildUndo = (undo: () => Promise<ITeamFileUndoResult>) => {
       const built = build(() => Promise.reject(new Error('unused')));

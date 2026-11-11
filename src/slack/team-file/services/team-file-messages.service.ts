@@ -106,9 +106,11 @@ export class TeamFileMessagesService {
         throw new Error(`Upload ${result.upload.id} has no message`);
       }
     } catch (error) {
+      // What Apply did, with its Undo, since the message can't hold it.
       await this.tellQuietly(
         user,
         NOT_SHOWN[result.kind] ?? message?.text ?? NOT_APPLIED,
+        result.kind === 'applied' ? message?.blocks : undefined,
       );
       throw error;
     }

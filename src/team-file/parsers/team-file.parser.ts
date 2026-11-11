@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
 import { CellValue, Workbook } from 'exceljs';
+import { fromCsvText } from '@common/utils/csv.utils';
 import { TEAM_FILE_HEADERS } from 'src/team-file/constants/team-file-headers';
 import { MAX_TEAM_FILE_ROWS } from 'src/team-file/constants/team-file-limits';
 import { ITeamFileRow } from 'src/team-file/types/team-file-row.interface';
@@ -25,6 +26,18 @@ const COLUMN_OF_HEADER = new Map<string, Column>(
 
 const UNREADABLE_FILE =
   "The file can't be read: save it as CSV or Excel and send it again.";
+const NOT_UTF8 =
+  'The file isn\'t saved as UTF-8: save it as "CSV UTF-8" or as an Excel file and send it again.';
+
+// Excel's plain "CSV" on Windows writes the system's code page, in which
+// names with letters beyond ASCII would come out garbled.
+const decodeUtf8 = (content: Buffer) => {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(content);
+  } catch {
+    throw new BadRequestException(NOT_UTF8);
+  }
+};
 
 // Reads a team file, a CSV or an Excel workbook, into rows. Null when its
 // header has no Email and Team columns, i.e. it is not a team file.
@@ -51,11 +64,8 @@ interface ICsvRecord {
 
 const readCsv = (content: Buffer): Line[] => {
   // One kind of line end, because csv-parse counts a CRLF inside a quoted
-  // cell as two lines.
-  const text = content
-    .toString('utf8')
-    .replace(/^\uFEFF/, '')
-    .replace(/\r\n?/g, '\n');
+  // cell as two lines. The decoder drops a byte order mark.
+  const text = decodeUtf8(content).replace(/\r\n?/g, '\n');
   const header = text.split(/\r\n|\n|\r/, 1)[0].replace(/"[^"]*"/g, '');
   const semicolons = header.split(';').length;
   const commas = header.split(',').length;
@@ -160,7 +170,9 @@ const toRows = (lines: Line[]): ITeamFileRow[] | null => {
       const at = (column: Column) => {
         const index = columns.get(column);
 
-        return index === undefined ? '' : (cells[index] ?? '').trim();
+        return index === undefined
+          ? ''
+          : fromCsvText((cells[index] ?? '').trim()).trim();
       };
 
       return {

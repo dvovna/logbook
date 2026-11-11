@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Workbook } from 'exceljs';
+import { csvText, toCsv } from '@common/utils/csv.utils';
 import { parseTeamFile } from 'src/team-file/parsers/team-file.parser';
 
 const csv = (text: string, name = 'team-file.csv') =>
@@ -148,6 +149,64 @@ describe('parseTeamFile', () => {
     await expect(
       parseTeamFile(Buffer.from('PK not a workbook'), 'team.xlsx'),
     ).rejects.toEqual(unreadable);
+  });
+
+  it("reads back the ' the template puts before text that starts like a formula", async () => {
+    const written = ['=Ann', '@ann@example.test', '@Mobile', '+1'].map(csvText);
+
+    expect(
+      await parseTeamFile(
+        Buffer.from(toCsv([['Name', 'Email', 'Team', 'Team lead'], written])),
+        'team-setup.csv',
+      ),
+    ).toEqual([
+      {
+        row: 2,
+        name: '=Ann',
+        email: '@ann@example.test',
+        team: '@Mobile',
+        lead: '+1',
+      },
+    ]);
+    expect(await csv("Email,Team\nada@example.test,'Ops\n")).toEqual([
+      { row: 2, name: '', email: 'ada@example.test', team: "'Ops", lead: '' },
+    ]);
+  });
+
+  it("drops the ' before formula-like text in an xlsx cell too", async () => {
+    const workbook = new Workbook();
+    const sheet = workbook.addWorksheet('Team');
+    sheet.addRow(['Name', 'Email', 'Team']);
+    sheet.addRow(["'-Ann", 'ann@example.test', "'@Mobile"]);
+    const content = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    expect(await parseTeamFile(content, 'team.xlsx')).toEqual([
+      {
+        row: 2,
+        name: '-Ann',
+        email: 'ann@example.test',
+        team: '@Mobile',
+        lead: '',
+      },
+    ]);
+  });
+
+  it('refuses a CSV that is not UTF-8', async () => {
+    // "Zoë" in Windows-1252, as Excel's plain "CSV" writes it.
+    const content = Buffer.concat([
+      Buffer.from('Name,Email,Team\nZo'),
+      Buffer.from([0xeb]),
+      Buffer.from(',zoe@example.test,Ops\n'),
+    ]);
+
+    await expect(parseTeamFile(content, 'team.csv')).rejects.toEqual(
+      new BadRequestException(
+        'The file isn\'t saved as UTF-8: save it as "CSV UTF-8" or as an Excel file and send it again.',
+      ),
+    );
+    expect(await csv('Name,Email,Team\nZoë,zoe@example.test,Ops')).toEqual([
+      { row: 2, name: 'Zoë', email: 'zoe@example.test', team: 'Ops', lead: '' },
+    ]);
   });
 
   it('numbers the lines of a CRLF CSV with a quoted multi-line cell', async () => {

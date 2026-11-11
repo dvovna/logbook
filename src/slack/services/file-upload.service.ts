@@ -20,6 +20,13 @@ const VACATIONS_FILE = 'user-vacations.csv';
 // Any other CSV or Excel file may be a team file; its columns tell.
 const TEAM_FILE_NAME = /\.(csv|xlsx)$/i;
 
+const NOT_A_TEAM_FILE =
+  "❗️ This doesn't look like a team file: its first row needs Email and Team columns.";
+
+// HR sends a team file in their conversation with Logbook; a file shared in a
+// channel is for the people there.
+const isDirectMessage = (channelId: string) => channelId.startsWith('D');
+
 // The problems a result lists; the rest are counted.
 const MAX_LISTED_PROBLEMS = 10;
 
@@ -47,7 +54,11 @@ export default class FileUploadService {
 
   // The file is downloaded only when it is one of the imports or may be a
   // team file, and not too large.
-  public async handleFileUpload(fileId: string, user: IUserViewModel) {
+  public async handleFileUpload(
+    fileId: string,
+    channelId: string,
+    user: IUserViewModel,
+  ) {
     const file = await this.slackCommunicationService.getFileInfo(
       fileId,
       user.slack_team_id,
@@ -61,9 +72,13 @@ export default class FileUploadService {
     const importFile = file.name ? this.importers[file.name] : undefined;
 
     if (!importFile) {
-      return file.name && TEAM_FILE_NAME.test(file.name)
+      if (!file.name || !TEAM_FILE_NAME.test(file.name)) {
+        return this.reply(user, this.getUnknownFileUploadPromptMessage());
+      }
+
+      return isDirectMessage(channelId)
         ? this.handleTeamFile(file.name, file.size ?? 0, url, user)
-        : this.reply(user, this.getUnknownFileUploadPromptMessage());
+        : undefined;
     }
 
     if (file.name === VACATIONS_FILE && user.role !== UserRole.Admin) {
@@ -121,7 +136,7 @@ export default class FileUploadService {
     }
 
     if (!rows) {
-      return this.reply(user, this.getUnknownFileUploadPromptMessage());
+      return this.reply(user, { text: NOT_A_TEAM_FILE });
     }
 
     const { upload, plan, state } = await this.teamFileUploadsService.receive(

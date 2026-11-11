@@ -16,6 +16,7 @@ import {
   workspaceState,
 } from './support/team-file';
 import { ModalView, View } from '@slack/types/dist/views';
+import { acknowledged } from './support/slack-test-client';
 
 describe('Team file', () => {
   let t: ITestApp;
@@ -120,7 +121,7 @@ describe('Team file', () => {
         [
           '*Teams to create (2)*',
           '• *Acme*: Anna Novak leads, 2 people',
-          '• *Beta*: 1 person, no lead, so requests go straight to the second approval',
+          '• *Beta*: 1 person, no lead, so requests go to HR or an admin',
         ].join('\n'),
         '*Moves between teams (1)*\n• Cy Clark: Backend → Acme',
         '*Lead changes*\n• Lee Lead no longer leads Backend',
@@ -382,6 +383,56 @@ describe('Team file', () => {
         ).toThrow('No modal was opened');
       },
     );
+
+    it("tells a CSV without Email and Team columns that it isn't a team file", async () => {
+      const posted = await share(hr, 'Name,Mail\nAnna,anna@example.test\n');
+
+      expect(posted).toEqual([]);
+      expect(
+        t.slackApi
+          .ephemeralMessages(workspace.token, hr.slack_id)
+          .map(({ text }) => text),
+      ).toEqual([
+        "❗️ This doesn't look like a team file: its first row needs Email and Team columns.",
+      ]);
+      expect(await uploads()).toEqual([]);
+    });
+
+    it('reads a file shared in a channel neither as a team file nor as anything else, but imports vacations as before', async () => {
+      const anna = await workspace.addUser({ name: 'Anna Novak' });
+      const shareInChannel = async (fileName: string, content: string) => {
+        await t.slack
+          .event(workspace, {
+            type: 'file_shared',
+            file_id: t.slackApi.addFile(fileName, content),
+            user_id: hr.slack_id,
+            channel_id: 'C_GENERAL',
+          })
+          .expect(acknowledged);
+        await t.idle();
+      };
+
+      await shareInChannel('team-setup.csv', csv(`Anna,${anna.email},Acme,`));
+
+      expect(t.slackApi.callsWith(workspace.token, 'files.download')).toEqual(
+        [],
+      );
+      expect(t.slackApi.postedMessages(workspace.token, hr.slack_id)).toEqual(
+        [],
+      );
+      expect(
+        t.slackApi.ephemeralMessages(workspace.token, hr.slack_id),
+      ).toEqual([]);
+      expect(await uploads()).toEqual([]);
+
+      await shareInChannel('user-vacations.csv', 'email;contractStartDate\n');
+
+      expect(
+        t.slackApi
+          .ephemeralMessages(workspace.token, hr.slack_id)
+          .map(({ text }) => text),
+      ).toEqual(['⛔ Only admins can import vacations.']);
+    });
 
     it('refuses a manager who shares a team file and stores nothing', async () => {
       const manager = await workspace.addUser({ role: UserRole.Manager });

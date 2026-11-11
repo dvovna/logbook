@@ -17,6 +17,12 @@ export const csvText = (value: string | null | undefined) => {
   return FORMULA_START.test(text) ? `'${text}` : text;
 };
 
+// The text csvText wrote, read back: a spreadsheet keeps the ' it added.
+export const fromCsvText = (text: string) =>
+  text.startsWith("'") && FORMULA_START.test(text.slice(1))
+    ? text.slice(1)
+    : text;
+
 const csvField = (value: string) =>
   /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 

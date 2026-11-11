@@ -25,7 +25,7 @@ export class TeamFileTemplateService {
         const team = user.team_id ? teamsById.get(user.team_id) : undefined;
 
         return {
-          name: user.name,
+          name: user.name || user.email,
           email: user.email,
           team: team?.name ?? '',
           lead: !!team?.manager_approvers?.includes(user.slack_id),

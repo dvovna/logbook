@@ -22,6 +22,7 @@ interface IFileSharedEvent {
   type: SlackEventType.FileShared;
   user_id: string;
   file_id: string;
+  channel_id: string;
   team_id: string;
 }
 
@@ -353,9 +354,9 @@ export default class SlackEventsService implements OnModuleInit {
       return;
     }
 
-    const { file_id: fileId } = event;
+    const { file_id: fileId, channel_id: channelId } = event;
 
-    await this.fileUploadService.handleFileUpload(fileId, user);
+    await this.fileUploadService.handleFileUpload(fileId, channelId, user);
   }
 
   public handleHomeTapOpened(

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { KnownBlock } from '@slack/types';
+import capitalize from '@common/utils/capitalize';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -41,8 +42,6 @@ const safe = (text: string, max = MAX_NAME_CHARACTERS) =>
 const counted = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
 const people = (count: number) => counted(count, 'person', 'people');
-const capitalize = (text: string) =>
-  text.charAt(0).toUpperCase() + text.slice(1);
 
 // "Anna", "Anna and Bo", "Anna, Bo and Cy".
 const joinNames = (names: string[]) =>
@@ -260,6 +259,11 @@ export class TeamFileMessageView {
       id ? safe(names.get(id) ?? 'Unknown') : 'no team';
     const teamKeyNames = new Map(plan.createTeams.map((t) => [t.key, t.name]));
     const sections: KnownBlock[] = [];
+    // New teams follow the company rules: with no level 2 there, a request
+    // with no lead goes to the fallback approvers.
+    const withoutLeadGoTo = companyRules.hr_approvers.length
+      ? 'straight to the second approval'
+      : 'to HR or an admin';
 
     if (plan.createTeams.length) {
       sections.push(
@@ -271,7 +275,7 @@ export class TeamFileMessageView {
 
             return leads.length
               ? `*${safe(team.name)}*: ${joinNames(leads)} ${leads.length === 1 ? 'leads' : 'lead'}, ${count}`
-              : `*${safe(team.name)}*: ${count}, no lead, so requests go straight to the second approval`;
+              : `*${safe(team.name)}*: ${count}, no lead, so requests go ${withoutLeadGoTo}`;
           }),
         ),
       );

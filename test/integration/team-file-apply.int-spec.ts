@@ -292,7 +292,7 @@ describe('Team file Apply', () => {
 
     expect(textsOf(update)).toEqual([
       CHANGED_SINCE_PREVIEW,
-      '*Teams to create (1)*\n• *Acme*: 1 person, no lead, so requests go straight to the second approval',
+      '*Teams to create (1)*\n• *Acme*: 1 person, no lead, so requests go to HR or an admin',
       '*Moves between teams (1)*\n• Anna Novak: Backend → Acme',
       [
         '*Teams with no lead (2)*',
@@ -454,13 +454,16 @@ describe('Team file Apply', () => {
     await click(preview, 'apply');
 
     expect((await uploads()).map(({ status }) => status)).toEqual(['applied']);
-    expect(
-      t.slackApi
-        .ephemeralMessages(workspace.token, hr.slack_id, { since })
-        .map(({ text }) => text),
-    ).toEqual([
+    const told = t.slackApi.ephemeralMessages(workspace.token, hr.slack_id, {
+      since,
+    });
+    expect(told.map(({ text }) => text)).toEqual([
       "Applied, but the message couldn't be updated. Open Teams to check.",
     ]);
+    expect(textsOf(told[0])).toEqual([
+      '✅ Created 1 team and placed 1 person.',
+    ]);
+    expect(actionIdsOf(told[0])).toEqual([NavigationActionId.Teams, 'undo']);
   });
 
   it('Apply more than 7 days after the preview says it expired and changes nothing', async () => {

@@ -1,4 +1,6 @@
 import { TeamFileMessageView } from '@modules/slack/team-file/views/team-file-message.view';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
 import { ITeamFilePlan } from 'src/team-file/types/team-file-plan.interface';
 
 const plan = (fields: Partial<ITeamFilePlan>): ITeamFilePlan => ({
@@ -59,6 +61,44 @@ describe('TeamFileMessageView', () => {
         ),
       ).toBe(
         '✅ Took 1 person out of a team. Ann and Eve &lt;!here&gt; have no team yet.',
+      );
+    });
+  });
+
+  describe('preview', () => {
+    const view = new TeamFileMessageView();
+    const companyRules = (hrApprovers: string[]) =>
+      ({
+        hr_approvers: hrApprovers,
+        hr_approvers_rule: ApprovalRule.Any,
+        approval_notification_recipients: [],
+        vacation_policy: null,
+      }) as unknown as IRuleSetViewModel;
+    const newTeamLine = (hrApprovers: string[]) => {
+      const [, created] = view.preview(
+        plan({
+          createTeams: [
+            { key: 'ops', name: 'Ops', leadIds: [], memberIds: ['Ann'] },
+          ],
+        }),
+        names,
+        companyRules(hrApprovers),
+        'upload-1',
+        'team.csv',
+      ) as { text: { text: string } }[];
+
+      return created.text.text;
+    };
+
+    it('sends the requests of a new team with no lead to the second approval the company rules name', () => {
+      expect(newTeamLine(['UHR'])).toBe(
+        '*Teams to create (1)*\n• *Ops*: 1 person, no lead, so requests go straight to the second approval',
+      );
+    });
+
+    it('sends them to HR or an admin when the company rules name no second approval', () => {
+      expect(newTeamLine([])).toBe(
+        '*Teams to create (1)*\n• *Ops*: 1 person, no lead, so requests go to HR or an admin',
       );
     });
   });
