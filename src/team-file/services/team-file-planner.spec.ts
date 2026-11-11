@@ -174,13 +174,16 @@ describe('planTeamFile', () => {
     expect(result.promotions).toEqual([]);
   });
 
-  it('reads an empty cell and no as not a lead', () => {
+  it('reads an empty cell, no, n, FALSE and 0 as not a lead', () => {
+    const words = ['no', '', 'N', 'FALSE', 'false', '0'];
+    const ids = words.map((_, i) => `p${i}`);
     const result = plan(
-      [row(2, 'a@company.io', 'Ops', 'no'), row(3, 'b@company.io', 'Ops', '')],
-      { people: [person('a'), person('b')] },
+      words.map((word, i) => row(i + 2, `${ids[i]}@company.io`, 'Ops', word)),
+      { people: ids.map((id) => person(id)) },
     );
 
     expect(result.createTeams[0].leadIds).toEqual([]);
+    expect(result.createTeams[0].memberIds).toEqual(ids);
     expect(result.unusable).toEqual([]);
   });
 
@@ -571,6 +574,151 @@ describe('planTeamFile edge cases', () => {
       ...emptyPlan,
       leftWithoutTeam: ['a'],
     });
+  });
+});
+
+describe('planTeamFile within what the team form takes', () => {
+  const managers = (...ids: string[]) =>
+    ids.map((id) => person(id, { role: UserRole.Manager }));
+
+  it('refuses a new team whose name is longer than 50 characters, before the team limit counts it', () => {
+    const long = `${'A'.repeat(48)}   bc`;
+    const result = plan(
+      [
+        row(2, 'a@company.io', long),
+        row(3, 'b@company.io', 'B'.repeat(50)),
+        row(4, 'c@company.io', 'Short'),
+      ],
+      { people: [person('a'), person('b'), person('c')] },
+      2,
+    );
+
+    expect(result.createTeams.map((t) => t.name)).toEqual([
+      'B'.repeat(50),
+      'Short',
+    ]);
+    expect(result.unusable).toEqual([
+      {
+        row: 2,
+        reason: `${'A'.repeat(48)} bc is longer than 50 characters`,
+      },
+    ]);
+  });
+
+  it('never refuses the name of an existing team', () => {
+    const long = team('t1', 'L'.repeat(60));
+
+    expect(
+      plan([row(2, 'a@company.io', 'l'.repeat(60))], {
+        people: [person('a')],
+        teams: [long],
+      }),
+    ).toEqual({
+      ...emptyPlan,
+      assignments: [
+        { userId: 'a', fromTeamId: null, toTeamId: 't1', toTeamKey: null },
+      ],
+      nameMatches: [{ written: 'l'.repeat(60), teamName: 'L'.repeat(60) }],
+      teamsWithoutLead: ['L'.repeat(60)],
+    });
+  });
+
+  it('gives a new team its first 5 leads and refuses the rest, which change nothing', () => {
+    const ids = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const result = plan(
+      [
+        ...ids.map((id, i) => row(i + 2, `${id}@company.io`, 'Ops', 'yes')),
+        row(8, 'g@company.io', 'Ops'),
+      ],
+      { people: [...ids, 'g'].map((id) => person(id)) },
+    );
+
+    expect(result.createTeams).toEqual([
+      {
+        key: 'ops',
+        name: 'Ops',
+        leadIds: ['a', 'b', 'c', 'd', 'e'],
+        memberIds: ['a', 'b', 'c', 'd', 'e', 'g'],
+      },
+    ]);
+    expect(result.assignments.map((a) => a.userId)).not.toContain('f');
+    expect(result.promotions).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(result.unusable).toEqual([
+      { row: 7, reason: 'Ops would have more than 5 leads' },
+    ]);
+  });
+
+  it('counts the approvers an existing team keeps, and frees the place of one the file removes', () => {
+    // Two approvers who aren't in Logbook any more still count.
+    const ops = team('t1', 'Ops', ['Sa', 'Sb', 'Sguest', 'Sgone1', 'Sgone2']);
+    const people = [
+      ...managers('guest', 'n1', 'n2'),
+      ...managers('a', 'b').map((p) => ({ ...p, team_id: 't1' })),
+    ];
+    const rows = [
+      row(2, 'a@company.io', 'Ops'),
+      row(3, 'n1@company.io', 'Ops', 'yes'),
+      row(4, 'n2@company.io', 'Ops', 'yes'),
+      row(5, 'b@company.io', 'Ops', 'yes'),
+    ];
+
+    expect(plan(rows, { people, teams: [ops] })).toEqual({
+      ...emptyPlan,
+      assignments: [
+        { userId: 'n1', fromTeamId: null, toTeamId: 't1', toTeamKey: null },
+      ],
+      leadChanges: [{ teamId: 't1', add: ['n1'], remove: ['a'] }],
+      unusable: [{ row: 4, reason: 'Ops would have more than 5 leads' }],
+    });
+  });
+
+  it("refuses a lead whose own team would then keep them past the maximum, and the digest doesn't depend on the teams' order", () => {
+    const ops = team('t1', 'Ops', ['Sp', 'Sa', 'Sb', 'Sc', 'Sd']);
+    const dev = team('t2', 'Dev', ['Sv', 'Sw', 'Sx', 'Sy', 'Sz']);
+    const people = [
+      ...managers('p', 'a', 'b', 'c', 'd').map((p) => ({
+        ...p,
+        team_id: 't1',
+      })),
+      ...managers('v', 'w', 'x', 'y', 'z', 'e'),
+    ];
+    const rows = [
+      row(2, 'p@company.io', 'Dev', 'yes'),
+      row(3, 'e@company.io', 'Ops', 'yes'),
+    ];
+    const state = { people, teams: [ops, dev] };
+
+    const result = planTeamFile(rows, state, 50);
+
+    expect(result).toEqual({
+      ...emptyPlan,
+      unusable: [
+        { row: 2, reason: 'Dev would have more than 5 leads' },
+        { row: 3, reason: 'Ops would have more than 5 leads' },
+      ],
+    });
+    expect(
+      planDigest(planTeamFile(rows, { people, teams: [dev, ops] }, 50)),
+    ).toBe(planDigest(result));
+  });
+
+  it('keeps a team at 5 leads when the file marks the 5 it has', () => {
+    const ids = ['a', 'b', 'c', 'd', 'e'];
+    const ops = team(
+      't1',
+      'Ops',
+      ids.map((id) => `S${id}`),
+    );
+
+    expect(
+      plan(
+        ids.map((id, i) => row(i + 2, `${id}@company.io`, 'Ops', 'yes')),
+        {
+          people: managers(...ids).map((p) => ({ ...p, team_id: 't1' })),
+          teams: [ops],
+        },
+      ),
+    ).toEqual(emptyPlan);
   });
 });
 

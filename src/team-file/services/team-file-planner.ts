@@ -1,5 +1,9 @@
 import { createHash } from 'crypto';
 import UserRole from '@common/enums/user-role.enum';
+import {
+  MAX_TEAM_LEADS,
+  MAX_TEAM_NAME_LENGTH,
+} from '@modules/teams/constants/team-limits';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TEAM_FILE_CANNOT_LEAD_ROLE_LABELS } from 'src/team-file/constants/team-file-lead-roles';
@@ -84,6 +88,8 @@ function checkRows(
       if (isLead && roleLabel)
         return REASONS.cannotLead(displayName(row), roleLabel);
       if (match?.kind === 'ambiguous') return REASONS.ambiguousTeam(written);
+      if (match?.kind === 'none' && written.length > MAX_TEAM_NAME_LENGTH)
+        return REASONS.teamNameTooLong(written);
       return null;
     })();
 
@@ -129,6 +135,71 @@ function cutOverLimit(
     }
   }
   return { usable, newTeamNames: kept };
+}
+
+// A team's level 1 list ends as the approvers it keeps plus the file's leads,
+// and the team form takes at most MAX_TEAM_LEADS: lead rows past that are
+// unusable, in file order. A cut row leaves its person where they are, still
+// an approver of their own team, which may push that team past the maximum
+// in turn, so the cut is repeated until it cuts nothing.
+function cutOverLeadLimit(
+  usable: IUsableTeamFileRow[],
+  state: ITeamFileState,
+  newTeamNames: Map<string, string>,
+  unusable: Map<number, string>,
+) {
+  const peopleBySlackId = new Map(state.people.map((p) => [p.slack_id, p]));
+  const teamKey = (item: IUsableTeamFileRow) =>
+    item.team?.id ?? `new:${item.newKey}`;
+  let kept = usable;
+
+  for (;;) {
+    const inFile = new Set(kept.map((item) => item.person.id));
+    const leadsOf = (teamId: string) =>
+      new Set(
+        kept
+          .filter((item) => item.isLead && item.team?.id === teamId)
+          .map((item) => item.person.id),
+      );
+    const finalLeads = new Map<string, Set<string>>();
+    for (const team of state.teams) {
+      const leads = leadsOf(team.id);
+      const stays = (slackId: string) => {
+        const person = peopleBySlackId.get(slackId);
+        return (
+          !person ||
+          person.team_id !== team.id ||
+          !inFile.has(person.id) ||
+          leads.has(person.id)
+        );
+      };
+      finalLeads.set(
+        team.id,
+        new Set((team.manager_approvers ?? []).filter(stays)),
+      );
+    }
+
+    const cut = new Set<IUsableTeamFileRow>();
+    for (const item of kept) {
+      if (!item.isLead) continue;
+      const key = teamKey(item);
+      const leads = finalLeads.get(key) ?? new Set<string>();
+      finalLeads.set(key, leads);
+      if (leads.has(item.person.slack_id)) continue;
+      if (leads.size < MAX_TEAM_LEADS) {
+        leads.add(item.person.slack_id);
+        continue;
+      }
+      cut.add(item);
+      unusable.set(
+        item.row.row,
+        REASONS.tooManyLeads(item.team?.name ?? newTeamNames.get(item.newKey)!),
+      );
+    }
+
+    if (!cut.size) return kept;
+    kept = kept.filter((item) => !cut.has(item));
+  }
 }
 
 function planAssignments(usable: IUsableTeamFileRow[]) {
@@ -215,10 +286,16 @@ export function planTeamFile(
   maxTeams: number,
 ): ITeamFilePlan {
   const unusable = new Map<number, string>();
-  const { usable, newTeamNames } = cutOverLimit(
+  const { usable: withinTeamLimit, newTeamNames } = cutOverLimit(
     checkRows(rows, state, unusable),
     state.teams.length,
     maxTeams,
+    unusable,
+  );
+  const usable = cutOverLeadLimit(
+    withinTeamLimit,
+    state,
+    newTeamNames,
     unusable,
   );
 

@@ -14,6 +14,7 @@ import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
 import { IRuleFieldValues } from '@modules/slack/tabs/teams/types/rule-field-values.interface';
 import { ruleFields } from '@modules/slack/tabs/teams/views/rule-fields';
+import { MAX_TEAM_LEADS } from '@modules/teams/constants/team-limits';
 
 interface IGetViewParams extends IBaseModalViewParams {
   initialData?: {
@@ -185,7 +186,7 @@ export class TeamModalView extends BaseModalView<
         actionId: 'manager_approvers',
         label: 'Level 1: managers',
         hint: 'People with the Manager or Admin role. Give someone that role under People to choose them here.',
-        maxSelectedItems: 5,
+        maxSelectedItems: MAX_TEAM_LEADS,
         emptyText:
           'Level 1 approvers are people with the Manager or Admin role. Nobody has it yet: change a role under People first.',
         optional: true,

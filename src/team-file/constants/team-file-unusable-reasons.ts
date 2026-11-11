@@ -1,3 +1,8 @@
+import {
+  MAX_TEAM_LEADS,
+  MAX_TEAM_NAME_LENGTH,
+} from '@modules/teams/constants/team-limits';
+
 export const TEAM_FILE_UNUSABLE_REASONS = {
   noEmail: 'Row has no email',
   notInWorkspace: (email: string) => `${email} isn't in this Slack workspace`,
@@ -11,6 +16,10 @@ export const TEAM_FILE_UNUSABLE_REASONS = {
     `${name} has the ${roleLabel} role, which can't approve at level 1`,
   ambiguousTeam: (team: string) =>
     `${team} matches more than one team; write its exact name`,
+  teamNameTooLong: (team: string) =>
+    `${team} is longer than ${MAX_TEAM_NAME_LENGTH} characters`,
   teamLimit: (maxTeams: number, team: string) =>
     `Logbook allows ${maxTeams} teams; ${team} would be one more`,
+  tooManyLeads: (team: string) =>
+    `${team} would have more than ${MAX_TEAM_LEADS} leads`,
 };

@@ -10,9 +10,9 @@ import {
   selectedOptionSchema,
 } from '@modules/slack/tabs/teams/parsers/rule-field-parts';
 import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
+import { MAX_TEAM_NAME_LENGTH } from '@modules/teams/constants/team-limits';
 
 export const MAX_DESCRIPTION_LENGTH = 200;
-export const MAX_TEAM_NAME_LENGTH = 50;
 
 const teamFormSchema = z.object({
   name: z
