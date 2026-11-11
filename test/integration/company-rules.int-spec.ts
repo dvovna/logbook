@@ -218,7 +218,7 @@ describe('Company rules', () => {
     expect(await approvalMessageTo(t, workspace, hr)).toBeDefined();
     expect(await messagesTo(admin)).toEqual([]);
     expect((await messagesTo(member)).map(({ text }) => text)).toEqual([
-      `📨 Your vacation request (${formatDateRange(first.start, first.end)}) went to HR for approval: you are not in a team.`,
+      `📨 Your vacation request (${formatDateRange(first.start, first.end)}) went to HR for approval: you are not in a team and the company rules name no other approvers.`,
     ]);
 
     // Nobody has the HR role anymore.
@@ -233,8 +233,8 @@ describe('Company rules', () => {
 
     expect(await approvalMessageTo(t, workspace, admin)).toBeDefined();
     expect((await messagesTo(member)).map(({ text }) => text)).toEqual([
-      `📨 Your vacation request (${formatDateRange(first.start, first.end)}) went to HR for approval: you are not in a team.`,
-      `📨 Your vacation request (${formatDateRange(second.start, second.end)}) went to the workspace admins for approval: you are not in a team.`,
+      `📨 Your vacation request (${formatDateRange(first.start, first.end)}) went to HR for approval: you are not in a team and the company rules name no other approvers.`,
+      `📨 Your vacation request (${formatDateRange(second.start, second.end)}) went to the workspace admins for approval: you are not in a team and the company rules name no other approvers.`,
     ]);
   });
 
@@ -246,7 +246,41 @@ describe('Company rules', () => {
 
     expect(await approvalMessageTo(t, workspace, admin)).toBeDefined();
     expect((await messagesTo(hr)).map(({ text }) => text)).toEqual([
-      `📨 Your vacation request (${formatDateRange(start, end)}) went to the workspace admins for approval: you are not in a team.`,
+      `📨 Your vacation request (${formatDateRange(start, end)}) went to the workspace admins for approval: you are not in a team and the company rules name no other approvers.`,
+    ]);
+  });
+
+  it('tells the requester of a team with no lead that follows company rules with no level 2 why it went to HR, or to nobody', async () => {
+    const team = await workspace.addTeam({
+      rule_set_id: await companyRuleSetId(),
+    });
+    const member = await workspace.addUser({ team_id: team.id });
+    const first = workWeek(1);
+
+    await requestVacation(t, workspace, member, first);
+
+    expect(await approvalMessageTo(t, workspace, hr)).toBeDefined();
+    expect((await messagesTo(member)).map(({ text }) => text)).toEqual([
+      `📨 Your vacation request (${formatDateRange(first.start, first.end)}) went to HR for approval: neither your team nor the company rules name other approvers.`,
+    ]);
+
+    // The admin is the only one left with the HR or Admin role.
+    await t.db
+      .updateTable('users')
+      .set({ role: UserRole.Member })
+      .where('id', '=', hr.id)
+      .execute();
+    await t.db
+      .updateTable('users')
+      .set({ team_id: team.id })
+      .where('id', '=', admin.id)
+      .execute();
+    const second = workWeek(2);
+
+    await requestVacation(t, workspace, admin, second);
+
+    expect((await messagesTo(admin)).map(({ text }) => text)).toEqual([
+      `⚠️ Nobody can approve your vacation request (${formatDateRange(second.start, second.end)}) yet: neither your team nor the company rules name other approvers, and nobody else has the HR or Admin role. It stays pending until an admin names approvers for your team or in the company rules.`,
     ]);
   });
 

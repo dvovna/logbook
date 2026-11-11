@@ -732,7 +732,7 @@ describe('Vacation request approval', () => {
       await requestVacation(t, workspace, member, workWeek(2));
 
       expect(await noticeTo(member)).toBe(
-        `📨 Your vacation request (${formatDateRange(start, end)}) went to the workspace admins for approval: you are not in a team.`,
+        `📨 Your vacation request (${formatDateRange(start, end)}) went to the workspace admins for approval: you are not in a team and the company rules name no other approvers.`,
       );
       expect(textOf(await approvalMessageTo(t, workspace, admin))).toContain(
         'Max Member',

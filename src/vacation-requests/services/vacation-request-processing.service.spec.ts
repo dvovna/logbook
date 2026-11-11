@@ -314,7 +314,11 @@ describe('VacationRequestProcessingService', () => {
       await onCreated(VacationRequestStatus.Pending);
 
       expect(levelsOf()).toEqual(anyOf('HR approval', 'U_HR_1'));
-      expect(eventEmitter.emit.mock.calls[0][1].fallback.inTeam).toBe(false);
+      expect(eventEmitter.emit.mock.calls[0][1].fallback).toEqual({
+        inTeam: false,
+        followsCompanyRules: true,
+        sentTo: UserRole.HR,
+      });
     });
 
     it('starts no workflow when nobody else can approve it', async () => {

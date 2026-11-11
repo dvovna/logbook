@@ -3,6 +3,7 @@ import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { Tables } from '@common/types/database.types';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
@@ -537,6 +538,76 @@ describe('Access to objects by ID', () => {
 
       expect(await workspace.rows('project_users')).toEqual([]);
       expect(await workspace.rows('project_teams')).toEqual([]);
+    });
+
+    it('are not placed by the new person question, nor is it closed for them', async () => {
+      const stranger = await other.addUser({ name: 'Stranger' });
+      const strangersTeam = await other.addTeam();
+      const strangersHr = await other.addUser({ role: UserRole.HR });
+      // The question the other workspace's HR has open about the stranger.
+      await t.db
+        .insertInto('new_person_prompts')
+        .values({
+          slack_team_id: other.id,
+          user_id: stranger.id,
+          recipient_slack_id: strangersHr.slack_id,
+          channel: `D${strangersHr.slack_id.slice(1)}`,
+          ts: '1.0001',
+        })
+        .execute();
+      await workspace.addTeam();
+      const before = {
+        users: await other.rows('users'),
+        prompts: await other.rows('new_person_prompts'),
+      };
+      const forged = [
+        {
+          type: 'static_select',
+          action_id: 'choose_team',
+          selected_option: option(`${stranger.id}|${strangersTeam.id}`),
+        },
+        {
+          type: 'button',
+          action_id: 'not_yet',
+          value: `not_yet:${stranger.id}`,
+        },
+      ];
+
+      for (const action of forged) {
+        await t.slack
+          .interaction({
+            type: 'block_actions',
+            team: { id: workspace.slackId },
+            user: { id: admin.slack_id, team_id: workspace.slackId },
+            trigger_id: 'trigger-forged',
+            container: { type: 'message', message_ts: '1.0001' },
+            channel: { id: `D${admin.slack_id.slice(1)}` },
+            message: { ts: '1.0001', text: 'Which team?', blocks: [] },
+            actions: [
+              {
+                block_id: ViewCallbackId.NewPersonPrompt,
+                action_ts: '1',
+                ...action,
+              },
+            ],
+          })
+          .expect(200);
+        await t.idle();
+      }
+
+      expect(
+        t.slackApi
+          .ephemeralMessages(workspace.token, admin.slack_id)
+          .map(({ text }) => text),
+      ).toEqual([
+        'This question is no longer open. Nothing changed.',
+        'This question is no longer open. Nothing changed.',
+      ]);
+      expect({
+        users: await other.rows('users'),
+        prompts: await other.rows('new_person_prompts'),
+      }).toEqual(before);
+      expect(t.slackApi.callsWith(other.token, 'chat.update')).toEqual([]);
     });
 
     it("are not a user's team, a project's client or a team's policy", async () => {

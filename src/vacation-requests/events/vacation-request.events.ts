@@ -41,6 +41,8 @@ export class VacationRequestDecidedEvent {
 // is null.
 export interface IApprovalFallback {
   inTeam: boolean;
+  // Level 2 came from the company rules (always, for someone in no team).
+  followsCompanyRules: boolean;
   sentTo: UserRole.HR | UserRole.Admin | null;
 }
 

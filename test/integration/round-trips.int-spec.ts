@@ -19,7 +19,12 @@ import { TestWorkspace } from './support/test-workspace';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
 import { buttonText } from './support/tab-readers';
 import { workWeek } from './support/dates';
-import { approvalMessageTo, requestVacation } from './support/vacation-flows';
+import {
+  approvalMessageTo,
+  requestVacation,
+  VACATIONS_COMMAND,
+} from './support/vacation-flows';
+import { acknowledged } from './support/slack-test-client';
 import { ISqlCount } from './support/sql-log';
 
 const MY_TIME = [NavigationActionId.MyTime];
@@ -61,12 +66,16 @@ const ROUND_TRIPS: Record<string, { roundTrips: number; statements: number }> =
     "change a logged vacation's dates": { roundTrips: 10, statements: 15 },
     "change a vacation's comment": { roundTrips: 9, statements: 10 },
     'change the dates of a vacation, the team following the company rules': {
-      roundTrips: 10,
-      statements: 15,
+      roundTrips: 9,
+      statements: 13,
     },
     'delete a logged vacation': { roundTrips: 9, statements: 9 },
     'log time off from the offer': { roundTrips: 2, statements: 2 },
     'save the time off settings': { roundTrips: 7, statements: 7 },
+    'request time off, the team following the company rules': {
+      roundTrips: 8,
+      statements: 9,
+    },
   };
 
 const STATEMENTS_HEADROOM = 3;
@@ -474,6 +483,48 @@ describe('Round trips to the database before the answer', () => {
       );
 
       expect(await workspace.rows('vacation_requests')).toEqual([]);
+    });
+
+    it('requests time off in a team that follows the company rules', async () => {
+      const { vacation_policy_id } = await workspace.row('teams', design.id);
+      await t.db
+        .insertInto('rule_sets')
+        .values({ slack_team_id: workspace.id, is_default: true })
+        .onConflict((conflict) => conflict.doNothing())
+        .execute();
+      const companyRules = await t.db
+        .updateTable('rule_sets')
+        .set({ vacation_policy_id })
+        .where('slack_team_id', '=', workspace.id)
+        .where('is_default', '=', true)
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      await t.db
+        .updateTable('teams')
+        .set({ rule_set_id: companyRules.id })
+        .where('id', '=', design.id)
+        .execute();
+      const since = t.slackApi.mark();
+      await t.slack
+        .command(VACATIONS_COMMAND, workspace, requester, 'request')
+        .expect(acknowledged);
+      await t.idle();
+
+      const saved = await submit(
+        'request time off, the team following the company rules',
+        t.slackApi.openedModal(workspace.token, { since }),
+        {
+          start_date: '2026-06-22',
+          end_date: '2026-06-26',
+          type_option: VacationType.AnnualLeave,
+        },
+        requester,
+      );
+
+      expect(saved.body).toEqual({ response_action: 'clear' });
+      expect(await workspace.rows('vacation_requests')).toMatchObject([
+        { user_id: requester.id, working_days: 4 },
+      ]);
     });
 
     it('logs time off from the offer', async () => {

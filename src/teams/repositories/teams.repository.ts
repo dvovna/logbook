@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { sql } from 'kysely';
+import { jsonObjectFrom } from 'kysely/helpers/postgres';
 import {
   IRelation,
   BaseRepository,
@@ -7,6 +8,7 @@ import {
 import { SqlRow } from '@common/types/sql-database.types';
 import ITeamViewModel from '@modules/teams/types/team.interface';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
+import { CompanyRuleValues } from '@modules/teams/types/rule-set.interface';
 
 @Injectable()
 export class TeamsRepository extends BaseRepository<'teams', ITeamViewModel> {
@@ -80,6 +82,51 @@ export class TeamsRepository extends BaseRepository<'teams', ITeamViewModel> {
     }
 
     return found;
+  }
+
+  // The team and the company rules of its workspace in one statement, since
+  // every vacation request reads them. companyRules is null before the
+  // workspace has them.
+  public async findOneWithCompanyRules(
+    id: string,
+    slackTeamId: string,
+  ): Promise<{
+    team: ITeamViewModel;
+    companyRules: CompanyRuleValues | null;
+  } | null> {
+    const row = await this.selectInWorkspace(slackTeamId)
+      .selectAll('teams')
+      .select((eb) => [
+        ...this.relationColumns(eb as never, 'teams'),
+        jsonObjectFrom(
+          eb
+            .selectFrom('rule_sets')
+            .select([
+              'rule_sets.hr_approvers',
+              'rule_sets.hr_approvers_rule',
+              'rule_sets.approval_notification_recipients',
+              'rule_sets.vacation_policy_id',
+            ])
+            .whereRef('rule_sets.slack_team_id', '=', 'teams.slack_team_id')
+            .where('rule_sets.is_default', '=', true),
+        ).as('company_rules'),
+      ])
+      .where('teams.id', '=', id)
+      .executeTakeFirst();
+
+    if (!row) {
+      return null;
+    }
+
+    const { company_rules: rules } = row;
+
+    return {
+      team: this.toViewModel(row),
+      companyRules: rules && {
+        ...rules,
+        hr_approvers_rule: rules.hr_approvers_rule as ApprovalRule,
+      },
+    };
   }
 
   // The leads change only while they are still `expected`, in any order:

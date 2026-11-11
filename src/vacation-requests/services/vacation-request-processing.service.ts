@@ -156,6 +156,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
       VacationRequestEvent.SentForApproval,
       new VacationRequestSentForApprovalEvent(request, {
         inTeam: Boolean(rules.team),
+        followsCompanyRules: rules.followsCompanyRules,
         sentTo: fallback?.role ?? null,
       }),
     );

@@ -186,6 +186,19 @@ describe('First setup', () => {
         expect(await checklistOf(admin)).toContainEqual(RULES_STEP);
       });
 
+      it("doesn't take the old own level 2 of a team that follows the company rules for a team with approvers", async () => {
+        await workspace.addVacationPolicy();
+        await workspace.addTeam({
+          rule_set_id: (await t.app.get(CompanyRulesService).get(workspace.id))
+            .id,
+          hr_approvers: [admin.slack_id],
+        });
+
+        expect(await checklistOf(admin)).toContainEqual({
+          text: TEAM_STEP.text,
+        });
+      });
+
       it('does not count as done with no teams, whatever the company rules lack', async () => {
         await workspace.addVacationPolicy();
 

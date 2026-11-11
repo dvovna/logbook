@@ -13,3 +13,12 @@ export interface IRuleSetViewModel {
   updated_at: string;
   updated_by: string | null;
 }
+
+// What a team that follows the company rules takes from them.
+export type CompanyRuleValues = Pick<
+  IRuleSetViewModel,
+  | 'hr_approvers'
+  | 'hr_approvers_rule'
+  | 'approval_notification_recipients'
+  | 'vacation_policy_id'
+>;

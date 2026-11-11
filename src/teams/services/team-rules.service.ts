@@ -4,7 +4,10 @@ import { RuleSetsRepository } from '@modules/teams/repositories/rule-sets.reposi
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { IEffectiveTeamRules } from '@modules/teams/types/effective-team-rules.interface';
 import ITeamViewModel from '@modules/teams/types/team.interface';
-import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
+import {
+  CompanyRuleValues,
+  IRuleSetViewModel,
+} from '@modules/teams/types/rule-set.interface';
 
 @Injectable()
 export class TeamRulesService {
@@ -18,27 +21,19 @@ export class TeamRulesService {
     teamId: string | null | undefined,
     slackTeamId: string,
   ): Promise<IEffectiveTeamRules> {
-    const team = teamId
-      ? await this.teamsRepository.findOne({
-          id: teamId,
-          slack_team_id: slackTeamId,
-        })
+    const found = teamId
+      ? await this.teamsRepository.findOneWithCompanyRules(teamId, slackTeamId)
       : null;
 
-    if (team && !team.rule_set_id) {
-      return ownRules(team);
+    if (found && !found.team.rule_set_id) {
+      return ownRules(found.team);
     }
 
     return ruleSetRules(
-      team,
-      await this.ruleSetsRepository.ensureDefault(slackTeamId),
+      found?.team ?? null,
+      found?.companyRules ??
+        (await this.ruleSetsRepository.ensureDefault(slackTeamId)),
     );
-  }
-
-  public async forAllTeams(
-    slackTeamId: string,
-  ): Promise<IEffectiveTeamRules[]> {
-    return (await this.forWorkspace(slackTeamId)).teams;
   }
 
   // The company rules and the rules of every team, read together.
@@ -74,7 +69,7 @@ const ownRules = (team: ITeamViewModel): IEffectiveTeamRules => ({
 // Level 1 always comes from the team.
 const ruleSetRules = (
   team: ITeamViewModel | null,
-  ruleSet: IRuleSetViewModel,
+  ruleSet: CompanyRuleValues,
 ): IEffectiveTeamRules => ({
   team,
   followsCompanyRules: true,

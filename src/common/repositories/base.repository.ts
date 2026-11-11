@@ -436,7 +436,7 @@ export abstract class BaseRepository<
       .execute();
   }
 
-  private relationColumns(eb: AnyExpressions, source: string) {
+  protected relationColumns(eb: AnyExpressions, source: string) {
     return Object.entries(this.relations ?? {}).map(([alias, relation]) =>
       jsonObjectFrom(
         eb

@@ -275,12 +275,14 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
 
   private getFallbackText(
     request: IVacationRequestViewModel,
-    { inTeam, sentTo }: IApprovalFallback,
+    { inTeam, followsCompanyRules, sentTo }: IApprovalFallback,
   ) {
     const dates = this.datesOf(request);
-    const reason = inTeam
-      ? 'your team has no other approvers'
-      : 'you are not in a team';
+    const reason = !inTeam
+      ? 'you are not in a team and the company rules name no other approvers'
+      : followsCompanyRules
+        ? 'neither your team nor the company rules name other approvers'
+        : 'your team has no other approvers';
 
     if (sentTo === UserRole.HR) {
       return `📨 Your vacation request (${dates}) went to HR for approval: ${reason}.`;
@@ -290,9 +292,11 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
       return `📨 Your vacation request (${dates}) went to the workspace admins for approval: ${reason}.`;
     }
 
-    const until = inTeam
-      ? 'an admin adds approvers to your team'
-      : 'an admin puts you in a team or names approvers in the company rules';
+    const until = !inTeam
+      ? 'an admin puts you in a team or names approvers in the company rules'
+      : followsCompanyRules
+        ? 'an admin names approvers for your team or in the company rules'
+        : 'an admin adds approvers to your team';
 
     return `⚠️ Nobody can approve your vacation request (${dates}) yet: ${reason}, and nobody else has the HR or Admin role. It stays pending until ${until}.`;
   }
