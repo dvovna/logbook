@@ -11,6 +11,8 @@ export interface ISqlStatement {
   client: Client;
   calledAt: number;
   endedAt: number | null;
+  // How many rows it returned; null until it came back, or when it failed.
+  rows: number | null;
 }
 
 export interface ISqlCount {
@@ -50,6 +52,17 @@ const later = <T>(value: T): Promise<T> =>
     ? new Promise((resolve) => setTimeout(() => resolve(value), latencyMs))
     : Promise.resolve(value);
 
+// The rows of a pg result (an array of them for several statements).
+const rowsOf = (result: unknown): number | null => {
+  const results = (Array.isArray(result) ? result : [result]) as {
+    rows?: unknown[];
+  }[];
+
+  return results.some((one) => Array.isArray(one?.rows))
+    ? results.reduce((sum, one) => sum + (one?.rows?.length ?? 0), 0)
+    : null;
+};
+
 // Wraps pg's Client.query, which every statement of the app's pool, its
 // transactions and pg-boss goes through, to keep a log of them.
 const install = () => {
@@ -70,14 +83,16 @@ const install = () => {
       client: this,
       calledAt: performance.now(),
       endedAt: null,
+      rows: null,
     };
 
     if (!isSessionSetting(text)) {
       log.push(statement);
     }
 
-    const end = () => {
+    const end = (result?: unknown) => {
       statement.endedAt = performance.now();
+      statement.rows = rowsOf(result);
     };
     const callback = args[args.length - 1];
 
@@ -85,7 +100,7 @@ const install = () => {
     if (typeof callback === 'function') {
       args[args.length - 1] = (...results: unknown[]) =>
         void later(null).then(() => {
-          end();
+          end(results[1]);
           (callback as (...values: unknown[]) => void)(...results);
         });
 
@@ -101,7 +116,7 @@ const install = () => {
     return result.then(
       (value) =>
         later(value).then((delayed) => {
-          end();
+          end(delayed);
 
           return delayed;
         }),
