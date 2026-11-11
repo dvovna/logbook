@@ -1,16 +1,19 @@
 import { View } from '@slack/types/dist/views';
+import request from 'supertest';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { WELCOME_TEXT } from '@modules/team-setup/team-setup-workflow.service';
 import { MemberSyncScheduleService } from '@modules/team-setup/member-sync-schedule.service';
-import { UsersService } from '@modules/users/services/users.service';
-import { IUserViewModel } from '@modules/users/types/user.interface';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId, TestWorkspace } from './support/test-workspace';
 import { acknowledged } from './support/slack-test-client';
 import { IPostedMessage } from './support/fake-slack-api.client';
 import { sectionTexts } from './support/tab-readers';
 import { dmOf } from './support/team-file';
+import { openAppHomeTab, openModalFrom } from './support/app-home';
 
 const ADA = 'Ada Lovelace';
 const QUESTION = `👋 *${ADA}* joined Slack. Which team is ${ADA} on?`;
@@ -22,12 +25,22 @@ describe('New people', () => {
   let hr2: Tables<'users'>;
   let acme: Tables<'teams'>;
   let beta: Tables<'teams'>;
+  const installed: string[] = [];
 
   beforeAll(async () => {
     t = await createTestApp();
   });
 
-  afterAll(() => t.close());
+  afterAll(async () => {
+    // Not TestWorkspaces: the app created these rows itself.
+    if (installed.length) {
+      await t.db
+        .deleteFrom('slack_teams')
+        .where('slack_id', 'in', installed)
+        .execute();
+    }
+    await t.close();
+  });
 
   beforeEach(async () => {
     workspace = await t.createWorkspace();
@@ -89,6 +102,23 @@ describe('New people', () => {
     });
 
     return id;
+  };
+
+  // The OAuth install: the browser starts it, Slack sends it back with a code.
+  const installApp = async (code: string) => {
+    const start = await request(t.app.getHttpServer())
+      .get('/api/slack/install')
+      .expect(302);
+    const state = new URL(start.headers.location).searchParams.get('state')!;
+    const cookie = ([start.headers['set-cookie']].flat() as string[])
+      .find((value) => value.startsWith('slack_oauth_state='))!
+      .split(';')[0];
+
+    await request(t.app.getHttpServer())
+      .get(`/api/slack/oauth/redirect?code=${code}&state=${state}`)
+      .set('Cookie', cookie)
+      .expect(302);
+    await t.idle();
   };
 
   const questionsTo = (user: Tables<'users'>) =>
@@ -211,25 +241,81 @@ describe('New people', () => {
   });
 
   it('the install import asks nothing', async () => {
-    const id = slackHasAda();
+    const teamId = slackId('T');
+    const installer = slackId('U');
+    const member = slackId('U');
+    installed.push(teamId);
+    t.slackApi.addOauthGrant('install-code', {
+      teamId,
+      teamName: 'Fresh',
+      botToken: `xoxb-${teamId}`,
+      installerId: installer,
+    });
+    for (const [id, name] of [
+      [installer, 'Ivy Installer'],
+      [member, ADA],
+    ]) {
+      t.slackApi.addUser({
+        id,
+        teamId,
+        name,
+        email: `${id.toLowerCase()}@example.test`,
+      });
+    }
 
-    await t.app.get(MemberSyncScheduleService).syncAll();
-    await t.idle();
+    await installApp('install-code');
+
+    const row = await t.db
+      .selectFrom('slack_teams')
+      .select(['id', 'members_imported_at'])
+      .where('slack_id', '=', teamId)
+      .executeTakeFirstOrThrow();
+    const users = await t.db
+      .selectFrom('users')
+      .select('slack_id')
+      .where('slack_team_id', '=', row.id)
+      .execute();
+
+    expect(users.map(({ slack_id }) => slack_id).sort()).toEqual(
+      [installer, member].sort(),
+    );
+    expect(row.members_imported_at).not.toBeNull();
+    expect(
+      t.slackApi
+        .postedMessages(`xoxb-${teamId}`, installer)
+        .map(({ text }) => text),
+    ).toEqual([WELCOME_TEXT]);
+    expect(
+      await t.db
+        .selectFrom('new_person_prompts')
+        .select('id')
+        .where('slack_team_id', '=', row.id)
+        .execute(),
+    ).toEqual([]);
+  });
+
+  it('a restore import asks nothing about the people it adds', async () => {
+    await markImported();
+    await t.db
+      .updateTable('slack_teams')
+      .set({ uninstalled_at: new Date().toISOString() })
+      .where('id', '=', workspace.id)
+      .execute();
+    slackHasAda();
+    t.slackApi.addOauthGrant('restore-code', {
+      teamId: workspace.slackId,
+      teamName: 'Acme',
+      botToken: workspace.token,
+      installerId: hr.slack_id,
+    });
+
+    await installApp('restore-code');
 
     expect(
-      (await workspace.rows('users')).some(({ slack_id }) => slack_id === id),
+      (await workspace.rows('users')).some(({ name }) => name === ADA),
     ).toBe(true);
     expect(questionsTo(hr)).toEqual([]);
     expect(await workspace.rows('new_person_prompts')).toEqual([]);
-    expect(
-      (
-        await t.db
-          .selectFrom('slack_teams')
-          .select('members_imported_at')
-          .where('id', '=', workspace.id)
-          .executeTakeFirstOrThrow()
-      ).members_imported_at,
-    ).not.toBeNull();
   });
 
   it('the daily sync asks about a person it adds', async () => {
@@ -295,18 +381,168 @@ describe('New people', () => {
     const ada = await join();
     const [forHana] = questionsTo(hr);
     const [forHugo] = questionsTo(hr2);
+    const people = await openAppHomeTab(t, workspace, hr, [
+      NavigationActionId.People,
+    ]);
+    const form = await openModalFrom(
+      t,
+      workspace,
+      hr,
+      people,
+      UsersTabViewActionId.ManageUserMenu,
+      `${UsersTabViewActionId.EditUser}:${ada.id}`,
+    );
 
-    await t.app
-      .get(UsersService)
-      .assignTeams(
-        [{ userId: ada.id, teamId: beta.id }],
-        hr as unknown as IUserViewModel,
-      );
+    await t.slack
+      .submitView(workspace, hr, form, { team_id: beta.id })
+      .expect(200);
     await t.idle();
 
     const closed = [`✅ Hana HR placed ${ADA} in Beta.`];
     expect(lastTextOf(forHana)).toEqual(closed);
     expect(lastTextOf(forHugo)).toEqual(closed);
+  });
+
+  it('the first of two answers at once wins, and the other is told', async () => {
+    await markImported();
+    const ada = await join();
+    const [forHana] = questionsTo(hr);
+    const [forHugo] = questionsTo(hr2);
+
+    await Promise.all([
+      t.slack
+        .actOnMessage(
+          workspace,
+          hr,
+          forHana,
+          'choose_team',
+          `${ada.id}|${acme.id}`,
+        )
+        .expect(200),
+      t.slack
+        .actOnMessage(
+          workspace,
+          hr2,
+          forHugo,
+          'choose_team',
+          `${ada.id}|${beta.id}`,
+        )
+        .expect(200),
+    ]);
+    await t.idle();
+
+    const placed = (await workspace.row('users', ada.id)).team_id;
+    const winner = placed === acme.id ? 'Acme' : 'Beta';
+    const by = placed === acme.id ? 'Hana HR' : 'Hugo HR';
+    const told = [hr, hr2].flatMap((user) =>
+      t.slackApi
+        .ephemeralMessages(workspace.token, user.slack_id)
+        .map(({ text }) => text),
+    );
+
+    expect(told).toEqual([`${ADA} is already in ${winner}.`]);
+    expect(lastTextOf(forHana)).toEqual([
+      `✅ ${by} placed ${ADA} in ${winner}.`,
+    ]);
+    expect(lastTextOf(forHugo)).toEqual([
+      `✅ ${by} placed ${ADA} in ${winner}.`,
+    ]);
+  });
+
+  it('asks nobody in a workspace with no teams', async () => {
+    await markImported();
+    await t.db
+      .deleteFrom('teams')
+      .where('slack_team_id', '=', workspace.id)
+      .execute();
+
+    await join();
+
+    expect(questionsTo(hr)).toEqual([]);
+    expect(await workspace.rows('new_person_prompts')).toEqual([]);
+  });
+
+  it('answers a choice for someone deactivated meanwhile and closes the questions', async () => {
+    await markImported();
+    const ada = await join();
+    const [forHana] = questionsTo(hr);
+    await t.db
+      .updateTable('users')
+      .set({ is_active: false })
+      .where('id', '=', ada.id)
+      .execute();
+
+    await choose(hr, forHana, ada, acme);
+
+    expect((await workspace.row('users', ada.id)).team_id).toBeNull();
+    expect(
+      t.slackApi
+        .ephemeralMessages(workspace.token, hr.slack_id)
+        .map(({ text }) => text),
+    ).toEqual([`${ADA} is deactivated.`]);
+    expect(lastTextOf(forHana)).toEqual([`⏸ ${ADA} is deactivated.`]);
+  });
+
+  it('answers a choice of a team deleted meanwhile', async () => {
+    await markImported();
+    const ada = await join();
+    const [forHana] = questionsTo(hr);
+    await t.db.deleteFrom('teams').where('id', '=', acme.id).execute();
+
+    await choose(hr, forHana, ada, acme);
+
+    expect(
+      t.slackApi
+        .ephemeralMessages(workspace.token, hr.slack_id)
+        .map(({ text }) => text),
+    ).toEqual(['That team no longer exists.']);
+    expect((await workspace.row('users', ada.id)).team_id).toBeNull();
+  });
+
+  it('tells a second Not yet that the question is closed', async () => {
+    await markImported();
+    await join();
+    const [forHana] = questionsTo(hr);
+
+    await t.slack.actOnMessage(workspace, hr, forHana, 'not_yet').expect(200);
+    await t.idle();
+    const again = await t.slack
+      .actOnMessage(workspace, hr, forHana, 'not_yet')
+      .expect(200);
+    await t.idle();
+
+    expect(again.status).toBe(200);
+    expect(
+      t.slackApi
+        .ephemeralMessages(workspace.token, hr.slack_id)
+        .map(({ text }) => text),
+    ).toEqual(['This question is no longer open. Nothing changed.']);
+  });
+
+  it('keeps at most 100 teams, each option cut to 75 characters', async () => {
+    await markImported();
+    const long = `A${'x'.repeat(79)}`;
+    await workspace.addTeam({ name: long });
+    for (let i = 0; i < 100; i++) {
+      await workspace.addTeam({ name: `Team ${String(i).padStart(3, '0')}` });
+    }
+
+    await join();
+
+    const select = (
+      questionsTo(hr)[0].blocks![2] as {
+        elements: { options?: { text: { text: string } }[] }[];
+      }
+    ).elements[0];
+    const texts = select.options!.map(({ text }) => text.text);
+
+    expect(texts).toHaveLength(100);
+    expect(texts.slice(0, 3)).toEqual([
+      'Acme',
+      `A${'x'.repeat(71)}...`,
+      'Beta',
+    ]);
+    expect(texts[1]).toHaveLength(75);
   });
 
   it('a member cannot answer the question', async () => {

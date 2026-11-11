@@ -25,6 +25,7 @@ describe('MemberSyncScheduleService', () => {
     expect(jobs.run).toHaveBeenCalledWith(SYNC_USERS_JOB, {
       slackTeamId: 'ws-1',
       scheduled: true,
+      askAboutNew: true,
     });
     expect(order).toEqual(['start ws-1', 'end ws-1', 'start ws-2', 'end ws-2']);
   });

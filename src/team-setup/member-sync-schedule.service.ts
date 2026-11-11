@@ -55,6 +55,7 @@ export class MemberSyncScheduleService
       await this.jobs.run<ISyncUsersJob>(SYNC_USERS_JOB, {
         slackTeamId,
         scheduled: true,
+        askAboutNew: true,
       });
     }
 

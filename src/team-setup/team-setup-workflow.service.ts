@@ -46,6 +46,8 @@ export interface ISyncUsersJob {
   userSlackIdsToIgnore?: string[];
   // The daily sync (MemberSyncScheduleService): no install to wait for.
   scheduled?: boolean;
+  // Ask HR about the people this run adds: set by the daily import only.
+  askAboutNew?: boolean;
 }
 
 @Injectable()
@@ -82,21 +84,25 @@ export class TeamSetupWorkflowService implements OnModuleInit {
         await delay(5000);
       }
 
-      // Before the first import finished, everyone is new: nobody is asked
-      // about. After it, the people this run adds joined Slack since.
+      // The install and restore imports ask about nobody. The daily one
+      // asks about the people it adds, once the first import has finished:
+      // those joined Slack since.
       const { members_imported_at } =
         await this.slackTeamsService.findOneWithValidation({
           id: job.slackTeamId,
         });
       const created = await this.teamUsersSyncService.syncUsers(job);
 
-      if (members_imported_at) {
-        for (const { id } of created) {
-          await this.jobs.run<INewPersonPromptJob>(NEW_PERSON_PROMPT_JOB, {
-            slackTeamId: job.slackTeamId,
-            userId: id,
-          });
-        }
+      if (job.askAboutNew && members_imported_at) {
+        // Saved together, so a crash can't leave the rest unasked.
+        await this.transactions.transaction(async () => {
+          for (const { id } of created) {
+            await this.jobs.enqueue<INewPersonPromptJob>(
+              NEW_PERSON_PROMPT_JOB,
+              { slackTeamId: job.slackTeamId, userId: id },
+            );
+          }
+        });
       }
 
       await this.slackTeamsService.markMembersImported(job.slackTeamId);

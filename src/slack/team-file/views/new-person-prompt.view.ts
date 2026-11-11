@@ -1,15 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { truncate } from 'lodash';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
-import {
-  MAX_OPTION_CHARACTERS,
-  MAX_TEAM_OPTIONS,
-} from '@modules/slack/team-file/constants/new-person-prompt';
+import { MAX_SELECT_OPTIONS } from '@modules/slack/common/utils/view.utils';
+import { MAX_OPTION_CHARACTERS } from '@modules/slack/team-file/constants/new-person-prompt';
 import { NewPersonPromptActionId } from '@modules/slack/team-file/enums/new-person-prompt-action-id.enum';
 import { ITeamFileMessage } from '@modules/slack/team-file/types/team-file-message.interface';
-
-const clip = (text: string, max: number) =>
-  text.length > max ? `${text.slice(0, max - 1)}…` : text;
 
 @Injectable()
 export class NewPersonPromptView {
@@ -24,11 +20,11 @@ export class NewPersonPromptView {
     const text = `👋 *${name}* joined Slack. Which team is ${name} on?`;
     const options = [...teams]
       .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, MAX_TEAM_OPTIONS)
+      .slice(0, MAX_SELECT_OPTIONS)
       .map((team) => ({
         text: {
           type: 'plain_text' as const,
-          text: clip(team.name, MAX_OPTION_CHARACTERS),
+          text: truncate(team.name, { length: MAX_OPTION_CHARACTERS }),
         },
         value: `${person.id}|${team.id}`,
       }));

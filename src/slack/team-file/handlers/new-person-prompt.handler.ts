@@ -39,7 +39,6 @@ export class NewPersonPromptHandler extends BaseActionHandler {
       user,
     );
 
-  // The value is `not_yet:<user id>`.
   private handleNotYet = (
     payload: ISlackBlockActionPayload,
     user: IUserViewModel,

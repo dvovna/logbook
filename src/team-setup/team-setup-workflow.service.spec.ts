@@ -6,7 +6,10 @@ import {
 import { TransactionService } from 'src/database/transaction.service';
 import { Logger } from '@nestjs/common';
 import { NEW_PERSON_PROMPT_JOB } from 'src/team-file/constants/jobs';
-import { TeamSetupWorkflowService } from 'src/team-setup/team-setup-workflow.service';
+import {
+  SYNC_USERS_JOB,
+  TeamSetupWorkflowService,
+} from 'src/team-setup/team-setup-workflow.service';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 import { UsersService } from 'src/users/services/users.service';
 import SlackUsersService from 'src/slack-communication/services/slack-users.service';
@@ -80,16 +83,24 @@ describe('TeamSetupWorkflowService', () => {
     jest.restoreAllMocks();
   });
 
-  // Records the jobs; the prompt job has no handler here, so it only counts.
-  const spyOnRun = () => {
-    const run = jobs.run.bind(jobs);
+  // Records the prompt jobs, which have no handler here; others run.
+  const spyOnEnqueue = () => {
+    const enqueue = jobs.enqueue.bind(jobs);
 
     return jest
-      .spyOn(jobs, 'run')
+      .spyOn(jobs, 'enqueue')
       .mockImplementation((name, payload) =>
-        name === NEW_PERSON_PROMPT_JOB ? Promise.resolve() : run(name, payload),
+        name === NEW_PERSON_PROMPT_JOB
+          ? Promise.resolve()
+          : enqueue(name, payload),
       );
   };
+  const promptsOf = (enqueue: jest.SpyInstance) =>
+    enqueue.mock.calls.filter(([name]) => name === NEW_PERSON_PROMPT_JOB);
+  const imported = () =>
+    slackTeamsService.findOneWithValidation.mockResolvedValue({
+      members_imported_at: '2026-06-01T00:00:00Z',
+    });
 
   const setupTeam = () =>
     service.execute({
@@ -127,38 +138,62 @@ describe('TeamSetupWorkflowService', () => {
 
   it('asks about nothing on the first import, and marks it done', async () => {
     teamUsersSyncService.syncUsers.mockResolvedValue([{ id: 'user-1' }]);
-    const run = spyOnRun();
+    const enqueue = spyOnEnqueue();
 
     await setupTeam();
     await jest.advanceTimersByTimeAsync(5000);
 
-    expect(run).not.toHaveBeenCalledWith(
-      NEW_PERSON_PROMPT_JOB,
-      expect.anything(),
-    );
+    expect(promptsOf(enqueue)).toEqual([]);
     expect(slackTeamsService.markMembersImported).toHaveBeenCalledWith(
       SLACK_TEAM_ID,
     );
   });
 
-  it('asks about each person a later import adds', async () => {
-    slackTeamsService.findOneWithValidation.mockResolvedValue({
-      members_imported_at: '2026-06-01T00:00:00Z',
-    });
+  it('asks about each person a daily import adds after the first import', async () => {
+    imported();
     teamUsersSyncService.syncUsers.mockResolvedValue([
       { id: 'user-1' },
       { id: 'user-2' },
     ]);
-    const run = spyOnRun();
+    const enqueue = spyOnEnqueue();
 
-    await setupTeam();
-    await jest.advanceTimersByTimeAsync(5000);
+    await jobs.run(SYNC_USERS_JOB, {
+      slackTeamId: SLACK_TEAM_ID,
+      scheduled: true,
+      askAboutNew: true,
+    });
 
-    expect(
-      run.mock.calls.filter(([name]) => name === NEW_PERSON_PROMPT_JOB),
-    ).toEqual([
+    expect(promptsOf(enqueue)).toEqual([
       [NEW_PERSON_PROMPT_JOB, { slackTeamId: SLACK_TEAM_ID, userId: 'user-1' }],
       [NEW_PERSON_PROMPT_JOB, { slackTeamId: SLACK_TEAM_ID, userId: 'user-2' }],
     ]);
+  });
+
+  it('asks about nothing when a daily import runs before the first one finished', async () => {
+    teamUsersSyncService.syncUsers.mockResolvedValue([{ id: 'user-1' }]);
+    const enqueue = spyOnEnqueue();
+
+    await jobs.run(SYNC_USERS_JOB, {
+      slackTeamId: SLACK_TEAM_ID,
+      scheduled: true,
+      askAboutNew: true,
+    });
+
+    expect(promptsOf(enqueue)).toEqual([]);
+  });
+
+  it('asks about nothing when a restore import adds people', async () => {
+    imported();
+    teamUsersSyncService.syncUsers.mockResolvedValue([{ id: 'user-1' }]);
+    const enqueue = spyOnEnqueue();
+
+    const restored = jobs.run(SYNC_USERS_JOB, {
+      slackTeamId: SLACK_TEAM_ID,
+      userSlackIdsToIgnore: ['U_ADMIN'],
+    });
+    await jest.advanceTimersByTimeAsync(5000);
+    await restored;
+
+    expect(promptsOf(enqueue)).toEqual([]);
   });
 });
