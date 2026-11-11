@@ -19,7 +19,7 @@ import {
 import {
   ITimeOffOffer,
   ITimeOffResult,
-} from 'src/time-off-logging/services/time-off-logging.service';
+} from 'src/time-off-logging/types/time-off-offer.types';
 
 @Injectable()
 export class TimeOffOfferView {

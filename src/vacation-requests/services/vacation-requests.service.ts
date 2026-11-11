@@ -270,6 +270,7 @@ export class VacationRequestsService implements IVacationRequestsService {
   public async applyUpdate(
     { checked, changes, teamId, days, workingDays }: IVacationRequestUpdate,
     user: IUserViewModel,
+    assertCurrent?: (current: IVacationRequestViewModel) => void,
   ) {
     const { id, slack_team_id: slackTeamId } = checked;
 
@@ -279,6 +280,9 @@ export class VacationRequestsService implements IVacationRequestsService {
     // edit may have changed it since the checks read it, and the caller
     // compares with it.
     const previous = await this.findOneWithValidation({ id, slackTeamId });
+
+    assertCurrent?.(previous);
+
     const request = await this.vacationRequestsRepository.update(
       {
         id,
@@ -310,14 +314,24 @@ export class VacationRequestsService implements IVacationRequestsService {
     return { previous, request };
   }
 
-  private async update(
-    findParams: IVacationRequestFindParams,
-    updateParams: IVacationRequestUpdateParams,
-    user: IUserViewModel,
-  ): Promise<IVacationRequestViewModel> {
-    const update = await this.checkUpdate(findParams, updateParams, user);
+  public async cancel(requestId: string, user: IUserViewModel) {
+    const findParams = { id: requestId, slackTeamId: user.slack_team_id };
+
+    this.assertCanCancel(await this.findOneWithValidation(findParams), user);
+
+    const update = await this.checkUpdate(
+      findParams,
+      { status: VacationRequestStatus.Canceled },
+      user,
+    );
+    // Without TimeOffChangesService's cleanup: a pending request holds no
+    // logged time, since only an approved one is logged and leaving approved
+    // removes it. Checked again under the lock, as the workflow may have
+    // approved it, and its time been logged, since the check above.
     const { previous, request } = await this.transactions.transaction(() =>
-      this.applyUpdate(update, user),
+      this.applyUpdate(update, user, (current) =>
+        this.assertCanCancel(current, user),
+      ),
     );
 
     this.eventEmitter.emit(
@@ -328,12 +342,10 @@ export class VacationRequestsService implements IVacationRequestsService {
     return request;
   }
 
-  public async cancel(requestId: string, user: IUserViewModel) {
-    const request = await this.findOneWithValidation({
-      id: requestId,
-      slackTeamId: user.slack_team_id,
-    });
-
+  private assertCanCancel(
+    request: IVacationRequestViewModel,
+    user: IUserViewModel,
+  ) {
     if (request.user_id !== user.id) {
       throw new ForbiddenException(
         'You can cancel only your own vacation requests',
@@ -345,15 +357,6 @@ export class VacationRequestsService implements IVacationRequestsService {
         'Only vacation requests waiting for approval can be canceled',
       );
     }
-
-    // Without TimeOffChangesService's cleanup: a pending request holds no
-    // logged time, since only an approved one is logged and leaving approved
-    // removes it.
-    return this.update(
-      { id: requestId, slackTeamId: user.slack_team_id },
-      { status: VacationRequestStatus.Canceled },
-      user,
-    );
   }
 
   public findOne(

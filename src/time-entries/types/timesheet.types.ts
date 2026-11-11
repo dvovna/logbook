@@ -47,7 +47,6 @@ export interface ITimesheetOpenBefore {
   weekStart: string;
 }
 
-// A cell of the week: a project and a day.
 export interface ITimesheetCellRef {
   projectId: string;
   date: string;

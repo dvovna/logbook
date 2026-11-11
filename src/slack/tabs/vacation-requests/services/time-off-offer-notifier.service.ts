@@ -18,6 +18,7 @@ import {
 import { TimeOffOfferView } from '@modules/slack/tabs/vacation-requests/views/time-off-offer.view';
 import ProjectsService from 'src/projects/services/projects.service';
 import { TimeOffChangedEvent } from 'src/time-off-logging/events/time-off.events';
+import { VacationRequestUpdatedEvent } from '@modules/vacation-requests/events/vacation-request.events';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
 import { IRemovedVacationTime } from 'src/time-off-logging/types/vacation-time.types';
 import { changesLoggedTime } from 'src/time-off-logging/utils/vacation-time.utils';
@@ -59,7 +60,7 @@ export class TimeOffOfferNotifier implements OnModuleInit {
     request,
     previous,
     removedTime,
-  }: TimeOffChangedEvent) {
+  }: VacationRequestUpdatedEvent & Partial<TimeOffChangedEvent>) {
     const offers =
       !!previous &&
       request.status === VacationRequestStatus.Approved &&

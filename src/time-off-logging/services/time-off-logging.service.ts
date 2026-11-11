@@ -20,41 +20,15 @@ import { TransactionService } from 'src/database/transaction.service';
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
 import { VacationTimeService } from 'src/time-off-logging/services/vacation-time.service';
 import {
+  ITimeOffOffer,
+  ITimeOffPlan,
+  ITimeOffResult,
+} from 'src/time-off-logging/types/time-off-offer.types';
+import {
   isTimeOffLeaveType,
   TIME_OFF_DESCRIPTIONS,
   TimeOffLeaveType,
 } from 'src/time-off-logging/constants/time-off-leave-types';
-
-// What logging an approved time off would write.
-export interface ITimeOffOffer {
-  requestId: string;
-  projectId: string;
-  projectName: string;
-  // On each day.
-  minutes: number;
-  // The working days of the time off, as 'YYYY-MM-DD'.
-  dates: string[];
-}
-
-export interface ITimeOffResult {
-  offer: ITimeOffOffer;
-  // The days this run wrote.
-  logged: string[];
-  // What is stored for this request after the run, however it got there: on
-  // the project, and within its days on other projects (billed time of the
-  // leave type it had before, which stayed when HR changed the type).
-  linked: {
-    dates: string[];
-    minutes: number;
-    otherProjects: { projectName: string; dates: string[] }[];
-  };
-}
-
-interface ITimeOffPlan {
-  offer: ITimeOffOffer;
-  // The requester's team now.
-  teamId: string | null;
-}
 
 @Injectable()
 export class TimeOffLoggingService {

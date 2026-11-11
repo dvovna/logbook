@@ -447,6 +447,21 @@ describe('VacationRequestsService', () => {
       expect(repository.update).not.toHaveBeenCalled();
     });
 
+    it('refuses the cancel when the request was approved since its check', async () => {
+      repository.findOne
+        .mockResolvedValueOnce(buildRequest())
+        .mockResolvedValueOnce(buildRequest())
+        .mockResolvedValue(
+          buildRequest({ status: VacationRequestStatus.Approved }),
+        );
+
+      await expect(service.cancel('request-1', requester)).rejects.toThrow(
+        'Only vacation requests waiting for approval can be canceled',
+      );
+      expect(transactions.lock).toHaveBeenCalled();
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
     it.each([
       VacationRequestStatus.Approved,
       VacationRequestStatus.Rejected,
