@@ -777,6 +777,7 @@ export type Database = {
           currency: string;
           id: string;
           members_imported_at: string | null;
+          members_synced_at: string | null;
           name: string;
           slack_id: string;
           slack_refresh_token: string | null;
@@ -792,6 +793,7 @@ export type Database = {
           currency?: string;
           id?: string;
           members_imported_at?: string | null;
+          members_synced_at?: string | null;
           name: string;
           slack_id: string;
           slack_refresh_token?: string | null;
@@ -806,6 +808,7 @@ export type Database = {
           currency?: string;
           id?: string;
           members_imported_at?: string | null;
+          members_synced_at?: string | null;
           name?: string;
           slack_id?: string;
           slack_refresh_token?: string | null;

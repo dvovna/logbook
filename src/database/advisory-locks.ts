@@ -18,6 +18,7 @@ const RANK = {
   billingSnapshots: 50,
   teamFile: 60,
   singletonJob: 70,
+  slackToken: 80,
 } as const;
 
 export const compareLocks = (a: IAdvisoryLock, b: IAdvisoryLock) =>
@@ -62,4 +63,11 @@ export const singletonJobLock = (
 ): IAdvisoryLock => ({
   key: `job:${name}:${singletonKey}`,
   rank: RANK.singletonJob,
+});
+
+// A workspace's bot token refresh: one at a time across processes, since
+// Slack takes a refresh token once (AccessTokenService). Taken alone.
+export const slackTokenLock = (slackTeamId: string): IAdvisoryLock => ({
+  key: `slack-token:${slackTeamId}`,
+  rank: RANK.slackToken,
 });

@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import UserRole from 'src/common/enums/user-role.enum';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
 import { SlackTeamsRepository } from 'src/slack-teams/slack-teams.repository';
@@ -106,5 +107,65 @@ describe('SlackTeamsService.deleteWorkspace', () => {
       id: 'workspace-1',
       uninstalled_at: { operator: 'lt', value: '2026-05-18T12:00:00.000Z' },
     });
+  });
+});
+
+describe('SlackTeamsService.saveRefreshedTokens', () => {
+  const cipher = new TokenCipherService({
+    getOrThrow: () => Buffer.alloc(32, 1).toString('base64'),
+  } as unknown as ConfigService);
+  let repository: { replaceTokens: jest.Mock };
+  let service: SlackTeamsService;
+
+  beforeEach(() => {
+    repository = { replaceTokens: jest.fn().mockResolvedValue(true) };
+    service = new SlackTeamsService(
+      repository as unknown as SlackTeamsRepository,
+      cipher,
+      {} as TransactionService,
+    );
+  });
+
+  const previous = {
+    token: 'xoxe.xoxb-old',
+    refreshToken: 'xoxe-1-old',
+    expiresAt: new Date('2026-06-17T09:05:00.000Z'),
+    storedRefreshToken: 'v1:as-stored',
+  };
+  const refreshed = {
+    token: 'xoxe.xoxb-new',
+    refreshToken: 'xoxe-1-new',
+    expiresAt: new Date('2026-06-17T21:00:00.000Z'),
+  };
+
+  it('saves the new pair, encrypted, over the stored refresh token it replaces', async () => {
+    await expect(
+      service.saveRefreshedTokens('workspace-1', previous, refreshed),
+    ).resolves.toBe(true);
+
+    const [id, current, tokens] = repository.replaceTokens.mock.calls[0];
+    expect([id, current]).toEqual(['workspace-1', 'v1:as-stored']);
+    expect(cipher.decrypt(tokens.slack_token)).toBe('xoxe.xoxb-new');
+    expect(cipher.decrypt(tokens.slack_refresh_token)).toBe('xoxe-1-new');
+    expect(tokens.slack_token_expires_at).toBe('2026-06-17T21:00:00.000Z');
+  });
+
+  it('says when the stored pair changed since it was read', async () => {
+    repository.replaceTokens.mockResolvedValue(false);
+
+    await expect(
+      service.saveRefreshedTokens('workspace-1', previous, refreshed),
+    ).resolves.toBe(false);
+  });
+
+  it('saves nothing over a token that has no refresh token', async () => {
+    await expect(
+      service.saveRefreshedTokens(
+        'workspace-1',
+        { ...previous, storedRefreshToken: null },
+        refreshed,
+      ),
+    ).resolves.toBe(false);
+    expect(repository.replaceTokens).not.toHaveBeenCalled();
   });
 });

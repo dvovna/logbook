@@ -43,10 +43,17 @@ export interface ITestApp {
   close(): Promise<void>;
 }
 
+export interface ITestAppOptions {
+  // Another app's Slack, for two app processes on one database and one
+  // Slack, as during a deploy.
+  slackApi?: FakeSlackApiClient;
+}
+
 // The real AppModule and request pipeline (main.ts), on the local Supabase
 // stack. Only the outside services are replaced: Slack and Nager.Date.
-export const createTestApp = async (): Promise<ITestApp> => {
-  const slackApi = new FakeSlackApiClient();
+export const createTestApp = async ({
+  slackApi = new FakeSlackApiClient(),
+}: ITestAppOptions = {}): Promise<ITestApp> => {
   const sqlLog = createSqlLog();
   const nager = new FakeNagerDateClient();
   // Each app has its own job tables: test files run in parallel, and other

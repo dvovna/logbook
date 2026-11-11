@@ -3,7 +3,9 @@ import SlackApiClient, {
   CALL_OPTIONS,
   IDLE_CLIENT_MS,
   INTERACTIVE_CALL_OPTIONS,
+  isRefusedTokenError,
   slackErrorOf,
+  TOKEN_REFRESH_CALL_OPTIONS,
   uploadTimeoutMs,
 } from 'src/api-clients/third-party/slack-api.client';
 import { RESUME_JITTER_MS } from 'src/api-clients/third-party/slack-rate-limits';
@@ -382,6 +384,56 @@ describe('SlackApiClient', () => {
       expect(uploadTimeoutMs(30 * mb + 1)).toBe(40_000);
       expect(uploadTimeoutMs(500 * mb)).toBe(60_000);
     });
+  });
+
+  // It runs while a transaction holds the workspace's refresh lock.
+  it('refreshes a token with one quick retry and no wait for a rate limit', async () => {
+    slack.apiCall.mockResolvedValue({
+      ok: true,
+      access_token: 'xoxe.xoxb-new',
+      refresh_token: 'xoxe-1-new',
+      expires_in: 43200,
+    });
+
+    await expect(
+      client.refreshToken({
+        refreshToken: 'xoxe-1-old',
+        clientId: 'client',
+        clientSecret: 'secret',
+      }),
+    ).resolves.toMatchObject({ access_token: 'xoxe.xoxb-new' });
+
+    expect(WebClient).toHaveBeenCalledWith(
+      undefined,
+      TOKEN_REFRESH_CALL_OPTIONS,
+    );
+    expect(slack.apiCall).toHaveBeenCalledWith('oauth.v2.access', {
+      grant_type: 'refresh_token',
+      refresh_token: 'xoxe-1-old',
+      client_id: 'client',
+      client_secret: 'secret',
+    });
+    const { retryConfig, timeout } = TOKEN_REFRESH_CALL_OPTIONS;
+    // Under the 10 s another process may wait for the lock.
+    expect(
+      (retryConfig!.retries! + 1) * timeout! +
+        retryConfig!.retries! * (retryConfig!.maxTimeout as number),
+    ).toBeLessThan(10_000);
+    expect(TOKEN_REFRESH_CALL_OPTIONS.rejectRateLimitedCalls).toBe(true);
+  });
+
+  it('tells a token Slack no longer takes from other failures', () => {
+    const failed = (error: string) =>
+      Object.assign(new Error(`An API error occurred: ${error}`), {
+        data: { ok: false, error },
+      });
+
+    expect(isRefusedTokenError(failed('token_revoked'))).toBe(true);
+    expect(isRefusedTokenError(failed('invalid_auth'))).toBe(true);
+    expect(isRefusedTokenError(failed('account_inactive'))).toBe(true);
+    expect(isRefusedTokenError(failed('token_expired'))).toBe(true);
+    expect(isRefusedTokenError(failed('missing_scope'))).toBe(false);
+    expect(isRefusedTokenError(new Error('socket hang up'))).toBe(false);
   });
 
   it("reads the error code of Slack's platform errors", () => {

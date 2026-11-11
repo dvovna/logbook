@@ -52,6 +52,40 @@ export const CALL_OPTIONS: WebClientOptions = {
   timeout: 10_000,
 };
 
+// oauth.v2.access with a refresh token runs while AccessTokenService holds
+// the workspace's refresh lock, in a transaction: 8.5 s at most, under the
+// 30 s a transaction may stay idle (SESSION_SETUP) and the 10 s another
+// process may wait for the lock. A rate limit fails it at once: the old token
+// lasts 10 more minutes. The one retry, at once, is for a lost answer: Slack
+// takes a used refresh token for a short grace period.
+export const TOKEN_REFRESH_CALL_OPTIONS: WebClientOptions = {
+  retryConfig: { retries: 1, minTimeout: 250, maxTimeout: 250 },
+  rejectRateLimitedCalls: true,
+  timeout: 4_000,
+};
+
+const CALL_OPTIONS_OF_KIND = {
+  interactive: INTERACTIVE_CALL_OPTIONS,
+  tokenRefresh: TOKEN_REFRESH_CALL_OPTIONS,
+  other: CALL_OPTIONS,
+};
+
+type CallKind = keyof typeof CALL_OPTIONS_OF_KIND;
+
+export interface IRefreshTokenParams {
+  refreshToken: string;
+  clientId: string;
+  clientSecret: string;
+}
+
+// What oauth.v2.access answers to a refresh: the next pair.
+export interface IRefreshedTokens {
+  access_token: string;
+  refresh_token: string;
+  // Seconds.
+  expires_in: number;
+}
+
 // The clients of a token unused this long are dropped: with token rotation
 // every workspace gets a new token every 12 hours, and the old one is never
 // used again.
@@ -90,6 +124,18 @@ const isSlackFileUrl = (url: string) => {
 // as @slack/web-api reports it; undefined for any other failure.
 export const slackErrorOf = (error: unknown): string | undefined =>
   (error as { data?: { error?: string } } | null)?.data?.error;
+
+// Slack's answers to a token it no longer takes: revoked (a reinstall, an
+// uninstall), of a removed app or workspace, or expired.
+const REFUSED_TOKEN_ERRORS = new Set([
+  'invalid_auth',
+  'token_revoked',
+  'account_inactive',
+  'token_expired',
+]);
+
+export const isRefusedTokenError = (error: unknown): boolean =>
+  REFUSED_TOKEN_ERRORS.has(slackErrorOf(error) ?? '');
 
 @Injectable()
 export default class SlackApiClient {
@@ -176,7 +222,7 @@ export default class SlackApiClient {
   }
 
   public async openView(viewOpenArgs: ViewsOpenArguments, accessToken: string) {
-    const client = this.getClient(accessToken, { interactive: true });
+    const client = this.getClient(accessToken, 'interactive');
 
     const result = await client.views.open(viewOpenArgs);
 
@@ -340,6 +386,30 @@ export default class SlackApiClient {
     return result as ResponseData & WebAPICallResult;
   }
 
+  // The next pair of a rotating bot token (oauth.v2.access with
+  // grant_type=refresh_token), with TOKEN_REFRESH_CALL_OPTIONS.
+  public async refreshToken({
+    refreshToken,
+    clientId,
+    clientSecret,
+  }: IRefreshTokenParams): Promise<IRefreshedTokens> {
+    const result: WebAPICallResult & { error?: string } = await this.getClient(
+      undefined,
+      'tokenRefresh',
+    ).apiCall('oauth.v2.access', {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to refresh the token');
+    }
+
+    return result as unknown as IRefreshedTokens;
+  }
+
   // `method` with the token's client, waiting out Slack's rate limits on it.
   private send<T>(
     method: string,
@@ -351,9 +421,9 @@ export default class SlackApiClient {
     );
   }
 
-  private getClient(token?: string, { interactive = false } = {}) {
+  private getClient(token?: string, kind: CallKind = 'other') {
     const now = performance.now();
-    const key = `${interactive ? 'interactive' : 'other'}:${token ?? ''}`;
+    const key = `${kind}:${token ?? ''}`;
 
     this.dropIdleClients(now);
 
@@ -361,10 +431,7 @@ export default class SlackApiClient {
 
     if (!entry) {
       entry = {
-        client: new WebClient(
-          token,
-          interactive ? INTERACTIVE_CALL_OPTIONS : CALL_OPTIONS,
-        ),
+        client: new WebClient(token, CALL_OPTIONS_OF_KIND[kind]),
         lastUsedAt: now,
       };
       this.clients.set(key, entry);
