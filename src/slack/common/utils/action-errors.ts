@@ -5,23 +5,27 @@ import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.er
 import PrimaryEntityDeleteError from '@common/errors/primary-entity-delete.error';
 import { ValidationError } from '@common/errors/validation.error';
 
+export type ActionErrorKind =
+  'refusal' | 'not-found' | 'forbidden' | 'unexpected';
+
 const REFUSALS: (abstract new (...args: never[]) => Error)[] = [
   ValidationError,
-  NotFoundException,
   DuplicatedRecordError,
   MaxItemsCountReachedError,
   EntityHasDependenciesError,
   PrimaryEntityDeleteError,
 ];
 
-// What an error of a Slack action or form is: a refusal, written for the
-// user to read; forbidden, which each caller shows or only logs; or a
-// failure, logged and reported.
-export const classifyActionError = (
-  error: unknown,
-): 'refusal' | 'forbidden' | 'unexpected' => {
+// A refusal is written for the user to read. Not found is apart because some
+// of its messages name a record by its internal ID ('Client with id … not
+// found'); forbidden because a message button only logs it.
+export const classifyActionError = (error: unknown): ActionErrorKind => {
   if (error instanceof ForbiddenException) {
     return 'forbidden';
+  }
+
+  if (error instanceof NotFoundException) {
+    return 'not-found';
   }
 
   return REFUSALS.some((type) => error instanceof type)

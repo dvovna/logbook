@@ -5,7 +5,7 @@ import SlackViewResponseFactory from '@modules/slack/factories/slack-response.fa
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
 import { IViewParseResult } from '@modules/slack/services/slack-view-values.parser';
-import { Logger, NotFoundException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { ValidationError } from '@common/errors/validation.error';
 import { classifyActionError } from '@modules/slack/common/utils/action-errors';
 import { DuplicatedRecordError } from '@common/errors/duplicated-record.error';
@@ -48,11 +48,8 @@ export abstract class BaseModalFormSubmitHandler<
         return SlackViewResponseFactory.errors(fieldErrors);
       }
 
-      // Some not-found messages name a record by its internal ID ('Client
-      // with id … not found'), so a form takes them all as unexpected.
-      const unexpected =
-        error instanceof NotFoundException ||
-        classifyActionError(error) === 'unexpected';
+      const kind = classifyActionError(error);
+      const unexpected = kind === 'unexpected' || kind === 'not-found';
 
       if (unexpected) {
         this.logger.error(

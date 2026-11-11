@@ -21,7 +21,6 @@ describe('classifyActionError', () => {
       projectId: 'p1',
       date: '2026-06-17',
     }),
-    new NotFoundException('Time Entry not found'),
     new DuplicatedRecordError('A client with this name already exists'),
     new MaxItemsCountReachedError(10, 'teams'),
     new EntityHasDependenciesError('client', 'projects'),
@@ -32,6 +31,12 @@ describe('classifyActionError', () => {
 
   it('keeps ForbiddenException apart', () => {
     expect(classifyActionError(new ForbiddenException('No'))).toBe('forbidden');
+  });
+
+  it('keeps NotFoundException apart', () => {
+    expect(
+      classifyActionError(new NotFoundException('Time Entry not found')),
+    ).toBe('not-found');
   });
 
   it.each([

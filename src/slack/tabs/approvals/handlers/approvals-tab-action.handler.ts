@@ -152,7 +152,9 @@ export default class ApprovalsTabActionHandler extends BaseTabActionHandler {
         this.entryIdOf(payload),
       );
     } catch (error) {
-      if (classifyActionError(error) === 'unexpected') {
+      const kind = classifyActionError(error);
+
+      if (kind === 'unexpected' || kind === 'not-found') {
         throw error;
       }
 

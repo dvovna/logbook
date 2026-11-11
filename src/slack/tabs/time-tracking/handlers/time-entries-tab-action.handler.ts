@@ -8,7 +8,7 @@ import {
 } from '@common/utils/period-presets';
 import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 import { rolesOfTab } from '@modules/slack/common/navigation/screens';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ISlackBlockActionPayload,
   ISlackInteractionPayload,
@@ -209,11 +209,9 @@ export default class TimeEntriesTabActionHandler extends BaseTabActionHandler {
         ),
       );
     } catch (error) {
-      // An entry that is gone fails the click.
-      if (
-        error instanceof NotFoundException ||
-        classifyActionError(error) === 'unexpected'
-      ) {
+      const kind = classifyActionError(error);
+
+      if (kind === 'unexpected' || kind === 'not-found') {
         throw error;
       }
 

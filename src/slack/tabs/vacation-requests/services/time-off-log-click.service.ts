@@ -76,6 +76,7 @@ export class TimeOffLogClickService {
   ): Promise<boolean> {
     switch (classifyActionError(error)) {
       case 'refusal':
+      case 'not-found':
         await this.tell(user, channel, (error as Error).message);
 
         return true;
