@@ -22,6 +22,9 @@ import { ITimesheetCellChange } from 'src/time-entries/types/timesheet.types';
 export interface ITimesheetFormData {
   // Every cell the form sent, typed into or not.
   cells: ITimesheetCellChange[];
+  // What the form showed in its cells (shownMinutes), for the form it comes
+  // back as after an error.
+  shownMinutes: Map<string, number | null>;
   submitWeek: boolean;
   // The day form's comment; undefined when empty or not in the form.
   comment?: string;
@@ -50,15 +53,6 @@ const inputBlocks = (view: ISlackView) =>
     (block): block is InputBlock => block.type === 'input',
   );
 
-// What the form showed in each cell: its input's initial value.
-const shownHours = (view: ISlackView) =>
-  new Map(
-    inputBlocks(view).map((block) => [
-      block.block_id,
-      (block.element as { initial_value?: string }).initial_value,
-    ]),
-  );
-
 // The cells differ from form to form: no fixed field config fits them.
 @Injectable()
 export class TimesheetFormParser implements IFormParser<ITimesheetFormData> {
@@ -66,7 +60,7 @@ export class TimesheetFormParser implements IFormParser<ITimesheetFormData> {
   // in it; errors at every cell that isn't hours.
   public parse(view: ISlackView): IViewParseResult<ITimesheetFormData> {
     const values = view.state?.values ?? {};
-    const shown = shownHours(view);
+    const shown = this.shownMinutes(view);
     const cells: ITimesheetCellChange[] = [];
     const errors: Record<string, string> = {};
 
@@ -79,7 +73,6 @@ export class TimesheetFormParser implements IFormParser<ITimesheetFormData> {
       }
 
       const typed = parseCellHours(field.value);
-      const before = parseCellHours(shown.get(blockId));
 
       if ('error' in typed) {
         errors[blockId] = typed.error;
@@ -90,7 +83,7 @@ export class TimesheetFormParser implements IFormParser<ITimesheetFormData> {
       cells.push({
         ...cell,
         minutes: typed.minutes,
-        expectedMinutes: 'error' in before ? null : before.minutes,
+        expectedMinutes: shown.get(blockId) ?? null,
       });
     }
 
@@ -112,6 +105,7 @@ export class TimesheetFormParser implements IFormParser<ITimesheetFormData> {
     return {
       data: {
         cells,
+        shownMinutes: shown,
         comment: comment || undefined,
         submitWeek:
           getSelectedOptions(
@@ -121,6 +115,28 @@ export class TimesheetFormParser implements IFormParser<ITimesheetFormData> {
           ).length > 0,
       },
     };
+  }
+
+  // What the form showed in each of its cell inputs, by cellKey: the
+  // minutes of its initial value, null for none. A rebuild of the form shows
+  // them again in the cells it keeps, so that a change made elsewhere since
+  // the form opened is still refused at the cell.
+  public shownMinutes(view: ISlackView): Map<string, number | null> {
+    const shown = new Map<string, number | null>();
+
+    for (const block of inputBlocks(view)) {
+      if (!block.block_id || !parseCellKey(block.block_id)) {
+        continue;
+      }
+
+      const hours = parseCellHours(
+        (block.element as { initial_value?: string }).initial_value,
+      );
+
+      shown.set(block.block_id, 'error' in hours ? null : hours.minutes);
+    }
+
+    return shown;
   }
 
   // A cell's field is its cellKey. A cell the form has no input for came

@@ -21,6 +21,7 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
 import { TimeEntriesTabService } from '@modules/slack/tabs/time-tracking/services/time-entries-tab.service';
 import { TimesheetFormMetadata } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
+import { TimesheetFormParser } from '@modules/slack/tabs/time-tracking/parsers/timesheet-form.parser';
 import { IUserProject } from 'src/projects/queries/get-user-projects.query';
 import { MAX_TIMESHEET_ROWS } from 'src/time-entries/constants/timesheet';
 
@@ -56,6 +57,7 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
   public constructor(
     private readonly timeEntriesTabService: TimeEntriesTabService,
     private readonly slackCommunicationService: SlackCommunicationService,
+    private readonly timesheetFormParser: TimesheetFormParser,
   ) {
     super();
   }
@@ -132,7 +134,11 @@ export class TimesheetFormActionHandler extends BaseActionHandler {
     }
 
     const { view: form, projects } =
-      await this.timeEntriesTabService.getTimesheetForm({ user, metadata });
+      await this.timeEntriesTabService.getTimesheetForm({
+        user,
+        metadata,
+        shownMinutes: this.timesheetFormParser.shownMinutes(payload.view),
+      });
 
     if (!allows(projects)) {
       return;

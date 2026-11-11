@@ -37,6 +37,8 @@ interface ITimeEntryModalViewParams extends IOpenModalBaseParams<string> {
 
 export type ITimesheetFormModalParams = IOpenModalBaseParams & {
   metadata: TimesheetFormMetadata;
+  // When the form is rebuilt: what it showed in its inputs, by cellKey.
+  shownMinutes?: Map<string, number | null>;
 };
 
 type TimeEntriesTabModalViewResolversMap = {
@@ -187,6 +189,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
     user,
     errorMessage,
     metadata,
+    shownMinutes,
   }: ITimesheetFormModalParams): Promise<{
     view: View;
     projects: IUserProject[];
@@ -199,7 +202,7 @@ export class TimeEntriesTabService extends BaseTabService<TimeEntriesTabModalVie
 
     return {
       view: this.timesheetFormModalView.getView(
-        { mode: metadata.mode, week, projects, errorMessage },
+        { mode: metadata.mode, week, projects, errorMessage, shownMinutes },
         metadata,
       ),
       projects,

@@ -125,14 +125,14 @@ export class TimesheetFormSubmitHandler extends BaseModalFormSubmitHandler<
 
   protected async errorResponse(
     errorMessage: string,
-    _data: ITimesheetFormData,
+    { shownMinutes }: ITimesheetFormData,
     metadata: TimesheetFormMetadata,
     user: IUserViewModel,
   ) {
     return SlackViewResponseFactory.update(
       await this.timeEntriesTabService.getModalView(
         TimeEntriesTabModalName.FillWeek,
-        { user, errorMessage, metadata },
+        { user, errorMessage, metadata, shownMinutes },
       ),
     );
   }

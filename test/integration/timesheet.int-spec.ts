@@ -683,6 +683,63 @@ describe('Fill in the week', () => {
     ]);
   });
 
+  it('keeps what the form first showed in a cell across its rebuilds', async () => {
+    const draft = await entry(website, WED);
+    await entry(website, THU, { status: TimeEntryStatus.Submitted });
+    const form = await openForm();
+    const key = cellKey(website.id, WED);
+
+    // Then 2h on Wednesday in a second form.
+    await submit(await openForm(), { [key]: '2' });
+    expect(await workspace.row('time_entries', draft.id)).toMatchObject({
+      minutes: 120,
+    });
+
+    const added = await actOnForm(
+      form,
+      TimesheetFormActionId.AddProject,
+      mobile.id,
+    );
+    // A forged input for the submitted Thursday: the form comes back with
+    // the error.
+    const failed = await submit(
+      added,
+      {},
+      member,
+      forgedCell(cellKey(website.id, THU), '5'),
+    );
+
+    expect(modalError(failed.body.view)).toBe(
+      'Submitted time entries cannot be edited',
+    );
+
+    for (const rebuilt of [added, failed.body.view as View]) {
+      expect(timesheetFormRows(rebuilt)[1]).toEqual({
+        project: 'Website · Acme',
+        cells: [
+          'Mon 15 []',
+          'Tue 16 []',
+          'Wed 17 [1]',
+          'Thu 18 · 1h · submitted',
+          'Fri 19 []',
+        ],
+      });
+    }
+
+    const answer = await submit(failed.body.view as View, { [key]: '3' });
+
+    expect(answer.body).toEqual({
+      response_action: 'errors',
+      errors: {
+        [key]: 'This time changed after the form opened: open the form again.',
+      },
+    });
+    expect(await entriesOf()).toEqual([
+      'Website 2026-06-17 120 draft',
+      'Website 2026-06-18 60 submitted',
+    ]);
+  });
+
   it('adds a project and shows the weekend', async () => {
     const secret = await workspace.addProject({
       name: 'Secret',
