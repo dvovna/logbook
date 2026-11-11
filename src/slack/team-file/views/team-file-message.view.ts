@@ -175,6 +175,24 @@ export class TeamFileMessageView {
     };
   }
 
+  // What Undo put back, and what it left because it changed since.
+  public undone(restored: number, kept: string[]): ITeamFileMessage {
+    const text = `↩️ Undone: ${restored} ${restored === 1 ? 'change' : 'changes'} restored.`;
+
+    return {
+      text,
+      blocks: [
+        kept.length
+          ? list(
+              text,
+              kept.map((line) => safe(line, MAX_REASON_CHARACTERS)),
+              'Kept as they are:',
+            )
+          : section(text),
+      ],
+    };
+  }
+
   // E.g. "✅ Created 3 teams and placed 14 people. Maria Volkova has no team
   // yet.", with the parts that are zero left out.
   public appliedText(plan: ITeamFilePlan, names: Map<string, string>) {

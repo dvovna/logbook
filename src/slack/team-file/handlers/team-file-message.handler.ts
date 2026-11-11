@@ -45,6 +45,7 @@ export class TeamFileMessageHandler extends BaseActionHandler {
 
     this.actionMap = {
       [TeamFileMessageActionId.Apply]: this.handleApply,
+      [TeamFileMessageActionId.Undo]: this.handleUndo,
       [TeamFileMessageActionId.Cancel]: withButtonAction(this.handleCancel),
       [TeamFileMessageActionId.Rules]: withButtonAction(this.handleRules),
       [NavigationActionId.Teams]: this.handleOpenTeams,
@@ -81,6 +82,21 @@ export class TeamFileMessageHandler extends BaseActionHandler {
 
       await this.messagesService.tellClosed(user);
     }
+  };
+
+  // The value is `undo:<upload id>`; a missing ID reads as an unknown upload.
+  // Undoing takes many statements, like Apply.
+  private handleUndo = (
+    payload: ISlackBlockActionPayload,
+    user: IUserViewModel,
+  ) => {
+    const [, uploadId = ''] = (
+      (payload.actions[0] as ButtonAction).value ?? ''
+    ).split(':');
+
+    runInBackground(this.logger, 'undo a team file', () =>
+      this.messagesService.undo(uploadId, user),
+    );
   };
 
   // The company rules form, as on Teams; saving it shows Teams.

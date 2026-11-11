@@ -22,6 +22,8 @@ import {
 } from 'src/team-file/types/team-file-plan.interface';
 import { ITeamFileRow } from 'src/team-file/types/team-file-row.interface';
 import { ITeamFileApplyResult } from 'src/team-file/types/team-file-apply-result.interface';
+import { TeamFileUndoService } from 'src/team-file/services/team-file-undo.service';
+import { ITeamFileUndoResult } from 'src/team-file/types/team-file-undo-result.interface';
 import { ITeamFileUndo } from 'src/team-file/types/team-file-undo.interface';
 import { ITeamFileUpload } from 'src/team-file/types/team-file-upload.interface';
 
@@ -35,6 +37,7 @@ export class TeamFileUploadsService {
     private readonly teamsService: TeamsService,
     private readonly transactions: TransactionService,
     private readonly config: ConfigService,
+    private readonly undoService: TeamFileUndoService,
   ) {}
 
   // Plans the rows against the workspace as it is now and keeps them for
@@ -185,6 +188,13 @@ export class TeamFileUploadsService {
 
       return { kind: 'applied', plan, state, upload: applied };
     });
+  }
+
+  public undo(
+    uploadId: string,
+    user: IUserViewModel,
+  ): Promise<ITeamFileUndoResult> {
+    return this.undoService.undo(uploadId, user);
   }
 
   private async readState(slackTeamId: string): Promise<ITeamFileState> {

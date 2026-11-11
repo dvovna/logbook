@@ -62,4 +62,41 @@ describe('TeamFileMessageView', () => {
       );
     });
   });
+
+  describe('undone', () => {
+    const view = new TeamFileMessageView();
+    const texts = (message: { blocks: unknown[] }) =>
+      (message.blocks as { text: { text: string } }[]).map((b) => b.text.text);
+
+    it('says only the count when nothing was kept', () => {
+      expect(view.undone(3, [])).toEqual({
+        text: '↩️ Undone: 3 changes restored.',
+        blocks: [
+          {
+            type: 'section',
+            text: { type: 'mrkdwn', text: '↩️ Undone: 3 changes restored.' },
+          },
+        ],
+      });
+    });
+
+    it('lists 10 kept items, escaped, then counts the rest', () => {
+      const kept = Array.from({ length: 12 }, (_, i) =>
+        i === 0 ? '<!here> kept' : `item ${i}`,
+      );
+
+      const message = view.undone(1, kept);
+
+      expect(message.text).toBe('↩️ Undone: 1 change restored.');
+      expect(texts(message)).toEqual([
+        [
+          '↩️ Undone: 1 change restored.',
+          'Kept as they are:',
+          '• &lt;!here&gt; kept',
+          ...Array.from({ length: 9 }, (_, i) => `• item ${i + 1}`),
+          '…and 2 more',
+        ].join('\n'),
+      ]);
+    });
+  });
 });

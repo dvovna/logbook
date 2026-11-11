@@ -7,6 +7,7 @@ import { CompanyRulesService } from '@modules/teams/services/company-rules.servi
 import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
+import { ITeamFileUndoResult } from 'src/team-file/types/team-file-undo-result.interface';
 import { ITeamFileApplyResult } from 'src/team-file/types/team-file-apply-result.interface';
 import { ITeamFilePlan } from 'src/team-file/types/team-file-plan.interface';
 import { ITeamFileUpload } from 'src/team-file/types/team-file-upload.interface';
@@ -117,4 +118,62 @@ describe('TeamFileMessagesService', () => {
       expect(ephemeralTexts(slack)).toEqual([told]);
     },
   );
+
+  describe('undo', () => {
+    const buildUndo = (undo: () => Promise<ITeamFileUndoResult>) => {
+      const built = build(() => Promise.reject(new Error('unused')));
+      const uploads = { undo: jest.fn(undo) };
+      const service = new TeamFileMessagesService(
+        built.slack as unknown as SlackCommunicationService,
+        uploads as unknown as TeamFileUploadsService,
+        {} as unknown as CompanyRulesService,
+        new TeamFileMessageView(),
+      );
+
+      return { service, slack: built.slack };
+    };
+
+    it('tells the clicker why Undo is closed and leaves the message', async () => {
+      const { service, slack } = buildUndo(async () => ({
+        kind: 'closed',
+        reason: 'a newer file was applied',
+      }));
+
+      await service.undo('upload-1', hr);
+
+      expect(ephemeralTexts(slack)).toEqual([
+        'Undo is no longer available: a newer file was applied.',
+      ]);
+      expect(slack.updateMessage).not.toHaveBeenCalled();
+    });
+
+    it('replaces the message with what was restored and kept', async () => {
+      const { service, slack } = buildUndo(async () => ({
+        kind: 'undone',
+        restored: 2,
+        kept: ["Bo's team, changed since"],
+        deletedTeams: [],
+        upload,
+      }));
+
+      await service.undo('upload-1', hr);
+
+      expect(slack.updateMessage).toHaveBeenCalledWith(
+        'DHR',
+        '1.0001',
+        expect.objectContaining({ text: '↩️ Undone: 2 changes restored.' }),
+        'workspace-1',
+      );
+    });
+
+    it('tells the clicker that nothing changed when Undo fails', async () => {
+      const failure = new Error('connection lost');
+      const { service, slack } = buildUndo(() => Promise.reject(failure));
+
+      await expect(service.undo('upload-1', hr)).rejects.toBe(failure);
+      expect(ephemeralTexts(slack)).toEqual([
+        "The file couldn't be undone, so nothing changed. Try again.",
+      ]);
+    });
+  });
 });

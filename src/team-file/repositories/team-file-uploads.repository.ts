@@ -84,4 +84,67 @@ export class TeamFileUploadsRepository extends BaseRepository<
       },
     );
   }
+
+  // The workspace's upload that Undo may work on: the applied one applied last.
+  public async findLatestApplied(slackTeamId: string) {
+    const row = await this.selectInWorkspace(slackTeamId)
+      .selectAll()
+      .where('status', '=', TeamFileUploadStatus.Applied)
+      .orderBy('applied_at', 'desc')
+      .limit(1)
+      .executeTakeFirst();
+
+    return row ? this.toViewModel(row) : null;
+  }
+
+  public markUndone(id: string, slackTeamId: string) {
+    return this.update(
+      {
+        id,
+        slack_team_id: slackTeamId,
+        status: TeamFileUploadStatus.Applied,
+      },
+      {
+        status: TeamFileUploadStatus.Undone,
+        undone_at: new Date().toISOString(),
+      },
+    );
+  }
+
+  // Why each of `teamIds` that has records can't just be deleted. Requests
+  // and time entries would lose their team, project assignments would go.
+  public async findTeamsHeldByRecords(
+    teamIds: string[],
+    slackTeamId: string,
+  ): Promise<Map<string, string>> {
+    if (!teamIds.length) {
+      return new Map();
+    }
+
+    const held = new Map<string, string>();
+    const reasons = [
+      ['it is assigned to projects', ['project_teams']],
+      ['it has requests or time', ['time_entries', 'vacation_requests']],
+    ] as const;
+
+    for (const [reason, tables] of reasons) {
+      const found = await Promise.all(
+        tables.map((table) =>
+          this.db
+            .selectFrom(table)
+            .select('team_id')
+            .distinct()
+            .where('slack_team_id', '=', slackTeamId)
+            .where('team_id', 'in', teamIds)
+            .execute(),
+        ),
+      );
+
+      for (const { team_id } of found.flat()) {
+        held.set(team_id!, reason);
+      }
+    }
+
+    return held;
+  }
 }

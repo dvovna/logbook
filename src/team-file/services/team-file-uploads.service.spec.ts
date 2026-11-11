@@ -14,6 +14,7 @@ import {
   planDigest,
   planTeamFile,
 } from 'src/team-file/services/team-file-planner';
+import { TeamFileUndoService } from 'src/team-file/services/team-file-undo.service';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
 import { ITeamFileRow } from 'src/team-file/types/team-file-row.interface';
 import { ITeamFileUpload } from 'src/team-file/types/team-file-upload.interface';
@@ -127,6 +128,7 @@ describe('TeamFileUploadsService', () => {
       teamsService as unknown as TeamsService,
       transactions as unknown as TransactionService,
       config as unknown as ConfigService,
+      {} as unknown as TeamFileUndoService,
     );
 
     return { service, repository, usersService, teamsService };

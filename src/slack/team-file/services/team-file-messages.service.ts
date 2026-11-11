@@ -7,12 +7,15 @@ import { CompanyRulesService } from '@modules/teams/services/company-rules.servi
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
 import { ITeamFileApplyResult } from 'src/team-file/types/team-file-apply-result.interface';
+import { ITeamFileUndoResult } from 'src/team-file/types/team-file-undo-result.interface';
 import {
   ITeamFilePlan,
   ITeamFileState,
 } from 'src/team-file/types/team-file-plan.interface';
 import { ITeamFileUpload } from 'src/team-file/types/team-file-upload.interface';
 
+const NOT_UNDONE =
+  "The file couldn't be undone, so nothing changed. Try again.";
 const NOT_APPLIED =
   "The file couldn't be applied, so nothing changed. Try again.";
 // What the clicker is told when the message can't show what Apply did;
@@ -107,6 +110,42 @@ export class TeamFileMessagesService {
         user,
         NOT_SHOWN[result.kind] ?? message?.text ?? NOT_APPLIED,
       );
+      throw error;
+    }
+  }
+
+  // Runs after the click was answered, like apply.
+  public async undo(uploadId: string, user: IUserViewModel) {
+    let result: ITeamFileUndoResult;
+
+    try {
+      result = await this.uploadsService.undo(uploadId, user);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        return this.tellClosed(user);
+      }
+
+      await this.tellQuietly(user, NOT_UNDONE);
+      throw error;
+    }
+
+    if (result.kind === 'closed') {
+      return this.slackCommunicationService.postEphemeral(
+        user.slack_id,
+        { text: `Undo is no longer available: ${result.reason}.` },
+        user.slack_team_id,
+      );
+    }
+
+    // From here on Undo is committed, whatever Slack answers.
+    const message = this.view.undone(result.restored, result.kept);
+
+    try {
+      if (!(await this.replaceMessage(result.upload, message))) {
+        throw new Error(`Upload ${result.upload.id} has no message`);
+      }
+    } catch (error) {
+      await this.tellQuietly(user, message.text);
       throw error;
     }
   }

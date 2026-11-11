@@ -3,6 +3,7 @@ import { TeamsModule } from '@modules/teams/teams.module';
 import { UsersModule } from '@modules/users/users.module';
 import { TeamFileUploadsRepository } from 'src/team-file/repositories/team-file-uploads.repository';
 import { TeamFileTemplateService } from 'src/team-file/services/team-file-template.service';
+import { TeamFileUndoService } from 'src/team-file/services/team-file-undo.service';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
 
 @Module({
@@ -10,6 +11,7 @@ import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads
   providers: [
     TeamFileTemplateService,
     TeamFileUploadsService,
+    TeamFileUndoService,
     TeamFileUploadsRepository,
   ],
   exports: [TeamFileTemplateService, TeamFileUploadsService],

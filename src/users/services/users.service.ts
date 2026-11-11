@@ -190,6 +190,39 @@ export class UsersService implements IUsersService {
     );
   }
 
+  // The reverse of makeManagers: a Manager gets `role` back, and anyone whose
+  // role changed since stays as they are.
+  public async restoreRoles(
+    changes: { userId: string; role: UserRole }[],
+    updatedBy: IUserViewModel,
+  ): Promise<IUserViewModel[]> {
+    const restored: IUserViewModel[] = [];
+
+    for (const role of new Set(changes.map((change) => change.role))) {
+      restored.push(
+        ...(await this.userRepository.updateMany(
+          {
+            slack_team_id: updatedBy.slack_team_id,
+            id: {
+              operator: 'in',
+              value: changes
+                .filter((c) => c.role === role)
+                .map((c) => c.userId),
+            },
+            role: UserRole.Manager,
+          },
+          {
+            role,
+            updated_at: new Date().toISOString(),
+            updated_by: updatedBy.id,
+          },
+        )),
+      );
+    }
+
+    return restored;
+  }
+
   public count(params: IFindParams) {
     return this.userRepository.count(this.getFindQuery(params));
   }
