@@ -54,6 +54,31 @@ export class VacationDaysCalculationService {
     return new Set(holidays.map((holiday) => holiday.date));
   }
 
+  // holidayDates of every policy of the workspace at once, by policy ID: one
+  // statement for the vacations of many people (a CSV import).
+  public async holidayDatesByPolicy(
+    slackTeamId: string,
+    start: Date,
+    end: Date,
+  ): Promise<Map<string, Set<string>>> {
+    const holidays = await this.holidaysService.findMany({
+      slackTeamId,
+      startDate: start,
+      endDate: end,
+      excludeDisabled: true,
+    });
+    const byPolicy = new Map<string, Set<string>>();
+
+    for (const { vacation_policy_id, date } of holidays) {
+      byPolicy.set(
+        vacation_policy_id,
+        (byPolicy.get(vacation_policy_id) ?? new Set()).add(date),
+      );
+    }
+
+    return byPolicy;
+  }
+
   // workingDates with the holidays already read.
   public workingDatesWithout(
     start: Date,

@@ -22,6 +22,7 @@ interface IFindParams {
   id?: string;
   stepId?: string;
   requestId?: string;
+  requestIds?: string[];
   stepLevel?: number;
   slackUserId?: string;
   userId?: string;
@@ -105,6 +106,7 @@ export class RequestWorkflowStepCommentsService {
       ...(params.stepId && { step_id: params.stepId }),
       ...(params.stepLevel && { step_level: params.stepLevel }),
       ...(params.requestId && { request_id: params.requestId }),
+      ...(params.requestIds && { request_id: params.requestIds }),
       ...(params.slackUserId && { slack_user_id: params.slackUserId }),
       slack_team_id: params.slackTeamId,
     };

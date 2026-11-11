@@ -16,6 +16,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { TransactionService } from 'src/database/transaction.service';
+import HolidaysService from 'src/holidays/services/holidays.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -80,9 +81,15 @@ describe('VacationRequestsService', () => {
   let eventEmitter: { emit: jest.Mock; emitAsync: jest.Mock };
   // Whether each emitAsync came inside the transaction.
   let emittedInTransaction: boolean[];
-  let usersService: { findOneWithValidation: jest.Mock };
-  let teamRules: { forTeam: jest.Mock };
-  let workflowService: { closeBeforeDelete: jest.Mock };
+  let usersService: {
+    findOneWithValidation: jest.Mock;
+    setContractStartDates: jest.Mock;
+  };
+  let teamRules: { forTeam: jest.Mock; forWorkspace: jest.Mock };
+  let workflowService: {
+    closeBeforeDelete: jest.Mock;
+    closeManyBeforeDelete: jest.Mock;
+  };
   let service: VacationRequestsService;
   // Which repository calls ran inside TransactionService.transaction().
   let inTransaction: boolean;
@@ -126,11 +133,21 @@ describe('VacationRequestsService', () => {
         return Promise.resolve([]);
       }),
     };
-    usersService = { findOneWithValidation: jest.fn() };
+    usersService = {
+      findOneWithValidation: jest.fn(),
+      setContractStartDates: jest.fn(),
+    };
     teamRules = {
       forTeam: jest.fn().mockResolvedValue({ vacationPolicyId: null }),
+      forWorkspace: jest.fn().mockResolvedValue({
+        companyRules: { vacation_policy_id: 'policy-1' },
+        teams: [],
+      }),
     };
-    workflowService = { closeBeforeDelete: jest.fn() };
+    workflowService = {
+      closeBeforeDelete: jest.fn(),
+      closeManyBeforeDelete: jest.fn(),
+    };
     transactions.lock.mockReset();
     transactions.assertHolds.mockReset();
 
@@ -139,6 +156,14 @@ describe('VacationRequestsService', () => {
       validator as unknown as VacationRequestsValidationService,
       {
         calculate: jest.fn().mockResolvedValue(5),
+        // March 4 is a holiday of the company rules' policy.
+        holidayDatesByPolicy: jest
+          .fn()
+          .mockResolvedValue(new Map([['policy-1', new Set(['2026-03-04'])]])),
+        workingDatesWithout: (start: Date, end: Date, holidays: Set<string>) =>
+          new VacationDaysCalculationService(
+            {} as HolidaysService,
+          ).workingDatesWithout(start, end, holidays),
         workingDates: jest
           .fn()
           .mockResolvedValue([
@@ -731,7 +756,7 @@ describe('VacationRequestsService', () => {
       ]);
       expect(repository.deleteMany).toHaveBeenCalledWith({
         slack_team_id: SLACK_TEAM_ID,
-        user_id: requester.id,
+        user_id: [requester.id],
       });
       expect(repository.createMany).toHaveBeenCalledWith([
         expect.objectContaining({
@@ -740,11 +765,16 @@ describe('VacationRequestsService', () => {
           start_date: '2026-03-02T00:00:00.000Z',
           end_date: '2026-03-06T00:00:00.000Z',
           days: 5,
+          working_days: 4,
           type: VacationType.AnnualLeave,
           status: VacationRequestStatus.Approved,
           created_by: requester.id,
         }),
       ]);
+      expect(usersService.setContractStartDates).toHaveBeenCalledWith(
+        [],
+        requester,
+      );
     });
 
     // A refused import rolls back the closed steps and the jobs with it.
@@ -753,7 +783,7 @@ describe('VacationRequestsService', () => {
       repository.findMany.mockResolvedValue([
         buildRequest({ id: 'pending-1' }),
       ]);
-      workflowService.closeBeforeDelete.mockImplementation(() => {
+      workflowService.closeManyBeforeDelete.mockImplementation(() => {
         calls.push(`close the approvals, in a transaction: ${inTransaction}`);
       });
       repository.deleteMany.mockImplementation(() => {
@@ -763,18 +793,80 @@ describe('VacationRequestsService', () => {
       await service.replaceUserVacations(requester, vacations, requester);
 
       expect(repository.findMany).toHaveBeenCalledWith({
-        user_id: requester.id,
+        user_id: [requester.id],
         slack_team_id: SLACK_TEAM_ID,
         status: { operator: 'in', value: [VacationRequestStatus.Pending] },
       });
-      expect(workflowService.closeBeforeDelete).toHaveBeenCalledWith(
-        'pending-1',
+      expect(workflowService.closeManyBeforeDelete).toHaveBeenCalledWith(
+        ['pending-1'],
         requester,
       );
       expect(calls).toEqual([
         'close the approvals, in a transaction: true',
         'delete, in a transaction: true',
       ]);
+    });
+
+    // A CSV import of hundreds of people: the same statements as for one.
+    it('replaces the vacations of many people and sets their contract start with the same statements', async () => {
+      const team = { id: 'team-1', vacation_policy_id: null };
+      teamRules.forWorkspace.mockResolvedValue({
+        companyRules: { vacation_policy_id: 'policy-1' },
+        // A team of its own rules without a policy: no holidays.
+        teams: [{ team, vacationPolicyId: null }],
+      });
+      const people = Array.from({ length: 300 }, (_, index) => ({
+        ...requester,
+        id: `user-${index}`,
+        team_id: index % 2 ? team.id : null,
+      }));
+      const replacements = people.map((user) => ({
+        user,
+        vacations: vacations.map((vacation) => ({
+          ...vacation,
+          userId: user.id,
+          teamId: user.team_id,
+        })),
+        contractStartDate: new Date('2025-09-01'),
+      }));
+
+      await service.replaceVacations(replacements, requester);
+
+      expect(teamRules.forWorkspace).toHaveBeenCalledTimes(1);
+      expect(repository.findMany).toHaveBeenCalledTimes(1);
+      expect(workflowService.closeManyBeforeDelete).toHaveBeenCalledTimes(1);
+      expect(repository.deleteMany).toHaveBeenCalledTimes(1);
+      expect(repository.deleteMany).toHaveBeenCalledWith({
+        slack_team_id: SLACK_TEAM_ID,
+        user_id: people.map(({ id }) => id),
+      });
+      expect(repository.createMany).toHaveBeenCalledTimes(1);
+      const [rows] = repository.createMany.mock.calls[0] as [
+        { user_id: string; working_days: number }[],
+      ];
+      expect(rows).toHaveLength(300);
+      expect(rows.slice(0, 2)).toEqual([
+        expect.objectContaining({ user_id: 'user-0', working_days: 4 }),
+        expect.objectContaining({ user_id: 'user-1', working_days: 5 }),
+      ]);
+      expect(usersService.setContractStartDates).toHaveBeenCalledTimes(1);
+      expect(usersService.setContractStartDates).toHaveBeenCalledWith(
+        people.map(({ id }) => ({
+          userId: id,
+          contractStartDate: new Date('2025-09-01'),
+        })),
+        requester,
+      );
+    });
+
+    it('inserts a few thousand rows at a time', async () => {
+      const many = Array.from({ length: 4500 }, () => vacations[0]);
+
+      await service.replaceUserVacations(requester, many, requester);
+
+      expect(
+        repository.createMany.mock.calls.map(([rows]) => rows.length),
+      ).toEqual([2000, 2000, 500]);
     });
   });
 });

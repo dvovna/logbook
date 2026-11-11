@@ -115,7 +115,8 @@ export class RequestWorkflowStepsService {
   }
 
   // Decides the open steps of a request in one statement: one step
-  // (`stepId`), one level (`stepLevel`) or all of them. A step that is
+  // (`stepId`), one level (`stepLevel`) or all of them, of one request or
+  // of several. A step that is
   // already closed is left alone, so of two people who decide at once only
   // the first changes anything. Returns the steps it decided.
   public decide(
@@ -125,7 +126,7 @@ export class RequestWorkflowStepsService {
       stepId,
       stepLevel,
     }: {
-      requestId: string;
+      requestId: string | string[];
       slackTeamId: string;
       stepId?: string;
       stepLevel?: number;

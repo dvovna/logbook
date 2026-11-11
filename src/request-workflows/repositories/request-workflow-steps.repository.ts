@@ -41,7 +41,8 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
   // steps it decided, none when someone else was first.
   public async decide(params: {
     slackTeamId: string;
-    requestId: string;
+    // Several: all their open steps (a CSV import closes many at once).
+    requestId: string | string[];
     status: string;
     decidedBySlackId: string;
     // Kept with the steps, so every approver's message shows it.
@@ -64,7 +65,11 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
         completed_at: sql<string>`now()`,
         updated_at: sql<string>`now()`,
       })
-      .where('request_id', '=', params.requestId)
+      .where((eb) =>
+        typeof params.requestId === 'string'
+          ? eb('request_id', '=', params.requestId)
+          : eb('request_id', '=', eb.fn.any(eb.val(params.requestId))),
+      )
       .where('completed_at', 'is', null)
       .$if(stepId !== undefined, (query) => query.where('id', '=', stepId!))
       .$if(stepLevel !== undefined, (query) =>

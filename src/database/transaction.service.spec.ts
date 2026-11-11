@@ -78,7 +78,7 @@ describe('TransactionService locks', () => {
     expect(recorded.queries).toHaveLength(2);
   });
 
-  it('lockInOrder sorts the locks by rank, then key', async () => {
+  it('lockInOrder takes the locks by rank, then key, in one statement', async () => {
     const { transactions, recorded } = setup();
 
     await transactions.transaction(() =>
@@ -86,12 +86,35 @@ describe('TransactionService locks', () => {
         timesheetLock('u1'),
         workflowLock('r2'),
         workflowLock('r1'),
+        workflowLock('r2'),
       ),
     );
 
-    expect(recorded.parametersOf(0)).toEqual(['workflow:r1']);
+    expect(recorded.queries).toHaveLength(1);
+    expect(recorded.sqlOf(0)).toContain('order by lock.position');
+    expect(recorded.parametersOf(0)).toEqual([
+      ['workflow:r1', 'workflow:r2', 'timesheet:u1'],
+    ]);
+  });
+
+  it('lockInOrder takes only the locks not held, after the ones held', async () => {
+    const { transactions, recorded } = setup();
+
+    await transactions.transaction(async () => {
+      await transactions.lock(workflowLock('r1'));
+      await transactions.lockInOrder(workflowLock('r1'), workflowLock('r2'));
+      await transactions.lockInOrder(workflowLock('r2'));
+    });
+
+    expect(recorded.queries).toHaveLength(2);
     expect(recorded.parametersOf(1)).toEqual(['workflow:r2']);
-    expect(recorded.parametersOf(2)).toEqual(['timesheet:u1']);
+    await expect(
+      transactions.transaction(async () => {
+        await transactions.lock(timesheetLock('u1'));
+        await transactions.lockInOrder(workflowLock('r3'), workflowLock('r4'));
+      }),
+    ).rejects.toThrow('out of order');
+    expect(recorded.queries).toHaveLength(3);
   });
 
   it('does not remember locks across transactions', async () => {

@@ -1,3 +1,4 @@
+import { workflowLock } from 'src/database/advisory-locks';
 import { ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
@@ -110,6 +111,7 @@ describe('RequestWorkflowService', () => {
   let inTransaction: boolean;
   const transactions = {
     lock: () => Promise.resolve(),
+    lockInOrder: jest.fn(() => Promise.resolve()),
     transaction: async <T>(work: () => Promise<T>) => {
       inTransaction = true;
 
@@ -122,6 +124,7 @@ describe('RequestWorkflowService', () => {
   };
 
   beforeEach(() => {
+    transactions.lockInOrder.mockClear();
     stepsService = {
       createMany: jest.fn(),
       findOneWithValidation: jest.fn(),
@@ -665,13 +668,16 @@ describe('RequestWorkflowService', () => {
 
       await service.closeBeforeDelete(REQUEST_ID, admin);
 
+      expect(transactions.lockInOrder).toHaveBeenCalledWith(
+        workflowLock(REQUEST_ID),
+      );
       expect(stepsService.decide).toHaveBeenCalledWith(
-        { requestId: REQUEST_ID, slackTeamId: SLACK_TEAM_ID },
+        { requestId: [REQUEST_ID], slackTeamId: SLACK_TEAM_ID },
         RequestWorkflowStatus.Canceled,
         admin,
       );
       expect(commentsService.findMany).toHaveBeenCalledWith({
-        requestId: REQUEST_ID,
+        requestIds: [REQUEST_ID],
         slackTeamId: SLACK_TEAM_ID,
       });
       expect(processorService.updateDeletedStepMessages).toHaveBeenCalledWith(
@@ -703,6 +709,41 @@ describe('RequestWorkflowService', () => {
         'decide, in a transaction: true',
         'save the jobs, in a transaction: true',
       ]);
+    });
+
+    // A CSV import replaces every pending request of its people.
+    it('closes several requests with the same statements as one', async () => {
+      const steps = [
+        buildStep({ id: 'step-1' }),
+        buildStep({ id: 'step-2', request_id: 'request-2' }),
+      ];
+      stepsService.decide.mockResolvedValue(steps);
+
+      await service.closeManyBeforeDelete([REQUEST_ID, 'request-2'], admin);
+
+      expect(transactions.lockInOrder).toHaveBeenCalledTimes(1);
+      expect(transactions.lockInOrder).toHaveBeenCalledWith(
+        workflowLock(REQUEST_ID),
+        workflowLock('request-2'),
+      );
+      expect(stepsService.decide).toHaveBeenCalledTimes(1);
+      expect(stepsService.decide).toHaveBeenCalledWith(
+        { requestId: [REQUEST_ID, 'request-2'], slackTeamId: SLACK_TEAM_ID },
+        RequestWorkflowStatus.Canceled,
+        admin,
+      );
+      expect(commentsService.findMany).toHaveBeenCalledTimes(1);
+      expect(processorService.updateDeletedStepMessages).toHaveBeenCalledWith(
+        steps,
+        comments,
+      );
+    });
+
+    it('does nothing without requests', async () => {
+      await service.closeManyBeforeDelete([], admin);
+
+      expect(transactions.lockInOrder).not.toHaveBeenCalled();
+      expect(stepsService.decide).not.toHaveBeenCalled();
     });
   });
 });

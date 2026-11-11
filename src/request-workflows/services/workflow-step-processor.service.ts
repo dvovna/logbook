@@ -60,21 +60,25 @@ export class WorkflowStepProcessorService implements OnModuleInit {
     return this.enqueueForEach(WorkflowStepJob.RefreshMessage, steps);
   }
 
-  // Like updateStepMessages, for the steps of a request that is being
-  // deleted: each job carries its step, so that it works (and is retried)
-  // after the step's row is gone. Steps never asked have no message.
+  // Like updateStepMessages, for the steps of requests that are being
+  // deleted: each job carries its step and its request's comments, so that
+  // it works (and is retried) after the rows are gone. Steps never asked
+  // have no message. One statement saves them all.
   public async updateDeletedStepMessages(
     steps: IRequestWorkflowStepViewModel[],
     comments: IWorkflowStepCommentViewModel[],
   ) {
-    const asked = steps.filter(({ slack_message_ts }) => slack_message_ts);
-
-    for (const step of asked) {
-      await this.jobs.enqueue<IDeletedStepJob>(
-        WorkflowStepJob.CloseDeletedMessage,
-        { step, comments },
-      );
-    }
+    await this.jobs.enqueueMany<IDeletedStepJob>(
+      WorkflowStepJob.CloseDeletedMessage,
+      steps
+        .filter(({ slack_message_ts }) => slack_message_ts)
+        .map((step) => ({
+          step,
+          comments: comments.filter(
+            ({ request_id }) => request_id === step.request_id,
+          ),
+        })),
+    );
   }
 
   // Once per step: an approval lists the approved step with its level too.

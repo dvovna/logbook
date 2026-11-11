@@ -168,18 +168,32 @@ export class RequestWorkflowService {
   // (ON DELETE CASCADE), so the jobs that close the approvers' messages carry
   // them, and start only once the delete has committed.
   public closeBeforeDelete(requestId: string, deletedBy: IUserViewModel) {
-    return this.transactions.transaction(async () => {
-      await this.lockRequest(requestId);
+    return this.closeManyBeforeDelete([requestId], deletedBy);
+  }
+
+  // closeBeforeDelete for several requests, in the same few statements
+  // however many there are (a CSV import replaces every pending request of
+  // the people in it).
+  public async closeManyBeforeDelete(
+    requestIds: string[],
+    deletedBy: IUserViewModel,
+  ) {
+    if (!requestIds.length) {
+      return;
+    }
+
+    await this.transactions.transaction(async () => {
+      await this.transactions.lockInOrder(...requestIds.map(workflowLock));
 
       const closedSteps = await this.requestWorkflowStepsService.decide(
-        { requestId, slackTeamId: deletedBy.slack_team_id },
+        { requestId: requestIds, slackTeamId: deletedBy.slack_team_id },
         RequestWorkflowStatus.Canceled,
         deletedBy,
       );
       // For the messages of the closed steps; a decided request has none.
       const comments = closedSteps.length
         ? await this.requestWorkflowStepCommentsService.findMany({
-            requestId,
+            requestIds,
             slackTeamId: deletedBy.slack_team_id,
           })
         : [];

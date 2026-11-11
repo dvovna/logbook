@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { sql } from 'kysely';
 import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import UserRole from '@common/enums/user-role.enum';
@@ -198,6 +199,25 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
     }
 
     return moved;
+  }
+
+  // Each user's contract start ('YYYY-MM-DD…' by user ID), in one
+  // statement: the dates go as one JSON object.
+  public async setContractStartDates(params: {
+    slackTeamId: string;
+    dates: Record<string, string>;
+    updatedBy: string;
+  }): Promise<void> {
+    const { slackTeamId, dates, updatedBy } = params;
+
+    await this.updateInWorkspace(slackTeamId)
+      .set({
+        contract_start_date: sql<string>`(${JSON.stringify(dates)}::jsonb ->> users.id::text)::date`,
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy,
+      })
+      .where((eb) => eb('id', '=', eb.fn.any(eb.val(Object.keys(dates)))))
+      .execute();
   }
 
   // The foreign key lets a user point at another workspace's team.

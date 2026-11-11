@@ -107,4 +107,31 @@ describe('UsersRepository', () => {
       expect(sqlOf(2)).toContain('"team_id" is distinct from $');
     });
   });
+
+  // The CSV import of vacations sets everyone's contract start at once.
+  it("sets each user's contract start in one statement of the workspace", async () => {
+    const { database, queries, sqlOf, parametersOf } = recordingDatabase();
+    const dates = {
+      ann: '2025-09-01T00:00:00.000Z',
+      bo: '2024-01-15T00:00:00.000Z',
+    };
+
+    await new UsersRepository(database).setContractStartDates({
+      slackTeamId: 'workspace-1',
+      dates,
+      updatedBy: 'admin-1',
+    });
+
+    expect(queries).toHaveLength(1);
+    expect(sqlOf(0)).toMatch(
+      /^update "users" set "contract_start_date" = \(\$1::jsonb ->> users\.id::text\)::date, "updated_at" = \$2, "updated_by" = \$3 where "slack_team_id" = \$4 and "id" = any\(\$5\)$/,
+    );
+    expect(parametersOf(0)).toEqual([
+      JSON.stringify(dates),
+      expect.any(String),
+      'admin-1',
+      'workspace-1',
+      ['ann', 'bo'],
+    ]);
+  });
 });

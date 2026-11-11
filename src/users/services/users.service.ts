@@ -43,6 +43,7 @@ interface IFindParams {
   isActive?: boolean;
   includeInactive?: boolean;
   email?: string;
+  emails?: string[];
 }
 
 type ISearchUsersParams = ISearchParams<IFindParams>;
@@ -263,6 +264,28 @@ export class UsersService implements IUsersService {
     });
   }
 
+  // Sets the contract start of each user, in one statement (the CSV
+  // import). Nothing else changes, so nobody is told.
+  public async setContractStartDates(
+    changes: { userId: string; contractStartDate: Date }[],
+    updatedBy: IUserViewModel,
+  ): Promise<void> {
+    if (!changes.length) {
+      return;
+    }
+
+    await this.userRepository.setContractStartDates({
+      slackTeamId: updatedBy.slack_team_id,
+      dates: Object.fromEntries(
+        changes.map(({ userId, contractStartDate }) => [
+          userId,
+          contractStartDate.toISOString(),
+        ]),
+      ),
+      updatedBy: updatedBy.id,
+    });
+  }
+
   public count(params: IFindParams) {
     return this.userRepository.count(this.getFindQuery(params));
   }
@@ -445,6 +468,7 @@ export class UsersService implements IUsersService {
         ? { is_active: findParams.isActive }
         : { is_active: findParams.includeInactive ? undefined : true }),
       ...(findParams.email ? { email: findParams.email } : {}),
+      ...(findParams.emails ? { email: findParams.emails } : {}),
     };
   }
 

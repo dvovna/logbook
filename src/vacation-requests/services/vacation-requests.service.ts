@@ -44,6 +44,18 @@ import {
 
 type ISearchRequestsParams = ISearchParams<IVacationRequestFindParams>;
 
+// The vacations of one user for replaceVacations.
+export interface IVacationsReplacement {
+  user: IUserViewModel;
+  vacations: IVacationRequestCreateParams[];
+  // Set in the same transaction.
+  contractStartDate?: Date;
+}
+
+// Rows per insert: a statement takes at most 65535 parameters, and a
+// vacation row has 11.
+const INSERT_CHUNK_ROWS = 2000;
+
 // The value of a read started beside others, or its error.
 const settled = <T>(result: PromiseSettledResult<T>): T => {
   if (result.status === 'rejected') {
@@ -486,58 +498,140 @@ export class VacationRequestsService implements IVacationRequestsService {
     vacations: IVacationRequestCreateParams[],
     replacedBy: IUserViewModel,
   ) {
-    const { vacationPolicyId } = await this.teamRulesService.forTeam(
-      user.team_id,
-      replacedBy.slack_team_id,
+    return this.replaceVacations([{ user, vacations }], replacedBy);
+  }
+
+  // Replaces every vacation of each user with the given ones (the CSV
+  // import), and sets their contract start when given: all of them or none,
+  // in one transaction, and in the same few statements however many people
+  // there are. What the working days take is read before, on the pool.
+  public async replaceVacations(
+    replacements: IVacationsReplacement[],
+    replacedBy: IUserViewModel,
+  ): Promise<IVacationRequestViewModel[]> {
+    if (!replacements.length) {
+      return [];
+    }
+
+    const slackTeamId = replacedBy.slack_team_id;
+    const vacations = replacements.flatMap((replacement) =>
+      replacement.vacations.map((vacation) => ({ replacement, vacation })),
+    );
+    const userIds = replacements.map(({ user }) => user.id);
+    const holidaysOfTeam = await this.readHolidaysOfTeams(
+      slackTeamId,
+      vacations.map(({ vacation }) => vacation),
     );
 
-    const vacationRecords = await Promise.all(
-      vacations.map(async (vacation) => ({
-        start_date: vacation.startDate.toISOString(),
-        end_date: vacation.endDate.toISOString(),
-        days: getDaysBetweenDates(vacation.startDate, vacation.endDate),
-        working_days: await this.workingDaysCalculationService.calculate(
-          vacation.startDate,
-          vacation.endDate,
-          vacationPolicyId,
-          user.slack_team_id,
-        ),
-        type: vacation.type,
-        status: vacation.status,
-        team_id: vacation.teamId,
-        created_by: replacedBy.id,
-        updated_by: replacedBy.id,
-      })),
-    );
-
-    const owner = { slack_team_id: replacedBy.slack_team_id, user_id: user.id };
+    const vacationRecords = vacations.map(({ replacement, vacation }) => ({
+      slack_team_id: slackTeamId,
+      user_id: replacement.user.id,
+      start_date: vacation.startDate.toISOString(),
+      end_date: vacation.endDate.toISOString(),
+      days: getDaysBetweenDates(vacation.startDate, vacation.endDate),
+      working_days: this.workingDaysCalculationService.workingDatesWithout(
+        vacation.startDate,
+        vacation.endDate,
+        holidaysOfTeam(replacement.user.team_id),
+      ).length,
+      type: vacation.type,
+      status: vacation.status,
+      team_id: vacation.teamId,
+      created_by: replacedBy.id,
+      updated_by: replacedBy.id,
+    }));
+    const contractStarts = replacements
+      .filter(({ contractStartDate }) => contractStartDate)
+      .map(({ user, contractStartDate }) => ({
+        userId: user.id,
+        contractStartDate: contractStartDate!,
+      }));
 
     return this.transactions.transaction(async () => {
       // As on Delete Request, the approvers of a pending request see their
       // message without buttons once the import has committed.
       const pending = await this.findMany({
-        userId: user.id,
-        slackTeamId: replacedBy.slack_team_id,
+        userIds,
+        slackTeamId,
         statuses: [VacationRequestStatus.Pending],
       });
 
-      // In the order of their workflow locks (compareLocks).
-      for (const id of pending.map((request) => request.id).sort()) {
-        await this.requestWorkflowService.closeBeforeDelete(id, replacedBy);
+      await this.requestWorkflowService.closeManyBeforeDelete(
+        pending.map(({ id }) => id),
+        replacedBy,
+      );
+      await this.vacationRequestsRepository.deleteMany({
+        slack_team_id: slackTeamId,
+        user_id: userIds,
+      });
+
+      const created: IVacationRequestViewModel[] = [];
+
+      for (
+        let from = 0;
+        from < vacationRecords.length;
+        from += INSERT_CHUNK_ROWS
+      ) {
+        created.push(
+          ...(await this.vacationRequestsRepository.createMany(
+            vacationRecords.slice(from, from + INSERT_CHUNK_ROWS),
+          )),
+        );
       }
 
-      await this.vacationRequestsRepository.deleteMany(owner);
+      await this.usersService.setContractStartDates(contractStarts, replacedBy);
 
-      return this.vacationRequestsRepository.createMany(
-        vacationRecords.map((record) => ({ ...record, ...owner })),
-      );
+      return created;
     });
+  }
+
+  // The enabled holidays over the vacations' days of a team's vacation
+  // policy (the company rules' for no team), as replaceUserVacations once
+  // read them for each person: every policy's and every team's at once.
+  private async readHolidaysOfTeams(
+    slackTeamId: string,
+    vacations: IVacationRequestCreateParams[],
+  ): Promise<(teamId: string | null) => Set<string>> {
+    if (!vacations.length) {
+      return () => new Set();
+    }
+
+    const earliest = vacations.reduce(
+      (first, { startDate }) => (startDate < first ? startDate : first),
+      vacations[0].startDate,
+    );
+    const latest = vacations.reduce(
+      (last, { endDate }) => (endDate > last ? endDate : last),
+      vacations[0].endDate,
+    );
+    const [{ companyRules, teams }, holidays] = await Promise.all([
+      this.teamRulesService.forWorkspace(slackTeamId),
+      this.workingDaysCalculationService.holidayDatesByPolicy(
+        slackTeamId,
+        earliest,
+        latest,
+      ),
+    ]);
+    const policies = new Map(
+      teams.map(({ team, vacationPolicyId }) => [team?.id, vacationPolicyId]),
+    );
+
+    // A team of its own rules may have no policy: no holidays then.
+    return (teamId) => {
+      const policyId =
+        teamId && policies.has(teamId)
+          ? policies.get(teamId)
+          : companyRules.vacation_policy_id;
+
+      return (policyId && holidays.get(policyId)) || new Set();
+    };
   }
 
   private getFindQuery(params: IVacationRequestFindParams): RepositoryFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
+      ...(params.userIds ? { user_id: params.userIds } : {}),
       ...(params.statuses
         ? { status: { operator: 'in', value: params.statuses } }
         : {}),
