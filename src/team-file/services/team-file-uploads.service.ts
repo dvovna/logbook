@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
+import UserRole from '@common/enums/user-role.enum';
+import { DAY_MS } from '@common/utils/date.utils';
 import { TransactionService } from 'src/database/transaction.service';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import TeamsService from '@modules/teams/services/teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
+import { TEAM_FILE_PREVIEW_DAYS } from 'src/team-file/constants/team-file-limits';
 import { TeamFileUploadStatus } from 'src/team-file/enums/team-file-upload-status.enum';
 import { TeamFileUploadsRepository } from 'src/team-file/repositories/team-file-uploads.repository';
 import {
@@ -16,6 +20,8 @@ import {
   ITeamFileState,
 } from 'src/team-file/types/team-file-plan.interface';
 import { ITeamFileRow } from 'src/team-file/types/team-file-row.interface';
+import { ITeamFileApplyResult } from 'src/team-file/types/team-file-apply-result.interface';
+import { ITeamFileUndo } from 'src/team-file/types/team-file-undo.interface';
 import { ITeamFileUpload } from 'src/team-file/types/team-file-upload.interface';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,16 +48,8 @@ export class TeamFileUploadsService {
     state: ITeamFileState;
   }> {
     const slackTeamId = user.slack_team_id;
-    const [people, teams] = await Promise.all([
-      this.usersService.findMany({ slackTeamId, includeInactive: true }),
-      this.teamsService.findMany({ slackTeamId }),
-    ]);
-    const state = { people, teams };
-    const plan = planTeamFile(
-      rows,
-      state,
-      this.config.getOrThrow<number>(EnvironmentVariable.MaxTeamsPerSlackTeam),
-    );
+    const state = await this.readState(slackTeamId);
+    const plan = this.plan(rows, state);
 
     const upload = await this.transactions.transaction(async () => {
       await this.transactions.lock(`team-file:${slackTeamId}`);
@@ -64,6 +62,8 @@ export class TeamFileUploadsService {
         rows: JSON.stringify(rows),
         plan_digest: planDigest(plan),
         status: TeamFileUploadStatus.Previewed,
+        // The app's clock, which Apply's 7 days are counted on.
+        created_at: new Date().toISOString(),
       });
     });
 
@@ -102,5 +102,179 @@ export class TeamFileUploadsService {
     }
 
     return upload;
+  }
+
+  // Does what the preview showed, or nothing: the plan is made again from
+  // the stored rows against the workspace as it is under the lock, and a
+  // different plan is shown as a new preview instead. The ID comes from a
+  // button value, so only an upload of the user's workspace is found.
+  public async apply(
+    uploadId: string,
+    user: IUserViewModel,
+  ): Promise<ITeamFileApplyResult> {
+    const slackTeamId = user.slack_team_id;
+
+    if (!UUID.test(uploadId)) {
+      throw new NotFoundException('This preview is no longer open.');
+    }
+
+    return this.transactions.transaction(async () => {
+      // receive takes it too, so a newer file can't supersede this one
+      // halfway, and two clicks apply once.
+      await this.transactions.lock(`team-file:${slackTeamId}`);
+
+      const upload = await this.uploadsRepository.findOne({
+        id: uploadId,
+        slack_team_id: slackTeamId,
+      });
+
+      if (!upload) {
+        throw new NotFoundException('This preview is no longer open.');
+      }
+
+      if (upload.status !== TeamFileUploadStatus.Previewed) {
+        return { kind: 'closed', status: upload.status, upload };
+      }
+
+      if (
+        Date.now() - Date.parse(upload.created_at) >
+        TEAM_FILE_PREVIEW_DAYS * DAY_MS
+      ) {
+        return { kind: 'closed', status: 'expired', upload };
+      }
+
+      const state = await this.readState(slackTeamId);
+      const plan = this.plan(upload.rows, state);
+      const digest = planDigest(plan);
+
+      if (digest !== upload.plan_digest) {
+        await this.uploadsRepository.setDigest(upload.id, slackTeamId, digest);
+
+        return {
+          kind: 'changed',
+          plan,
+          state,
+          upload: { ...upload, plan_digest: digest },
+        };
+      }
+
+      const undo = await this.applyPlan(plan, state, user);
+      const applied = await this.uploadsRepository.markApplied(
+        upload.id,
+        slackTeamId,
+        undo,
+      );
+
+      return { kind: 'applied', plan, state, upload: applied };
+    });
+  }
+
+  private async readState(slackTeamId: string): Promise<ITeamFileState> {
+    const [people, teams] = await Promise.all([
+      this.usersService.findMany({ slackTeamId, includeInactive: true }),
+      this.teamsService.findMany({ slackTeamId }),
+    ]);
+
+    return { people, teams };
+  }
+
+  private plan(rows: ITeamFileRow[], state: ITeamFileState) {
+    return planTeamFile(
+      rows,
+      state,
+      this.config.getOrThrow<number>(EnvironmentVariable.MaxTeamsPerSlackTeam),
+    );
+  }
+
+  private async applyPlan(
+    plan: ITeamFilePlan,
+    state: ITeamFileState,
+    user: IUserViewModel,
+  ): Promise<ITeamFileUndo> {
+    const slackIds = new Map(state.people.map((p) => [p.id, p.slack_id]));
+    const createdTeamIds = await this.createTeams(plan, slackIds, user);
+    const assignments = plan.assignments.map((a) => ({
+      userId: a.userId,
+      before: a.fromTeamId,
+      after: a.toTeamKey ? createdTeamIds.get(a.toTeamKey)! : a.toTeamId,
+    }));
+
+    await this.usersService.assignTeams(
+      assignments.map(({ userId, after }) => ({ userId, teamId: after })),
+      user,
+    );
+    const approvers = await this.changeLeads(plan, state, slackIds, user);
+    const promoted = await this.usersService.makeManagers(
+      plan.promotions,
+      user,
+    );
+
+    return {
+      createdTeamIds: [...createdTeamIds.values()],
+      assignments,
+      approvers,
+      promotions: promoted.map(({ id }) => ({
+        userId: id,
+        before: UserRole.Member,
+      })),
+    };
+  }
+
+  // A new team follows the company rules, and its leads approve first, any
+  // one of them (D1). The new team's ID by its key in the plan.
+  private async createTeams(
+    plan: ITeamFilePlan,
+    slackIds: Map<string, string>,
+    user: IUserViewModel,
+  ) {
+    const ids = new Map<string, string>();
+
+    for (const team of plan.createTeams) {
+      const { id } = await this.teamsService.create(
+        {
+          name: team.name,
+          slackTeamId: user.slack_team_id,
+          followsCompanyRules: true,
+          managerApprovers: team.leadIds.map((id) => slackIds.get(id)!),
+          managerApproversRule: ApprovalRule.Any,
+        },
+        user,
+      );
+
+      ids.set(team.key, id);
+    }
+
+    return ids;
+  }
+
+  // Approvers who are no person of the workspace, or not in the file, stay
+  // as they are (D3): the plan names only the leads to add and remove.
+  private async changeLeads(
+    plan: ITeamFilePlan,
+    state: ITeamFileState,
+    slackIds: Map<string, string>,
+    user: IUserViewModel,
+  ): Promise<ITeamFileUndo['approvers']> {
+    const teams = new Map(state.teams.map((team) => [team.id, team]));
+    const changes: ITeamFileUndo['approvers'] = [];
+
+    for (const { teamId, add, remove } of plan.leadChanges) {
+      const before = teams.get(teamId)?.manager_approvers ?? [];
+      const removed = new Set(remove.map((id) => slackIds.get(id)));
+      const kept = before.filter((slackId) => !removed.has(slackId));
+      const after = [
+        ...kept,
+        ...add.map((id) => slackIds.get(id)!).filter((s) => !kept.includes(s)),
+      ];
+
+      await this.teamsService.update(
+        { id: teamId, slackTeamId: user.slack_team_id },
+        { managerApprovers: after },
+        user,
+      );
+      changes.push({ teamId, before, after });
+    }
+
+    return changes;
   }
 }

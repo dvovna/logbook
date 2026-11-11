@@ -3,6 +3,7 @@ import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import { TeamFileUploadStatus } from 'src/team-file/enums/team-file-upload-status.enum';
 import { ITeamFileRow } from 'src/team-file/types/team-file-row.interface';
+import { ITeamFileUndo } from 'src/team-file/types/team-file-undo.interface';
 import { ITeamFileUpload } from 'src/team-file/types/team-file-upload.interface';
 
 @Injectable()
@@ -22,7 +23,7 @@ export class TeamFileUploadsRepository extends BaseRepository<
     status: row.status as TeamFileUploadStatus,
     message_channel: row.message_channel,
     message_ts: row.message_ts,
-    undo: row.undo,
+    undo: row.undo as unknown as ITeamFileUndo | null,
     created_at: row.created_at,
     applied_at: row.applied_at,
     undone_at: row.undone_at,
@@ -59,6 +60,28 @@ export class TeamFileUploadsRepository extends BaseRepository<
     await this.update(
       { id, slack_team_id: slackTeamId },
       { message_channel: channel, message_ts: ts },
+    );
+  }
+
+  public async setDigest(id: string, slackTeamId: string, digest: string) {
+    await this.update(
+      { id, slack_team_id: slackTeamId },
+      { plan_digest: digest },
+    );
+  }
+
+  public markApplied(id: string, slackTeamId: string, undo: ITeamFileUndo) {
+    return this.update(
+      {
+        id,
+        slack_team_id: slackTeamId,
+        status: TeamFileUploadStatus.Previewed,
+      },
+      {
+        status: TeamFileUploadStatus.Applied,
+        applied_at: new Date().toISOString(),
+        undo: JSON.stringify(undo),
+      },
     );
   }
 }

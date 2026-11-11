@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { KnownBlock } from '@slack/types';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TeamFileMessageActionId } from '@modules/slack/team-file/enums/team-file-message-action-id.enum';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
+import { TeamFileUploadStatus } from 'src/team-file/enums/team-file-upload-status.enum';
+import { ITeamFileClosedStatus } from 'src/team-file/types/team-file-apply-result.interface';
 import { ITeamFilePlan } from 'src/team-file/types/team-file-plan.interface';
 
 // Slack takes at most 3000 characters in a section.
@@ -14,13 +17,27 @@ const MAX_LISTED = 10;
 // they are escaped (cutting after could split an entity).
 const MAX_NAME_CHARACTERS = 80;
 const MAX_REASON_CHARACTERS = 200;
+// People named in the result's "no team yet" line; the rest are counted.
+const MAX_NAMED_WITHOUT_TEAM = 3;
+
+const CHANGED_SINCE_PREVIEW =
+  "Logbook changed since this preview, so here's what the file will do now.";
+const CLOSED_TEXTS: Partial<Record<ITeamFileClosedStatus, string>> = {
+  [TeamFileUploadStatus.Superseded]:
+    'A newer file replaced this one. Nothing changed.',
+  [TeamFileUploadStatus.Canceled]: 'Canceled. Nothing changed.',
+  expired: 'This preview has expired. Send the file again.',
+};
 
 const clip = (text: string, max: number) =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;
 const safe = (text: string, max = MAX_NAME_CHARACTERS) =>
   escapeMrkdwn(clip(text, max));
-const people = (count: number) =>
-  count === 1 ? '1 person' : `${count} people`;
+const counted = (count: number, one: string, many: string) =>
+  `${count} ${count === 1 ? one : many}`;
+const people = (count: number) => counted(count, 'person', 'people');
+const capitalize = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
 
 // "Anna", "Anna and Bo", "Anna, Bo and Cy".
 const joinNames = (names: string[]) =>
@@ -66,13 +83,136 @@ export class TeamFileMessageView {
     uploadId: string,
     fileName: string,
   ): KnownBlock[] {
-    const name = (id: string | null) =>
-      id ? safe(names.get(id) ?? 'Unknown') : 'no team';
-    const teamKeyNames = new Map(plan.createTeams.map((t) => [t.key, t.name]));
-    const unusable = plan.unusable.length
+    const changes = this.changes(plan, names, companyRules, uploadId);
+
+    return changes
+      ? [section(`*Here's what ${safe(fileName)} will do*`), ...changes]
+      : this.nothingToChange(plan);
+  }
+
+  // Apply found the workspace changed since the preview: what the file will
+  // do now, to check again.
+  public changedPreview(
+    plan: ITeamFilePlan,
+    names: Map<string, string>,
+    companyRules: IRuleSetViewModel,
+    uploadId: string,
+  ): KnownBlock[] {
+    return [
+      section(CHANGED_SINCE_PREVIEW),
+      ...(this.changes(plan, names, companyRules, uploadId) ??
+        this.nothingToChange(plan)),
+    ];
+  }
+
+  public previewText(fileName: string) {
+    return `Here's what ${safe(fileName)} will do`;
+  }
+
+  public canceled(): KnownBlock[] {
+    return [section(CLOSED_TEXTS[TeamFileUploadStatus.Canceled]!)];
+  }
+
+  // Why Apply did nothing, or null when the message already says what
+  // happened (a second click on an applied file).
+  public closed(status: ITeamFileClosedStatus): KnownBlock[] | null {
+    const text = CLOSED_TEXTS[status];
+
+    return text ? [section(text)] : null;
+  }
+
+  // What Apply did, in counts, with the rows it left out, since the preview
+  // that listed them is replaced.
+  public applied(
+    plan: ITeamFilePlan,
+    names: Map<string, string>,
+    uploadId: string,
+  ): KnownBlock[] {
+    return [
+      section(this.appliedText(plan, names)),
+      ...this.unusable(plan, "Rows it didn't use"),
+      {
+        type: 'actions',
+        block_id: ViewCallbackId.TeamFileMessage,
+        elements: [
+          {
+            type: 'button',
+            action_id: NavigationActionId.Teams,
+            text: { type: 'plain_text', text: 'Open Teams' },
+          },
+          {
+            type: 'button',
+            action_id: TeamFileMessageActionId.Undo,
+            text: { type: 'plain_text', text: 'Undo' },
+            value: `${TeamFileMessageActionId.Undo}:${uploadId}`,
+          },
+        ],
+      },
+    ];
+  }
+
+  // E.g. "✅ Created 3 teams and placed 14 people. Maria Volkova has no team
+  // yet.", with the parts that are zero left out.
+  public appliedText(plan: ITeamFilePlan, names: Map<string, string>) {
+    const placed = plan.assignments.filter(
+      (a) => a.toTeamId || a.toTeamKey,
+    ).length;
+    const takenOut = plan.assignments.length - placed;
+    const added = plan.leadChanges.flatMap(({ add }) => add).length;
+    const removed = plan.leadChanges.flatMap(({ remove }) => remove).length;
+    const promoted = plan.promotions.length;
+    const done = [
+      plan.createTeams.length > 0 &&
+        `created ${counted(plan.createTeams.length, 'team', 'teams')}`,
+      placed > 0 && `placed ${people(placed)}`,
+      takenOut > 0 &&
+        `took ${people(takenOut)} out of ${takenOut === 1 ? 'a team' : 'their teams'}`,
+      added > 0 && `added ${counted(added, 'lead', 'leads')}`,
+      removed > 0 && `removed ${counted(removed, 'lead', 'leads')}`,
+      promoted > 0 &&
+        (promoted === 1
+          ? 'made 1 person a Manager'
+          : `made ${promoted} people Managers`),
+    ].filter((part): part is string => !!part);
+    const summary = done.length
+      ? `✅ ${capitalize(joinNames(done))}.`
+      : '✅ Nothing needed to change.';
+
+    const withoutTeam = plan.leftWithoutTeam.map((id) =>
+      safe(names.get(id) ?? 'Unknown'),
+    );
+
+    if (!withoutTeam.length) {
+      return summary;
+    }
+
+    const named = withoutTeam.slice(0, MAX_NAMED_WITHOUT_TEAM);
+    const more = withoutTeam.length - named.length;
+    const who = more
+      ? `${named.join(', ')} and ${more} more`
+      : joinNames(named);
+
+    return `${summary} ${who} ${withoutTeam.length === 1 ? 'has' : 'have'} no team yet.`;
+  }
+
+  private nothingToChange(plan: ITeamFilePlan): KnownBlock[] {
+    const unusable = this.unusable(plan, "Rows it can't use");
+
+    return [
+      section(
+        unusable.length
+          ? 'Nothing to change.'
+          : 'Nothing to change: the file matches Logbook.',
+      ),
+      ...unusable,
+    ];
+  }
+
+  private unusable(plan: ITeamFilePlan, title: string): KnownBlock[] {
+    return plan.unusable.length
       ? [
           list(
-            `⚠️ *Rows it can't use (${plan.unusable.length})*`,
+            `⚠️ *${title} (${plan.unusable.length})*`,
             plan.unusable.map(
               ({ row, reason }) =>
                 `Row ${row}: ${safe(reason, MAX_REASON_CHARACTERS)}`,
@@ -80,27 +220,28 @@ export class TeamFileMessageView {
           ),
         ]
       : [];
+  }
 
-    const changes =
-      plan.createTeams.length +
-      plan.assignments.length +
-      plan.leadChanges.length +
-      plan.promotions.length;
-
-    if (!changes) {
-      return [
-        section(
-          unusable.length
-            ? 'Nothing to change.'
-            : 'Nothing to change: the file matches Logbook.',
-        ),
-        ...unusable,
-      ];
+  // The preview after its heading, or null when the plan changes nothing.
+  private changes(
+    plan: ITeamFilePlan,
+    names: Map<string, string>,
+    companyRules: IRuleSetViewModel,
+    uploadId: string,
+  ): KnownBlock[] | null {
+    if (
+      !plan.createTeams.length &&
+      !plan.assignments.length &&
+      !plan.leadChanges.length &&
+      !plan.promotions.length
+    ) {
+      return null;
     }
 
-    const sections: KnownBlock[] = [
-      section(`*Here's what ${safe(fileName)} will do*`),
-    ];
+    const name = (id: string | null) =>
+      id ? safe(names.get(id) ?? 'Unknown') : 'no team';
+    const teamKeyNames = new Map(plan.createTeams.map((t) => [t.key, t.name]));
+    const sections: KnownBlock[] = [];
 
     if (plan.createTeams.length) {
       sections.push(
@@ -197,41 +338,37 @@ export class TeamFileMessageView {
       );
     }
 
-    sections.push(...unusable, section(this.companyRulesLine(companyRules)), {
-      type: 'actions',
-      block_id: ViewCallbackId.TeamFileMessage,
-      elements: [
-        {
-          type: 'button',
-          action_id: TeamFileMessageActionId.Apply,
-          text: { type: 'plain_text', text: 'Apply' },
-          style: 'primary',
-          value: `${TeamFileMessageActionId.Apply}:${uploadId}`,
-        },
-        {
-          type: 'button',
-          action_id: TeamFileMessageActionId.Cancel,
-          text: { type: 'plain_text', text: 'Cancel' },
-          value: `${TeamFileMessageActionId.Cancel}:${uploadId}`,
-        },
-        {
-          type: 'button',
-          action_id: TeamFileMessageActionId.Rules,
-          text: { type: 'plain_text', text: 'Company rules' },
-          value: `${TeamFileMessageActionId.Rules}:${uploadId}`,
-        },
-      ],
-    });
+    sections.push(
+      ...this.unusable(plan, "Rows it can't use"),
+      section(this.companyRulesLine(companyRules)),
+      {
+        type: 'actions',
+        block_id: ViewCallbackId.TeamFileMessage,
+        elements: [
+          {
+            type: 'button',
+            action_id: TeamFileMessageActionId.Apply,
+            text: { type: 'plain_text', text: 'Apply' },
+            style: 'primary',
+            value: `${TeamFileMessageActionId.Apply}:${uploadId}`,
+          },
+          {
+            type: 'button',
+            action_id: TeamFileMessageActionId.Cancel,
+            text: { type: 'plain_text', text: 'Cancel' },
+            value: `${TeamFileMessageActionId.Cancel}:${uploadId}`,
+          },
+          {
+            type: 'button',
+            action_id: TeamFileMessageActionId.Rules,
+            text: { type: 'plain_text', text: 'Company rules' },
+            value: `${TeamFileMessageActionId.Rules}:${uploadId}`,
+          },
+        ],
+      },
+    );
 
     return sections;
-  }
-
-  public previewText(fileName: string) {
-    return `Here's what ${safe(fileName)} will do`;
-  }
-
-  public canceled(): KnownBlock[] {
-    return [section('Canceled. Nothing changed.')];
   }
 
   private companyRulesLine(rules: IRuleSetViewModel) {

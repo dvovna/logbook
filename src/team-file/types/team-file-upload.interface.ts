@@ -1,5 +1,6 @@
 import { TeamFileUploadStatus } from 'src/team-file/enums/team-file-upload-status.enum';
 import { ITeamFileRow } from 'src/team-file/types/team-file-row.interface';
+import { ITeamFileUndo } from 'src/team-file/types/team-file-undo.interface';
 
 export interface ITeamFileUpload {
   id: string;
@@ -11,7 +12,7 @@ export interface ITeamFileUpload {
   status: TeamFileUploadStatus;
   message_channel: string | null;
   message_ts: string | null;
-  undo: unknown;
+  undo: ITeamFileUndo | null;
   created_at: string;
   applied_at: string | null;
   undone_at: string | null;

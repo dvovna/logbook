@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
 import { TransactionService } from 'src/database/transaction.service';
 import UserRole from '@common/enums/user-role.enum';
@@ -6,6 +7,11 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import { RepositoryFilter } from '@common/repositories/repository.types';
 import { UserUpdateValidatorService } from '@modules/users/services/user-update-validator.service';
+import {
+  USER_TEAM_CHANGED,
+  UserTeamChangedEvent,
+} from '@modules/users/events/users.events';
+import { ITeamAssignment } from '@modules/users/types/team-assignment.interface';
 
 interface ICreateUserParams {
   email: string;
@@ -53,6 +59,7 @@ export class UsersService implements IUsersService {
     private readonly userRepository: UsersRepository,
     private readonly userUpdateValidatorService: UserUpdateValidatorService,
     private readonly transactions: TransactionService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   public async create({
@@ -126,13 +133,60 @@ export class UsersService implements IUsersService {
     userIds: string[],
     updatedBy: IUserViewModel,
   ) {
-    return this.transactions.transaction(() =>
-      this.userRepository.setTeamMembers({
+    return this.transactions.transaction(async () => {
+      const changed = await this.userRepository.setTeamMembers({
         slackTeamId: updatedBy.slack_team_id,
         teamId,
         userIds,
         updatedBy: updatedBy.id,
-      }),
+      });
+
+      this.tellTeamChanges(changed, updatedBy.id);
+    });
+  }
+
+  // Many users at once, in one transaction. A team of another workspace is
+  // refused, as update refuses it.
+  public async assignTeams(
+    assignments: ITeamAssignment[],
+    updatedBy: IUserViewModel,
+  ): Promise<void> {
+    if (assignments.length === 0) {
+      return;
+    }
+
+    await this.transactions.transaction(async () => {
+      const moved = await this.userRepository.assignTeams({
+        slackTeamId: updatedBy.slack_team_id,
+        assignments,
+        updatedBy: updatedBy.id,
+      });
+
+      this.tellTeamChanges(moved, updatedBy.id);
+    });
+  }
+
+  // A Member who leads a team can't approve until they are a Manager. Only
+  // Members change: anyone else already approves, or may not lead at all.
+  public async makeManagers(
+    userIds: string[],
+    updatedBy: IUserViewModel,
+  ): Promise<IUserViewModel[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return this.userRepository.updateMany(
+      {
+        slack_team_id: updatedBy.slack_team_id,
+        id: { operator: 'in', value: userIds },
+        role: UserRole.Member,
+      },
+      {
+        role: UserRole.Manager,
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy.id,
+      },
     );
   }
 
@@ -149,11 +203,20 @@ export class UsersService implements IUsersService {
 
     await this.userUpdateValidatorService.validate(userBeforeUpdate, params);
 
-    return await this.userRepository.update(this.getFindQuery(findParams), {
-      ...this.mapToDbUser(params),
-      updated_at: new Date().toISOString(),
-      updated_by: updatedBy?.id || null,
-    });
+    const user = await this.userRepository.update(
+      this.getFindQuery(findParams),
+      {
+        ...this.mapToDbUser(params),
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy?.id || null,
+      },
+    );
+
+    if (user.team_id !== userBeforeUpdate.team_id) {
+      this.tellTeamChanges([user], updatedBy?.id ?? null);
+    }
+
+    return user;
   }
 
   public async bulkCreate(paramsList: ICreateUserParams[]) {
@@ -224,6 +287,21 @@ export class UsersService implements IUsersService {
       slack_id: slackId,
       slack_team_id: slackTeamId,
     });
+  }
+
+  // Inside a transaction the listeners hear of it once it commits.
+  private tellTeamChanges(users: IUserViewModel[], changedBy: string | null) {
+    for (const user of users) {
+      this.eventEmitter.emit(
+        USER_TEAM_CHANGED,
+        new UserTeamChangedEvent(
+          user.id,
+          user.slack_team_id,
+          user.team_id,
+          changedBy,
+        ),
+      );
+    }
   }
 
   private getFindQuery(findParams: IFindParams): RepositoryFilter {
