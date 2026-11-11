@@ -43,7 +43,7 @@ describe('TimeOffChangesService', () => {
     jest.Mock
   >;
   let vacationTime: { remove: jest.Mock };
-  let eventEmitter: { emit: jest.Mock };
+  let eventEmitter: { emitAsync: jest.Mock };
   let lock: jest.Mock;
   // Which calls ran inside TransactionService.transaction().
   let inTransaction: boolean;
@@ -64,7 +64,14 @@ describe('TimeOffChangesService', () => {
         return Promise.resolve(removedTime);
       }),
     };
-    eventEmitter = { emit: jest.fn() };
+    // The listeners save their jobs with the change: inside the transaction.
+    eventEmitter = {
+      emitAsync: jest.fn(() => {
+        expect(inTransaction).toBe(true);
+
+        return Promise.resolve([]);
+      }),
+    };
     lock = jest.fn();
     service = new TimeOffChangesService(
       requests as unknown as VacationRequestsService,
@@ -134,7 +141,7 @@ describe('TimeOffChangesService', () => {
         billedDates: ['2026-02-04'],
       });
       // Whose time it was hears what went.
-      expect(eventEmitter.emit).toHaveBeenCalledWith(
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
         VacationRequestEvent.Updated,
         new TimeOffChangedEvent(changedRequest, hr, approved, removedTime),
       );
@@ -162,7 +169,7 @@ describe('TimeOffChangesService', () => {
     await update({ userComment: 'Family trip' });
 
     expect(vacationTime.remove).not.toHaveBeenCalled();
-    expect(eventEmitter.emit).toHaveBeenCalledWith(
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
       VacationRequestEvent.Updated,
       expect.objectContaining({ previous: approved }),
     );
@@ -186,6 +193,11 @@ describe('TimeOffChangesService', () => {
     requests.applyDelete.mockImplementation(() => {
       calls.push(`request, in a transaction: ${inTransaction}`);
     });
+    eventEmitter.emitAsync.mockImplementation(() => {
+      calls.push(`event, in a transaction: ${inTransaction}`);
+
+      return Promise.resolve([]);
+    });
 
     const result = await service.delete(
       { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
@@ -199,9 +211,10 @@ describe('TimeOffChangesService', () => {
       'read, in a transaction: true',
       'time, in a transaction: true',
       'request, in a transaction: true',
+      'event, in a transaction: true',
     ]);
     expect(result).toEqual({ request: approved, billedDates: ['2026-02-04'] });
-    expect(eventEmitter.emit).toHaveBeenCalledWith(
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
       VacationRequestEvent.Deleted,
       new TimeOffChangedEvent(approved, hr, undefined, removedTime),
     );

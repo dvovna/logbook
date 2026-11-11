@@ -6,6 +6,7 @@ import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows
 import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import { MAX_COMMENT_LENGTH } from '@common/constants/text-limits';
+import { TransactionService } from 'src/database/transaction.service';
 
 interface ICreateParams {
   requestId: string;
@@ -34,6 +35,7 @@ export class RequestWorkflowStepCommentsService {
   public constructor(
     private readonly requestWorkflowStepCommentsRepository: RequestWorkflowStepCommentsRepository,
     private readonly eventEmitter: EventEmitter2,
+    private readonly transactions: TransactionService,
   ) {}
 
   public async create(commentData: ICreateParams) {
@@ -62,22 +64,26 @@ export class RequestWorkflowStepCommentsService {
       throw new ValidationError('Comment limit reached for this step');
     }
 
-    const comment = await this.requestWorkflowStepCommentsRepository.create({
-      request_id: commentData.requestId,
-      slack_team_id: commentData.slackTeamId,
-      slack_user_id: commentData.slackUserId,
-      step_id: commentData.stepId,
-      step_level: commentData.stepLevel,
-      created_by: commentData.createdBy,
-      comment: text,
+    // The listeners save the jobs that show the comment (the approvers'
+    // messages, the requester's DM) in its transaction: emitAsync.
+    return this.transactions.transaction(async () => {
+      const comment = await this.requestWorkflowStepCommentsRepository.create({
+        request_id: commentData.requestId,
+        slack_team_id: commentData.slackTeamId,
+        slack_user_id: commentData.slackUserId,
+        step_id: commentData.stepId,
+        step_level: commentData.stepLevel,
+        created_by: commentData.createdBy,
+        comment: text,
+      });
+
+      await this.eventEmitter.emitAsync(
+        WorkflowStepCommentEvent.Added,
+        new RequestWorkflowStepCommentAddedEvent(comment),
+      );
+
+      return comment;
     });
-
-    this.eventEmitter.emit(
-      WorkflowStepCommentEvent.Added,
-      new RequestWorkflowStepCommentAddedEvent(comment),
-    );
-
-    return comment;
   }
 
   public findOne(params: IFindParams) {

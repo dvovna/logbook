@@ -24,7 +24,9 @@ import { IRemovedVacationTime } from 'src/time-off-logging/types/vacation-time.t
 import { changesLoggedTime } from 'src/time-off-logging/utils/vacation-time.utils';
 
 // The DMs that offer to log a time off as time outside the decision DM, and
-// that tell what logged time a change or a deletion removed.
+// that tell what logged time a change or a deletion removed. The listeners
+// run in the transaction of the change (emitAsync), so the DMs' jobs are
+// saved with it.
 @Injectable()
 export class TimeOffOfferNotifier implements OnModuleInit {
   public constructor(
@@ -44,10 +46,10 @@ export class TimeOffOfferNotifier implements OnModuleInit {
   }
 
   // A request created already approved (HR files it so).
-  @OnEvent(VacationRequestEvent.Created)
-  public handleCreated({ request }: VacationRequestCreatedEvent) {
+  @OnEvent(VacationRequestEvent.Created, { suppressErrors: false })
+  public async handleCreated({ request }: VacationRequestCreatedEvent) {
     if (request.status === VacationRequestStatus.Approved) {
-      this.offerLater(request.id, request.slack_team_id);
+      await this.offerLater([this.offer(request)]);
     }
   }
 
@@ -55,8 +57,8 @@ export class TimeOffOfferNotifier implements OnModuleInit {
   // the button. Removed time is told to whoever logged it: in the offer's DM
   // when the request is still theirs and approved, else in a DM of its own; a
   // new person gets the offer in a DM of their own.
-  @OnEvent(VacationRequestEvent.Updated)
-  public handleUpdated({
+  @OnEvent(VacationRequestEvent.Updated, { suppressErrors: false })
+  public async handleUpdated({
     request,
     previous,
     removedTime,
@@ -68,13 +70,13 @@ export class TimeOffOfferNotifier implements OnModuleInit {
 
     if (!previous || !removedTime) {
       if (offers) {
-        this.offerLater(request.id, request.slack_team_id);
+        await this.offerLater([this.offer(request)]);
       }
 
       return;
     }
 
-    for (const owner of removedTime.owners) {
+    const jobs = removedTime.owners.map((owner) => {
       const removed = this.removedNotice(
         previous,
         removedTime,
@@ -82,31 +84,34 @@ export class TimeOffOfferNotifier implements OnModuleInit {
         this.changeOf(request, owner.userId),
       );
 
-      this.offerLater(
-        request.id,
-        request.slack_team_id,
+      return this.offer(
+        request,
         offers && owner.userId === request.user_id
           ? { removed }
           : { removed, removalOnly: true },
       );
-    }
+    });
 
     if (
       offers &&
       !removedTime.owners.some(({ userId }) => userId === request.user_id)
     ) {
-      this.offerLater(request.id, request.slack_team_id);
+      jobs.push(this.offer(request));
     }
+
+    await this.offerLater(jobs);
   }
 
-  @OnEvent(VacationRequestEvent.Deleted)
-  public handleDeleted({ request, removedTime }: TimeOffChangedEvent) {
-    for (const owner of removedTime?.owners ?? []) {
-      this.offerLater(request.id, request.slack_team_id, {
-        removed: this.removedNotice(request, removedTime!, owner, 'deleted'),
-        removalOnly: true,
-      });
-    }
+  @OnEvent(VacationRequestEvent.Deleted, { suppressErrors: false })
+  public async handleDeleted({ request, removedTime }: TimeOffChangedEvent) {
+    await this.offerLater(
+      (removedTime?.owners ?? []).map((owner) =>
+        this.offer(request, {
+          removed: this.removedNotice(request, removedTime!, owner, 'deleted'),
+          removalOnly: true,
+        }),
+      ),
+    );
   }
 
   // Sends nothing when the request no longer has an offer (a retry after a
@@ -152,16 +157,20 @@ export class TimeOffOfferNotifier implements OnModuleInit {
     );
   }
 
-  private offerLater(
-    requestId: string,
-    slackTeamId: string,
+  private offer(
+    request: IVacationRequestViewModel,
     removal: Pick<IOfferJob, 'removed' | 'removalOnly'> = {},
-  ) {
-    this.jobs.run<IOfferJob>(TIME_OFF_OFFER_JOB, {
-      requestId,
-      slackTeamId,
+  ): IOfferJob {
+    return {
+      requestId: request.id,
+      slackTeamId: request.slack_team_id,
       ...removal,
-    });
+    };
+  }
+
+  // In one statement, however many people's time went.
+  private offerLater(jobs: IOfferJob[]) {
+    return this.jobs.enqueueMany<IOfferJob>(TIME_OFF_OFFER_JOB, jobs);
   }
 
   // `request` as its time was logged (before the edit, or as deleted), and

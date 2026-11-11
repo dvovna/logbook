@@ -153,15 +153,19 @@ export class VacationRequestsService implements IVacationRequestsService {
       updated_by: user.id,
     };
 
-    const request =
-      await this.vacationRequestsRepository.create(vacationRecord);
+    // The listeners save the jobs that follow a new request (its approval,
+    // an offer to log it as time) in its transaction: emitAsync.
+    return this.transactions.transaction(async () => {
+      const request =
+        await this.vacationRequestsRepository.create(vacationRecord);
 
-    this.eventEmitter.emit(
-      VacationRequestEvent.Created,
-      new VacationRequestCreatedEvent(request, user),
-    );
+      await this.eventEmitter.emitAsync(
+        VacationRequestEvent.Created,
+        new VacationRequestCreatedEvent(request, user),
+      );
 
-    return request;
+      return request;
+    });
   }
 
   // Checks an edit and writes nothing: applyUpdate writes what passed.
@@ -344,22 +348,24 @@ export class VacationRequestsService implements IVacationRequestsService {
     // logged time, since only an approved one is logged and leaving approved
     // removes it. Checked again under the lock, as the workflow may have
     // approved it, and its time been logged, since the check above.
-    const { previous, request } = await this.transactions.transaction(
-      async () => {
-        await this.transactions.lock(vacationRequestLock(requestId));
+    return this.transactions.transaction(async () => {
+      await this.transactions.lock(vacationRequestLock(requestId));
 
-        return this.applyUpdate(update, user, (current) =>
-          this.assertCanCancel(current, user),
-        );
-      },
-    );
+      const { previous, request } = await this.applyUpdate(
+        update,
+        user,
+        (current) => this.assertCanCancel(current, user),
+      );
 
-    this.eventEmitter.emit(
-      VacationRequestEvent.Updated,
-      new VacationRequestUpdatedEvent(request, user, previous),
-    );
+      // Inside the transaction, as on create: the approvers' steps close
+      // with it.
+      await this.eventEmitter.emitAsync(
+        VacationRequestEvent.Updated,
+        new VacationRequestUpdatedEvent(request, user, previous),
+      );
 
-    return request;
+      return request;
+    });
   }
 
   private assertCanCancel(
@@ -433,40 +439,43 @@ export class VacationRequestsService implements IVacationRequestsService {
 
   // Sets the outcome of the approval workflow if the request still waits for
   // it, in one statement. Null when it was decided (e.g. by another approver
-  // at the same time) or canceled in the meantime.
-  public async finishPending(
+  // at the same time) or canceled in the meantime. The listeners of the
+  // change run in its transaction (the caller's, if any).
+  public finishPending(
     { id, slackTeamId }: IVacationRequestFindParams,
     status: VacationRequestStatus.Approved | VacationRequestStatus.Rejected,
     decidedBy: IUserViewModel,
     rejectionReason?: string,
   ) {
-    const [finished] = await this.vacationRequestsRepository.updateMany(
-      {
-        id,
-        slack_team_id: slackTeamId,
-        status: VacationRequestStatus.Pending,
-      },
-      {
-        status,
-        rejection_reason:
-          status === VacationRequestStatus.Rejected
-            ? rejectionReason || null
-            : null,
-        updated_by: decidedBy.id,
-        updated_at: new Date().toISOString(),
-      },
-    );
+    return this.transactions.transaction(async () => {
+      const [finished] = await this.vacationRequestsRepository.updateMany(
+        {
+          id,
+          slack_team_id: slackTeamId,
+          status: VacationRequestStatus.Pending,
+        },
+        {
+          status,
+          rejection_reason:
+            status === VacationRequestStatus.Rejected
+              ? rejectionReason || null
+              : null,
+          updated_by: decidedBy.id,
+          updated_at: new Date().toISOString(),
+        },
+      );
 
-    if (!finished) {
-      return null;
-    }
+      if (!finished) {
+        return null;
+      }
 
-    this.eventEmitter.emit(
-      VacationRequestEvent.Updated,
-      new VacationRequestUpdatedEvent(finished, decidedBy),
-    );
+      await this.eventEmitter.emitAsync(
+        VacationRequestEvent.Updated,
+        new VacationRequestUpdatedEvent(finished, decidedBy),
+      );
 
-    return finished;
+      return finished;
+    });
   }
 
   // The user's vacations become `vacations`, in one transaction: when the

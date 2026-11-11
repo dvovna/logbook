@@ -86,21 +86,26 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
   }
 
   // An approver who asks something waits for an answer, so the requester
-  // hears of a comment when it is made, not only with the decision.
-  @OnEvent(WorkflowStepCommentEvent.Added)
-  public handleCommentAdded({ comment }: RequestWorkflowStepCommentAddedEvent) {
-    void this.jobs.run<ICommentNoticeJob>(COMMENT_NOTICE_JOB, {
+  // hears of a comment when it is made, not only with the decision. Runs in
+  // the comment's transaction (emitAsync), so the DM's job is saved with it.
+  @OnEvent(WorkflowStepCommentEvent.Added, { suppressErrors: false })
+  public async handleCommentAdded({
+    comment,
+  }: RequestWorkflowStepCommentAddedEvent) {
+    await this.jobs.enqueue<ICommentNoticeJob>(COMMENT_NOTICE_JOB, {
       commentId: comment.id,
       slackTeamId: comment.slack_team_id,
     });
   }
 
-  @OnEvent(VacationRequestEvent.SentForApproval)
-  public handleSentForApproval({
+  // Runs in the transaction that makes the workflow (emitAsync), so the DM's
+  // job is saved with its steps.
+  @OnEvent(VacationRequestEvent.SentForApproval, { suppressErrors: false })
+  public async handleSentForApproval({
     request,
     fallback,
   }: VacationRequestSentForApprovalEvent) {
-    void this.jobs.run<ISentNoticeJob>(SENT_NOTICE_JOB, {
+    await this.jobs.enqueue<ISentNoticeJob>(SENT_NOTICE_JOB, {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
       fallback,

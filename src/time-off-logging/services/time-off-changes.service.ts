@@ -38,30 +38,37 @@ export class TimeOffChangesService {
       changes,
       user,
     );
-    const { previous, request, removedTime } =
-      await this.transactions.transaction(async () => {
+    const { request, removedTime } = await this.transactions.transaction(
+      async () => {
         await this.transactions.lock(vacationRequestLock(update.checked.id));
 
         const applied = await this.vacationRequestsService.applyUpdate(
           update,
           user,
         );
+        const removed = changesLoggedTime(applied.previous, applied.request)
+          ? await this.vacationTimeService.remove(
+              applied.request.id,
+              applied.request.slack_team_id,
+              user,
+            )
+          : undefined;
 
-        return {
-          ...applied,
-          removedTime: changesLoggedTime(applied.previous, applied.request)
-            ? await this.vacationTimeService.remove(
-                applied.request.id,
-                applied.request.slack_team_id,
-                user,
-              )
-            : undefined,
-        };
-      });
+        // Inside the transaction: the listeners close the approvers' steps
+        // and save the jobs that follow the edit (a new approval, offers,
+        // what time went) with it.
+        await this.eventEmitter.emitAsync(
+          VacationRequestEvent.Updated,
+          new TimeOffChangedEvent(
+            applied.request,
+            user,
+            applied.previous,
+            removed,
+          ),
+        );
 
-    this.eventEmitter.emit(
-      VacationRequestEvent.Updated,
-      new TimeOffChangedEvent(request, user, previous, removedTime),
+        return { request: applied.request, removedTime: removed };
+      },
     );
 
     return { request, billedDates: removedTime?.billedDates ?? [] };
@@ -91,13 +98,14 @@ export class TimeOffChangesService {
 
         await this.vacationRequestsService.applyDelete(current, user);
 
+        // The DMs telling what time went are saved with the delete.
+        await this.eventEmitter.emitAsync(
+          VacationRequestEvent.Deleted,
+          new TimeOffChangedEvent(current, user, undefined, removed),
+        );
+
         return { request: current, removedTime: removed };
       },
-    );
-
-    this.eventEmitter.emit(
-      VacationRequestEvent.Deleted,
-      new TimeOffChangedEvent(request, user, undefined, removedTime),
     );
 
     return { request, billedDates: removedTime.billedDates };

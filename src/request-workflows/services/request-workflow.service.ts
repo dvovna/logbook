@@ -370,7 +370,9 @@ export class RequestWorkflowService {
     });
   }
 
-  @OnEvent(WorkflowStepCommentEvent.Added)
+  // Runs in the comment's transaction (emitAsync): the jobs that refresh the
+  // messages are saved with it.
+  @OnEvent(WorkflowStepCommentEvent.Added, { suppressErrors: false })
   private async handleStepCommentAdded({
     comment,
   }: RequestWorkflowStepCommentAddedEvent) {

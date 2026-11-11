@@ -20,6 +20,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
 import { TimeOffContextService } from 'src/vacation-requests/services/time-off-context.service';
+import { TransactionService } from 'src/database/transaction.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -64,7 +65,8 @@ const buildRequest = (
   created_by: null,
 });
 
-// Runs a job as soon as it is asked for; `done()` waits for the ones started.
+// Runs a job as soon as it is enqueued; `done()` waits for the ones started.
+// No run(): a job that follows a change is saved with it (enqueue).
 const inlineJobs = () => {
   const handlers = new Map<string, (payload: object) => Promise<void>>();
   const running: Promise<void>[] = [];
@@ -73,8 +75,11 @@ const inlineJobs = () => {
     jobs: {
       define: (name: string, handler: (payload: object) => Promise<void>) =>
         handlers.set(name, handler),
-      run: (name: string, payload: object) =>
-        running.push(handlers.get(name)!(payload)),
+      enqueue: jest.fn((name: string, payload: object) => {
+        running.push(handlers.get(name)!(payload));
+
+        return Promise.resolve();
+      }),
     } as unknown as JobsService,
     done: () => Promise.all(running),
   };
@@ -84,13 +89,31 @@ describe('VacationRequestProcessingService', () => {
   let teamRules: { forTeam: jest.Mock };
   let workflowService: Record<'create' | 'cancel', jest.Mock>;
   let usersByRole: Partial<Record<UserRole, string[]>>;
-  let eventEmitter: { emit: jest.Mock };
+  let eventEmitter: { emitAsync: jest.Mock };
+  // Whether each emitAsync came inside a transaction.
+  let emittedInTransaction: boolean[];
   let requestsService: { findOne: jest.Mock; findMany: jest.Mock };
   let usersService: { findMany: jest.Mock; findOne: jest.Mock };
   let usageService: { getVacationPeriodUsage: jest.Mock };
   let timeOffContext: { findColleaguesOff: jest.Mock };
   let jobs: ReturnType<typeof inlineJobs>;
   let service: VacationRequestProcessingService;
+  let inTransaction = false;
+  // What waits for the commit.
+  let afterCommit: (() => Promise<unknown>)[];
+  const transactions = {
+    transaction: async <T>(work: () => Promise<T>) => {
+      inTransaction = true;
+
+      try {
+        return await work();
+      } finally {
+        inTransaction = false;
+      }
+    },
+    afterCommit: (work: () => Promise<unknown>) => afterCommit.push(work),
+  };
+  const commit = () => Promise.all(afterCommit.map((work) => work()));
 
   beforeEach(() => {
     teamRules = { forTeam: jest.fn().mockResolvedValue(rules()) };
@@ -112,12 +135,20 @@ describe('VacationRequestProcessingService', () => {
     };
     usageService = { getVacationPeriodUsage: jest.fn() };
     timeOffContext = { findColleaguesOff: jest.fn().mockResolvedValue([]) };
-    eventEmitter = { emit: jest.fn() };
+    emittedInTransaction = [];
+    eventEmitter = {
+      emitAsync: jest.fn(() => {
+        emittedInTransaction.push(inTransaction);
+
+        return Promise.resolve([]);
+      }),
+    };
     requestsService = {
       findOne: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
     };
     jobs = inlineJobs();
+    afterCommit = [];
 
     service = new VacationRequestProcessingService(
       teamRules as unknown as TeamRulesService,
@@ -128,13 +159,14 @@ describe('VacationRequestProcessingService', () => {
       jobs.jobs,
       usageService as unknown as VacationsUsageService,
       timeOffContext as unknown as TimeOffContextService,
+      transactions as unknown as TransactionService,
     );
     service.onModuleInit();
   });
 
   const onCreated = async (status: VacationRequestStatus) => {
     requestsService.findOne.mockResolvedValue(buildRequest(status));
-    service.handleRequestCreated(
+    await service.handleRequestCreated(
       new VacationRequestCreatedEvent(
         buildRequest(status),
         {} as IUserViewModel,
@@ -190,12 +222,27 @@ describe('VacationRequestProcessingService', () => {
   });
 
   it("tells the requester it went to their team's approvers", async () => {
+    workflowService.create.mockImplementation(() => {
+      expect(inTransaction).toBe(true);
+    });
+
     await onCreated(VacationRequestStatus.Pending);
 
     expect(teamRules.forTeam).toHaveBeenCalledWith('team-1', SLACK_TEAM_ID);
-    expect(eventEmitter.emit).toHaveBeenCalledWith(
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
       VacationRequestEvent.SentForApproval,
       expect.objectContaining({ fallback: null }),
+    );
+    // The DM's job is saved with the workflow.
+    expect(emittedInTransaction).toEqual([true]);
+  });
+
+  it("saves the workflow's job in the transaction of the request", async () => {
+    await onCreated(VacationRequestStatus.Pending);
+
+    expect(jobs.jobs.enqueue).toHaveBeenCalledWith(
+      'vacation-request-start-workflow',
+      { requestId: 'request-1', slackTeamId: SLACK_TEAM_ID },
     );
   });
 
@@ -219,7 +266,7 @@ describe('VacationRequestProcessingService', () => {
       buildRequest(VacationRequestStatus.Canceled),
     );
 
-    service.handleRequestCreated(
+    await service.handleRequestCreated(
       new VacationRequestCreatedEvent(
         buildRequest(VacationRequestStatus.Pending),
         {} as IUserViewModel,
@@ -255,7 +302,7 @@ describe('VacationRequestProcessingService', () => {
         steps: [{ slackUserId: 'U_HR_1', stepType: 'approver' }],
       },
     ]);
-    expect(eventEmitter.emit).toHaveBeenCalledWith(
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
       VacationRequestEvent.SentForApproval,
       expect.objectContaining({ fallback: null }),
     );
@@ -293,7 +340,7 @@ describe('VacationRequestProcessingService', () => {
   describe('when nobody on the team can approve it', () => {
     const levelsOf = () => workflowService.create.mock.calls[0][0].levels;
     const sentTo = () => {
-      const [event, payload] = eventEmitter.emit.mock.calls[0];
+      const [event, payload] = eventEmitter.emitAsync.mock.calls[0];
       expect(event).toBe(VacationRequestEvent.SentForApproval);
       return payload.fallback.sentTo;
     };
@@ -349,7 +396,7 @@ describe('VacationRequestProcessingService', () => {
       await onCreated(VacationRequestStatus.Pending);
 
       expect(levelsOf()).toEqual(anyOf('HR approval', 'U_HR_1'));
-      expect(eventEmitter.emit.mock.calls[0][1].fallback).toEqual({
+      expect(eventEmitter.emitAsync.mock.calls[0][1].fallback).toEqual({
         inTeam: false,
         followsCompanyRules: true,
         sentTo: UserRole.HR,
@@ -366,18 +413,43 @@ describe('VacationRequestProcessingService', () => {
     });
   });
 
-  it('closes the approval workflow when the request is updated', async () => {
+  // With the cancel, in its transaction.
+  it('closes the approval workflow when a pending request is canceled', async () => {
     const requester = { id: 'user-1' } as IUserViewModel;
 
     await service.handleRequestUpdated(
       new VacationRequestUpdatedEvent(
         buildRequest(VacationRequestStatus.Canceled),
         requester,
+        buildRequest(VacationRequestStatus.Pending),
       ),
     );
 
     expect(workflowService.cancel).toHaveBeenCalledWith('request-1', requester);
+    expect(afterCommit).toEqual([]);
     expect(workflowService.create).not.toHaveBeenCalled();
+  });
+
+  // Nothing waits for approval then; only a race could have left a step.
+  it('closes what is left of the workflow after the commit once the request no longer waited', async () => {
+    const hr = { id: 'hr-1' } as IUserViewModel;
+
+    await service.handleRequestUpdated(
+      new VacationRequestUpdatedEvent(
+        {
+          ...buildRequest(VacationRequestStatus.Approved),
+          end_date: '2026-02-09',
+        },
+        hr,
+        buildRequest(VacationRequestStatus.Approved),
+      ),
+    );
+    expect(workflowService.cancel).not.toHaveBeenCalled();
+
+    await commit();
+
+    expect(workflowService.cancel).toHaveBeenCalledWith('request-1', hr);
+    expect(jobs.jobs.enqueue).not.toHaveBeenCalled();
   });
 
   describe('when HR edits a pending request that stays pending', () => {

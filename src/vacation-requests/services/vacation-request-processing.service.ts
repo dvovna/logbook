@@ -28,6 +28,7 @@ import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { TimeOffContextService } from '@modules/vacation-requests/services/time-off-context.service';
+import { TransactionService } from 'src/database/transaction.service';
 
 export const START_WORKFLOW_JOB = 'vacation-request-start-workflow';
 
@@ -49,6 +50,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     private readonly jobs: JobsService,
     private readonly vacationsUsageService: VacationsUsageService,
     private readonly timeOffContextService: TimeOffContextService,
+    private readonly transactions: TransactionService,
   ) {}
 
   public onModuleInit() {
@@ -58,16 +60,17 @@ export class VacationRequestProcessingService implements OnModuleInit {
   }
 
   // A job, so that a failure to make the workflow is retried instead of
-  // leaving the request pending with nobody asked.
-  @OnEvent(VacationRequestEvent.Created)
-  public handleRequestCreated({ request }: VacationRequestCreatedEvent) {
+  // leaving the request pending with nobody asked. Saved in the request's
+  // transaction (emitAsync), so a crash can't leave one without the other.
+  @OnEvent(VacationRequestEvent.Created, { suppressErrors: false })
+  public async handleRequestCreated({ request }: VacationRequestCreatedEvent) {
     // Admins can create requests that are already approved or rejected;
     // only pending ones need approvers.
     if (request.status !== VacationRequestStatus.Pending) {
       return;
     }
 
-    this.jobs.run<IStartWorkflowJob>(START_WORKFLOW_JOB, {
+    await this.jobs.enqueue<IStartWorkflowJob>(START_WORKFLOW_JOB, {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
     });
@@ -154,10 +157,8 @@ export class VacationRequestProcessingService implements OnModuleInit {
     ].filter((level): level is ICreateWorkflowLevelParams => level !== null);
 
     if (levels.length) {
-      await this.requestWorkflowService.create({ ...workflow, levels });
-
-      this.eventEmitter.emit(
-        VacationRequestEvent.SentForApproval,
+      await this.sendForApproval(
+        { ...workflow, levels },
         new VacationRequestSentForApprovalEvent(request, null),
       );
 
@@ -169,8 +170,8 @@ export class VacationRequestProcessingService implements OnModuleInit {
     // is told so.
     const fallback = this.findFallbackApprovers(request, approvers);
 
-    if (fallback) {
-      await this.requestWorkflowService.create({
+    await this.sendForApproval(
+      fallback && {
         ...workflow,
         levels: [
           this.buildApproverLevel(
@@ -179,17 +180,31 @@ export class VacationRequestProcessingService implements OnModuleInit {
             fallback.role === UserRole.HR ? 'HR approval' : 'Admin approval',
           )!,
         ],
-      });
-    }
-
-    this.eventEmitter.emit(
-      VacationRequestEvent.SentForApproval,
+      },
       new VacationRequestSentForApprovalEvent(request, {
         inTeam: Boolean(rules.team),
         followsCompanyRules: rules.followsCompanyRules,
         sentTo: fallback?.role ?? null,
       }),
     );
+  }
+
+  // The workflow, if there is one, and the job that tells the requester
+  // where the request went, in one transaction (emitAsync).
+  private sendForApproval(
+    workflow: ICreateWorkflowParams | null,
+    sent: VacationRequestSentForApprovalEvent,
+  ) {
+    return this.transactions.transaction(async () => {
+      if (workflow) {
+        await this.requestWorkflowService.create(workflow);
+      }
+
+      await this.eventEmitter.emitAsync(
+        VacationRequestEvent.SentForApproval,
+        sent,
+      );
+    });
   }
 
   // Everyone with the HR role, else every admin; never the requester
@@ -211,8 +226,9 @@ export class VacationRequestProcessingService implements OnModuleInit {
   // An edit that changes what the approvers decide on closes the steps
   // asked so far; when the request is still pending, its approval starts
   // again with the request as it is now. A comment changes nothing they
-  // decide on.
-  @OnEvent(VacationRequestEvent.Updated)
+  // decide on. Runs in the change's transaction (emitAsync): the steps
+  // close, and the new run is saved, with the change.
+  @OnEvent(VacationRequestEvent.Updated, { suppressErrors: false })
   public async handleRequestUpdated({
     request,
     user: updatedBy,
@@ -228,10 +244,22 @@ export class VacationRequestProcessingService implements OnModuleInit {
       return;
     }
 
+    // Steps are open while a request waits for approval. After a change of
+    // one that didn't wait and still doesn't (or the workflow's own finish),
+    // closing them only tidies up after a race: it waits for the commit
+    // instead of holding the change's transaction.
+    if (!isPending && previous?.status !== VacationRequestStatus.Pending) {
+      this.transactions.afterCommit(() =>
+        this.requestWorkflowService.cancel(request.id, updatedBy),
+      );
+
+      return;
+    }
+
     await this.requestWorkflowService.cancel(request.id, updatedBy);
 
     if (isPending) {
-      this.jobs.run<IStartWorkflowJob>(START_WORKFLOW_JOB, {
+      await this.jobs.enqueue<IStartWorkflowJob>(START_WORKFLOW_JOB, {
         requestId: request.id,
         slackTeamId: request.slack_team_id,
         run: randomUUID(),

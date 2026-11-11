@@ -64,18 +64,21 @@ const ROUND_TRIPS: Record<string, { roundTrips: number; statements: number }> =
     'change the day in the form': { roundTrips: 1, statements: 1 },
     'open My time': { roundTrips: 1, statements: 1 },
     'go to the previous week on My time': { roundTrips: 2, statements: 6 },
-    "change a logged vacation's dates": { roundTrips: 10, statements: 15 },
+    // A change saves the job that follows it (an offer, a DM, the approval)
+    // in its transaction: one statement more, and a new request a
+    // transaction of its own.
+    "change a logged vacation's dates": { roundTrips: 11, statements: 16 },
     "change a vacation's comment": { roundTrips: 9, statements: 10 },
     'change the dates of a vacation, the team following the company rules': {
-      roundTrips: 9,
-      statements: 13,
+      roundTrips: 10,
+      statements: 14,
     },
-    'delete a logged vacation': { roundTrips: 9, statements: 9 },
+    'delete a logged vacation': { roundTrips: 10, statements: 10 },
     'log time off from the offer': { roundTrips: 2, statements: 2 },
     'save the time off settings': { roundTrips: 7, statements: 7 },
     'request time off, the team following the company rules': {
-      roundTrips: 8,
-      statements: 9,
+      roundTrips: 11,
+      statements: 12,
     },
   };
 

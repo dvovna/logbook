@@ -77,18 +77,29 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     );
   }
 
-  @OnEvent(VacationRequestEvent.Decided)
-  public handleDecided({ request, decidedBy }: VacationRequestDecidedEvent) {
+  // Runs in the transaction that decides the request (emitAsync), so the
+  // jobs are saved with the decision.
+  @OnEvent(VacationRequestEvent.Decided, { suppressErrors: false })
+  public async handleDecided({
+    request,
+    decidedBy,
+  }: VacationRequestDecidedEvent) {
     const job: IRequestJob = {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
       decidedById: decidedBy.id,
     };
 
-    this.jobs.run<IRequestJob>(DecisionNotificationJob.Requester, job);
+    await this.jobs.enqueue<IRequestJob>(
+      DecisionNotificationJob.Requester,
+      job,
+    );
 
     if (request.status === VacationRequestStatus.Approved) {
-      this.jobs.run<IRequestJob>(DecisionNotificationJob.Recipients, job);
+      await this.jobs.enqueue<IRequestJob>(
+        DecisionNotificationJob.Recipients,
+        job,
+      );
     }
   }
 
@@ -126,16 +137,18 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     }
   }
 
+  // Saved before this job ends, so that a crash can't lose them with it.
   private async notifyRecipients(job: IRequestJob) {
     const decided = await this.loadDecided(job);
 
     if (decided) {
-      for (const recipientSlackId of await this.recipientsOf(decided.request)) {
-        this.jobs.run<IRecipientJob>(DecisionNotificationJob.Recipient, {
+      await this.jobs.enqueueMany<IRecipientJob>(
+        DecisionNotificationJob.Recipient,
+        (await this.recipientsOf(decided.request)).map((recipientSlackId) => ({
           ...job,
           recipientSlackId,
-        });
-      }
+        })),
+      );
     }
   }
 

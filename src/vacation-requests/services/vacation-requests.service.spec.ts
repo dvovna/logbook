@@ -60,7 +60,13 @@ const buildRequest = (
 
 describe('VacationRequestsService', () => {
   let repository: Record<
-    'findOne' | 'update' | 'create' | 'findMany' | 'createMany' | 'deleteMany',
+    | 'findOne'
+    | 'update'
+    | 'updateMany'
+    | 'create'
+    | 'findMany'
+    | 'createMany'
+    | 'deleteMany',
     jest.Mock
   >;
   let validator: Record<
@@ -71,7 +77,9 @@ describe('VacationRequestsService', () => {
     | 'checkDaysRequested',
     jest.Mock
   >;
-  let eventEmitter: { emit: jest.Mock };
+  let eventEmitter: { emit: jest.Mock; emitAsync: jest.Mock };
+  // Whether each emitAsync came inside the transaction.
+  let emittedInTransaction: boolean[];
   let usersService: { findOneWithValidation: jest.Mock };
   let teamRules: { forTeam: jest.Mock };
   let workflowService: { closeBeforeDelete: jest.Mock };
@@ -96,6 +104,7 @@ describe('VacationRequestsService', () => {
     repository = {
       findOne: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       create: jest.fn().mockResolvedValue(buildRequest()),
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn().mockResolvedValue([]),
@@ -108,7 +117,15 @@ describe('VacationRequestsService', () => {
       getUsage: jest.fn(),
       checkDaysRequested: jest.fn(),
     };
-    eventEmitter = { emit: jest.fn() };
+    emittedInTransaction = [];
+    eventEmitter = {
+      emit: jest.fn(),
+      emitAsync: jest.fn(() => {
+        emittedInTransaction.push(inTransaction);
+
+        return Promise.resolve([]);
+      }),
+    };
     usersService = { findOneWithValidation: jest.fn() };
     teamRules = {
       forTeam: jest.fn().mockResolvedValue({ vacationPolicyId: null }),
@@ -449,6 +466,23 @@ describe('VacationRequestsService', () => {
       expect(repository.create).toHaveBeenCalled();
     });
 
+    // The listeners save the jobs that follow it (its approval) with it.
+    it('tells of the new request inside its transaction', async () => {
+      const created = buildRequest();
+      repository.create.mockResolvedValue(created);
+
+      await expect(service.create(ownRequest, requester)).resolves.toBe(
+        created,
+      );
+
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationRequestEvent.Created,
+        expect.objectContaining({ request: created, user: requester }),
+      );
+      expect(emittedInTransaction).toEqual([true]);
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
     it('refuses an edit that puts the end before the start', async () => {
       repository.findOne.mockResolvedValue(buildRequest());
 
@@ -491,10 +525,12 @@ describe('VacationRequestsService', () => {
           updated_by: requester.id,
         }),
       );
-      expect(eventEmitter.emit).toHaveBeenCalledWith(
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
         VacationRequestEvent.Updated,
         expect.objectContaining({ request: canceled }),
       );
+      // Its listeners close the approvers' steps with it.
+      expect(emittedInTransaction).toEqual([true]);
       expect(result).toBe(canceled);
     });
 
@@ -532,6 +568,45 @@ describe('VacationRequestsService', () => {
         ValidationError,
       );
       expect(repository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('finishing a pending request', () => {
+    it('sets the outcome and tells of it inside one transaction', async () => {
+      const approved = buildRequest({ status: VacationRequestStatus.Approved });
+      repository.updateMany.mockResolvedValue([approved]);
+
+      await expect(
+        service.finishPending(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          VacationRequestStatus.Approved,
+          requester,
+        ),
+      ).resolves.toBe(approved);
+
+      expect(repository.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ status: VacationRequestStatus.Pending }),
+        expect.objectContaining({ status: VacationRequestStatus.Approved }),
+      );
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationRequestEvent.Updated,
+        expect.objectContaining({ request: approved }),
+      );
+      expect(emittedInTransaction).toEqual([true]);
+    });
+
+    it('tells nothing when the request no longer waits', async () => {
+      repository.updateMany.mockResolvedValue([]);
+
+      await expect(
+        service.finishPending(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          VacationRequestStatus.Rejected,
+          requester,
+        ),
+      ).resolves.toBeNull();
+
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -580,6 +655,7 @@ describe('VacationRequestsService', () => {
         request: { ...approved, user_comment: 'Family trip' },
       });
       expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
   });
 
