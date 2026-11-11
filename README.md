@@ -260,7 +260,7 @@ CI runs the type check, lint, unit and integration tests on every pull request, 
 
 - Slack only; there is no Microsoft Teams support.
 - No calendar sync (Google, Outlook) yet.
-- Caches are in memory, so run a single instance.
+- Run a single instance. A second one beside it for a while, as in a zero-downtime deploy, is safe: they share the bot token and the daily work through the database. Each keeps its own caches, jobs and database connections, which count against your database's connection limit together.
 - Time & Billing is in beta. Reports use the rates as they are now (only billing snapshots keep the rates they were made with), and changing the currency doesn't convert the rates. Logbook doesn't make invoices: a billing snapshot's CSV goes into your accounting tool.
 
 ## Contributing
