@@ -7,8 +7,10 @@ export const TEAM_FILE_UNUSABLE_REASONS = {
   invalidLead: 'Team lead must be yes or empty',
   leadWithoutTeam: (name: string) =>
     `${name} is marked as lead but has no team`,
-  cannotLead: (name: string, role: string) =>
-    `${name} has the ${role} role, which can't approve at level 1`,
+  cannotLead: (name: string, roleLabel: string) =>
+    `${name} has the ${roleLabel} role, which can't approve at level 1`,
+  ambiguousTeam: (team: string) =>
+    `${team} matches more than one team; write its exact name`,
   teamLimit: (maxTeams: number, team: string) =>
     `Logbook allows ${maxTeams} teams; ${team} would be one more`,
 };

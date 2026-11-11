@@ -1,6 +1,8 @@
 import { createHash } from 'crypto';
 import UserRole from '@common/enums/user-role.enum';
+import ITeamViewModel from '@modules/teams/types/team.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
+import { TEAM_FILE_CANNOT_LEAD_ROLE_LABELS } from 'src/team-file/constants/team-file-lead-roles';
 import {
   TEAM_FILE_LEAD_WORDS,
   TEAM_FILE_NOT_LEAD_WORDS,
@@ -11,19 +13,11 @@ import {
   ITeamFileState,
 } from 'src/team-file/types/team-file-plan.interface';
 import { ITeamFileRow } from 'src/team-file/types/team-file-row.interface';
-
-interface IUsableRow {
-  row: ITeamFileRow;
-  person: IUserViewModel;
-  teamKey: string;
-  isLead: boolean;
-}
+import { IUsableTeamFileRow } from 'src/team-file/types/team-file-usable-row.interface';
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
-
-const normalizeTeam = (name: string) =>
-  name.trim().replace(/\s+/g, ' ').toLowerCase();
-
+const collapseSpaces = (name: string) => name.trim().replace(/\s+/g, ' ');
+const normalizeTeam = (name: string) => collapseSpaces(name).toLowerCase();
 const displayName = (row: ITeamFileRow) => row.name || row.email;
 
 const readLead = (value: string): boolean | null => {
@@ -33,185 +27,247 @@ const readLead = (value: string): boolean | null => {
   return null;
 };
 
-export function planTeamFile(
+type TeamMatch =
+  | { kind: 'none' }
+  | { kind: 'ambiguous' }
+  | { kind: 'team'; team: ITeamViewModel };
+
+// An exact spelling wins over the case-insensitive match (D4); several
+// case-insensitive matches and no exact one can't be told apart.
+function matchTeam(written: string, teams: ITeamViewModel[]): TeamMatch {
+  const exact = teams.find((t) => collapseSpaces(t.name) === written);
+  if (exact) return { kind: 'team', team: exact };
+  const key = normalizeTeam(written);
+  const matches = teams.filter((t) => normalizeTeam(t.name) === key);
+  if (matches.length > 1) return { kind: 'ambiguous' };
+  return matches.length ? { kind: 'team', team: matches[0] } : { kind: 'none' };
+}
+
+function indexPeopleByEmail(people: IUserViewModel[]) {
+  const byEmail = new Map<string, IUserViewModel>();
+  for (const person of people) {
+    const email = normalizeEmail(person.email);
+    const known = byEmail.get(email);
+    if (!known || (!known.is_active && person.is_active)) {
+      byEmail.set(email, person);
+    }
+  }
+  return byEmail;
+}
+
+function checkRows(
   rows: ITeamFileRow[],
   state: ITeamFileState,
-  maxTeams: number,
-): ITeamFilePlan {
-  const peopleByEmail = new Map<string, IUserViewModel>();
-  for (const person of state.people) {
-    const email = normalizeEmail(person.email);
-    if (!peopleByEmail.has(email)) peopleByEmail.set(email, person);
-  }
-  const teamsByKey = new Map(
-    state.teams.map((team) => [normalizeTeam(team.name), team]),
-  );
+  unusable: Map<number, string>,
+): IUsableTeamFileRow[] {
+  const peopleByEmail = indexPeopleByEmail(state.people);
   const firstRowOfEmail = new Map<string, number>();
-  const unusable = new Map<number, string>();
-  const candidates: IUsableRow[] = [];
+  const checked: IUsableTeamFileRow[] = [];
 
   for (const row of rows) {
     const email = normalizeEmail(row.email);
+    const person = peopleByEmail.get(email);
+    const written = collapseSpaces(row.team);
+    const isLead = readLead(row.lead);
+    const match = written ? matchTeam(written, state.teams) : null;
+    const earlier = firstRowOfEmail.get(email);
+    if (person && earlier === undefined) firstRowOfEmail.set(email, row.row);
+
     const reason = (() => {
       if (!email) return REASONS.noEmail;
-      const person = peopleByEmail.get(email);
       if (!person) return REASONS.notInWorkspace(row.email);
       if (!person.is_active) return REASONS.deactivated(displayName(row));
-      const earlier = firstRowOfEmail.get(email);
       if (earlier !== undefined) return REASONS.duplicate(row.email, earlier);
-      const isLead = readLead(row.lead);
       if (isLead === null) return REASONS.invalidLead;
-      if (isLead && !normalizeTeam(row.team))
-        return REASONS.leadWithoutTeam(displayName(row));
-      if (isLead && [UserRole.HR, UserRole.Finance].includes(person.role))
-        return REASONS.cannotLead(displayName(row), person.role);
+      if (isLead && !written) return REASONS.leadWithoutTeam(displayName(row));
+      const roleLabel = TEAM_FILE_CANNOT_LEAD_ROLE_LABELS[person.role];
+      if (isLead && roleLabel)
+        return REASONS.cannotLead(displayName(row), roleLabel);
+      if (match?.kind === 'ambiguous') return REASONS.ambiguousTeam(written);
       return null;
     })();
 
-    if (email && peopleByEmail.has(email) && !firstRowOfEmail.has(email)) {
-      firstRowOfEmail.set(email, row.row);
-    }
-    if (reason) {
-      unusable.set(row.row, reason);
+    if (reason || !person) {
+      unusable.set(row.row, reason!);
       continue;
     }
-    candidates.push({
+    checked.push({
       row,
-      person: peopleByEmail.get(email)!,
-      teamKey: normalizeTeam(row.team),
-      isLead: readLead(row.lead) === true,
+      person,
+      team: match?.kind === 'team' ? match.team : null,
+      newKey: match?.kind === 'none' ? normalizeTeam(written) : '',
+      written,
+      isLead: isLead === true,
     });
   }
+  return checked;
+}
 
-  const newTeamNames = new Map<string, string>();
-  for (const { row, teamKey } of candidates) {
-    if (teamKey && !teamsByKey.has(teamKey) && !newTeamNames.has(teamKey)) {
-      newTeamNames.set(teamKey, row.team.trim().replace(/\s+/g, ' '));
-    }
+function cutOverLimit(
+  checked: IUsableTeamFileRow[],
+  existingCount: number,
+  maxTeams: number,
+  unusable: Map<number, string>,
+) {
+  const firstSpelling = new Map<string, string>();
+  for (const { newKey, written } of checked) {
+    if (newKey && !firstSpelling.has(newKey))
+      firstSpelling.set(newKey, written);
   }
-  const allowedNew = Math.max(0, maxTeams - state.teams.length);
-  const keptNewKeys = new Set([...newTeamNames.keys()].slice(0, allowedNew));
+  const allowed = Math.max(0, maxTeams - existingCount);
+  const kept = new Map([...firstSpelling].slice(0, allowed));
 
-  const usable: IUsableRow[] = [];
-  for (const candidate of candidates) {
-    const { teamKey } = candidate;
-    if (teamKey && newTeamNames.has(teamKey) && !keptNewKeys.has(teamKey)) {
+  const usable: IUsableTeamFileRow[] = [];
+  for (const item of checked) {
+    if (item.newKey && !kept.has(item.newKey)) {
       unusable.set(
-        candidate.row.row,
-        REASONS.teamLimit(maxTeams, newTeamNames.get(teamKey)!),
+        item.row.row,
+        REASONS.teamLimit(maxTeams, firstSpelling.get(item.newKey)!),
       );
     } else {
-      usable.push(candidate);
+      usable.push(item);
     }
   }
+  return { usable, newTeamNames: kept };
+}
 
-  const finalTeamOf = new Map<string, string>();
-  const nameMatches = new Map<string, string>();
-  for (const { person, teamKey, row } of usable) {
-    finalTeamOf.set(person.id, teamKey);
-    if (!teamKey) continue;
-    const finalName =
-      teamsByKey.get(teamKey)?.name ?? newTeamNames.get(teamKey)!;
-    if (row.team !== finalName && !nameMatches.has(row.team)) {
-      nameMatches.set(row.team, finalName);
-    }
-  }
-  const leadsOf = (teamKey: string) =>
-    usable.filter((u) => u.isLead && u.teamKey === teamKey);
-
-  const createTeams = [...keptNewKeys].map((key) => ({
-    key,
-    name: newTeamNames.get(key)!,
-    leadIds: leadsOf(key).map((u) => u.person.id),
-    memberIds: usable.filter((u) => u.teamKey === key).map((u) => u.person.id),
-  }));
-
+function planAssignments(usable: IUsableTeamFileRow[]) {
   const assignments: ITeamFilePlan['assignments'] = [];
-  for (const { person, teamKey } of usable) {
-    const existing = teamsByKey.get(teamKey);
-    const toTeamId = existing?.id ?? null;
-    if (person.team_id === toTeamId && (!teamKey || existing)) continue;
+  for (const { person, team, newKey } of usable) {
+    const toTeamId = team?.id ?? null;
+    if (person.team_id === toTeamId && !newKey) continue;
     assignments.push({
       userId: person.id,
       fromTeamId: person.team_id,
       toTeamId,
-      toTeamKey: teamKey && !existing ? teamKey : null,
+      toTeamKey: newKey || null,
     });
   }
+  return assignments;
+}
 
-  const touchedTeamIds = new Set<string>();
+function planLeadChanges(
+  state: ITeamFileState,
+  usable: IUsableTeamFileRow[],
+  assignments: ITeamFilePlan['assignments'],
+  createdWithoutLead: string[],
+) {
+  const peopleById = new Map(state.people.map((p) => [p.id, p]));
+  const inFile = new Map(usable.map((u) => [u.person.id, u]));
+  const touched = new Set<string>();
   for (const a of assignments) {
-    if (a.fromTeamId) touchedTeamIds.add(a.fromTeamId);
-    if (a.toTeamId) touchedTeamIds.add(a.toTeamId);
+    if (a.fromTeamId) touched.add(a.fromTeamId);
+    if (a.toTeamId) touched.add(a.toTeamId);
   }
 
   const leadChanges: ITeamFilePlan['leadChanges'] = [];
   const teamsWithoutLead: string[] = [];
   for (const team of state.teams) {
-    const key = normalizeTeam(team.name);
-    const approverSlackIds = new Set(team.manager_approvers ?? []);
-    const isApprover = (p: IUserViewModel) => approverSlackIds.has(p.slack_id);
-    const add = leadsOf(key)
-      .map((u) => u.person)
-      .filter((p) => !isApprover(p))
-      .map((p) => p.id);
+    const approvers = new Set(team.manager_approvers ?? []);
+    const leadIds = new Set(
+      usable
+        .filter((u) => u.isLead && u.team?.id === team.id)
+        .map((u) => u.person.id),
+    );
+    const add = [...leadIds].filter(
+      (id) => !approvers.has(peopleById.get(id)!.slack_id),
+    );
     const remove = state.people
       .filter(
         (p) =>
-          isApprover(p) &&
+          approvers.has(p.slack_id) &&
           p.team_id === team.id &&
-          finalTeamOf.has(p.id) &&
-          !leadsOf(key).some((u) => u.person.id === p.id),
+          inFile.has(p.id) &&
+          !leadIds.has(p.id),
       )
       .map((p) => p.id);
     if (add.length || remove.length) {
       leadChanges.push({ teamId: team.id, add, remove });
-      touchedTeamIds.add(team.id);
+      touched.add(team.id);
     }
-    if (!touchedTeamIds.has(team.id)) continue;
-    for (const id of remove) approverSlackIds.delete(byId(state, id).slack_id);
-    for (const id of add) approverSlackIds.add(byId(state, id).slack_id);
-    if (approverSlackIds.size === 0) teamsWithoutLead.push(team.name);
+    if (!touched.has(team.id)) continue;
+    for (const id of remove) approvers.delete(peopleById.get(id)!.slack_id);
+    for (const id of add) approvers.add(peopleById.get(id)!.slack_id);
+    if (approvers.size === 0) teamsWithoutLead.push(team.name);
   }
-  for (const created of createTeams) {
-    if (created.leadIds.length === 0) teamsWithoutLead.push(created.name);
-  }
+  return {
+    leadChanges,
+    teamsWithoutLead: [...teamsWithoutLead, ...createdWithoutLead],
+  };
+}
 
-  const promotions = usable
-    .filter((u) => u.isLead && u.person.role === UserRole.Member)
-    .map((u) => u.person.id);
+function planNameMatches(
+  usable: IUsableTeamFileRow[],
+  newTeamNames: Map<string, string>,
+) {
+  const matches = new Map<string, string>();
+  for (const { row, team, newKey, written } of usable) {
+    const teamName = team ? team.name : newTeamNames.get(newKey);
+    if (teamName === undefined || written === teamName) continue;
+    if (!matches.has(row.team.trim())) matches.set(row.team.trim(), teamName);
+  }
+  return [...matches].map(([written, teamName]) => ({ written, teamName }));
+}
+
+export function planTeamFile(
+  rows: ITeamFileRow[],
+  state: ITeamFileState,
+  maxTeams: number,
+): ITeamFilePlan {
+  const unusable = new Map<number, string>();
+  const { usable, newTeamNames } = cutOverLimit(
+    checkRows(rows, state, unusable),
+    state.teams.length,
+    maxTeams,
+    unusable,
+  );
+
+  const createTeams = [...newTeamNames].map(([key, name]) => ({
+    key,
+    name,
+    leadIds: usable
+      .filter((u) => u.isLead && u.newKey === key)
+      .map((u) => u.person.id),
+    memberIds: usable.filter((u) => u.newKey === key).map((u) => u.person.id),
+  }));
+  const assignments = planAssignments(usable);
+  const { leadChanges, teamsWithoutLead } = planLeadChanges(
+    state,
+    usable,
+    assignments,
+    createTeams.filter((t) => t.leadIds.length === 0).map((t) => t.name),
+  );
 
   return {
     createTeams,
     assignments,
     leadChanges,
-    promotions,
-    nameMatches: [...nameMatches].map(([written, teamName]) => ({
-      written,
-      teamName,
-    })),
+    promotions: usable
+      .filter((u) => u.isLead && u.person.role === UserRole.Member)
+      .map((u) => u.person.id),
+    nameMatches: planNameMatches(usable, newTeamNames),
     teamsWithoutLead,
-    leftWithoutTeam: usable.filter((u) => !u.teamKey).map((u) => u.person.id),
+    leftWithoutTeam: usable
+      .filter((u) => !u.team && !u.newKey)
+      .map((u) => u.person.id),
     unusable: [...unusable]
       .sort(([a], [b]) => a - b)
       .map(([row, reason]) => ({ row, reason })),
   };
 }
 
-function byId(state: ITeamFileState, id: string): IUserViewModel {
-  return state.people.find((p) => p.id === id)!;
-}
+const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value
       .map(canonical)
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+      .sort((a, b) => compare(JSON.stringify(a), JSON.stringify(b)));
   }
   if (value && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value)
-        .sort(([a], [b]) => a.localeCompare(b))
+        .sort(([a], [b]) => compare(a, b))
         .map(([k, v]) => [k, canonical(v)]),
     );
   }

@@ -212,9 +212,9 @@ describe('planTeamFile', () => {
   });
 
   it.each([
-    [UserRole.HR, 'hr'],
-    [UserRole.Finance, 'finance'],
-  ])('makes a lead with the %s role unusable', (role) => {
+    [UserRole.HR, 'HR'],
+    [UserRole.Finance, 'Finance'],
+  ])('makes a lead with the %s role unusable', (role, label) => {
     expect(
       plan([row(2, 'a@company.io', 'Ops', 'yes', 'Ann')], {
         people: [person('a', { role })],
@@ -224,7 +224,7 @@ describe('planTeamFile', () => {
       unusable: [
         {
           row: 2,
-          reason: `Ann has the ${role} role, which can't approve at level 1`,
+          reason: `Ann has the ${label} role, which can't approve at level 1`,
         },
       ],
     });
@@ -422,9 +422,154 @@ describe('planTeamFile', () => {
     );
 
     expect(result.createTeams.map((t) => t.name)).toEqual(['One', 'Two']);
+    expect(result.assignments.map((a) => a.userId)).toEqual([
+      'a',
+      'b',
+      'c',
+      'e',
+    ]);
     expect(result.unusable).toEqual([
       { row: 5, reason: 'Logbook allows 3 teams; Three would be one more' },
     ]);
+  });
+});
+
+describe('planTeamFile edge cases', () => {
+  const reversed = (rows: ITeamFileRow[], state: ITeamFileState) =>
+    planTeamFile(rows, { ...state, teams: [...state.teams].reverse() }, 50);
+
+  it('matches the exact spelling when two teams differ only in case', () => {
+    const state = {
+      people: [person('bob', { team_id: 't1' }), person('anna')],
+      teams: [team('t1', 'Acme Corp', ['Sbob']), team('t2', 'acme corp')],
+    };
+    const rows = [
+      row(2, 'bob@company.io', 'Acme Corp', 'yes'),
+      row(3, 'anna@company.io', 'Acme Corp', 'yes'),
+    ];
+
+    const result = planTeamFile(
+      rows,
+      {
+        ...state,
+        people: state.people.map((p) => ({ ...p, role: UserRole.Manager })),
+      },
+      50,
+    );
+
+    expect(result).toEqual({
+      ...emptyPlan,
+      assignments: [
+        { userId: 'anna', fromTeamId: null, toTeamId: 't1', toTeamKey: null },
+      ],
+      leadChanges: [{ teamId: 't1', add: ['anna'], remove: [] }],
+    });
+    expect(
+      planDigest(
+        reversed(rows, {
+          ...state,
+          people: state.people.map((p) => ({ ...p, role: UserRole.Manager })),
+        }),
+      ),
+    ).toBe(planDigest(result));
+  });
+
+  it('refuses a team name that matches two teams only after ignoring case', () => {
+    const state = {
+      people: [person('anna')],
+      teams: [team('t1', 'Acme Corp'), team('t2', 'ACME corp')],
+    };
+    const rows = [row(2, 'anna@company.io', ' acme  corp ')];
+    const expected = {
+      ...emptyPlan,
+      unusable: [
+        {
+          row: 2,
+          reason: 'acme corp matches more than one team; write its exact name',
+        },
+      ],
+    };
+
+    expect(planTeamFile(rows, state, 50)).toEqual(expected);
+    expect(reversed(rows, state)).toEqual(expected);
+  });
+
+  it('prefers the active person when a deactivated one shares the email', () => {
+    const result = plan([row(2, 'a@company.io', 'Ops')], {
+      people: [
+        person('old', { email: 'a@company.io', is_active: false }),
+        person('a'),
+      ],
+    });
+
+    expect(result.createTeams[0].memberIds).toEqual(['a']);
+    expect(result.unusable).toEqual([]);
+  });
+
+  it('does not remove an approver on a refused row', () => {
+    const ops = team('t1', 'Ops', ['Sa']);
+
+    expect(
+      plan([row(2, 'a@company.io', 'Dev', 'maybe')], {
+        people: [person('a', { team_id: 't1', role: UserRole.Manager })],
+        teams: [ops],
+      }).leadChanges,
+    ).toEqual([]);
+  });
+
+  it('removes an approver given an empty Team', () => {
+    const ops = team('t1', 'Ops', ['Sa', 'Sb']);
+
+    expect(
+      plan([row(2, 'a@company.io')], {
+        people: [
+          person('a', { team_id: 't1', role: UserRole.Manager }),
+          person('b', { team_id: 't1', role: UserRole.Manager }),
+        ],
+        teams: [ops],
+      }).leadChanges,
+    ).toEqual([{ teamId: 't1', add: [], remove: ['a'] }]);
+  });
+
+  it('keeps a non-member approver who is placed in the team without yes', () => {
+    const ops = team('t1', 'Ops', ['Sg']);
+
+    expect(
+      plan([row(2, 'g@company.io', 'Ops')], {
+        people: [person('g', { role: UserRole.Manager })],
+        teams: [ops],
+      }).leadChanges,
+    ).toEqual([]);
+  });
+
+  it('does not promote a Member lead on a refused or cut row', () => {
+    const result = plan(
+      [
+        row(2, 'a@company.io', 'One', 'yes'),
+        row(3, 'b@company.io', 'Two', 'yes'),
+        row(4, 'c@company.io', 'One', 'maybe'),
+      ],
+      { people: [person('a'), person('b'), person('c')] },
+      1,
+    );
+
+    expect(result.promotions).toEqual(['a']);
+  });
+
+  it('puts an Admin lead of a new team in leadIds without promoting them', () => {
+    const result = plan([row(2, 'a@company.io', 'Ops', 'yes')], {
+      people: [person('a', { role: UserRole.Admin })],
+    });
+
+    expect(result.createTeams[0].leadIds).toEqual(['a']);
+    expect(result.promotions).toEqual([]);
+  });
+
+  it('lists someone already in no team as left without a team, with no assignment', () => {
+    expect(plan([row(2, 'a@company.io')], { people: [person('a')] })).toEqual({
+      ...emptyPlan,
+      leftWithoutTeam: ['a'],
+    });
   });
 });
 
@@ -454,6 +599,21 @@ describe('planDigest', () => {
 
     expect(planDigest(a)).toBe(planDigest(b));
     expect(planDigest(a)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('differs when only a nested list differs', () => {
+    const withLeads = (leadIds: string[], remove: string[]): ITeamFilePlan => ({
+      ...emptyPlan,
+      createTeams: [{ key: 'k', name: 'K', leadIds, memberIds: ['a', 'b'] }],
+      leadChanges: [{ teamId: 't', add: [], remove }],
+    });
+
+    expect(planDigest(withLeads(['a'], ['x']))).not.toBe(
+      planDigest(withLeads(['b'], ['x'])),
+    );
+    expect(planDigest(withLeads(['a'], ['x']))).not.toBe(
+      planDigest(withLeads(['a'], ['y'])),
+    );
   });
 
   it('differs for a different plan', () => {
