@@ -7,10 +7,16 @@ import {
 import { SqlRow } from '@common/types/sql-database.types';
 import { toCents } from '@common/utils/money.utils';
 import {
+  IBillingSnapshot,
   IBillingSnapshotViewModel,
+  INewSnapshot,
   INotInvoicedClientTime,
   IOpenPeriod,
 } from 'src/billing/types/billing-snapshot.types';
+import {
+  LINE_TOTALS,
+  unbilledLines,
+} from 'src/billing/queries/unbilled-lines.query';
 
 type Named = { id: string; name: string } | null | undefined;
 
@@ -68,6 +74,100 @@ export class BillingSnapshotsRepository extends BaseRepository<
       invoicer: named(invoicer),
     };
   };
+
+  // Makes a snapshot of the client's approved time of the period that no
+  // snapshot holds, in one statement: it reads the lines (unbilledLines)
+  // with their entries locked (FOR UPDATE), so that none of them changes
+  // before the snapshot commits, stores their sums as the snapshot's totals
+  // and writes the lines. Null, and nothing written, when there was nothing
+  // to take.
+  public async createFromUnbilled({
+    currency,
+    createdBy,
+    ...period
+  }: INewSnapshot): Promise<IBillingSnapshot | null> {
+    const row = await this.db
+      .with('picked', (db) => unbilledLines(db, period).forUpdate('te'))
+      .with('totals', (db) => db.selectFrom('picked').select(LINE_TOTALS))
+      .with('snapshot', (db) =>
+        db
+          .insertInto('billing_snapshots')
+          .columns([
+            'slack_team_id',
+            'client_id',
+            'period_start',
+            'period_end',
+            'currency',
+            'total_minutes',
+            'billable_minutes',
+            'total_amount',
+            'created_at',
+            'created_by',
+          ])
+          .expression((eb) =>
+            eb
+              .selectFrom('totals')
+              .select([
+                eb.val(period.slackTeamId).as('slack_team_id'),
+                eb.val(period.clientId).as('client_id'),
+                eb.val(period.fromDate).as('period_start'),
+                eb.val(period.toDate).as('period_end'),
+                eb.val(currency).as('currency'),
+                'totals.total_minutes',
+                'totals.billable_minutes',
+                'totals.total_amount',
+                eb.val(new Date().toISOString()).as('created_at'),
+                eb.val(createdBy).as('created_by'),
+              ])
+              .where('totals.entry_count', '>', 0),
+          )
+          .returningAll(),
+      )
+      .with('lines', (db) =>
+        db
+          .insertInto('billing_snapshot_entries')
+          .columns([
+            'slack_team_id',
+            'snapshot_id',
+            'time_entry_id',
+            'minutes',
+            'billable',
+            'hourly_rate',
+            'amount',
+          ])
+          .expression((eb) =>
+            eb
+              .selectFrom('picked')
+              .crossJoin('snapshot')
+              .select([
+                'picked.slack_team_id',
+                'snapshot.id',
+                'picked.time_entry_id',
+                'picked.minutes',
+                'picked.billable',
+                'picked.hourly_rate',
+                'picked.amount',
+              ]),
+          ),
+      )
+      .selectFrom('snapshot')
+      .crossJoin('totals')
+      .selectAll('snapshot')
+      .select((eb) => [
+        ...this.relationColumns(eb as never, 'snapshot'),
+        'totals.entry_count',
+        'totals.unrated_minutes',
+      ])
+      .executeTakeFirst();
+
+    return row
+      ? {
+          ...this.mapToViewModel(row as never),
+          entryCount: row.entry_count,
+          unratedMinutes: row.unrated_minutes,
+        }
+      : null;
+  }
 
   // Marks the snapshot invoiced unless it already is: true when this call
   // did, so two people marking it at once don't both succeed.

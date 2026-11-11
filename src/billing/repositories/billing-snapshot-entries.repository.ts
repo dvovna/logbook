@@ -8,23 +8,14 @@ import {
   IOpenPeriod,
   ISnapshotEntryStats,
   ISnapshotLine,
-  ISnapshotLineInsert,
+  ISnapshotTotals,
   IUnbilledClientTime,
-  IUnbilledEntry,
 } from 'src/billing/types/billing-snapshot.types';
-
-interface IFindUnbilledParams {
-  slackTeamId: string;
-  projectIds: string[];
-  fromDate: string;
-  toDate: string;
-  // Locks the entries until the transaction ends (FOR UPDATE), so that none
-  // of them changes before the snapshot that takes them commits.
-  lock?: boolean;
-}
-
-// Rows per insert: well under PostgreSQL's 65535 parameters.
-const INSERT_CHUNK = 1000;
+import {
+  IUnbilledPeriod,
+  LINE_TOTALS,
+  unbilledLines,
+} from 'src/billing/queries/unbilled-lines.query';
 
 const centsOrNull = (amount: number | null) =>
   amount === null ? null : toCents(amount);
@@ -44,70 +35,35 @@ export class BillingSnapshotEntriesRepository extends BaseRepository<
 
   protected mapToViewModel = (row: SqlRow<'billing_snapshot_entries'>) => row;
 
-  // The approved entries of the projects in the period that are in no
-  // snapshot yet; deleted ones never are.
-  public async findUnbilledApproved({
-    slackTeamId,
-    projectIds,
-    fromDate,
-    toDate,
-    lock = false,
-  }: IFindUnbilledParams): Promise<IUnbilledEntry[]> {
-    if (!projectIds.length) {
-      return [];
-    }
+  // Whether a snapshot of the client's period would take anything now.
+  public async hasUnbilled(period: IUnbilledPeriod): Promise<boolean> {
+    const row = await unbilledLines(this.db, period)
+      .clearSelect()
+      .select(sql<number>`1`.as('one'))
+      .limit(1)
+      .executeTakeFirst();
 
-    const query = this.db
-      .selectFrom('time_entries as te')
-      .select([
-        'te.id',
-        'te.user_id',
-        'te.project_id',
-        'te.minutes',
-        'te.billable',
-      ])
-      .where('te.slack_team_id', '=', this.requireWorkspace(slackTeamId))
-      .where('te.project_id', 'in', projectIds)
-      .where('te.status', '=', TimeEntryStatus.Approved)
-      .where('te.deleted_at', 'is', null)
-      .where('te.work_date', '>=', fromDate)
-      .where('te.work_date', '<=', toDate)
-      .where(({ not, exists, selectFrom }) =>
-        not(
-          exists(
-            selectFrom('billing_snapshot_entries as bse')
-              .select('bse.time_entry_id')
-              .whereRef('bse.time_entry_id', '=', 'te.id'),
-          ),
-        ),
-      )
-      .orderBy('te.work_date')
-      .orderBy('te.id');
-
-    return (lock ? query.forUpdate() : query).execute();
+    return !!row;
   }
 
-  public async insertLines(
-    slackTeamId: string,
-    snapshotId: string,
-    lines: ISnapshotLineInsert[],
-  ): Promise<void> {
-    for (let i = 0; i < lines.length; i += INSERT_CHUNK) {
-      await this.db
-        .insertInto('billing_snapshot_entries')
-        .values(
-          lines.slice(i, i + INSERT_CHUNK).map((line) => ({
-            slack_team_id: this.requireWorkspace(slackTeamId),
-            snapshot_id: snapshotId,
-            time_entry_id: line.timeEntryId,
-            minutes: line.minutes,
-            billable: line.billable,
-            hourly_rate: line.hourlyRate,
-            amount: line.amountCents === null ? null : line.amountCents / 100,
-          })),
-        )
-        .execute();
-    }
+  // What a snapshot of the client's period would take now, added up as the
+  // snapshot adds up its lines.
+  public async unbilledTotals(
+    period: IUnbilledPeriod,
+  ): Promise<ISnapshotTotals> {
+    const row = await this.db
+      .with('picked', (db) => unbilledLines(db, period))
+      .selectFrom('picked')
+      .select(LINE_TOTALS)
+      .executeTakeFirstOrThrow();
+
+    return {
+      entryCount: row.entry_count,
+      totalMinutes: row.total_minutes,
+      billableMinutes: row.billable_minutes,
+      amountCents: toCents(row.total_amount),
+      unratedMinutes: row.unrated_minutes,
+    };
   }
 
   // Each snapshot's entries counted, by snapshot ID.

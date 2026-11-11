@@ -1,6 +1,10 @@
+import { sql } from 'kysely';
 import { ModalView, View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
+import { amountInCents, formatMoney, toCents } from '@common/utils/money.utils';
+import { getDisplayTime } from '@common/utils/time.utils';
+import { billingSnapshotsLock } from 'src/database/advisory-locks';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ReportsTabActionId } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
@@ -518,6 +522,190 @@ describe('Billing snapshots', () => {
 
       expect(modalError(shown)).toBe('Client not found.');
       expect(submitOf(shown)).toBeUndefined();
+    });
+
+    // A year of a big client's time: the answer doesn't wait for it, and
+    // the lines are written in one statement, each with the rate and amount
+    // the app worked out entry by entry before (amountInCents).
+    it('locks thousands of entries after the answer, with the lines the app worked out before', async () => {
+      const YEAR = { fromDate: '2026-01-01', toDate: '2026-12-31' };
+      // Half a cent at 15 and 45 minutes, 2500.5 and 7501.5 cents, rounded up.
+      const platform = await workspace.addProject({
+        name: 'Platform',
+        client_id: acme.id,
+        hourly_rate: 100.02,
+      });
+      const people = [admin, finance, manager, mia];
+
+      await workspace.addPersonRate(platform, mia, 133.37);
+      await workspace.addPersonRate(support, finance, 77.77);
+      await sql`
+        insert into time_entries (
+          slack_team_id, user_id, project_id, client_id, work_date, minutes,
+          status, billable, created_by, updated_by
+        )
+        select ${workspace.id}::uuid,
+          (${sql.lit(`{${people.map(({ id }) => id).join(',')}}`)}::uuid[])[1 + g % 4],
+          (${sql.lit(`{${[website.id, support.id, platform.id].join(',')}}`)}::uuid[])[1 + (g / 4) % 3],
+          ${acme.id}::uuid, date '2026-01-01' + g % 365, 15 * (1 + g % 8),
+          ${TimeEntryStatus.Approved}, g % 7 <> 0, ${admin.id}::uuid,
+          ${admin.id}::uuid
+        from generate_series(1, 20000) g
+      `.execute(t.db);
+
+      const form = await openLockForm(admin, YEAR);
+      const mark = t.sql.mark();
+      const since = t.slackApi.mark();
+      const startedAt = performance.now();
+      const response = await t.slack
+        .submitView(workspace, admin, form, {})
+        .expect(200);
+
+      expect(performance.now() - startedAt).toBeLessThan(2500);
+      expect(response.body).toEqual({ response_action: 'clear' });
+
+      const tab = await publishedHome(t, workspace, admin, since);
+      const { answer, after } = statementsSince(mark);
+      const writesLines = ({ text }: { text: string }) =>
+        text.includes('insert into "billing_snapshot_entries"');
+
+      expect(answer.filter(writesLines)).toEqual([]);
+      expect(after.filter(writesLines)).toHaveLength(1);
+
+      // What the app took before: the approved entries of Acme's projects in
+      // the period, each at the person's own rate, else the project's.
+      const entries = await t.db
+        .selectFrom('time_entries')
+        .select(['id', 'user_id', 'project_id', 'minutes', 'billable'])
+        .where('slack_team_id', '=', workspace.id)
+        .where('status', '=', TimeEntryStatus.Approved)
+        .where('deleted_at', 'is', null)
+        .where('work_date', '>=', YEAR.fromDate)
+        .where('work_date', '<=', YEAR.toDate)
+        .execute();
+      const projectRates = new Map(
+        [website, support, platform].map(({ id, hourly_rate }) => [
+          id,
+          hourly_rate,
+        ]),
+      );
+      const ownRates = new Map(
+        (await workspace.rows('project_user_rates')).map((rate) => [
+          `${rate.project_id}:${rate.user_id}`,
+          rate.hourly_rate,
+        ]),
+      );
+      const expected = entries
+        .map((entry) => {
+          const rate =
+            ownRates.get(`${entry.project_id}:${entry.user_id}`) ??
+            projectRates.get(entry.project_id) ??
+            null;
+
+          return {
+            time_entry_id: entry.id,
+            minutes: entry.minutes,
+            billable: entry.billable,
+            hourly_rate: rate,
+            amountCents:
+              entry.billable && rate !== null
+                ? amountInCents(entry.minutes, rate)
+                : null,
+          };
+        })
+        .sort((a, b) => a.time_entry_id.localeCompare(b.time_entry_id));
+      const lines = (await workspace.rows('billing_snapshot_entries'))
+        .map(({ time_entry_id, minutes, billable, hourly_rate, amount }) => ({
+          time_entry_id,
+          minutes,
+          billable,
+          hourly_rate,
+          amountCents: amount === null ? null : toCents(amount),
+        }))
+        .sort((a, b) => a.time_entry_id.localeCompare(b.time_entry_id));
+      const sum = (values: (number | null)[]) =>
+        values.reduce<number>((total, value) => total + (value ?? 0), 0);
+      const amountCents = sum(expected.map((line) => line.amountCents));
+
+      // The 20000, June's three and 29 May's.
+      expect(lines).toHaveLength(20004);
+      expect(lines).toEqual(expected);
+      expect(
+        lines.some(
+          ({ amountCents: cents }) => cents === 2501 || cents === 7502,
+        ),
+      ).toBe(true);
+
+      const [snapshot] = await snapshotRows();
+
+      expect(snapshot).toMatchObject({
+        total_minutes: sum(expected.map(({ minutes }) => minutes)),
+        billable_minutes: sum(
+          expected.map(({ minutes, billable }) => (billable ? minutes : 0)),
+        ),
+      });
+      expect(toCents(snapshot.total_amount)).toBe(amountCents);
+      expect(noticeOf(tab)).toBe(
+        `🔒 Acme · 1 Jan – 31 Dec 2026 locked: 20004 entries, ${getDisplayTime(snapshot.total_minutes)}, ${formatMoney(amountCents, 'USD')}.`,
+      );
+    });
+
+    it('answers at once while another snapshot is being made, then tells what was left', async () => {
+      const form = await openLockForm();
+      const since = t.slackApi.mark();
+
+      // The workspace's snapshot lock, held as by another snapshot being
+      // made: the answer doesn't wait for it, the snapshot does.
+      await t.db.transaction().execute(async (trx) => {
+        await sql`select pg_advisory_xact_lock(hashtextextended(${billingSnapshotsLock(workspace.id).key}, 0))`.execute(
+          trx,
+        );
+
+        const response = await t.slack
+          .submitView(workspace, admin, form, {})
+          .expect(200);
+
+        expect(response.body).toEqual({ response_action: 'clear' });
+
+        // The other snapshot takes June's time.
+        const other = await trx
+          .insertInto('billing_snapshots')
+          .values({
+            slack_team_id: workspace.id,
+            client_id: acme.id,
+            period_start: JUNE.fromDate,
+            period_end: JUNE.toDate,
+            currency: 'USD',
+            total_minutes: 180,
+            billable_minutes: 120,
+            total_amount: 225,
+          })
+          .returning('id')
+          .executeTakeFirstOrThrow();
+
+        await trx
+          .insertInto('billing_snapshot_entries')
+          .values(
+            june.map(({ id, minutes, billable }) => ({
+              slack_team_id: workspace.id,
+              snapshot_id: other.id,
+              time_entry_id: id,
+              minutes,
+              billable,
+            })),
+          )
+          .execute();
+      });
+
+      const tab = await publishedHome(t, workspace, admin, since);
+
+      expect(noticeOf(tab)).toBe(
+        '⚠️ Nothing was locked. No approved time of Acme in 1–30 Jun 2026 is left outside snapshots.',
+      );
+      expect(sectionTexts(tab)).toContain(
+        '*Billing report: Acme* · 1–30 Jun 2026\nApproved: *3h*, billable *2h* · Amount: *$225.00*\n_Not approved yet: 1h_\n_In billing snapshots already: 3h of the approved time_',
+      );
+      expect(await snapshotRows()).toHaveLength(1);
     });
   });
 
