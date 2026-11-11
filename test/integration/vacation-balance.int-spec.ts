@@ -4,9 +4,15 @@ import { Tables, TablesInsert } from '@common/types/database.types';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { addDays, workWeek } from './support/dates';
-import { openAppHomeTab } from './support/app-home';
+import { openAppHomeTab, openModalFrom } from './support/app-home';
 import { modalError, sectionTexts } from './support/tab-readers';
-import { submitVacationRequest } from './support/vacation-flows';
+import {
+  requestVacation,
+  submitVacationRequest,
+} from './support/vacation-flows';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 
 // Today is Wednesday 2026-06-17 (TEST_NOW). Without a contract start date the
 // vacation year is the calendar year 2026.
@@ -45,6 +51,20 @@ describe('Vacation balance under a policy', () => {
       (text) =>
         text.startsWith('Annual leave') || text.startsWith('Bonus days'),
     );
+
+  const addHoliday = (date: string, fields = {}) =>
+    t.db
+      .insertInto('holidays')
+      .values({
+        slack_team_id: workspace.id,
+        vacation_policy_id: policy.id,
+        name: 'Holiday',
+        date,
+        year: Number(date.slice(0, 4)),
+        created_by: member.id,
+        ...fields,
+      })
+      .execute();
 
   const request = (type = VacationType.AnnualLeave, week = workWeek(1)) =>
     submitVacationRequest(t, workspace, member, { ...week, type });
@@ -150,6 +170,18 @@ describe('Vacation balance under a policy', () => {
         'Annual leave: *16 available* / 20 total (*4* used, *3* working)',
       ]);
     });
+
+    it('counts a holiday added after the request was made', async () => {
+      await setUp({ vacation_days: 30, working_days: 30 });
+      const week = workWeek(1);
+      await requestVacation(t, workspace, member, week);
+
+      await addHoliday(addDays(week.start, 1));
+
+      expect(await usageOnHome()).toEqual([
+        'Annual leave: *25 available* / 30 total (*5* used, *4* working)',
+      ]);
+    });
   });
 
   describe('requesting', () => {
@@ -212,24 +244,11 @@ describe('Vacation balance under a policy', () => {
       await setUp({ vacation_days: 30, working_days: 30 });
       const otherPolicy = await workspace.addVacationPolicy();
       const week = workWeek(1);
-      const holiday = (date: string, fields = {}) =>
-        t.db
-          .insertInto('holidays')
-          .values({
-            slack_team_id: workspace.id,
-            vacation_policy_id: policy.id,
-            name: 'Holiday',
-            date,
-            year: 2026,
-            created_by: member.id,
-            ...fields,
-          })
-          .execute();
       // Tuesday counts as a holiday; Wednesday's is disabled, Thursday's
       // belongs to another policy.
-      await holiday('2026-06-23');
-      await holiday('2026-06-24', { is_disabled: true });
-      await holiday('2026-06-25', { vacation_policy_id: otherPolicy.id });
+      await addHoliday('2026-06-23');
+      await addHoliday('2026-06-24', { is_disabled: true });
+      await addHoliday('2026-06-25', { vacation_policy_id: otherPolicy.id });
 
       await request(VacationType.AnnualLeave, week);
 
@@ -240,6 +259,174 @@ describe('Vacation balance under a policy', () => {
           working_days: 4,
         }),
       ]);
+    });
+  });
+
+  describe('a request in another vacation year', () => {
+    it("checks next year's request against next year, not this one", async () => {
+      await setUp({ vacation_days: 10, working_days: 10 });
+      await workspace.addVacationRequest(member, {
+        start_date: '2026-03-02',
+        end_date: '2026-03-11',
+      });
+
+      const response = await submitVacationRequest(t, workspace, member, {
+        start: '2027-01-04',
+        end: '2027-01-08',
+      });
+
+      expect(response).toEqual({ response_action: 'clear' });
+    });
+
+    it("refuses more than next year's policy allows, naming the year", async () => {
+      await setUp({ vacation_days: 10, working_days: 10 });
+      await workspace.addVacationRequest(member, {
+        start_date: '2027-01-04',
+        end_date: '2027-01-13',
+      });
+
+      const response = await submitVacationRequest(t, workspace, member, {
+        start: '2027-02-01',
+        end: '2027-02-05',
+      });
+
+      expect(response).toEqual({
+        response_action: 'errors',
+        errors: {
+          end_date_block:
+            'Not enough vacation days in the vacation year from 1 Jan 2027. Requested: 5, available: 0',
+        },
+      });
+    });
+
+    it("gives next year no carryover: it is this year's", async () => {
+      await setUp({ vacation_days: 3, working_days: 3 }, { carryover_days: 2 });
+
+      const response = await submitVacationRequest(t, workspace, member, {
+        start: '2027-01-04',
+        end: '2027-01-08',
+      });
+
+      expect(response).toEqual({
+        response_action: 'errors',
+        errors: {
+          end_date_block:
+            'Not enough vacation days in the vacation year from 1 Jan 2027. Requested: 5, available: 3',
+        },
+      });
+    });
+
+    it('checks the days on each side of the anniversary against their year', async () => {
+      await setUp({ vacation_days: 5 }, { contract_start_date: '2025-07-01' });
+      // 4 days used in the year that ends on 2026-06-30.
+      await workspace.addVacationRequest(member, {
+        start_date: '2026-02-02',
+        end_date: '2026-02-05',
+      });
+
+      // Two days before the anniversary, three after: 4 + 2 > 5.
+      const response = await submitVacationRequest(t, workspace, member, {
+        start: '2026-06-29',
+        end: '2026-07-03',
+      });
+
+      expect(response).toEqual({
+        response_action: 'errors',
+        errors: {
+          end_date_block:
+            'Not enough vacation days. Requested: 2, available: 1',
+        },
+      });
+    });
+  });
+
+  describe('editing a request', () => {
+    let hr: Tables<'users'>;
+
+    beforeEach(async () => {
+      hr = await workspace.addUser({ role: UserRole.HR });
+    });
+
+    const edit = async (
+      request: Tables<'vacation_requests'>,
+      values: Record<string, string>,
+    ) => {
+      const form = await openModalFrom(
+        t,
+        workspace,
+        hr,
+        await openAppHomeTab(t, workspace, hr, [
+          NavigationActionId.TimeOff,
+          NavigationActionId.AllRequests,
+        ]),
+        VacationRequestsTabViewActionId.ManageRequestMenu,
+        `${VacationRequestsTabViewActionId.EditRequest}:${request.id}`,
+      );
+      const response = await t.slack
+        .submitView(workspace, hr, form, {
+          [VacationRequestsTabViewActionId.UserField]: member.id,
+          status: request.status,
+          start_date: request.start_date,
+          end_date: request.end_date,
+          type_option: request.type,
+          ...values,
+        })
+        .expect(200);
+
+      return response.body;
+    };
+
+    it('moves a request without counting it twice', async () => {
+      await setUp({ vacation_days: 8, working_days: 8 });
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      const moved = workWeek(3);
+
+      expect(
+        await edit(request, { start_date: moved.start, end_date: moved.end }),
+      ).toEqual({ response_action: 'clear' });
+      expect(await workspace.row('vacation_requests', request.id)).toEqual(
+        expect.objectContaining({ start_date: moved.start }),
+      );
+    });
+
+    it('checks the balance when sick leave becomes annual leave', async () => {
+      await setUp({ vacation_days: 3, working_days: 3 });
+      const request = await workspace.addVacationRequest(member, {
+        start_date: workWeek(2).start,
+        end_date: workWeek(2).end,
+        type: VacationType.SickLeave,
+        days: 5,
+        working_days: 5,
+      });
+
+      expect(
+        await edit(request, { type_option: VacationType.AnnualLeave }),
+      ).toEqual({
+        response_action: 'errors',
+        errors: {
+          end_date_block:
+            'Not enough vacation days. Requested: 5, available: 3',
+        },
+      });
+    });
+
+    it('checks the balance when a rejected request is approved after all', async () => {
+      await setUp({ vacation_days: 3, working_days: 3 });
+      const request = await workspace.addVacationRequest(member, {
+        start_date: workWeek(2).start,
+        end_date: workWeek(2).end,
+        status: VacationRequestStatus.Rejected,
+      });
+
+      expect(
+        await edit(request, { status: VacationRequestStatus.Approved }),
+      ).toEqual({
+        response_action: 'errors',
+        errors: {
+          end_date_block:
+            'Not enough vacation days. Requested: 5, available: 3',
+        },
+      });
     });
   });
 });

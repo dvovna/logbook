@@ -122,6 +122,15 @@ describe('VacationRequestsService', () => {
       validator as unknown as VacationRequestsValidationService,
       {
         calculate: jest.fn().mockResolvedValue(5),
+        workingDates: jest
+          .fn()
+          .mockResolvedValue([
+            '2026-02-02',
+            '2026-02-03',
+            '2026-02-04',
+            '2026-02-05',
+            '2026-02-06',
+          ]),
       } as unknown as VacationDaysCalculationService,
       teamRules as unknown as TeamRulesService,
       eventEmitter as unknown as EventEmitter2,
@@ -164,6 +173,7 @@ describe('VacationRequestsService', () => {
       );
 
       expect(validator.validateNoOverlap).not.toHaveBeenCalled();
+      expect(validator.validateDaysRequested).not.toHaveBeenCalled();
     });
 
     it('checks new dates on edit, ignoring the edited request itself', async () => {
@@ -244,13 +254,66 @@ describe('VacationRequestsService', () => {
         admin,
       );
 
-      // An edit reads the balance beside the working days, then checks it.
-      expect(validator.getUsage).toHaveBeenCalledWith(requester);
+      // An edit reads the balance beside the working days, without the
+      // request itself, then checks it.
+      expect(validator.getUsage).toHaveBeenCalledWith(
+        requester,
+        expect.objectContaining({ endDate: new Date('2026-02-09') }),
+        { excludeRequestId: 'request-1' },
+      );
       expect(validator.checkDaysRequested).toHaveBeenCalledWith(
-        expect.anything(),
+        expect.objectContaining({ workingDates: expect.any(Array) }),
         VacationType.AnnualLeave,
         usage,
       );
+    });
+
+    it('checks the balance when an edit makes sick leave annual leave', async () => {
+      usersService.findOneWithValidation.mockResolvedValue(requester);
+      repository.findOne.mockResolvedValue(
+        buildRequest({ type: VacationType.SickLeave }),
+      );
+      validator.getUsage.mockResolvedValue([]);
+
+      await service.checkUpdate(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { type: VacationType.AnnualLeave },
+        admin,
+      );
+
+      expect(validator.checkDaysRequested).toHaveBeenCalledWith(
+        expect.anything(),
+        VacationType.AnnualLeave,
+        [],
+      );
+    });
+
+    it('checks the balance when an edit brings back a rejected request', async () => {
+      usersService.findOneWithValidation.mockResolvedValue(requester);
+      repository.findOne.mockResolvedValue(
+        buildRequest({ status: VacationRequestStatus.Rejected }),
+      );
+
+      await service.checkUpdate(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { status: VacationRequestStatus.Approved },
+        admin,
+      );
+
+      expect(validator.getUsage).toHaveBeenCalled();
+    });
+
+    it('leaves the balance alone when an edit changes only the comment', async () => {
+      repository.findOne.mockResolvedValue(buildRequest());
+
+      await service.checkUpdate(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { userComment: 'Back on Monday' },
+        requester,
+      );
+
+      expect(validator.getUsage).not.toHaveBeenCalled();
+      expect(validator.checkDaysRequested).not.toHaveBeenCalled();
     });
 
     it("puts an edited request in its person's team", async () => {

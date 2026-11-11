@@ -6,6 +6,8 @@ import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import { getCurrentVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
 import { VacationPeriodUsageService } from '@modules/vacation-requests/services/vacation-period-usage.service';
+import { IEffectiveTeamRules } from '@modules/teams/types/effective-team-rules.interface';
+import { getDateOnly } from '@common/utils/date.utils';
 
 export interface IVacationLimits {
   vacationDays: number;
@@ -26,6 +28,11 @@ interface IVacationsUsageService {
   getCurrentVacationPeriodUsage(
     user: IUserViewModel,
   ): Promise<IVacationPeriodUsageData>;
+  getVacationPeriodUsage(
+    user: IUserViewModel,
+    date: Date,
+    options?: { excludeRequestId?: string },
+  ): Promise<IVacationPeriodUsageData>;
 }
 
 @Injectable()
@@ -36,14 +43,32 @@ export class VacationsUsageService implements IVacationsUsageService {
     private readonly vacationPoliciesService: VacationPoliciesService,
   ) {}
 
-  // `limits` is null when no vacation policy applies to the user (neither
-  // their team's nor the company rules'): usage is tracked, but nothing is
-  // enforced.
-  public async getCurrentVacationPeriodUsage(
+  public getCurrentVacationPeriodUsage(
     user: IUserViewModel,
+  ): Promise<IVacationPeriodUsageData> {
+    return this.getVacationPeriodUsage(user, new Date());
+  }
+
+  // The balance of the vacation year that holds `date`. `limits` is null
+  // when no vacation policy applies to the user (neither their team's nor
+  // the company rules'): usage is tracked, but nothing is enforced.
+  // Carryover counts only in the current year: it is what was left of the
+  // year before.
+  public async getVacationPeriodUsage(
+    user: IUserViewModel,
+    date: Date,
+    { excludeRequestId }: { excludeRequestId?: string } = {},
   ): Promise<IVacationPeriodUsageData> {
     const { periodStart, periodEnd } = getCurrentVacationPeriod(
       user.contract_start_date,
+      date,
+    );
+    const today = getDateOnly(new Date());
+    const isCurrent =
+      getDateOnly(periodStart) <= today && today <= getDateOnly(periodEnd);
+    const ownRules = this.teamRulesService.forTeam(
+      user.team_id,
+      user.slack_team_id,
     );
 
     const [periodUsage, limits] = await Promise.all([
@@ -51,8 +76,13 @@ export class VacationsUsageService implements IVacationsUsageService {
         user,
         periodStart,
         periodEnd,
+        { excludeRequestId, ownRules },
       ),
-      this.getVacationPeriodLimits(user),
+      this.getVacationPeriodLimits(
+        user,
+        ownRules,
+        isCurrent ? user.carryover_days || 0 : 0,
+      ),
     ]);
 
     const {
@@ -91,34 +121,30 @@ export class VacationsUsageService implements IVacationsUsageService {
     };
   }
 
-  private async getVacationPeriodLimits(user: IUserViewModel) {
-    const teamVacationPolicy = await this.getVacationPolicyIfExists(user);
+  private async getVacationPeriodLimits(
+    user: IUserViewModel,
+    ownRules: Promise<IEffectiveTeamRules>,
+    carryoverDays: number,
+  ): Promise<IVacationLimits | null> {
+    const { vacationPolicyId } = await ownRules;
 
-    return (
-      teamVacationPolicy && {
-        vacationDays: teamVacationPolicy?.vacation_days || 0,
-        workingDays: teamVacationPolicy?.working_days || 0,
-        bonusDays: teamVacationPolicy?.bonus_days || 0,
-        carryoverDays: user.carryover_days || 0,
-        daysTotal:
-          (teamVacationPolicy?.vacation_days || 0) + (user.carryover_days || 0),
-      }
-    );
-  }
+    const policy = vacationPolicyId
+      ? await this.vacationPoliciesService.findOne({
+          id: vacationPolicyId,
+          slackTeamId: user.slack_team_id,
+        })
+      : null;
 
-  private async getVacationPolicyIfExists(user: IUserViewModel) {
-    const { vacationPolicyId } = await this.teamRulesService.forTeam(
-      user.team_id,
-      user.slack_team_id,
-    );
-
-    if (!vacationPolicyId) {
+    if (!policy) {
       return null;
     }
 
-    return this.vacationPoliciesService.findOne({
-      id: vacationPolicyId,
-      slackTeamId: user.slack_team_id,
-    });
+    return {
+      vacationDays: policy.vacation_days || 0,
+      workingDays: policy.working_days || 0,
+      bonusDays: policy.bonus_days || 0,
+      carryoverDays,
+      daysTotal: (policy.vacation_days || 0) + carryoverDays,
+    };
   }
 }

@@ -1,4 +1,4 @@
-import { formatDateRange } from '@common/utils/date.utils';
+import { formatDate, formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
@@ -12,6 +12,16 @@ import VacationType from '@common/enums/vacation-type.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { getDateOnly } from '@common/utils/date.utils';
+import getDaysBetweenDates from '@common/utils/get-days-between-dates';
+import { getVacationPeriodsBetween } from '@modules/vacation-requests/utils/vacation-period.utils';
+
+// A request's dates and its working days ('YYYY-MM-DD'), which the check
+// splits by vacation year.
+export interface IRequestedDays {
+  startDate: Date;
+  endDate: Date;
+  workingDates: string[];
+}
 
 export const ACTIVE_REQUEST_STATUSES = [
   VacationRequestStatus.Pending,
@@ -91,83 +101,115 @@ export class VacationRequestsValidationService {
   }
 
   public async validateDaysRequested(
-    daysRequest: {
-      calendarDays: number;
-      workingDays: number;
-    },
+    request: IRequestedDays,
     vacationType: VacationType,
     user: IUserViewModel,
   ) {
     this.checkDaysRequested(
-      daysRequest,
+      request,
       vacationType,
-      await this.getUsage(user),
+      await this.getUsage(user, request),
     );
   }
 
   // validateDaysRequested in two steps, for a caller that reads the balance
-  // while it counts the working days: the read, then the check.
-  public getUsage(user: IUserViewModel): Promise<IVacationPeriodUsageData> {
-    return this.userVacationsUsageService.getCurrentVacationPeriodUsage(user);
+  // while it counts the working days: the read, then the check. The balance
+  // of every vacation year the dates touch, without the request being
+  // edited (`excludeRequestId`), which would otherwise count twice.
+  public getUsage(
+    user: IUserViewModel,
+    { startDate, endDate }: Pick<IRequestedDays, 'startDate' | 'endDate'>,
+    { excludeRequestId }: { excludeRequestId?: string } = {},
+  ): Promise<IVacationPeriodUsageData[]> {
+    return Promise.all(
+      getVacationPeriodsBetween(
+        user.contract_start_date,
+        startDate,
+        endDate,
+      ).map(({ periodStart }) =>
+        this.userVacationsUsageService.getVacationPeriodUsage(
+          user,
+          periodStart,
+          { excludeRequestId },
+        ),
+      ),
+    );
   }
 
+  // Each vacation year with the request's days in it.
   public checkDaysRequested(
-    daysRequest: {
-      calendarDays: number;
-      workingDays: number;
-    },
+    { startDate, endDate, workingDates }: IRequestedDays,
     vacationType: VacationType,
-    usageData: IVacationPeriodUsageData,
+    usageByPeriod: IVacationPeriodUsageData[],
   ) {
-    const { calendarDays, workingDays } = daysRequest;
+    const today = getDateOnly(new Date());
+    const start = getDateOnly(startDate);
+    const end = getDateOnly(endDate);
 
-    if (!usageData || !usageData.limits) {
-      return;
-    }
-
-    const { usage } = usageData;
-
-    switch (vacationType) {
-      case VacationType.AnnualLeave: {
-        const usageByType = usage[vacationType];
-
-        this.validateVacationDaysUsage(
-          calendarDays,
-          usageByType.available,
-          'vacation',
-        );
-        this.validateVacationDaysUsage(
-          workingDays,
-          usageByType.working_days_available,
-          'working',
-        );
-
-        break;
+    for (const { periodStart, periodEnd, usage, limits } of usageByPeriod) {
+      if (!limits) {
+        continue;
       }
-      case VacationType.BonusDay: {
-        const usageByType = usage[vacationType];
 
-        this.validateVacationDaysUsage(
-          calendarDays,
-          usageByType.available,
-          'bonus',
-        );
+      const from = [start, getDateOnly(periodStart)].sort()[1];
+      const to = [end, getDateOnly(periodEnd)].sort()[0];
+      const calendarDays = getDaysBetweenDates(new Date(from), new Date(to));
+      const workingDays = workingDates.filter(
+        (date) => date >= from && date <= to,
+      ).length;
+      // A year other than the current one is named: its balance is not the
+      // one Home shows.
+      const year =
+        getDateOnly(periodStart) <= today && today <= getDateOnly(periodEnd)
+          ? ''
+          : ` in the vacation year from ${formatDate(periodStart)}`;
 
-        break;
+      switch (vacationType) {
+        case VacationType.AnnualLeave: {
+          const usageByType = usage[vacationType];
+
+          this.validateVacationDaysUsage(
+            calendarDays,
+            usageByType.available,
+            'vacation',
+            year,
+          );
+          this.validateVacationDaysUsage(
+            workingDays,
+            usageByType.working_days_available,
+            'working',
+            year,
+          );
+
+          break;
+        }
+        case VacationType.BonusDay: {
+          const usageByType = usage[vacationType];
+
+          this.validateVacationDaysUsage(
+            calendarDays,
+            usageByType.available,
+            'bonus',
+            year,
+          );
+
+          break;
+        }
+        default:
+          return;
       }
-      default:
-        return;
     }
   }
 
   private validateVacationDaysUsage(
     daysRequested: number,
     daysAvailable: number,
-    daysType: 'vacation' | 'working' | 'bonus' = 'vacation',
+    daysType: 'vacation' | 'working' | 'bonus',
+    year: string,
   ) {
     if (daysRequested > daysAvailable) {
       throw new ValidationError(
-        `Not enough ${daysType} days. Requested: ${daysRequested}, available: ${daysAvailable}`,
+        `Not enough ${daysType} days${year}. Requested: ${daysRequested}, available: ${daysAvailable}`,
         'dates',
       );
     }

@@ -267,7 +267,8 @@ Slash command replies stay in memory (`runInBackground`): a reply hours later is
 - **Vacation year and limits** (`VacationsUsageService`):
   - The year runs from the contract start anniversary, or over the calendar year when the user has no contract start date (`vacation-period.utils.ts`).
   - Limits come only from the vacation policy the user's team follows: its own, or the company rules' for a team that follows them and for someone in no team. With no policy, `limits` is null: usage is tracked and shown, but no balance is checked. This is the "no setup" mode.
-  - Usage is counted from the requests on every read (`VacationPeriodUsageService`), not cached: a cache went stale on CSV imports and holiday or policy changes.
+  - Usage is counted from the requests on every read (`VacationPeriodUsageService`), not cached: a cache went stale on CSV imports and holiday or policy changes. Working days too, from the current holidays of the policy each request's team follows; a request's stored `working_days` is what it showed when it was made.
+  - A request is checked against every vacation year it touches (`getVacationPeriodsBetween`), each with its days in that year, and an edited one without itself. Carryover counts only in the current year.
 - **Working days:** `VacationDaysCalculationService` excludes weekends and the enabled holidays of the user's vacation policy. Holidays can be imported per country from Nager.Date (`src/holidays/clients/nager-date.client.ts`).
 - **File imports:** Slack sends `file_shared`, and `FileUploadService` routes the file:
   - `user-vacations.csv` (by name; Admin only; the `/upload-vacations` command or Users → Import vacations posts the prompt) goes to `src/user-data-import/`: sets the contract start date and replaces the user's vacations (the approvers of a pending one see their message closed), `;` separated.

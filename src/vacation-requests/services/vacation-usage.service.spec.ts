@@ -66,6 +66,7 @@ describe('VacationsUsageService', () => {
       user,
       new Date('2026-01-01T00:00:00Z'),
       new Date('2026-12-31T00:00:00Z'),
+      { excludeRequestId: undefined, ownRules: expect.any(Promise) },
     );
     expect(result.usage.annual_leave.used).toBe(5);
     expect(result.usage.sick_leave.used).toBe(2);
@@ -96,5 +97,32 @@ describe('VacationsUsageService', () => {
       id: 'policy-1',
       slackTeamId: SLACK_TEAM_ID,
     });
+  });
+
+  it('counts carryover only in the current vacation year', async () => {
+    teamRules.forTeam.mockResolvedValue({ vacationPolicyId: 'policy-1' });
+    policiesService.findOne.mockResolvedValue({
+      vacation_days: 20,
+      working_days: 20,
+      bonus_days: 0,
+    });
+    const user = buildUser({ carryover_days: 3 });
+
+    const thisYear = await service.getCurrentVacationPeriodUsage(user);
+    const nextYear = await service.getVacationPeriodUsage(
+      user,
+      new Date('2027-02-01'),
+      { excludeRequestId: 'request-1' },
+    );
+
+    expect(thisYear.limits?.daysTotal).toBe(23);
+    expect(nextYear.periodStart).toEqual(new Date('2027-01-01T00:00:00Z'));
+    expect(nextYear.limits?.daysTotal).toBe(20);
+    expect(periodUsageService.getPeriodUsage).toHaveBeenLastCalledWith(
+      user,
+      new Date('2027-01-01T00:00:00Z'),
+      new Date('2027-12-31T00:00:00Z'),
+      { excludeRequestId: 'request-1', ownRules: expect.any(Promise) },
+    );
   });
 });

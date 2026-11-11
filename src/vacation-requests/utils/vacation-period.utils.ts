@@ -32,3 +32,24 @@ export const getCurrentVacationPeriod = (
 
   return { periodStart, periodEnd };
 };
+
+// The vacation years that hold some day from `start` to `end`, in order:
+// one, or more for a vacation across the anniversary.
+export const getVacationPeriodsBetween = (
+  contractStartDate: string | null | undefined,
+  start: Date,
+  end: Date,
+) => {
+  const periods = [getCurrentVacationPeriod(contractStartDate, start)];
+  let last = periods[0];
+
+  while (last.periodEnd < end) {
+    const next = new Date(last.periodEnd);
+    next.setDate(next.getDate() + 1);
+
+    last = getCurrentVacationPeriod(contractStartDate, next);
+    periods.push(last);
+  }
+
+  return periods;
+};

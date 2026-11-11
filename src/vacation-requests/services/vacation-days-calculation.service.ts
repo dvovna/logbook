@@ -24,12 +24,42 @@ export class VacationDaysCalculationService {
     vacationPolicyId: string | null,
     slackTeamId: string,
   ): Promise<string[]> {
-    const holidays = vacationPolicyId
-      ? await this.getHolidaysInRange(vacationPolicyId, slackTeamId, start, end)
-      : [];
+    return this.workingDatesWithout(
+      start,
+      end,
+      await this.holidayDates(vacationPolicyId, slackTeamId, start, end),
+    );
+  }
 
-    const holidayDates = holidays.map((holiday) => holiday.date);
+  // The enabled holidays of the policy from `start` to `end`, none without a
+  // policy.
+  public async holidayDates(
+    vacationPolicyId: string | null,
+    slackTeamId: string,
+    start: Date,
+    end: Date,
+  ): Promise<Set<string>> {
+    if (!vacationPolicyId) {
+      return new Set();
+    }
 
+    const holidays = await this.holidaysService.findMany({
+      slackTeamId,
+      vacationPolicyId,
+      startDate: start,
+      endDate: end,
+      excludeDisabled: true,
+    });
+
+    return new Set(holidays.map((holiday) => holiday.date));
+  }
+
+  // workingDates with the holidays already read.
+  public workingDatesWithout(
+    start: Date,
+    end: Date,
+    holidayDates: Set<string>,
+  ): string[] {
     const dates: string[] = [];
     const current = new Date(start);
 
@@ -37,7 +67,7 @@ export class VacationDaysCalculationService {
       const isWeekend = [0, 6].includes(current.getDay());
       const date = getDateOnly(current);
 
-      if (!isWeekend && !holidayDates.includes(date)) {
+      if (!isWeekend && !holidayDates.has(date)) {
         dates.push(date);
       }
 
@@ -45,20 +75,5 @@ export class VacationDaysCalculationService {
     }
 
     return dates;
-  }
-
-  private getHolidaysInRange(
-    vacationPolicyId: string,
-    slackTeamId: string,
-    start: Date,
-    end: Date,
-  ) {
-    return this.holidaysService.findMany({
-      slackTeamId,
-      vacationPolicyId,
-      startDate: start,
-      endDate: end,
-      excludeDisabled: true,
-    });
   }
 }
