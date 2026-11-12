@@ -1,3 +1,5 @@
+import { MAX_COMMENT_LENGTH } from '@common/constants/text-limits';
+
 export const LEAVE_FILE_UNUSABLE_REASONS = {
   noEmail: 'Row has no email',
   notInWorkspace: (email: string) => `${email} isn't in this Slack workspace`,
@@ -18,4 +20,13 @@ export const LEAVE_FILE_UNUSABLE_REASONS = {
     `Balance on must fall in ${name}'s current vacation year, which starts ${yearStart}`,
   noPolicy: (name: string) =>
     `${name} follows no vacation policy, so there is no balance to set. Set a policy first.`,
+  unknownType: (text: string) =>
+    `"${text}" is not a leave type (use Annual leave, Bonus day, Sick leave, Unpaid leave or Other)`,
+  missingDates: 'From and To are both needed',
+  endsBeforeStart: 'To is before From',
+  tooFarAhead: (text: string) => `To ${text} is more than a year ahead`,
+  commentTooLong: `Comment is longer than ${MAX_COMMENT_LENGTH} characters`,
+  overlapsRequest: (name: string, typeName: string, range: string) =>
+    `overlaps ${name}'s ${typeName} ${range}`,
+  overlapsRow: (row: number) => `overlaps row ${row}`,
 };

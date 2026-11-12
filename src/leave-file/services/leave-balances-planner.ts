@@ -1,11 +1,9 @@
 import { formatDate, getDateOnly } from '@common/utils/date.utils';
-import { IUserViewModel } from '@modules/users/types/user.interface';
 import { countedOn } from '@modules/vacation-requests/utils/leave-balance.utils';
 import { getCurrentVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
 import { BALANCES_HEADERS } from 'src/leave-file/constants/leave-file-headers';
 import { LEAVE_FILE_UNUSABLE_REASONS as REASONS } from 'src/leave-file/constants/leave-file-unusable-reasons';
 import {
-  FileDate,
   parseDays,
   parseFileDate,
   SlashOrder,
@@ -16,42 +14,16 @@ import {
   ILeaveBalancesState,
 } from 'src/leave-file/types/leave-balances-plan.interface';
 import { ILeaveBalanceRow } from 'src/leave-file/types/leave-file-row.interface';
+import {
+  badDateReason,
+  indexPeopleByEmail,
+  normalizeEmail,
+} from 'src/leave-file/utils/leave-file-people';
 
 const [, , CONTRACT_START, BALANCE_ON, DAYS_LEFT, WORKING_DAYS, BONUS_DAYS] =
   BALANCES_HEADERS;
 
 type Counts = [number | null, number | null, number | null];
-
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
-
-function indexPeopleByEmail(people: IUserViewModel[]) {
-  const byEmail = new Map<string, IUserViewModel>();
-  for (const person of people) {
-    const email = normalizeEmail(person.email);
-    const known = byEmail.get(email);
-    if (!known || (!known.is_active && person.is_active)) {
-      byEmail.set(email, person);
-    }
-  }
-  return byEmail;
-}
-
-const badDateReason = (
-  date: FileDate,
-  column: string,
-  text: string,
-): string | null => {
-  switch (date.kind) {
-    case 'invalid':
-      return REASONS.invalidDate(column, text);
-    case 'ambiguous':
-      return REASONS.ambiguousDate(column, text);
-    case 'inconsistent':
-      return REASONS.inconsistentDates(column, text);
-    default:
-      return null;
-  }
-};
 
 const readCounts = (
   row: ILeaveBalanceRow,
