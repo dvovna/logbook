@@ -47,6 +47,27 @@ describe('readSpreadsheet', () => {
     ]);
   });
 
+  it('numbers each record by the line it starts on, whatever blank lines come before it', async () => {
+    const text = 'Name,Email\n\nAda,a@x.test\n\n\nBob,b@x.test\n';
+
+    expect(await csv(text)).toEqual([
+      { row: 1, cells: ['Name', 'Email'] },
+      { row: 3, cells: ['Ada', 'a@x.test'] },
+      { row: 6, cells: ['Bob', 'b@x.test'] },
+    ]);
+  });
+
+  it('numbers records after blank lines with CRLF and a multi-line quoted cell', async () => {
+    const text =
+      'Name,Email\r\n\r\n\r\n"Ada\r\nL.",a@x.test\r\n\r\nBob,b@x.test';
+
+    expect(await csv(text)).toEqual([
+      { row: 1, cells: ['Name', 'Email'] },
+      { row: 4, cells: ['Ada\nL.', 'a@x.test'] },
+      { row: 7, cells: ['Bob', 'b@x.test'] },
+    ]);
+  });
+
   it('reads the first sheet of an xlsx, whatever the file is called', async () => {
     const workbook = new Workbook();
     workbook.addWorksheet('First').addRows([

@@ -53,11 +53,12 @@ const readCsv = (content: Buffer): ISpreadsheetLine[] => {
     throw new BadRequestException(UNREADABLE_FILE);
   }
 
-  // `lines` is where the record ends; a row's number is where it starts.
+  // `lines` is where the record ends; a row's number is where it starts. The
+  // raw text of a record also holds the blank lines before it.
   return records.map(({ record, raw, info }) => ({
     row:
       info.lines -
-      ((raw.match(/\n/g) ?? []).length - (raw.endsWith('\n') ? 1 : 0)),
+      (raw.replace(/^\n+/, '').replace(/\n$/, '').match(/\n/g) ?? []).length,
     cells: record,
   }));
 };
