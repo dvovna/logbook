@@ -17,6 +17,7 @@ Every release has a section in [CHANGELOG.md](https://github.com/dvovna/logbook/
 | 0.2.0 | Two database migrations. |
 | 0.3.0 | Six database migrations, and the Slack app manifest again (it drops `/user-team-mapping`). |
 | 0.4.0 | Three database migrations, and the Slack app manifest again (it drops `/upload-vacations`). |
+| 0.4.1 | None: only the new image. |
 
 When you skip releases, take the steps of every release in between. The migrations of all of them apply in one push.
 
