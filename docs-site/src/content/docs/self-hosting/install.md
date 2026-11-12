@@ -101,6 +101,8 @@ Then:
 3. Point the platform's health check at `GET /health`. The Docker image already uses it.
 4. In the Slack app settings, open "Event Subscriptions" and retry the URL verification.
 
+Then check the whole setup from the source checkout: `pnpm checkup`. It reads `.env` and says what is missing; see [Check an install](/logbook/docs/self-hosting/operate/#check-an-install).
+
 ## 5. Install in a workspace
 
 1. Open `https://<your-domain>/api/slack/install` in the browser.

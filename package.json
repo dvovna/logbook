@@ -26,7 +26,8 @@
     "db:init": "supabase db reset",
     "db:types": "supabase gen types --schema public > src/common/types/database.types.ts && prettier --write --log-level warn src/common/types/database.types.ts",
     "slack:event": "node --env-file=.env -r ts-node/register src/commands/send-slack-event.ts",
-    "slack:app": "node -r ts-node/register -r tsconfig-paths/register src/commands/slack-app.ts"
+    "slack:app": "node -r ts-node/register -r tsconfig-paths/register src/commands/slack-app.ts",
+    "checkup": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register src/checkup.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

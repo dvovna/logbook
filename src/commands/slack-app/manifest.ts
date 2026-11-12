@@ -1,15 +1,10 @@
 import { parse } from 'yaml';
+import { ISlackAppManifest } from 'src/api-clients/third-party/slack-manifest-api';
 
 const DOMAIN_PLACEHOLDER = 'APP_DOMAIN';
 // A host name, with a port for a tunnel that has one; no scheme and no path.
 const DOMAIN =
   /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:\d+)?$/i;
-
-export interface ISlackAppManifest {
-  display_information: { name: string; [key: string]: unknown };
-  features?: { bot_user?: { display_name?: string; [key: string]: unknown } };
-  [key: string]: unknown;
-}
 
 export const assertDomain = (domain: string) => {
   if (!DOMAIN.test(domain)) {

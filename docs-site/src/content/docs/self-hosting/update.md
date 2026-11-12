@@ -47,6 +47,8 @@ When you skip releases, take the steps of every release in between. The migratio
    docker stop logbook && docker rm logbook
    ```
 
+`pnpm checkup database` in the new release's source says whether its migrations are applied, before you start the new image.
+
 Apply the migrations before the new version starts. It checks the database at startup and refuses to start, naming the missing migrations, until they are applied:
 
 ```text

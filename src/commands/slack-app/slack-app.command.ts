@@ -1,5 +1,8 @@
 import { envValue, withEnvValues } from 'src/commands/slack-app/env-file';
-import { Fetch, SlackManifestApi } from 'src/commands/slack-app/manifest-api';
+import {
+  Fetch,
+  SlackManifestApi,
+} from 'src/api-clients/third-party/slack-manifest-api';
 import {
   keepingAppearance,
   manifestFor,

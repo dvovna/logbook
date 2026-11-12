@@ -1,4 +1,9 @@
-import { ISlackAppManifest } from 'src/commands/slack-app/manifest';
+// A Slack app manifest, as far as this code reads it.
+export interface ISlackAppManifest {
+  display_information: { name: string; [key: string]: unknown };
+  features?: { bot_user?: { display_name?: string; [key: string]: unknown } };
+  [key: string]: unknown;
+}
 
 export interface ICreatedSlackApp {
   app_id: string;
