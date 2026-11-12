@@ -2,7 +2,7 @@
 title: Operate
 description: 'Keep a self-hosted Logbook fast and healthy: where to run it, connections, restarts, health checks, errors, logs, data retention and backups.'
 sidebar:
-  order: 3
+  order: 5
 ---
 
 Once Logbook is installed, a few settings decide whether it answers Slack in time, survives restarts and keeps your data.
@@ -48,10 +48,34 @@ On a restart or a deploy Logbook gets SIGTERM. It then:
 | --- | --- |
 | `docker-compose.yml` | `stop_grace_period: 30s` (already set) |
 | `docker run` | `--stop-timeout 30` |
-| Render | `maxShutdownDelaySeconds` in `render.yaml` |
-| Fly.io | `kill_timeout` in `fly.toml` |
+| Render | `maxShutdownDelaySeconds` in `render.yaml` (set in `deploy/render.yaml`) |
+| Fly.io | `kill_timeout` in `fly.toml` (set in `deploy/fly.toml`) |
 
 Work cut off by a shorter grace period isn't lost: the next process retries it, but it comes minutes late.
+
+## Check an install
+
+`pnpm checkup` says what an install or an update still lacks, one line a check, with what to do under each one that fails:
+
+```
+✓ Configuration: every required variable is set and well formed
+✓ Database: connected
+✓ Migrations: all 35 of this release are applied
+✓ API access: the API roles reach none of Logbook's tables or functions
+! Round trip to the database: 119 ms
+    → Run Logbook in the database's region: a click sends up to ten statements one after another before Slack's 3 seconds run out
+✓ Logbook from outside: https://logbook.example.com/health answers 200
+– Slack app: needs SLACK_CONFIG_TOKEN (an app configuration token)
+```
+
+| Check | What it looks at |
+| --- | --- |
+| `env` | The variables, by the rules Logbook starts with; the redirect URI's shape; that `DATABASE_URL` isn't the transaction pooler. |
+| `database` | The connection, this release's migrations, that Supabase's API roles reach nothing, and the time of a round trip (a warning over 20 ms). |
+| `app` | `https://<your-domain>/health`, from where you run the command. |
+| `slack` | That every URL of the Slack app is on your domain. It needs `SLACK_APP_ID` and an app configuration token in `SLACK_CONFIG_TOKEN`, and is skipped without them. |
+
+Name the checks to run only some: `pnpm checkup env database`. It reads `.env`, prints no secret, and exits with 1 when a check fails. In the Docker image, where there is no pnpm: `docker exec logbook node dist/checkup.js`.
 
 ## Health check
 
@@ -87,7 +111,7 @@ What is sent:
 Each event holds the error and its stack only: no request data, people, cookies, headers, bodies, query strings, job payloads or local variables, and no tracing. Stack traces name the TypeScript file and line.
 
 Each event carries:
-- the release, `logbook@<version>` (for example `logbook@0.4.1`), so an issue shows which version brought it;
+- the release, `logbook@<version>` (for example `logbook@0.5.0`), so an issue shows which version brought it;
 - the environment: `SENTRY_ENVIRONMENT`, else `NODE_ENV` (`production` in the Docker image), else `development`.
 
 ## Logs

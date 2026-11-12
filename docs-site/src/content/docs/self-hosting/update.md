@@ -2,10 +2,10 @@
 title: Update
 description: Move your Logbook to a new release, with its database migrations and any step the release needs.
 sidebar:
-  order: 2
+  order: 4
 ---
 
-Most updates are a new image and the release's database migrations. Before 1.0, a minor version (0.4 to 0.5) may need a step of its own.
+Most updates are a new image and the release's database migrations. Before 1.0, a minor version (0.5 to 0.6) may need a step of its own.
 
 ## Find the release's update step
 
@@ -18,6 +18,7 @@ Every release has a section in [CHANGELOG.md](https://github.com/dvovna/logbook/
 | 0.3.0 | Six database migrations, and the Slack app manifest again (it drops `/user-team-mapping`). |
 | 0.4.0 | Three database migrations, and the Slack app manifest again (it drops `/upload-vacations`). |
 | 0.4.1 | None: only the new image. |
+| 0.5.0 | None: only the new image. |
 
 When you skip releases, take the steps of every release in between. The migrations of all of them apply in one push.
 
@@ -27,7 +28,7 @@ When you skip releases, take the steps of every release in between. The migratio
 2. Check out the new release's tag in your copy of the source, and install its tools:
    ```bash
    git fetch --tags
-   git checkout v0.4.0
+   git checkout v0.5.0
    pnpm install
    ```
    Use the tag of the version you update to.
@@ -43,9 +44,11 @@ When you skip releases, take the steps of every release in between. The migratio
    ```
    With `docker run`, pull the new tag, stop and remove the old container, and start it again with the same command as at [install](/logbook/docs/self-hosting/install/#4-run):
    ```bash
-   docker pull ghcr.io/dvovna/logbook:0.4
+   docker pull ghcr.io/dvovna/logbook:0.5
    docker stop logbook && docker rm logbook
    ```
+
+`pnpm checkup database` in the new release's source says whether its migrations are applied, before you start the new image.
 
 Apply the migrations before the new version starts. It checks the database at startup and refuses to start, naming the missing migrations, until they are applied:
 
@@ -54,15 +57,19 @@ The database lacks 2 migration(s) this version needs: 20261110171144, 2026111110
 ```
 
 :::tip
-An image tagged with a minor line, such as `0.4`, gets that line's patch releases with `docker compose pull` or `docker pull`. A new minor version needs the new tag, and may need a step.
+An image tagged with a minor line, such as `0.5`, gets that line's patch releases with `docker compose pull` or `docker pull`. A new minor version needs the new tag, and may need a step.
 :::
 
 ## Apply the Slack app manifest again
 
 When a release changes the commands, scopes or events Slack sends:
 
-1. Take `slack-app-manifest.yml` from the new release and replace `APP_DOMAIN` with your domain, as at [install](/logbook/docs/self-hosting/install/#2-slack-app).
-2. Open your app at https://api.slack.com/apps, go to "App Manifest", paste the result over the current manifest, and save.
+1. Generate an app configuration token at https://api.slack.com/apps, as at [install](/logbook/docs/self-hosting/install/#2-slack-app).
+2. In the new release's source, bring the app to its manifest:
+   ```bash
+   pnpm slack:app update --domain vacations.example.com
+   ```
+   It takes the app from `SLACK_APP_ID` in `.env` (or `--app <app id>`, which is in the app's address at https://api.slack.com/apps) and keeps the app's name and description. By hand instead: replace `APP_DOMAIN` in `slack-app-manifest.yml` with your domain, open your app's "App Manifest", paste the result over the current manifest, and save.
 3. When the release adds scopes, install the app again in every workspace through `https://<your-domain>/api/slack/install`. Data and roles stay as they are.
 
 ## Turn on token rotation for an older app

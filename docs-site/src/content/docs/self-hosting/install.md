@@ -7,12 +7,16 @@ sidebar:
 
 One deployment of Logbook can serve one Slack workspace or many.
 
+:::tip[Let an AI agent do it]
+An AI coding agent can take these steps for you from one prompt. See [Install with an AI agent](/logbook/docs/self-hosting/install-with-an-agent/).
+:::
+
 ## What you need
 
 - The source of the release you run, for its database migrations. With pnpm 10:
   ```bash
   npm install -g pnpm@10
-  git clone --branch v0.4.1 https://github.com/dvovna/logbook && cd logbook && pnpm install
+  git clone --branch v0.5.0 https://github.com/dvovna/logbook && cd logbook && pnpm install
   ```
   The steps below run the Supabase CLI pinned in it.
 - A Supabase project. The free plan runs the bot, but it keeps no backups, and Supabase pauses it after a week of little activity (see [Operate](/logbook/docs/self-hosting/operate/#health-check)). For a company's real data, take a paid plan or back the database up yourself (see [Backups](/logbook/docs/self-hosting/operate/#backups)).
@@ -37,19 +41,21 @@ Every SQL statement is a round trip to the database, and a click such as saving 
 
 ## 2. Slack app
 
-1. Replace `APP_DOMAIN` in [`slack-app-manifest.yml`](https://github.com/dvovna/logbook/blob/main/slack-app-manifest.yml) with the domain the bot will run on:
+1. Generate an app configuration token: at https://api.slack.com/apps, under "Your App Configuration Tokens", click **Generate Token** for your workspace and copy the access token. It lasts 12 hours.
+2. Create the app from [`slack-app-manifest.yml`](https://github.com/dvovna/logbook/blob/main/slack-app-manifest.yml) for the domain the bot will run on:
    ```bash
-   sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml
+   pnpm slack:app create --domain vacations.example.com
    ```
-   The command prints the result; copy it, or add `> manifest.yml` to save it.
-2. Create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest"). The manifest turns on token rotation: bot tokens expire after 12 hours and the app refreshes them, so a token that leaks is soon useless. Slack can't turn rotation off again for an app.
+   The command asks for the token without showing it (or reads it from `SLACK_CONFIG_TOKEN`), creates the app through Slack's API, and writes the app's ID, client ID, client secret, signing secret and redirect URI into `.env`, which it starts from `.env.example` when there is none. It prints none of the secrets. The manifest turns on token rotation: bot tokens expire after 12 hours and the app refreshes them, so a token that leaks is soon useless. Slack can't turn rotation off again for an app.
 3. To install it into other workspaces too, turn on public distribution in "Manage Distribution", and share `https://<your-domain>/api/slack/install` as the install link (see step 5).
+
+By hand instead of step 2: replace `APP_DOMAIN` in the manifest with your domain (`sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml`), create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest"), and copy its values into `.env` in the next step.
 
 Without public distribution, only your own workspace can install the app, which is what a single company wants. With it, any Slack workspace that has the link can install the app on your server, unless you list the allowed ones in `ALLOWED_SLACK_TEAM_IDS`.
 
 ## 3. Configuration
 
-Copy [`.env.example`](https://github.com/dvovna/logbook/blob/main/.env.example) to `.env` and fill it in:
+Fill in `.env`. `pnpm slack:app create` made it in step 2, with the Slack values in place; if you created the app by hand, copy [`.env.example`](https://github.com/dvovna/logbook/blob/main/.env.example) to `.env` first.
 
 | Variable | Value |
 | --- | --- |
@@ -70,10 +76,10 @@ The optional settings (allowed workspaces, Sentry, pool sizes, data retention, l
 
 ## 4. Run
 
-The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.4.1`), its minor line (`0.4`) and `latest`:
+The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.5.0`), its minor line (`0.5`) and `latest`:
 
 ```bash
-docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.4
+docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.5
 ```
 
 The second port of `-p` is `PORT` from `.env`. With `PORT` left out of `.env`, the container listens on 10000, so map `-p 3000:10000`.
@@ -94,10 +100,12 @@ pnpm start:prod
 
 Then:
 
-1. Put the app behind HTTPS: a reverse proxy, or a platform such as Render or Fly.io.
+1. Put the app behind HTTPS: a reverse proxy, or a platform such as Render or Fly.io. [Where to run it](/logbook/docs/self-hosting/hosting/) has a ready configuration for Docker with HTTPS, Fly.io and Render.
 2. Set the platform's shutdown grace period to 30 seconds. The compose file and the `docker run` above already do. See [Operate](/logbook/docs/self-hosting/operate/#restarts-and-deploys).
 3. Point the platform's health check at `GET /health`. The Docker image already uses it.
 4. In the Slack app settings, open "Event Subscriptions" and retry the URL verification.
+
+Then check the whole setup from the source checkout: `pnpm checkup`. It reads `.env` and says what is missing; see [Check an install](/logbook/docs/self-hosting/operate/#check-an-install).
 
 ## 5. Install in a workspace
 
@@ -128,5 +136,6 @@ Until a workspace does, a CSV comes as a message that asks for it.
 
 ## Next
 
+- [Where to run it](/logbook/docs/self-hosting/hosting/): Docker with HTTPS, Fly.io or Render.
 - [Update](/logbook/docs/self-hosting/update/) when a new release comes out.
 - [Operate](/logbook/docs/self-hosting/operate/): connections, restarts, health, logs, backups.

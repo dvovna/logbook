@@ -4,6 +4,16 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
+Install Logbook with an AI agent from one prompt, with the commands that make it possible: the Slack app from the manifest through Slack's API, a checkup of an install, and ready configurations for three places to run it. No update step: only the new image.
+
+### Running it
+- Install with an AI agent: paste the prompt from the new "Install with an AI agent" page into an agent such as Claude Code, and it sets up the database, the Slack app and the run by the instructions at `/logbook/docs/agent-install.md`, with a check after every step. It asks before anything that costs money or can't be undone, and keeps secrets out of the chat.
+- Ready configurations for three places to run Logbook, in `deploy/`: Docker on your own server with HTTPS from Caddy, Fly.io and Render. The new "Where to run it" page of the self-hosting guide has the steps for each.
+- `pnpm checkup` says what an install or an update still lacks, one line a check with what to do about it: the configuration, the database (connection, this release's migrations, closed API roles, round trip time), `/health` on your domain, and the Slack app's URLs. In the image: `node dist/checkup.js`.
+- `pnpm slack:app create --domain <domain>` creates the Slack app from the manifest through Slack's API and writes its ID, client ID, secrets and redirect URI into `.env`; `pnpm slack:app update --domain <domain>` brings an existing app to a new domain or a new release's manifest. Both take an app configuration token from `SLACK_CONFIG_TOKEN` or ask for it.
+
 ## [0.4.1] - 2026-11-12
 
 Apply and Undo of a file that survive a restart, and a Cancel that answers at once. No update step: only the new image.
@@ -152,6 +162,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.5.0]: https://github.com/dvovna/logbook/releases/tag/v0.5.0
 [0.4.1]: https://github.com/dvovna/logbook/releases/tag/v0.4.1
 [0.4.0]: https://github.com/dvovna/logbook/releases/tag/v0.4.0
 [0.3.0]: https://github.com/dvovna/logbook/releases/tag/v0.3.0

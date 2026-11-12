@@ -1,0 +1,32 @@
+# Logbook behind HTTPS on a server of your own: Caddy gets and renews the
+# certificate for LOGBOOK_DOMAIN and passes requests on to the app. Use it
+# on top of the main compose file:
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.https.yml up -d
+#
+# LOGBOOK_DOMAIN goes into .env beside the app's values (the app ignores
+# it). The domain's DNS has to point at this server, and ports 80 and 443
+# have to be open: Caddy answers the certificate authority on them.
+services:
+  logbook:
+    # Only Caddy reaches the app.
+    ports: !reset []
+
+  caddy:
+    image: caddy:2
+    restart: always
+    depends_on:
+      - logbook
+    command: caddy reverse-proxy --from ${LOGBOOK_DOMAIN:?Set LOGBOOK_DOMAIN in .env to the domain Slack reaches Logbook on} --to logbook:${PORT:-3000}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # The certificates: without the volume Caddy asks for new ones on every
+      # start, and the authority limits how often.
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

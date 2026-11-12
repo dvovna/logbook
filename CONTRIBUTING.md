@@ -44,7 +44,7 @@ By contributing, you agree that your contribution is licensed under the project'
 ## Releasing
 
 1. In [CHANGELOG.md](CHANGELOG.md), give the new version its section and date, saying what changed for people who self-host and any step an update needs.
-2. Set the same version in `package.json` and in the self-hosting docs (`docs-site/src/content/docs/self-hosting/install.md`: the clone tag and the image tag; a row for the release in the table of `update.md`), commit, and push to `development` once CI is green.
+2. Set the same version in `package.json` and in the self-hosting docs (`docs-site/src/content/docs/self-hosting/install.md`: the clone tag and the image tag; a row for the release in the table of `update.md`) and, for a new minor line, in the image tags of `deploy/fly.toml` and `deploy/render.yaml`, commit, and push to `development` once CI is green.
 3. Tag the commit and push the tag: `git tag v0.1.0 && git push origin v0.1.0`. The Release workflow builds the image for amd64 and arm64, pushes it to `ghcr.io/dvovna/logbook` and publishes the GitHub release with the changelog section.
 4. After the first release, make the package public once: the repository's Packages → logbook → Package settings → Change visibility.
 

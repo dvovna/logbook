@@ -1,6 +1,6 @@
 {
   "name": "logbook",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Logbook: vacation requests with approvals, leave policies, holidays and time tracking in Slack",
   "author": "Dzmitry Vouna",
   "private": true,
@@ -25,7 +25,9 @@
     "test:cov:all": "jest --config jest.coverage.config.ts --coverage",
     "db:init": "supabase db reset",
     "db:types": "supabase gen types --schema public > src/common/types/database.types.ts && prettier --write --log-level warn src/common/types/database.types.ts",
-    "slack:event": "node --env-file=.env -r ts-node/register src/commands/send-slack-event.ts"
+    "slack:event": "node --env-file=.env -r ts-node/register src/commands/send-slack-event.ts",
+    "slack:app": "node -r ts-node/register -r tsconfig-paths/register src/commands/slack-app.ts",
+    "checkup": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register src/checkup.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
@@ -98,7 +100,8 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.1"
+    "typescript-eslint": "^8.72.1",
+    "yaml": "^2.9.1"
   },
   "packageManager": "pnpm@10.34.9"
 }

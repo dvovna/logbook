@@ -58,7 +58,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 
 ## Self-hosting
 
-Run Logbook on your own server: a Supabase project, a Slack app from [`slack-app-manifest.yml`](slack-app-manifest.yml), and the Docker image `ghcr.io/dvovna/logbook`. The [self-hosting guide](https://dvovna.github.io/logbook/docs/self-hosting/install/) walks through it, and covers [updating](https://dvovna.github.io/logbook/docs/self-hosting/update/) and [running it](https://dvovna.github.io/logbook/docs/self-hosting/operate/) day to day. Read the version's section in [CHANGELOG.md](CHANGELOG.md) before an update.
+Run Logbook on your own server: a Supabase project, a Slack app from [`slack-app-manifest.yml`](slack-app-manifest.yml), and the Docker image `ghcr.io/dvovna/logbook`. The [self-hosting guide](https://dvovna.github.io/logbook/docs/self-hosting/install/) walks through it, an [AI agent can do it from one prompt](https://dvovna.github.io/logbook/docs/self-hosting/install-with-an-agent/), and covers [updating](https://dvovna.github.io/logbook/docs/self-hosting/update/) and [running it](https://dvovna.github.io/logbook/docs/self-hosting/operate/) day to day. Read the version's section in [CHANGELOG.md](CHANGELOG.md) before an update.
 
 ## Development
 
@@ -91,8 +91,15 @@ Studio is at http://127.0.0.1:54323. `pnpm supabase stop` stops the stack and ke
    ```bash
    ngrok http 3000 --url=<your-domain>
    ```
-2. Create a separate app from `slack-app-manifest.yml`, with `APP_DOMAIN` replaced by your ngrok domain. An app has one set of request URLs, so keep it apart from the production app.
-3. Fill in the Slack values in `.env`.
+2. Create a separate app from `slack-app-manifest.yml`. An app has one set of request URLs, so keep it apart from the production app. `pnpm slack:app` does it through Slack's manifest API and writes the app's ID, client ID, secrets and redirect URI into `.env`:
+   ```bash
+   pnpm slack:app create --domain <your-ngrok-domain> --name "Logbook (dev)"
+   ```
+   It asks for an app configuration token, which you generate at https://api.slack.com/apps under "Your App Configuration Tokens" (it lasts 12 hours), or reads it from `SLACK_CONFIG_TOKEN`. By hand instead: replace `APP_DOMAIN` in the manifest with your domain, create the app from it at https://api.slack.com/apps, and fill in the Slack values in `.env`.
+3. When the tunnel's domain changes, or the manifest does, bring the app to it with one command (it keeps the app's own name):
+   ```bash
+   pnpm slack:app update --domain <your-new-domain>
+   ```
 4. Run `pnpm start:dev`.
 5. Install the app by opening `https://<your-ngrok-domain>/api/slack/install`, as described above.
 
