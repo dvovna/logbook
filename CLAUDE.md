@@ -162,7 +162,7 @@ The UI is a single App Home view that gets re-published to show different screen
 
 ### Domain layer
 
-Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `holidays`, `slack-teams`, `request-workflows`, `team-file`. They follow Repository → Service:
+Domain modules: `users`, `teams`, `vacation-policies`, `vacation-requests`, `holidays`, `slack-teams`, `request-workflows`, `team-file`, `leave-file`. They follow Repository → Service:
 
 - **Repositories** extend `BaseRepository<'x', ViewModel>` (`src/common/repositories/base.repository.ts`). It queries Postgres directly over `DATABASE_URL` (`DatabaseService`) with Kysely 0.28, typed from `database.types.ts` (`src/common/types/sql-database.types.ts`), and does no ORM work. Kysely 0.29 is ESM-only, so the project stays on 0.28. Subclasses set:
   - `tableName`;
