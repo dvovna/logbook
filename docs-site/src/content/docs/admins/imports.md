@@ -1,66 +1,71 @@
 ---
-title: Import vacation history
-description: Load people's contract start dates and past time off from a CSV file, so balances start right.
+title: Bring in leave balances and history
+description: Load each person's leave balance and past and agreed leave from your spreadsheet, so balances are right on day one.
 sidebar:
   order: 5
 ---
 
-Time off taken before Logbook can be imported from a file, so that everyone's balance is right from the start. Only admins can import.
+When you move to Logbook in the middle of a year, people have already taken leave, carried days over and agreed leave for the months ahead. Two files bring that in, so everyone's balance on **Home** is right from the first day. Admins and HR can do it.
 
-The import reads `user-vacations.csv`. For each person in it, it sets the contract start date and replaces all their time off requests with the ones in the file.
+- **`leave-balances.csv`**: each person's contract start and what they have left on a date.
+- **`leave-history.csv`**: one row per leave, taken or agreed, with its dates.
 
-## Import a file
+Send either or both, in any order. Nothing changes until you check the preview and click **Apply**.
 
-1. Type `/upload-vacations` in any channel, or open **More** → **People** and click **📥 Import vacations (CSV)**. Logbook shows you how to import, with the format.
-2. Save your file as `user-vacations.csv`. The name has to be exactly this: Logbook recognizes the import by its name.
-3. Upload it in your conversation with Logbook: open Logbook's **Messages** tab and drag the file in.
-4. Logbook imports it and answers with a summary.
-
-The summary counts what happened, for example "Imported `user-vacations.csv`: Created 25 · Updated 12 · Skipped 1". **Created** counts the time off requests that were added, **Updated** the people whose time off was replaced, **Skipped** the lines left out. When there were problems, it lists the first ten.
-
-The example in Logbook's instructions is a complete file: copy it, replace the emails and dates, and save it. A file that has no header row, or only a header, is not imported. The answer is "❗️ `user-vacations.csv` was not imported" with the reason and the header it needs.
-
-## What it replaces
-
-For each person in the file, the import:
-
-- sets their **Contract Start Date**, which starts their vacation year (see [Policies and holidays](/logbook/docs/admins/policies-and-holidays/#the-vacation-year));
-- deletes every time off request they have, whatever its status or year;
-- adds the requests of the file, with the statuses it gives.
-
-:::caution
-The import replaces a person's whole history. Put all of their time off in the file, not only what is missing.
+:::note
+Set up a [vacation policy](/logbook/docs/admins/policies-and-holidays/) and [teams](/logbook/docs/admins/team-file/) first. A balance needs a policy, and working days are counted with the holidays of the policy a person's team follows.
 :::
 
-What else to know:
+## Get the templates
 
-- Approvers of a pending request that the import replaces see their message closed.
-- The imported requests send no messages: pending ones are not sent to approvers, and approved ones offer no [time off as time](/logbook/docs/everyone/time-off-as-time/).
-- Hours already logged for a replaced request stay as time entries.
-- The import doesn't check balances or overlapping dates.
-- People who aren't in the file keep their time off.
+Open **More** → **People** and click **📥 Import leave**, or click it in the **Bring in leave balances** step of the setup checklist on **Home**. Logbook sends you both templates in your conversation with it:
 
-## When a line is refused
+- `leave-balances.csv` lists everyone active with their contract start as Logbook has it, and **Balance on** set to the day it was sent. The three count columns are empty.
+- `leave-history.csv` has only its header row.
 
-- A line whose email Logbook doesn't know, or of someone deactivated, is skipped. The other lines are imported.
-- When any line is malformed (an invalid email or date, a request that ends before it starts, an unknown type or status), nothing is imported. Fix the file and upload it again.
-- When a person is on several lines, the last one is imported. The earlier ones are skipped, and the answer lists them.
+Fill them in, in Excel, Google Sheets or a text editor, and drag them back into your conversation with Logbook. You can save as CSV or as Excel (`.xlsx`).
+
+## Balances
+
+A balance is what the person has left on the **Balance on** date, before any leave from that date on. Fill **Days left** or **Working days left**, whichever your company counts in, and **Bonus days left** if your policy has bonus days.
+
+- Leave in Logbook from the **Balance on** date on is taken from the balance as usual, including leave you import with the history file. Leave before that date doesn't change it.
+- When your number differs from what Logbook counts from the policy, the carried-over days and the leave it knows, the difference shows as a correction next to the balance on **Home** and on **People**. The person sees why their number is what it is.
+- Whole and half days are fine (`12`, `12.5`, `12,5`). A negative balance shows as 0 left.
+- An empty cell keeps what is there: the contract start, or a count set by an earlier file. With a new **Balance on** date in the same vacation year, an earlier count you leave empty moves to the new date. In another vacation year it goes, and the preview says so.
+- **Balance on** must fall in the person's current vacation year and not after today. Left empty, it is the day you send the file.
+- A changed **Contract start** moves the person's vacation year. It applies even when the rest of the row can't, for example for someone who follows no vacation policy.
+- The carryover on a person's profile doesn't change a year whose balance came from a file: the balance already includes it.
+
+## History
+
+Each row is one leave: **Email**, **Leave type**, **From**, **To**, and an optional **Comment**.
+
+- Imported leave arrives approved. It goes through no approval, nobody gets a message, and it offers no [time off as time](/logbook/docs/everyone/time-off-as-time/).
+- The file only adds. Leave already in Logbook with the same type and dates is skipped, so sending the same file twice adds nothing. A leave that overlaps another request of the person, or an earlier row, can't be used. Nothing in Logbook is changed or deleted.
+- Leave types are Logbook's: **Annual leave**, **Bonus day**, **Sick leave**, **Unpaid leave** and **Other**, in any letter case.
+- Agreed future leave shows in "Who's off next" and in approvers' messages like any approved leave.
+- To fix an imported leave, change or delete it in **All requests** like any request, or undo the whole file and send a corrected one.
+
+## The preview
+
+For a balances file, the preview shows the balance date and how many people it sets, then:
+
+- **Corrections**: each balance that differs from Logbook's count, with both numbers.
+- How many match.
+- **Vacation year changes**: contract starts the file sets.
+- **Planned leave**: leave already in Logbook from the balance date on, with what is left after it. Check this list: if your number already subtracted that leave, it would be taken twice.
+- **Earlier balances that go**: counts from an earlier file in another vacation year that the new date replaces.
+- **Rows it can't use**, each with its reason.
+
+For a history file, it shows how many leaves it adds by type and how many are from today on, the balances that change, the planned leave taken from a balance from a file, how many it skips as already in Logbook, and the rows it can't use.
+
+Click **Apply** within 7 days. If Logbook changed in between, you get a new preview instead. After **Apply**, **Undo** takes the file back for 7 days, everything still as the file left it; what someone changed since stays, and Logbook lists it.
 
 ## The format, in short
 
-A CSV with fields separated by `;`. The first line is the header, which names the columns; a file without it is not imported. Each line after it is one person: their email, their contract start, then four fields for each request.
-
-```
-email;contractStartDate;vacation[0].startDate;vacation[0].endDate;vacation[0].type;vacation[0].status;vacation[1].startDate;vacation[1].endDate;vacation[1].type;vacation[1].status
-anna@example.com;2022-03-01;2026-07-06;2026-07-10;annual_leave;approved;2026-09-14;2026-09-14;bonus_day;pending
-bo@example.com;2023-01-09;2026-05-04;2026-05-08;sick_leave;approved;;;;
-```
-
-- Add four columns to the first line for each further request: `vacation[2].startDate` and so on.
-- Every line has as many fields as the first line. Leave the fields of requests a person doesn't have empty, as on the last line above.
-- Dates are `YYYY-MM-DD`.
-- Types: `annual_leave`, `bonus_day`, `sick_leave`, `unpaid_leave`, `other`.
-- Statuses: `pending`, `approved`, `rejected`, `canceled`.
-- Up to 1,000 lines, 100 requests a person and 1 MB.
+- CSV with `,` or `;`, saved as UTF-8, or an Excel file (its first sheet). Up to 5,000 rows and 1 MB.
+- Logbook tells the files apart by their columns, whatever their names. Columns can come in any order, and header names ignore case and spaces.
+- Dates as `2026-11-12`, `12.11.2026`, Excel date cells, or with slashes. Slash dates are read the same way for the whole file: if any has a first number over 12 it is day/month, if any has a second number over 12 it is month/day. When the file can't tell, write the dates as `2026-11-12` or save it as Excel.
 
 The full format is in [File formats](/logbook/docs/reference/file-formats/).

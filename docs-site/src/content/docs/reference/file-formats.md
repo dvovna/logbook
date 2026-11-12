@@ -1,6 +1,6 @@
 ---
 title: File formats
-description: The columns and rules of the files Logbook reads (vacation history, the team file) and writes (time report and billing snapshot CSVs).
+description: The columns and rules of the files Logbook reads (leave balances and history, the team file) and writes (time report and billing snapshot CSVs).
 sidebar:
   order: 4
 ---
@@ -9,72 +9,86 @@ The files you send to Logbook, and the ones it sends you. You send a file in you
 
 | File | Direction | Who | How-to |
 | --- | --- | --- | --- |
-| `user-vacations.csv` | You send it | Admins | [Imports](/logbook/docs/admins/imports/) |
+| `leave-balances.csv` | Logbook sends a template, you send it back | HR and admins | [Leave balances and history](/logbook/docs/admins/imports/) |
+| `leave-history.csv` | Logbook sends a template, you send it back | HR and admins | [Leave balances and history](/logbook/docs/admins/imports/) |
 | The team file | Logbook sends a template, you send it back | HR and admins | [Team file](/logbook/docs/admins/team-file/) |
 | Time report CSV | Logbook sends it | Everyone, for the time they see | [Time reports](/logbook/docs/finance/time-reports/) |
 | Billing snapshot CSV | Logbook sends it | Admin and Finance | [Billing](/logbook/docs/finance/billing/) |
 
-## `user-vacations.csv`
+Logbook tells the files you send apart by their columns, not their names: a team file has **Email** and **Team**; a leave balances file has **Email** and at least one of **Contract start**, **Days left**, **Working days left** and **Bonus days left**, and no **Team**; a leave history has **Email**, **Leave type**, **From** and **To**. A file that is none of them gets an answer that names the three.
 
-Sets each person's contract start date and replaces all their time off with the time off in the file.
+## Leave files
+
+What the two leave files have in common:
 
 | Rule | Value |
 | --- | --- |
-| File name | Exactly `user-vacations.csv` |
-| Separator | `;` |
-| First line | A header with the column names below |
-| Lines | One person per line, up to 1000 lines |
+| Format | CSV (`.csv`) or Excel (`.xlsx`). Excel: the first sheet. |
+| Where | Your conversation with Logbook. A file shared in a channel is ignored. |
+| CSV separator | `,` or `;`, whichever the header line uses |
+| CSV encoding | UTF-8. In Excel, save as "CSV UTF-8", or send the `.xlsx`. |
+| First row | A header naming the columns, in any order. Header names ignore case and spaces; other columns are ignored. |
+| Rows | Up to 5000 |
 | Size | Up to 1 MB |
-| Dates | `YYYY-MM-DD` |
+| Dates | `2026-11-12`, `12.11.2026`, an Excel date cell, or with slashes (`11/12/2026`, `12/11/26`). Slash dates are read the same way for the whole file: a first number over 12 anywhere makes them day/month, a second number over 12 month/day. A file that mixes both, or where no number tells, has those rows refused: write the dates as `2026-11-12` or save the file as Excel. |
+| Emails | Matched ignoring case and spaces. A person who isn't in Logbook, or is deactivated, can't be used. |
 
-Columns, in this order:
+Nothing changes until you click **Apply**. The preview stays open for 7 days, and **Undo** works for 7 days after **Apply**, wherever the file's changes are still as it left them. A row Logbook can't use is listed in the preview with the reason; the other rows still apply.
+
+## `leave-balances.csv`
+
+Sets each person's balance as it is on a date, and their contract start. The template lists everyone active, with **Balance on** set to the day Logbook sent it.
 
 | Column | Required | Value |
 | --- | --- | --- |
-| `email` | Yes | The person's email, exactly as Logbook has it. |
-| `contractStartDate` | Yes | When their contract started. Their vacation year runs from it. |
-| `vacation[0].startDate` | No | The first day of the first time off. |
-| `vacation[0].endDate` | With a start date | Its last day, not before the first. |
-| `vacation[0].type` | With a start date | One of the types below. |
-| `vacation[0].status` | With a start date | One of the statuses below. |
-| `vacation[1].startDate` … | No | The next time off, with the same four columns and the next number, up to `vacation[99]`. |
+| `Name` | No | The person's name, to help you read the file. |
+| `Email` | Yes | The person's email. Each person once. |
+| `Contract start` | No | When their contract started; their vacation year runs from it. Empty: stays as it is. |
+| `Balance on` | No | The date the counts are for, in the person's current vacation year and not after today. Empty: the day you send the file. |
+| `Days left` | No | Calendar days of annual leave left on that date, before any leave from that date on. |
+| `Working days left` | No | The same in working days, for companies that count in working days. |
+| `Bonus days left` | No | Bonus days left on that date. |
 
-| Type | Means |
-| --- | --- |
-| `annual_leave` | Annual leave |
-| `bonus_day` | Bonus day |
-| `sick_leave` | Sick leave |
-| `unpaid_leave` | Unpaid leave |
-| `other` | Other |
-
-| Status | Means |
-| --- | --- |
-| `pending` | Waits for approval |
-| `approved` | Approved |
-| `rejected` | Rejected |
-| `canceled` | Canceled |
-
-Example, with room for two vacations a person:
+Example:
 
 ```text
-email;contractStartDate;vacation[0].startDate;vacation[0].endDate;vacation[0].type;vacation[0].status;vacation[1].startDate;vacation[1].endDate;vacation[1].type;vacation[1].status
-anna@example.com;2022-03-01;2026-07-06;2026-07-10;annual_leave;approved;2026-09-14;2026-09-14;bonus_day;pending
-bo@example.com;2023-01-09;2026-05-04;2026-05-08;sick_leave;approved;;;;
+Name,Email,Contract start,Balance on,Days left,Working days left,Bonus days left
+Anna Novak,anna@example.com,2021-04-15,2026-11-12,12,,2
+Ivan Petrov,ivan@example.com,,2026-11-12,20,,
 ```
 
-- Every line has as many fields as the header, or the file is refused. Leave the fields of vacations a person doesn't have empty, as on the last line.
-- A person's time off ends at the first empty start date.
-- A line whose email isn't an active person's in Logbook is skipped; the other lines are imported.
-- A line with a missing or wrong field (an email that isn't one, a date, type or status Logbook doesn't know, an end before its start) stops the whole file: nothing is imported, and the answer lists the problems.
-- A file with no header (its first line has to start with `email;contractStartDate`) or with no lines below it isn't imported: the answer says why and shows the header.
-- A person on several lines gets the last one. The earlier lines are skipped, and the answer lists them.
-- The summary counts **Created** (time off requests added), **Updated** (people whose time off was replaced) and **Skipped** (lines left out).
+- Counts are whole or half days (`12`, `12.5`, `12,5`), up to 366. A negative count is accepted and shows as 0 left.
+- An empty count keeps what an earlier file set. With another **Balance on** in the same vacation year, the earlier count moves to the new date (the leave in between is taken from it, or given back); in another vacation year it goes, and the preview lists it.
+- A person who follows no vacation policy has no balance to set; their row's contract start still applies.
+- A row the same as the balance already set changes nothing.
 
-:::caution
-The import replaces all of a person's time off, including requests that wait for approval: their approvers' messages close. A line with a contract start and no vacations removes all the person's time off.
-:::
+## `leave-history.csv`
 
-Imported time off goes through no approval and sends nobody a message. Its working days follow the holidays of the person's vacation policy.
+Adds leave as approved, with no approval and no messages. The template has only its header.
+
+| Column | Required | Value |
+| --- | --- | --- |
+| `Name` | No | The person's name, to help you read the file. |
+| `Email` | Yes | The person's email. A person can have many rows. |
+| `Leave type` | Yes | `Annual leave`, `Bonus day`, `Sick leave`, `Unpaid leave` or `Other`, in any letter case (or `annual_leave`, `bonus_day`, `sick_leave`, `unpaid_leave`, `other`). |
+| `From` | Yes | The first day. |
+| `To` | Yes | The last day, not before **From**, at most a year ahead. A leave is at most a year long. |
+| `Comment` | No | Up to 200 characters, kept on the request. |
+
+Example:
+
+```text
+Name,Email,Leave type,From,To,Comment
+Anna Novak,anna@example.com,Annual leave,2026-05-04,2026-05-15,
+Anna Novak,anna@example.com,Sick leave,2026-09-08,2026-09-10,
+Anna Novak,anna@example.com,Annual leave,2026-12-21,2026-12-31,Agreed with the team lead
+```
+
+- Leave already in Logbook with the same person, type and dates is skipped.
+- A leave that overlaps another of the person's requests that is pending or approved, or an earlier row of the file, can't be used.
+- A row that would take a person past Logbook's limit of requests can't be used.
+- The file never changes or deletes what is in Logbook. Imported leave isn't checked against the balance, and offers no time off as time.
+- Its working days follow the holidays of the policy the person's team follows.
 
 ## The team file
 
@@ -83,7 +97,7 @@ Places people in teams and names the team leads. Logbook sends you a template wi
 | Rule | Value |
 | --- | --- |
 | Format | CSV (`.csv`) or Excel (`.xlsx`). Excel: the first sheet. |
-| File name | Any name ending in `.csv` or `.xlsx`, other than `user-vacations.csv` |
+| File name | Any name ending in `.csv` or `.xlsx` |
 | Where | Your conversation with Logbook. A team file shared in a channel is ignored. |
 | CSV separator | `,` or `;`, whichever the header line uses |
 | CSV encoding | UTF-8. In Excel, save as "CSV UTF-8", or send the `.xlsx`. |
@@ -156,7 +170,7 @@ The entries locked in one billing snapshot, one line each, sorted by date, perso
 
 ## How Logbook writes CSV files
 
-The time report CSV, the billing snapshot CSV and the team file template are written so that a spreadsheet opens them as they are:
+The time report CSV, the billing snapshot CSV and the team and leave file templates are written so that a spreadsheet opens them as they are:
 
 | Rule | Value |
 | --- | --- |
@@ -164,4 +178,4 @@ The time report CSV, the billing snapshot CSV and the team file template are wri
 | Separator | `,` |
 | Line ends | CRLF |
 | Quotes | A field with a comma, a quote or a line break is put in double quotes; a quote inside is doubled. |
-| Formula guard | Text people typed that starts with `=`, `+`, `-`, `@`, a tab or a carriage return gets a `'` in front, so a spreadsheet doesn't run it as a formula. Logbook drops that `'` again when it reads a team file. |
+| Formula guard | Text people typed that starts with `=`, `+`, `-`, `@`, a tab or a carriage return gets a `'` in front, so a spreadsheet doesn't run it as a formula. Logbook drops that `'` again when it reads a team or leave file. |

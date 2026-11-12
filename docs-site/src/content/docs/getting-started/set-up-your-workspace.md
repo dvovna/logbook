@@ -52,6 +52,10 @@ You have two ways to create teams:
 
 Someone in no team has no level 1: their requests start at the company rules' level 2, or go to HR (or to the admins when nobody has the HR role) when nobody there can decide. To change a person's team or role, open **👥 People** from **☰ More** and use **Edit User**. The team form can also set a team's members in one go. See [People and roles](/logbook/docs/admins/people-and-roles/).
 
+## Optional: leave balances and history
+
+If people already took leave this year, or have leave agreed, bring it in so their balances are right from the start. Open **👥 People** from **☰ More** and click **📥 Import leave**, or use the checklist's **Bring in leave balances** step: Logbook sends you two templates to fill in and send back. See [Bring in leave balances and history](/logbook/docs/admins/imports/).
+
 ## Optional: projects and clients
 
 Skip this if you only track time off. If people log hours:

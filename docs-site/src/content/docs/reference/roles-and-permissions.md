@@ -45,7 +45,7 @@ In the tables below:
 | Add a request for someone else, or one that is already approved or rejected (**➕ Add Vacation Request**) | Yes | Yes | — | — | — |
 | Change a request (**Edit Request**) | Yes | Yes | — | — | — |
 | Delete a request (**Delete Request**) | Yes | — | — | — | — |
-| Import vacation history (`user-vacations.csv`) | Yes | — | — | — | — |
+| Bring in leave balances and history (**📥 Import leave**, the leave files) | Yes | Yes | — | — | — |
 | Log approved time off as time (the button in the DM) | Own | Own | Own | Own | Own |
 
 ## Approvals

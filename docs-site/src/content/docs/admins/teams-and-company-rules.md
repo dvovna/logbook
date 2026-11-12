@@ -74,6 +74,6 @@ Until the workspace is set up, Home shows HR and admins **🚀 Set up Logbook** 
 3. **Create teams and pick their approvers**: done when a team has approvers. **📄 Set up from a file** sets up everyone at once.
 4. **Put people in teams**: done when every active person has a team. Until then it counts the people without one.
 
-**Add projects** is listed too, as optional, for workspaces that track time. The checklist goes away once the four steps are done.
+**Bring in leave balances** (done once a leave file was applied; see [Bring in leave balances and history](/logbook/docs/admins/imports/)) and **Add projects** (for workspaces that track time) are listed too, as optional. The checklist goes away once the four steps are done.
 
 The welcome message the installing admin gets lists these steps too.

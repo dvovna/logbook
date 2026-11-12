@@ -16,13 +16,16 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 - People who join Slack after the app is installed become Members, even when they are Slack admins or owners; Slack profile changes never change a Logbook role.
 - Home's setup checklist and the team file's preview say where requests go when there is no level 1: the company rules' approvers when they name any, otherwise HR or the admins.
 
-### Imports
-- The `/upload-vacations` example is a complete file with its header row. A file without the header or without lines is reported as not imported, with the reason, instead of "✅ Imported" with zeros.
-- The vacation import's summary counts the vacations created, the people updated and the lines skipped. A person on several lines is imported once, from the last line, and the others are named.
-- Files shared in channels get no answer from Logbook, except `user-vacations.csv` from an admin. Someone without Admin or HR who shares a file in the Logbook DM gets a refusal that fits a file.
+### Leave balances and history
+- Bring in each person's leave from your spreadsheet: **People → 📥 Import leave** (or the new optional step on Home's setup checklist) sends two templates. `leave-balances.csv` holds each person's contract start and what they have left on a date (in calendar or working days, and bonus days); `leave-history.csv` one row per leave, taken or agreed. Send either back as CSV or Excel, in any order; a preview shows what changes, Apply it within 7 days, and Undo it for 7 days after. For Admin and HR.
+- A balance from a file is what the person has left on its date: leave from that date on is taken from it, leave before it isn't. Home and People show the difference from Logbook's own count as a correction, and the next year carries over from it.
+- Imported leave arrives approved, goes through no approval, notifies nobody and offers no time off as time. A history file only adds: leave already in Logbook is skipped and overlapping leave refused, and nothing people requested is changed or deleted.
+- Files saved from Excel or Google Sheets read as they are: US and UK dates with slashes (told apart per file), `;` with decimal commas, Excel date cells.
+- Removed: `user-vacations.csv` and the `/upload-vacations` command, which replaced all of a person's time off. The leave files replace them.
+- Files shared in channels get no answer from Logbook. Someone without Admin or HR who shares a file in the Logbook DM gets a refusal that fits a file.
 
 ### Running it
-- Update step: two database migrations (`20261112160000_requests_awaiting_approvers`, `20261112170000_mark_waiting_requests`).
+- Update step: three database migrations (`20261112160000_requests_awaiting_approvers`, `20261112170000_mark_waiting_requests`, `20261113100000_leave_file`) and the app manifest: apply `slack-app-manifest.yml` again to drop `/upload-vacations` from an installed app.
 - Errors sent to Sentry carry the release they came from (`logbook@<version>`), so an issue shows which version brought it.
 - A process stopped while it was still starting (a quick redeploy or restart) no longer reports the failed start to Sentry, and a start that really fails exits with code 1 instead of staying up without a port when Sentry is set.
 - The Docker image (and `pnpm start:prod`) runs Node with source maps, so stack traces in the logs and in Sentry name the TypeScript file and line instead of the compiled JavaScript.
