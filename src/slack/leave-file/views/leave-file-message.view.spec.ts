@@ -430,12 +430,103 @@ describe('LeaveFileMessageView', () => {
       ]);
     });
 
-    it('keeps a list of 200 people within 50 blocks and 3000 characters a section', () => {
-      const many = Array.from({ length: 200 }, (_, i) =>
-        person(`p${i}`, `${'Very long name '.repeat(8)}${i}`),
-      );
-      const message = view.preview(
-        balances(
+    describe('a long list', () => {
+      const peopleOf = (count: number, name: (i: number) => string) =>
+        Array.from({ length: count }, (_, i) => person(`p${i}`, name(i)));
+      const correction = (id: string) =>
+        balance(id, {
+          daysLeft: 12,
+          counted: { days: 15, workingDays: 7, bonusDays: 3 },
+        });
+      // A line of about 250 characters.
+      const longCorrection = (id: string) =>
+        balance(id, {
+          daysLeft: 12,
+          workingDaysLeft: 9,
+          bonusDaysLeft: 2,
+          counted: { days: 15, workingDays: 7, bonusDays: 3 },
+        });
+      const previewOf = (plan: ILeaveBalancesPlan, who: IUserViewModel[]) =>
+        view.preview(balances(plan, who), balancesUpload, TODAY);
+      const sectionTextsOf = (message: { blocks: unknown[] }) =>
+        textsOf(message).filter(
+          (text): text is string => typeof text === 'string',
+        );
+      // Each list's title with how many bullets it shows and how many it
+      // counts as left out: a list goes on in the sections after its title
+      // that hold only bullets.
+      const listsOf = (texts: string[]) => {
+        const lists: { title: string; shown: number; more: number }[] = [];
+        for (const text of texts) {
+          const [first, ...rest] = text.split('\n');
+          if (!first.startsWith('• ')) {
+            lists.push({ title: first, shown: 0, more: 0 });
+          }
+          const list = lists[lists.length - 1];
+          for (const line of first.startsWith('• ') ? [first, ...rest] : rest) {
+            const more = /^…and (\d+) more$/.exec(line);
+            if (more) list.more += Number(more[1]);
+            else if (line.startsWith('• ')) list.shown++;
+          }
+        }
+        return lists;
+      };
+      const withinSlack = (message: { blocks: unknown[] }) => {
+        expect(message.blocks.length).toBeLessThanOrEqual(50);
+        for (const text of sectionTextsOf(message)) {
+          expect(text.length).toBeLessThanOrEqual(3000);
+        }
+      };
+
+      it('lists all 45 corrections, in as many sections as they take', () => {
+        const many = peopleOf(45, (i) => `Person number ${i} of the file`);
+        const message = previewOf(
+          balancesPlan({ balances: many.map(({ id }) => correction(id)) }),
+          many,
+        );
+        const texts = sectionTextsOf(message);
+
+        withinSlack(message);
+        expect(listsOf(texts)).toContainEqual({
+          title:
+            "*Corrections (45)*: the file's balance differs from what Logbook counts",
+          shown: 45,
+          more: 0,
+        });
+        for (const { name } of many) {
+          expect(
+            texts.filter((text) => text.includes(`• ${name}: `)),
+          ).toHaveLength(1);
+        }
+        expect(texts.some((text) => text.includes('…and'))).toBe(false);
+      });
+
+      it('keeps 1000 corrections within 50 blocks and 3000 characters a section, counting what is left out', () => {
+        const many = peopleOf(
+          1000,
+          (i) => `${'Very long name '.repeat(5)}${i}`,
+        );
+        const message = previewOf(
+          balancesPlan({ balances: many.map(({ id }) => longCorrection(id)) }),
+          many,
+        );
+        const [corrections] = listsOf(sectionTextsOf(message)).filter(
+          ({ title }) => title.startsWith('*Corrections'),
+        );
+
+        withinSlack(message);
+        expect(corrections.more).toBeGreaterThan(0);
+        expect(corrections.shown + corrections.more).toBe(1000);
+        expect(sectionTextsOf(message).pop()).toMatch(/\n…and \d+ more$/);
+        expect(textsOf(message).pop()).toEqual(['apply', 'cancel']);
+      });
+
+      it('leaves every list of 1000 people a section of its own, within 50 blocks', () => {
+        const many = peopleOf(
+          1000,
+          (i) => `${'Very long name '.repeat(8)}${i}`,
+        );
+        const message = previewOf(
           balancesPlan({
             balances: many.map(({ id }) =>
               balance(id, {
@@ -457,22 +548,23 @@ describe('LeaveFileMessageView', () => {
             })),
           }),
           many,
-        ),
-        balancesUpload,
-        TODAY,
-      );
-      const texts = textsOf(message).filter(
-        (text): text is string => typeof text === 'string',
-      );
+        );
+        const lists = listsOf(sectionTextsOf(message)).filter(
+          ({ shown }) => shown,
+        );
 
-      expect(message.blocks.length).toBeLessThanOrEqual(50);
-      for (const text of texts) {
-        expect(text.length).toBeLessThanOrEqual(3000);
-      }
-      expect(texts[2]).toMatch(/\n…and 19\d more$/);
-      expect(texts[3]).toMatch(/\n…and 190 more$/);
-      expect(texts[4]).toMatch(/\n…and 19\d more$/);
-      expect(texts[5]).toMatch(/\n…and 19\d more$/);
+        withinSlack(message);
+        expect(lists.map(({ title }) => title)).toEqual([
+          "*Corrections (1000)*: the file's balance differs from what Logbook counts",
+          '*Vacation year changes (1000)*: contract start set',
+          '*Planned leave (1000)*: already in Logbook, from the balance date on',
+          "⚠️ *Rows it can't use (1000)*",
+        ]);
+        for (const { shown, more } of lists) {
+          expect(more).toBeGreaterThan(0);
+          expect(shown + more).toBe(1000);
+        }
+      });
     });
   });
 

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { KnownBlock } from '@slack/types';
 import pluralize from 'pluralize';
 import VacationType from '@common/enums/vacation-type.enum';
 import {
@@ -12,7 +11,9 @@ import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import {
   clip,
   context,
-  listSection,
+  fullList,
+  IMessagePart,
+  messageBlocks,
   section,
 } from '@modules/slack/common/views/components/message-sections';
 import {
@@ -200,7 +201,10 @@ export class LeaveFileMessageView {
 
     return {
       text,
-      blocks: [section(`*${text}*`), ...this.changes(preview, upload, today)],
+      blocks: messageBlocks([
+        section(`*${text}*`),
+        ...this.changes(preview, upload, today),
+      ]),
     };
   }
 
@@ -213,22 +217,19 @@ export class LeaveFileMessageView {
   ): ILeaveFileMessage {
     return {
       text: CHANGED_SINCE_PREVIEW,
-      blocks: [
+      blocks: messageBlocks([
         section(CHANGED_SINCE_PREVIEW),
         ...(changesNothing(preview)
-          ? this.nothingToChange(preview).blocks
+          ? this.nothingToChangeParts(preview).parts
           : this.changes(preview, upload, today)),
-      ],
+      ]),
     };
   }
 
-  public nothingToChange({ plan }: ILeaveFilePreview): ILeaveFileMessage {
-    const unusable = this.unusable(plan.unusable, "Rows it can't use");
-    const text = unusable.length
-      ? 'Nothing to change.'
-      : 'Nothing to change: everything in the file is already in Logbook.';
+  public nothingToChange(preview: ILeaveFilePreview): ILeaveFileMessage {
+    const { text, parts } = this.nothingToChangeParts(preview);
 
-    return { text, blocks: [section(text), ...unusable] };
+    return { text, blocks: messageBlocks(parts) };
   }
 
   public canceled(): ILeaveFileMessage {
@@ -259,7 +260,7 @@ export class LeaveFileMessageView {
 
     return {
       text,
-      blocks: [
+      blocks: messageBlocks([
         section(text),
         ...this.unusable(preview.plan.unusable, "Rows it didn't use"),
         {
@@ -274,7 +275,7 @@ export class LeaveFileMessageView {
             ),
           ],
         },
-      ],
+      ]),
     };
   }
 
@@ -284,15 +285,15 @@ export class LeaveFileMessageView {
 
     return {
       text,
-      blocks: [
+      blocks: messageBlocks([
         kept.length
-          ? listSection(
+          ? fullList(
               text,
               kept.map((line) => safe(line, MAX_REASON_CHARACTERS)),
               'Kept, because they changed since:',
             )
           : section(text),
-      ],
+      ]),
     };
   }
 
@@ -320,12 +321,21 @@ export class LeaveFileMessageView {
     return `✅ ${[...done, unused].filter((part) => !!part).join(' ')}`;
   }
 
+  private nothingToChangeParts({ plan }: ILeaveFilePreview) {
+    const unusable = this.unusable(plan.unusable, "Rows it can't use");
+    const text = unusable.length
+      ? 'Nothing to change.'
+      : 'Nothing to change: everything in the file is already in Logbook.';
+
+    return { text, parts: [section(text), ...unusable] };
+  }
+
   // The preview after its heading, of a plan that changes something.
   private changes(
     preview: ILeaveFilePreview,
     upload: IShownUpload,
     today: string,
-  ): KnownBlock[] {
+  ): IMessagePart[] {
     const byId = new Map(preview.people.map((p) => [p.id, p]));
     const nameOf = (id: string) => {
       const person = byId.get(id);
@@ -371,8 +381,8 @@ export class LeaveFileMessageView {
   private balancesChanges(
     plan: ILeaveBalancesPlan,
     nameOf: (id: string) => string,
-  ): KnownBlock[] {
-    const blocks: KnownBlock[] = [];
+  ): IMessagePart[] {
+    const blocks: IMessagePart[] = [];
     const count = plan.balances.length;
     const dates = [...new Set(plan.balances.map((b) => b.balanceOn))];
 
@@ -392,7 +402,7 @@ export class LeaveFileMessageView {
 
     if (corrections.length) {
       blocks.push(
-        listSection(
+        fullList(
           `*Corrections (${corrections.length})*: the file's balance differs from what Logbook counts`,
           corrections.map(
             ({ balance, parts }) =>
@@ -416,7 +426,7 @@ export class LeaveFileMessageView {
 
     if (dropped.length) {
       blocks.push(
-        listSection(
+        fullList(
           `*Earlier balances that go (${dropped.length})*: the file's date replaces them`,
           dropped.map(
             ({ userId, dropped }) =>
@@ -428,7 +438,7 @@ export class LeaveFileMessageView {
 
     if (plan.contractStarts.length) {
       blocks.push(
-        listSection(
+        fullList(
           `*Vacation year changes (${plan.contractStarts.length})*: contract start set`,
           plan.contractStarts.map(
             (change) =>
@@ -447,7 +457,7 @@ export class LeaveFileMessageView {
 
     if (planned.length) {
       blocks.push(
-        listSection(
+        fullList(
           `*Planned leave (${planned.length})*: already in Logbook, from the balance date on`,
           planned.map(({ userId, line }) => `${nameOf(userId)}: ${line}`),
         ),
@@ -461,8 +471,8 @@ export class LeaveFileMessageView {
     plan: ILeaveHistoryPlan,
     nameOf: (id: string) => string,
     today: string,
-  ): KnownBlock[] {
-    const blocks: KnownBlock[] = [];
+  ): IMessagePart[] {
+    const blocks: IMessagePart[] = [];
     const who = new Set(plan.add.map(({ userId }) => userId)).size;
     // In the order the labels list the types.
     const byType = (Object.keys(VACATION_TYPE_LABELS) as VacationType[])
@@ -486,7 +496,7 @@ export class LeaveFileMessageView {
 
     if (plan.balanceChanges.length) {
       blocks.push(
-        listSection(
+        fullList(
           `*Balances that change (${plan.balanceChanges.length})*: people with no balance from a file`,
           plan.balanceChanges.map(
             ({ userId, before, after }) =>
@@ -512,7 +522,7 @@ export class LeaveFileMessageView {
 
     if (planned.length) {
       blocks.push(
-        listSection(
+        fullList(
           `*Planned leave (${planned.length})*: taken from a balance from a file`,
           planned.map(({ userId, line }) => `${nameOf(userId)}: ${line}`),
         ),
@@ -529,10 +539,10 @@ export class LeaveFileMessageView {
   private unusable(
     unusable: { row: number; reason: string }[],
     title: string,
-  ): KnownBlock[] {
+  ): IMessagePart[] {
     return unusable.length
       ? [
-          listSection(
+          fullList(
             `⚠️ *${title} (${unusable.length})*`,
             unusable.map(
               ({ row, reason }) =>
