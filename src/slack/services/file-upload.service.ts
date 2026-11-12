@@ -9,6 +9,7 @@ import {
 } from '@modules/user-data-import/services/user-vacations-import.service';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { TeamFileMessagesService } from '@modules/slack/team-file/services/team-file-messages.service';
+import { readSpreadsheet } from '@common/files/spreadsheet.reader';
 import { parseTeamFile } from 'src/team-file/parsers/team-file.parser';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
 
@@ -126,7 +127,7 @@ export default class FileUploadService {
     let rows;
 
     try {
-      rows = await parseTeamFile(bytes, fileName);
+      rows = parseTeamFile(await readSpreadsheet(bytes, fileName));
     } catch (error) {
       if (!(error instanceof BadRequestException)) {
         throw error;

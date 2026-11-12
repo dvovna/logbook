@@ -3,6 +3,7 @@ import ITeamViewModel from '@modules/teams/types/team.interface';
 import { UsersService } from '@modules/users/services/users.service';
 import TeamsService from '@modules/teams/services/teams.service';
 import { TeamFileTemplateService } from 'src/team-file/services/team-file-template.service';
+import { readSpreadsheet } from '@common/files/spreadsheet.reader';
 import { parseTeamFile } from 'src/team-file/parsers/team-file.parser';
 
 const person = (fields: Partial<IUserViewModel>) =>
@@ -98,7 +99,9 @@ describe('TeamFileTemplateService.build', () => {
       [team({ id: 'mobile', name: '@Mobile', manager_approvers: ['U1'] })],
     );
 
-    expect(await parseTeamFile(Buffer.from(csv), 'team-setup.csv')).toEqual([
+    expect(
+      parseTeamFile(await readSpreadsheet(Buffer.from(csv), 'team-setup.csv')),
+    ).toEqual([
       { row: 2, name: '=Ann', email: 'a@x.test', team: '@Mobile', lead: 'yes' },
     ]);
   });
