@@ -130,6 +130,19 @@ describe('Leave file', () => {
     expect(t.slackApi.calls.slice(since)).toEqual([]);
   });
 
+  it('the old /upload-vacations command is gone', async () => {
+    const admin = await workspace.addUser({ role: UserRole.Admin });
+
+    await t.slack
+      .command('/api/slack/admin/user-vacations-upload', workspace, admin)
+      .expect(404);
+    await t.idle();
+
+    expect(t.slackApi.calls).not.toContainEqual(
+      expect.objectContaining({ token: workspace.token }),
+    );
+  });
+
   // Today is Wednesday 2026-06-17 (TEST_NOW). Without a contract start the
   // vacation year is the calendar year: Anna's policy gives 26 days (20
   // working) and 3 bonus days, and she took 10 days (8 working) in March.

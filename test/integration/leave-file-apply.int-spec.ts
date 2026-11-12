@@ -17,6 +17,7 @@ import { IPostedMessage } from './support/fake-slack-api.client';
 import { actionIdsOf, sectionTexts } from './support/tab-readers';
 import { travelTo } from './support/clock';
 import { clickInMessage } from './support/team-file';
+import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 import {
   balancesCsv,
   historyCsv,
@@ -477,6 +478,38 @@ describe('Leave file Apply', () => {
           start_date: '2026-07-06',
           end_date: '2026-07-10',
         },
+      ]);
+    });
+
+    it("future leave shows in an approver's teammates off when someone on the team asks for those days", async () => {
+      const lead = await workspace.addUser({ role: UserRole.Manager });
+      await t.db
+        .updateTable('teams')
+        .set({ manager_approvers: [lead.slack_id] })
+        .where('id', '=', team.id)
+        .execute();
+      const ben = await workspace.addUser({
+        name: 'Ben Bauer',
+        team_id: team.id,
+        created_at: '2026-01-01T09:00:00Z',
+      });
+      await apply(
+        shareHistory(
+          `Anna Novak,${anna.email},Annual leave,2026-07-06,2026-07-10,`,
+        ),
+      );
+
+      await requestVacation(t, workspace, ben, {
+        start: '2026-07-08',
+        end: '2026-07-09',
+      });
+
+      expect(
+        ((await approvalMessageTo(t, workspace, lead)).blocks as SlackJson[])
+          .filter((block) => block.type === 'context')
+          .map((block) => block.elements[0].text),
+      ).toEqual([
+        'Balance after: 24 of 26 days · Also off: Anna Novak (6–10 Jul 2026)',
       ]);
     });
 
