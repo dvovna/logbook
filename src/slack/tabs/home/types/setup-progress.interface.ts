@@ -7,4 +7,6 @@ export interface ISetupProgress {
   peopleWithoutTeam: number;
   // Optional: only for time tracking.
   hasProjects: boolean;
+  // Optional: balances or history from a leave file were applied.
+  hasLeaveImport: boolean;
 }

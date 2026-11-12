@@ -23,6 +23,7 @@ import { IUserTimeSummary } from 'src/time-entries/services/time-entries-summary
 import { IPendingApprovals } from '@modules/slack/common/services/pending-approvals.service';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { ISetupProgress } from '@modules/slack/tabs/home/types/setup-progress.interface';
 import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
 import {
@@ -97,6 +98,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     hasTeamWithApprovers,
     peopleWithoutTeam,
     hasProjects,
+    hasLeaveImport,
   }: ISetupProgress): AnyBlock[] {
     const steps = [
       {
@@ -143,6 +145,20 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         why: `${pluralize('person', peopleWithoutTeam, true)} ${peopleWithoutTeam === 1 ? 'has' : 'have'} no team: their requests go to HR or the admins.`,
         doneLabel: 'everyone in a team',
         buttons: [{ text: 'Open People', actionId: NavigationActionId.People }],
+      },
+      {
+        key: 'leave',
+        optional: true,
+        done: hasLeaveImport,
+        title: 'Bring in leave balances',
+        why: 'Balances and past leave from your spreadsheet, so everyone starts with the right number.',
+        doneLabel: 'leave balances',
+        buttons: [
+          {
+            text: '📥 Import leave',
+            actionId: UsersTabViewActionId.ImportLeave,
+          },
+        ],
       },
       {
         key: 'projects',

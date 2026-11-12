@@ -6,6 +6,7 @@ import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requ
 import { LeaveFileUploadsRepository } from 'src/leave-file/repositories/leave-file-uploads.repository';
 import { LeaveFileStateService } from 'src/leave-file/services/leave-file-state.service';
 import { LeaveFileUndoService } from 'src/leave-file/services/leave-file-undo.service';
+import { LeaveFileTemplateService } from 'src/leave-file/services/leave-file-template.service';
 import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
 
 @Module({
@@ -20,7 +21,8 @@ import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uplo
     LeaveFileStateService,
     LeaveFileUndoService,
     LeaveFileUploadsService,
+    LeaveFileTemplateService,
   ],
-  exports: [LeaveFileUploadsService],
+  exports: [LeaveFileUploadsService, LeaveFileTemplateService],
 })
 export class LeaveFileModule {}

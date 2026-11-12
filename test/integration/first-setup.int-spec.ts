@@ -1,6 +1,7 @@
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   TeamModalActionId,
@@ -39,6 +40,10 @@ const peopleStep = (count: number) => ({
 ${count} ${count === 1 ? 'person has' : 'people have'} no team: their requests go to HR or the admins.`,
   button: NavigationActionId.People,
 });
+const LEAVE_STEP = {
+  text: '*Bring in leave balances* · _optional_\nBalances and past leave from your spreadsheet, so everyone starts with the right number.',
+  button: UsersTabViewActionId.ImportLeave,
+};
 const PROJECTS_STEP = {
   text: '*Add projects* · _optional_\nOnly if you track time: people log hours on them.',
   button: NavigationActionId.Projects,
@@ -86,6 +91,7 @@ describe('First setup', () => {
         { text: TEAM_STEP.text },
         { buttons: TEAM_STEP.buttons },
         peopleStep(2),
+        LEAVE_STEP,
         PROJECTS_STEP,
       ]);
     });
@@ -105,6 +111,7 @@ describe('First setup', () => {
           text: '✅ Done: vacation policy, company rules, team with approvers, projects',
         },
         peopleStep(2),
+        LEAVE_STEP,
       ]);
 
       await t.db
@@ -145,6 +152,7 @@ describe('First setup', () => {
           { text: '✅ Done: vacation policy, team with approvers' },
           RULES_STEP,
           peopleStep(1),
+          LEAVE_STEP,
           PROJECTS_STEP,
         ]);
 

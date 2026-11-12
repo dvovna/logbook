@@ -15,6 +15,7 @@ import {
 } from './support/app-home';
 import {
   actionIdsOf,
+  buttonText,
   listItems,
   modalError,
   sectionTexts,
@@ -84,56 +85,54 @@ describe('Users tab', () => {
       `${action}:${user.id}`,
     );
 
-  describe('importing a CSV', () => {
-    it('shows admins how to import vacations', async () => {
-      const tab = await openAppHomeTab(t, workspace, admin, USERS_TAB);
-      const modal = await openModalFrom(
-        t,
-        workspace,
-        admin,
-        tab,
-        UsersTabViewActionId.ImportVacations,
-      );
+  describe('importing leave', () => {
+    it.each([UserRole.Admin, UserRole.HR])(
+      'offers %s the button',
+      async (role) => {
+        const user =
+          role === UserRole.Admin
+            ? admin
+            : await workspace.addUser({ role: UserRole.HR });
+        const tab = await openAppHomeTab(t, workspace, user, USERS_TAB);
 
-      expect((modal as { title: { text: string } }).title.text).toBe(
-        'Import vacations',
-      );
-      expect(sectionTexts(modal)).toContainEqual(
-        expect.stringContaining('Save the file as `user-vacations.csv`'),
-      );
-    });
+        expect(actionIdsOf(tab)).toContain(UsersTabViewActionId.ImportLeave);
+        expect(buttonText(tab, UsersTabViewActionId.ImportLeave)).toBe(
+          '📥 Import leave',
+        );
+      },
+    );
 
-    it('is not offered to HR, and a forged click opens nothing', async () => {
-      const hr = await workspace.addUser({ role: UserRole.HR });
-      const tab = await openAppHomeTab(t, workspace, hr, USERS_TAB);
-      expect(actionIdsOf(tab)).not.toContain(
-        UsersTabViewActionId.ImportVacations,
-      );
+    it.each([UserRole.Manager, UserRole.Finance])(
+      'is not offered to %s, and a forged click sends nothing',
+      async (role) => {
+        const other = await workspace.addUser({ role });
+        const tab = await openAppHomeTab(t, workspace, other, [
+          NavigationActionId.Home,
+        ]);
+        const since = t.slackApi.mark();
 
-      const since = t.slackApi.mark();
-      await t.slack
-        .interaction({
-          type: 'block_actions',
-          team: { id: workspace.slackId },
-          user: { id: hr.slack_id },
-          trigger_id: 'trigger-forged',
-          container: { type: 'view' },
-          view: { team_id: workspace.slackId, ...tab },
-          actions: [
-            {
-              type: 'button',
-              action_id: UsersTabViewActionId.ImportVacations,
-              block_id: 'forged',
-            },
-          ],
-        })
-        .expect(200);
-      await t.idle();
+        await t.slack
+          .interaction({
+            type: 'block_actions',
+            team: { id: workspace.slackId },
+            user: { id: other.slack_id },
+            trigger_id: 'trigger-forged',
+            container: { type: 'view' },
+            view: { team_id: workspace.slackId, ...tab },
+            actions: [
+              {
+                type: 'button',
+                action_id: UsersTabViewActionId.ImportLeave,
+                block_id: 'forged',
+              },
+            ],
+          })
+          .expect(200);
+        await t.idle();
 
-      expect(
-        t.slackApi.callsWith(workspace.token, 'views.open', { since }),
-      ).toEqual([]);
-    });
+        expect(t.slackApi.calls.slice(since)).toEqual([]);
+      },
+    );
   });
 
   describe('deactivating', () => {

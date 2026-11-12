@@ -26,6 +26,7 @@ import { SlackActionPermissionsService } from '@modules/slack/common/services/sl
 import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import UserRole from '@common/enums/user-role.enum';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import {
   FiltersBlockBuilder,
   IFiltersConfig,
@@ -88,15 +89,14 @@ export class UsersTabView extends BaseTabView<
       },
     ];
 
-    // CSV imports are for admins (FileUploadService refuses anyone else).
-    if (userRole === UserRole.Admin) {
+    if (ADMIN_AND_HR_ROLES.includes(userRole)) {
       blocks.push({
         type: 'actions',
         elements: [
           {
             type: 'button',
-            text: { type: 'plain_text', text: '📥 Import vacations (CSV)' },
-            action_id: UsersTabViewActionId.ImportVacations,
+            text: { type: 'plain_text', text: '📥 Import leave' },
+            action_id: UsersTabViewActionId.ImportLeave,
           },
         ],
       });

@@ -10,6 +10,7 @@ import UsersTabActionHandler from '@modules/slack/tabs/users/handlers/users-tab-
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import { TeamsModule } from '@modules/teams/teams.module';
 import { UserVacationUsageModalView } from '@modules/slack/tabs/users/views/user-vacation-usage-modal.view';
+import { LeaveFileSlackModule } from '@modules/slack/leave-file/leave-file-slack.module';
 import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requ
     TeamsModule,
     SlackCommonModule,
     VacationRequestsModule,
+    LeaveFileSlackModule,
   ],
   providers: [
     UsersTabService,
