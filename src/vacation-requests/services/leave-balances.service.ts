@@ -3,15 +3,18 @@ import { TransactionService } from 'src/database/transaction.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { LeaveBalancesRepository } from '@modules/vacation-requests/repositories/leave-balances.repository';
 import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
-import { IFileBalance } from '@modules/vacation-requests/utils/leave-balance.utils';
+import {
+  IFileBalance,
+  IStoredBalance,
+} from '@modules/vacation-requests/utils/leave-balance.utils';
 
 export interface ILeaveBalanceRestoreParams {
   userId: string;
   uploadId: string;
   // The row's, as the upload left it.
   updatedAt: string;
-  // The balance before the upload; null when there was none.
-  before: IFileBalance | null;
+  // The row before the upload (toStoredBalance); null when there was none.
+  before: IStoredBalance | null;
 }
 
 // The balances HR set from a file: one per person, "N left on date D".
@@ -46,37 +49,24 @@ export class LeaveBalancesService {
     });
   }
 
-  // Replaces each person's balance whole, in one statement.
-  public async setMany(
+  // Replaces each person's balance whole, in one statement. Only the
+  // workspace's people get one; the result holds the rows set.
+  public setMany(
     balances: (IFileBalance & { userId: string })[],
     uploadId: string,
     setBy: IUserViewModel,
   ): Promise<ILeaveBalance[]> {
-    if (!balances.length) {
-      return [];
-    }
-
-    const updatedAt = new Date().toISOString();
-
-    return (await this.leaveBalancesRepository.upsert(
-      balances.map((balance) => ({
-        slack_team_id: setBy.slack_team_id,
-        user_id: balance.userId,
-        balance_on: balance.balanceOn,
-        days_left: balance.daysLeft,
-        working_days_left: balance.workingDaysLeft,
-        bonus_days_left: balance.bonusDaysLeft,
-        upload_id: uploadId,
-        set_by: setBy.id,
-        updated_at: updatedAt,
-      })),
-      'user_id',
-    )) as ILeaveBalance[];
+    return this.leaveBalancesRepository.setMany(
+      setBy.slack_team_id,
+      balances,
+      uploadId,
+      setBy.id,
+    );
   }
 
-  // Puts back the balance each person had before an upload, only where the
-  // row is still as that upload left it: one set or restored since is kept.
-  // Returns the user IDs restored.
+  // Puts back the row each person had before an upload, whole, only where
+  // the row is still as that upload left it: one set or restored since is
+  // kept. Returns the user IDs restored.
   public async restoreMany(
     restores: ILeaveBalanceRestoreParams[],
     slackTeamId: string,
@@ -92,9 +82,9 @@ export class LeaveBalancesService {
       )),
       ...(await this.leaveBalancesRepository.restoreUnchanged(
         slackTeamId,
-        restores
-          .filter(({ before }) => before)
-          .map(({ before, ...key }) => ({ ...key, ...before! })),
+        restores.flatMap(({ before, ...key }) =>
+          before ? [{ ...key, before }] : [],
+        ),
       )),
     ]);
   }

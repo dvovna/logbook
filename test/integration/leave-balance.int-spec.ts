@@ -2,6 +2,8 @@ import UserRole from '@common/enums/user-role.enum';
 import { Tables, TablesInsert } from '@common/types/database.types';
 import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-balances.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
+import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
+import { toStoredBalance } from '@modules/vacation-requests/utils/leave-balance.utils';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { submitVacationRequest } from './support/vacation-flows';
@@ -155,6 +157,16 @@ describe('A balance from a file', () => {
       balances = t.app.get(LeaveBalancesService);
     });
 
+    const asUser = (user: Tables<'users'>) => user as unknown as IUserViewModel;
+
+    const twelveOn = (userId: string, daysLeft = 12) => ({
+      userId,
+      balanceOn: '2026-06-17',
+      daysLeft,
+      workingDaysLeft: null,
+      bonusDaysLeft: null,
+    });
+
     const valuesOf = async () =>
       (await workspace.rows('leave_balances'))
         .map((row) => ({
@@ -197,7 +209,7 @@ describe('A balance from a file', () => {
           },
         ],
         upload.id,
-        hr as unknown as IUserViewModel,
+        asUser(hr),
       );
 
       expect(set.map(({ user_id }) => user_id).sort()).toEqual(
@@ -231,6 +243,38 @@ describe('A balance from a file', () => {
       ).toBe(2);
     });
 
+    it("sets no balance of another workspace's person and leaves its row alone", async () => {
+      const other = await t.createWorkspace();
+      const [kept, stranger] = await Promise.all([
+        other.addUser(),
+        other.addUser(),
+      ]);
+      const anna = await workspace.addUser();
+      const theirs = await t.db
+        .insertInto('leave_balances')
+        .values({
+          slack_team_id: other.id,
+          user_id: kept.id,
+          balance_on: '2026-06-01',
+          days_left: 3,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      const upload = await addUpload();
+
+      const set = await balances.setMany(
+        [twelveOn(kept.id), twelveOn(stranger.id), twelveOn(anna.id)],
+        upload.id,
+        asUser(hr),
+      );
+
+      expect(set.map(({ user_id }) => user_id)).toEqual([anna.id]);
+      expect(await other.rows('leave_balances')).toEqual([theirs]);
+      expect(
+        (await workspace.rows('leave_balances')).map(({ user_id }) => user_id),
+      ).toEqual([anna.id]);
+    });
+
     it('restores the balance before an upload where it is still as the upload left it', async () => {
       const [anna, ben, carla] = await Promise.all([
         workspace.addUser(),
@@ -238,17 +282,14 @@ describe('A balance from a file', () => {
         workspace.addUser(),
       ]);
       const upload = await addUpload();
-      await addBalance(anna, { balance_on: '2026-06-01', days_left: 3 });
+      const annaBefore = await addBalance(anna, {
+        balance_on: '2026-06-01',
+        days_left: 3,
+      });
       const set = await balances.setMany(
-        [anna, ben, carla].map(({ id }) => ({
-          userId: id,
-          balanceOn: '2026-06-17',
-          daysLeft: 12,
-          workingDaysLeft: null,
-          bonusDaysLeft: null,
-        })),
+        [anna, ben, carla].map(({ id }) => twelveOn(id)),
         upload.id,
-        hr as unknown as IUserViewModel,
+        asUser(hr),
       );
       const updatedAtOf = (userId: string) =>
         set.find(({ user_id }) => user_id === userId)!.updated_at;
@@ -265,12 +306,7 @@ describe('A balance from a file', () => {
             userId: anna.id,
             uploadId: upload.id,
             updatedAt: updatedAtOf(anna.id),
-            before: {
-              balanceOn: '2026-06-01',
-              daysLeft: 3,
-              workingDaysLeft: null,
-              bonusDaysLeft: null,
-            },
+            before: toStoredBalance(annaBefore as ILeaveBalance),
           },
           {
             userId: ben.id,
@@ -289,6 +325,9 @@ describe('A balance from a file', () => {
       );
 
       expect(restored.sort()).toEqual([anna.id, ben.id].sort());
+      expect(await balances.findOfUser(anna.id, workspace.id)).toEqual(
+        annaBefore,
+      );
       expect(await valuesOf()).toEqual(
         [
           {
@@ -309,6 +348,54 @@ describe('A balance from a file', () => {
           },
         ].sort((a, b) => a.user_id.localeCompare(b.user_id)),
       );
+    });
+
+    it("puts back the earlier upload's row whole, so that its own Undo still finds it", async () => {
+      const anna = await workspace.addUser();
+      const otherHr = await workspace.addUser({ role: UserRole.HR });
+      const [first, second] = [await addUpload(), await addUpload()];
+      const [afterFirst] = await balances.setMany(
+        [twelveOn(anna.id, 10)],
+        first.id,
+        asUser(hr),
+      );
+      const [afterSecond] = await balances.setMany(
+        [twelveOn(anna.id, 12)],
+        second.id,
+        asUser(otherHr),
+      );
+
+      expect(
+        await balances.restoreMany(
+          [
+            {
+              userId: anna.id,
+              uploadId: second.id,
+              updatedAt: afterSecond.updated_at,
+              before: toStoredBalance(afterFirst),
+            },
+          ],
+          workspace.id,
+        ),
+      ).toEqual([anna.id]);
+      expect(await balances.findOfUser(anna.id, workspace.id)).toEqual(
+        afterFirst,
+      );
+
+      expect(
+        await balances.restoreMany(
+          [
+            {
+              userId: anna.id,
+              uploadId: first.id,
+              updatedAt: afterFirst.updated_at,
+              before: null,
+            },
+          ],
+          workspace.id,
+        ),
+      ).toEqual([anna.id]);
+      expect(await workspace.rows('leave_balances')).toEqual([]);
     });
 
     it("restores nothing of another workspace's", async () => {
@@ -356,6 +443,9 @@ describe('A balance from a file', () => {
                 daysLeft: 1,
                 workingDaysLeft: null,
                 bonusDaysLeft: null,
+                uploadId: null,
+                setBy: null,
+                updatedAt: '2026-06-01T09:00:00Z',
               },
             },
           ],

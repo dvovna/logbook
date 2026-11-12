@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
+import { vacationPolicyOfTeam } from '@modules/teams/utils/team-rules.utils';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { getDateOnly } from '@common/utils/date.utils';
@@ -75,31 +76,24 @@ export class VacationPeriodUsageService {
     }
 
     const slackTeamId = users[0].slack_team_id;
-    const [vacationRequests, { companyRules, teams }, holidays] =
-      await Promise.all([
-        this.findCounted(
-          users.map(({ id }) => id),
-          slackTeamId,
-          from,
-          to,
-        ),
-        this.teamRulesService.forWorkspace(slackTeamId),
-        this.vacationDaysCalculationService.holidayDatesByPolicy(
-          slackTeamId,
-          from,
-          to,
-        ),
-      ]);
-    const policies = new Map(
-      teams.map(({ team, vacationPolicyId }) => [team?.id, vacationPolicyId]),
-    );
+    const [vacationRequests, rules, holidays] = await Promise.all([
+      this.findCounted(
+        users.map(({ id }) => id),
+        slackTeamId,
+        from,
+        to,
+      ),
+      this.teamRulesService.forWorkspace(slackTeamId),
+      this.vacationDaysCalculationService.holidayDatesByPolicy(
+        slackTeamId,
+        from,
+        to,
+      ),
+    ]);
+    const policyOf = vacationPolicyOfTeam(rules);
 
     for (const vacation of vacationRequests) {
-      // A team of its own rules may have no policy: no holidays then.
-      const policyId =
-        vacation.team_id && policies.has(vacation.team_id)
-          ? policies.get(vacation.team_id)
-          : companyRules.vacation_policy_id;
+      const policyId = policyOf(vacation.team_id);
 
       byUser
         .get(vacation.user_id)

@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { TeamsRepository } from '@modules/teams/repositories/teams.repository';
 import { RuleSetsRepository } from '@modules/teams/repositories/rule-sets.repository';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
-import { IEffectiveTeamRules } from '@modules/teams/types/effective-team-rules.interface';
-import ITeamViewModel from '@modules/teams/types/team.interface';
 import {
-  CompanyRuleValues,
-  IRuleSetViewModel,
-} from '@modules/teams/types/rule-set.interface';
+  IEffectiveTeamRules,
+  IWorkspaceTeamRules,
+} from '@modules/teams/types/effective-team-rules.interface';
+import ITeamViewModel from '@modules/teams/types/team.interface';
+import { CompanyRuleValues } from '@modules/teams/types/rule-set.interface';
 
 @Injectable()
 export class TeamRulesService {
@@ -37,10 +37,7 @@ export class TeamRulesService {
   }
 
   // The company rules and the rules of every team, read together.
-  public async forWorkspace(slackTeamId: string): Promise<{
-    companyRules: IRuleSetViewModel;
-    teams: IEffectiveTeamRules[];
-  }> {
+  public async forWorkspace(slackTeamId: string): Promise<IWorkspaceTeamRules> {
     const [teams, companyRules] = await Promise.all([
       this.teamsRepository.findMany({ slack_team_id: slackTeamId }),
       this.ruleSetsRepository.ensureDefault(slackTeamId),

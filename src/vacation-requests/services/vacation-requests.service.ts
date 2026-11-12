@@ -18,6 +18,7 @@ import {
 } from '@modules/vacation-requests/services/vacation-requests-validation.service';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
+import { vacationPolicyOfTeam } from '@modules/teams/utils/team-rules.utils';
 import { UsersService } from '@modules/users/services/users.service';
 import { getDateOnly } from '@common/utils/date.utils';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
@@ -604,7 +605,7 @@ export class VacationRequestsService implements IVacationRequestsService {
       (last, { endDate }) => (endDate > last ? endDate : last),
       vacations[0].endDate,
     );
-    const [{ companyRules, teams }, holidays] = await Promise.all([
+    const [rules, holidays] = await Promise.all([
       this.teamRulesService.forWorkspace(slackTeamId),
       this.workingDaysCalculationService.holidayDatesByPolicy(
         slackTeamId,
@@ -612,16 +613,10 @@ export class VacationRequestsService implements IVacationRequestsService {
         latest,
       ),
     ]);
-    const policies = new Map(
-      teams.map(({ team, vacationPolicyId }) => [team?.id, vacationPolicyId]),
-    );
+    const policyOf = vacationPolicyOfTeam(rules);
 
-    // A team of its own rules may have no policy: no holidays then.
     return (teamId) => {
-      const policyId =
-        teamId && policies.has(teamId)
-          ? policies.get(teamId)
-          : companyRules.vacation_policy_id;
+      const policyId = policyOf(teamId);
 
       return (policyId && holidays.get(policyId)) || new Set();
     };

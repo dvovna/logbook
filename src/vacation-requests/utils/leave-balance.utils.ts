@@ -41,6 +41,21 @@ export const toFileBalance = (balance: ILeaveBalance): IFileBalance => ({
   bonusDaysLeft: balance.bonus_days_left,
 });
 
+// A file balance as it is stored, with the upload that set it, who and
+// when: what an Undo of a later upload puts back.
+export interface IStoredBalance extends IFileBalance {
+  uploadId: string | null;
+  setBy: string | null;
+  updatedAt: string;
+}
+
+export const toStoredBalance = (balance: ILeaveBalance): IStoredBalance => ({
+  ...toFileBalance(balance),
+  uploadId: balance.upload_id,
+  setBy: balance.set_by,
+  updatedAt: balance.updated_at,
+});
+
 export interface ILeaveBalanceInput {
   contractStartDate: string | null;
   createdAt: string;
