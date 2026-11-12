@@ -313,7 +313,7 @@ const correctionIn = (
     dayBefore(fileBalance.balanceOn),
   );
   const difference = (left: number | null, counted: number) =>
-    left === null ? 0 : left - counted;
+    left === null ? null : left - counted;
 
   return {
     balanceOn: fileBalance.balanceOn,

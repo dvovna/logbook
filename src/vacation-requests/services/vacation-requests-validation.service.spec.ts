@@ -6,7 +6,10 @@ import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
 import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
-import { IVacationPeriodUsageData } from 'src/vacation-requests/types/user-vacations-usage-info.interface';
+import {
+  IVacationLimits,
+  IVacationPeriodUsageData,
+} from 'src/vacation-requests/types/user-vacations-usage-info.interface';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 const USER_ID = 'user-1';
@@ -169,26 +172,38 @@ describe('VacationRequestsValidationService', () => {
       start: string,
       end: string,
       available: number,
+      {
+        workingAvailable = available,
+        bonusAvailable = 0,
+        correction = null,
+      }: {
+        workingAvailable?: number;
+        bonusAvailable?: number;
+        correction?: IVacationLimits['correction'];
+      } = {},
     ): IVacationPeriodUsageData => ({
       periodStart: new Date(start),
       periodEnd: new Date(end),
       limits: {
         vacationDays: 20,
         workingDays: 20,
-        bonusDays: 0,
+        bonusDays: 3,
         carryoverDays: 0,
         carryoverWorkingDays: 0,
         daysTotal: 20,
-        correction: null,
+        correction,
       },
       usage: {
         [VacationType.AnnualLeave]: {
           used: 20 - available,
           available,
-          working_days_used: 20 - available,
-          working_days_available: available,
+          working_days_used: 20 - workingAvailable,
+          working_days_available: workingAvailable,
         },
-        [VacationType.BonusDay]: { used: 0, available: 0 },
+        [VacationType.BonusDay]: {
+          used: 3 - bonusAvailable,
+          available: bonusAvailable,
+        },
         [VacationType.SickLeave]: { used: 0 },
         [VacationType.UnpaidLeave]: { used: 0 },
         [VacationType.Other]: { used: 0 },
@@ -242,6 +257,121 @@ describe('VacationRequestsValidationService', () => {
           'Not enough vacation days. Requested: 4, available: 3',
         ),
       );
+    });
+
+    describe('in the year of a balance from a file', () => {
+      // A balance left on Wednesday 2026-06-17: what was left before any
+      // leave from that day on.
+      const balance = (
+        units: Partial<NonNullable<IVacationLimits['correction']>>,
+      ) => ({
+        balanceOn: '2026-06-17',
+        days: null,
+        workingDays: null,
+        bonusDays: null,
+        ...units,
+      });
+      // Monday to Friday, three of its days from the balance's day on.
+      const acrossTheBalanceDay = {
+        startDate: new Date('2026-06-15'),
+        endDate: new Date('2026-06-19'),
+        workingDates: [
+          '2026-06-15',
+          '2026-06-16',
+          '2026-06-17',
+          '2026-06-18',
+          '2026-06-19',
+        ],
+      };
+
+      it('takes only the days from the balance day on from a unit the file gave', () => {
+        expect(() =>
+          service.checkDaysRequested(
+            acrossTheBalanceDay,
+            VacationType.AnnualLeave,
+            [
+              year('2026-01-01', '2026-12-31', 3, {
+                workingAvailable: 3,
+                correction: balance({ days: -13, workingDays: -9 }),
+              }),
+            ],
+          ),
+        ).not.toThrow();
+        expect(() =>
+          service.checkDaysRequested(
+            acrossTheBalanceDay,
+            VacationType.AnnualLeave,
+            [
+              year('2026-01-01', '2026-12-31', 2, {
+                workingAvailable: 20,
+                correction: balance({ days: -14 }),
+              }),
+            ],
+          ),
+        ).toThrow(
+          new ValidationError(
+            'Not enough vacation days. Requested: 3, available: 2',
+          ),
+        );
+      });
+
+      it('takes nothing from a unit the file gave for a request before the balance day', () => {
+        expect(() =>
+          service.checkDaysRequested(
+            {
+              startDate: new Date('2026-04-06'),
+              endDate: new Date('2026-04-10'),
+              workingDates: [
+                '2026-04-06',
+                '2026-04-07',
+                '2026-04-08',
+                '2026-04-09',
+                '2026-04-10',
+              ],
+            },
+            VacationType.AnnualLeave,
+            [
+              year('2026-01-01', '2026-12-31', 0, {
+                correction: balance({ days: -16, workingDays: -12 }),
+              }),
+            ],
+          ),
+        ).not.toThrow();
+      });
+
+      it('counts the whole request in a unit the file left empty', () => {
+        expect(() =>
+          service.checkDaysRequested(
+            acrossTheBalanceDay,
+            VacationType.AnnualLeave,
+            [
+              year('2026-01-01', '2026-12-31', 20, {
+                workingAvailable: 4,
+                correction: balance({ days: -13 }),
+              }),
+            ],
+          ),
+        ).toThrow(
+          new ValidationError(
+            'Not enough working days. Requested: 5, available: 4',
+          ),
+        );
+      });
+
+      it('takes bonus days from the balance day on when the file gave them', () => {
+        expect(() =>
+          service.checkDaysRequested(
+            acrossTheBalanceDay,
+            VacationType.BonusDay,
+            [
+              year('2026-01-01', '2026-12-31', 20, {
+                bonusAvailable: 3,
+                correction: balance({ bonusDays: 0 }),
+              }),
+            ],
+          ),
+        ).not.toThrow();
+      });
     });
   });
 });

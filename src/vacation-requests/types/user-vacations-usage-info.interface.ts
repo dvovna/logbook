@@ -30,13 +30,13 @@ export interface IVacationLimits {
   carryoverDays: number;
   carryoverWorkingDays: number;
   // What a balance from a file changes in the year that holds its date: what
-  // the file says was left then, minus what Logbook counted. 0 for a unit the
-  // file left empty.
+  // the file says was left then, minus what Logbook counted. Null for a unit
+  // the file left empty; 0 for one it gave as Logbook counted it.
   correction: {
     balanceOn: string;
-    days: number;
-    workingDays: number;
-    bonusDays: number;
+    days: number | null;
+    workingDays: number | null;
+    bonusDays: number | null;
   } | null;
 }
 

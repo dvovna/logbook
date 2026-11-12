@@ -123,8 +123,8 @@ describe('leaveBalanceOf', () => {
       correction: {
         balanceOn: '2026-11-12',
         days: -4,
-        workingDays: 0,
-        bonusDays: 0,
+        workingDays: null,
+        bonusDays: null,
       },
     }));
 
@@ -166,6 +166,17 @@ describe('leaveBalanceOf', () => {
         }),
       ),
     ).toEqual({ available: 2, correction: 0 }));
+
+  it('a unit given as Logbook counts it has a correction of 0, an empty one none', () =>
+    expect(
+      balanceOf({ fileBalance: file({ daysLeft: 16, bonusDaysLeft: 3 }) })
+        .limits!.correction,
+    ).toEqual({
+      balanceOn: '2026-11-12',
+      days: 0,
+      workingDays: null,
+      bonusDays: 0,
+    }));
 
   it('half a day', () =>
     expect(

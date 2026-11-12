@@ -7,6 +7,11 @@ import { toStoredBalance } from '@modules/vacation-requests/utils/leave-balance.
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { submitVacationRequest } from './support/vacation-flows';
+import { openAppHomeTab, openModalFrom } from './support/app-home';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import VacationType from '@common/enums/vacation-type.enum';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 
 // Today is Wednesday 2026-06-17 (TEST_NOW). Without a contract start date the
 // vacation year is the calendar year 2026.
@@ -135,6 +140,39 @@ describe('A balance from a file', () => {
       });
 
       expect(response).toEqual(notEnough(13, 12));
+    });
+
+    it('takes only the days from the balance date on of a request HR records across it', async () => {
+      await setUp();
+      await addBalance(member, { days_left: 3 });
+      const form = await openModalFrom(
+        t,
+        workspace,
+        hr,
+        await openAppHomeTab(t, workspace, hr, [
+          NavigationActionId.TimeOff,
+          NavigationActionId.AllRequests,
+        ]),
+        VacationRequestsTabViewActionId.CreateRequest,
+      );
+
+      // Monday to Friday of this week: 3 days from Wednesday, June 17, on.
+      const response = await t.slack
+        .submitView(workspace, hr, form, {
+          [VacationRequestsTabViewActionId.UserField]: member.id,
+          status: VacationRequestStatus.Approved,
+          start_date: '2026-06-15',
+          end_date: '2026-06-19',
+          type_option: VacationType.AnnualLeave,
+        })
+        .expect(200);
+
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(
+        (await workspace.rows('vacation_requests'))
+          .map(({ start_date }) => start_date)
+          .sort(),
+      ).toEqual(['2026-03-02', '2026-06-15']);
     });
 
     it('takes a request within the file balance', async () => {

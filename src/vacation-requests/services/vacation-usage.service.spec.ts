@@ -279,8 +279,8 @@ describe('VacationsUsageService', () => {
       expect(limits?.correction).toEqual({
         balanceOn: '2026-11-06',
         days: -7,
-        workingDays: 0,
-        bonusDays: 0,
+        workingDays: null,
+        bonusDays: null,
       });
       expect(leaveBalances.findOfUser).toHaveBeenCalledWith(
         'user-1',
