@@ -45,7 +45,7 @@ Read every file the person gave you and tell them, before you write anything:
 - what the balance numbers are (days left, days used, days a year) and their date;
 - how many leaves, of which kinds, from when to when;
 - what you can't use and why: people without an email, the same person twice, dates you can't read, kinds of leave you can't map;
-- what you would tidy: one team spelled two ways, one email in two letter cases (the same person to Logbook), leaves that overlap.
+- what you would tidy: one team spelled two ways (and the spelling you would keep), one email in two letter cases (the same person to Logbook), leaves that overlap.
 
 A date such as `03/04/2026` can be read two ways. Look for one in the same file that can't (`15/06/2026`); when there is none, ask.
 
@@ -143,12 +143,12 @@ Ivan Petrov,ivan@example.com,,2026-11-01,20,,
 | `Working days left` | The same in working days. |
 | `Bonus days left` | Bonus days left on that date. |
 
-- **The count is what is left on the `Balance on` date, before any leave from that date on.** Leave from that date on that is in Logbook, the leave of step 7 included, is taken from it. So when the company's number already has agreed future leave subtracted, either add those days back, or leave that leave out of the history. Ask the person which their number is. Getting this wrong takes the leave twice.
+- **The count is what is left on the `Balance on` date, before any leave from that date on.** Leave from that date to the end of that vacation year that is in Logbook, the leave of step 7 included, is taken from it. Leave after the year turns belongs to the next year's allowance. So when the company's number already has agreed future leave subtracted, either add those days back, or leave that leave out of the history. Ask the person which their number is. Getting this wrong takes the leave twice.
 - Fill `Days left` or `Working days left`, the unit the company counts in, and leave the other empty. Don't convert one into the other.
 - If the data has days used and not days left, work out left = the year's allowance + carried over − used, show the person three examples, and go on only after a yes.
 - Whole and half days: `12`, `12.5`. At most 366. A negative number is allowed and shows as 0 left. A number such as `6.75` is refused: don't round it yourself. Ask the person which number to write, and until they answer leave the person out of this file, or keep only their contract start.
-- The person's current vacation year starts on 1 January, or on the last anniversary of their contract start. A `Balance on` before that is refused: for those people, ask for a newer number.
-- A row with a contract start and no counts sets only the contract start.
+- The person's current vacation year starts on 1 January, or on the last anniversary of their contract start. A `Balance on` before that is refused, as for someone hired after the date of the company's numbers: for those people, ask for a newer number, and until then keep only their contract start.
+- A row with a contract start and no counts sets only the contract start. Leave its `Balance on` empty.
 - A balance needs a policy: the person follows the company rules' policy, or their team's own. That is why step 9 sends this file after the policy and the teams.
 
 ## 7. `leave-history.csv`
@@ -211,7 +211,7 @@ The order matters: a balance needs a policy, new teams take the company rules as
 Tell them what to look at in each preview:
 
 - **Rows it can't use**: each has its row number and a reason. The other rows still apply.
-- Team file: **Teams to create** should be the teams you agreed on, not two spellings of one.
+- Team file: **Teams to create** should be the teams you agreed on, not two spellings of one. The preview's last line says what new teams get from the company rules. If it says "no vacation policy", the company rules name no policy yet: **Company rules** under the preview opens them. Set them before the balances.
 - Balances: **Corrections** are where the file's number differs from what Logbook counts. A big difference for everyone means a wrong policy or a wrong unit: don't apply, ask.
 - Balances: **Planned leave** is leave already in Logbook from the balance date on, which will be taken from the number. See step 6.
 
