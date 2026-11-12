@@ -4,6 +4,10 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-12
+
+Set up a workspace with an AI agent from your company's data, a local check of team and leave files, and the agent install corrected by its first real run. No update step: only the new image.
+
 ### Setting up
 - Set up with an AI agent: give an agent such as Claude or ChatGPT your people list and leave data with the prompt from the new "Set up with an AI agent" page, and it writes the team file, the leave balances and the leave history in Logbook's format and the values for the policy, holidays and company rules forms, by the instructions at `/logbook/docs/agent-setup.md`. You send the files to Logbook and apply them; the agent gets no access to Logbook or Slack.
 - `pnpm files:check <file>…` reads team and leave files as Logbook would and lists the rows it couldn't use, with the reason, before anyone sends them in Slack.
@@ -173,6 +177,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.5.1]: https://github.com/dvovna/logbook/releases/tag/v0.5.1
 [0.5.0]: https://github.com/dvovna/logbook/releases/tag/v0.5.0
 [0.4.1]: https://github.com/dvovna/logbook/releases/tag/v0.4.1
 [0.4.0]: https://github.com/dvovna/logbook/releases/tag/v0.4.0

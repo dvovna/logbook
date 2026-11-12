@@ -195,7 +195,7 @@ When you can run commands and the Logbook source is on this machine (the folder 
 pnpm files:check /path/to/team-setup.csv /path/to/leave-balances.csv /path/to/leave-history.csv
 ```
 
-It prints what each file holds and each row Logbook couldn't use, with the reason, and exits with 0 only when every row is usable. Fix the rows and run it again. If the command doesn't exist there, the source is 0.5.0: skip the checker. It can't know the workspace: whether each email is a person there, the teams that exist and the leave already in Logbook are checked by Logbook's own preview in the next step. Don't clone or install anything for this without asking.
+It prints what each file holds and each row Logbook couldn't use, with the reason, and exits with 0 only when every row is usable. Fix the rows and run it again. If the command doesn't exist there, the source is older than 0.5.1: skip the checker. It can't know the workspace: whether each email is a person there, the teams that exist and the leave already in Logbook are checked by Logbook's own preview in the next step. Don't clone or install anything for this without asking.
 
 ## 9. Hand over, in this order
 
