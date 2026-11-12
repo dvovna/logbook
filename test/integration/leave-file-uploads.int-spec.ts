@@ -452,7 +452,10 @@ describe('Leave file uploads', () => {
     it('neither restores nor keeps a leave deleted since', async () => {
       const upload = await applyHistory([leave(2, '2026-03-02', '2026-03-06')]);
 
-      await t.db.deleteFrom('vacation_requests').execute();
+      await t.db
+        .deleteFrom('vacation_requests')
+        .where('slack_team_id', '=', workspace.id)
+        .execute();
 
       await expect(uploads.undo(upload.id, asUser(hr))).resolves.toMatchObject({
         kind: 'undone',
