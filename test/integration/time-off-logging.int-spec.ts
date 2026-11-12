@@ -8,6 +8,7 @@ import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
+import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { UsersService } from '@modules/users/services/users.service';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
@@ -23,6 +24,8 @@ import {
 } from './support/tab-readers';
 import { textOf } from './support/block-kit';
 import { addDays, workWeek } from './support/dates';
+import { historyCsv, shareLeaveFile } from './support/leave-file';
+import { clickInMessage } from './support/team-file';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 import { acknowledged } from './support/slack-test-client';
 import {
@@ -1266,6 +1269,116 @@ describe('Time off logging', () => {
         '✅ 24h logged to Sick Leave.\\nAlready logged for this time off on Vacations: 17–18 Jun.',
       );
       expect(textOf(update)).not.toContain('Skipped');
+    });
+  });
+
+  // Imported leave is logged as no time (its file's rows were taken or
+  // agreed before Logbook): nobody is offered to log it.
+  describe('Imported leave', () => {
+    const OFFER = 'log_time_off';
+
+    let hr: Tables<'users'>;
+    let requester: Tables<'users'>;
+    let imported: Tables<'vacation_requests'>;
+
+    beforeEach(async () => {
+      hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+      requester = await workspace.addUser({ name: 'Max Member' });
+      const vacations = await workspace.addProject({ name: 'Vacations' });
+      await t.db
+        .insertInto('time_off_projects')
+        .values({
+          slack_team_id: workspace.id,
+          vacation_type: 'annual_leave',
+          project_id: vacations.id,
+        })
+        .execute();
+      const [preview] = await shareLeaveFile(
+        t,
+        workspace,
+        hr,
+        historyCsv(
+          `Max Member,${requester.email},Annual leave,2026-06-22,2026-06-26,`,
+        ),
+        'leave-history.csv',
+      );
+      await clickInMessage(t, workspace, hr, preview, 'apply');
+      [imported] = await workspace.rows('vacation_requests');
+      expect(imported.leave_file_upload_id).not.toBeNull();
+    });
+
+    it('gets no offer when HR changes its dates', async () => {
+      const since = t.slackApi.mark();
+      const form = await openModalFrom(
+        t,
+        workspace,
+        hr,
+        await openAppHomeTab(t, workspace, hr, [
+          NavigationActionId.TimeOff,
+          NavigationActionId.AllRequests,
+        ]),
+        VacationRequestsTabViewActionId.ManageRequestMenu,
+        `${VacationRequestsTabViewActionId.EditRequest}:${imported.id}`,
+      );
+
+      const response = await t.slack
+        .submitView(workspace, hr, form, {
+          start_date: '2026-06-29',
+          end_date: '2026-07-03',
+        })
+        .expect(200);
+      await t.retryJobs();
+      await t.idle();
+
+      expect(response.body).toEqual({ response_action: 'clear' });
+      expect(
+        (await workspace.row('vacation_requests', imported.id)).start_date,
+      ).toBe('2026-06-29');
+      expect(
+        t.slackApi.postedMessages(workspace.token, requester.slack_id, {
+          since,
+        }),
+      ).toEqual([]);
+    });
+
+    it('logs no time on a click its DM never offered', async () => {
+      const forged = {
+        to: requester.slack_id,
+        channel: `D${requester.slack_id.slice(1)}`,
+        ts: '1781690000.000100',
+        blocks: [
+          {
+            type: 'actions',
+            block_id: ViewCallbackId.TimeOffLoggingOffer,
+            elements: [
+              {
+                type: 'button',
+                action_id: OFFER,
+                value: imported.id,
+                text: { type: 'plain_text', text: 'Log 40h to Vacations' },
+              },
+            ],
+          },
+        ],
+      };
+
+      await t.slack
+        .actOnMessage(workspace, requester, forged, OFFER)
+        .expect(200);
+      await t.idle();
+
+      expect(await workspace.rows('time_entries')).toEqual([]);
+      expect(
+        t.slackApi
+          .ephemeralMessages(workspace.token, requester.slack_id)
+          .map(({ text }) => text),
+      ).toEqual(['This time off is no longer approved.']);
+      const user = await t.app
+        .get(UsersService)
+        .findOneWithValidation({ id: requester.id, slackTeamId: workspace.id });
+      await expect(
+        t.app.get(TimeOffLoggingService).log(user, imported.id),
+      ).rejects.toThrow('This time off is no longer approved.');
     });
   });
 });

@@ -54,9 +54,10 @@ export class TimeOffOfferNotifier implements OnModuleInit {
   }
 
   // The workflow's own approval carries no `previous`: its decision DM holds
-  // the button. Removed time is told to whoever logged it: in the offer's DM
-  // when the request is still theirs and approved, else in a DM of its own; a
-  // new person gets the offer in a DM of their own.
+  // the button. Imported leave is offered nothing. Removed time is told to
+  // whoever logged it: in the offer's DM when the request is still theirs and
+  // approved, else in a DM of its own; a new person gets the offer in a DM of
+  // their own.
   @OnEvent(VacationRequestEvent.Updated, { suppressErrors: false })
   public async handleUpdated({
     request,
@@ -66,6 +67,7 @@ export class TimeOffOfferNotifier implements OnModuleInit {
     const offers =
       !!previous &&
       request.status === VacationRequestStatus.Approved &&
+      !request.leave_file_upload_id &&
       changesLoggedTime(previous, request);
 
     if (!previous || !removedTime) {
