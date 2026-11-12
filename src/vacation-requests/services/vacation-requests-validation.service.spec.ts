@@ -6,7 +6,7 @@ import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
 import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
-import { IVacationPeriodUsageData } from 'src/vacation-requests/services/vacation-usage.service';
+import { IVacationPeriodUsageData } from 'src/vacation-requests/types/user-vacations-usage-info.interface';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 const USER_ID = 'user-1';
@@ -179,6 +179,7 @@ describe('VacationRequestsValidationService', () => {
         carryoverDays: 0,
         carryoverWorkingDays: 0,
         daysTotal: 20,
+        correction: null,
       },
       usage: {
         [VacationType.AnnualLeave]: {

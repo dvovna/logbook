@@ -15,6 +15,8 @@ import { SlackCommunicationModule } from '@modules/slack-communication/slack-com
 import { VacationPeriodUsageService } from '@modules/vacation-requests/services/vacation-period-usage.service';
 import { CacheModule } from '@nestjs/cache-manager';
 import { TimeOffContextService } from '@modules/vacation-requests/services/time-off-context.service';
+import { LeaveBalancesRepository } from '@modules/vacation-requests/repositories/leave-balances.repository';
+import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-balances.service';
 
 @Module({
   imports: [
@@ -36,12 +38,16 @@ import { TimeOffContextService } from '@modules/vacation-requests/services/time-
     RequestWorkflowProcessingService,
     VacationPeriodUsageService,
     TimeOffContextService,
+    LeaveBalancesRepository,
+    LeaveBalancesService,
   ],
   exports: [
     VacationRequestsService,
     VacationsUsageService,
     TimeOffContextService,
     VacationDaysCalculationService,
+    VacationPeriodUsageService,
+    LeaveBalancesService,
   ],
 })
 export class VacationRequestsModule {}

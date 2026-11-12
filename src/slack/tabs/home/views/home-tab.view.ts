@@ -9,7 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
-import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
 import {
   BaseTabView,
   IBaseTabViewParams,

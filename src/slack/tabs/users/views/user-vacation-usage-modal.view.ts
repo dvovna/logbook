@@ -10,7 +10,7 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { AnyBlock } from '@slack/web-api';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationType from '@common/enums/vacation-type.enum';
-import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
 
 interface IGetParams extends IBaseModalViewParams {
   user: IUserViewModel;

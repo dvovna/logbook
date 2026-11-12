@@ -3,10 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ConfigService } from '@nestjs/config';
-import {
-  IVacationPeriodUsageData,
-  VacationsUsageService,
-} from '@modules/vacation-requests/services/vacation-usage.service';
+import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import { ValidationError } from '@common/errors/validation.error';

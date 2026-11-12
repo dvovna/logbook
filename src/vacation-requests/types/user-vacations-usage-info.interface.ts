@@ -20,3 +20,29 @@ export interface IVacationUsageByType {
   [VacationType.UnpaidLeave]: IBaseUsage;
   [VacationType.Other]: IBaseUsage;
 }
+
+export interface IVacationLimits {
+  vacationDays: number;
+  daysTotal: number;
+  workingDays: number;
+  bonusDays: number;
+  // Carried into the year, in calendar and in working days.
+  carryoverDays: number;
+  carryoverWorkingDays: number;
+  // What a balance from a file changes in the year that holds its date: what
+  // the file says was left then, minus what Logbook counted. 0 for a unit the
+  // file left empty.
+  correction: {
+    balanceOn: string;
+    days: number;
+    workingDays: number;
+    bonusDays: number;
+  } | null;
+}
+
+export interface IVacationPeriodUsageData {
+  periodStart: Date;
+  periodEnd: Date;
+  usage: IVacationUsageByType;
+  limits: IVacationLimits | null;
+}

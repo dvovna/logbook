@@ -1,9 +1,7 @@
 import { formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
-import {
-  IVacationPeriodUsageData,
-  VacationsUsageService,
-} from '@modules/vacation-requests/services/vacation-usage.service';
+import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
