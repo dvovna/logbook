@@ -10,6 +10,8 @@ import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-
 import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-balances.service';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import { VacationPeriodUsageService } from '@modules/vacation-requests/services/vacation-period-usage.service';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import { ConfigService } from '@nestjs/config';
 import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
 import {
   ICountedRequest,
@@ -118,6 +120,14 @@ describe('LeaveFileStateService', () => {
       workingDatesWithout: (start: Date, end: Date, holidays: Set<string>) =>
         realDays.workingDatesWithout(start, end, holidays),
     };
+    const requestsService = {
+      countByUser: jest.fn().mockResolvedValue(new Map([['anna', 7]])),
+    };
+    const config = {
+      getOrThrow: jest.fn((name: string) =>
+        name === 'MAX_REQUESTS_PER_USER' ? 500 : undefined,
+      ),
+    };
     const service = new LeaveFileStateService(
       usersService as unknown as UsersService,
       teamRulesService as unknown as TeamRulesService,
@@ -125,6 +135,8 @@ describe('LeaveFileStateService', () => {
       periodUsage as unknown as VacationPeriodUsageService,
       balancesService as unknown as LeaveBalancesService,
       days as unknown as VacationDaysCalculationService,
+      requestsService as unknown as VacationRequestsService,
+      config as unknown as ConfigService,
     );
 
     return {
@@ -135,6 +147,7 @@ describe('LeaveFileStateService', () => {
       periodUsage,
       balancesService,
       days,
+      requestsService,
     };
   };
 
@@ -211,8 +224,13 @@ describe('LeaveFileStateService', () => {
         people: [anna, ben, cleo, dora],
         requestsOf: new Map([['anna', annaRequests]]),
         balanceOf: new Map([['anna', toStoredBalance(annaBalance)]]),
+        maxRequestsPerUser: 500,
+        requestCountOf: new Map([['anna', 7]]),
       });
       expect(state.policyOf.get('anna')).toBe(teamPolicy);
+      expect(built.requestsService.countByUser).toHaveBeenCalledWith(
+        'workspace-1',
+      );
     });
 
     it('reads two years before and after today when the dates are within them, slash dates read the way the file writes them', async () => {

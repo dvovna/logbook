@@ -1,8 +1,11 @@
+import { MAX_LEAVE_DAYS } from 'src/leave-file/constants/leave-file-limits';
+
 export type DayCount =
   | { kind: 'empty' }
   | { kind: 'days'; value: number }
   | { kind: 'invalid' }
-  | { kind: 'not-half' };
+  | { kind: 'not-half' }
+  | { kind: 'too-many' };
 
 export type SlashOrder = 'none' | 'dmy' | 'mdy' | 'ambiguous' | 'inconsistent';
 
@@ -25,6 +28,7 @@ export const parseDays = (text: string): DayCount => {
   if (!NUMBER.test(trimmed)) return { kind: 'invalid' };
   const value = Number(trimmed.replace(',', '.'));
   if ((value * 2) % 1 !== 0) return { kind: 'not-half' };
+  if (Math.abs(value) > MAX_LEAVE_DAYS) return { kind: 'too-many' };
   return { kind: 'days', value };
 };
 

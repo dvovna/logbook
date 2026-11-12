@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { getDateOnly } from '@common/utils/date.utils';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { vacationPolicyOfTeam } from '@modules/teams/utils/team-rules.utils';
@@ -7,6 +9,7 @@ import VacationPoliciesService from '@modules/vacation-policies/services/vacatio
 import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-balances.service';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
 import { VacationPeriodUsageService } from '@modules/vacation-requests/services/vacation-period-usage.service';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { toStoredBalance } from '@modules/vacation-requests/utils/leave-balance.utils';
 import {
   parseFileDate,
@@ -39,6 +42,8 @@ export class LeaveFileStateService {
     private readonly periodUsageService: VacationPeriodUsageService,
     private readonly leaveBalancesService: LeaveBalancesService,
     private readonly daysCalculationService: VacationDaysCalculationService,
+    private readonly vacationRequestsService: VacationRequestsService,
+    private readonly config: ConfigService,
   ) {}
 
   // A usable Balance on falls in the person's current vacation year and not
@@ -76,16 +81,27 @@ export class LeaveFileStateService {
     const latest = dates.length ? new Date(dates[dates.length - 1]) : to;
     const start = earliest < from ? earliest : from;
     const end = latest > to ? latest : to;
-    const [{ state, policyIdOf }, holidays] = await Promise.all([
-      this.read(slackTeamId, today, start, end),
-      this.daysCalculationService.holidayDatesByPolicy(slackTeamId, start, end),
-    ]);
+    const [{ state, policyIdOf }, holidays, requestCountOf] = await Promise.all(
+      [
+        this.read(slackTeamId, today, start, end),
+        this.daysCalculationService.holidayDatesByPolicy(
+          slackTeamId,
+          start,
+          end,
+        ),
+        this.vacationRequestsService.countByUser(slackTeamId),
+      ],
+    );
     const teamOf = new Map(
       state.people.map(({ id, team_id }) => [id, team_id]),
     );
 
     return {
       ...state,
+      maxRequestsPerUser: this.config.getOrThrow<number>(
+        EnvironmentVariable.MaxRequestsPerUser,
+      ),
+      requestCountOf,
       // A leave goes to the person's current team (D22), so its working
       // days are counted with the holidays of that team's policy.
       workingDatesOf: (userId, startDate, endDate) => {

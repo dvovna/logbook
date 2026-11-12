@@ -50,6 +50,8 @@ const readCounts = (
       return { reason: REASONS.invalidDays(column, text.trim()) };
     if (count.kind === 'not-half')
       return { reason: REASONS.notHalf(column, text.trim()) };
+    if (count.kind === 'too-many')
+      return { reason: REASONS.moreThanAYear(column, text.trim()) };
     counts.push(count.kind === 'days' ? count.value : null);
   }
   return { counts: counts as Counts };

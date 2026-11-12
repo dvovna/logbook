@@ -15,6 +15,8 @@ export const LEAVE_FILE_UNUSABLE_REASONS = {
     `${column} "${text}" isn't a number of days`,
   notHalf: (column: string, text: string) =>
     `${column} "${text}": Logbook counts whole and half days`,
+  moreThanAYear: (column: string, text: string) =>
+    `${column} "${text}" is more than a year of days`,
   balanceOnFuture: (text: string) => `Balance on ${text} is after today`,
   balanceOnOutsideYear: (name: string, yearStart: string) =>
     `Balance on must fall in ${name}'s current vacation year, which starts ${yearStart}`,
@@ -25,6 +27,10 @@ export const LEAVE_FILE_UNUSABLE_REASONS = {
   missingDates: 'From and To are both needed',
   endsBeforeStart: 'To is before From',
   tooFarAhead: (text: string) => `To ${text} is more than a year ahead`,
+  longerThanAYear: (from: string, to: string) =>
+    `From ${from} to ${to} is longer than a year`,
+  tooManyRequests: (name: string, max: number) =>
+    `${name} would have more than ${max} requests`,
   commentTooLong: `Comment is longer than ${MAX_COMMENT_LENGTH} characters`,
   overlapsRequest: (name: string, typeName: string, range: string) =>
     `overlaps ${name}'s ${typeName} ${range}`,

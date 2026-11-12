@@ -59,6 +59,16 @@ export class VacationRequestsRepository extends BaseRepository<
     };
   };
 
+  // How many requests each person of the workspace has, of any status.
+  public async countByUser(slackTeamId: string): Promise<Map<string, number>> {
+    const rows = await this.selectInWorkspace(slackTeamId)
+      .select((eb) => ['user_id', eb.fn.countAll<number>().as('count')])
+      .groupBy('user_id')
+      .execute();
+
+    return new Map(rows.map(({ user_id, count }) => [user_id, Number(count)]));
+  }
+
   // Deletes each request, in one statement, only while it is as its upload
   // left it. Returns the IDs it deleted.
   public async deleteUnchanged(

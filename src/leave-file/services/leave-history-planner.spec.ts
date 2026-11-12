@@ -80,12 +80,16 @@ const state = ({
   requests = [] as ICountedRequest[],
   balanceOf,
   policy = POLICY as IVacationPolicyViewModel | null,
+  requestCount = 0,
 }: {
   requests?: ICountedRequest[];
   balanceOf?: IFileBalance;
   policy?: IVacationPolicyViewModel | null;
+  requestCount?: number;
 } = {}): ILeaveHistoryState => ({
   today: '2026-11-12',
+  maxRequestsPerUser: 500,
+  requestCountOf: new Map([[anna.id, requestCount]]),
   people: [anna, boris],
   policyOf: new Map([
     [anna.id, policy],
@@ -203,6 +207,43 @@ describe('planLeaveHistory', () => {
       planLeaveHistory([row({ from: '2027-11-01', to: '2027-11-13' })], state())
         .add,
     ).toHaveLength(1);
+  });
+
+  it('refuses a leave longer than a year', () => {
+    expect(reasonOf([row({ from: '2016-11-01', to: '2026-11-02' })])).toEqual([
+      REASONS.longerThanAYear('1 Nov 2016', '2 Nov 2026'),
+    ]);
+    expect(reasonOf([row({ from: '2025-11-01', to: '2026-11-02' })])).toEqual([
+      REASONS.longerThanAYear('1 Nov 2025', '2 Nov 2026'),
+    ]);
+    // 366 days.
+    expect(
+      planLeaveHistory([row({ from: '2025-11-02', to: '2026-11-02' })], state())
+        .add,
+    ).toHaveLength(1);
+  });
+
+  it('refuses the rows that would take a person past the most requests, counting all they have', () => {
+    const result = planLeaveHistory(
+      [
+        row({ row: 2, from: '2026-12-01', to: '2026-12-01' }),
+        row({ row: 3, from: '2026-12-02', to: '2026-12-02' }),
+        // Already in Logbook: it adds nothing.
+        row({ row: 4, from: '2026-12-03', to: '2026-12-03' }),
+        row({ row: 5, from: '2026-12-04', to: '2026-12-04' }),
+      ],
+      // Of the 498 she has, the one of 3 Dec: 2 more make 500.
+      state({
+        requests: [existing('2026-12-03', '2026-12-03')],
+        requestCount: 498,
+      }),
+    );
+
+    expect(result.add.map(({ row }) => row)).toEqual([2, 3]);
+    expect(result.skipped).toBe(1);
+    expect(result.unusable).toEqual([
+      { row: 5, reason: REASONS.tooManyRequests('Anna Novak', 500) },
+    ]);
   });
 
   it('refuses a long comment', () =>

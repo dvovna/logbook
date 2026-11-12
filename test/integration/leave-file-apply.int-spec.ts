@@ -418,6 +418,46 @@ describe('Leave file Apply', () => {
       ]);
     });
 
+    it('adds no leave past the most requests a person may have, of any status', async () => {
+      // With March, 499.
+      await t.db
+        .insertInto('vacation_requests')
+        .values(
+          Array.from({ length: 498 }, () => ({
+            slack_team_id: workspace.id,
+            user_id: anna.id,
+            team_id: team.id,
+            created_by: anna.id,
+            type: 'annual_leave',
+            status: 'canceled',
+            start_date: '2025-02-03',
+            end_date: '2025-02-03',
+            days: 1,
+            working_days: 1,
+          })),
+        )
+        .execute();
+
+      const [preview] = await shareHistory(
+        `Anna Novak,${anna.email},Annual leave,2026-07-06,2026-07-10,`,
+        `Anna Novak,${anna.email},Annual leave,2026-08-03,2026-08-07,`,
+      );
+
+      expect(leaveFileTexts(preview)).toContain(
+        "⚠️ *Rows it can't use (1)*\n• Row 3: Anna Novak would have more than 500 requests",
+      );
+
+      await click(preview, 'apply');
+
+      expect(await imported()).toEqual([
+        {
+          type: 'annual_leave',
+          start_date: '2026-07-06',
+          end_date: '2026-07-10',
+        },
+      ]);
+    });
+
     it("future leave shows in Who's off next, and its details say where it came from", async () => {
       const applied = await apply(
         shareHistory(

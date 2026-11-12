@@ -467,6 +467,10 @@ describe('planLeaveBalances', () => {
       expect(reasonOf([row({ daysLeft: 'lots' })])).toEqual([
         REASONS.invalidDays('Days left', 'lots'),
       ]));
+    it('more than a year of days', () =>
+      expect(reasonOf([row({ workingDaysLeft: '10000' })])).toEqual([
+        REASONS.moreThanAYear('Working days left', '10000'),
+      ]));
     it('not a half day', () =>
       expect(reasonOf([row({ bonusDaysLeft: '1.3' })])).toEqual([
         REASONS.notHalf('Bonus days left', '1.3'),

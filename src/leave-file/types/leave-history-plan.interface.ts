@@ -10,6 +10,10 @@ import {
 export interface ILeaveHistoryState {
   // YYYY-MM-DD.
   today: string;
+  // The most requests a person may have (MAX_REQUESTS_PER_USER), and how
+  // many each has now, of any status, by user id.
+  maxRequestsPerUser: number;
+  requestCountOf: Map<string, number>;
   // Inactive people included.
   people: IUserViewModel[];
   // By user id; null or missing for a person who follows no policy.

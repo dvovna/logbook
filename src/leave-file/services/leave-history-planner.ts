@@ -2,6 +2,7 @@ import { MAX_COMMENT_LENGTH } from '@common/constants/text-limits';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { DAY_MS, formatDate, formatDateRange } from '@common/utils/date.utils';
+import getDaysBetweenDates from '@common/utils/get-days-between-dates';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   countedOn,
@@ -11,7 +12,10 @@ import {
   leaveBalanceOf,
 } from '@modules/vacation-requests/utils/leave-balance.utils';
 import { HISTORY_HEADERS } from 'src/leave-file/constants/leave-file-headers';
-import { MAX_LEAVE_AHEAD_DAYS } from 'src/leave-file/constants/leave-file-limits';
+import {
+  MAX_LEAVE_AHEAD_DAYS,
+  MAX_LEAVE_DAYS,
+} from 'src/leave-file/constants/leave-file-limits';
 import { LEAVE_FILE_TYPE_NAMES } from 'src/leave-file/constants/leave-file-type-names';
 import { LEAVE_FILE_UNUSABLE_REASONS as REASONS } from 'src/leave-file/constants/leave-file-unusable-reasons';
 import {
@@ -136,6 +140,18 @@ export function planLeaveHistory(
       unusable(REASONS.tooFarAhead(formatDate(range.endDate)));
       continue;
     }
+    if (
+      getDaysBetweenDates(new Date(range.startDate), new Date(range.endDate)) >
+      MAX_LEAVE_DAYS
+    ) {
+      unusable(
+        REASONS.longerThanAYear(
+          formatDate(range.startDate),
+          formatDate(range.endDate),
+        ),
+      );
+      continue;
+    }
 
     const comment = row.comment.trim();
     if (comment.length > MAX_COMMENT_LENGTH) {
@@ -180,10 +196,20 @@ export function planLeaveHistory(
       continue;
     }
 
+    // No more requests than Logbook lets a person make (validateRequestLimits).
+    const added = addedBy.get(person.id) ?? [];
+    if (
+      (state.requestCountOf.get(person.id) ?? 0) + added.length >=
+      state.maxRequestsPerUser
+    ) {
+      unusable(REASONS.tooManyRequests(name, state.maxRequestsPerUser));
+      continue;
+    }
+
     const id = `row-${row.row}`;
     rowOf.set(id, row.row);
     addedBy.set(person.id, [
-      ...(addedBy.get(person.id) ?? []),
+      ...added,
       {
         id,
         status: VacationRequestStatus.Approved,

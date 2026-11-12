@@ -410,6 +410,11 @@ export class VacationRequestsService implements IVacationRequestsService {
     );
   }
 
+  // Of any status, as MAX_REQUESTS_PER_USER counts them.
+  public countByUser(slackTeamId: string): Promise<Map<string, number>> {
+    return this.vacationRequestsRepository.countByUser(slackTeamId);
+  }
+
   public async search(
     params: ISearchRequestsParams,
   ): Promise<ISearchResult<IVacationRequestViewModel>> {

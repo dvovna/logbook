@@ -85,6 +85,8 @@ const historyState = (
   requests: ICountedRequest[] = [],
 ): ILeaveHistoryState => ({
   today: '2026-11-12',
+  maxRequestsPerUser: 500,
+  requestCountOf: new Map(),
   people: [anna, ben],
   policyOf: new Map([
     ['anna', POLICY],
