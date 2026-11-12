@@ -33,6 +33,9 @@ export enum ViewCallbackId {
   // The buttons of the DM that previews a team file.
   TeamFileMessage = 'team_file_message',
 
+  // The buttons of the DM that previews a leave balances or history file.
+  LeaveFileMessage = 'leave_file_message',
+
   // The DM that asks HR which team a new person is on.
   NewPersonPrompt = 'new_person_prompt',
 

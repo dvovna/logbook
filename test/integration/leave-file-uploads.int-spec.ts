@@ -260,9 +260,9 @@ describe('Leave file uploads', () => {
         asUser(hr),
       );
 
-      await expect(uploads.findImport(upload.id, workspace.id)).resolves.toBe(
-        null,
-      );
+      await expect(
+        uploads.findImport(upload.id, hr.id, workspace.id),
+      ).resolves.toBe(null);
 
       const result = await uploads.apply(
         upload.id,
@@ -271,16 +271,18 @@ describe('Leave file uploads', () => {
       );
 
       await expect(
-        uploads.findImport(upload.id, workspace.id),
+        uploads.findImport(upload.id, hr.id, workspace.id),
       ).resolves.toEqual({
         fileName: 'leave-history.csv',
-        uploadedBy: expect.objectContaining({ id: hr.id }),
+        appliedBy: expect.objectContaining({ id: hr.id }),
         appliedAt: result.upload.applied_at,
       });
       await expect(uploads.hasApplied(workspace.id)).resolves.toBe(true);
 
       const other = await t.createWorkspace();
-      await expect(uploads.findImport(upload.id, other.id)).resolves.toBe(null);
+      await expect(
+        uploads.findImport(upload.id, hr.id, other.id),
+      ).resolves.toBe(null);
     });
   });
 

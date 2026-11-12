@@ -29,6 +29,7 @@ import { RequestWorkflowsModule } from '@modules/request-workflows/request-workf
 import { VacationRequestDetailsModalView } from '@modules/slack/tabs/vacation-requests/views/vacation-request-details-modal.view';
 import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
 import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
+import { LeaveFileModule } from 'src/leave-file/leave-file.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { VacationRequestModalService } from '@modules/slack/tabs/vacation-reques
     UsersModule,
     TimeOffLoggingModule,
     ProjectsModule,
+    LeaveFileModule,
   ],
   providers: [
     VacationDecisionNotificationsService,

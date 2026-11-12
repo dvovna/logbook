@@ -9,6 +9,7 @@ import { VacationRequestDetailsModalView } from '@modules/slack/tabs/vacation-re
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
 
 export interface IViewVacationRequestModalViewParams extends IOpenModalBaseParams {
   requestId: string;
@@ -23,6 +24,7 @@ export class VacationDetailsModalService {
     private readonly requestWorkflowStepsService: RequestWorkflowStepsService,
     private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly teamsService: TeamsService,
+    private readonly leaveFileUploadsService: LeaveFileUploadsService,
   ) {}
 
   public async getModal({
@@ -52,7 +54,17 @@ export class VacationDetailsModalService {
       }),
     ]);
 
-    await this.assertCanView(user, request);
+    // Read beside the check, and shown only once it passed.
+    const [, imported] = await Promise.all([
+      this.assertCanView(user, request),
+      request.leave_file_upload_id
+        ? this.leaveFileUploadsService.findImport(
+            request.leave_file_upload_id,
+            request.created_by,
+            user.slack_team_id,
+          )
+        : null,
+    ]);
 
     return this.vacationRequestDetailsModalView.getView(
       {
@@ -61,6 +73,7 @@ export class VacationDetailsModalService {
         // The steps of an earlier run decided on the request before an edit.
         steps: currentRunOf(steps),
         reviewComments,
+        imported,
       },
       { pageMetadata },
     );

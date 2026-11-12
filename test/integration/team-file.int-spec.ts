@@ -384,7 +384,7 @@ describe('Team file', () => {
       },
     );
 
-    it("tells a CSV without Email and Team columns that it isn't a team file", async () => {
+    it('tells a CSV without Email and Team columns what each kind of file needs', async () => {
       const posted = await share(hr, 'Name,Mail\nAnna,anna@example.test\n');
 
       expect(posted).toEqual([]);
@@ -393,7 +393,7 @@ describe('Team file', () => {
           .ephemeralMessages(workspace.token, hr.slack_id)
           .map(({ text }) => text),
       ).toEqual([
-        "❗️ This doesn't look like a team file: its first row needs Email and Team columns.",
+        "❗️ I can't tell what this file is. A team file needs Email and Team columns; leave balances need Email and Days left, Working days left, Bonus days left or Contract start; a leave history needs Email, Leave type, From and To.",
       ]);
       expect(await uploads()).toEqual([]);
     });

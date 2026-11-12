@@ -38,11 +38,18 @@ export interface ILeaveHistoryPlan {
   skipped: number;
   // People with no file balance whose availability today the added rows change.
   balanceChanges: { userId: string; before: ILeft; after: ILeft }[];
-  // For people with a file balance: the added leave from its date.
+  // For people with a file balance: the added leave from its date, with
+  // what the file said was left (`left`) and what all leave from its date
+  // leaves of it (`after`), per unit the file gave.
   plannedLeave: {
     userId: string;
     balanceOn: string;
     leave: { type: VacationType; startDate: string; endDate: string }[];
+    left: {
+      days: number | null;
+      workingDays: number | null;
+      bonusDays: number | null;
+    };
     after: {
       days: number | null;
       workingDays: number | null;

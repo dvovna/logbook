@@ -717,23 +717,24 @@ describe('LeaveFileUploadsService', () => {
   });
 
   describe('findImport', () => {
-    const uploader = person('hr-1', { role: UserRole.HR });
+    const applier = person('hr-1', { role: UserRole.HR });
+    const applied = {
+      id: UPLOAD_ID,
+      file_name: 'leave-history.csv',
+      uploaded_by: 'hr-2',
+      applied_at: '2026-11-12T10:00:00.000000+00:00',
+    } as ILeaveFileUpload;
 
-    it('names the file, who uploaded it and when it was applied', async () => {
+    it('names the file, who applied it and when, read at once', async () => {
       const { service, repository, usersService } = build();
-      repository.findOne.mockResolvedValue({
-        id: UPLOAD_ID,
-        file_name: 'leave-history.csv',
-        uploaded_by: 'hr-1',
-        applied_at: '2026-11-12T10:00:00.000000+00:00',
-      } as ILeaveFileUpload);
-      usersService.findOne.mockResolvedValue(uploader);
+      repository.findOne.mockResolvedValue(applied);
+      usersService.findOne.mockResolvedValue(applier);
 
       await expect(
-        service.findImport(UPLOAD_ID, 'workspace-1'),
+        service.findImport(UPLOAD_ID, 'hr-1', 'workspace-1'),
       ).resolves.toEqual({
         fileName: 'leave-history.csv',
-        uploadedBy: uploader,
+        appliedBy: applier,
         appliedAt: '2026-11-12T10:00:00.000000+00:00',
       });
       expect(repository.findOne).toHaveBeenCalledWith({
@@ -747,18 +748,13 @@ describe('LeaveFileUploadsService', () => {
       });
     });
 
-    it('names nobody when the uploader is gone', async () => {
+    it('names nobody when the leave names nobody who applied it', async () => {
       const { service, repository, usersService } = build();
-      repository.findOne.mockResolvedValue({
-        id: UPLOAD_ID,
-        file_name: 'leave-history.csv',
-        uploaded_by: null,
-        applied_at: '2026-11-12T10:00:00.000000+00:00',
-      } as ILeaveFileUpload);
+      repository.findOne.mockResolvedValue(applied);
 
       await expect(
-        service.findImport(UPLOAD_ID, 'workspace-1'),
-      ).resolves.toMatchObject({ uploadedBy: null });
+        service.findImport(UPLOAD_ID, null, 'workspace-1'),
+      ).resolves.toMatchObject({ appliedBy: null });
       expect(usersService.findOne).not.toHaveBeenCalled();
     });
 
@@ -771,13 +767,13 @@ describe('LeaveFileUploadsService', () => {
       repository.findOne.mockResolvedValueOnce(null);
 
       await expect(
-        service.findImport(UPLOAD_ID, 'workspace-1'),
+        service.findImport(UPLOAD_ID, null, 'workspace-1'),
       ).resolves.toBeNull();
       await expect(
-        service.findImport(UPLOAD_ID, 'workspace-1'),
+        service.findImport(UPLOAD_ID, null, 'workspace-1'),
       ).resolves.toBeNull();
       await expect(
-        service.findImport('not-an-id', 'workspace-1'),
+        service.findImport('not-an-id', 'hr-1', 'workspace-1'),
       ).resolves.toBeNull();
       expect(repository.findOne).toHaveBeenCalledTimes(2);
     });

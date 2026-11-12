@@ -254,6 +254,11 @@ export function planLeaveHistory(
       userId,
       balanceOn: fileBalance.balanceOn,
       leave,
+      left: {
+        days: fileBalance.daysLeft,
+        workingDays: fileBalance.workingDaysLeft,
+        bonusDays: fileBalance.bonusDaysLeft,
+      },
       after: {
         days: left(fileBalance.daysLeft, counted.usedFrom.days),
         workingDays: left(

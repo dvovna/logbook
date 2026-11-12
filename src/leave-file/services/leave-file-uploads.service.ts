@@ -29,6 +29,7 @@ import {
   ILeaveFileApplyResult,
   ILeaveFilePreview,
 } from 'src/leave-file/types/leave-file-apply-result.interface';
+import { ILeaveFileImport } from 'src/leave-file/types/leave-file-import.interface';
 import { ILeaveFile } from 'src/leave-file/types/leave-file-row.interface';
 import { ILeaveFileUndoResult } from 'src/leave-file/types/leave-file-undo-result.interface';
 import { ILeaveFileUndo } from 'src/leave-file/types/leave-file-undo.interface';
@@ -222,38 +223,39 @@ export class LeaveFileUploadsService {
     return this.uploadsRepository.hasApplied(slackTeamId);
   }
 
-  // Where an imported leave came from, for its details. An upload undone
+  // Where an imported leave came from, for its details: the upload and who
+  // applied it (the leave's `created_by`), read at once. An upload undone
   // since keeps when it was applied: a leave changed since stays.
   public async findImport(
     uploadId: string,
+    appliedById: string | null,
     slackTeamId: string,
-  ): Promise<{
-    fileName: string;
-    uploadedBy: IUserViewModel | null;
-    appliedAt: string;
-  } | null> {
-    const upload = UPLOAD_ID_PATTERN.test(uploadId)
-      ? await this.uploadsRepository.findOne({
-          id: uploadId,
-          slack_team_id: slackTeamId,
-        })
-      : null;
+  ): Promise<ILeaveFileImport | null> {
+    if (!UPLOAD_ID_PATTERN.test(uploadId)) {
+      return null;
+    }
+
+    const [upload, appliedBy] = await Promise.all([
+      this.uploadsRepository.findOne({
+        id: uploadId,
+        slack_team_id: slackTeamId,
+      }),
+      appliedById
+        ? this.usersService.findOne({
+            id: appliedById,
+            slackTeamId,
+            includeInactive: true,
+          })
+        : null,
+    ]);
 
     if (!upload?.applied_at) {
       return null;
     }
 
-    const uploadedBy = upload.uploaded_by
-      ? await this.usersService.findOne({
-          id: upload.uploaded_by,
-          slackTeamId,
-          includeInactive: true,
-        })
-      : null;
-
     return {
       fileName: upload.file_name,
-      uploadedBy,
+      appliedBy,
       appliedAt: upload.applied_at,
     };
   }

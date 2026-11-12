@@ -9,23 +9,27 @@ import {
 } from '@modules/user-data-import/services/user-vacations-import.service';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { TeamFileMessagesService } from '@modules/slack/team-file/services/team-file-messages.service';
+import { LeaveFileMessagesService } from '@modules/slack/leave-file/services/leave-file-messages.service';
 import { readSpreadsheet } from '@common/files/spreadsheet.reader';
 import { parseTeamFile } from 'src/team-file/parsers/team-file.parser';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
+import { parseLeaveFile } from 'src/leave-file/parsers/leave-file.parser';
+import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
 
 // Far more than the CSVs need (1000 rows each), small enough to hold in memory.
 const MAX_IMPORT_FILE_BYTES = 1024 * 1024;
 
 const VACATIONS_FILE = 'user-vacations.csv';
 
-// Any other CSV or Excel file may be a team file; its columns tell.
-const TEAM_FILE_NAME = /\.(csv|xlsx)$/i;
+// Any other CSV or Excel file may be a team or a leave file; its columns
+// tell.
+const SPREADSHEET_NAME = /\.(csv|xlsx)$/i;
 
-const NOT_A_TEAM_FILE =
-  "❗️ This doesn't look like a team file: its first row needs Email and Team columns.";
+const UNKNOWN_FILE =
+  "❗️ I can't tell what this file is. A team file needs Email and Team columns; leave balances need Email and Days left, Working days left, Bonus days left or Contract start; a leave history needs Email, Leave type, From and To.";
 
-// HR sends a team file in their conversation with Logbook; a file shared in a
-// channel is for the people there.
+// HR sends these files in their conversation with Logbook; a file shared in
+// a channel is for the people there.
 const isDirectMessage = (channelId: string) => channelId.startsWith('D');
 
 // The problems a result lists; the rest are counted.
@@ -46,6 +50,8 @@ export default class FileUploadService {
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly teamFileUploadsService: TeamFileUploadsService,
     private readonly teamFileMessagesService: TeamFileMessagesService,
+    private readonly leaveFileUploadsService: LeaveFileUploadsService,
+    private readonly leaveFileMessagesService: LeaveFileMessagesService,
   ) {
     this.importers = {
       [VACATIONS_FILE]: (content, user) =>
@@ -54,7 +60,7 @@ export default class FileUploadService {
   }
 
   // The file is downloaded only when it is one of the imports or may be a
-  // team file, and not too large.
+  // team or a leave file, and not too large.
   public async handleFileUpload(
     fileId: string,
     channelId: string,
@@ -73,12 +79,12 @@ export default class FileUploadService {
     const importFile = file.name ? this.importers[file.name] : undefined;
 
     if (!importFile) {
-      if (!file.name || !TEAM_FILE_NAME.test(file.name)) {
+      if (!file.name || !SPREADSHEET_NAME.test(file.name)) {
         return this.reply(user, this.getUnknownFileUploadPromptMessage());
       }
 
       return isDirectMessage(channelId)
-        ? this.handleTeamFile(file.name, file.size ?? 0, url, user)
+        ? this.handleSpreadsheet(file.name, file.size ?? 0, url, user)
         : undefined;
     }
 
@@ -105,9 +111,10 @@ export default class FileUploadService {
     await this.reply(user, this.getImportResultMessage(file.name!, result));
   }
 
-  // A refusal of the parser is final and told to the sharer; running the job
-  // again would only repeat it.
-  private async handleTeamFile(
+  // A team file is told by its Email and Team columns, a leave file by its
+  // own. A refusal of a parser is final and told to the sharer; running the
+  // job again would only repeat it.
+  private async handleSpreadsheet(
     fileName: string,
     size: number,
     url: string,
@@ -124,10 +131,14 @@ export default class FileUploadService {
       user.slack_team_id,
       MAX_IMPORT_FILE_BYTES,
     );
-    let rows;
+    let teamRows;
+    let leaveFile;
 
     try {
-      rows = parseTeamFile(await readSpreadsheet(bytes, fileName));
+      const lines = await readSpreadsheet(bytes, fileName);
+
+      teamRows = parseTeamFile(lines);
+      leaveFile = teamRows ? null : parseLeaveFile(lines);
     } catch (error) {
       if (!(error instanceof BadRequestException)) {
         throw error;
@@ -136,17 +147,32 @@ export default class FileUploadService {
       return this.reply(user, { text: `❗️ ${escapeMrkdwn(error.message)}` });
     }
 
-    if (!rows) {
-      return this.reply(user, { text: NOT_A_TEAM_FILE });
+    if (teamRows) {
+      const { upload, plan, state } = await this.teamFileUploadsService.receive(
+        teamRows,
+        fileName,
+        user,
+      );
+
+      return this.teamFileMessagesService.postPreview(
+        user,
+        upload,
+        plan,
+        state,
+      );
     }
 
-    const { upload, plan, state } = await this.teamFileUploadsService.receive(
-      rows,
-      fileName,
-      user,
-    );
+    if (leaveFile) {
+      const { upload, preview } = await this.leaveFileUploadsService.receive(
+        leaveFile,
+        fileName,
+        user,
+      );
 
-    await this.teamFileMessagesService.postPreview(user, upload, plan, state);
+      return this.leaveFileMessagesService.postPreview(user, upload, preview);
+    }
+
+    return this.reply(user, { text: UNKNOWN_FILE });
   }
 
   private reply(

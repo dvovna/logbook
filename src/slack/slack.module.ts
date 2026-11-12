@@ -48,6 +48,8 @@ import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 import { TeamFileSlackModule } from '@modules/slack/team-file/team-file-slack.module';
 import { TeamFileMessagesModule } from '@modules/slack/team-file/team-file-messages.module';
 import { TeamFileModule } from 'src/team-file/team-file.module';
+import { LeaveFileMessagesModule } from '@modules/slack/leave-file/leave-file-messages.module';
+import { LeaveFileModule } from 'src/leave-file/leave-file.module';
 @Module({
   imports: [
     TimeEntriesModule,
@@ -80,6 +82,8 @@ import { TeamFileModule } from 'src/team-file/team-file.module';
     TeamFileSlackModule,
     TeamFileMessagesModule,
     TeamFileModule,
+    LeaveFileMessagesModule,
+    LeaveFileModule,
   ],
   controllers: [
     SlackOauthController,

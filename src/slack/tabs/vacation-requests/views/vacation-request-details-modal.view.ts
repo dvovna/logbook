@@ -1,11 +1,12 @@
 import {
+  personLabel,
   STEP_STATUS_LABELS,
   VACATION_STATUS_LABELS,
   VACATION_TYPE_LABELS,
   withIcon,
   vacationTypeLabel,
 } from '@modules/slack/common/views/data/labels';
-import { formatDateRange } from '@common/utils/date.utils';
+import { formatDate, formatDateRange } from '@common/utils/date.utils';
 import { Injectable } from '@nestjs/common';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import BaseModalView, {
@@ -20,12 +21,22 @@ import {
   WorkflowStepStatus,
 } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+import { ILeaveFileImport } from 'src/leave-file/types/leave-file-import.interface';
 
 interface IGetParams extends IBaseModalViewParams {
   request: IVacationRequestViewModel;
   steps: IRequestWorkflowStepViewModel[];
   reviewComments: IWorkflowStepCommentViewModel[];
+  // The file an imported request came from, which no approver decided.
+  imported?: ILeaveFileImport | null;
 }
+
+const importedLine = ({ fileName, appliedBy, appliedAt }: ILeaveFileImport) =>
+  [
+    `Imported from ${escapeMrkdwn(fileName)}`,
+    ...(appliedBy ? [`by ${escapeMrkdwn(personLabel(appliedBy))}`] : []),
+    `on ${formatDate(appliedAt)}`,
+  ].join(' ');
 
 @Injectable()
 export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
@@ -45,6 +56,7 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
     request,
     steps,
     reviewComments,
+    imported,
   }: IGetParams): AnyBlock[] {
     const blocks: AnyBlock[] = [
       {
@@ -140,7 +152,12 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
     if (steps.length === 0) {
       blocks.push({
         type: 'section',
-        text: { type: 'mrkdwn', text: '_No approval steps defined._' },
+        text: {
+          type: 'mrkdwn',
+          text: imported
+            ? importedLine(imported)
+            : '_No approval steps defined._',
+        },
       });
     }
 

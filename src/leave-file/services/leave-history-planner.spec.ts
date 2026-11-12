@@ -354,6 +354,7 @@ describe('planLeaveHistory', () => {
             endDate: '2026-12-31',
           },
         ],
+        left: { days: 12, workingDays: null, bonusDays: null },
         after: { days: 1, workingDays: null, bonusDays: null },
       },
     ]);
