@@ -27,6 +27,7 @@ pnpm db:init          # recreate the local Supabase database from supabase/migra
 pnpm db:types         # regenerate src/common/types/database.types.ts from the local database
 pnpm supabase start                                                    # local Supabase in Docker
 pnpm slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # signed event to the local app
+pnpm slack:app update --domain <domain>                                # the Slack app's URLs and manifest, through Slack's API
 ```
 
 - Tests are `*.spec.ts` files next to the code (rootDir `src`, config in `jest.config.ts`). They build services directly with `jest.fn()` mocks rather than through a Nest testing module. A spec of SQL (a repository's own query, the migrations check) runs it on `recordingDatabase` (`src/database/testing/recording-database.ts`, kept out of the build), a Kysely that records each statement and answers with the rows or error the spec gives. `jest.config.ts` pins `TZ=UTC`, because the date code mixes local `getDay()` with `toISOString()` and production runs in UTC.
@@ -60,6 +61,7 @@ pnpm slack:event src/commands/slack-events/team-join.json --team T0123ABCD   # s
   - A dev Slack app from `slack-app-manifest.yml` (`APP_DOMAIN` replaced with the ngrok domain), reached through ngrok.
   - Install the dev app by opening `/api/slack/install`, not with the "Install to Workspace" button: only the OAuth redirect creates the `slack_teams` row, and it accepts only a `state` that `/install` set in a cookie.
 - `pnpm slack:event <payload.json> [--team <T-id>] [--url <url>]` (`src/commands/send-slack-event.ts`) signs a payload with `SLACK_SIGN_IN_SECRET` and posts it to `/api/slack/events`. Use it to exercise event handlers without Slack. Samples in `src/commands/slack-events/` use `T_LOCAL` as the workspace ID, which `--team` replaces.
+- `pnpm slack:app create|update|validate` (`src/commands/slack-app.ts`, logic and specs in `src/commands/slack-app/`) creates the Slack app from `slack-app-manifest.yml` or brings an existing one to it through Slack's manifest API (`apps.manifest.create`, `export`, `update`, `validate`), with an app configuration token from `SLACK_CONFIG_TOKEN` or a prompt without echo, never an argument. `create` writes `SLACK_APP_ID`, the client ID, both secrets and the redirect URI into `.env` and prints none of them; `update` keeps the app's own name, description and bot name, and is how a dev app follows a tunnel whose domain changed.
 
 ## Conventions enforced by lint/config
 

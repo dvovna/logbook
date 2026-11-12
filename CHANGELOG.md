@@ -4,6 +4,9 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Running it
+- `pnpm slack:app create --domain <domain>` creates the Slack app from the manifest through Slack's API and writes its ID, client ID, secrets and redirect URI into `.env`; `pnpm slack:app update --domain <domain>` brings an existing app to a new domain or a new release's manifest. Both take an app configuration token from `SLACK_CONFIG_TOKEN` or ask for it.
+
 ## [0.4.1] - 2026-11-12
 
 Apply and Undo of a file that survive a restart, and a Cancel that answers at once. No update step: only the new image.
