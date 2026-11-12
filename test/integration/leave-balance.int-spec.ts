@@ -9,7 +9,7 @@ import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { submitVacationRequest } from './support/vacation-flows';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import { navigate, openAppHomeTab, openModalFrom } from './support/app-home';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationType from '@common/enums/vacation-type.enum';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
@@ -351,6 +351,48 @@ describe('A balance from a file', () => {
       expect(await openEditForm()).toBe(
         'The balance from a file (12 days left on 1 Dec 2025) falls in the vacation year before this one, so this year starts with what it carries over.',
       );
+    });
+
+    it('reads the balance from a file once for each screen that names it', async () => {
+      await setUp();
+      await addFullBalance();
+      const [home, people] = [
+        await openAppHomeTab(t, workspace, member),
+        await openAppHomeTab(t, workspace, hr, [NavigationActionId.People]),
+      ];
+      const balanceReads = async (open: () => Promise<unknown>) => {
+        await t.idle();
+        const since = t.sql.mark();
+        await open();
+        await t.idle();
+
+        return t.sql
+          .statements(since)
+          .filter(({ text }) => text.includes('from "leave_balances"')).length;
+      };
+
+      expect(
+        await balanceReads(() =>
+          navigate(t, workspace, member, home, NavigationActionId.Home),
+        ),
+      ).toBe(1);
+      expect(
+        await balanceReads(() =>
+          navigate(t, workspace, member, home, NavigationActionId.TimeOff),
+        ),
+      ).toBe(1);
+      expect(
+        await balanceReads(() =>
+          openModalFrom(
+            t,
+            workspace,
+            hr,
+            people,
+            UsersTabViewActionId.ManageUserMenu,
+            `${UsersTabViewActionId.ViewVacationUsage}:${member.id}`,
+          ),
+        ),
+      ).toBe(1);
     });
 
     it('shows the file line on Time off and only with a file balance', async () => {

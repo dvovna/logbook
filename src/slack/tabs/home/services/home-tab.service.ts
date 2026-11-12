@@ -1,4 +1,3 @@
-import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-balances.service';
 import { Injectable } from '@nestjs/common';
 import { HomeTabView } from '@modules/slack/tabs/home/views/home-tab.view';
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
@@ -59,7 +58,6 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
     private readonly setupProgressService: SetupProgressService,
-    private readonly leaveBalancesService: LeaveBalancesService,
   ) {
     super(TabId.Home, {
       [HomeTabModalName.ViewVacationRequest]: (params) =>
@@ -80,7 +78,6 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       timeSummary,
       setup,
       approvals,
-      fileBalance,
     ] = await Promise.all([
       this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
       this.vacationsService.findMany({
@@ -93,14 +90,13 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       this.setupProgressService.get(user),
       // Counted by BaseTabService for the Approvals button too.
       pendingApprovals,
-      this.leaveBalancesService.findOfUser(user.id, user.slack_team_id),
     ]);
 
     return this.homeTabViewService.getView({
       userId: user.slack_id,
       userRole: user.role,
       vacationUsageInfo,
-      fileBalance,
+      fileBalance: vacationUsageInfo.fileBalance,
       requestedVacations,
       timeSummary,
       pendingApprovals: approvals ?? { timeOff: 0, timeEntries: 0 },

@@ -1,5 +1,4 @@
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
-import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-balances.service';
 import { Injectable } from '@nestjs/common';
 import BaseTabService, {
   IPublishBaseParams,
@@ -53,7 +52,6 @@ export class VacationHistoryTabService extends BaseTabService<
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly vacationsUsageService: VacationsUsageService,
-    private readonly leaveBalancesService: LeaveBalancesService,
     private readonly vacationsHistoryTabView: VacationHistoryTabView,
     private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly config: ConfigService,
@@ -78,14 +76,10 @@ export class VacationHistoryTabService extends BaseTabService<
   }
 
   protected async getTabView(params: IPublishVacationsHistoryTabViewParams) {
-    const [requests, upcoming, usage, fileBalance] = await Promise.all([
+    const [requests, upcoming, usage] = await Promise.all([
       this.getVacationRequests(params),
       this.getUpcoming(params.user),
       this.vacationsUsageService.getCurrentVacationPeriodUsage(params.user),
-      this.leaveBalancesService.findOfUser(
-        params.user.id,
-        params.user.slack_team_id,
-      ),
     ]);
 
     const minYear = this.config.getOrThrow<number>(EnvironmentVariable.MinYear);
@@ -98,7 +92,7 @@ export class VacationHistoryTabService extends BaseTabService<
         requests,
         upcoming,
         // Named only while the current year's balance is the file's.
-        fileBalance: usage.limits?.correction ? fileBalance : null,
+        fileBalance: usage.limits?.correction ? usage.fileBalance : null,
         years: Array.from(
           { length: maxYear - minYear + 1 },
           (_, index) => index + minYear,

@@ -267,14 +267,17 @@ describe('VacationsUsageService', () => {
       });
     });
 
-    it('counts what the file says was left, read beside the requests', async () => {
-      leaveBalances.findOfUser.mockResolvedValue(
-        fileBalance({ days_left: 12 }),
-      );
+    it('counts what the file says was left, read beside the requests, and returns it as stored', async () => {
+      const stored = fileBalance({ days_left: 12 });
+      leaveBalances.findOfUser.mockResolvedValue(stored);
 
-      const { usage, limits } =
-        await service.getCurrentVacationPeriodUsage(buildUser());
+      const {
+        usage,
+        limits,
+        fileBalance: read,
+      } = await service.getCurrentVacationPeriodUsage(buildUser());
 
+      expect(read).toBe(stored);
       expect(usage.annual_leave.available).toBe(12);
       expect(limits?.correction).toEqual({
         balanceOn: '2026-11-06',

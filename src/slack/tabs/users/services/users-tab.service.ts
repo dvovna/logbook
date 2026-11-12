@@ -95,19 +95,16 @@ export class UsersTabService extends BaseTabService<
       slackTeamId: user.slack_team_id,
     });
     await this.teamsService.assertManagesTeam(user, userToView.team_id);
-    const [usage, fileBalance] = await Promise.all([
-      this.vacationsUsageService.getCurrentVacationPeriodUsage(userToView),
-      this.leaveBalancesService.findOfUser(
-        userToView.id,
-        userToView.slack_team_id,
-      ),
-    ]);
+    const usage =
+      await this.vacationsUsageService.getCurrentVacationPeriodUsage(
+        userToView,
+      );
 
     return this.userVacationUsageModalView.getView(
       {
         user: userToView,
         usage,
-        fileBalance,
+        fileBalance: usage.fileBalance,
         errorMessage,
       },
       {

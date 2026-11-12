@@ -1,4 +1,5 @@
 import VacationType from '@common/enums/vacation-type.enum';
+import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
 
 interface IBaseUsage {
   used: number;
@@ -45,4 +46,11 @@ export interface IVacationPeriodUsageData {
   periodEnd: Date;
   usage: IVacationUsageByType;
   limits: IVacationLimits | null;
+}
+
+// The usage as VacationsUsageService reads it, with the person's balance from
+// a file as stored, whichever year it counts in, for the screens that name
+// it.
+export interface IVacationPeriodUsage extends IVacationPeriodUsageData {
+  fileBalance: ILeaveBalance | null;
 }

@@ -6,7 +6,7 @@ import { VacationPeriodUsageService } from '@modules/vacation-requests/services/
 import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-balances.service';
 import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
 import { IEffectiveTeamRules } from '@modules/teams/types/effective-team-rules.interface';
-import { IVacationPeriodUsageData } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
+import { IVacationPeriodUsage } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
 import {
   leaveBalanceOf,
   requestWindowOf,
@@ -16,12 +16,12 @@ import {
 interface IVacationsUsageService {
   getCurrentVacationPeriodUsage(
     user: IUserViewModel,
-  ): Promise<IVacationPeriodUsageData>;
+  ): Promise<IVacationPeriodUsage>;
   getVacationPeriodUsage(
     user: IUserViewModel,
     date: Date,
     options?: { excludeRequestId?: string },
-  ): Promise<IVacationPeriodUsageData>;
+  ): Promise<IVacationPeriodUsage>;
 }
 
 @Injectable()
@@ -35,19 +35,19 @@ export class VacationsUsageService implements IVacationsUsageService {
 
   public getCurrentVacationPeriodUsage(
     user: IUserViewModel,
-  ): Promise<IVacationPeriodUsageData> {
+  ): Promise<IVacationPeriodUsage> {
     return this.getVacationPeriodUsage(user, new Date());
   }
 
-  // The balance of the vacation year that holds `date` (leaveBalanceOf).
-  // `limits` is null when no vacation policy applies to the user (neither
-  // their team's nor the company rules'): usage is tracked, but nothing is
-  // enforced.
+  // The balance of the vacation year that holds `date` (leaveBalanceOf),
+  // with the file balance it read. `limits` is null when no vacation policy
+  // applies to the user (neither their team's nor the company rules'): usage
+  // is tracked, but nothing is enforced.
   public async getVacationPeriodUsage(
     user: IUserViewModel,
     date: Date,
     { excludeRequestId }: { excludeRequestId?: string } = {},
-  ): Promise<IVacationPeriodUsageData> {
+  ): Promise<IVacationPeriodUsage> {
     const person = {
       contractStartDate: user.contract_start_date ?? null,
       createdAt: user.created_at,
@@ -84,10 +84,13 @@ export class VacationsUsageService implements IVacationsUsageService {
     // the one the person joined in carries over from there.
     const { from } = requestWindowOf(input);
 
-    return leaveBalanceOf({
-      ...input,
-      requests: from < window.from ? await requestsFrom(from) : requests,
-    });
+    return {
+      ...leaveBalanceOf({
+        ...input,
+        requests: from < window.from ? await requestsFrom(from) : requests,
+      }),
+      fileBalance: balance,
+    };
   }
 
   private async findPolicy(

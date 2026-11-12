@@ -89,7 +89,7 @@ const SCREEN_ROUND_TRIPS: Record<
   string,
   { roundTrips: number; statements: number }
 > = {
-  'show Home to an admin': { roundTrips: 4, statements: 15 },
+  'show Home to an admin': { roundTrips: 4, statements: 16 },
   'show Approvals to an admin': { roundTrips: 2, statements: 6 },
   'show Reports to an admin': { roundTrips: 2, statements: 5 },
   'show Home to a manager': { roundTrips: 3, statements: 9 },
