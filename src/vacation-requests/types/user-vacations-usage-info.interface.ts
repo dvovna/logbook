@@ -24,6 +24,8 @@ export interface IVacationUsageByType {
 
 export interface IVacationLimits {
   vacationDays: number;
+  // The days of the year in all, as what is available counts them: the
+  // allowance, the carryover and a file's correction.
   daysTotal: number;
   workingDays: number;
   bonusDays: number;

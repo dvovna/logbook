@@ -8,7 +8,11 @@ import { sectionTexts, modalError } from './support/tab-readers';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { submitVacationRequest } from './support/vacation-flows';
+import {
+  approvalMessageTo,
+  requestVacation,
+  submitVacationRequest,
+} from './support/vacation-flows';
 import { navigate, openAppHomeTab, openModalFrom } from './support/app-home';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -180,6 +184,34 @@ describe('A balance from a file', () => {
           .map(({ start_date }) => start_date)
           .sort(),
       ).toEqual(['2026-03-02', '2026-06-15']);
+    });
+
+    it("tells the approver the balance after it of a total with the file's correction", async () => {
+      await setUp();
+      const manager = await workspace.addUser({ role: UserRole.Manager });
+      await t.db
+        .updateTable('teams')
+        .set({ manager_approvers: [manager.slack_id] })
+        .where('id', '=', member.team_id!)
+        .execute();
+      // Logbook counts 16 left: a correction of +4.
+      await addBalance(member, { days_left: 20 });
+
+      await requestVacation(t, workspace, member, {
+        start: '2026-07-06',
+        end: '2026-07-10',
+      });
+
+      expect(
+        (
+          (await approvalMessageTo(t, workspace, manager)).blocks as {
+            type: string;
+            elements?: { text: string }[];
+          }[]
+        )
+          .filter((block) => block.type === 'context')
+          .map((block) => block.elements![0].text),
+      ).toEqual(['Balance after: 15 of 30 days']);
     });
 
     it('takes a request within the file balance', async () => {

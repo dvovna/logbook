@@ -331,7 +331,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
       case VacationType.BonusDay:
         return {
           available: usage[VacationType.BonusDay].available,
-          total: limits.bonusDays,
+          total: limits.bonusDays + (limits.correction?.bonusDays ?? 0),
           unit: 'bonus',
         };
       default:

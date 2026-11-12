@@ -222,6 +222,37 @@ describe('VacationRequestProcessingService', () => {
     });
   });
 
+  it("counts a file's bonus correction in the bonus total it tells the approvers", async () => {
+    const bonusDay = {
+      ...buildRequest(VacationRequestStatus.Pending),
+      type: VacationType.BonusDay,
+    };
+    usersService.findOne.mockResolvedValue({ id: 'user-1' });
+    usageService.getVacationPeriodUsage.mockResolvedValue({
+      limits: {
+        daysTotal: 22,
+        bonusDays: 3,
+        correction: {
+          balanceOn: '2026-01-15',
+          days: -4,
+          workingDays: null,
+          bonusDays: 2,
+        },
+      },
+      usage: { [VacationType.BonusDay]: { available: 4 } },
+    });
+    requestsService.findOne.mockResolvedValue(bonusDay);
+
+    await service.handleRequestCreated(
+      new VacationRequestCreatedEvent(bonusDay, {} as IUserViewModel),
+    );
+    await jobs.done();
+
+    expect(
+      workflowService.create.mock.calls[0][0].snapshot.context.balance_after,
+    ).toEqual({ available: 4, total: 5, unit: 'bonus' });
+  });
+
   it("tells the requester it went to their team's approvers", async () => {
     workflowService.create.mockImplementation(() => {
       expect(inTransaction).toBe(true);

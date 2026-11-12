@@ -368,7 +368,7 @@ const limitsOf = (
     bonusDays: allowance.bonusDays,
     carryoverDays: carry.days,
     carryoverWorkingDays: carry.workingDays,
-    daysTotal: allowance.days + carry.days,
+    daysTotal: allowance.days + carry.days + (correction?.days ?? 0),
     correction,
   };
 };

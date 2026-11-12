@@ -223,6 +223,17 @@ describe('leaveBalanceOf', () => {
         .limits!.correction,
     ).toBeNull());
 
+  it("counts the file's correction in the total, as in what is available", () => {
+    // 26 days, 2 of them taken after Nov 12: 12 left on Nov 12, of 22.
+    const { limits, usage } = balanceOf({
+      fileBalance: file({ daysLeft: 12, bonusDaysLeft: 5 }),
+      extra: [leave('2026-11-16', '2026-11-17')],
+    });
+
+    expect(limits).toMatchObject({ daysTotal: 22, bonusDays: 3 });
+    expect(usage.annual_leave.available).toBe(10);
+  });
+
   it('has no limits without a policy', () =>
     expect(
       balanceOf({ policy: null, fileBalance: file({ daysLeft: 12 }) }).limits,
