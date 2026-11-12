@@ -112,6 +112,20 @@ describe('parseTeamFile', () => {
     expect(await csv('')).toBeNull();
   });
 
+  it('refuses more than 1000 rows', async () => {
+    const lines = (count: number) =>
+      Array.from({ length: count }, (_, i) => `u${i}@example.test,T`);
+
+    expect(await csv(['Email,Team', ...lines(1000)].join('\n'))).toHaveLength(
+      1000,
+    );
+    await expect(
+      csv(['Email,Team', ...lines(1001)].join('\n')),
+    ).rejects.toEqual(
+      new BadRequestException('A team file can have up to 1000 rows.'),
+    );
+  });
+
   it("reads back the ' the template puts before text that starts like a formula", async () => {
     const written = ['=Ann', '@ann@example.test', '@Mobile', '+1'].map(csvText);
 
