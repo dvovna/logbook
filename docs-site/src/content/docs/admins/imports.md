@@ -5,7 +5,7 @@ sidebar:
   order: 5
 ---
 
-This page helps you bring time off from before Logbook into it, so that everyone's balance is right from the start. Only admins can import.
+Time off taken before Logbook can be imported from a file, so that everyone's balance is right from the start. Only admins can import.
 
 The import reads `user-vacations.csv`. For each person in it, it sets the contract start date and replaces all their time off requests with the ones in the file.
 

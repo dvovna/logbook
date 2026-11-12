@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-This page helps you decide who approves whose time off, who hears of decisions, and which vacation policy applies. HR and admins set up teams and the company rules.
+Teams and the company rules decide who approves whose time off, who hears of decisions, and which vacation policy applies. HR and admins set them up.
 
 A team holds its people and its level 1 approvers. Everything else (level 2, who hears of decisions, the vacation policy) comes either from the **company rules**, shared by most teams, or from the team's own rules.
 

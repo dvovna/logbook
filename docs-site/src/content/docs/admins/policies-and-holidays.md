@@ -5,7 +5,7 @@ sidebar:
   order: 4
 ---
 
-This page helps you set up vacation policies and their holidays, so that balances are counted and checked. HR and admins manage policies and holidays.
+A vacation policy and its holidays are what Logbook counts and checks balances against. HR and admins manage both.
 
 A policy applies to a team through its rules: the company rules' policy, or the team's own. See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/).
 

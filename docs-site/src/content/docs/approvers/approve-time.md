@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-This page helps you decide the time entries people submit for approval. Managers, HR and admins approve time. Nobody approves their own entries.
+Managers, HR and admins approve or reject the time entries people submit. Nobody approves their own entries.
 
 ## What waits for whom
 

@@ -5,7 +5,7 @@ sidebar:
   order: 6
 ---
 
-This page helps you set up time off as time: the project each kind of leave is logged on, and how many hours a day off counts. Only admins change these settings.
+For time off to be logged as time, Logbook needs the project each kind of leave is logged on, and how many hours a day off counts. Only admins change these settings.
 
 Once a leave type has a project, people whose time off of that type is approved can log it as time with one click. How that works for them is in [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 

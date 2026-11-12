@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-This page is for whoever runs Logbook once it is installed: what to set so that it answers Slack in time, survives restarts and keeps your data.
+Once Logbook is installed, a few settings decide whether it answers Slack in time, survives restarts and keeps your data.
 
 ## Run the app next to its database
 

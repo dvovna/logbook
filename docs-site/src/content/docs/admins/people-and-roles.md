@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-This page helps you keep Logbook's people right: their roles, teams and contract start dates, and who is deactivated. HR and admins change people; managers can look.
+HR and admins keep everyone's role, team and contract start date right, and decide who is deactivated; managers can look.
 
 ## The People screen
 

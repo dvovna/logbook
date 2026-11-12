@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-Logbook writes to people in their conversation with it (its **Messages** tab in Slack). This page lists every such message. Nobody can turn them off.
+Logbook writes to people in their conversation with it (its **Messages** tab in Slack). These are all the messages it sends, and nobody can turn them off.
 
 A message that waits for a decision changes in place once the decision is made, so the buttons go away and the message says who decided.
 

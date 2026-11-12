@@ -29,7 +29,7 @@ Pages live in `src/content/docs/<folder>/<slug>.md` (or `.mdx` to use components
 
 ## How to write
 
-- Write for the reader's task, not for the feature. Start with what the page helps them do, in a sentence.
+- Write for the reader's task, not for the feature. Open with the task or the fact the page is about: who does it, or what it decides. Not with "This page…": the title already names the page, and openers that all share one shape read as a template.
 - Use plain, short sentences in US English. Address the reader as "you". No marketing words.
 - Name buttons, fields and menus exactly as Slack shows them, in bold: **Fill in the week**, **Approvals**. Check the label in `src/slack` (views and `src/slack/common/views/data/labels.ts`) rather than writing it from memory.
 - Give steps as a numbered list, one action a step. Then say what happens next: who gets a message, what the screen shows.

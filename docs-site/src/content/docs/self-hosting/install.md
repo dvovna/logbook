@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-This page takes you from nothing to Logbook running in your Slack workspace. One deployment can serve one workspace or many.
+One deployment of Logbook can serve one Slack workspace or many.
 
 ## What you need
 

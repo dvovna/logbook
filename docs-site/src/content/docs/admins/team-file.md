@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-This page helps you set up every team and team lead at once, from a spreadsheet, instead of one team at a time. HR and admins can use the team file.
+With the team file, HR and admins set up every team and team lead at once from a spreadsheet, instead of one team at a time.
 
 ## Get the template
 

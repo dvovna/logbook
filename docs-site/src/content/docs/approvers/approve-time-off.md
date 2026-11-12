@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-This page helps you decide time off requests: approve them, reject them with a reason, or ask the requester something first. Managers, HR and admins approve. Nobody approves their own request.
+Managers, HR and admins decide time off requests: they approve them, reject them with a reason, or ask the requester something first. Nobody approves their own request.
 
 ## The message you get
 

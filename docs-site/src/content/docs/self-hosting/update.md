@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-This page takes your Logbook from one release to the next. Most updates are a new image and the release's database migrations. Before 1.0, a minor version (0.3 to 0.4) may need a step of its own.
+Most updates are a new image and the release's database migrations. Before 1.0, a minor version (0.3 to 0.4) may need a step of its own.
 
 ## Find the release's update step
 

@@ -5,7 +5,7 @@ sidebar:
   order: 4
 ---
 
-Your approvers see time only once you submit it. This page covers how to submit, what the statuses mean, and what to do when an entry is rejected.
+Your approvers see time only once you submit it.
 
 ## Submit your time
 

@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-This page gives you the shape of Logbook's code before you open it. The details live in the repository.
+An outline of Logbook's code. The details live in the repository.
 
 ## The pieces
 

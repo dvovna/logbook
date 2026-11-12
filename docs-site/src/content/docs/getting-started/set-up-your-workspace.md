@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-This page is for the admin who has just installed Logbook. It takes you from an empty workspace to one where people can request time off and get it approved.
+These steps turn a freshly installed, empty workspace into one where people can request time off and get it approved.
 
 After you install, Logbook sends you a direct message with the steps, and your **Home** tab shows a checklist.
 
