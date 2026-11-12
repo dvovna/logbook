@@ -1,5 +1,8 @@
 import { formatDate, getDateOnly } from '@common/utils/date.utils';
-import { countedOn } from '@modules/vacation-requests/utils/leave-balance.utils';
+import {
+  balanceMovedTo,
+  countedOn,
+} from '@modules/vacation-requests/utils/leave-balance.utils';
 import { getCurrentVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
 import { BALANCES_HEADERS } from 'src/leave-file/constants/leave-file-headers';
 import { LEAVE_FILE_UNUSABLE_REASONS as REASONS } from 'src/leave-file/constants/leave-file-unusable-reasons';
@@ -24,6 +27,13 @@ const [, , CONTRACT_START, BALANCE_ON, DAYS_LEFT, WORKING_DAYS, BONUS_DAYS] =
   BALANCES_HEADERS;
 
 type Counts = [number | null, number | null, number | null];
+type Dropped = NonNullable<ILeaveBalancesPlan['balances'][number]['dropped']>;
+
+// The first day of the vacation year that holds `date`.
+const yearStartOn = (contractStart: string | null, date: string) =>
+  getDateOnly(
+    getCurrentVacationPeriod(contractStart, new Date(date)).periodStart,
+  );
 
 const readCounts = (
   row: ILeaveBalanceRow,
@@ -134,9 +144,7 @@ export function planLeaveBalances(
       unusable(REASONS.balanceOnFuture(formatDate(balanceOn)));
       continue;
     }
-    const yearStart = getDateOnly(
-      getCurrentVacationPeriod(contractStartDate, today).periodStart,
-    );
+    const yearStart = yearStartOn(contractStartDate, state.today);
     if (balanceOn < yearStart) {
       unusable(REASONS.balanceOnOutsideYear(name, formatDate(yearStart)));
       continue;
@@ -154,19 +162,37 @@ export function planLeaveBalances(
       continue;
     }
 
-    // An earlier balance's counts were left on its own day: only a row for
-    // that same day may keep the ones this row leaves empty.
+    // An empty cell keeps the earlier balance's count, moved to this row's
+    // day, within the vacation year that holds both. One of another year
+    // goes, since a person has one balance: the preview names what goes.
+    const requests = state.requestsOf.get(person.id) ?? [];
     const earlier = state.balanceOf.get(person.id);
-    if (earlier?.balanceOn === balanceOn) {
-      const kept = [
-        earlier.daysLeft,
-        earlier.workingDaysLeft,
-        earlier.bonusDaysLeft,
-      ];
+    let dropped: Dropped | undefined;
+    if (
+      earlier &&
+      yearStartOn(contractStartDate, earlier.balanceOn) === yearStart
+    ) {
+      const moved = balanceMovedTo(earlier, balanceOn, requests);
+      const kept = [moved.daysLeft, moved.workingDaysLeft, moved.bonusDaysLeft];
       counts = counts.map((count, i) => count ?? kept[i]) as Counts;
-      if (counts.every((count, i) => count === kept[i])) {
+      if (
+        earlier.balanceOn === balanceOn &&
+        counts.every((count, i) => count === kept[i])
+      ) {
         if (!startChanges) plan.unchanged++;
         continue;
+      }
+    } else if (earlier) {
+      const goes = (count: number | null, earlierCount: number | null) =>
+        count === null ? earlierCount : null;
+      const [days, workingDays, bonusDays] = counts;
+      const units = {
+        days: goes(days, earlier.daysLeft),
+        workingDays: goes(workingDays, earlier.workingDaysLeft),
+        bonusDays: goes(bonusDays, earlier.bonusDaysLeft),
+      };
+      if (Object.values(units).some((count) => count !== null)) {
+        dropped = { balanceOn: earlier.balanceOn, ...units };
       }
     }
 
@@ -176,7 +202,7 @@ export function planLeaveBalances(
         createdAt: person.created_at,
         carryoverDays: person.carryover_days ?? null,
         policy,
-        requests: state.requestsOf.get(person.id) ?? [],
+        requests,
         today,
       },
       balanceOn,
@@ -202,11 +228,12 @@ export function planLeaveBalances(
         workingDays: left(workingDays, counted.usedFrom.workingDays),
         bonusDays: left(bonusDays, counted.usedFrom.bonusDays),
       },
+      ...(dropped ? { dropped } : {}),
     });
   }
   const setBalance = new Set(plan.balances.map(({ userId }) => userId));
   const yearStartOf = (contractStart: string | null) =>
-    getDateOnly(getCurrentVacationPeriod(contractStart, today).periodStart);
+    yearStartOn(contractStart, state.today);
 
   for (const change of plan.contractStarts) {
     const kept = setBalance.has(change.userId)

@@ -24,6 +24,7 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { LeaveFileMessageActionId } from '@modules/slack/leave-file/enums/leave-file-message-action-id.enum';
 import { ILeaveFileMessage } from '@modules/slack/leave-file/types/leave-file-message.interface';
 import { ILeft } from '@modules/vacation-requests/utils/leave-balance.utils';
+import { BALANCES_HEADERS } from 'src/leave-file/constants/leave-file-headers';
 import { LeaveFileKind } from 'src/leave-file/enums/leave-file-kind.enum';
 import { LeaveFileUploadStatus } from 'src/leave-file/enums/leave-file-upload-status.enum';
 import { balancesPlanChangesNothing } from 'src/leave-file/services/leave-balances-planner';
@@ -57,6 +58,13 @@ const UNIT_WORDS: Record<keyof ILeft, string> = {
   days: 'day',
   workingDays: 'working day',
   bonusDays: 'bonus day',
+};
+const [, , , , DAYS_LEFT, WORKING_DAYS_LEFT, BONUS_DAYS_LEFT] =
+  BALANCES_HEADERS;
+const COLUMN_OF_UNIT: Record<keyof ILeft, string> = {
+  days: DAYS_LEFT,
+  workingDays: WORKING_DAYS_LEFT,
+  bonusDays: BONUS_DAYS_LEFT,
 };
 // The leave each unit of a balance is taken by.
 const TYPE_OF_UNIT: Record<keyof ILeft, VacationType> = {
@@ -121,6 +129,27 @@ const plannedLine = (left: ICounts, after: ICounts, leave: ILeave[]) =>
 
     return [`${what}, ${after[unit] ?? count} after ${ranges}`];
   }).join('; ');
+
+// "a", "a and b", "a, b and c".
+const andList = (items: string[]) =>
+  items.length > 1
+    ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+    : items.join('');
+
+// "12 days left on 1 Dec 2025 (fill Days left to keep a balance)", of the
+// units of an earlier balance that a row of another year leaves empty.
+const droppedLine = ({
+  balanceOn,
+  ...counts
+}: NonNullable<ILeaveBalancesPlan['balances'][number]['dropped']>) => {
+  const units = UNITS.filter((unit) => counts[unit] !== null);
+
+  return `${units
+    .map((unit) => `${amount(counts[unit]!, unit)} left`)
+    .join(', ')} on ${formatDate(balanceOn)} (fill ${andList(
+    units.map((unit) => COLUMN_OF_UNIT[unit]),
+  )} to keep a balance)`;
+};
 
 // Where the vacation year starts: the contract start's anniversary, else
 // 1 January.
@@ -379,6 +408,20 @@ export class LeaveFileMessageView {
       blocks.push(
         context(
           `${counted(matching, 'person matches', 'people match')} what Logbook counts.`,
+        ),
+      );
+    }
+
+    const dropped = plan.balances.filter(({ dropped }) => dropped);
+
+    if (dropped.length) {
+      blocks.push(
+        listSection(
+          `*Earlier balances that go (${dropped.length})*: the file's date replaces them`,
+          dropped.map(
+            ({ userId, dropped }) =>
+              `${nameOf(userId)}: ${droppedLine(dropped!)}`,
+          ),
         ),
       );
     }

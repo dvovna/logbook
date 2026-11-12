@@ -30,6 +30,8 @@ export interface ILeaveBalancesPlan {
   balances: {
     userId: string;
     balanceOn: string;
+    // What the row gives, and where it leaves a cell empty, the earlier
+    // balance's count of the same vacation year moved to `balanceOn`.
     daysLeft: number | null;
     workingDaysLeft: number | null;
     bonusDaysLeft: number | null;
@@ -39,6 +41,14 @@ export interface ILeaveBalancesPlan {
     planned: { type: VacationType; startDate: string; endDate: string }[];
     // The balance after that leave, per unit the row gives.
     after: {
+      days: number | null;
+      workingDays: number | null;
+      bonusDays: number | null;
+    };
+    // The units of the person's earlier balance, of another vacation year,
+    // that the row leaves empty: they go with it. Missing when none does.
+    dropped?: {
+      balanceOn: string;
       days: number | null;
       workingDays: number | null;
       bonusDays: number | null;

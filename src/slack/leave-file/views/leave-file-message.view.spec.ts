@@ -305,6 +305,53 @@ describe('LeaveFileMessageView', () => {
       );
     });
 
+    it('names the units of earlier balances of another year that the file drops', () => {
+      const message = view.preview(
+        balances(
+          balancesPlan({
+            balances: [
+              balance('anna', {
+                bonusDaysLeft: 2,
+                counted: { days: 0, workingDays: 0, bonusDays: 2 },
+                dropped: {
+                  balanceOn: '2026-11-12',
+                  days: 12,
+                  workingDays: null,
+                  bonusDays: null,
+                },
+              }),
+              balance('kate', {
+                daysLeft: 4,
+                counted: { days: 4, workingDays: 0, bonusDays: 0 },
+                dropped: {
+                  balanceOn: '2025-12-01',
+                  days: null,
+                  workingDays: 7,
+                  bonusDays: 1,
+                },
+              }),
+              balance('bo', {
+                daysLeft: 4,
+                counted: { days: 4, workingDays: 0, bonusDays: 0 },
+              }),
+            ],
+          }),
+        ),
+        balancesUpload,
+        TODAY,
+      );
+
+      expect(textsOf(message).slice(1, 4)).toEqual([
+        'Balances on *12 Nov 2026* for 3 people. Leave from that day on is taken from them as usual.',
+        '3 people match what Logbook counts.',
+        [
+          "*Earlier balances that go (2)*: the file's date replaces them",
+          '• Anna Novak: 12 days left on 12 Nov 2026 (fill Days left to keep a balance)',
+          '• Kate Moss: 7 working days left, 1 bonus day left on 1 Dec 2025 (fill Working days left and Bonus days left to keep a balance)',
+        ].join('\n'),
+      ]);
+    });
+
     it('lists planned leave per unit the leave takes from, with a negative balance and a single day', () => {
       const message = view.preview(
         balances(

@@ -177,15 +177,109 @@ describe('planLeaveBalances', () => {
       ).balances[0],
     ).toMatchObject({ daysLeft: 12, workingDaysLeft: 7 }));
 
-  it('replaces an earlier balance of another date whole', () =>
-    expect(
-      plan(
-        [row({ daysLeft: '12', balanceOn: '2026-11-12' })],
-        state({
-          balanceOf: { workingDaysLeft: 7, balanceOn: '2026-10-01' },
+  describe('an earlier balance of another date', () => {
+    // 2 working days, 5-6 Oct, and a bonus day on 9 Oct.
+    const october = [
+      leave('2026-10-05', '2026-10-06'),
+      { ...leave('2026-10-09', '2026-10-09'), type: VacationType.BonusDay },
+    ];
+
+    it('in the same year carries the units the row leaves empty to its later date, less the leave between', () =>
+      expect(
+        plan(
+          [row({ daysLeft: '12', balanceOn: '2026-11-12' })],
+          state({
+            extra: october,
+            balanceOf: {
+              balanceOn: '2026-10-01',
+              daysLeft: 20,
+              workingDaysLeft: 7,
+              bonusDaysLeft: 2,
+            },
+          }),
+        ).balances,
+      ).toEqual([
+        expect.objectContaining({
+          balanceOn: '2026-11-12',
+          daysLeft: 12,
+          workingDaysLeft: 5,
+          bonusDaysLeft: 1,
+          after: { days: 12, workingDays: 5, bonusDays: 1 },
         }),
-      ).balances[0],
-    ).toMatchObject({ daysLeft: 12, workingDaysLeft: null }));
+      ]));
+
+    it('in the same year carries them to its earlier date, plus the leave between', () =>
+      expect(
+        plan(
+          [row({ daysLeft: '12', balanceOn: '2026-10-01' })],
+          state({
+            extra: october,
+            balanceOf: { balanceOn: '2026-11-12', workingDaysLeft: 5 },
+          }),
+        ).balances,
+      ).toEqual([
+        expect.objectContaining({
+          balanceOn: '2026-10-01',
+          daysLeft: 12,
+          workingDaysLeft: 7,
+          bonusDaysLeft: null,
+          // The leave from 1 Oct on takes from both.
+          after: { days: 10, workingDays: 5, bonusDays: null },
+        }),
+      ]));
+
+    it('of another year goes with the units the row leaves empty, which the plan names', () =>
+      expect(
+        plan(
+          [row({ daysLeft: '12' })],
+          state({
+            balanceOf: {
+              balanceOn: '2025-12-01',
+              daysLeft: 3,
+              workingDaysLeft: 7,
+              bonusDaysLeft: 1,
+            },
+          }),
+        ).balances,
+      ).toEqual([
+        expect.objectContaining({
+          daysLeft: 12,
+          workingDaysLeft: null,
+          bonusDaysLeft: null,
+          dropped: {
+            balanceOn: '2025-12-01',
+            days: null,
+            workingDays: 7,
+            bonusDays: 1,
+          },
+        }),
+      ]));
+
+    it("of another year by the row's new contract start goes too", () =>
+      expect(
+        plan(
+          [row({ contractStart: '2020-06-15', bonusDaysLeft: '2' })],
+          state({ balanceOf: { balanceOn: '2026-06-10', daysLeft: 3 } }),
+        ).balances[0],
+      ).toMatchObject({
+        daysLeft: null,
+        bonusDaysLeft: 2,
+        dropped: {
+          balanceOn: '2026-06-10',
+          days: 3,
+          workingDays: null,
+          bonusDays: null,
+        },
+      }));
+
+    it('names nothing dropped when the row gives every unit the earlier one had', () =>
+      expect(
+        plan(
+          [row({ daysLeft: '12' })],
+          state({ balanceOf: { balanceOn: '2025-12-01', daysLeft: 3 } }),
+        ).balances[0],
+      ).not.toHaveProperty('dropped'));
+  });
 
   it('counts a row that repeats the earlier balance as unchanged', () => {
     const result = plan(

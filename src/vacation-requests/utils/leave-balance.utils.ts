@@ -206,6 +206,30 @@ export const countedOn = (
   };
 };
 
+// The same balance on `on`, a day of its vacation year: what was left on its
+// own day less the leave from that day to `on`, or plus the leave from `on`
+// to that day when `on` is earlier. Each unit counts its own way, so a unit
+// the file left empty stays empty.
+export const balanceMovedTo = (
+  balance: IFileBalance,
+  on: string,
+  requests: ICountedRequest[],
+): IFileBalance => {
+  const later = on > balance.balanceOn;
+  const between = later
+    ? takenIn(requests, balance.balanceOn, dayBefore(on))
+    : takenIn(requests, on, dayBefore(balance.balanceOn));
+  const moved = (left: number | null, taken: number) =>
+    left === null ? null : later ? left - taken : left + taken;
+
+  return {
+    balanceOn: on,
+    daysLeft: moved(balance.daysLeft, between.days),
+    workingDaysLeft: moved(balance.workingDaysLeft, between.workingDays),
+    bonusDaysLeft: moved(balance.bonusDaysLeft, between.bonusDays),
+  };
+};
+
 const TAKES_FROM_BALANCE = new Set([
   VacationType.AnnualLeave,
   VacationType.BonusDay,

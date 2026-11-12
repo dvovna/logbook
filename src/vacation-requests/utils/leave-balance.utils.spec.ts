@@ -3,6 +3,7 @@ import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
 import { IVacationPeriodUsageData } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
 import {
+  balanceMovedTo,
   countedOn,
   ICountedRequest,
   IFileBalance,
@@ -335,4 +336,52 @@ describe('countedOn', () => {
 
   it('is null without a policy', () =>
     expect(countedOn(input({ policy: null }), '2026-11-12')).toBeNull());
+});
+
+describe('balanceMovedTo', () => {
+  // Annual leave 10-13 Nov (4 days, 4 working) and a bonus day on 30 Nov.
+  const requests = [
+    mar2to11,
+    nov10to13,
+    leave('2026-11-30', '2026-11-30', VacationType.BonusDay),
+  ];
+  const earlier = file({
+    balanceOn: '2026-11-09',
+    daysLeft: 12,
+    workingDaysLeft: 9,
+    bonusDaysLeft: 2,
+  });
+
+  it('takes the leave from its day to a later one, each unit its own way', () =>
+    expect(balanceMovedTo(earlier, '2026-12-01', requests)).toEqual({
+      balanceOn: '2026-12-01',
+      daysLeft: 8,
+      workingDaysLeft: 5,
+      bonusDaysLeft: 1,
+    }));
+
+  it('counts a request across the new day only up to it', () =>
+    expect(balanceMovedTo(earlier, '2026-11-12', requests)).toEqual({
+      balanceOn: '2026-11-12',
+      daysLeft: 10,
+      workingDaysLeft: 7,
+      bonusDaysLeft: 2,
+    }));
+
+  it('gives back the leave from an earlier day to its own', () =>
+    expect(
+      balanceMovedTo(
+        file({ balanceOn: '2026-12-01', daysLeft: 8, bonusDaysLeft: 1 }),
+        '2026-11-09',
+        requests,
+      ),
+    ).toEqual({
+      balanceOn: '2026-11-09',
+      daysLeft: 12,
+      workingDaysLeft: null,
+      bonusDaysLeft: 2,
+    }));
+
+  it('changes nothing on its own day', () =>
+    expect(balanceMovedTo(earlier, '2026-11-09', requests)).toEqual(earlier));
 });

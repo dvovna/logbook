@@ -153,6 +153,72 @@ describe('Leave file Apply', () => {
       );
     });
 
+    it("a fresh template the next day with only bonus days keeps the day before's days left, less that day's leave", async () => {
+      await workspace.addVacationRequest(anna, {
+        start_date: '2026-06-17',
+        end_date: '2026-06-17',
+        days: 1,
+        working_days: 1,
+      });
+      await apply(shareBalances(`Anna Novak,${anna.email},,2026-06-17,12,,`));
+      expect(await annualLeaveOnHome()).toBe(
+        'Annual leave: *11 available* / 26 total (*11* used, *9* working, *-4* correction)',
+      );
+
+      travelTo('2026-06-18');
+      const [preview] = await shareBalances(
+        `Anna Novak,${anna.email},,2026-06-18,,,2`,
+      );
+
+      expect(leaveFileTexts(preview).slice(1)).toEqual([
+        'Balances on *18 Jun 2026* for 1 person. Leave from that day on is taken from them as usual.',
+        "*Corrections (1)*: the file's balance differs from what Logbook counts\n• Anna Novak: 11 days left, Logbook counts 15 → correction -4; 2 bonus days left, Logbook counts 3 → correction -1",
+      ]);
+
+      await click(preview, 'apply');
+
+      expect(
+        (await workspace.rows('leave_balances')).map(
+          ({ balance_on, days_left, working_days_left, bonus_days_left }) => ({
+            balance_on,
+            days_left,
+            working_days_left,
+            bonus_days_left,
+          }),
+        ),
+      ).toEqual([
+        {
+          balance_on: '2026-06-18',
+          days_left: 11,
+          working_days_left: null,
+          bonus_days_left: 2,
+        },
+      ]);
+      expect(await annualLeaveOnHome()).toBe(
+        'Annual leave: *11 available* / 26 total (*11* used, *9* working, *-4* correction)',
+      );
+      expect(
+        sectionTexts(await openAppHomeTab(t, workspace, anna)).find((text) =>
+          text.startsWith('Bonus days:'),
+        ),
+      ).toBe('Bonus days: *2 available* / 3 total (*-1* correction)');
+    });
+
+    it('a file of the next vacation year says which earlier balances go', async () => {
+      await apply(shareBalances(`Anna Novak,${anna.email},,2026-06-17,12,,`));
+
+      travelTo('2027-01-04');
+      const [preview] = await shareBalances(
+        `Anna Novak,${anna.email},,2027-01-04,,,2`,
+      );
+
+      expect(leaveFileTexts(preview).slice(1, 4)).toEqual([
+        'Balances on *4 Jan 2027* for 1 person. Leave from that day on is taken from them as usual.',
+        "*Corrections (1)*: the file's balance differs from what Logbook counts\n• Anna Novak: 2 bonus days left, Logbook counts 3 → correction -1",
+        "*Earlier balances that go (1)*: the file's date replaces them\n• Anna Novak: 12 days left on 17 Jun 2026 (fill Days left to keep a balance)",
+      ]);
+    });
+
     it("the result's Open People shows People", async () => {
       const applied = await apply(
         shareBalances(`Anna Novak,${anna.email},,2026-06-17,3,,`),
