@@ -2,6 +2,12 @@
 
 Notable changes per release. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a minor version may need a step when you update; its section says which.
 
+## [Unreleased]
+
+### Running it
+- Errors sent to Sentry carry the release they came from (`logbook@<version>`), so an issue shows which version brought it.
+- The Docker image (and `pnpm start:prod`) runs Node with source maps, so stack traces in the logs and in Sentry name the TypeScript file and line instead of the compiled JavaScript.
+
 ## [0.3.0] - 2026-11-12
 
 Company rules and teams set up from a file, approval levels that no longer get stuck, balances and holidays counted for the right year, and an app that holds up with hundreds of people per workspace. Update step: six database migrations and the app manifest, see Running it.

@@ -37,4 +37,6 @@ USER node
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/health" || exit 1
 
-CMD ["node", "dist/main.js"]
+# Stack traces, in the logs and in Sentry, name the TypeScript line: the build
+# keeps its source maps in dist.
+CMD ["node", "--enable-source-maps", "dist/main.js"]
