@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-Most updates are a new image and the release's database migrations. Before 1.0, a minor version (0.3 to 0.4) may need a step of its own.
+Most updates are a new image and the release's database migrations. Before 1.0, a minor version (0.4 to 0.5) may need a step of its own.
 
 ## Find the release's update step
 
@@ -16,6 +16,7 @@ Every release has a section in [CHANGELOG.md](https://github.com/dvovna/logbook/
 | 0.1.0 | The first release. |
 | 0.2.0 | Two database migrations. |
 | 0.3.0 | Six database migrations, and the Slack app manifest again (it drops `/user-team-mapping`). |
+| 0.4.0 | Three database migrations, and the Slack app manifest again (it drops `/upload-vacations`). |
 
 When you skip releases, take the steps of every release in between. The migrations of all of them apply in one push.
 
@@ -52,7 +53,7 @@ The database lacks 2 migration(s) this version needs: 20261110171144, 2026111110
 ```
 
 :::tip
-An image tagged with a minor line, such as `0.3`, gets that line's patch releases with `docker compose pull` or `docker pull`. A new minor version needs the new tag, and may need a step.
+An image tagged with a minor line, such as `0.4`, gets that line's patch releases with `docker compose pull` or `docker pull`. A new minor version needs the new tag, and may need a step.
 :::
 
 ## Apply the Slack app manifest again

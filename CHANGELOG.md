@@ -4,6 +4,10 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-12
+
+Leave balances and history from your spreadsheet, a documentation site, and decisions and waiting requests that reach the people they concern. Update step: three database migrations and the app manifest, see Running it.
+
 ### Documentation
 - Logbook has documentation at https://dvovna.github.io/logbook/docs/: guides for everyone, approvers, HR and admins, and finance, reference pages (roles and permissions, commands, notifications, file formats, configuration), and the self-hosting guide, which moved there from the README.
 
@@ -22,6 +26,8 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 - Imported leave arrives approved, goes through no approval, notifies nobody and offers no time off as time. A history file only adds: leave already in Logbook is skipped and overlapping leave refused, and nothing people requested is changed or deleted.
 - Files saved from Excel or Google Sheets read as they are: US and UK dates with slashes (told apart per file), `;` with decimal commas, Excel date cells.
 - Removed: `user-vacations.csv` and the `/upload-vacations` command, which replaced all of a person's time off. The leave files replace them.
+- A leave history may have a Team column beside its Leave type, From and To, as exports of past leave often do; it is read as a history, not as a team file.
+- An Excel file that unpacks to more than 10 MB is refused before it is read.
 - Files shared in channels get no answer from Logbook. Someone without Admin or HR who shares a file in the Logbook DM gets a refusal that fits a file.
 
 ### Running it
@@ -135,6 +141,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.4.0]: https://github.com/dvovna/logbook/releases/tag/v0.4.0
 [0.3.0]: https://github.com/dvovna/logbook/releases/tag/v0.3.0
 [0.2.0]: https://github.com/dvovna/logbook/releases/tag/v0.2.0
 [0.1.0]: https://github.com/dvovna/logbook/releases/tag/v0.1.0

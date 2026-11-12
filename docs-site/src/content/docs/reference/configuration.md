@@ -56,7 +56,7 @@ These aren't checked at startup.
 | --- | --- | --- |
 | `NODE_ENV` | `production` in the Docker image | `production` writes logs as JSON lines at the `info` level; anything else writes them readable and colored, at the `debug` level. |
 | `LOG_LEVEL` | From `NODE_ENV` | The lowest level logged: `debug`, `info`, `warn` or `error`. |
-| `LOGBOOK_VERSION` | `latest` | Read by `docker-compose.yml` only: the image tag to run, such as `0.3`. |
+| `LOGBOOK_VERSION` | `latest` | Read by `docker-compose.yml` only: the image tag to run, such as `0.4`. |
 
 ## Example
 
