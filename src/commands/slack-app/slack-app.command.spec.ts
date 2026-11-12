@@ -144,10 +144,18 @@ describe('slack:app', () => {
     expect(printed.join('\n')).not.toMatch(/client-secret|signing-secret|xoxe/);
   });
 
-  it('creates a .env when there is none', async () => {
+  it('starts a .env that is not there from .env.example', async () => {
+    files['.env.example'] = '# Database\nDATABASE_URL=\nSLACK_CLIENT_ID=\n';
+
     await slackApp(['create', '--domain', DOMAIN], deps());
 
+    expect(files['.env']).toContain(
+      '# Database\nDATABASE_URL=\nSLACK_CLIENT_ID=111.222\n',
+    );
     expect(envValue(files['.env'], 'SLACK_APP_ID')).toBe('A0NEW');
+    expect(files['.env.example']).toBe(
+      '# Database\nDATABASE_URL=\nSLACK_CLIENT_ID=\n',
+    );
   });
 
   it('refuses to create a second app over the one .env names', async () => {
@@ -187,7 +195,7 @@ describe('slack:app', () => {
     expect(files['.env']).toBe(
       'SLACK_APP_ID=A0OLD\nSLACK_REDIRECT_URI=https://new.example.com/api/slack/oauth/redirect\n',
     );
-    expect(printed.join('\n')).not.toContain('install it again');
+    expect(printed.join('\n')).not.toContain('installed again');
   });
 
   it('says to install again when the update changed the scopes', async () => {
@@ -196,7 +204,7 @@ describe('slack:app', () => {
     await slackApp(['update', '--domain', DOMAIN, '--app', 'A0OLD'], deps());
 
     expect(printed.join('\n')).toContain(
-      `install it again in every workspace at https://${DOMAIN}/api/slack/install`,
+      `works only after the app is installed again, in every workspace, at https://${DOMAIN}/api/slack/install`,
     );
     expect(envValue(files['.env'], 'SLACK_APP_ID')).toBe('A0OLD');
   });

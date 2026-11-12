@@ -16,6 +16,7 @@ export const USAGE = [
 ].join('\n');
 
 const MANIFEST_FILE = 'slack-app-manifest.yml';
+const ENV_EXAMPLE_FILE = '.env.example';
 const APP_ID = 'SLACK_APP_ID';
 
 // What the command touches outside itself, so a spec can stand in for it.
@@ -97,7 +98,10 @@ export async function slackApp(
 
   const domain = required(options.domain);
   const manifest = manifestFor(yaml, domain);
-  const env = deps.readFile(options.env) ?? '';
+  // A file that isn't there yet starts as the example, with its comments
+  // and the other keys to fill in.
+  const env =
+    deps.readFile(options.env) ?? deps.readFile(ENV_EXAMPLE_FILE) ?? '';
   const redirectUri = `https://${domain}/api/slack/oauth/redirect`;
 
   if (command === 'create') {
@@ -161,7 +165,7 @@ export async function slackApp(
       `${options.env} has the new redirect URI: restart Logbook to use it.`,
       ...(scopesChanged
         ? [
-            `The app's scopes changed: install it again in every workspace at https://${domain}/api/slack/install`,
+            `Slack says the app's scopes changed. A scope the manifest added works only after the app is installed again, in every workspace, at https://${domain}/api/slack/install; one it took away needs nothing.`,
           ]
         : []),
     ].join('\n'),

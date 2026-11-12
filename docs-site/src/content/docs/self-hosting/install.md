@@ -37,19 +37,21 @@ Every SQL statement is a round trip to the database, and a click such as saving 
 
 ## 2. Slack app
 
-1. Replace `APP_DOMAIN` in [`slack-app-manifest.yml`](https://github.com/dvovna/logbook/blob/main/slack-app-manifest.yml) with the domain the bot will run on:
+1. Generate an app configuration token: at https://api.slack.com/apps, under "Your App Configuration Tokens", click **Generate Token** for your workspace and copy the access token. It lasts 12 hours.
+2. Create the app from [`slack-app-manifest.yml`](https://github.com/dvovna/logbook/blob/main/slack-app-manifest.yml) for the domain the bot will run on:
    ```bash
-   sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml
+   pnpm slack:app create --domain vacations.example.com
    ```
-   The command prints the result; copy it, or add `> manifest.yml` to save it.
-2. Create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest"). The manifest turns on token rotation: bot tokens expire after 12 hours and the app refreshes them, so a token that leaks is soon useless. Slack can't turn rotation off again for an app.
+   The command asks for the token without showing it (or reads it from `SLACK_CONFIG_TOKEN`), creates the app through Slack's API, and writes the app's ID, client ID, client secret, signing secret and redirect URI into `.env`, which it starts from `.env.example` when there is none. It prints none of the secrets. The manifest turns on token rotation: bot tokens expire after 12 hours and the app refreshes them, so a token that leaks is soon useless. Slack can't turn rotation off again for an app.
 3. To install it into other workspaces too, turn on public distribution in "Manage Distribution", and share `https://<your-domain>/api/slack/install` as the install link (see step 5).
+
+By hand instead of step 2: replace `APP_DOMAIN` in the manifest with your domain (`sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml`), create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest"), and copy its values into `.env` in the next step.
 
 Without public distribution, only your own workspace can install the app, which is what a single company wants. With it, any Slack workspace that has the link can install the app on your server, unless you list the allowed ones in `ALLOWED_SLACK_TEAM_IDS`.
 
 ## 3. Configuration
 
-Copy [`.env.example`](https://github.com/dvovna/logbook/blob/main/.env.example) to `.env` and fill it in:
+Fill in `.env`. `pnpm slack:app create` made it in step 2, with the Slack values in place; if you created the app by hand, copy [`.env.example`](https://github.com/dvovna/logbook/blob/main/.env.example) to `.env` first.
 
 | Variable | Value |
 | --- | --- |

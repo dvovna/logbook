@@ -61,8 +61,12 @@ An image tagged with a minor line, such as `0.4`, gets that line's patch release
 
 When a release changes the commands, scopes or events Slack sends:
 
-1. Take `slack-app-manifest.yml` from the new release and replace `APP_DOMAIN` with your domain, as at [install](/logbook/docs/self-hosting/install/#2-slack-app).
-2. Open your app at https://api.slack.com/apps, go to "App Manifest", paste the result over the current manifest, and save.
+1. Generate an app configuration token at https://api.slack.com/apps, as at [install](/logbook/docs/self-hosting/install/#2-slack-app).
+2. In the new release's source, bring the app to its manifest:
+   ```bash
+   pnpm slack:app update --domain vacations.example.com
+   ```
+   It takes the app from `SLACK_APP_ID` in `.env` (or `--app <app id>`, which is in the app's address at https://api.slack.com/apps) and keeps the app's name and description. By hand instead: replace `APP_DOMAIN` in `slack-app-manifest.yml` with your domain, open your app's "App Manifest", paste the result over the current manifest, and save.
 3. When the release adds scopes, install the app again in every workspace through `https://<your-domain>/api/slack/install`. Data and roles stay as they are.
 
 ## Turn on token rotation for an older app
