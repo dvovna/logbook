@@ -4,7 +4,7 @@ import { View } from '@slack/types';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TimeEntryFormModalView } from '@modules/slack/tabs/time-tracking/views/time-entry-form-modal.view';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
-import { TimesheetService } from 'src/time-entries/services/timesheet.service';
+import { TimesheetWeekService } from 'src/time-entries/services/timesheet-week.service';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
 export interface ITimeEntryModalViewParams extends IOpenModalBaseParams {
@@ -17,7 +17,7 @@ export class TimeEntryModalService {
   public constructor(
     private readonly timeEntryFormModalView: TimeEntryFormModalView,
     private readonly timeEntriesService: TimeEntriesService,
-    private readonly timesheetService: TimesheetService,
+    private readonly timesheetWeekService: TimesheetWeekService,
   ) {}
 
   public async getModal({
@@ -27,7 +27,7 @@ export class TimeEntryModalService {
     pageMetadata = '',
   }: ITimeEntryModalViewParams): Promise<View> {
     const [projects, timeEntry] = await Promise.all([
-      this.timesheetService.allowedProjects(user),
+      this.timesheetWeekService.allowedProjects(user),
       timeEntryId
         ? this.timeEntriesService.findOneWithValidation({
             id: timeEntryId,

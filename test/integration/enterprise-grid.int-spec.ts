@@ -25,11 +25,11 @@ describe('The same Slack user in two workspaces', () => {
     personId = slackId('U');
   });
 
-  const askForTeamMappingUpload = async (workspace: TestWorkspace) => {
+  const askForVacationsUpload = async (workspace: TestWorkspace) => {
     const since = t.slackApi.mark();
 
     await t.slack
-      .command('/api/slack/admin/user-team-mapping-upload', workspace, {
+      .command('/api/slack/admin/user-vacations-upload', workspace, {
         slack_id: personId,
       })
       .expect(acknowledged);
@@ -47,10 +47,8 @@ describe('The same Slack user in two workspaces', () => {
     await first.addUser({ slack_id: personId, role: UserRole.Admin });
     await second.addUser({ slack_id: personId, role: UserRole.Member });
 
-    expect(await askForTeamMappingUpload(first)).toContain(
-      'user-team-mapping.csv',
-    );
-    expect(await askForTeamMappingUpload(second)).toContain(
+    expect(await askForVacationsUpload(first)).toContain('user-vacations.csv');
+    expect(await askForVacationsUpload(second)).toContain(
       'Only users with role',
     );
   });

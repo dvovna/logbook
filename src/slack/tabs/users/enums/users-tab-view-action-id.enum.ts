@@ -11,5 +11,4 @@ export enum UsersTabViewActionId {
   FilterUsersByUser = 'filter_users_by_users',
   ResetFilters = 'reset_users_filters',
   ImportVacations = 'import_vacations_csv',
-  ImportTeams = 'import_teams_csv',
 }

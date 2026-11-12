@@ -1,3 +1,4 @@
+import { MAX_POLICY_DAYS } from '@modules/vacation-policies/constants/policy-limits';
 import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
@@ -58,7 +59,7 @@ export class VacationPolicyModalView extends BaseModalView<
           action_id: 'vacation_days',
           is_decimal_allowed: false,
           min_value: '0',
-          max_value: '30',
+          max_value: String(MAX_POLICY_DAYS),
           initial_value: initialData?.vacation_days?.toString() ?? '26',
         },
         label: {
@@ -78,7 +79,7 @@ export class VacationPolicyModalView extends BaseModalView<
           action_id: 'working_days',
           is_decimal_allowed: false,
           min_value: '0',
-          max_value: '30',
+          max_value: String(MAX_POLICY_DAYS),
           initial_value: initialData?.working_days?.toString() ?? '20',
         },
         label: {
@@ -98,12 +99,16 @@ export class VacationPolicyModalView extends BaseModalView<
           action_id: 'bonus_days',
           is_decimal_allowed: false,
           min_value: '0',
-          max_value: '30',
+          max_value: String(MAX_POLICY_DAYS),
           initial_value: initialData?.bonus_days?.toString() ?? '5',
         },
         label: {
           type: 'plain_text',
           text: 'Bonus Days',
+        },
+        hint: {
+          type: 'plain_text',
+          text: "Days off on top of annual leave, in working days: weekends and this policy's enabled holidays don't count.",
         },
       },
       {
@@ -115,7 +120,7 @@ export class VacationPolicyModalView extends BaseModalView<
           action_id: 'carryover_days',
           is_decimal_allowed: false,
           min_value: '0',
-          max_value: '30',
+          max_value: String(MAX_POLICY_DAYS),
           initial_value: initialData?.carryover_days?.toString() || '0',
         },
         label: {

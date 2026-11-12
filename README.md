@@ -12,36 +12,37 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 **Vacations**
 - Request annual leave, sick leave, bonus days, unpaid leave and other time off from the App Home or with `/vacations request`.
 - Overlapping dates are refused. You can cancel a pending request with `/vacations cancel`, and see your balance with `/vacations usage`.
-- Two-level approval: the team's managers first, then HR. Each level is approved by any one approver or by all of them.
+- Two-level approval: the team's managers first, then the second level, such as HR, from the company rules or the team's own rules. Each level is approved by any one approver or by all of them.
 - Approvers get a Slack message with Approve / Reject / Comment buttons. They can also decide in the App Home's Approvals inbox, which holds time off and time entries waiting for them. A rejection can say why, and the requester and the approvers' messages show the reason. The requester hears of an approver's comment when it is made.
 - When an approver is away, HR or an admin can approve the waiting level for them, so the request moves on instead of getting stuck.
 - When nobody on the team can approve a request (no team, no approvers, or the requester is the only one), it goes to HR, or to the admins when there is no HR. Nobody approves their own request.
 - The requester and the team's notification recipients are told about the decision.
 
 **Policies and balances**
-- Vacation policies per team: vacation days, working days, bonus days, plus carryover per user.
+- Vacation policies: vacation days, working days, bonus days, and the most days a person may carry over. The company rules name the policy for everyone; a team can keep its own instead. Unused days carry over to the next year on their own, up to the policy's limit; for the year a person joins, HR enters what they bring on their profile.
 - The vacation year runs from the employee's contract start date, or over the calendar year when the employee has none.
 - Calendar and working days are counted separately. Working days skip weekends and the policy's holidays.
-- Public holidays can be imported per country (from [Nager.Date](https://date.nager.at)). You can add company holidays and turn individual ones off.
+- Public holidays can be imported per country (from [Nager.Date](https://date.nager.at)), with a region's own holidays if you choose one. You can add company holidays and turn individual ones off.
 - No-setup mode: without a policy, the bot just keeps track of time off and enforces no limits.
 
 **People**
 - When the app is installed, all workspace members are imported; people who join later are added automatically.
-- Roles: admin, HR, manager, member.
-- Admins upload CSV files to bulk-load vacation history and team membership.
+- Roles: admin, HR, manager, finance, member. Finance handles rates, billing reports and snapshots, and sees everyone's time in reports; it approves nothing and manages no people.
+- Admins upload a CSV to bulk-load vacation history.
+- Admin and HR set up teams from a file the bot sends. They fill it in and share it back, check the preview, then apply it. Undo restores it for 7 days.
 
 **Time & Billing (beta)**
 - Clients, projects with team and user assignments, and billable flags.
-- Hourly rates: a project's rate, and a person's own rate on a project that replaces it. One currency per workspace, which an admin sets. Only admins and HR see rates and amounts.
+- Hourly rates: a project's rate, and a person's own rate on a project that replaces it. One currency per workspace, which an admin sets. Only admins and finance see rates and amounts.
 - Time entries in 15-minute steps, logged from the App Home or with `/log` as drafts, and then submitted for approval.
 - My time shows the week as a table of projects by day, with previous and next week and "Submit week". One form fills in a week, or a day with a comment, across your projects.
 - Time off as time: admins map each leave type to a project and set the hours of a working day; an approved request then offers to log its working days as approved time on that project.
 - The team's managers, HR or an admin approve or reject submitted time; a rejection tells the owner why.
-- Time reports for a period, by client, project, person or team: hours, billable and approved time, and for admins and HR the amounts. Admins and HR see everyone's time, managers their teams' and their own, everyone else their own. A quick period (this or last week, month, quarter) fills the dates, and the report and its CSV can be narrowed to a client, a project or a person.
-- "Who hasn't submitted": the people a manager, HR or an admin sees who logged nothing in a period, or still have drafts or rejected time in it.
-- A CSV of a time report's entries, sent to you as a file in a DM: date, person, email, team, client, project, description, hours, billable, status, and for admins and HR the rate and the amount (comma-separated UTF-8).
-- A billing report per client and period, from approved time: each person's hours on each project with the rate and the amount, the totals by project and by person, and the amount in all. Billable time without a rate has no amount and is counted apart.
-- Billing snapshots: admins and HR lock a billing report's approved time with today's rates, for an invoice you make elsewhere (Logbook makes no invoices). Nobody can change the time in a snapshot. A snapshot's CSV is sent to you in a DM (date, person, email, team, project, description, hours, billable, rate, amount, currency), and you mark it invoiced (or not invoiced again). The list filters by client. An admin can unlock a snapshot to correct its time, which deletes it.
+- Time reports for a period, by client, project, person or team: hours, billable and approved time, and for admins and finance the amounts. Admins, HR and finance see everyone's time, managers their teams' and their own, everyone else their own. A quick period (this or last week, month, quarter) fills the dates, and the report and its CSV can be narrowed to a client, a project or a person.
+- "Who hasn't submitted": the people a manager, HR, finance or an admin sees who logged nothing in a period, or still have drafts or rejected time in it.
+- A CSV of a time report's entries, sent to you as a file in a DM: date, person, email, team, client, project, description, hours, billable, status, and for admins and finance the rate and the amount (comma-separated UTF-8).
+- A billing report per client and period, from approved time: each person's hours on each project with the rate and the amount, the totals by project and by person, and the amount in all. Billable time without a rate has no amount and is counted apart. Billing reports, snapshots and the uninvoiced report are for admins and finance.
+- Billing snapshots: admins and finance lock a billing report's approved time with today's rates, for an invoice you make elsewhere (Logbook makes no invoices). Nobody can change the time in a snapshot. A snapshot's CSV is sent to you in a DM (date, person, email, team, project, description, hours, billable, rate, amount, currency), and you mark it invoiced (or not invoiced again). The list filters by client. An admin can unlock a snapshot to correct its time, which deletes it.
 - An uninvoiced report per client, for all time or a period: approved billable time in no snapshot, with its amount at today's rates, and the time of snapshots not marked invoiced yet.
 - Admins and HR see everyone's time logs.
 
@@ -56,7 +57,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 ## Self-hosting
 
 You need:
-- the source of the release you run, for its database migrations: `git clone --branch v0.2.0 https://github.com/dvovna/logbook && cd logbook && pnpm install` (with pnpm 10, `npm install -g pnpm@10`; the steps below run the Supabase CLI pinned in it);
+- the source of the release you run, for its database migrations: `git clone --branch v0.3.0 https://github.com/dvovna/logbook && cd logbook && pnpm install` (with pnpm 10, `npm install -g pnpm@10`; the steps below run the Supabase CLI pinned in it);
 - a Supabase project. The free plan runs the bot, but it keeps no backups and Supabase pauses it after a week of little activity (see [Run](#4-run)). For a company's real data, take a paid plan or back the database up yourself, e.g. with `pg_dump` over the session pooler connection string;
 - a host that runs Docker or Node 26, reachable from Slack over HTTPS;
 - permission to create a Slack app in your workspace.
@@ -70,6 +71,8 @@ pnpm supabase db push --remote "postgresql://postgres.<project-ref>:<db-password
 ```
 
 Take the session pooler connection string from the project's "Connect" dialog. The direct `db.<project-ref>.supabase.co` host is IPv6-only. The app connects with the same string (`DATABASE_URL` below).
+
+Run the app in the project's region. Every SQL statement is a round trip to the database, and a click such as saving a week or approving a request sends up to ten of them one after another before the app answers. A round trip takes about a millisecond within a region and about 100 ms between regions. Far from its database, the app spends up to a second of the 3 that Slack waits on the database alone, and every statement holds one of the pooler's few connections a hundred times longer, so the whole installation manages only a few clicks a second.
 
 ### 2. Slack app
 
@@ -91,20 +94,23 @@ Copy [`.env.example`](.env.example) to `.env` and fill it in:
 | `SLACK_SIGN_IN_SECRET` | Slack app → Basic Information → Signing Secret |
 | `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
 | `SLACK_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the bot tokens in the database. Keep it with your other secrets: without it the app can't read the tokens, and every workspace has to install the app again. |
-| `PORT` | Port to listen on. The Docker image defaults to 10000. |
+| `PORT` | Port to listen on: 3000 in `.env.example`, and 3000 when it's unset, except in the Docker image, which sets 10000. |
 | `ALLOWED_SLACK_TEAM_IDS` | Optional. Comma-separated Slack workspace IDs (`T…`) that may install the app on your server. Any other workspace gets a refusal, and its token is revoked. Unset, every workspace with the install link may install. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Optional. Sends unexpected errors to your Sentry project: the error and its stack, no request data or people's details. Empty sends nothing anywhere. |
-| `DATABASE_POOL_SIZE` | Optional, default 5. Connections the app's pool may hold; the job queue holds 2 more. Keep both under the Supabase project's "Pool Size". |
+| `DATABASE_POOL_SIZE` | Optional, default 10. Connections the app's pool may hold; the job queue holds 3 more. Together they must stay under the Supabase project's "Pool Size" (15 on the smaller compute sizes), the connections the session pooler allows at once for all its clients: 10 + 3 leaves 2 for `supabase db push` or `psql`. A query that finds no free connection within 2 seconds fails, and Slack shows an error instead of waiting for nothing. |
+| `JOBS_CONCURRENCY` | Optional, default 4. How many background jobs (messages, approval steps, imports, reminders) run at once; the others wait their turn, saved in the database, so a restart loses none. Keep it well under `DATABASE_POOL_SIZE`, so that a burst such as the Monday reminder leaves connections to the clicks people wait on. |
 
 The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` lists them.
 
 ### 4. Run
 
-The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.2.0`), its minor line (`0.2`) and `latest`:
+The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.3.0`), its minor line (`0.3`) and `latest`:
 
 ```bash
-docker run -d --name logbook --restart always --env-file .env -p 3000:10000 ghcr.io/dvovna/logbook:0.2
+docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.3
 ```
+
+The second port of `-p` is `PORT` from `.env`; with `PORT` left out of `.env`, the container listens on 10000, so map `-p 3000:10000`.
 
 Or with the compose file, which runs the same image (`LOGBOOK_VERSION` picks the tag, `latest` by default):
 
@@ -121,6 +127,8 @@ pnpm start:prod
 ```
 
 Put the app behind HTTPS (a reverse proxy, or a platform such as Render or Fly.io). Then open "Event Subscriptions" in the Slack app settings and retry the URL verification.
+
+On a restart or a deploy the app gets SIGTERM: it stops taking requests at once, finishes what is in flight (an approval, a CSV on its way) for up to 12 seconds, then closes its connections, in 22 seconds at most. `docker stop` kills a container after 10 seconds, so the compose file sets `stop_grace_period: 30s` and the `docker run` above passes `--stop-timeout 30`. A platform has its own grace period: set it to 30 seconds, e.g. `maxShutdownDelaySeconds` in Render's `render.yaml` or `kill_timeout` in Fly.io's `fly.toml`. Work cut off by a shorter one isn't lost, since the next process retries it, but it comes minutes late.
 
 `GET /health` answers 200 while the app reaches its database and 503 when it can't; point your platform's health check at it. The Docker image already uses it.
 
@@ -252,7 +260,7 @@ CI runs the type check, lint, unit and integration tests on every pull request, 
 
 - Slack only; there is no Microsoft Teams support.
 - No calendar sync (Google, Outlook) yet.
-- Caches are in memory, so run a single instance.
+- Run a single instance. A second one beside it for a while, as in a zero-downtime deploy, is safe: they share the bot token and the daily work through the database. Each keeps its own caches, jobs and database connections, which count against your database's connection limit together.
 - Time & Billing is in beta. Reports use the rates as they are now (only billing snapshots keep the rates they were made with), and changing the currency doesn't convert the rates. Logbook doesn't make invoices: a billing snapshot's CSV goes into your accounting tool.
 
 ## Contributing

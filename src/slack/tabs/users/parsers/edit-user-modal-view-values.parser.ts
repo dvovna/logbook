@@ -1,3 +1,4 @@
+import { MAX_POLICY_DAYS } from '@modules/vacation-policies/constants/policy-limits';
 import { z } from 'zod';
 import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
 import ViewFieldType from '@modules/slack/enums/view-field-type.enum';
@@ -20,7 +21,7 @@ export const editUserFormSchema = z.object({
   carryover_days: z.coerce
     .number()
     .min(0, 'Carryover days cannot be negative')
-    .max(30, 'Carryover days cannot exceed 30')
+    .max(MAX_POLICY_DAYS, `Carryover days cannot exceed ${MAX_POLICY_DAYS}`)
     .default(0),
 });
 

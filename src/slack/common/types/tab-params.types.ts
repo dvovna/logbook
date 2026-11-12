@@ -17,9 +17,9 @@ export interface IPublishBaseParams<TabMetadata = unknown> {
   // the top of the tab, after a form closed or an action ran.
   notice?: string;
   // What waits for the viewer's decision: counted once per publish by
-  // BaseTabService, for the Approvals button and for Home. Undefined when it
-  // couldn't be counted.
-  pendingApprovals?: IPendingApprovals;
+  // BaseTabService, beside the screen's own reads, for the Approvals button
+  // and for Home. Never rejects; undefined when it couldn't be counted.
+  pendingApprovals?: Promise<IPendingApprovals | undefined>;
 }
 
 export const TAB_NOTICE_BLOCK_ID = 'tab_notice';

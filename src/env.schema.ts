@@ -7,9 +7,13 @@ export const envSchema = z.object({
   // The Postgres connection (Supabase: the session pooler on port 5432) for
   // the data and the job queue.
   DATABASE_URL: z.url(),
-  // Connections the app's own pool may hold; pg-boss holds 2 more. Supabase's
+  // Connections the app's own pool may hold; pg-boss holds 3 more. Supabase's
   // session pooler allows only its "Pool Size" (15 on small plans) at once.
-  DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(50).default(5),
+  DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(50).default(10),
+  // How many jobs (messages, decisions, imports) run at once; the others wait
+  // their turn, saved. Below DATABASE_POOL_SIZE, so that a burst of them
+  // leaves connections to the clicks people wait on.
+  JOBS_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(4),
 
   // Optional: only these Slack workspaces (T… IDs, comma-separated) may
   // install the app. Unset, any workspace that has the install link may.

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { slackErrorOf } from 'src/api-clients/third-party/slack-api.client';
@@ -15,13 +15,19 @@ interface IDmFile {
   content: string;
 }
 
+const withoutFile = (intro: string) => `${intro}\n${NO_FILES_PERMISSION}`;
+
 // Files the app sends to the person who asked for them (CSV exports), in
-// their DM with the app: a message first, since its answer names the DM
-// channel (opening one would take the im:write scope), then the file in that
-// channel. A workspace without files:write gets the message, which then
-// says how to fix it.
+// their DM with the app: a message, then the file under it. The file is
+// uploaded first, the slow part that fails; then the message goes, since its
+// answer names the DM channel (opening one would take the im:write scope),
+// and the file is shared there. When sharing fails the message is deleted,
+// so that a retry leaves no message without its file. A workspace without
+// files:write gets the message, which then says how to fix it.
 @Injectable()
 export class DmFileService {
+  private readonly logger = new Logger(DmFileService.name);
+
   public constructor(
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {}
@@ -31,15 +37,11 @@ export class DmFileService {
     { intro, title, filename, content }: IDmFile,
   ) {
     const teamId = user.slack_team_id;
-    const message = await this.slackCommunicationService.postMessage(
-      user.slack_id,
-      { text: intro },
-      teamId,
-    );
+    let fileId: string;
 
     try {
-      await this.slackCommunicationService.uploadFile(
-        { channelId: message.channel!, filename, title, content },
+      fileId = await this.slackCommunicationService.uploadFile(
+        { filename, content },
         teamId,
       );
     } catch (error) {
@@ -47,12 +49,45 @@ export class DmFileService {
         throw error;
       }
 
-      await this.slackCommunicationService.updateMessage(
-        message.channel!,
-        message.ts!,
-        { text: `${intro}\n${NO_FILES_PERMISSION}` },
+      await this.say(user, withoutFile(intro));
+
+      return;
+    }
+
+    const message = await this.slackCommunicationService.postMessage(
+      user.slack_id,
+      { text: intro },
+      teamId,
+    );
+    const channel = message.channel!;
+    const ts = message.ts!;
+
+    try {
+      await this.slackCommunicationService.shareFile(
+        { fileId, channelId: channel, title },
         teamId,
       );
+    } catch (error) {
+      if (slackErrorOf(error) === 'missing_scope') {
+        await this.slackCommunicationService.updateMessage(
+          channel,
+          ts,
+          { text: withoutFile(intro) },
+          teamId,
+        );
+
+        return;
+      }
+
+      await this.slackCommunicationService
+        .deleteMessage(channel, ts, teamId)
+        .catch((deleteError: Error) =>
+          this.logger.warn(
+            `Failed to delete the message of a file that wasn't shared: ${deleteError.message}`,
+          ),
+        );
+
+      throw error;
     }
   }
 

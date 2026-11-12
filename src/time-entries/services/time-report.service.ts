@@ -1,93 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { amountInCents } from '@common/utils/money.utils';
 import ClientsService from '@modules/clients/services/clients.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import TeamsService from '@modules/teams/services/teams.service';
+import { UsersService } from '@modules/users/services/users.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import ProjectsService from 'src/projects/services/projects.service';
-import { ProjectRatesService } from 'src/projects/services/project-rates.service';
 import { canSeeRates } from 'src/projects/constants/rate-roles';
-import { IProjectRates } from 'src/projects/types/project-user-rate.types';
-import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
-import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { TimeReportGrouping } from 'src/time-entries/enums/time-report-grouping.enum';
 import {
+  scopeFilterOf,
   TimeEntriesScopeService,
-  TimeScopeKind,
 } from 'src/time-entries/services/time-entries-scope.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
-import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
+import {
+  IAppliedFilters,
+  IMissingTimeLine,
+  IMissingTimeReport,
+  ITimeReport,
+  ITimeReportFilters,
+  ITimeReportRow,
+} from 'src/time-entries/types/time-report.types';
 import { assertReportPeriod } from 'src/time-entries/utils/report-period';
-
-export enum TimeReportGrouping {
-  Client = 'client',
-  Project = 'project',
-  Person = 'person',
-  Team = 'team',
-}
-
-// A client's, project's, person's or team's time in the period.
-export interface ITimeReportRow {
-  name: string;
-  minutes: number;
-  billableMinutes: number;
-  approvedMinutes: number;
-  // In cents, of the billable time that has a rate; null for those who don't
-  // see amounts (RATE_ROLES).
-  amount: number | null;
-}
-
-// What a time report and its CSV may be narrowed to. IDs come from the form,
-// so they only ever narrow the viewer's scope: an ID they may not see, or of
-// another workspace, matches nothing.
-export interface ITimeReportFilters {
-  clientId?: string;
-  projectId?: string;
-  userId?: string;
-}
-
-// The names of the filters a report was narrowed by, to show with it.
-export interface IAppliedFilters {
-  client?: string;
-  project?: string;
-  person?: string;
-}
-
-export interface ITimeReport {
-  groupBy: TimeReportGrouping;
-  fromDate: string;
-  toDate: string;
-  scope: TimeScopeKind;
-  filters: IAppliedFilters;
-  // The workspace's currency; null for those who don't see amounts.
-  currency: string | null;
-  // Most time first.
-  rows: ITimeReportRow[];
-  total: ITimeReportRow;
-  // Billable time without a rate, so without an amount; null for those who
-  // don't see amounts.
-  unratedMinutes: number | null;
-}
-
-// A person who has not sent all their time of the period for approval.
-export interface IMissingTimeLine {
-  name: string;
-  teamName: string | null;
-  // Everything they logged in the period, whatever its status.
-  loggedMinutes: number;
-  // Drafts and rejected entries: not sent for approval (again) yet.
-  unsubmittedMinutes: number;
-  unsubmittedCount: number;
-}
-
-export interface IMissingTimeReport {
-  fromDate: string;
-  toDate: string;
-  scope: TimeScopeKind;
-  // Everyone the viewer sees, listed or not.
-  peopleCount: number;
-  // Who logged nothing first, then most unsubmitted time.
-  lines: IMissingTimeLine[];
-}
 
 interface IReportParams {
   user: IUserViewModel;
@@ -95,15 +28,13 @@ interface IReportParams {
   toDate: string;
 }
 
-type IFilteredReportParams = IReportParams & { filters?: ITimeReportFilters };
-
-interface IClientRef {
-  id: string;
-  name: string;
-}
-
-const NO_CLIENT = 'No client';
-const NO_TEAM = 'No team';
+// What a group without a name of its own is called.
+const UNNAMED: Record<TimeReportGrouping, string> = {
+  [TimeReportGrouping.Client]: 'No client',
+  [TimeReportGrouping.Project]: 'Unknown project',
+  [TimeReportGrouping.Person]: 'Unknown user',
+  [TimeReportGrouping.Team]: 'No team',
+};
 
 // Most time first, then by name.
 const byTime = (a: ITimeReportRow, b: ITimeReportRow) =>
@@ -117,109 +48,70 @@ const emptyRow = (name: string, withAmount: boolean): ITimeReportRow => ({
   amount: withAmount ? 0 : null,
 });
 
-// The rate billable time of `userId` on `projectId` is worth: the person's
-// own rate on the project, else the project's; null if neither.
-export const rateOf = (
-  rates: Map<string, IProjectRates>,
-  projectId: string,
-  userId: string,
-) => {
-  const projectRates = rates.get(projectId);
-  const ownRate = projectRates?.personRates.find(
-    (rate) => rate.userId === userId,
-  );
-
-  return ownRate?.hourlyRate ?? projectRates?.hourlyRate ?? null;
-};
-
 // Time reports: everything people logged in a period (drafts to approved,
 // not deleted ones), by client, project, person or team, and who has not
 // sent their time for approval. Each person sees only the time of their
 // scope (TimeEntriesScopeService); amounts, at today's rates, only Admin
-// and HR. The billing report, by contrast, counts approved time only.
+// and Finance (RATE_ROLES). The billing report, by contrast, counts approved
+// time only. The database adds the time up: a year of a big workspace is
+// hundreds of thousands of entries.
 @Injectable()
 export class TimeReportService {
   public constructor(
     private readonly scopeService: TimeEntriesScopeService,
     private readonly timeEntriesService: TimeEntriesService,
     private readonly projectsService: ProjectsService,
-    private readonly projectRatesService: ProjectRatesService,
     private readonly clientsService: ClientsService,
     private readonly teamsService: TeamsService,
+    private readonly usersService: UsersService,
     private readonly slackTeamsService: SlackTeamsService,
   ) {}
 
+  // The filters narrow the entries of the viewer's scope (a client's
+  // projects, a project, a person), after it, so no ID can widen it.
   public async getReport({
     user,
     groupBy,
     fromDate,
     toDate,
-    filters,
-  }: IFilteredReportParams & {
+    filters = {},
+  }: IReportParams & {
     groupBy: TimeReportGrouping;
+    filters?: ITimeReportFilters;
   }): Promise<ITimeReport> {
     assertReportPeriod(fromDate, toDate);
 
     const withAmounts = canSeeRates(user.role);
-    const { scope, entries, applied } = await this.findFilteredEntries({
-      user,
-      fromDate,
-      toDate,
-      filters,
-    });
-    const projectIds = [...new Set(entries.map((entry) => entry.project_id))];
-    const [rates, currency, groupOf] = await Promise.all([
-      withAmounts && projectIds.length
-        ? this.projectRatesService.findRates(projectIds, user)
-        : new Map<string, IProjectRates>(),
+    const [{ scope, groups }, names, currency] = await Promise.all([
+      this.scopeService.scopeOf(user).then(async (scope) => ({
+        scope,
+        groups: await this.timeEntriesService.sumReportGroups(
+          user.slack_team_id,
+          {
+            dateFrom: fromDate,
+            dateTo: toDate,
+            scope: scopeFilterOf(scope, user),
+            filters,
+          },
+          groupBy,
+        ),
+      })),
+      this.filterNames(user, filters),
       withAmounts
         ? this.slackTeamsService.getCurrency(user.slack_team_id)
         : null,
-      this.grouper(groupBy, user, projectIds),
     ]);
 
-    const rows = new Map<string, ITimeReportRow>();
-    // A group's billable minutes by project and person, which have one rate.
-    const billable = new Map<string, number>();
-
-    for (const entry of entries) {
-      const group = groupOf(entry);
-      const row = rows.get(group.key) ?? emptyRow(group.name, withAmounts);
-
-      row.minutes += entry.minutes;
-      row.approvedMinutes +=
-        entry.status === TimeEntryStatus.Approved ? entry.minutes : 0;
-
-      if (entry.billable) {
-        const key = [group.key, entry.project_id, entry.user_id].join('\n');
-
-        row.billableMinutes += entry.minutes;
-        billable.set(key, (billable.get(key) ?? 0) + entry.minutes);
-      }
-
-      rows.set(group.key, row);
-    }
-
-    let unratedMinutes = 0;
-
-    // Amounts per project and person, then added up, as the billing report
-    // does, so the two round alike.
-    if (withAmounts) {
-      for (const [key, minutes] of billable) {
-        const [groupKey, projectId, userId] = key.split('\n');
-        const rate = rateOf(rates, projectId, userId);
-        const row = rows.get(groupKey)!;
-
-        if (rate === null) {
-          unratedMinutes += minutes;
-        } else {
-          row.amount = (row.amount ?? 0) + amountInCents(minutes, rate);
-        }
-      }
-    }
-
-    const sorted = [...rows.values()].sort(byTime);
-    const total = sorted.reduce(
+    const rows = groups
+      .map((group) => ({
+        name: group.name ?? UNNAMED[groupBy],
+        minutes: group.minutes,
+        billableMinutes: group.billableMinutes,
+        approvedMinutes: group.approvedMinutes,
+        amount: withAmounts ? group.amount : null,
+      }))
+      .sort(byTime);
+    const total = rows.reduce(
       (sum, row) => ({
         ...sum,
         minutes: sum.minutes + row.minutes,
@@ -229,17 +121,31 @@ export class TimeReportService {
       }),
       emptyRow('Total', withAmounts),
     );
+    // As the entries' own names showed it: a person is named only when the
+    // report has their time.
+    const person = groups.length ? names.person : undefined;
 
     return {
       groupBy,
       fromDate,
       toDate,
       scope: scope.kind,
-      filters: applied,
+      filters: {
+        ...(filters.clientId
+          ? { client: names.client ?? 'Unknown client' }
+          : {}),
+        ...(filters.projectId
+          ? { project: names.project ?? 'Unknown project' }
+          : {}),
+        ...(filters.userId ? { person: person ?? 'Unknown person' } : {}),
+      } as IAppliedFilters,
       currency,
-      rows: sorted,
+      rows,
       total,
-      unratedMinutes: withAmounts ? unratedMinutes : null,
+      unratedMinutes: withAmounts
+        ? groups.reduce((sum, group) => sum + group.unratedMinutes, 0)
+        : null,
+      entryCount: groups.reduce((sum, group) => sum + group.entries, 0),
     };
   }
 
@@ -255,8 +161,8 @@ export class TimeReportService {
 
     const slackTeamId = user.slack_team_id;
     const { scope, people } = await this.scopeService.findPeople(user);
-    const [entries, teams] = await Promise.all([
-      this.timeEntriesService.findMany({
+    const [sums, teams] = await Promise.all([
+      this.timeEntriesService.sumOfUsers({
         slackTeamId,
         userIds: people.map(({ id }) => id),
         dateFrom: fromDate,
@@ -265,42 +171,21 @@ export class TimeReportService {
       this.teamsService.findMany({ slackTeamId }),
     ]);
     const teamNames = new Map(teams.map(({ id, name }) => [id, name]));
-    const lines = new Map<string, IMissingTimeLine>(
-      people.map((person) => [
-        person.id,
-        {
-          name: person.name,
-          teamName: person.team_id
-            ? (teamNames.get(person.team_id) ?? null)
-            : null,
-          loggedMinutes: 0,
-          unsubmittedMinutes: 0,
-          unsubmittedCount: 0,
-        },
-      ]),
-    );
-
-    for (const entry of entries) {
-      const line = lines.get(entry.user_id);
-
-      if (!line) {
-        continue;
-      }
-
-      line.loggedMinutes += entry.minutes;
-
-      if (OPEN_TIME_ENTRY_STATUSES.includes(entry.status)) {
-        line.unsubmittedMinutes += entry.minutes;
-        line.unsubmittedCount += 1;
-      }
-    }
+    const sumOf = new Map(sums.map((sum) => [sum.userId, sum]));
+    const lines = people.map((person): IMissingTimeLine => ({
+      name: person.name,
+      teamName: person.team_id ? (teamNames.get(person.team_id) ?? null) : null,
+      loggedMinutes: sumOf.get(person.id)?.minutes ?? 0,
+      unsubmittedMinutes: sumOf.get(person.id)?.openMinutes ?? 0,
+      unsubmittedCount: sumOf.get(person.id)?.openCount ?? 0,
+    }));
 
     return {
       fromDate,
       toDate,
       scope: scope.kind,
       peopleCount: people.length,
-      lines: [...lines.values()]
+      lines: lines
         .filter(
           ({ loggedMinutes, unsubmittedCount }) =>
             !loggedMinutes || unsubmittedCount,
@@ -314,93 +199,17 @@ export class TimeReportService {
     };
   }
 
-  // The group an entry is counted in: its key and the name to show.
-  private async grouper(
-    groupBy: TimeReportGrouping,
-    user: IUserViewModel,
-    projectIds: string[],
-  ): Promise<(entry: ITimeEntryViewModel) => { key: string; name: string }> {
-    switch (groupBy) {
-      case TimeReportGrouping.Client: {
-        // By the project's client rather than the entry's client_id, which
-        // entries logged before it was filled in do not have.
-        const clientOf = await this.clientsByProject(user, projectIds);
-
-        return (entry) => {
-          const client = clientOf.has(entry.project_id)
-            ? clientOf.get(entry.project_id)
-            : entry.client;
-
-          return client
-            ? { key: client.id, name: client.name }
-            : { key: '', name: NO_CLIENT };
-        };
-      }
-      case TimeReportGrouping.Project:
-        return (entry) => ({
-          key: entry.project_id,
-          name: entry.project?.name ?? 'Unknown project',
-        });
-      case TimeReportGrouping.Person:
-        return (entry) => ({
-          key: entry.user_id,
-          name: entry.user?.name ?? 'Unknown user',
-        });
-      case TimeReportGrouping.Team:
-        return (entry) =>
-          entry.team
-            ? { key: entry.team.id, name: entry.team.name }
-            : { key: '', name: NO_TEAM };
-    }
-  }
-
-  // The entries of the period `user` sees (TimeEntriesScopeService), then
-  // narrowed by the filters: a client's projects, a project, a person.
-  public async findFilteredEntries({
-    user,
-    fromDate,
-    toDate,
-    filters = {},
-  }: IFilteredReportParams) {
-    const [{ scope, entries }, { matches, names }] = await Promise.all([
-      this.scopeService.findEntries(user, {
-        dateFrom: fromDate,
-        dateTo: toDate,
-      }),
-      this.filterOf(user, filters),
-    ]);
-    const filtered = entries.filter(matches);
-    const personName = filters.userId
-      ? (filtered[0]?.user?.name ?? 'Unknown person')
-      : undefined;
-
-    return {
-      scope,
-      entries: filtered,
-      applied: {
-        ...names,
-        ...(personName ? { person: personName } : {}),
-      } as IAppliedFilters,
-    };
-  }
-
-  private async filterOf(
+  // The names of what the filters chose, where the workspace has it.
+  private async filterNames(
     user: IUserViewModel,
     { clientId, projectId, userId }: ITimeReportFilters,
-  ) {
+  ): Promise<IAppliedFilters> {
     const slackTeamId = user.slack_team_id;
-    const [client, clientProjects, project] = await Promise.all([
+    const [client, project, person] = await Promise.all([
       clientId
         ? this.clientsService.findOne({
             id: clientId,
             slackTeamId,
-            includeArchived: true,
-          })
-        : null,
-      clientId
-        ? this.projectsService.findMany({
-            slackTeamId,
-            clientId,
             includeArchived: true,
           })
         : null,
@@ -411,45 +220,19 @@ export class TimeReportService {
             includeArchived: true,
           })
         : null,
+      userId
+        ? this.usersService.findOne({
+            id: userId,
+            slackTeamId,
+            includeInactive: true,
+          })
+        : null,
     ]);
-    // A client of another workspace has no projects here: nothing matches.
-    const clientProjectIds =
-      clientProjects && new Set(clientProjects.map(({ id }) => id));
 
     return {
-      matches: (entry: ITimeEntryViewModel) =>
-        (!clientProjectIds || clientProjectIds.has(entry.project_id)) &&
-        (!projectId || entry.project_id === projectId) &&
-        (!userId || entry.user_id === userId),
-      names: {
-        ...(clientId ? { client: client?.name ?? 'Unknown client' } : {}),
-        ...(projectId ? { project: project?.name ?? 'Unknown project' } : {}),
-      },
+      client: client?.name,
+      project: project?.name,
+      person: person?.name,
     };
-  }
-
-  // Each project's client (archived ones included), or null, by project ID.
-  public async clientsByProject(user: IUserViewModel, projectIds: string[]) {
-    const slackTeamId = user.slack_team_id;
-    const [projects, clients] = await Promise.all([
-      projectIds.length
-        ? this.projectsService.findMany({
-            slackTeamId,
-            ids: projectIds,
-            includeArchived: true,
-          })
-        : [],
-      this.clientsService.findMany({ slackTeamId, includeArchived: true }),
-    ]);
-    const clientsById = new Map(
-      clients.map(({ id, name }) => [id, { id, name }]),
-    );
-
-    return new Map(
-      projects.map((project): [string, IClientRef | null] => [
-        project.id,
-        (project.client_id && clientsById.get(project.client_id)) || null,
-      ]),
-    );
   }
 }

@@ -19,6 +19,7 @@ import {
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import { VacationWorkflowLevelCompleted } from '@modules/request-workflows/events/vacation-workflow.events';
+import { currentRunOf } from '@modules/request-workflows/utils/workflow-runs';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepStatus,
@@ -47,6 +48,8 @@ interface ILevelNoticeJob {
   requestId: string;
   slackTeamId: string;
   level: number;
+  // The level asked now; the one after `level` in jobs saved before.
+  nextLevel?: number;
 }
 
 interface ICommentNoticeJob {
@@ -83,21 +86,26 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
   }
 
   // An approver who asks something waits for an answer, so the requester
-  // hears of a comment when it is made, not only with the decision.
-  @OnEvent(WorkflowStepCommentEvent.Added)
-  public handleCommentAdded({ comment }: RequestWorkflowStepCommentAddedEvent) {
-    void this.jobs.run<ICommentNoticeJob>(COMMENT_NOTICE_JOB, {
+  // hears of a comment when it is made, not only with the decision. Runs in
+  // the comment's transaction (emitAsync), so the DM's job is saved with it.
+  @OnEvent(WorkflowStepCommentEvent.Added, { suppressErrors: false })
+  public async handleCommentAdded({
+    comment,
+  }: RequestWorkflowStepCommentAddedEvent) {
+    await this.jobs.enqueue<ICommentNoticeJob>(COMMENT_NOTICE_JOB, {
       commentId: comment.id,
       slackTeamId: comment.slack_team_id,
     });
   }
 
-  @OnEvent(VacationRequestEvent.SentForApproval)
-  public handleSentForApproval({
+  // Runs in the transaction that makes the workflow (emitAsync), so the DM's
+  // job is saved with its steps.
+  @OnEvent(VacationRequestEvent.SentForApproval, { suppressErrors: false })
+  public async handleSentForApproval({
     request,
     fallback,
   }: VacationRequestSentForApprovalEvent) {
-    void this.jobs.run<ISentNoticeJob>(SENT_NOTICE_JOB, {
+    await this.jobs.enqueue<ISentNoticeJob>(SENT_NOTICE_JOB, {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
       fallback,
@@ -111,11 +119,13 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
     requestId,
     slackTeamId,
     level,
+    nextLevel,
   }: VacationWorkflowLevelCompleted) {
     await this.jobs.enqueue<ILevelNoticeJob>(LEVEL_NOTICE_JOB, {
       requestId,
       slackTeamId,
       level,
+      nextLevel,
     });
   }
 
@@ -153,6 +163,7 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
     requestId,
     slackTeamId,
     level,
+    nextLevel = level + 1,
   }: ILevelNoticeJob) {
     const request = await this.findWaiting(requestId, slackTeamId);
 
@@ -160,17 +171,14 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
       return;
     }
 
-    const steps = await this.requestWorkflowStepsService.findMany({
-      requestId,
-      slackTeamId,
-    });
+    const steps = currentRunOf(
+      await this.requestWorkflowStepsService.findMany({
+        requestId,
+        slackTeamId,
+      }),
+    );
     const completed = steps.filter(({ step_level }) => step_level === level);
-    const next = steps.filter(({ step_level }) => step_level === level + 1);
-
-    if (!completed.length || !next.length) {
-      return;
-    }
-
+    const next = steps.filter(({ step_level }) => step_level === nextLevel);
     const approvedBy = completed
       .filter(
         ({ step_data }) => step_data.status === WorkflowStepStatus.Approved,
@@ -179,6 +187,13 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
         ({ step_data, slack_user_id }) =>
           step_data.decided_by_slack_id ?? slack_user_id,
       );
+
+    // A level passed over because nobody on it could decide any more was
+    // approved by no one: the next level's own DM is what the requester
+    // needs, and the request's details show the rest.
+    if (!approvedBy.length || !next.length) {
+      return;
+    }
 
     await this.post(
       request,
@@ -258,11 +273,13 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
   }
 
   private async getSentToText(request: IVacationRequestViewModel) {
-    const firstLevel = await this.requestWorkflowStepsService.findMany({
-      requestId: request.id,
-      slackTeamId: request.slack_team_id,
-      stepLevel: 1,
-    });
+    const firstLevel = currentRunOf(
+      await this.requestWorkflowStepsService.findMany({
+        requestId: request.id,
+        slackTeamId: request.slack_team_id,
+        stepLevel: 1,
+      }),
+    );
 
     if (!firstLevel.length) {
       return null;
@@ -275,12 +292,14 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
 
   private getFallbackText(
     request: IVacationRequestViewModel,
-    { inTeam, sentTo }: IApprovalFallback,
+    { inTeam, followsCompanyRules, sentTo }: IApprovalFallback,
   ) {
     const dates = this.datesOf(request);
-    const reason = inTeam
-      ? 'your team has no other approvers'
-      : 'you are not in a team';
+    const reason = !inTeam
+      ? 'you are not in a team and the company rules name no other approvers'
+      : followsCompanyRules
+        ? 'neither your team nor the company rules name other approvers'
+        : 'your team has no other approvers';
 
     if (sentTo === UserRole.HR) {
       return `📨 Your vacation request (${dates}) went to HR for approval: ${reason}.`;
@@ -290,7 +309,13 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
       return `📨 Your vacation request (${dates}) went to the workspace admins for approval: ${reason}.`;
     }
 
-    return `⚠️ Nobody can approve your vacation request (${dates}) yet: ${reason}, and nobody else has the HR or Admin role. It stays pending until an admin adds approvers to your team.`;
+    const until = !inTeam
+      ? 'an admin puts you in a team or names approvers in the company rules'
+      : followsCompanyRules
+        ? 'an admin names approvers for your team or in the company rules'
+        : 'an admin adds approvers to your team';
+
+    return `⚠️ Nobody can approve your vacation request (${dates}) yet: ${reason}, and nobody else has the HR or Admin role. It stays pending until ${until}.`;
   }
 
   private getOverlapText(colleaguesOff: IColleagueOff[]) {

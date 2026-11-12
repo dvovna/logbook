@@ -1,6 +1,7 @@
 import { UserUpdateValidatorService } from 'src/users/services/user-update-validator.service';
 import { UsersRepository } from 'src/users/repositories/users.repository';
 import TeamsService from 'src/teams/services/teams.service';
+import { TeamRulesService } from 'src/teams/services/team-rules.service';
 import VacationPoliciesService from 'src/vacation-policies/services/vacation-policies.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import UserRole from 'src/common/enums/user-role.enum';
@@ -28,6 +29,7 @@ describe('UserUpdateValidatorService', () => {
     validator = new UserUpdateValidatorService(
       usersRepository as unknown as UsersRepository,
       {} as TeamsService,
+      {} as TeamRulesService,
       {} as VacationPoliciesService,
     );
   });

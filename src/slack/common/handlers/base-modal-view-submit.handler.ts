@@ -1,15 +1,18 @@
-import { ISlackViewSubmissionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
+import {
+  ISlackView,
+  ISlackViewSubmissionPayload,
+} from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
-import BaseValuesParser from '@modules/slack/common/parsers/base-values.parser';
-import { IViewParseResult } from '@modules/slack/services/slack-view-values.parser';
-import PrimaryEntityDeleteError from '@common/errors/primary-entity-delete.error';
-import { ForbiddenException, Logger } from '@nestjs/common';
-import EntityHasDependenciesError from '@common/errors/entity-has-dependencies.error';
-import MaxItemsCountReachedError from '@common/errors/max-items-count-reached.error';
+import {
+  IFormParser,
+  IViewParseResult,
+} from '@modules/slack/common/types/form-parser.types';
+import { Logger } from '@nestjs/common';
 import { ValidationError } from '@common/errors/validation.error';
+import { classifyActionError } from '@modules/slack/common/utils/action-errors';
 import { DuplicatedRecordError } from '@common/errors/duplicated-record.error';
 
 export abstract class BaseModalFormSubmitHandler<
@@ -23,16 +26,14 @@ export abstract class BaseModalFormSubmitHandler<
   // A field not listed here is looked up by its own name.
   protected readonly errorFields: Record<string, keyof FormData & string> = {};
 
-  public constructor(
-    private readonly formParser?: BaseValuesParser<FormData>,
-  ) {}
+  public constructor(private readonly formParser?: IFormParser<FormData>) {}
 
   public async handle(
     payload: ISlackViewSubmissionPayload,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
     const metadata = parseMetadata<Metadata>(payload);
-    const { data, errors } = this.getFormData(payload);
+    const { data, errors } = this.parseForm(payload.view);
 
     if (errors) {
       return SlackViewResponseFactory.errors(errors);
@@ -43,66 +44,49 @@ export abstract class BaseModalFormSubmitHandler<
 
       return this.successResponse(result, user, metadata);
     } catch (error) {
-      const fieldErrors = this.fieldErrorsOf(error, payload);
+      const fieldErrors = this.fieldErrorsOf(error, payload.view);
 
       // At the field it is about: Slack keeps what was typed and scrolls there.
       if (fieldErrors) {
         return SlackViewResponseFactory.errors(fieldErrors);
       }
 
-      const isKnownError =
-        error instanceof PrimaryEntityDeleteError ||
-        error instanceof ForbiddenException ||
-        error instanceof ValidationError ||
-        error instanceof DuplicatedRecordError ||
-        error instanceof MaxItemsCountReachedError ||
-        error instanceof EntityHasDependenciesError;
+      const kind = classifyActionError(error);
+      const unexpected = kind === 'unexpected' || kind === 'not-found';
 
-      if (!isKnownError) {
+      if (unexpected) {
         this.logger.error(
           `Unexpected error in modal form submission: ${error.message}`,
           error,
         );
       }
 
-      const errorMessage = isKnownError
-        ? error.message
-        : 'Something went wrong. Please try again later.';
+      const errorMessage = unexpected
+        ? 'Something went wrong. Please try again later.'
+        : error.message;
 
       return this.errorResponse(errorMessage, data, metadata, user);
     }
   }
 
+  // A form without fields (a confirmation) has no parser.
+  private parseForm(view: ISlackView): IViewParseResult<FormData> {
+    return this.formParser?.parse(view) ?? { data: {} as FormData };
+  }
+
   private fieldErrorsOf(
     error: unknown,
-    payload: ISlackViewSubmissionPayload,
+    view: ISlackView,
   ): Record<string, string> | null {
     const field =
       error instanceof ValidationError || error instanceof DuplicatedRecordError
         ? error.field
         : undefined;
-    const blockId = field && this.blockIdOfField(field, payload);
+    const blockId =
+      field &&
+      this.formParser?.blockIdOf(this.errorFields[field] ?? field, view);
 
     return blockId ? { [blockId]: (error as Error).message } : null;
-  }
-
-  // The input block that shows an error about the domain field `field`, or
-  // null when the form has none (the error then shows in the modal).
-  protected blockIdOfField(
-    field: string,
-    _payload: ISlackViewSubmissionPayload,
-  ): string | null {
-    return this.formParser?.blockIdOf(this.errorFields[field] ?? field) ?? null;
-  }
-
-  protected getFormData(
-    payload: ISlackViewSubmissionPayload,
-  ): IViewParseResult<FormData> {
-    if (!this.formParser) {
-      return { data: {} } as IViewParseResult<FormData>;
-    }
-
-    return this.formParser.parse(payload.view.state?.values || {});
   }
 
   protected abstract onSubmit(

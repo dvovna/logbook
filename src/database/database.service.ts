@@ -2,7 +2,9 @@ import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CompiledQuery, Kysely, PostgresDialect, sql } from 'kysely';
 import { Pool } from 'pg';
+import { CLOSE_TIMEOUT_MS } from '@common/constants/shutdown';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
+import { finishesWithin } from '@common/utils/finishes-within';
 import { SqlDatabase } from '@common/types/sql-database.types';
 import { POSTGREST_COMPATIBLE_TYPES } from 'src/database/pg-type-parsers';
 import { currentTransaction } from 'src/database/transaction-scope';
@@ -38,7 +40,10 @@ export class DatabaseService implements OnApplicationShutdown {
       connectionString: config.getOrThrow<string>(
         EnvironmentVariable.DatabaseUrl,
       ),
-      max: config.get<number>(EnvironmentVariable.DatabasePoolSize) ?? 5,
+      max: config.get<number>(EnvironmentVariable.DatabasePoolSize) ?? 10,
+      // A query that can't get a connection in time fails, and the request
+      // with it, instead of missing Slack's 3 seconds without a word.
+      connectionTimeoutMillis: 2_000,
       application_name: 'logbook',
       types: POSTGREST_COMPATIBLE_TYPES,
       idleTimeoutMillis: IDLE_CONNECTION_MS,
@@ -76,7 +81,14 @@ export class DatabaseService implements OnApplicationShutdown {
     await sql`select 1`.execute(this.root);
   }
 
+  // Ending the pool waits for the connections in use: a statement still
+  // running after the shutdown's wait (up to its timeout, or longer with
+  // allowLongStatements) would keep the process past its stop grace period.
   public async onApplicationShutdown() {
-    await this.root.destroy();
+    if (!(await finishesWithin(this.root.destroy(), CLOSE_TIMEOUT_MS))) {
+      this.logger.warn(
+        `The database pool was still closing after ${CLOSE_TIMEOUT_MS} ms`,
+      );
+    }
   }
 }

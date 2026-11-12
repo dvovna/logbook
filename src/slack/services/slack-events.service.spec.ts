@@ -5,10 +5,14 @@ import {
   JobsService,
 } from '@common/jobs/jobs.service';
 import { TransactionService } from 'src/database/transaction.service';
-import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
+import {
+  startInBackground,
+  whenBackgroundWorkIsDone,
+} from '@common/utils/run-in-background';
 import SlackEventsService, {
   ITeamJoinEvent,
   IUserChangeEvent,
+  SlackEventJob,
 } from 'src/slack/services/slack-events.service';
 import SlackUserAccessService from 'src/slack/services/slack-user-access.service';
 import FileUploadService from 'src/slack/services/file-upload.service';
@@ -16,6 +20,7 @@ import { TabNavigationService } from 'src/slack/common/services/tab-navigation.s
 import { UsersService } from 'src/users/services/users.service';
 import { SlackAppUninstallService } from 'src/slack/services/slack-app-uninstall.service';
 import { SlackTeamsService } from 'src/slack-teams/slack-teams.service';
+import { SlackEventReceiptsService } from 'src/slack-teams/slack-event-receipts.service';
 import SlackEventType from 'src/slack/enums/slack-event-type.enum';
 import UserRole from 'src/common/enums/user-role.enum';
 import ISlackTeamViewModel from 'src/slack-teams/types/slack-team.interface';
@@ -29,6 +34,7 @@ const slackTeam: ISlackTeamViewModel = {
   currency: 'USD',
   time_off_minutes_per_day: 480,
   uninstalled_at: null,
+  members_imported_at: null,
 };
 
 const slackUser = {
@@ -55,6 +61,8 @@ describe('SlackEventsService', () => {
   let slackTeamsService: { findOneWithValidation: jest.Mock };
   let tabNavigationService: { navigate: jest.Mock };
   let loggerError: jest.SpyInstance;
+  let send: jest.Mock;
+  let takeOnce: jest.Mock;
   let service: SlackEventsService;
 
   beforeEach(() => {
@@ -67,6 +75,15 @@ describe('SlackEventsService', () => {
       findOneWithValidation: jest.fn().mockResolvedValue(slackTeam),
     };
     tabNavigationService = { navigate: jest.fn() };
+    send = jest.fn().mockResolvedValue(null);
+    // Every delivery is the first one.
+    takeOnce = jest.fn(
+      async (_workspace: string, _event: string, save: () => Promise<void>) => {
+        await save();
+
+        return true;
+      },
+    );
     loggerError = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => undefined);
@@ -79,18 +96,79 @@ describe('SlackEventsService', () => {
       {} as SlackAppUninstallService,
       slackTeamsService as unknown as SlackTeamsService,
       // A queue that saves nothing (pg-boss answers null): a job runs once,
-      // at once.
-      new JobsService(
-        { send: () => Promise.resolve(null) } as unknown as JobQueue,
-        DEFAULT_JOBS_OPTIONS,
-        {} as TransactionService,
-      ),
+      // at once. Outside a transaction, afterCommit starts it at once.
+      new JobsService({ send } as unknown as JobQueue, DEFAULT_JOBS_OPTIONS, {
+        sqlExecutor: () => ({}),
+        afterCommit: (work: () => Promise<unknown>) =>
+          void startInBackground(work),
+      } as unknown as TransactionService),
+      { takeOnce } as unknown as SlackEventReceiptsService,
     );
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     service.onModuleInit();
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  // A crash after the answer finds the job saved: Slack sends an event it got
+  // an answer for only once.
+  it('saves the job before it answers', async () => {
+    const response = await service.handleSlackEvent(
+      { type: SlackEventType.TeamJoin, user: slackUser },
+      undefined,
+      { team_id: slackTeam.slack_id },
+    );
+
+    expect(response).toEqual({ ok: true });
+    expect(send).toHaveBeenCalledWith(
+      SlackEventJob.TeamJoin,
+      expect.objectContaining({ workspaceSlackId: slackTeam.slack_id }),
+      expect.anything(),
+    );
+    await flushPromises();
+  });
+
+  it('saves no job for an event Slack delivered before', async () => {
+    takeOnce.mockResolvedValue(false);
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+
+    const response = await service.handleSlackEvent(
+      {
+        type: SlackEventType.FileShared,
+        user_id: 'U_ADMIN',
+        file_id: 'F1',
+        channel_id: 'D1',
+        team_id: slackTeam.slack_id,
+      },
+      undefined,
+      { team_id: slackTeam.slack_id, event_id: 'Ev1' },
+    );
+    await flushPromises();
+
+    expect(response).toEqual({ ok: true });
+    expect(takeOnce).toHaveBeenCalledWith(
+      slackTeam.slack_id,
+      'Ev1',
+      expect.any(Function),
+    );
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  // Slack sends it again when it gets no answer.
+  it('fails the answer when it cannot save the job', async () => {
+    send.mockRejectedValue(new Error('db is down'));
+
+    await expect(
+      service.handleSlackEvent(
+        { type: SlackEventType.TeamJoin, user: slackUser },
+        undefined,
+        {},
+      ),
+    ).rejects.toThrow('db is down');
+    await flushPromises();
+
+    expect(usersService.upsert).not.toHaveBeenCalled();
+  });
 
   describe('background handlers', () => {
     it('logs a failed job instead of leaving its rejection unhandled', async () => {
@@ -181,7 +259,7 @@ describe('SlackEventsService', () => {
       };
       // The job reads the user again when it runs.
       usersService.findOne.mockResolvedValue(existingUser);
-      service.handleSlackEvent(event, existingUser, {});
+      await service.handleSlackEvent(event, existingUser, {});
       await flushPromises();
 
       expect(usersService.findOne).toHaveBeenCalledWith({

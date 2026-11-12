@@ -436,7 +436,7 @@ export abstract class BaseRepository<
       .execute();
   }
 
-  private relationColumns(eb: AnyExpressions, source: string) {
+  protected relationColumns(eb: AnyExpressions, source: string) {
     return Object.entries(this.relations ?? {}).map(([alias, relation]) =>
       jsonObjectFrom(
         eb
@@ -521,6 +521,10 @@ export abstract class BaseRepository<
     return eb(eb.ref(column), OPERATORS[operator], operand);
   }
 
+  // The list goes as one array parameter: `in ($1, $2, …)` takes one per
+  // value, and a statement takes at most 65535 (Approve all over every
+  // waiting entry). With no cast, Postgres types it as an array of the
+  // column's type, uuid, text, date or an enum alike.
   // An empty list matches no row, as `in ()` would: skipping it would match
   // every row (a manager of no teams would see everyone).
   private inList(
@@ -529,7 +533,7 @@ export abstract class BaseRepository<
     values: unknown[],
   ): Expression<SqlBool> {
     return values.length
-      ? eb(eb.ref(column), 'in', values)
+      ? eb(eb.ref(column), '=', eb.fn.any(eb.val(values)))
       : sql<SqlBool>`false`;
   }
 

@@ -1,11 +1,19 @@
-import { WebClient } from '@slack/web-api';
+import { WebAPIRateLimitedError, WebClient } from '@slack/web-api';
 import SlackApiClient, {
   CALL_OPTIONS,
+  IDLE_CLIENT_MS,
   INTERACTIVE_CALL_OPTIONS,
+  isRefusedTokenError,
   slackErrorOf,
+  TOKEN_REFRESH_CALL_OPTIONS,
+  uploadTimeoutMs,
 } from 'src/api-clients/third-party/slack-api.client';
+import { RESUME_JITTER_MS } from 'src/api-clients/third-party/slack-rate-limits';
 
-jest.mock('@slack/web-api', () => ({ WebClient: jest.fn() }));
+jest.mock('@slack/web-api', () => ({
+  ...jest.requireActual('@slack/web-api'),
+  WebClient: jest.fn(),
+}));
 
 // The integration tests replace this client with a fake, so what it sends to
 // the Slack Web API is checked here: the method, the token and how the
@@ -13,7 +21,10 @@ jest.mock('@slack/web-api', () => ({ WebClient: jest.fn() }));
 describe('SlackApiClient', () => {
   const ok = { ok: true };
   let slack: {
-    chat: Record<'postEphemeral' | 'postMessage' | 'update', jest.Mock>;
+    chat: Record<
+      'postEphemeral' | 'postMessage' | 'update' | 'delete',
+      jest.Mock
+    >;
     views: Record<'open' | 'publish', jest.Mock>;
     files: Record<
       'info' | 'getUploadURLExternal' | 'completeUploadExternal',
@@ -29,6 +40,7 @@ describe('SlackApiClient', () => {
         postEphemeral: jest.fn().mockResolvedValue(ok),
         postMessage: jest.fn().mockResolvedValue({ ...ok, ts: '1.0' }),
         update: jest.fn().mockResolvedValue(ok),
+        delete: jest.fn().mockResolvedValue(ok),
       },
       views: {
         open: jest.fn().mockResolvedValue(ok),
@@ -77,6 +89,73 @@ describe('SlackApiClient', () => {
     });
 
     expect(WebClient).toHaveBeenCalledTimes(1);
+  });
+
+  // A client used no more (with token rotation each workspace gets a new
+  // token every 12 hours) is dropped.
+  it('drops the clients of a token unused for an hour', async () => {
+    jest.useFakeTimers();
+
+    try {
+      const send = (accessToken: string) =>
+        client.postMessage({ channel: 'U1', text: 'Hi', accessToken });
+
+      client = new SlackApiClient();
+      await send('xoxb-old');
+      await jest.advanceTimersByTimeAsync(IDLE_CLIENT_MS / 2);
+      await send('xoxb-new');
+      await jest.advanceTimersByTimeAsync(IDLE_CLIENT_MS / 2 + 1);
+      await send('xoxb-new');
+      expect(WebClient).toHaveBeenCalledTimes(2);
+
+      await jest.advanceTimersByTimeAsync(IDLE_CLIENT_MS / 2);
+      await send('xoxb-new');
+      await send('xoxb-old');
+
+      // The new token's client stayed, the old one's was made again.
+      expect((WebClient as unknown as jest.Mock).mock.calls).toEqual([
+        ['xoxb-old', CALL_OPTIONS],
+        ['xoxb-new', CALL_OPTIONS],
+        ['xoxb-old', CALL_OPTIONS],
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // @slack/web-api would pause all of a client's calls for a rate limit on
+  // one of them: the client refuses rate-limited calls, and SlackRateLimits
+  // pauses only the method Slack limited.
+  it('waits out a rate limit on DMs without holding up the screens', async () => {
+    jest.useFakeTimers();
+
+    try {
+      const home = {
+        user_id: 'U1',
+        view: { type: 'home' as const, blocks: [] },
+      };
+      slack.chat.postMessage.mockRejectedValueOnce(
+        new WebAPIRateLimitedError(2),
+      );
+
+      const posting = client.postMessage({
+        channel: 'U1',
+        text: 'Hi',
+        accessToken: 'xoxb-1',
+      });
+      await jest.advanceTimersByTimeAsync(0);
+      await client.publishView(home, 'xoxb-1');
+
+      expect(slack.views.publish).toHaveBeenCalledWith(home);
+      expect(slack.chat.postMessage).toHaveBeenCalledTimes(1);
+
+      await jest.advanceTimersByTimeAsync(2_000 + RESUME_JITTER_MS);
+      await expect(posting).resolves.toEqual({ ok: true, ts: '1.0' });
+      expect(slack.chat.postMessage).toHaveBeenCalledTimes(2);
+      expect(CALL_OPTIONS.rejectRateLimitedCalls).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   // A modal has to open while its trigger_id lives, so views.open is not
@@ -146,6 +225,19 @@ describe('SlackApiClient', () => {
     });
   });
 
+  it('deletes a message', async () => {
+    await client.deleteMessage({
+      channel: 'D1',
+      ts: '1.0',
+      accessToken: 'xoxb-1',
+    });
+
+    expect(slack.chat.delete).toHaveBeenCalledWith({
+      channel: 'D1',
+      ts: '1.0',
+    });
+  });
+
   it('opens and publishes views as given', async () => {
     const modal = {
       trigger_id: 't1',
@@ -169,7 +261,7 @@ describe('SlackApiClient', () => {
     expect(slack.files.info).toHaveBeenCalledWith({ file: 'F1' });
   });
 
-  describe('downloadFile', () => {
+  describe('downloadFileBytes', () => {
     const fileUrl =
       'https://files.slack.com/files-pri/T1-F1/download/user-vacations.csv';
     let fetchMock: jest.SpyInstance;
@@ -183,8 +275,8 @@ describe('SlackApiClient', () => {
     afterEach(() => fetchMock.mockRestore());
 
     it('downloads a Slack file with the token', async () => {
-      expect(await client.downloadFile(fileUrl, 'xoxb-1', 100)).toBe(
-        'email;team_name',
+      expect(await client.downloadFileBytes(fileUrl, 'xoxb-1', 100)).toEqual(
+        Buffer.from('email;team_name'),
       );
       expect(fetchMock).toHaveBeenCalledWith(fileUrl, {
         headers: { Authorization: 'Bearer xoxb-1' },
@@ -198,33 +290,31 @@ describe('SlackApiClient', () => {
         'https://files.slack.com.evil.example/a.csv',
         'not a url',
       ]) {
-        await expect(client.downloadFile(url, 'xoxb-1', 100)).rejects.toThrow(
-          'Refusing to download',
-        );
+        await expect(
+          client.downloadFileBytes(url, 'xoxb-1', 100),
+        ).rejects.toThrow('Refusing to download');
       }
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('refuses a failed download or one over the limit', async () => {
       fetchMock.mockResolvedValueOnce(new Response('', { status: 404 }));
-      await expect(client.downloadFile(fileUrl, 'xoxb-1', 100)).rejects.toThrow(
-        '404',
-      );
+      await expect(
+        client.downloadFileBytes(fileUrl, 'xoxb-1', 100),
+      ).rejects.toThrow('404');
 
       fetchMock.mockResolvedValueOnce(new Response('x'.repeat(101)));
-      await expect(client.downloadFile(fileUrl, 'xoxb-1', 100)).rejects.toThrow(
-        'larger than',
-      );
+      await expect(
+        client.downloadFileBytes(fileUrl, 'xoxb-1', 100),
+      ).rejects.toThrow('larger than');
     });
   });
 
-  describe('uploadFile', () => {
+  describe('uploadFile and shareFile', () => {
     let fetchMock: jest.SpyInstance;
     const upload = () =>
       client.uploadFile({
-        channelId: 'D1',
         filename: 'report.csv',
-        title: 'Report',
         content: 'Name\r\nАнна\r\n',
         accessToken: 'xoxb-1',
       });
@@ -238,7 +328,15 @@ describe('SlackApiClient', () => {
     afterEach(() => fetchMock.mockRestore());
 
     it('gets an upload URL, sends the bytes there, then shares the file', async () => {
-      await upload();
+      expect(await upload()).toBe('F2');
+      expect(slack.files.completeUploadExternal).not.toHaveBeenCalled();
+
+      await client.shareFile({
+        fileId: 'F2',
+        channelId: 'D1',
+        title: 'Report',
+        accessToken: 'xoxb-1',
+      });
 
       // Bytes, not characters: "Анна" takes eight.
       expect(slack.files.getUploadURLExternal).toHaveBeenCalledWith({
@@ -271,12 +369,71 @@ describe('SlackApiClient', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('does not share a file whose bytes did not arrive', async () => {
+    it('fails when the bytes did not arrive', async () => {
       fetchMock.mockResolvedValue(new Response('', { status: 500 }));
 
       await expect(upload()).rejects.toThrow('500');
-      expect(slack.files.completeUploadExternal).not.toHaveBeenCalled();
     });
+
+    // A big file takes longer to send than any other call.
+    it('waits for the bytes longer the larger the file is, up to a minute', () => {
+      const mb = 1024 ** 2;
+
+      expect(uploadTimeoutMs(16)).toBe(CALL_OPTIONS.timeout);
+      expect(uploadTimeoutMs(mb)).toBe(11_000);
+      expect(uploadTimeoutMs(30 * mb + 1)).toBe(40_000);
+      expect(uploadTimeoutMs(500 * mb)).toBe(60_000);
+    });
+  });
+
+  // It runs while a transaction holds the workspace's refresh lock.
+  it('refreshes a token with one quick retry and no wait for a rate limit', async () => {
+    slack.apiCall.mockResolvedValue({
+      ok: true,
+      access_token: 'xoxe.xoxb-new',
+      refresh_token: 'xoxe-1-new',
+      expires_in: 43200,
+    });
+
+    await expect(
+      client.refreshToken({
+        refreshToken: 'xoxe-1-old',
+        clientId: 'client',
+        clientSecret: 'secret',
+      }),
+    ).resolves.toMatchObject({ access_token: 'xoxe.xoxb-new' });
+
+    expect(WebClient).toHaveBeenCalledWith(
+      undefined,
+      TOKEN_REFRESH_CALL_OPTIONS,
+    );
+    expect(slack.apiCall).toHaveBeenCalledWith('oauth.v2.access', {
+      grant_type: 'refresh_token',
+      refresh_token: 'xoxe-1-old',
+      client_id: 'client',
+      client_secret: 'secret',
+    });
+    const { retryConfig, timeout } = TOKEN_REFRESH_CALL_OPTIONS;
+    // Under the 10 s another process may wait for the lock.
+    expect(
+      (retryConfig!.retries! + 1) * timeout! +
+        retryConfig!.retries! * (retryConfig!.maxTimeout as number),
+    ).toBeLessThan(10_000);
+    expect(TOKEN_REFRESH_CALL_OPTIONS.rejectRateLimitedCalls).toBe(true);
+  });
+
+  it('tells a token Slack no longer takes from other failures', () => {
+    const failed = (error: string) =>
+      Object.assign(new Error(`An API error occurred: ${error}`), {
+        data: { ok: false, error },
+      });
+
+    expect(isRefusedTokenError(failed('token_revoked'))).toBe(true);
+    expect(isRefusedTokenError(failed('invalid_auth'))).toBe(true);
+    expect(isRefusedTokenError(failed('account_inactive'))).toBe(true);
+    expect(isRefusedTokenError(failed('token_expired'))).toBe(true);
+    expect(isRefusedTokenError(failed('missing_scope'))).toBe(false);
+    expect(isRefusedTokenError(new Error('socket hang up'))).toBe(false);
   });
 
   it("reads the error code of Slack's platform errors", () => {

@@ -5,6 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import pluralize from 'pluralize';
+import { reportError } from '@common/errors/error-reporter';
 import { JobsService } from '@common/jobs/jobs.service';
 import {
   formatDateRange,
@@ -31,10 +32,18 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 
 export const REMIND_UNSUBMITTED_JOB = 'time-entries-remind-unsubmitted';
 
-const TICK_MS = 60 * 60 * 1000;
-const FIRST_TICK_AFTER_MS = 10 * 60 * 1000;
+// So that the reminder goes out within 10 minutes of REMIND_FROM_HOUR_UTC;
+// the week's claim keeps it to one a week.
+const TICK_MS = 10 * 60 * 1000;
+// Apart from the interval's first tick, TICK_MS after the start.
+const FIRST_TICK_AFTER_MS = 5 * 60 * 1000;
 // Reminders go out from this hour on Monday, UTC.
 const REMIND_FROM_HOUR_UTC = 9;
+// Each reminder is a DM of its own. Slack lets an app post a few hundred
+// messages a minute in a workspace and answers 429 past that; at this rate
+// 400 people are reminded in under two minutes.
+const REMINDERS_PER_SECOND = 5;
+
 interface IRemindJob {
   slackTeamId: string;
   userId: string;
@@ -100,7 +109,17 @@ export class TimeEntryRemindersService
     let reminded = 0;
 
     for (const slackTeamId of await this.slackTeamsService.findInstalledIds()) {
-      reminded += await this.remindWorkspace(slackTeamId, monday);
+      // One workspace failing (e.g. a statement timeout) leaves its week
+      // unclaimed for the next tick, and the others still get theirs.
+      try {
+        reminded += await this.remindWorkspace(slackTeamId, monday);
+      } catch (error) {
+        this.logger.error(
+          `Could not remind workspace ${slackTeamId} of unsubmitted time: ${(error as Error).message}`,
+          (error as Error).stack,
+        );
+        reportError(error, { task: 'remind of unsubmitted time', slackTeamId });
+      }
     }
 
     return reminded;
@@ -118,20 +137,16 @@ export class TimeEntryRemindersService
         return 0;
       }
 
-      const entries = await this.timeEntriesService.findMany({
+      const userIds = await this.timeEntriesService.findUserIdsWithOpenUpTo({
         slackTeamId,
-        statuses: OPEN_TIME_ENTRY_STATUSES,
         dateTo: lastWeekEnd(monday),
       });
-      const userIds = [...new Set(entries.map(({ user_id }) => user_id))];
 
-      for (const userId of userIds) {
-        await this.jobs.enqueue<IRemindJob>(REMIND_UNSUBMITTED_JOB, {
-          slackTeamId,
-          userId,
-          monday,
-        });
-      }
+      await this.jobs.enqueueMany<IRemindJob>(
+        REMIND_UNSUBMITTED_JOB,
+        userIds.map((userId) => ({ slackTeamId, userId, monday })),
+        { perSecond: REMINDERS_PER_SECOND },
+      );
 
       return userIds.length;
     });

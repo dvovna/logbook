@@ -1,5 +1,6 @@
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TeamsRepository } from '@modules/teams/repositories/teams.repository';
+import { RuleSetsRepository } from '@modules/teams/repositories/rule-sets.repository';
 import {
   ForbiddenException,
   Injectable,
@@ -27,6 +28,8 @@ interface ICreateTeamParams {
   hrApproversRule?: ApprovalRule;
   slackTeamId: string;
   isPrimary?: boolean;
+  // Default true: the team follows the company rules.
+  followsCompanyRules?: boolean;
 }
 
 interface IFindParams {
@@ -36,6 +39,9 @@ interface IFindParams {
   vacationPolicyId?: string;
   isPrimary?: boolean;
   managerApprovers?: string[];
+  // Only teams with their own rules: a team that follows the company rules
+  // may still hold values it had before, which nothing reads.
+  ownRulesOnly?: boolean;
 }
 
 interface IUpdateParams {
@@ -47,6 +53,8 @@ interface IUpdateParams {
   approvalNotificationRecipients?: string[];
   managerApproversRule?: ApprovalRule;
   hrApproversRule?: ApprovalRule;
+  // false gives the team its own rules.
+  followsCompanyRules?: boolean;
 }
 
 type ISearchTeamsParams = ISearchParams<IFindParams>;
@@ -73,6 +81,7 @@ interface ITeamsService {
 export default class TeamsService implements ITeamsService {
   public constructor(
     private readonly teamsRepository: TeamsRepository,
+    private readonly ruleSetsRepository: RuleSetsRepository,
     private readonly config: ConfigService,
   ) {}
 
@@ -166,6 +175,14 @@ export default class TeamsService implements ITeamsService {
       throw new MaxItemsCountReachedError(maxTeamsCount, 'teams');
     }
 
+    const ruleSetId =
+      createParams.followsCompanyRules === false
+        ? null
+        : (
+            await this.ruleSetsRepository.ensureDefault(
+              createParams.slackTeamId,
+            )
+          ).id;
     const createdAt = new Date().toISOString();
 
     try {
@@ -173,6 +190,7 @@ export default class TeamsService implements ITeamsService {
         name: createParams.name,
         description: createParams.description || '',
         slack_team_id: createParams.slackTeamId,
+        rule_set_id: ruleSetId,
         vacation_policy_id: createParams.vacationPolicyId,
         manager_approvers: createParams.managerApprovers,
         hr_approvers: createParams.hrApprovers,
@@ -197,11 +215,22 @@ export default class TeamsService implements ITeamsService {
     }
   }
 
-  public update(
+  public async update(
     findParams: IFindParams,
     updateParams: IUpdateParams,
     user: IUserViewModel,
   ) {
+    const ruleSetId =
+      updateParams.followsCompanyRules === undefined
+        ? undefined
+        : updateParams.followsCompanyRules
+          ? (
+              await this.ruleSetsRepository.ensureDefault(
+                findParams.slackTeamId,
+              )
+            ).id
+          : null;
+
     return this.teamsRepository.update(this.getFindQuery(findParams), {
       ...(updateParams.name ? { name: updateParams.name } : {}),
       ...(updateParams.description
@@ -229,6 +258,7 @@ export default class TeamsService implements ITeamsService {
       ...(updateParams.hrApproversRule
         ? { hr_approvers_rule: updateParams.hrApproversRule }
         : {}),
+      ...(ruleSetId !== undefined ? { rule_set_id: ruleSetId } : {}),
       updated_at: new Date().toISOString(),
       updated_by: user.id,
     });
@@ -246,6 +276,27 @@ export default class TeamsService implements ITeamsService {
     });
 
     return team;
+  }
+
+  // What stops a team from being deleted without a loss, by team ID.
+  public findReferenced(teamIds: string[], slackTeamId: string) {
+    return this.teamsRepository.findReferenced(teamIds, slackTeamId);
+  }
+
+  // Sets the leads only if they are still `expected`; false when they are not.
+  public async replaceApprovers(
+    teamId: string,
+    expected: string[],
+    approvers: string[],
+    user: IUserViewModel,
+  ) {
+    return !!(await this.teamsRepository.replaceApprovers(
+      teamId,
+      user.slack_team_id,
+      expected,
+      approvers,
+      user.id,
+    ));
   }
 
   public count(params: IFindParams) {
@@ -268,6 +319,7 @@ export default class TeamsService implements ITeamsService {
       ...(params.vacationPolicyId
         ? { vacation_policy_id: params.vacationPolicyId }
         : {}),
+      ...(params.ownRulesOnly ? { rule_set_id: null } : {}),
     };
   }
 }

@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from '@modules/clients/clients.module';
 import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
-import { ProjectsModule } from 'src/projects/projects.module';
 import { BillingSnapshotsRepository } from 'src/billing/repositories/billing-snapshots.repository';
 import { BillingSnapshotEntriesRepository } from 'src/billing/repositories/billing-snapshot-entries.repository';
 import { BillingSnapshotsService } from 'src/billing/services/billing-snapshots.service';
@@ -12,7 +11,7 @@ import { UninvoicedReportService } from 'src/billing/services/uninvoiced-report.
 // entries of a snapshot is the time entries' own (TimeEntriesValidationService
 // and the trigger), so this module needs nothing from them.
 @Module({
-  imports: [ClientsModule, ProjectsModule, SlackTeamsModule],
+  imports: [ClientsModule, SlackTeamsModule],
   providers: [
     BillingSnapshotsRepository,
     BillingSnapshotEntriesRepository,

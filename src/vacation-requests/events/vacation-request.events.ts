@@ -2,7 +2,6 @@ import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vaca
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import UserRole from '@common/enums/user-role.enum';
-import { IRemovedVacationTime } from 'src/time-entries/types/removed-vacation-time.types';
 
 export class VacationRequestCreatedEvent {
   public constructor(
@@ -14,13 +13,10 @@ export class VacationRequestCreatedEvent {
 export class VacationRequestUpdatedEvent {
   // `previous` is the request as it was before an edit. The workflow's
   // outcome (`finishPending`) passes none: it has a decision event of its own.
-  // `removedTime`: the time logged from the request that the edit or the
-  // deletion removed (TimeEntriesService.deleteVacationTime), if it did.
   public constructor(
     public readonly request: IVacationRequestViewModel,
     public readonly user: IUserViewModel,
     public readonly previous?: IVacationRequestViewModel,
-    public readonly removedTime?: IRemovedVacationTime,
   ) {}
 }
 
@@ -39,16 +35,19 @@ export class VacationRequestDecidedEvent {
   ) {}
 }
 
-// Nobody on the requester's team can approve the request: they are in no
-// team, or their team names no approvers besides them. It went to everyone
-// with `sentTo` (HR, else admins), or to nobody when that is null.
+// Nobody the requester's rules name can approve the request: their team, or
+// the company rules for someone in no team, name no approvers besides them.
+// It went to everyone with `sentTo` (HR, else admins), or to nobody when that
+// is null.
 export interface IApprovalFallback {
   inTeam: boolean;
+  // Level 2 came from the company rules (always, for someone in no team).
+  followsCompanyRules: boolean;
   sentTo: UserRole.HR | UserRole.Admin | null;
 }
 
 // A pending request's approval workflow started. `fallback` is null when the
-// team's approvers have it.
+// approvers its rules name have it.
 export class VacationRequestSentForApprovalEvent {
   public constructor(
     public readonly request: IVacationRequestViewModel,

@@ -15,6 +15,8 @@ import { TabNavigationService } from '@modules/slack/common/services/tab-navigat
 import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { withPagination } from '@modules/slack/common/utils/tab-list.utils';
 import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
+import { runInBackground } from '@common/utils/run-in-background';
+import { TeamFileDmService } from '@modules/slack/team-file/services/team-file-dm.service';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 
 @Injectable()
@@ -31,6 +33,7 @@ export default class TeamsTabActionHandler extends BaseTabActionHandler {
   public constructor(
     tabNavigationService: TabNavigationService,
     private readonly teamsTabService: TeamsTabService,
+    private readonly teamFileDmService: TeamFileDmService,
   ) {
     super(tabNavigationService);
 
@@ -38,6 +41,8 @@ export default class TeamsTabActionHandler extends BaseTabActionHandler {
 
     this.actionMap = {
       [TeamsTabViewActionId.AddTeam]: this.handleAddTeam,
+      [TeamsTabViewActionId.CompanyRules]: this.handleCompanyRules,
+      [TeamsTabViewActionId.TeamFile]: this.handleTeamFile,
       [TeamsTabViewActionId.ManageTeamMenu]: withMenuAction<
         TeamsTabViewActionId,
         [IUserViewModel]
@@ -65,6 +70,26 @@ export default class TeamsTabActionHandler extends BaseTabActionHandler {
       payload.trigger_id || user.slack_id,
       TeamsTabModalName.CreateTeam,
       { user, pageMetadata: payload.view.private_metadata },
+    );
+  };
+
+  private handleCompanyRules = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    await this.teamsTabService.openModal(
+      payload.trigger_id || user.slack_id,
+      TeamsTabModalName.CompanyRules,
+      { user, pageMetadata: payload.view.private_metadata },
+    );
+  };
+
+  private handleTeamFile = (
+    _payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    runInBackground(this.logger, 'send the team file', () =>
+      this.teamFileDmService.sendTemplate(user),
     );
   };
 

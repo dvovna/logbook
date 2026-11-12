@@ -7,6 +7,8 @@ import { UsersService } from '@modules/users/services/users.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId, TestWorkspace } from './support/test-workspace';
 import { acknowledged } from './support/slack-test-client';
+import { workWeek } from './support/dates';
+import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 
 const slackMember = (
   workspace: TestWorkspace,
@@ -171,6 +173,31 @@ describe('Slack events', () => {
       role: UserRole.Manager,
       contract_start_date: '2024-03-01',
     });
+  });
+
+  it('passes the approvals of a deleted account on to HR', async () => {
+    const manager = await workspace.addUser({ role: UserRole.Manager });
+    const hr = await workspace.addUser({ role: UserRole.HR });
+    const team = await workspace.addTeam({
+      manager_approvers: [manager.slack_id],
+    });
+    const member = await workspace.addUser({ team_id: team.id });
+    await requestVacation(t, workspace, member, workWeek(2));
+    await approvalMessageTo(t, workspace, manager);
+
+    await t.slack
+      .event(workspace, {
+        type: 'user_change',
+        user: slackMember(workspace, {
+          id: manager.slack_id,
+          name: manager.name,
+          email: manager.email,
+          deleted: true,
+        }),
+      })
+      .expect(acknowledged);
+
+    await approvalMessageTo(t, workspace, hr);
   });
 
   it('keeps a user deactivated in Logbook inactive after a profile change', async () => {

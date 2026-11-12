@@ -272,6 +272,136 @@ describe('Time approvals', () => {
     });
   });
 
+  // The count on the Approvals button, the inbox, Approve all and the
+  // messages on submission all follow one rule.
+  describe('who decides an entry', () => {
+    let hr1: Tables<'users'>;
+    let hr2: Tables<'users'>;
+    let admin: Tables<'users'>;
+    let supportLead: Tables<'users'>;
+    let owners: Tables<'users'>[];
+
+    beforeEach(async () => {
+      [hr1, hr2, admin] = await Promise.all([
+        workspace.addUser({ role: UserRole.HR, name: 'Hal HR' }),
+        workspace.addUser({ role: UserRole.HR, name: 'Hed HR' }),
+        workspace.addUser({ role: UserRole.Admin, name: 'Ada Admin' }),
+      ]);
+      const [away, finance] = await Promise.all([
+        workspace.addUser({ role: UserRole.Manager, is_active: false }),
+        workspace.addUser({ role: UserRole.Finance }),
+      ]);
+      // Listed, but nobody there may approve: one is deactivated, Finance
+      // approves nothing.
+      const sales = await workspace.addTeam({
+        name: 'Sales',
+        manager_approvers: [away.slack_id, finance.slack_id],
+      });
+      supportLead = await workspace.addUser({
+        role: UserRole.Admin,
+        name: 'Sue Support',
+      });
+      const support = await workspace.addTeam({
+        name: 'Support',
+        manager_approvers: [supportLead.slack_id],
+      });
+      await t.db
+        .updateTable('users')
+        .set({ team_id: support.id })
+        .where('id', '=', supportLead.id)
+        .execute();
+      supportLead = { ...supportLead, team_id: support.id };
+      const [seller, supporter] = await Promise.all([
+        workspace.addUser({ team_id: sales.id, name: 'Sam Sales' }),
+        workspace.addUser({ team_id: support.id, name: 'Sid Support' }),
+      ]);
+      owners = [member, seller, supporter, hr1, manager, supportLead];
+
+      for (const owner of owners) {
+        await workspace.addTimeEntry(owner, website, {
+          description: `${owner.name}`,
+        });
+      }
+    });
+
+    const submitAll = async () => {
+      for (const owner of owners) {
+        await actOnTab(
+          t,
+          workspace,
+          owner,
+          await openAppHomeTab(t, workspace, owner),
+          HomeTabActionId.SubmitTimeEntries,
+        );
+      }
+      await t.idle();
+    };
+
+    // What waits for `user`: the count on their Approvals button, their
+    // inbox and its Approve all.
+    const waitingFor = async (user: Tables<'users'>) => {
+      const approvals = await openAppHomeTab(t, workspace, user, APPROVALS_TAB);
+      const inbox = listItems(approvals)
+        .map(({ fields }) => fields.Description)
+        .sort();
+
+      expect(buttonText(approvals, NavigationActionId.Approvals)).toBe(
+        inbox.length ? `✅ Approvals (${inbox.length})` : '✅ Approvals',
+      );
+      expect(buttonText(approvals, ApprovalsTabActionId.ApproveAll)).toBe(
+        inbox.length ? `Approve all (${inbox.length})` : undefined,
+      );
+
+      return inbox;
+    };
+
+    it('is the active approving managers of its team other than its owner, else HR, else the admins', async () => {
+      const since = t.slackApi.mark();
+      await submitAll();
+
+      // Whose submission each approver heard of.
+      const toldAbout = (user: Tables<'users'>) =>
+        t.slackApi
+          .postedMessages(workspace.token, user.slack_id, { since })
+          .map(
+            ({ text }) =>
+              owners.find(({ name }) => text?.includes(`*${name}*`))?.name ??
+              text,
+          )
+          .sort();
+      const expected = {
+        [manager.name]: [member.name],
+        [hr1.name]: [manager.name, 'Sam Sales', supportLead.name],
+        [hr2.name]: [hr1.name, manager.name, 'Sam Sales', supportLead.name],
+        [supportLead.name]: ['Sid Support'],
+        [admin.name]: [],
+      };
+
+      for (const user of [manager, hr1, hr2, supportLead, admin]) {
+        const theirs = { [user.name]: expected[user.name].sort() };
+
+        expect({ [user.name]: await waitingFor(user) }).toEqual(theirs);
+        expect({ [user.name]: toldAbout(user) }).toEqual(theirs);
+      }
+    });
+
+    it('goes to the admins when nobody with the HR role is active', async () => {
+      await submitAll();
+      await t.db
+        .updateTable('users')
+        .set({ is_active: false })
+        .where('id', 'in', [hr1.id, hr2.id])
+        .execute();
+
+      expect(await waitingFor(admin)).toEqual(
+        [hr1.name, manager.name, 'Sam Sales', supportLead.name].sort(),
+      );
+      expect(await waitingFor(supportLead)).toEqual(
+        [hr1.name, manager.name, 'Sam Sales', 'Sid Support'].sort(),
+      );
+    });
+  });
+
   describe('deciding', () => {
     it('approves an entry', async () => {
       const entry = await submitted(member);

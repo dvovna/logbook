@@ -1,5 +1,6 @@
 import { assertCanSeeRates } from 'src/projects/constants/rate-roles';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { once } from 'lodash';
 import { SlackHandler } from '@modules/slack/decorators/slack-handler.decorator';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ActionMapType } from '@modules/slack/common/handlers/base-action.handler';
@@ -9,18 +10,25 @@ import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 import { rolesOfTab } from '@modules/slack/common/navigation/screens';
 import { ISlackInteractionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { ReportsTabService } from '@modules/slack/tabs/reports/services/reports-tab.service';
+import {
+  IReportsPublishParams,
+  ReportsTabService,
+} from '@modules/slack/tabs/reports/services/reports-tab.service';
 import {
   ReportsModalName,
   ReportsTabActionId,
 } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';
-import { TimeReportKind } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
+import { groupingOf } from '@modules/slack/tabs/reports/enums/time-report-kind.enum';
 import { IReportsTabMetadata } from '@modules/slack/tabs/reports/views/reports-tab.view';
 import { TimeReportExportService } from '@modules/slack/tabs/reports/services/time-report-export.service';
-import { runInBackground } from '@common/utils/run-in-background';
+import {
+  CSV_ALREADY_SENDING_NOTICE,
+  CSV_SENDING_NOTICE,
+} from '@modules/slack/common/constants/csv-export';
 import { ValidationError } from '@common/errors/validation.error';
 import { assertReportPeriod } from 'src/time-entries/utils/report-period';
 import { assertCanManageSnapshots } from 'src/billing/constants/snapshot-roles';
+import { TimeReportService } from 'src/time-entries/services/time-report.service';
 
 // What the Reports view on show was made with (its private_metadata).
 const metadataOf = (payload: ISlackInteractionPayload): IReportsTabMetadata => {
@@ -39,12 +47,12 @@ const metadataOf = (payload: ISlackInteractionPayload): IReportsTabMetadata => {
 })
 export default class ReportsTabActionHandler extends BaseTabActionHandler {
   protected actionMap: ActionMapType;
-  private readonly logger = new Logger(ReportsTabActionHandler.name);
 
   public constructor(
     tabNavigationService: TabNavigationService,
     private readonly reportsTabService: ReportsTabService,
     private readonly timeReportExportService: TimeReportExportService,
+    private readonly timeReportService: TimeReportService,
   ) {
     super(tabNavigationService);
 
@@ -83,9 +91,8 @@ export default class ReportsTabActionHandler extends BaseTabActionHandler {
       throw new ValidationError('Show a billing report first.');
     }
 
-    await this.reportsTabService.openModal(
+    await this.reportsTabService.openLockSnapshotModal(
       payload.trigger_id || user.slack_id,
-      ReportsModalName.LockSnapshot,
       { user, pageMetadata: payload.view?.private_metadata ?? '{}' },
     );
   };
@@ -115,29 +122,46 @@ export default class ReportsTabActionHandler extends BaseTabActionHandler {
   };
 
   // Sends the entries of the time report on show as a CSV file in a DM. The
-  // upload takes longer than Slack waits for an answer, so it runs after it;
-  // the export keeps to the user's own scope whatever the metadata says.
+  // upload takes longer than Slack waits for an answer, so it is a job,
+  // saved before the answer; the export keeps to the user's own scope
+  // whatever the metadata says. The report is made once, for the CSV and for
+  // Reports shown again with the notice.
   private handleExportTimeReport = async (
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
     const metadata = metadataOf(payload);
     const { timeReport } = metadata;
+    const groupBy = timeReport && groupingOf(timeReport.kind);
 
-    if (!timeReport || timeReport.kind === TimeReportKind.Missing) {
+    if (!timeReport || !groupBy) {
       throw new ValidationError('Show a time report first.');
     }
 
-    assertReportPeriod(timeReport.fromDate, timeReport.toDate);
+    const { fromDate, toDate, clientId, projectId, userId } = timeReport;
+    const params = {
+      groupBy,
+      fromDate,
+      toDate,
+      filters: { clientId, projectId, userId },
+    };
 
-    runInBackground(this.logger, 'send a time report as CSV', () =>
-      this.timeReportExportService.send(user, timeReport),
+    assertReportPeriod(fromDate, toDate);
+
+    const report = once(() =>
+      this.timeReportService.getReport({ user, ...params }),
+    );
+    const sending = await this.timeReportExportService.start(
+      user,
+      params,
+      report,
     );
 
-    this.tabNavigationService.navigate(TabId.Reports, {
+    this.tabNavigationService.navigate<IReportsPublishParams>(TabId.Reports, {
       user,
       metadata,
-      notice: '📨 Sending the CSV to your DMs.',
+      notice: sending ? CSV_SENDING_NOTICE : CSV_ALREADY_SENDING_NOTICE,
+      timeReport: report(),
     });
   };
 }

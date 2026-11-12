@@ -70,8 +70,8 @@ export class EditUserFormSubmitHandler extends BaseModalFormSubmitHandler<
           ? new Date(data.contract_start_date)
           : null,
         carryoverDays: data.carryover_days,
-        updatedBy: user.id,
       },
+      user,
     );
   }
 

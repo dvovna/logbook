@@ -13,8 +13,10 @@ import VacationPolicyEvent from '@modules/vacation-policies/enums/vacation-polic
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { ConfigService } from '@nestjs/config';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
-import HolidaysService from '@modules/holidays/services/holidays.service';
+import { TransactionService } from 'src/database/transaction.service';
 import TeamsService from '@modules/teams/services/teams.service';
+import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
+import { ValidationError } from '@common/errors/validation.error';
 import EntityHasDependenciesError from '@common/errors/entity-has-dependencies.error';
 
 type IUpdateParams = {
@@ -67,10 +69,11 @@ interface IVacationPoliciesService {
 export default class VacationPoliciesService implements IVacationPoliciesService {
   public constructor(
     private readonly vacationPoliciesRepository: VacationPoliciesRepository,
-    private readonly holidaysService: HolidaysService,
+    private readonly transactions: TransactionService,
     private readonly teamsService: TeamsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly config: ConfigService,
+    private readonly companyRulesService: CompanyRulesService,
   ) {}
 
   public findOne(
@@ -177,28 +180,49 @@ export default class VacationPoliciesService implements IVacationPoliciesService
     return policy;
   }
 
-  public async delete(findParams: IFindParams) {
-    const policy = await this.findOneWithValidation(findParams);
-
-    const teamsCount = await this.teamsService.count({
-      slackTeamId: policy.slack_team_id,
-      vacationPolicyId: policy.id,
-    });
-
-    if (teamsCount > 0) {
-      throw new EntityHasDependenciesError(
-        'policy',
-        `used by ${teamsCount} team${teamsCount === 1 ? '' : 's'}`,
-      );
+  // The checks and the delete in one transaction, under the policy's row
+  // lock: a team given the policy meanwhile would otherwise lose it without
+  // a word (`ON DELETE SET NULL`). Its holidays go with it (`ON DELETE
+  // CASCADE`).
+  public async delete({ id, slackTeamId }: IFindParams) {
+    if (!id) {
+      throw new NotFoundException('Policy not found.');
     }
 
-    await this.vacationPoliciesRepository.deleteMany(
-      this.getFindQuery(findParams),
-    );
+    const policy = await this.transactions.transaction(async () => {
+      const found = await this.vacationPoliciesRepository.findForDelete(
+        id,
+        slackTeamId,
+      );
 
-    await this.holidaysService.deleteMany({
-      slackTeamId: policy.slack_team_id,
-      vacationPolicyId: policy.id,
+      if (!found) {
+        throw new NotFoundException(`Policy with id ${id} not found.`);
+      }
+
+      if (await this.companyRulesService.usesPolicy(id, slackTeamId)) {
+        throw new ValidationError(
+          'The company rules use this policy. Choose another policy there first.',
+        );
+      }
+
+      const teamsCount = await this.teamsService.count({
+        slackTeamId,
+        vacationPolicyId: id,
+        ownRulesOnly: true,
+      });
+
+      if (teamsCount > 0) {
+        throw new EntityHasDependenciesError(
+          'policy',
+          `used by ${teamsCount} team${teamsCount === 1 ? '' : 's'}`,
+        );
+      }
+
+      await this.vacationPoliciesRepository.deleteMany(
+        this.getFindQuery({ id, slackTeamId }),
+      );
+
+      return found;
     });
 
     this.eventEmitter.emit(

@@ -5,6 +5,8 @@ import { VacationsUsageService } from 'src/vacation-requests/services/vacation-u
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
 import EnvironmentVariable from 'src/common/enums/environment-variable.enum';
+import VacationType from 'src/common/enums/vacation-type.enum';
+import { IVacationPeriodUsageData } from 'src/vacation-requests/services/vacation-usage.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 const USER_ID = 'user-1';
@@ -153,6 +155,92 @@ describe('VacationRequestsValidationService', () => {
       await expect(
         service.validateRequestLimits(USER_ID, SLACK_TEAM_ID),
       ).resolves.toBe(undefined);
+    });
+  });
+
+  describe('checkDaysRequested', () => {
+    beforeEach(() => {
+      jest.useFakeTimers({ now: new Date('2026-12-01T12:00:00Z') });
+    });
+
+    afterEach(() => jest.useRealTimers());
+
+    const year = (
+      start: string,
+      end: string,
+      available: number,
+    ): IVacationPeriodUsageData => ({
+      periodStart: new Date(start),
+      periodEnd: new Date(end),
+      limits: {
+        vacationDays: 20,
+        workingDays: 20,
+        bonusDays: 0,
+        carryoverDays: 0,
+        carryoverWorkingDays: 0,
+        daysTotal: 20,
+      },
+      usage: {
+        [VacationType.AnnualLeave]: {
+          used: 20 - available,
+          available,
+          working_days_used: 20 - available,
+          working_days_available: available,
+        },
+        [VacationType.BonusDay]: { used: 0, available: 0 },
+        [VacationType.SickLeave]: { used: 0 },
+        [VacationType.UnpaidLeave]: { used: 0 },
+        [VacationType.Other]: { used: 0 },
+      },
+    });
+
+    // Monday 2026-12-28 to Saturday 2027-01-02: four days (all working) in
+    // 2026, two (one working) in 2027.
+    const acrossNewYear = {
+      startDate: new Date('2026-12-28'),
+      endDate: new Date('2027-01-02'),
+      workingDates: [
+        '2026-12-28',
+        '2026-12-29',
+        '2026-12-30',
+        '2026-12-31',
+        '2027-01-01',
+      ],
+    };
+
+    it("checks each year's part of the request against that year", () => {
+      expect(() =>
+        service.checkDaysRequested(acrossNewYear, VacationType.AnnualLeave, [
+          year('2026-01-01', '2026-12-31', 4),
+          year('2027-01-01', '2027-12-31', 2),
+        ]),
+      ).not.toThrow();
+    });
+
+    it('names the vacation year that has too few days left', () => {
+      expect(() =>
+        service.checkDaysRequested(acrossNewYear, VacationType.AnnualLeave, [
+          year('2026-01-01', '2026-12-31', 4),
+          year('2027-01-01', '2027-12-31', 1),
+        ]),
+      ).toThrow(
+        new ValidationError(
+          'Not enough vacation days in the vacation year from 1 Jan 2027. Requested: 2, available: 1',
+        ),
+      );
+    });
+
+    it('keeps the message short for the current year', () => {
+      expect(() =>
+        service.checkDaysRequested(acrossNewYear, VacationType.AnnualLeave, [
+          year('2026-01-01', '2026-12-31', 3),
+          year('2027-01-01', '2027-12-31', 20),
+        ]),
+      ).toThrow(
+        new ValidationError(
+          'Not enough vacation days. Requested: 4, available: 3',
+        ),
+      );
     });
   });
 });

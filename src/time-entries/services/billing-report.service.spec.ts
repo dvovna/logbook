@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { ValidationError } from 'src/common/errors/validation.error';
 import UserRole from 'src/common/enums/user-role.enum';
 import ClientsService from 'src/clients/services/clients.service';
 import ProjectsService from 'src/projects/services/projects.service';
@@ -38,6 +39,7 @@ describe('BillingReportService', () => {
   let entries: ITimeEntryViewModel[];
   let billed: Set<string>;
   let rates: Map<string, IProjectRates>;
+  let clientsService: { findOne: jest.Mock };
   let projectRatesService: { findRates: jest.Mock };
   let service: BillingReportService;
 
@@ -45,14 +47,15 @@ describe('BillingReportService', () => {
     entries = [];
     billed = new Set();
     rates = new Map();
+    clientsService = {
+      findOne: jest.fn().mockResolvedValue({ id: 'acme', name: 'Acme' }),
+    };
     projectRatesService = {
       findRates: jest.fn(async () => rates),
     };
 
     service = new BillingReportService(
-      {
-        findOne: jest.fn().mockResolvedValue({ id: 'acme', name: 'Acme' }),
-      } as unknown as ClientsService,
+      clientsService as unknown as ClientsService,
       {
         findMany: jest.fn().mockResolvedValue([
           { id: 'web', name: 'Website' },
@@ -246,4 +249,38 @@ describe('BillingReportService', () => {
       expect(projectRatesService.findRates).not.toHaveBeenCalled();
     },
   );
+
+  describe('assertCanReport', () => {
+    it("checks that the client is the workspace's", async () => {
+      await service.assertCanReport({
+        user: userWith(UserRole.Finance),
+        clientId: 'acme',
+      });
+
+      expect(clientsService.findOne).toHaveBeenCalledWith({
+        id: 'acme',
+        slackTeamId: SLACK_TEAM_ID,
+        includeArchived: true,
+      });
+
+      clientsService.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.assertCanReport({
+          user: userWith(UserRole.Admin),
+          clientId: 'elsewhere',
+        }),
+      ).rejects.toThrow(new ValidationError('Client not found.'));
+    });
+
+    it('refuses a manager without reading anything', async () => {
+      await expect(
+        service.assertCanReport({
+          user: userWith(UserRole.Manager),
+          clientId: 'acme',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(clientsService.findOne).not.toHaveBeenCalled();
+    });
+  });
 });

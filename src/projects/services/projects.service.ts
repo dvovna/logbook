@@ -33,6 +33,7 @@ interface IFindParams {
   name?: string;
   slackTeamId: string;
   clientId?: string;
+  status?: ProjectStatus;
   includeArchived?: boolean;
 }
 
@@ -270,6 +271,7 @@ export default class ProjectsService implements IProjectsService {
       ...(params.name ? { name: params.name } : {}),
       ...(params.slackTeamId ? { slack_team_id: params.slackTeamId } : {}),
       ...(params.clientId ? { client_id: params.clientId } : {}),
+      ...(params.status ? { status: params.status } : {}),
       archived_at: params.includeArchived
         ? undefined
         : { operator: 'is', value: null },

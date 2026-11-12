@@ -28,6 +28,13 @@ export enum ViewCallbackId {
   TeamsTabView = 'teams_tab_view',
   DeleteTeam = 'delete_team',
   TeamFormSubmit = 'team_form_submit',
+  CompanyRulesSubmit = 'company_rules_submit',
+
+  // The buttons of the DM that previews a team file.
+  TeamFileMessage = 'team_file_message',
+
+  // The DM that asks HR which team a new person is on.
+  NewPersonPrompt = 'new_person_prompt',
 
   // vacation-policies
   VacationPoliciesTabView = 'vacation_policies_tab_view',

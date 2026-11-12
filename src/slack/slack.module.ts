@@ -45,6 +45,9 @@ import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module
 import { BillingSnapshotsTabModule } from '@modules/slack/tabs/billing-snapshots/billing-snapshots-tab.module';
 
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
+import { TeamFileSlackModule } from '@modules/slack/team-file/team-file-slack.module';
+import { TeamFileMessagesModule } from '@modules/slack/team-file/team-file-messages.module';
+import { TeamFileModule } from 'src/team-file/team-file.module';
 @Module({
   imports: [
     TimeEntriesModule,
@@ -74,6 +77,9 @@ import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
     ClientsTabModule,
     BillingSnapshotsTabModule,
     ApprovalsTabModule,
+    TeamFileSlackModule,
+    TeamFileMessagesModule,
+    TeamFileModule,
   ],
   controllers: [
     SlackOauthController,

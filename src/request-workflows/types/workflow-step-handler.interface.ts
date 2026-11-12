@@ -10,5 +10,8 @@ export interface IWorkflowStepProcessor {
   updateMessage(
     step: IRequestWorkflowStepViewModel,
     comments: IWorkflowStepCommentViewModel[],
+    // The request is deleted: the step in the database no longer exists, so
+    // its stored status is that of a cancellation.
+    requestDeleted?: boolean,
   ): Promise<void>;
 }

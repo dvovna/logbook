@@ -10,6 +10,22 @@ export default class VacationPoliciesRepository extends BaseRepository<
 > {
   protected readonly tableName = 'vacation_policies';
 
+  // The policy, its row locked till the transaction ends: a team or the
+  // company rules given the policy meanwhile wait for it, since their
+  // foreign key locks the row too, and are counted once they commit.
+  public async findForDelete(
+    id: string,
+    slackTeamId: string,
+  ): Promise<IVacationPolicyViewModel | null> {
+    const row = await this.selectInWorkspace(slackTeamId)
+      .selectAll()
+      .where('id', '=', id)
+      .forUpdate()
+      .executeTakeFirst();
+
+    return row ? this.mapToViewModel(row) : null;
+  }
+
   protected mapToViewModel = (data: SqlRow<'vacation_policies'>) => {
     return {
       id: data.id,

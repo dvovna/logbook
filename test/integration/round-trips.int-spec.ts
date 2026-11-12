@@ -10,16 +10,22 @@ import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/proj
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
-import { LOG_TIME_OFF_ACTION_ID } from '@modules/slack/tabs/vacation-requests/services/time-off-offer.service';
+import { LOG_TIME_OFF_ACTION_ID } from '@modules/slack/tabs/vacation-requests/constants/time-off-offer';
 import { UsersService } from '@modules/users/services/users.service';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
-import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import { navigate, openAppHomeTab, openModalFrom } from './support/app-home';
 import { buttonText } from './support/tab-readers';
 import { workWeek } from './support/dates';
-import { approvalMessageTo, requestVacation } from './support/vacation-flows';
+import {
+  approvalMessageTo,
+  requestVacation,
+  VACATIONS_COMMAND,
+} from './support/vacation-flows';
+import { acknowledged } from './support/slack-test-client';
 import { ISqlCount } from './support/sql-log';
 
 const MY_TIME = [NavigationActionId.MyTime];
@@ -37,7 +43,7 @@ const LAST_WEEK = '2026-06-08';
 // and one after another show apart in the timings.
 const LATENCY_MS = 5;
 
-// The app's pool (DATABASE_POOL_SIZE's default).
+// The app's pool in the tests (DATABASE_POOL_SIZE in support/test-env.ts).
 const POOL_SIZE = 5;
 
 // The most round trips one after another each action may take before its
@@ -58,12 +64,37 @@ const ROUND_TRIPS: Record<string, { roundTrips: number; statements: number }> =
     'change the day in the form': { roundTrips: 1, statements: 1 },
     'open My time': { roundTrips: 1, statements: 1 },
     'go to the previous week on My time': { roundTrips: 2, statements: 6 },
-    "change a logged vacation's dates": { roundTrips: 10, statements: 15 },
+    // A change saves the job that follows it (an offer, a DM, the approval)
+    // in its transaction: one statement more, and a new request a
+    // transaction of its own.
+    "change a logged vacation's dates": { roundTrips: 11, statements: 16 },
     "change a vacation's comment": { roundTrips: 9, statements: 10 },
-    'delete a logged vacation': { roundTrips: 9, statements: 9 },
+    'change the dates of a vacation, the team following the company rules': {
+      roundTrips: 10,
+      statements: 14,
+    },
+    'delete a logged vacation': { roundTrips: 10, statements: 10 },
     'log time off from the offer': { roundTrips: 2, statements: 2 },
     'save the time off settings': { roundTrips: 7, statements: 7 },
+    'request time off, the team following the company rules': {
+      roundTrips: 11,
+      statements: 12,
+    },
   };
+
+// The same for the screens a click opens, counted until the screen is
+// published: the app answers the click first and publishes after (background
+// work), and the person waits for both.
+const SCREEN_ROUND_TRIPS: Record<
+  string,
+  { roundTrips: number; statements: number }
+> = {
+  'show Home to an admin': { roundTrips: 4, statements: 14 },
+  'show Approvals to an admin': { roundTrips: 2, statements: 6 },
+  'show Reports to an admin': { roundTrips: 2, statements: 5 },
+  'show Home to a manager': { roundTrips: 3, statements: 8 },
+  'show Reports to a manager': { roundTrips: 3, statements: 6 },
+};
 
 const STATEMENTS_HEADROOM = 3;
 
@@ -124,8 +155,14 @@ describe('Round trips to the database before the answer', () => {
   });
 
   // Runs `action` (one request to the app) and checks what it sent before
-  // the answer against ROUND_TRIPS[name]. Returns what `action` returned.
-  const measure = async <T>(name: string, action: () => Promise<T>) => {
+  // the answer against ROUND_TRIPS[name], or with `screen` all it sent, the
+  // screen's publishing included, against SCREEN_ROUND_TRIPS[name]. Returns
+  // what `action` returned.
+  const measure = async <T>(
+    name: string,
+    action: () => Promise<T>,
+    { screen = false } = {},
+  ) => {
     await t.idle();
     // Every connection of the pool open, as on a server in use: opening one
     // takes round trips the log doesn't see, and would vary with the order
@@ -138,25 +175,27 @@ describe('Round trips to the database before the answer', () => {
     const result = await action();
     await t.idle();
 
-    const count = t.sql.count(since);
+    const counts = t.sql.count(since);
+    const count = screen ? counts.all : counts.answer;
+    const allowed = (screen ? SCREEN_ROUND_TRIPS : ROUND_TRIPS)[name];
     const limit = {
-      ...ROUND_TRIPS[name],
-      statements: ROUND_TRIPS[name].statements + STATEMENTS_HEADROOM,
+      ...allowed,
+      statements: allowed.statements + STATEMENTS_HEADROOM,
     };
 
-    measured[name] = count;
+    measured[name] = counts;
 
     if (
-      count.answer.statements > limit.statements ||
-      count.answer.roundTrips > limit.roundTrips
+      count.statements > limit.statements ||
+      count.roundTrips > limit.roundTrips
     ) {
       const sent = t.sql
         .statements(since)
-        .filter(({ background }) => !background)
+        .filter(({ background }) => screen || !background)
         .map(({ text }) => `  ${text.replace(/\s+/g, ' ').slice(0, 140)}`);
 
       throw new Error(
-        `"${name}" sent ${count.answer.statements} statements in ${count.answer.roundTrips} round trips before its answer, more than ${limit.statements} in ${limit.roundTrips}:\n${sent.join('\n')}`,
+        `"${name}" sent ${count.statements} statements in ${count.roundTrips} round trips ${screen ? 'until the screen showed' : 'before its answer'}, more than ${limit.statements} in ${limit.roundTrips}:\n${sent.join('\n')}`,
       );
     }
 
@@ -313,6 +352,69 @@ describe('Round trips to the database before the answer', () => {
     );
   });
 
+  // The Approvals count is on every screen, and Home and Reports sum the
+  // time they show.
+  it('shows Home, Approvals and Reports with what waits for approval', async () => {
+    const admin = await workspace.addUser({ role: UserRole.Admin });
+    const solo = await workspace.addUser({ name: 'Sol' });
+    const manager = (await workspace.rows('users')).find(
+      ({ role }) => role === UserRole.Manager,
+    )!;
+    // Mia's wait for Design's manager; Sol is in no team, and the manager
+    // has nobody else on Design, so theirs wait for the admin.
+    for (const owner of [member, member, solo, manager]) {
+      await workspace.addTimeEntry(owner, website, {
+        status: TimeEntryStatus.Submitted,
+      });
+    }
+    const screen = { screen: true };
+    const home = await openAppHomeTab(t, workspace, admin);
+
+    const approvals = await measure(
+      'show Approvals to an admin',
+      () => navigate(t, workspace, admin, home, NavigationActionId.Approvals),
+      screen,
+    );
+    expect(buttonText(approvals, NavigationActionId.Approvals)).toBe(
+      '✅ Approvals (2)',
+    );
+    const adminHome = await measure(
+      'show Home to an admin',
+      () => navigate(t, workspace, admin, approvals, NavigationActionId.Home),
+      screen,
+    );
+    await measure(
+      'show Reports to an admin',
+      () =>
+        navigate(t, workspace, admin, adminHome, NavigationActionId.Reports),
+      screen,
+    );
+
+    const reports = await openAppHomeTab(t, workspace, manager, [
+      NavigationActionId.Reports,
+    ]);
+    const managerHome = await measure(
+      'show Home to a manager',
+      () => navigate(t, workspace, manager, reports, NavigationActionId.Home),
+      screen,
+    );
+    expect(buttonText(managerHome, NavigationActionId.Approvals)).toBe(
+      '✅ Approvals (2)',
+    );
+    await measure(
+      'show Reports to a manager',
+      () =>
+        navigate(
+          t,
+          workspace,
+          manager,
+          managerHome,
+          NavigationActionId.Reports,
+        ),
+      screen,
+    );
+  });
+
   describe('time off', () => {
     let admin: Tables<'users'>;
     let hr: Tables<'users'>;
@@ -420,6 +522,41 @@ describe('Round trips to the database before the answer', () => {
       });
     });
 
+    it('changes the dates of a logged vacation of a team that follows the company rules', async () => {
+      await t.db
+        .insertInto('rule_sets')
+        .values({ slack_team_id: workspace.id, is_default: true })
+        .onConflict((conflict) => conflict.doNothing())
+        .execute();
+      const defaultSet = await t.db
+        .selectFrom('rule_sets')
+        .select('id')
+        .where('slack_team_id', '=', workspace.id)
+        .where('is_default', '=', true)
+        .executeTakeFirstOrThrow();
+      await t.db
+        .updateTable('teams')
+        .set({ rule_set_id: defaultSet.id })
+        .where('id', '=', design.id)
+        .execute();
+      const request = await loggedVacation();
+
+      await submit(
+        'change the dates of a vacation, the team following the company rules',
+        await requestForm(
+          hr,
+          request,
+          VacationRequestsTabViewActionId.EditRequest,
+        ),
+        { start_date: '2026-06-22', end_date: '2026-06-26' },
+        hr,
+      );
+
+      expect(
+        await workspace.row('vacation_requests', request.id),
+      ).toMatchObject({ start_date: '2026-06-22', working_days: 5 });
+    });
+
     it('deletes a logged vacation', async () => {
       const request = await loggedVacation();
 
@@ -435,6 +572,48 @@ describe('Round trips to the database before the answer', () => {
       );
 
       expect(await workspace.rows('vacation_requests')).toEqual([]);
+    });
+
+    it('requests time off in a team that follows the company rules', async () => {
+      const { vacation_policy_id } = await workspace.row('teams', design.id);
+      await t.db
+        .insertInto('rule_sets')
+        .values({ slack_team_id: workspace.id, is_default: true })
+        .onConflict((conflict) => conflict.doNothing())
+        .execute();
+      const companyRules = await t.db
+        .updateTable('rule_sets')
+        .set({ vacation_policy_id })
+        .where('slack_team_id', '=', workspace.id)
+        .where('is_default', '=', true)
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      await t.db
+        .updateTable('teams')
+        .set({ rule_set_id: companyRules.id })
+        .where('id', '=', design.id)
+        .execute();
+      const since = t.slackApi.mark();
+      await t.slack
+        .command(VACATIONS_COMMAND, workspace, requester, 'request')
+        .expect(acknowledged);
+      await t.idle();
+
+      const saved = await submit(
+        'request time off, the team following the company rules',
+        t.slackApi.openedModal(workspace.token, { since }),
+        {
+          start_date: '2026-06-22',
+          end_date: '2026-06-26',
+          type_option: VacationType.AnnualLeave,
+        },
+        requester,
+      );
+
+      expect(saved.body).toEqual({ response_action: 'clear' });
+      expect(await workspace.rows('vacation_requests')).toMatchObject([
+        { user_id: requester.id, working_days: 4 },
+      ]);
     });
 
     it('logs time off from the offer', async () => {

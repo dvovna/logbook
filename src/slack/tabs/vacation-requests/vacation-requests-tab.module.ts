@@ -17,7 +17,9 @@ import VacationRequestAdminViewValuesParser from '@modules/slack/tabs/vacation-r
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import { TimeOffLoggingModule } from 'src/time-off-logging/time-off-logging.module';
 import { ProjectsModule } from 'src/projects/projects.module';
-import { TimeOffOfferService } from '@modules/slack/tabs/vacation-requests/services/time-off-offer.service';
+import { TimeOffOfferNotifier } from '@modules/slack/tabs/vacation-requests/services/time-off-offer-notifier.service';
+import { TimeOffLogClickService } from '@modules/slack/tabs/vacation-requests/services/time-off-log-click.service';
+import { TimeOffOfferView } from '@modules/slack/tabs/vacation-requests/views/time-off-offer.view';
 import { TimeOffOfferHandler } from '@modules/slack/tabs/vacation-requests/handlers/time-off-offer.handler';
 import { UsersModule } from '@modules/users/users.module';
 import { VacationHistoryTabService } from '@modules/slack/tabs/vacation-requests/services/vacation-history-tab.service';
@@ -41,7 +43,9 @@ import { VacationRequestModalService } from '@modules/slack/tabs/vacation-reques
   ],
   providers: [
     VacationDecisionNotificationsService,
-    TimeOffOfferService,
+    TimeOffOfferNotifier,
+    TimeOffLogClickService,
+    TimeOffOfferView,
     TimeOffOfferHandler,
     VacationRequestProgressNoticesService,
     VacationRequestsTabService,

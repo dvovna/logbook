@@ -1,5 +1,5 @@
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { Injectable } from '@nestjs/common';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import { VacationPolicyModalView } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
@@ -32,6 +32,9 @@ interface IGetVacationPoliciesTabViewParams extends IPublishBaseParams {
 
 const DEFAULT_POLICIES_PAGE_SIZE = 10;
 
+// Listed with the teams that use a policy.
+const COMPANY_RULES_NAME = 'Company rules';
+
 type VacationPoliciesTabModalViewResolversMapType = {
   [VacationPoliciesTabModalName.CreatePolicy]: (
     params: IOpenModalBaseParams<string>,
@@ -51,7 +54,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly vacationPoliciesTabView: VacationPolicyTabView,
     private readonly confirmationModalView: ConfirmationModalView,
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
   ) {
     super(TabId.VacationPolicies, {
       [VacationPoliciesTabModalName.CreatePolicy]: (params) =>
@@ -76,14 +79,16 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       orderBy: ['name:asc'],
     });
 
-    // Which teams follow each policy.
-    const teams = await this.teamsService.findMany({
-      slackTeamId: user.slack_team_id,
-    });
-    const teamsByPolicy: Record<string, string[]> = {};
-    for (const { name, vacation_policy_id } of teams) {
-      if (vacation_policy_id) {
-        (teamsByPolicy[vacation_policy_id] ??= []).push(name);
+    const { companyRules, teams } = await this.teamRulesService.forWorkspace(
+      user.slack_team_id,
+    );
+    const usedByPolicy: Record<string, string[]> = {};
+    if (companyRules.vacation_policy_id) {
+      usedByPolicy[companyRules.vacation_policy_id] = [COMPANY_RULES_NAME];
+    }
+    for (const { team, vacationPolicyId } of teams) {
+      if (team && vacationPolicyId) {
+        (usedByPolicy[vacationPolicyId] ??= []).push(team.name);
       }
     }
 
@@ -91,7 +96,7 @@ export class VacationPoliciesTabService extends BaseTabService<VacationPoliciesT
       userId: user.slack_id,
       userRole: user.role,
       policies,
-      teamsByPolicy,
+      usedByPolicy,
     });
   }
 

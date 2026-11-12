@@ -6,8 +6,11 @@ import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimeEntriesValidationService } from 'src/time-entries/services/time-entries-validation.service';
+import { TimeEntryWriter } from 'src/time-entries/services/time-entry-writer.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { IUserViewModel } from 'src/users/types/user.interface';
+import { TransactionService } from 'src/database/transaction.service';
+import { TIME_ENTRIES_SUBMITTED } from 'src/time-entries/events/time-entries.events';
 
 const userWith = (role: UserRole) =>
   ({ id: 'me', role, slack_team_id: 'team-1' }) as IUserViewModel;
@@ -31,8 +34,21 @@ describe('TimeEntriesService writes', () => {
     jest.Mock
   >;
   let service: TimeEntriesService;
+  let eventEmitter: { emitAsync: jest.Mock };
+  // Whether each emitAsync came inside the transaction.
+  let emittedInTransaction: boolean[];
+  let inTransaction: boolean;
 
   beforeEach(() => {
+    inTransaction = false;
+    emittedInTransaction = [];
+    eventEmitter = {
+      emitAsync: jest.fn(() => {
+        emittedInTransaction.push(inTransaction);
+
+        return Promise.resolve([]);
+      }),
+    };
     repository = {
       findOne: jest.fn(),
       findMany: jest.fn(async () => []),
@@ -46,7 +62,19 @@ describe('TimeEntriesService writes', () => {
       ),
       {} as ProjectsService,
       {} as GetUserProjectsQuery,
-      { emit: jest.fn() } as unknown as EventEmitter2,
+      eventEmitter as unknown as EventEmitter2,
+      new TimeEntryWriter(repository as unknown as TimeEntriesRepository),
+      {
+        transaction: async <T>(work: () => Promise<T>) => {
+          inTransaction = true;
+
+          try {
+            return await work();
+          } finally {
+            inTransaction = false;
+          }
+        },
+      } as unknown as TransactionService,
     );
   });
 
@@ -92,6 +120,26 @@ describe('TimeEntriesService writes', () => {
     ).rejects.toThrow('Time Entry not found');
   });
 
+  // Its listener saves the approvers' jobs with the entries' new status.
+  it('tells of submitted entries inside the transaction that submits them', async () => {
+    const submitted = entry(TimeEntryStatus.Submitted);
+    repository.updateMany.mockResolvedValue([submitted]);
+
+    await service.submit({ slackTeamId: 'team-1' }, userWith(UserRole.Member));
+
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+      TIME_ENTRIES_SUBMITTED,
+      expect.objectContaining({ entries: [submitted], submittedById: 'me' }),
+    );
+    expect(emittedInTransaction).toEqual([true]);
+  });
+
+  it('tells nobody when there was nothing to submit', async () => {
+    await service.submit({ slackTeamId: 'team-1' }, userWith(UserRole.Member));
+
+    expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+  });
+
   it('lets Admin and HR change an entry whatever its status', async () => {
     const submitted = entry(TimeEntryStatus.Submitted);
     repository.findOne.mockResolvedValue(submitted);
@@ -107,24 +155,5 @@ describe('TimeEntriesService writes', () => {
       { id: 'e', slack_team_id: 'team-1', deleted_at: notDeleted },
       expect.objectContaining({ minutes: 120 }),
     );
-  });
-
-  it('creates nothing for time off with no days', async () => {
-    const createMany = jest.fn();
-    (repository as unknown as Record<string, jest.Mock>).createMany =
-      createMany;
-
-    await expect(
-      service.createForVacation({
-        userId: 'me',
-        teamId: null,
-        projectId: 'web',
-        minutes: 480,
-        dates: [],
-        vacationRequestId: 'r',
-        slackTeamId: 'team-1',
-      }),
-    ).resolves.toBe(0);
-    expect(createMany).not.toHaveBeenCalled();
   });
 });

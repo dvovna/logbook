@@ -8,9 +8,13 @@ export interface INagerDateHoliday {
   name: string;
   countryCode: string;
   fixed: boolean;
+  // false for a holiday of some regions only, which `counties` names
+  // (ISO 3166-2, e.g. 'GB-SCT').
   global: boolean;
-  counties?: string[];
-  launchYear?: number;
+  counties?: string[] | null;
+  launchYear?: number | null;
+  // 'Public' for a day off; also 'Bank', 'School', 'Authorities',
+  // 'Optional' and 'Observance'.
   types: string[];
 }
 

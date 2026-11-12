@@ -1,5 +1,13 @@
-import { TimeEntryRemindersService } from '@modules/slack/tabs/time-tracking/services/time-entry-reminders.service';
+import {
+  REMIND_UNSUBMITTED_JOB,
+  TimeEntryRemindersService,
+} from '@modules/slack/tabs/time-tracking/services/time-entry-reminders.service';
 import { View } from '@slack/types/dist/views';
+import { sql } from 'kysely';
+import * as errorReporter from '@common/errors/error-reporter';
+import { IJobsOptions, JOBS_OPTIONS } from '@common/jobs/jobs.service';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
+import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
@@ -1237,6 +1245,8 @@ describe('Time entries', () => {
 
   // Today is Wednesday 2026-06-17: the week started on Monday 2026-06-15.
   describe('the weekly reminder', () => {
+    afterEach(() => jest.restoreAllMocks());
+
     it('reminds of drafts and rejected entries from before the week, once', async () => {
       const reminders = t.app.get(TimeEntryRemindersService);
       await workspace.addTimeEntry(member, website, {
@@ -1281,6 +1291,154 @@ describe('Time entries', () => {
       expect(await reminders.remindWorkspace(workspace.id, '2026-06-15')).toBe(
         0,
       );
+    });
+
+    it('saves the reminders of many people in one statement, and sends them a few a second', async () => {
+      const reminders = t.app.get(TimeEntryRemindersService);
+      const people = [member];
+      for (let index = 1; index < 6; index += 1) {
+        people.push(
+          await workspace.addUser({
+            team_id: design.id,
+            name: `Person ${index}`,
+          }),
+        );
+      }
+      for (const person of people) {
+        await workspace.addTimeEntry(person, website, {
+          work_date: '2026-06-10',
+        });
+      }
+      const since = t.sql.mark();
+      const messagesSince = t.slackApi.mark();
+      const start = performance.now();
+
+      expect(await reminders.remindWorkspace(workspace.id, '2026-06-15')).toBe(
+        6,
+      );
+      await t.idle();
+      const elapsed = performance.now() - start;
+
+      expect(
+        t.sql
+          .statements(since)
+          .filter(({ text }) => /insert into \S+\.job \(/i.test(text)),
+      ).toHaveLength(1);
+      // begin, the week's claim, who has open time, the jobs, commit: the
+      // same however many people there are.
+      expect(t.sql.count(since).answer.statements).toBe(5);
+      for (const person of people) {
+        expect(
+          t.slackApi.postedMessages(workspace.token, person.slack_id, {
+            since: messagesSince,
+          }),
+        ).toHaveLength(1);
+      }
+      // Five a second: the sixth starts a second after the first.
+      expect(elapsed).toBeGreaterThanOrEqual(950);
+    });
+
+    it('keeps a reminder Slack refused for a retry, as any job', async () => {
+      const reminders = t.app.get(TimeEntryRemindersService);
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-10',
+      });
+      t.slackApi.failNextTo(member.slack_id);
+      const since = t.slackApi.mark();
+
+      expect(await reminders.remindWorkspace(workspace.id, '2026-06-15')).toBe(
+        1,
+      );
+      await t.idle();
+      expect(
+        t.slackApi.postedMessages(workspace.token, member.slack_id, { since }),
+      ).toEqual([]);
+
+      // Saved with its queue's retries, due 5 minutes on, as send() saves one.
+      const { schema } = t.app.get<IJobsOptions>(JOBS_OPTIONS);
+      const { rows } = await sql<{ queue_retries: boolean; wait: number }>`
+        select j.retry_limit = q.retry_limit
+            and j.retry_delay = q.retry_delay
+            and j.retry_backoff = q.retry_backoff as queue_retries,
+          extract(epoch from j.start_after - j.created_on)::int as wait
+        from ${sql.table(`${schema}.job`)} j
+        join ${sql.table(`${schema}.queue`)} q on q.name = j.name
+        where j.name = ${REMIND_UNSUBMITTED_JOB}
+          and j.data ->> 'userId' = ${member.id}
+      `.execute(t.db);
+      expect(rows).toEqual([{ queue_retries: true, wait: 300 }]);
+
+      await t.retryJobs();
+
+      expect(
+        t.slackApi.postedMessages(workspace.token, member.slack_id, { since }),
+      ).toHaveLength(1);
+    });
+
+    it('goes on with the other workspaces when one fails, and tries that one again at the next tick', async () => {
+      const reminders = t.app.get(TimeEntryRemindersService);
+      const timeEntries = t.app.get(TimeEntriesService);
+      const other = await t.createWorkspace();
+      const otherMember = await other.addUser({ name: 'Olga Other' });
+      const intranet = await other.addProject({ name: 'Intranet' });
+      await workspace.addTimeEntry(member, website, {
+        work_date: '2026-06-10',
+      });
+      await other.addTimeEntry(otherMember, intranet, {
+        work_date: '2026-06-10',
+      });
+      // The workspaces of the tests running beside this one stay out of it.
+      jest
+        .spyOn(t.app.get(SlackTeamsService), 'findInstalledIds')
+        .mockResolvedValue([workspace.id, other.id]);
+      const timeout = new Error('canceling statement due to statement timeout');
+      const findUserIds = timeEntries.findUserIdsWithOpenUpTo.bind(timeEntries);
+      jest
+        .spyOn(timeEntries, 'findUserIdsWithOpenUpTo')
+        .mockImplementation((params) =>
+          params.slackTeamId === workspace.id
+            ? Promise.reject(timeout)
+            : findUserIds(params),
+        );
+      const report = jest
+        .spyOn(errorReporter, 'reportError')
+        .mockImplementation();
+      const since = t.slackApi.mark();
+      const reminderWeekOf = async (slackTeamId: string) =>
+        (
+          await t.db
+            .selectFrom('slack_teams')
+            .select('time_reminder_week')
+            .where('id', '=', slackTeamId)
+            .executeTakeFirstOrThrow()
+        ).time_reminder_week;
+
+      expect(await reminders.remindAll(new Date('2026-06-15T09:05:00Z'))).toBe(
+        1,
+      );
+      await t.idle();
+
+      expect(
+        t.slackApi.postedMessages(other.token, otherMember.slack_id, { since }),
+      ).toHaveLength(1);
+      expect(
+        t.slackApi.postedMessages(workspace.token, member.slack_id, { since }),
+      ).toEqual([]);
+      expect(report).toHaveBeenCalledWith(timeout, {
+        task: 'remind of unsubmitted time',
+        slackTeamId: workspace.id,
+      });
+      expect(await reminderWeekOf(workspace.id)).toBeNull();
+      expect(await reminderWeekOf(other.id)).toBe('2026-06-15');
+
+      jest.restoreAllMocks();
+      expect(await reminders.remindWorkspace(workspace.id, '2026-06-15')).toBe(
+        1,
+      );
+      await t.idle();
+      expect(
+        t.slackApi.postedMessages(workspace.token, member.slack_id, { since }),
+      ).toHaveLength(1);
     });
 
     it('waits for Monday 09:00 UTC', async () => {

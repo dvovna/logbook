@@ -27,10 +27,17 @@ interface IGetMessageParams {
   step: IRequestWorkflowStepViewModel;
   comments?: IWorkflowStepCommentViewModel[];
   progress?: IApprovalProgress;
+  // The request is gone: its steps are closed with a cancellation, and the
+  // message says it was deleted.
+  requestDeleted?: boolean;
 }
 
 export class ApproverMessageView {
   public static getMessage(params: IGetMessageParams) {
+    if (params.requestDeleted) {
+      return this.getDeletedMessage(params);
+    }
+
     switch (params.step.step_data.status) {
       case WorkflowStepStatus.Approved: {
         return this.getApprovedMessage(params);
@@ -43,9 +50,6 @@ export class ApproverMessageView {
       }
       case WorkflowStepStatus.Cancelled: {
         return this.getCanceledMessage(params);
-      }
-      case WorkflowStepStatus.Deleted: {
-        return this.getDeletedMessage(params);
       }
     }
   }

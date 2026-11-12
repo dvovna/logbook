@@ -7,7 +7,7 @@ import { View } from '@slack/types/dist/views';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { TimesheetFormActionId } from '@modules/slack/tabs/time-tracking/enums/timesheet-form-action-id.enum';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
-import { cellKey } from 'src/time-entries/utils/timesheet-cell-key';
+import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-key';
 import { COMMENT_BLOCK_ID } from '@modules/slack/tabs/time-tracking/views/timesheet-form-modal.view';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -680,6 +680,68 @@ describe('Fill in the week', () => {
     expect(await entriesOf()).toEqual([
       'Website 2026-06-08 60 draft',
       'Website 2026-06-17 120 draft',
+    ]);
+  });
+
+  it('keeps what the form first showed in a cell across its rebuilds', async () => {
+    const draft = await entry(website, WED);
+    await entry(website, THU, { status: TimeEntryStatus.Submitted });
+    const form = await openForm();
+    const key = cellKey(website.id, WED);
+
+    // Then 2h on Wednesday in a second form.
+    await submit(await openForm(), { [key]: '2' });
+    expect(await workspace.row('time_entries', draft.id)).toMatchObject({
+      minutes: 120,
+    });
+
+    const added = await actOnForm(
+      form,
+      TimesheetFormActionId.AddProject,
+      mobile.id,
+    );
+    // A forged input for the submitted Thursday: the form comes back with
+    // the error.
+    const failed = await submit(
+      added,
+      {},
+      member,
+      forgedCell(cellKey(website.id, THU), '5'),
+    );
+
+    expect(modalError(failed.body.view)).toBe(
+      'Submitted time entries cannot be edited',
+    );
+
+    for (const rebuilt of [added, failed.body.view as View]) {
+      expect(
+        rebuilt.blocks.find((block) => block.block_id === key),
+      ).toMatchObject({
+        hint: { text: 'Now 2h: changed since this form opened.' },
+      });
+      expect(timesheetFormRows(rebuilt)[1]).toEqual({
+        project: 'Website · Acme',
+        cells: [
+          'Mon 15 []',
+          'Tue 16 []',
+          'Wed 17 [1]',
+          'Thu 18 · 1h · submitted',
+          'Fri 19 []',
+        ],
+      });
+    }
+
+    const answer = await submit(failed.body.view as View, { [key]: '3' });
+
+    expect(answer.body).toEqual({
+      response_action: 'errors',
+      errors: {
+        [key]: 'This time changed after the form opened: open the form again.',
+      },
+    });
+    expect(await entriesOf()).toEqual([
+      'Website 2026-06-17 120 draft',
+      'Website 2026-06-18 60 submitted',
     ]);
   });
 

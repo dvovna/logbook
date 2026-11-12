@@ -1,10 +1,8 @@
-import { sumMinutes } from '@common/utils/time.utils';
-import { OPEN_TIME_ENTRY_STATUSES } from 'src/time-entries/constants/open-time-entry-statuses';
 import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import ProjectsService from 'src/projects/services/projects.service';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
-import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
+import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeEntriesScopeService } from 'src/time-entries/services/time-entries-scope.service';
 
 export interface IUserTimeSummary {
@@ -35,11 +33,11 @@ const weekOf = (date: Date) => {
 };
 
 // The numbers Home and Reports show, over all entries but
-// deleted ones, whatever their status.
+// deleted ones, whatever their status, counted and summed in the database.
 @Injectable()
 export class TimeEntriesSummaryService {
   public constructor(
-    private readonly timeEntriesService: TimeEntriesService,
+    private readonly timeEntriesRepository: TimeEntriesRepository,
     private readonly projectsService: ProjectsService,
     private readonly scopeService: TimeEntriesScopeService,
   ) {}
@@ -48,39 +46,27 @@ export class TimeEntriesSummaryService {
     user: IUserViewModel,
     now = new Date(),
   ): Promise<IUserTimeSummary> {
-    const today = isoDate(now);
-    const [weekEntries, unsubmittedEntries] = await Promise.all([
-      this.timeEntriesService.findMany({
-        userId: user.id,
-        slackTeamId: user.slack_team_id,
-        ...weekOf(now),
-      }),
-      this.timeEntriesService.findMany({
-        userId: user.id,
-        slackTeamId: user.slack_team_id,
-        statuses: OPEN_TIME_ENTRY_STATUSES,
-      }),
+    const [week, today] = await Promise.all([
+      this.timeEntriesRepository.sumOfUser(
+        user.slack_team_id,
+        user.id,
+        weekOf(now),
+      ),
+      this.timeEntriesRepository.sumOfUserByClient(
+        user.slack_team_id,
+        user.id,
+        isoDate(now),
+      ),
     ]);
-    const todayEntries = weekEntries.filter(
-      ({ work_date }) => work_date === today,
-    );
-
-    const byClient = new Map<string | null, number>();
-    for (const entry of todayEntries) {
-      const clientName = entry.client?.name ?? null;
-      byClient.set(clientName, (byClient.get(clientName) ?? 0) + entry.minutes);
-    }
 
     return {
-      todayMinutes: sumMinutes(todayEntries),
-      todayByClient: [...byClient]
-        .map(([clientName, minutes]) => ({ clientName, minutes }))
-        .sort((a, b) => b.minutes - a.minutes),
-      weekMinutes: sumMinutes(weekEntries),
-      unsubmitted: {
-        count: unsubmittedEntries.length,
-        minutes: sumMinutes(unsubmittedEntries),
-      },
+      todayMinutes: today.reduce((total, { minutes }) => total + minutes, 0),
+      todayByClient: today.map(({ client_name, minutes }) => ({
+        clientName: client_name,
+        minutes,
+      })),
+      weekMinutes: week.minutes,
+      unsubmitted: { count: week.openCount, minutes: week.openMinutes },
     };
   }
 
@@ -91,19 +77,18 @@ export class TimeEntriesSummaryService {
     user: IUserViewModel,
     now = new Date(),
   ): Promise<IWorkspaceTimeSummary> {
-    const [{ entries: weekEntries }, projects] = await Promise.all([
-      this.scopeService.findEntries(user, weekOf(now)),
-      this.projectsService.findMany({ slackTeamId: user.slack_team_id }),
+    const [week, activeProjects] = await Promise.all([
+      this.scopeService.sumMinutes(user, weekOf(now)),
+      this.projectsService.count({
+        slackTeamId: user.slack_team_id,
+        status: ProjectStatus.Active,
+      }),
     ]);
 
     return {
-      weekMinutes: sumMinutes(weekEntries),
-      weekBillableMinutes: sumMinutes(
-        weekEntries.filter(({ billable }) => billable),
-      ),
-      activeProjects: projects.filter(
-        ({ status }) => status === ProjectStatus.Active,
-      ).length,
+      weekMinutes: week.minutes,
+      weekBillableMinutes: week.billableMinutes,
+      activeProjects,
     };
   }
 }

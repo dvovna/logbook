@@ -2,9 +2,14 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RequestWorkflowStepCommentsService } from 'src/request-workflows/services/request-workflow-step-comments.service';
 import { RequestWorkflowStepCommentsRepository } from 'src/request-workflows/repositories/request-workflow-step-comments.repository';
 import { ValidationError } from 'src/common/errors/validation.error';
+import { TransactionService } from 'src/database/transaction.service';
+import { WorkflowStepCommentEvent } from 'src/request-workflows/enums/workflow-step-comment-event.enum';
+import { RequestWorkflowStepCommentAddedEvent } from 'src/request-workflows/events/request-workflow-step-comment.events';
 
 describe('RequestWorkflowStepCommentsService', () => {
   let repository: Record<'count' | 'create', jest.Mock>;
+  let emitAsync: jest.Mock;
+  let inTransaction: boolean;
   let service: RequestWorkflowStepCommentsService;
 
   const commentParams = {
@@ -27,9 +32,26 @@ describe('RequestWorkflowStepCommentsService', () => {
       count: jest.fn().mockResolvedValue(0),
       create: jest.fn().mockImplementation((row: object) => row),
     };
+    inTransaction = false;
+    emitAsync = jest.fn(() => {
+      expect(inTransaction).toBe(true);
+
+      return Promise.resolve([]);
+    });
     service = new RequestWorkflowStepCommentsService(
       repository as unknown as RequestWorkflowStepCommentsRepository,
-      { emit: jest.fn() } as unknown as EventEmitter2,
+      { emitAsync } as unknown as EventEmitter2,
+      {
+        transaction: async <T>(work: () => Promise<T>) => {
+          inTransaction = true;
+
+          try {
+            return await work();
+          } finally {
+            inTransaction = false;
+          }
+        },
+      } as unknown as TransactionService,
     );
   });
 
@@ -54,6 +76,18 @@ describe('RequestWorkflowStepCommentsService', () => {
 
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({ comment: 'Enjoy!' }),
+    );
+  });
+
+  // Its listeners save the jobs that show it with it.
+  it('tells of the comment inside its transaction', async () => {
+    await service.create({ ...commentParams, comment: 'Enjoy!' });
+
+    expect(emitAsync).toHaveBeenCalledWith(
+      WorkflowStepCommentEvent.Added,
+      new RequestWorkflowStepCommentAddedEvent(
+        expect.objectContaining({ comment: 'Enjoy!' }),
+      ),
     );
   });
 });

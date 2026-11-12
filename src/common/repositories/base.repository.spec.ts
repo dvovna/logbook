@@ -110,9 +110,26 @@ describe('BaseRepository', () => {
     });
 
     expect(sqlOf(0)).toBe(
-      'select "clients".* from "clients" where ("slack_team_id" = $1 and "archived_at" is null and "created_by" is null and "id" in ($2, $3) and "name" <> $4 and "name" ilike $5) order by "created_at" desc, "id" asc',
+      'select "clients".* from "clients" where ("slack_team_id" = $1 and "archived_at" is null and "created_by" is null and "id" = any($2) and "name" <> $3 and "name" ilike $4) order by "created_at" desc, "id" asc',
     );
-    expect(parametersOf(0)).toEqual(['w1', 'c1', 'c2', 'Acme', 'G%']);
+    expect(parametersOf(0)).toEqual(['w1', ['c1', 'c2'], 'Acme', 'G%']);
+  });
+
+  // A statement takes at most 65535 parameters; Postgres types the array as
+  // the column's.
+  it('sends a list as one array parameter, however long', async () => {
+    const ids = Array.from({ length: 70000 }, (_, index) => `c${index}`);
+    const { database, sqlOf, parametersOf } = recordingDatabase([[]]);
+
+    await new ClientsRepository(database).updateMany(
+      { ...workspace, id: { operator: 'in', value: ids } },
+      { name: 'Acme' },
+    );
+
+    expect(sqlOf(0)).toBe(
+      'update "clients" set "name" = $1 where ("slack_team_id" = $2 and "id" = any($3)) returning *',
+    );
+    expect(parametersOf(0)).toEqual(['Acme', 'w1', ids]);
   });
 
   it('matches no row for an empty list, instead of every row', async () => {

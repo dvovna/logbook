@@ -8,10 +8,8 @@ import {
   BaseActionHandler,
 } from '@modules/slack/common/handlers/base-action.handler';
 import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-interaction-payload.interface';
-import {
-  LOG_TIME_OFF_ACTION_ID,
-  TimeOffOfferService,
-} from '@modules/slack/tabs/vacation-requests/services/time-off-offer.service';
+import { LOG_TIME_OFF_ACTION_ID } from '@modules/slack/tabs/vacation-requests/constants/time-off-offer';
+import { TimeOffLogClickService } from '@modules/slack/tabs/vacation-requests/services/time-off-log-click.service';
 
 // The button under an approved time off: log its working days as time. Only
 // the requester may click it (the service refuses anyone else).
@@ -24,7 +22,7 @@ import {
 export class TimeOffOfferHandler extends BaseActionHandler {
   protected actionMap: ActionMapType;
 
-  public constructor(private readonly offerService: TimeOffOfferService) {
+  public constructor(private readonly clickService: TimeOffLogClickService) {
     super();
 
     this.actionMap = {
@@ -42,7 +40,7 @@ export class TimeOffOfferHandler extends BaseActionHandler {
       throw new Error('No request id in the button value');
     }
 
-    return this.offerService.handleClick(user, requestId, {
+    return this.clickService.handleClick(user, requestId, {
       channel: payload.channel?.id,
       ts: payload.message?.ts,
       blocks: payload.message?.blocks,

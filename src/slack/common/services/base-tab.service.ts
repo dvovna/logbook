@@ -46,7 +46,7 @@ export default abstract class BaseTabService<
   private readonly logger = new Logger(BaseTabService.name);
 
   @Inject(SlackCommunicationService)
-  private readonly slackCommunicationService: SlackCommunicationService;
+  protected readonly slackCommunicationService: SlackCommunicationService;
 
   @Inject(TabNavigationService)
   private readonly tabNavigationService: TabNavigationService;
@@ -98,13 +98,14 @@ export default abstract class BaseTabService<
     }
 
     try {
-      const pendingApprovals = params.user.is_active
-        ? await this.countPendingApprovals(params.user)
-        : undefined;
-      const tabView = await this.getSafeTabView({
-        ...params,
-        pendingApprovals,
-      });
+      // Beside the screen's own reads, not before them.
+      const counting = params.user.is_active
+        ? this.countPendingApprovals(params.user)
+        : Promise.resolve(undefined);
+      const [tabView, pendingApprovals] = await Promise.all([
+        this.getSafeTabView({ ...params, pendingApprovals: counting }),
+        counting,
+      ]);
       const header = params.user.is_active
         ? [
             ...ScreenHeader.getBlocks({
@@ -144,7 +145,7 @@ export default abstract class BaseTabService<
   }
 
   // Only a number on a button and a line on Home: without it the screen
-  // still shows.
+  // still shows. Never rejects, so Home may wait for it.
   private countPendingApprovals(
     user: IUserViewModel,
   ): Promise<IPendingApprovals | undefined> {

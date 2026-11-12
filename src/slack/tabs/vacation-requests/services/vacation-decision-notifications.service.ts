@@ -15,7 +15,7 @@ import {
 import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { VacationRequestDecidedEvent } from '@modules/vacation-requests/events/vacation-request.events';
@@ -24,11 +24,9 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
-import {
-  ITimeOffOffer,
-  TimeOffLoggingService,
-} from 'src/time-off-logging/services/time-off-logging.service';
-import { TimeOffOfferService } from '@modules/slack/tabs/vacation-requests/services/time-off-offer.service';
+import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
+import { ITimeOffOffer } from 'src/time-off-logging/types/time-off-offer.types';
+import { TimeOffOfferView } from '@modules/slack/tabs/vacation-requests/views/time-off-offer.view';
 import { UsersService } from '@modules/users/services/users.service';
 
 export enum DecisionNotificationJob {
@@ -48,8 +46,8 @@ interface IRecipientJob extends IRequestJob {
 }
 
 // Tells the requester how their request was decided and, when it was approved,
-// the team's approval_notification_recipients. One job per message, so a
-// retry sends only the messages that failed.
+// the notification recipients of its team's rules (or of the company rules).
+// One job per message, so a retry sends only the messages that failed.
 @Injectable()
 export class VacationDecisionNotificationsService implements OnModuleInit {
   private readonly logger = new Logger(
@@ -57,14 +55,14 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
   );
 
   public constructor(
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
     private readonly communicationService: SlackCommunicationService,
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly usersService: UsersService,
     private readonly jobs: JobsService,
     private readonly timeOffLoggingService: TimeOffLoggingService,
-    private readonly timeOffOfferService: TimeOffOfferService,
+    private readonly timeOffOfferView: TimeOffOfferView,
   ) {}
 
   public onModuleInit() {
@@ -79,18 +77,29 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     );
   }
 
-  @OnEvent(VacationRequestEvent.Decided)
-  public handleDecided({ request, decidedBy }: VacationRequestDecidedEvent) {
+  // Runs in the transaction that decides the request (emitAsync), so the
+  // jobs are saved with the decision.
+  @OnEvent(VacationRequestEvent.Decided, { suppressErrors: false })
+  public async handleDecided({
+    request,
+    decidedBy,
+  }: VacationRequestDecidedEvent) {
     const job: IRequestJob = {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
       decidedById: decidedBy.id,
     };
 
-    this.jobs.run<IRequestJob>(DecisionNotificationJob.Requester, job);
+    await this.jobs.enqueue<IRequestJob>(
+      DecisionNotificationJob.Requester,
+      job,
+    );
 
     if (request.status === VacationRequestStatus.Approved) {
-      this.jobs.run<IRequestJob>(DecisionNotificationJob.Recipients, job);
+      await this.jobs.enqueue<IRequestJob>(
+        DecisionNotificationJob.Recipients,
+        job,
+      );
     }
   }
 
@@ -128,16 +137,18 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     }
   }
 
+  // Saved before this job ends, so that a crash can't lose them with it.
   private async notifyRecipients(job: IRequestJob) {
     const decided = await this.loadDecided(job);
 
     if (decided) {
-      for (const recipientSlackId of await this.recipientsOf(decided.request)) {
-        this.jobs.run<IRecipientJob>(DecisionNotificationJob.Recipient, {
+      await this.jobs.enqueueMany<IRecipientJob>(
+        DecisionNotificationJob.Recipient,
+        (await this.recipientsOf(decided.request)).map((recipientSlackId) => ({
           ...job,
           recipientSlackId,
-        });
-      }
+        })),
+      );
     }
   }
 
@@ -221,9 +232,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
             },
           ],
         } as KnownBlock,
-        ...(offer
-          ? (this.timeOffOfferService.getBlocks(offer) as KnownBlock[])
-          : []),
+        ...(offer ? this.timeOffOfferView.getButtonBlocks(offer) : []),
       ],
     };
   }
@@ -246,21 +255,15 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     return `*${vacationTypeLabel(request.type)}* · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)}, ${request.working_days} working)`;
   }
 
+  // Read when the request is decided: a change to the rules since it was
+  // made counts. A request in no team has the company's recipients.
   private async recipientsOf(request: IVacationRequestViewModel) {
-    if (!request.team_id) {
-      this.logger.warn(
-        `Request ${request.id} has no team_id. Skipping approval notification.`,
-      );
+    const { notificationRecipients } = await this.teamRulesService.forTeam(
+      request.team_id,
+      request.slack_team_id,
+    );
 
-      return [];
-    }
-
-    const team = await this.teamsService.findOneWithValidation({
-      id: request.team_id,
-      slackTeamId: request.slack_team_id,
-    });
-
-    return team.approval_notification_recipients ?? [];
+    return notificationRecipients;
   }
 
   private getNotificationMessage(

@@ -1,6 +1,7 @@
 import { isPersonWithEmail } from '@modules/slack-communication/services/slack-users.service';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import UserRole from '@common/enums/user-role.enum';
 import SlackUserAccessService from '@modules/slack/services/slack-user-access.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -13,12 +14,16 @@ import {
 import { UsersService } from '@modules/users/services/users.service';
 import { SlackAppUninstallService } from '@modules/slack/services/slack-app-uninstall.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
+import { SlackEventReceiptsService } from '@modules/slack-teams/slack-event-receipts.service';
 import { getRequestWorkspaceSlackId } from '@common/utils/slack-request.utils';
+import { NEW_PERSON_PROMPT_JOB } from 'src/team-file/constants/jobs';
+import { INewPersonPromptJob } from 'src/team-file/types/new-person-prompt-job.interface';
 
 interface IFileSharedEvent {
   type: SlackEventType.FileShared;
   user_id: string;
   file_id: string;
+  channel_id: string;
   team_id: string;
 }
 
@@ -124,11 +129,14 @@ export default class SlackEventsService implements OnModuleInit {
     private readonly slackAppUninstallService: SlackAppUninstallService,
     private readonly slackTeamService: SlackTeamsService,
     private readonly jobs: JobsService,
+    private readonly eventReceipts: SlackEventReceiptsService,
   ) {}
 
   // Slack sends an event once and gets its answer at once, so the work runs
-  // as a job: a failure or a restart in the middle is retried. A job carries
-  // the event and the user's ID; the user is read again when it runs.
+  // as a job: a failure or a restart in the middle is retried. The job is
+  // saved before Slack gets its answer (enqueue), so a crash after the answer
+  // can't lose the event. A job carries the event and the user's ID; the
+  // user is read again when it runs.
   public onModuleInit() {
     this.jobs.define<IEventJob<IFileSharedEvent>>(
       SlackEventJob.FileShared,
@@ -162,9 +170,11 @@ export default class SlackEventsService implements OnModuleInit {
   ) {
     switch (event.type) {
       case SlackEventType.FileShared:
-        void this.jobs.run<IEventJob<IFileSharedEvent>>(
-          SlackEventJob.FileShared,
-          { event, ...this.actor(user) },
+        await this.saveJobOnce(body, () =>
+          this.jobs.enqueue<IEventJob<IFileSharedEvent>>(
+            SlackEventJob.FileShared,
+            { event, ...this.actor(user) },
+          ),
         );
 
         break;
@@ -173,17 +183,21 @@ export default class SlackEventsService implements OnModuleInit {
 
         break;
       case SlackEventType.TeamJoin:
-        void this.jobs.run<IEventJob<ITeamJoinEvent>>(SlackEventJob.TeamJoin, {
-          event,
-          ...this.actor(user),
-          workspaceSlackId: getRequestWorkspaceSlackId(body),
-        });
+        await this.saveJobOnce(body, () =>
+          this.jobs.enqueue<IEventJob<ITeamJoinEvent>>(SlackEventJob.TeamJoin, {
+            event,
+            ...this.actor(user),
+            workspaceSlackId: getRequestWorkspaceSlackId(body),
+          }),
+        );
 
         break;
       case SlackEventType.UserChange:
-        void this.jobs.run<IEventJob<IUserChangeEvent>>(
-          SlackEventJob.UserChange,
-          { event, ...this.actor(user) },
+        await this.saveJobOnce(body, () =>
+          this.jobs.enqueue<IEventJob<IUserChangeEvent>>(
+            SlackEventJob.UserChange,
+            { event, ...this.actor(user) },
+          ),
         );
 
         break;
@@ -191,7 +205,9 @@ export default class SlackEventsService implements OnModuleInit {
         const { team_id: teamSlackId } =
           body as unknown as IAppUninstalledEventBodyData;
 
-        void this.jobs.run(SlackEventJob.AppUninstalled, { teamSlackId });
+        await this.saveJobOnce(body, () =>
+          this.jobs.enqueue(SlackEventJob.AppUninstalled, { teamSlackId }),
+        );
 
         break;
       }
@@ -202,6 +218,26 @@ export default class SlackEventsService implements OnModuleInit {
     }
 
     return { ok: true };
+  }
+
+  // Slack sends an event again when its answer came late or failed: only
+  // its first delivery saves a job. Opening Home has no job, and showing it
+  // twice does no harm.
+  private async saveJobOnce(
+    body: Record<string, unknown>,
+    save: () => Promise<void>,
+  ) {
+    const eventId =
+      typeof body.event_id === 'string' ? body.event_id : undefined;
+    const taken = await this.eventReceipts.takeOnce(
+      getRequestWorkspaceSlackId(body),
+      eventId,
+      save,
+    );
+
+    if (!taken) {
+      this.logger.log('Ignoring an event Slack sent again', { eventId });
+    }
   }
 
   private actor(user: IUserViewModel | undefined) {
@@ -307,7 +343,7 @@ export default class SlackEventsService implements OnModuleInit {
       slackTeamId: slackTeam.slack_id,
     });
 
-    await this.usersService.upsert({
+    const created = (await this.usersService.upsert({
       slackId: event.user.id,
       role:
         event.user.is_admin || event.user.is_owner
@@ -318,7 +354,19 @@ export default class SlackEventsService implements OnModuleInit {
       name: event.user.real_name,
       isActive: !event.user.deleted,
       slackTeamId: slackTeam.id,
-    });
+    })) as IUserViewModel;
+
+    // Before the first member import finished, the import brings everyone
+    // in and asks about nobody. Saved before this job ends: a retry of a job
+    // that got this far finds the person and asks nothing. Only the save is
+    // awaited, not the run: this job holds a slot that the prompt's job may
+    // be waiting for (JobsService).
+    if (slackTeam.members_imported_at) {
+      await this.jobs.enqueue<INewPersonPromptJob>(NEW_PERSON_PROMPT_JOB, {
+        slackTeamId: slackTeam.id,
+        userId: created.id,
+      });
+    }
   }
 
   public async handleFileShared(
@@ -331,11 +379,19 @@ export default class SlackEventsService implements OnModuleInit {
       return;
     }
 
-    await this.slackUserAccessService.checkUserRoleAccess(user, UserRole.Admin);
+    // A refusal is final: running the job again would only repeat it.
+    if (
+      !(await this.slackUserAccessService.checkUserRoleAccess(
+        user,
+        ADMIN_AND_HR_ROLES,
+      ))
+    ) {
+      return;
+    }
 
-    const { file_id: fileId } = event;
+    const { file_id: fileId, channel_id: channelId } = event;
 
-    await this.fileUploadService.handleFileUpload(fileId, user);
+    await this.fileUploadService.handleFileUpload(fileId, channelId, user);
   }
 
   public handleHomeTapOpened(

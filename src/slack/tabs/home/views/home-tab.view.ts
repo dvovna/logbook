@@ -22,7 +22,8 @@ import { getDisplayTime } from '@common/utils/time.utils';
 import { IUserTimeSummary } from 'src/time-entries/services/time-entries-summary.service';
 import { IPendingApprovals } from '@modules/slack/common/services/pending-approvals.service';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
-import { ISetupProgress } from '@modules/slack/tabs/home/services/setup-progress.service';
+import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { ISetupProgress } from '@modules/slack/tabs/home/types/setup-progress.interface';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;
@@ -83,6 +84,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
   // button to the screen that does it.
   private getSetupBlocks({
     hasPolicy,
+    hasCompanyApprovers,
     hasTeamWithApprovers,
     peopleWithoutTeam,
     hasProjects,
@@ -94,17 +96,36 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         title: 'Create a vacation policy',
         why: "Days per year and public holidays. Without one, balances aren't checked.",
         doneLabel: 'vacation policy',
-        button: 'Open Policies',
-        actionId: NavigationActionId.Policies,
+        buttons: [
+          { text: 'Open Policies', actionId: NavigationActionId.Policies },
+        ],
+      },
+      {
+        key: 'rules',
+        done: hasCompanyApprovers,
+        title: 'Set the company rules',
+        why: 'Who approves after the team lead, who hears of decisions, and the policy teams follow.',
+        doneLabel: 'company rules',
+        buttons: [
+          {
+            text: 'Company rules',
+            actionId: TeamsTabViewActionId.CompanyRules,
+          },
+        ],
       },
       {
         key: 'team',
         done: hasTeamWithApprovers,
-        title: 'Create a team and pick its approvers',
-        why: 'Its approvers decide time off for the people in it.',
+        title: 'Create teams and pick their approvers',
+        why: "A team's approvers decide time off for its people. The team file sets up everyone at once.",
         doneLabel: 'team with approvers',
-        button: 'Open Teams',
-        actionId: NavigationActionId.Teams,
+        buttons: [
+          {
+            text: '📄 Set up from a file',
+            actionId: TeamsTabViewActionId.TeamFile,
+          },
+          { text: 'Teams', actionId: NavigationActionId.Teams },
+        ],
       },
       {
         key: 'people',
@@ -112,8 +133,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         title: 'Put people in teams',
         why: `${pluralize('person', peopleWithoutTeam, true)} ${peopleWithoutTeam === 1 ? 'has' : 'have'} no team: their requests go to HR or the admins.`,
         doneLabel: 'everyone in a team',
-        button: 'Open People',
-        actionId: NavigationActionId.People,
+        buttons: [{ text: 'Open People', actionId: NavigationActionId.People }],
       },
       {
         key: 'projects',
@@ -122,8 +142,9 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         title: 'Add projects',
         why: 'Only if you track time: people log hours on them.',
         doneLabel: 'projects',
-        button: 'Open Projects',
-        actionId: NavigationActionId.Projects,
+        buttons: [
+          { text: 'Open Projects', actionId: NavigationActionId.Projects },
+        ],
       },
     ];
     const required = steps.filter(({ optional }) => !optional);
@@ -154,19 +175,40 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         : []),
       ...steps
         .filter((step) => !step.done)
-        .map(({ key, optional, title, why, button, actionId }) => ({
-          type: 'section' as const,
-          block_id: `${SETUP_BLOCK_ID}_${key}`,
-          text: {
+        .flatMap(({ key, optional, title, why, buttons }): AnyBlock[] => {
+          const toButton = ({ text, actionId }: (typeof buttons)[number]) => ({
+            type: 'button' as const,
+            text: { type: 'plain_text' as const, text },
+            action_id: actionId,
+          });
+          const text = {
             type: 'mrkdwn' as const,
             text: `*${title}*${optional ? ' · _optional_' : ''}\n${why}`,
-          },
-          accessory: {
-            type: 'button' as const,
-            text: { type: 'plain_text' as const, text: button },
-            action_id: actionId,
-          },
-        })),
+          };
+
+          // A section holds one button; with more they go in a row below.
+          return buttons.length === 1
+            ? [
+                {
+                  type: 'section',
+                  block_id: `${SETUP_BLOCK_ID}_${key}`,
+                  text,
+                  accessory: toButton(buttons[0]),
+                },
+              ]
+            : [
+                {
+                  type: 'section',
+                  block_id: `${SETUP_BLOCK_ID}_${key}`,
+                  text,
+                },
+                {
+                  type: 'actions',
+                  block_id: `${SETUP_BLOCK_ID}_${key}_buttons`,
+                  elements: buttons.map(toButton),
+                },
+              ];
+        }),
       ...Divider.getBlocks(),
     ];
   }
@@ -239,8 +281,8 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     const usedDays = usage.used ?? 0;
     const workingUsed = usage.working_days_used ?? 0;
 
-    // Without a team vacation policy nothing is limited: there is no balance
-    // to show, only what was taken.
+    // Without a vacation policy (the team's or the company rules') nothing is
+    // limited: there is no balance to show, only what was taken.
     if (!limits) {
       return this.unlimitedLeaveBlock(
         VACATION_TYPE_LABELS[VacationType.AnnualLeave].balance,
@@ -278,7 +320,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${title}: ${used > 0 ? `*${used}* used · ` : ''}no limit (your team has no vacation policy)`,
+        text: `${title}: ${used > 0 ? `*${used}* used · ` : ''}no limit (no vacation policy applies to you)`,
       },
     };
   }

@@ -89,6 +89,35 @@ describe('Repositories', () => {
     );
   });
 
+  // One bind parameter per value would stop at 65535.
+  it('takes a list of more values than a statement takes parameters', async () => {
+    await addClients(3);
+    const [first, second] = await clients.findMany(
+      { slack_team_id: workspace.id },
+      { orderBy: ['name:asc'] },
+    );
+    const others = Array.from(
+      { length: 70_000 },
+      (_, index) =>
+        `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    );
+
+    const found = await clients.findMany(
+      { slack_team_id: workspace.id, id: [first.id, ...others, second.id] },
+      { orderBy: ['name:asc'] },
+    );
+    const renamed = await clients.updateMany(
+      {
+        slack_team_id: workspace.id,
+        name: { operator: 'in', value: [...others, first.name] },
+      },
+      { description: 'Renamed' },
+    );
+
+    expect(found.map(({ id }) => id)).toEqual([first.id, second.id]);
+    expect(renamed.map(({ id }) => id)).toEqual([first.id]);
+  });
+
   it('finds one row, or null when none matches', async () => {
     const acme = await workspace.addClient({ name: 'Acme' });
 

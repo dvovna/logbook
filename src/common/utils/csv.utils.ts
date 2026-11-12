@@ -17,10 +17,23 @@ export const csvText = (value: string | null | undefined) => {
   return FORMULA_START.test(text) ? `'${text}` : text;
 };
 
+// The text csvText wrote, read back: a spreadsheet keeps the ' it added.
+export const fromCsvText = (text: string) =>
+  text.startsWith("'") && FORMULA_START.test(text.slice(1))
+    ? text.slice(1)
+    : text;
+
 const csvField = (value: string) =>
   /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 
-export const toCsv = (rows: string[][]) =>
-  BYTE_ORDER_MARK +
-  rows.map((row) => row.map(csvField).join(',')).join('\r\n') +
-  '\r\n';
+// Lines of a file, each ended by a line break: what toCsv writes after the
+// mark, so that a big file can be written a part at a time.
+export const csvLines = (rows: string[][]) =>
+  rows.map((row) => `${row.map(csvField).join(',')}\r\n`).join('');
+
+// A file's beginning: the byte order mark and the header line.
+export const csvStart = (header: string[]) =>
+  BYTE_ORDER_MARK + csvLines([header]);
+
+export const toCsv = ([header, ...rows]: string[][]) =>
+  csvStart(header) + csvLines(rows);

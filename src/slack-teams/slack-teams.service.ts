@@ -26,6 +26,13 @@ export interface IBotTokens {
   expiresAt?: Date | null;
 }
 
+// The bot token as findTokens() read it. `storedRefreshToken` is its
+// refresh token as stored, encrypted: saveRefreshedTokens() replaces the
+// pair only while it is still this one.
+export interface IStoredBotTokens extends IBotTokens {
+  storedRefreshToken: string | null;
+}
+
 interface ICreateWorkspaceParams {
   slackId: string;
   name: string;
@@ -122,6 +129,11 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return workspaces.map(({ id }) => id);
   }
 
+  // See SlackTeamsRepository.claimMemberSync.
+  public claimMemberSync(id: string, since: Date, now: Date): Promise<boolean> {
+    return this.slackTeamsRepository.claimMemberSync(id, since, now);
+  }
+
   // See SlackTeamsRepository.claimReminderWeek.
   public claimReminderWeek(id: string, monday: string): Promise<boolean> {
     return this.slackTeamsRepository.claimReminderWeek(id, monday);
@@ -163,13 +175,24 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     });
   }
 
+  // True when this call set it: the first import is done, and the one that
+  // did it asks about nobody. It never overwrites.
+  public async markMembersImported(slackTeamId: string): Promise<boolean> {
+    const marked = await this.slackTeamsRepository.updateMany(
+      { id: slackTeamId, members_imported_at: null },
+      { members_imported_at: new Date().toISOString() },
+    );
+
+    return marked.length > 0;
+  }
+
   public async findAccessToken(id: string): Promise<string | null> {
     return (await this.findTokens(id))?.token ?? null;
   }
 
   // The workspace's bot token, decrypted, with its refresh token and expiry
   // when it rotates. Null for an unknown or uninstalled workspace.
-  public async findTokens(id: string): Promise<IBotTokens | null> {
+  public async findTokens(id: string): Promise<IStoredBotTokens | null> {
     const stored = await this.slackTeamsRepository.findStoredTokens(id);
 
     if (!stored?.slack_token) {
@@ -191,11 +214,31 @@ export class SlackTeamsService implements OnApplicationBootstrap {
       expiresAt: stored.slack_token_expires_at
         ? new Date(stored.slack_token_expires_at)
         : null,
+      storedRefreshToken: stored.slack_refresh_token,
     };
   }
 
   public async saveTokens(id: string, tokens: IBotTokens) {
     await this.slackTeamsRepository.saveTokens(id, this.encrypt(tokens));
+  }
+
+  // The pair a refresh of `previous` got, unless the stored pair changed
+  // since findTokens() read it (see SlackTeamsRepository.replaceTokens).
+  // False when it did, and nothing was saved.
+  public async saveRefreshedTokens(
+    id: string,
+    previous: IStoredBotTokens,
+    refreshed: IBotTokens,
+  ): Promise<boolean> {
+    if (!previous.storedRefreshToken) {
+      return false;
+    }
+
+    return this.slackTeamsRepository.replaceTokens(
+      id,
+      previous.storedRefreshToken,
+      this.encrypt(refreshed),
+    );
   }
 
   private encrypt({ token, refreshToken, expiresAt }: IBotTokens) {

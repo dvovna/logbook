@@ -1,3 +1,4 @@
+import { billingSnapshotsLock } from 'src/database/advisory-locks';
 import { ForbiddenException } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
 import { ValidationError } from '@common/errors/validation.error';
@@ -5,15 +6,12 @@ import ClientsService from '@modules/clients/services/clients.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TransactionService } from 'src/database/transaction.service';
-import ProjectsService from 'src/projects/services/projects.service';
-import { ProjectRatesService } from 'src/projects/services/project-rates.service';
-import { IProjectRates } from 'src/projects/types/project-user-rate.types';
 import { BillingSnapshotsRepository } from 'src/billing/repositories/billing-snapshots.repository';
 import { BillingSnapshotEntriesRepository } from 'src/billing/repositories/billing-snapshot-entries.repository';
 import { BillingSnapshotsService } from 'src/billing/services/billing-snapshots.service';
 import {
+  IBillingSnapshot,
   IBillingSnapshotViewModel,
-  IUnbilledEntry,
 } from 'src/billing/types/billing-snapshot.types';
 
 const SLACK_TEAM_ID = 'slack-team-1';
@@ -21,29 +19,17 @@ const SLACK_TEAM_ID = 'slack-team-1';
 const userWith = (role: UserRole) =>
   ({ id: 'actor', role, slack_team_id: SLACK_TEAM_ID }) as IUserViewModel;
 
-const entry = (
-  id: string,
-  projectId: string,
-  userId: string,
-  minutes: number,
-  billable = true,
-): IUnbilledEntry => ({
-  id,
-  project_id: projectId,
-  user_id: userId,
-  minutes,
-  billable,
-});
-
 const PERIOD = {
   clientId: 'acme',
   fromDate: '2026-10-01',
   toDate: '2026-10-31',
 };
 
+const NOTHING_LEFT = new ValidationError(
+  'No approved time of Acme in 1–31 Oct 2026 is left outside snapshots.',
+);
+
 describe('BillingSnapshotsService', () => {
-  let entries: IUnbilledEntry[];
-  let rates: Map<string, IProjectRates>;
   let client: { id: string; name: string } | null;
   let snapshotsRepository: Record<string, jest.Mock>;
   let entriesRepository: Record<string, jest.Mock>;
@@ -51,23 +37,17 @@ describe('BillingSnapshotsService', () => {
   let service: BillingSnapshotsService;
 
   beforeEach(() => {
-    entries = [];
-    rates = new Map();
     client = { id: 'acme', name: 'Acme' };
     snapshotsRepository = {
-      create: jest.fn(async (row) => ({
-        ...row,
-        id: 'snapshot-1',
-        total_amount_cents: Math.round(row.total_amount * 100),
-      })),
+      createFromUnbilled: jest.fn(),
       findOne: jest.fn(),
       search: jest.fn(),
       markInvoiced: jest.fn(),
       deleteOne: jest.fn(),
     };
     entriesRepository = {
-      findUnbilledApproved: jest.fn(async () => entries),
-      insertLines: jest.fn(),
+      hasUnbilled: jest.fn(async () => true),
+      unbilledTotals: jest.fn(),
       statsBySnapshot: jest.fn(async () => new Map()),
     };
     transactions = {
@@ -83,130 +63,53 @@ describe('BillingSnapshotsService', () => {
         findOne: jest.fn(async () => client),
       } as unknown as ClientsService,
       {
-        findMany: jest.fn().mockResolvedValue([{ id: 'web' }, { id: 'app' }]),
-      } as unknown as ProjectsService,
-      {
-        findRates: jest.fn(async () => rates),
-      } as unknown as ProjectRatesService,
-      {
         getCurrency: jest.fn().mockResolvedValue('EUR'),
       } as unknown as SlackTeamsService,
     );
   });
 
   describe('create', () => {
-    it("freezes each entry's rate and amount, and the totals", async () => {
-      rates.set('web', {
-        hourlyRate: 100,
-        personRates: [{ userId: 'ann', name: 'Ann', hourlyRate: 150 }],
-      });
-      rates.set('app', { hourlyRate: null, personRates: [] });
-      entries.push(
-        entry('e1', 'web', 'mia', 90),
-        entry('e2', 'web', 'ann', 30),
-        entry('e3', 'web', 'mia', 60, false),
-        entry('e4', 'app', 'mia', 45),
-      );
+    it("locks the period's time in one statement, one snapshot of the workspace at a time", async () => {
+      const made = { id: 'snapshot-1', entryCount: 4 } as IBillingSnapshot;
 
-      const snapshot = await service.create({
-        user: userWith(UserRole.Finance),
-        ...PERIOD,
+      transactions.lock.mockImplementation(async () => {
+        expect(snapshotsRepository.createFromUnbilled).not.toHaveBeenCalled();
       });
+      snapshotsRepository.createFromUnbilled.mockResolvedValue(made);
 
+      expect(
+        await service.create({ user: userWith(UserRole.Finance), ...PERIOD }),
+      ).toBe(made);
+      expect(transactions.transaction).toHaveBeenCalledTimes(1);
       expect(transactions.lock).toHaveBeenCalledWith(
-        `billing-snapshots:${SLACK_TEAM_ID}`,
+        billingSnapshotsLock(SLACK_TEAM_ID),
       );
-      expect(entriesRepository.findUnbilledApproved).toHaveBeenCalledWith({
+      expect(snapshotsRepository.createFromUnbilled).toHaveBeenCalledWith({
         slackTeamId: SLACK_TEAM_ID,
-        projectIds: ['web', 'app'],
+        clientId: 'acme',
         fromDate: '2026-10-01',
         toDate: '2026-10-31',
-        lock: true,
-      });
-      expect(snapshotsRepository.create).toHaveBeenCalledWith({
-        slack_team_id: SLACK_TEAM_ID,
-        client_id: 'acme',
-        period_start: '2026-10-01',
-        period_end: '2026-10-31',
         currency: 'EUR',
-        total_minutes: 225,
-        billable_minutes: 165,
-        // 1.5h at 100 and 0.5h at Ann's own 150; App has no rate.
-        total_amount: 225,
-        created_at: expect.any(String),
-        created_by: 'actor',
+        createdBy: 'actor',
       });
-      expect(entriesRepository.insertLines).toHaveBeenCalledWith(
-        SLACK_TEAM_ID,
-        'snapshot-1',
-        [
-          {
-            timeEntryId: 'e1',
-            minutes: 90,
-            billable: true,
-            hourlyRate: 100,
-            amountCents: 15000,
-          },
-          {
-            timeEntryId: 'e2',
-            minutes: 30,
-            billable: true,
-            hourlyRate: 150,
-            amountCents: 7500,
-          },
-          {
-            timeEntryId: 'e3',
-            minutes: 60,
-            billable: false,
-            hourlyRate: 100,
-            amountCents: null,
-          },
-          {
-            timeEntryId: 'e4',
-            minutes: 45,
-            billable: true,
-            hourlyRate: null,
-            amountCents: null,
-          },
-        ],
-      );
-      expect(snapshot).toMatchObject({ entryCount: 4, unratedMinutes: 45 });
-    });
-
-    it('rounds each entry to the cent, so the lines add up to the total', async () => {
-      rates.set('web', { hourlyRate: 100.01, personRates: [] });
-      entries.push(
-        entry('e1', 'web', 'mia', 15),
-        entry('e2', 'web', 'mia', 15),
-      );
-
-      await service.create({ user: userWith(UserRole.Admin), ...PERIOD });
-
-      // 25.0025 each, rounded to 25.00.
-      expect(snapshotsRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ total_amount: 50 }),
-      );
     });
 
     it('refuses a period with nothing left outside snapshots', async () => {
+      snapshotsRepository.createFromUnbilled.mockResolvedValue(null);
+
       await expect(
         service.create({ user: userWith(UserRole.Admin), ...PERIOD }),
-      ).rejects.toThrow(
-        new ValidationError(
-          'No approved time of Acme in 1–31 Oct 2026 is left outside snapshots.',
-        ),
-      );
-      expect(snapshotsRepository.create).not.toHaveBeenCalled();
+      ).rejects.toThrow(NOTHING_LEFT);
     });
 
     it("refuses a client that isn't the workspace's", async () => {
       client = null;
-      entries.push(entry('e1', 'web', 'mia', 60));
 
       await expect(
         service.create({ user: userWith(UserRole.Admin), ...PERIOD }),
       ).rejects.toThrow(new ValidationError('Client not found.'));
-      expect(entriesRepository.findUnbilledApproved).not.toHaveBeenCalled();
+      expect(transactions.transaction).not.toHaveBeenCalled();
+      expect(snapshotsRepository.createFromUnbilled).not.toHaveBeenCalled();
     });
 
     it('refuses a period of more than a year', async () => {
@@ -217,25 +120,69 @@ describe('BillingSnapshotsService', () => {
           fromDate: '2025-01-01',
         }),
       ).rejects.toThrow(ValidationError);
+      expect(snapshotsRepository.createFromUnbilled).not.toHaveBeenCalled();
     });
 
     it.each([UserRole.HR, UserRole.Manager, UserRole.Member])(
       'is not made by a %s',
       async (role) => {
-        entries.push(entry('e1', 'web', 'mia', 60));
-
         await expect(
           service.create({ user: userWith(role), ...PERIOD }),
         ).rejects.toThrow(ForbiddenException);
-        expect(entriesRepository.findUnbilledApproved).not.toHaveBeenCalled();
-        expect(snapshotsRepository.create).not.toHaveBeenCalled();
+        expect(snapshotsRepository.createFromUnbilled).not.toHaveBeenCalled();
       },
     );
   });
 
+  describe('assertCanCreate', () => {
+    it("passes when the client's period has time to lock", async () => {
+      await service.assertCanCreate({
+        user: userWith(UserRole.Admin),
+        ...PERIOD,
+      });
+
+      expect(entriesRepository.hasUnbilled).toHaveBeenCalledWith({
+        slackTeamId: SLACK_TEAM_ID,
+        ...PERIOD,
+      });
+      expect(transactions.transaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses a period with nothing left outside snapshots', async () => {
+      entriesRepository.hasUnbilled.mockResolvedValue(false);
+
+      await expect(
+        service.assertCanCreate({ user: userWith(UserRole.Admin), ...PERIOD }),
+      ).rejects.toThrow(NOTHING_LEFT);
+    });
+
+    it("refuses a client that isn't the workspace's", async () => {
+      client = null;
+
+      await expect(
+        service.assertCanCreate({ user: userWith(UserRole.Admin), ...PERIOD }),
+      ).rejects.toThrow(new ValidationError('Client not found.'));
+    });
+
+    it('reads nothing for a member', async () => {
+      await expect(
+        service.assertCanCreate({
+          user: userWith(UserRole.Member),
+          ...PERIOD,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(entriesRepository.hasUnbilled).not.toHaveBeenCalled();
+    });
+  });
+
   it('previews without locking or writing anything', async () => {
-    rates.set('web', { hourlyRate: 80, personRates: [] });
-    entries.push(entry('e1', 'web', 'mia', 90));
+    entriesRepository.unbilledTotals.mockResolvedValue({
+      entryCount: 1,
+      totalMinutes: 90,
+      billableMinutes: 90,
+      amountCents: 12000,
+      unratedMinutes: 0,
+    });
 
     expect(
       await service.preview({ user: userWith(UserRole.Admin), ...PERIOD }),
@@ -250,11 +197,12 @@ describe('BillingSnapshotsService', () => {
       amountCents: 12000,
       unratedMinutes: 0,
     });
-    expect(entriesRepository.findUnbilledApproved).toHaveBeenCalledWith(
-      expect.objectContaining({ lock: false }),
-    );
+    expect(entriesRepository.unbilledTotals).toHaveBeenCalledWith({
+      slackTeamId: SLACK_TEAM_ID,
+      ...PERIOD,
+    });
     expect(transactions.transaction).not.toHaveBeenCalled();
-    expect(snapshotsRepository.create).not.toHaveBeenCalled();
+    expect(snapshotsRepository.createFromUnbilled).not.toHaveBeenCalled();
   });
 
   describe('markInvoiced', () => {

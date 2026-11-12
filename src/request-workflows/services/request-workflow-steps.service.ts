@@ -115,7 +115,8 @@ export class RequestWorkflowStepsService {
   }
 
   // Decides the open steps of a request in one statement: one step
-  // (`stepId`), one level (`stepLevel`) or all of them. A step that is
+  // (`stepId`), one level (`stepLevel`) or all of them, of one request or
+  // of several. A step that is
   // already closed is left alone, so of two people who decide at once only
   // the first changes anything. Returns the steps it decided.
   public decide(
@@ -125,13 +126,13 @@ export class RequestWorkflowStepsService {
       stepId,
       stepLevel,
     }: {
-      requestId: string;
+      requestId: string | string[];
       slackTeamId: string;
       stepId?: string;
       stepLevel?: number;
     },
     status: RequestWorkflowStatus,
-    decidedBy: IUserViewModel,
+    decidedBy: Pick<IUserViewModel, 'slack_id'>,
     rejectionReason?: string,
   ) {
     return this.requestWorkflowStepsRepository.decide({
@@ -165,22 +166,21 @@ export class RequestWorkflowStepsService {
   // approves their own request; a step made for the requester before that
   // rule (assertNotOwnRequest refuses it) is left out, so it doesn't sit in
   // their Approvals forever.
-  public async findWaitingFor(approver: {
+  public findWaitingFor(approver: { slack_id: string; slack_team_id: string }) {
+    return this.requestWorkflowStepsRepository.findWaitingFor(
+      approver.slack_team_id,
+      approver.slack_id,
+    );
+  }
+
+  // How many steps findWaitingFor finds, counted in the database.
+  public countWaitingFor(approver: {
     slack_id: string;
     slack_team_id: string;
   }) {
-    const steps = await this.findMany(
-      {
-        slackUserId: approver.slack_id,
-        slackTeamId: approver.slack_team_id,
-        processed: true,
-        completed: false,
-      },
-      { orderBy: ['created_at:asc'] },
-    );
-
-    return steps.filter(
-      (step) => step.step_data.snapshot?.slack_user_id !== approver.slack_id,
+    return this.requestWorkflowStepsRepository.countWaitingFor(
+      approver.slack_team_id,
+      approver.slack_id,
     );
   }
 

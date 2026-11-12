@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { UsersService } from '@modules/users/services/users.service';
 import SlackUsersService from '@modules/slack-communication/services/slack-users.service';
 import UserRole from '@common/enums/user-role.enum';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 
 interface ISyncUsersParams {
   userSlackIdsToIgnore?: string[];
@@ -25,7 +26,7 @@ export class TeamUsersSyncService {
   public async syncUsers({
     userSlackIdsToIgnore = [],
     slackTeamId,
-  }: ISyncUsersParams) {
+  }: ISyncUsersParams): Promise<IUserViewModel[]> {
     const [members, users] = await Promise.all([
       this.slackUsersService.getExistingUsers(slackTeamId),
       this.usersService.findMany({ slackTeamId, includeInactive: true }),
@@ -33,7 +34,7 @@ export class TeamUsersSyncService {
 
     if (members.length === 0) {
       this.logger.warn(`No users found for team ${slackTeamId}`);
-      return;
+      return [];
     }
 
     const knownSlackIds = new Set(users.map(({ slack_id }) => slack_id));
@@ -55,10 +56,12 @@ export class TeamUsersSyncService {
       }))
       .filter(({ email }) => !knownEmails.has(email.toLowerCase()));
 
-    await this.usersService.bulkCreate(usersToCreate);
+    const created = await this.usersService.bulkCreate(usersToCreate);
 
     this.logger.log(
       `Imported ${usersToCreate.length} new of ${members.length} members for team ${slackTeamId}`,
     );
+
+    return created;
   }
 }

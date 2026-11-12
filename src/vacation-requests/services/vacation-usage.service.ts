@@ -2,17 +2,29 @@ import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import { IVacationUsageByType } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
-import TeamsService from '@modules/teams/services/teams.service';
+import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
-import { getCurrentVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
-import { VacationPeriodUsageService } from '@modules/vacation-requests/services/vacation-period-usage.service';
+import {
+  getCurrentVacationPeriod,
+  getJoinedVacationPeriod,
+  getVacationPeriodsBetween,
+} from '@modules/vacation-requests/utils/vacation-period.utils';
+import {
+  IVacationDaysUsage,
+  VacationPeriodUsageService,
+} from '@modules/vacation-requests/services/vacation-period-usage.service';
+import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
+import { IEffectiveTeamRules } from '@modules/teams/types/effective-team-rules.interface';
+import { getDateOnly } from '@common/utils/date.utils';
 
 export interface IVacationLimits {
   vacationDays: number;
   daysTotal: number;
   workingDays: number;
   bonusDays: number;
+  // Carried into the year, in calendar and in working days.
   carryoverDays: number;
+  carryoverWorkingDays: number;
 }
 
 export interface IVacationPeriodUsageData {
@@ -26,36 +38,83 @@ interface IVacationsUsageService {
   getCurrentVacationPeriodUsage(
     user: IUserViewModel,
   ): Promise<IVacationPeriodUsageData>;
+  getVacationPeriodUsage(
+    user: IUserViewModel,
+    date: Date,
+    options?: { excludeRequestId?: string },
+  ): Promise<IVacationPeriodUsageData>;
 }
 
 @Injectable()
 export class VacationsUsageService implements IVacationsUsageService {
   public constructor(
-    private readonly teamsService: TeamsService,
+    private readonly teamRulesService: TeamRulesService,
     private readonly vacationPeriodUsageService: VacationPeriodUsageService,
     private readonly vacationPoliciesService: VacationPoliciesService,
   ) {}
 
-  // `limits` is null when the user's team has no vacation policy: usage is
-  // tracked, but nothing is enforced.
-  public async getCurrentVacationPeriodUsage(
+  public getCurrentVacationPeriodUsage(
     user: IUserViewModel,
   ): Promise<IVacationPeriodUsageData> {
-    const { periodStart, periodEnd } = getCurrentVacationPeriod(
+    return this.getVacationPeriodUsage(user, new Date());
+  }
+
+  // The balance of the vacation year that holds `date`. `limits` is null
+  // when no vacation policy applies to the user (neither their team's nor
+  // the company rules'): usage is tracked, but nothing is enforced.
+  public async getVacationPeriodUsage(
+    user: IUserViewModel,
+    date: Date,
+    { excludeRequestId }: { excludeRequestId?: string } = {},
+  ): Promise<IVacationPeriodUsageData> {
+    const period = getCurrentVacationPeriod(user.contract_start_date, date);
+    const joined = getJoinedVacationPeriod(
       user.contract_start_date,
+      user.created_at,
+    );
+    const today = getDateOnly(new Date());
+    const start = getDateOnly(period.periodStart);
+    const joinedStart = getDateOnly(joined.periodStart);
+    // Carryover comes from the years before, back to the one the person
+    // joined in. A year still to come gets none yet: what will be left of
+    // this one isn't known.
+    const carryover: CarryoverSource =
+      start > today || start < joinedStart
+        ? 'none'
+        : start === joinedStart
+          ? 'entered'
+          : 'years-before';
+    const periods =
+      carryover === 'years-before'
+        ? getVacationPeriodsBetween(
+            user.contract_start_date,
+            joined.periodStart,
+            period.periodEnd,
+          )
+        : [period];
+    const ownRules = this.teamRulesService.forTeam(
+      user.team_id,
+      user.slack_team_id,
     );
 
-    const [periodUsage, limits] = await Promise.all([
-      this.vacationPeriodUsageService.getPeriodUsage(
-        user,
-        periodStart,
-        periodEnd,
-      ),
-      this.getVacationPeriodLimits(user),
+    const [usageByPeriod, policy] = await Promise.all([
+      this.vacationPeriodUsageService.getUsageByPeriods(user, periods, {
+        excludeRequestId,
+        ownRules,
+      }),
+      this.findPolicy(user, ownRules),
     ]);
+    const periodUsage = usageByPeriod[usageByPeriod.length - 1];
+    const limits =
+      policy &&
+      limitsOf(
+        policy,
+        carryoverInto(user, policy, carryover, usageByPeriod.slice(0, -1)),
+      );
 
     const {
       carryoverDays = 0,
+      carryoverWorkingDays = 0,
       vacationDays = 0,
       workingDays = 0,
       bonusDays = 0,
@@ -64,12 +123,14 @@ export class VacationsUsageService implements IVacationsUsageService {
     const availableDays =
       carryoverDays + vacationDays - periodUsage.annualLeaveUsed;
     const availableWorkingDays =
-      carryoverDays + workingDays - periodUsage.annualLeaveWorkingDaysUsed;
+      carryoverWorkingDays +
+      workingDays -
+      periodUsage.annualLeaveWorkingDaysUsed;
     const availableBonusDays = bonusDays - periodUsage.bonusUsed;
 
     return {
-      periodStart,
-      periodEnd,
+      periodStart: period.periodStart,
+      periodEnd: period.periodEnd,
       limits,
       usage: {
         [VacationType.AnnualLeave]: {
@@ -90,36 +151,70 @@ export class VacationsUsageService implements IVacationsUsageService {
     };
   }
 
-  private async getVacationPeriodLimits(user: IUserViewModel) {
-    const teamVacationPolicy = await this.getVacationPolicyIfExists(user);
+  private async findPolicy(
+    user: IUserViewModel,
+    ownRules: Promise<IEffectiveTeamRules>,
+  ): Promise<IVacationPolicyViewModel | null> {
+    const { vacationPolicyId } = await ownRules;
 
-    return (
-      teamVacationPolicy && {
-        vacationDays: teamVacationPolicy?.vacation_days || 0,
-        workingDays: teamVacationPolicy?.working_days || 0,
-        bonusDays: teamVacationPolicy?.bonus_days || 0,
-        carryoverDays: user.carryover_days || 0,
-        daysTotal:
-          (teamVacationPolicy?.vacation_days || 0) + (user.carryover_days || 0),
-      }
-    );
-  }
-
-  private async getVacationPolicyIfExists(user: IUserViewModel) {
-    const userTeam = user.team_id
-      ? await this.teamsService.findOneWithValidation({
-          id: user.team_id,
+    return vacationPolicyId
+      ? this.vacationPoliciesService.findOne({
+          id: vacationPolicyId,
           slackTeamId: user.slack_team_id,
         })
       : null;
-
-    if (!userTeam || !userTeam.vacation_policy_id) {
-      return null;
-    }
-
-    return this.vacationPoliciesService.findOne({
-      id: userTeam.vacation_policy_id,
-      slackTeamId: user.slack_team_id,
-    });
   }
 }
+
+// Where a year's carryover comes from: none, what HR entered for the time
+// before the person joined, or what was left of the years before.
+type CarryoverSource = 'none' | 'entered' | 'years-before';
+
+// In the year the person joined, what HR entered; in each later one, what
+// was left of the year before (its own days and its carryover), up to the
+// policy's most. Calendar and working days apart, as they are limited.
+const carryoverInto = (
+  user: IUserViewModel,
+  policy: IVacationPolicyViewModel,
+  source: CarryoverSource,
+  yearsBefore: IVacationDaysUsage[],
+) => {
+  const most = policy.carryover_days || 0;
+
+  if (source === 'none') {
+    return { days: 0, workingDays: 0 };
+  }
+
+  const entered = Math.min(user.carryover_days || 0, most);
+  let days = entered;
+  let workingDays = entered;
+
+  for (const used of yearsBefore) {
+    days = clamp(
+      (policy.vacation_days || 0) + days - used.annualLeaveUsed,
+      most,
+    );
+    workingDays = clamp(
+      (policy.working_days || 0) +
+        workingDays -
+        used.annualLeaveWorkingDaysUsed,
+      most,
+    );
+  }
+
+  return { days, workingDays };
+};
+
+const clamp = (days: number, most: number) => Math.max(0, Math.min(days, most));
+
+const limitsOf = (
+  policy: IVacationPolicyViewModel,
+  carryover: { days: number; workingDays: number },
+): IVacationLimits => ({
+  vacationDays: policy.vacation_days || 0,
+  workingDays: policy.working_days || 0,
+  bonusDays: policy.bonus_days || 0,
+  carryoverDays: carryover.days,
+  carryoverWorkingDays: carryover.workingDays,
+  daysTotal: (policy.vacation_days || 0) + carryover.days,
+});

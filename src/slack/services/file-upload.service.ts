@@ -1,16 +1,31 @@
 import { KnownBlock } from '@slack/types';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   IImportResult,
   UserVacationsImportService,
 } from '@modules/user-data-import/services/user-vacations-import.service';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
-import { UserTeamMappingImportService } from '@modules/user-data-import/services/user-team-mapping-import.service';
+import { TeamFileMessagesService } from '@modules/slack/team-file/services/team-file-messages.service';
+import { parseTeamFile } from 'src/team-file/parsers/team-file.parser';
+import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
 
 // Far more than the CSVs need (1000 rows each), small enough to hold in memory.
 const MAX_IMPORT_FILE_BYTES = 1024 * 1024;
+
+const VACATIONS_FILE = 'user-vacations.csv';
+
+// Any other CSV or Excel file may be a team file; its columns tell.
+const TEAM_FILE_NAME = /\.(csv|xlsx)$/i;
+
+const NOT_A_TEAM_FILE =
+  "❗️ This doesn't look like a team file: its first row needs Email and Team columns.";
+
+// HR sends a team file in their conversation with Logbook; a file shared in a
+// channel is for the people there.
+const isDirectMessage = (channelId: string) => channelId.startsWith('D');
 
 // The problems a result lists; the rest are counted.
 const MAX_LISTED_PROBLEMS = 10;
@@ -27,20 +42,23 @@ export default class FileUploadService {
 
   public constructor(
     private readonly userVacationsImportService: UserVacationsImportService,
-    private readonly userTeamMappingImportService: UserTeamMappingImportService,
     private readonly slackCommunicationService: SlackCommunicationService,
+    private readonly teamFileUploadsService: TeamFileUploadsService,
+    private readonly teamFileMessagesService: TeamFileMessagesService,
   ) {
     this.importers = {
-      'user-vacations.csv': (content, user) =>
+      [VACATIONS_FILE]: (content, user) =>
         this.userVacationsImportService.handle(content, user),
-      'user-team-mapping.csv': (content, user) =>
-        this.userTeamMappingImportService.handle(content, user),
     };
   }
 
-  // The file is downloaded only when it is one of the imports and not too
-  // large.
-  public async handleFileUpload(fileId: string, user: IUserViewModel) {
+  // The file is downloaded only when it is one of the imports or may be a
+  // team file, and not too large.
+  public async handleFileUpload(
+    fileId: string,
+    channelId: string,
+    user: IUserViewModel,
+  ) {
     const file = await this.slackCommunicationService.getFileInfo(
       fileId,
       user.slack_team_id,
@@ -54,7 +72,19 @@ export default class FileUploadService {
     const importFile = file.name ? this.importers[file.name] : undefined;
 
     if (!importFile) {
-      return this.reply(user, this.getUnknownFileUploadPromptMessage());
+      if (!file.name || !TEAM_FILE_NAME.test(file.name)) {
+        return this.reply(user, this.getUnknownFileUploadPromptMessage());
+      }
+
+      return isDirectMessage(channelId)
+        ? this.handleTeamFile(file.name, file.size ?? 0, url, user)
+        : undefined;
+    }
+
+    if (file.name === VACATIONS_FILE && user.role !== UserRole.Admin) {
+      return this.reply(user, {
+        text: '⛔ Only admins can import vacations.',
+      });
     }
 
     if ((file.size ?? 0) > MAX_IMPORT_FILE_BYTES) {
@@ -72,6 +102,50 @@ export default class FileUploadService {
     const result = await importFile(fileContent, user);
 
     await this.reply(user, this.getImportResultMessage(file.name!, result));
+  }
+
+  // A refusal of the parser is final and told to the sharer; running the job
+  // again would only repeat it.
+  private async handleTeamFile(
+    fileName: string,
+    size: number,
+    url: string,
+    user: IUserViewModel,
+  ) {
+    if (size > MAX_IMPORT_FILE_BYTES) {
+      return this.reply(user, {
+        text: '❗️ The file is larger than 1 MB, so it was not imported.',
+      });
+    }
+
+    const bytes = await this.slackCommunicationService.fetchFileBytes(
+      url,
+      user.slack_team_id,
+      MAX_IMPORT_FILE_BYTES,
+    );
+    let rows;
+
+    try {
+      rows = await parseTeamFile(bytes, fileName);
+    } catch (error) {
+      if (!(error instanceof BadRequestException)) {
+        throw error;
+      }
+
+      return this.reply(user, { text: `❗️ ${escapeMrkdwn(error.message)}` });
+    }
+
+    if (!rows) {
+      return this.reply(user, { text: NOT_A_TEAM_FILE });
+    }
+
+    const { upload, plan, state } = await this.teamFileUploadsService.receive(
+      rows,
+      fileName,
+      user,
+    );
+
+    await this.teamFileMessagesService.postPreview(user, upload, plan, state);
   }
 
   private reply(

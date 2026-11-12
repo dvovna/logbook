@@ -17,6 +17,9 @@ import { jsonParse } from '@common/utils/json-parse';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
 import UserRole from '@common/enums/user-role.enum';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
+import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
+import { WorkflowStepStatus } from '@modules/request-workflows/types/request-workflow-step.interface';
+import { decisionNotice } from '@modules/slack/approvals/utils/decision-notice';
 import { ValidationError } from '@common/errors/validation.error';
 import { runInBackground } from '@common/utils/run-in-background';
 
@@ -32,6 +35,7 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
   public constructor(
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly requestWorkflowService: RequestWorkflowService,
+    private readonly requestWorkflowStepsService: RequestWorkflowStepsService,
     private readonly workflowDecisionsService: WorkflowDecisionsService,
     private readonly vacationRequestsTabService: VacationRequestsTabService,
   ) {
@@ -77,7 +81,15 @@ export class ApproveVacationRequestOnBehalfHandler extends BaseModalFormSubmitHa
 
         await this.vacationRequestsTabService.publish({
           user,
-          notice: '✅ Approved for the approvers. The request moves on.',
+          notice: decisionNotice(
+            await this.requestWorkflowStepsService.findOne({
+              id: waitingSteps[0].id,
+              slackTeamId: user.slack_team_id,
+            }),
+            user,
+            WorkflowStepStatus.Approved,
+            '✅ Approved for the approvers. The request moves on.',
+          ),
           metadata:
             jsonParse<IVacationRequestsTabMetadata>(
               metadata.pageMetadata || '{}',

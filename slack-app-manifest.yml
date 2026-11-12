@@ -29,10 +29,6 @@ features:
       url: https://APP_DOMAIN/api/slack/admin/user-vacations-upload
       description: Upload a CSV with vacation history (admins)
       should_escape: false
-    - command: /user-team-mapping
-      url: https://APP_DOMAIN/api/slack/admin/user-team-mapping-upload
-      description: Upload a CSV that assigns users to teams (admins)
-      should_escape: false
 oauth_config:
   redirect_urls:
     - https://APP_DOMAIN/api/slack/oauth/redirect

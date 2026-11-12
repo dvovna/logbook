@@ -127,28 +127,23 @@ export class BillingReportService {
     private readonly slackTeamsService: SlackTeamsService,
   ) {}
 
+  // What the report form checks before Slack's answer: the role, and that
+  // the client is the workspace's. The report itself comes after.
+  public async assertCanReport({
+    user,
+    clientId,
+  }: Pick<IReportParams, 'user' | 'clientId'>): Promise<void> {
+    await this.findClient(user, clientId);
+  }
+
   public async getClientReport({
     user,
     clientId,
     fromDate,
     toDate,
   }: IReportParams): Promise<IBillingReport> {
-    if (!canSeeRates(user.role)) {
-      throw new ForbiddenException(
-        'Only Admin and Finance make billing reports.',
-      );
-    }
-
     const slackTeamId = user.slack_team_id;
-    const client = await this.clientsService.findOne({
-      id: clientId,
-      slackTeamId,
-      includeArchived: true,
-    });
-
-    if (!client) {
-      throw new ValidationError('Client not found.');
-    }
+    const client = await this.findClient(user, clientId);
 
     // By project rather than the entry's client_id, which entries logged
     // before it was filled in do not have.
@@ -258,5 +253,25 @@ export class BillingReportService {
       byProject: byProject.map(withoutKey),
       byPerson: byPerson.map(withoutKey),
     };
+  }
+
+  private async findClient(user: IUserViewModel, clientId: string) {
+    if (!canSeeRates(user.role)) {
+      throw new ForbiddenException(
+        'Only Admin and Finance make billing reports.',
+      );
+    }
+
+    const client = await this.clientsService.findOne({
+      id: clientId,
+      slackTeamId: user.slack_team_id,
+      includeArchived: true,
+    });
+
+    if (!client) {
+      throw new ValidationError('Client not found.');
+    }
+
+    return client;
   }
 }

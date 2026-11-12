@@ -8,12 +8,13 @@ import {
   DecisionNotificationJob,
   VacationDecisionNotificationsService,
 } from 'src/slack/tabs/vacation-requests/services/vacation-decision-notifications.service';
-import { TimeOffOfferService } from 'src/slack/tabs/vacation-requests/services/time-off-offer.service';
-import TeamsService from 'src/teams/services/teams.service';
+import { TeamRulesService } from 'src/teams/services/team-rules.service';
+import { TimeOffOfferView } from 'src/slack/tabs/vacation-requests/views/time-off-offer.view';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
 import { UsersService } from 'src/users/services/users.service';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
+import { VacationRequestDecidedEvent } from 'src/vacation-requests/events/vacation-request.events';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -34,22 +35,32 @@ describe('VacationDecisionNotificationsService', () => {
   let handlers: Map<string, (job: unknown) => Promise<void>>;
   let postMessage: jest.Mock;
   let offerFor: jest.Mock;
-  let getBlocks: jest.Mock;
+  let getButtonBlocks: jest.Mock;
   let warn: jest.SpyInstance;
+  let jobs: { enqueue: jest.Mock; enqueueMany: jest.Mock };
+  let forTeam: jest.Mock;
+  let service: VacationDecisionNotificationsService;
 
   beforeEach(() => {
     handlers = new Map();
+    jobs = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+      enqueueMany: jest.fn().mockResolvedValue(undefined),
+    };
+    forTeam = jest.fn().mockResolvedValue({
+      notificationRecipients: ['U_LEAD', 'U_PAYROLL'],
+    });
     postMessage = jest.fn().mockResolvedValue(undefined);
     offerFor = jest.fn();
-    getBlocks = jest
+    getButtonBlocks = jest
       .fn()
       .mockReturnValue([{ type: 'actions', block_id: 'offer', elements: [] }]);
     warn = jest
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);
 
-    new VacationDecisionNotificationsService(
-      {} as TeamsService,
+    service = new VacationDecisionNotificationsService(
+      { forTeam } as unknown as TeamRulesService,
       { postMessage } as unknown as SlackCommunicationService,
       {
         findOne: jest.fn().mockResolvedValue(approved),
@@ -63,12 +74,14 @@ describe('VacationDecisionNotificationsService', () => {
           .mockResolvedValue({ id: 'hr', slack_id: 'U_HR' }),
       } as unknown as UsersService,
       {
+        ...jobs,
         define: (name: string, handler: (job: unknown) => Promise<void>) =>
           handlers.set(name, handler),
       } as unknown as JobsService,
       { offerFor } as unknown as TimeOffLoggingService,
-      { getBlocks } as unknown as TimeOffOfferService,
-    ).onModuleInit();
+      { getButtonBlocks } as unknown as TimeOffOfferView,
+    );
+    service.onModuleInit();
   });
 
   afterEach(() => warn.mockRestore());
@@ -79,6 +92,48 @@ describe('VacationDecisionNotificationsService', () => {
       slackTeamId: SLACK_TEAM_ID,
       decidedById: 'hr',
     });
+
+  const job = {
+    requestId: approved.id,
+    slackTeamId: SLACK_TEAM_ID,
+    decidedById: 'hr',
+  };
+
+  // In the transaction that decides the request: enqueue, not run.
+  it('saves the jobs that tell the requester and the recipients of an approval', async () => {
+    await service.handleDecided({
+      request: approved,
+      decidedBy: { id: 'hr' },
+    } as VacationRequestDecidedEvent);
+
+    expect(jobs.enqueue.mock.calls).toEqual([
+      [DecisionNotificationJob.Requester, job],
+      [DecisionNotificationJob.Recipients, job],
+    ]);
+  });
+
+  it("saves only the requester's job for a rejection", async () => {
+    await service.handleDecided({
+      request: { ...approved, status: VacationRequestStatus.Rejected },
+      decidedBy: { id: 'hr' },
+    } as VacationRequestDecidedEvent);
+
+    expect(jobs.enqueue.mock.calls).toEqual([
+      [DecisionNotificationJob.Requester, job],
+    ]);
+  });
+
+  it('saves a job per recipient before its own job ends', async () => {
+    await handlers.get(DecisionNotificationJob.Recipients)!(job);
+
+    expect(jobs.enqueueMany).toHaveBeenCalledWith(
+      DecisionNotificationJob.Recipient,
+      [
+        { ...job, recipientSlackId: 'U_LEAD' },
+        { ...job, recipientSlackId: 'U_PAYROLL' },
+      ],
+    );
+  });
 
   it('tells the requester of an approval with the button to log it', async () => {
     offerFor.mockResolvedValue({ requestId: approved.id });
@@ -109,7 +164,7 @@ describe('VacationDecisionNotificationsService', () => {
       'Your Annual leave request for 22–26 Jun 2026 was approved',
     );
     expect(message.blocks).toHaveLength(2);
-    expect(getBlocks).not.toHaveBeenCalled();
+    expect(getButtonBlocks).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledWith(
       'No offer to log time off r1 as time: connection lost',
     );

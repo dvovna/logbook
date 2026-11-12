@@ -19,9 +19,9 @@ import {
   ITimeReport,
   ITimeReportFilters,
   ITimeReportRow,
-  TimeReportGrouping,
-} from 'src/time-entries/services/time-report.service';
-import { TimeScopeKind } from 'src/time-entries/services/time-entries-scope.service';
+} from 'src/time-entries/types/time-report.types';
+import { TimeReportGrouping } from 'src/time-entries/enums/time-report-grouping.enum';
+import { TimeScopeKind } from 'src/time-entries/types/time-scope.types';
 import { formatHourlyRate, formatMoney } from '@common/utils/money.utils';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ReportsTabActionId } from '@modules/slack/tabs/reports/enums/reports-modal-name.enum';

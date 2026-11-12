@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
 import { TransactionService } from 'src/database/transaction.service';
 import UserRole from '@common/enums/user-role.enum';
@@ -6,6 +7,13 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import { RepositoryFilter } from '@common/repositories/repository.types';
 import { UserUpdateValidatorService } from '@modules/users/services/user-update-validator.service';
+import {
+  USER_ACCESS_CHANGED,
+  USER_TEAM_CHANGED,
+  UserAccessChangedEvent,
+  UserTeamChangedEvent,
+} from '@modules/users/events/users.events';
+import { ITeamAssignment } from '@modules/users/types/team-assignment.interface';
 
 interface ICreateUserParams {
   email: string;
@@ -31,9 +39,11 @@ interface IFindParams {
   role?: UserRole;
   roles?: UserRole[];
   slackId?: string;
+  slackIds?: string[];
   isActive?: boolean;
   includeInactive?: boolean;
   email?: string;
+  emails?: string[];
 }
 
 type ISearchUsersParams = ISearchParams<IFindParams>;
@@ -53,6 +63,7 @@ export class UsersService implements IUsersService {
     private readonly userRepository: UsersRepository,
     private readonly userUpdateValidatorService: UserUpdateValidatorService,
     private readonly transactions: TransactionService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   public async create({
@@ -87,20 +98,30 @@ export class UsersService implements IUsersService {
     slackTeamId,
     contractStartDate,
   }: Omit<ICreateUserParams, 'teamId'>) {
-    return await this.userRepository.upsert(
-      {
-        email,
-        name,
-        role,
-        is_active: isActive,
-        slack_team_id: slackTeamId,
-        slack_id: slackId,
-        // Left out when not given, so an upsert keeps the existing date.
-        contract_start_date: contractStartDate?.toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      ['slack_team_id', 'slack_id'],
-    );
+    return this.changingAccess(isActive === false, async () => {
+      const user = await this.userRepository.upsert(
+        {
+          email,
+          name,
+          role,
+          is_active: isActive,
+          slack_team_id: slackTeamId,
+          slack_id: slackId,
+          // Left out when not given, so an upsert keeps the existing date.
+          contract_start_date: contractStartDate?.toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        ['slack_team_id', 'slack_id'],
+      );
+
+      // A deleted Slack account deactivates the user; telling of one that
+      // was inactive already only makes the listener look again.
+      if (isActive === false) {
+        await this.tellAccessChanges([user as IUserViewModel]);
+      }
+
+      return user;
+    });
   }
 
   public async search(
@@ -126,14 +147,143 @@ export class UsersService implements IUsersService {
     userIds: string[],
     updatedBy: IUserViewModel,
   ) {
-    return this.transactions.transaction(() =>
-      this.userRepository.setTeamMembers({
+    return this.transactions.transaction(async () => {
+      const changed = await this.userRepository.setTeamMembers({
         slackTeamId: updatedBy.slack_team_id,
         teamId,
         userIds,
         updatedBy: updatedBy.id,
-      }),
+      });
+
+      this.tellTeamChanges(changed, updatedBy.id);
+    });
+  }
+
+  // Many users at once, in one transaction. A team of another workspace is
+  // refused, as update refuses it.
+  public async assignTeams(
+    assignments: ITeamAssignment[],
+    updatedBy: IUserViewModel,
+  ): Promise<void> {
+    if (assignments.length === 0) {
+      return;
+    }
+
+    await this.transactions.transaction(async () => {
+      const moved = await this.userRepository.assignTeams({
+        slackTeamId: updatedBy.slack_team_id,
+        assignments,
+        updatedBy: updatedBy.id,
+      });
+
+      this.tellTeamChanges(moved, updatedBy.id);
+    });
+  }
+
+  // Puts people back in the team they had, each only while they are still
+  // in `from`. Returns the users that moved.
+  public async restoreTeams(
+    restores: { userId: string; from: string | null; to: string | null }[],
+    updatedBy: IUserViewModel,
+  ): Promise<IUserViewModel[]> {
+    if (restores.length === 0) {
+      return [];
+    }
+
+    return this.transactions.transaction(async () => {
+      const moved = await this.userRepository.restoreTeams({
+        slackTeamId: updatedBy.slack_team_id,
+        restores,
+        updatedBy: updatedBy.id,
+      });
+
+      this.tellTeamChanges(moved, updatedBy.id);
+
+      return moved;
+    });
+  }
+
+  // A Member who leads a team can't approve until they are a Manager. Only
+  // Members change: anyone else already approves, or may not lead at all.
+  public async makeManagers(
+    userIds: string[],
+    updatedBy: IUserViewModel,
+  ): Promise<IUserViewModel[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return this.userRepository.updateMany(
+      {
+        slack_team_id: updatedBy.slack_team_id,
+        id: { operator: 'in', value: userIds },
+        role: UserRole.Member,
+      },
+      {
+        role: UserRole.Manager,
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy.id,
+      },
     );
+  }
+
+  // The reverse of makeManagers: a Manager gets `role` back, and anyone whose
+  // role changed since stays as they are.
+  public async restoreRoles(
+    changes: { userId: string; role: UserRole }[],
+    updatedBy: IUserViewModel,
+  ): Promise<IUserViewModel[]> {
+    return this.changingAccess(changes.length > 0, async () => {
+      const restored: IUserViewModel[] = [];
+
+      for (const role of new Set(changes.map((change) => change.role))) {
+        restored.push(
+          ...(await this.userRepository.updateMany(
+            {
+              slack_team_id: updatedBy.slack_team_id,
+              id: {
+                operator: 'in',
+                value: changes
+                  .filter((c) => c.role === role)
+                  .map((c) => c.userId),
+              },
+              role: UserRole.Manager,
+            },
+            {
+              role,
+              updated_at: new Date().toISOString(),
+              updated_by: updatedBy.id,
+            },
+          )),
+        );
+      }
+
+      await this.tellAccessChanges(restored);
+
+      return restored;
+    });
+  }
+
+  // Sets the contract start of each user, in one statement (the CSV
+  // import). Nothing else changes, so nobody is told.
+  public async setContractStartDates(
+    changes: { userId: string; contractStartDate: Date }[],
+    updatedBy: IUserViewModel,
+  ): Promise<void> {
+    if (!changes.length) {
+      return;
+    }
+
+    await this.userRepository.setContractStartDates({
+      slackTeamId: updatedBy.slack_team_id,
+      dates: Object.fromEntries(
+        changes.map(({ userId, contractStartDate }) => [
+          userId,
+          contractStartDate.toISOString(),
+        ]),
+      ),
+      updatedBy: updatedBy.id,
+    });
   }
 
   public count(params: IFindParams) {
@@ -149,11 +299,32 @@ export class UsersService implements IUsersService {
 
     await this.userUpdateValidatorService.validate(userBeforeUpdate, params);
 
-    return await this.userRepository.update(this.getFindQuery(findParams), {
-      ...this.mapToDbUser(params),
-      updated_at: new Date().toISOString(),
-      updated_by: updatedBy?.id || null,
-    });
+    return this.changingAccess(
+      params.role !== undefined || params.isActive !== undefined,
+      async () => {
+        const user = await this.userRepository.update(
+          this.getFindQuery(findParams),
+          {
+            ...this.mapToDbUser(params),
+            updated_at: new Date().toISOString(),
+            updated_by: updatedBy?.id || null,
+          },
+        );
+
+        if (user.team_id !== userBeforeUpdate.team_id) {
+          this.tellTeamChanges([user], updatedBy?.id ?? null);
+        }
+
+        if (
+          user.role !== userBeforeUpdate.role ||
+          user.is_active !== userBeforeUpdate.is_active
+        ) {
+          await this.tellAccessChanges([user]);
+        }
+
+        return user;
+      },
+    );
   }
 
   public async bulkCreate(paramsList: ICreateUserParams[]) {
@@ -226,6 +397,41 @@ export class UsersService implements IUsersService {
     });
   }
 
+  // Inside a transaction the listeners hear of it once it commits.
+  private tellTeamChanges(users: IUserViewModel[], changedBy: string | null) {
+    for (const user of users) {
+      this.eventEmitter.emit(
+        USER_TEAM_CHANGED,
+        new UserTeamChangedEvent(
+          user.id,
+          user.slack_team_id,
+          user.team_id,
+          changedBy,
+        ),
+      );
+    }
+  }
+
+  // The listener saves the job that hands the user's approvals over in the
+  // caller's transaction (emitAsync, see changingAccess).
+  private async tellAccessChanges(users: IUserViewModel[]) {
+    for (const user of users) {
+      await this.eventEmitter.emitAsync(
+        USER_ACCESS_CHANGED,
+        new UserAccessChangedEvent(user.id, user.slack_team_id),
+      );
+    }
+  }
+
+  // A write that may change what people may do runs in a transaction with
+  // the jobs that follow (tellAccessChanges); any other needs none.
+  private changingAccess<T>(
+    mayChange: boolean,
+    write: () => Promise<T>,
+  ): Promise<T> {
+    return mayChange ? this.transactions.transaction(write) : write();
+  }
+
   private getFindQuery(findParams: IFindParams): RepositoryFilter {
     return {
       slack_team_id: findParams.slackTeamId,
@@ -255,10 +461,14 @@ export class UsersService implements IUsersService {
         ? { team_id: { operator: 'in', value: findParams.teamIds } }
         : {}),
       ...(findParams.slackId ? { slack_id: findParams.slackId } : {}),
+      ...(findParams.slackIds
+        ? { slack_id: { operator: 'in', value: findParams.slackIds } }
+        : {}),
       ...(findParams.isActive !== undefined
         ? { is_active: findParams.isActive }
         : { is_active: findParams.includeInactive ? undefined : true }),
       ...(findParams.email ? { email: findParams.email } : {}),
+      ...(findParams.emails ? { email: findParams.emails } : {}),
     };
   }
 

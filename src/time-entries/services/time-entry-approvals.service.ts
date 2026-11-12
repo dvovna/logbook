@@ -6,15 +6,11 @@ import { MAX_REJECTION_REASON_LENGTH } from '@common/constants/text-limits';
 import { RepositoryFilter } from '@common/repositories/repository.types';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
-import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
 import TeamsService from '@modules/teams/services/teams.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeEntriesListQuery } from 'src/time-entries/queries/time-entries-list.query';
-import {
-  ITimeEntryListData,
-  ITimeEntryListItem,
-} from 'src/time-entries/types/time-entries-list.types';
+import { ITimeEntryListData } from 'src/time-entries/types/time-entries-list.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 
@@ -31,17 +27,16 @@ interface IListPendingParams {
   all?: boolean;
 }
 
-// What deciding who approves an entry needs of it.
-type IEntryKey = Pick<ITimeEntryViewModel, 'id' | 'team_id' | 'user_id'>;
-
 // Submitted time entries wait for a decision, never by their owner.
 // - A manager decides on the entries of the teams that list them among their
 //   manager approvers (as for vacations): those wait for them.
 // - Admin and HR may decide on anyone's, for an approver who is away, but
 //   only these wait for them: their own teams' (as a manager approver), and
 //   those nobody else decides (no team, or no other active approving manager
-//   on it), which go to HR, or to the admins (fallbackApprovers, as time off
-//   does).
+//   on it), which go to HR, or to the admins (as fallbackApprovers does for
+//   time off).
+// What waits for whom is one rule in SQL (TimeEntriesRepository.approves),
+// for the count, the inbox, Approve all and the messages alike.
 @Injectable()
 export class TimeEntryApprovalsService {
   public constructor(
@@ -55,68 +50,46 @@ export class TimeEntryApprovalsService {
     user: IUserViewModel,
     { page = 1, pageSize, all = false }: IListPendingParams,
   ): Promise<ITimeEntryListData> {
-    if (isTimeEntriesAdmin(user.role) && !all) {
-      const waiting = await this.findWaitingForAdmin(user);
-      const pageIds = waiting
-        .slice((page - 1) * pageSize, page * pageSize)
-        .map(({ id }) => id);
-      const entries = pageIds.length
-        ? await this.timeEntriesRepository.findMany({
-            slack_team_id: user.slack_team_id,
-            id: { operator: 'in', value: pageIds },
-          })
-        : [];
-      const byId = new Map(entries.map((entry) => [entry.id, entry]));
-
-      return {
-        items: pageIds
-          .map((id) => byId.get(id))
-          .filter((entry): entry is ITimeEntryViewModel => !!entry)
-          .map(toListItem),
-        totalCount: waiting.length,
-      };
+    if (all && isTimeEntriesAdmin(user.role)) {
+      return this.timeEntriesListQuery.execute({
+        slackTeamId: user.slack_team_id,
+        page,
+        pageSize,
+        status: TimeEntryStatus.Submitted,
+        teamIds: undefined,
+        excludeUserId: user.id,
+      });
     }
 
-    const scope = await this.getScope(user);
-
-    if (!scope) {
+    if (!approvesTime(user)) {
       return { items: [], totalCount: 0 };
     }
 
-    return this.timeEntriesListQuery.execute({
-      slackTeamId: user.slack_team_id,
-      page,
-      pageSize,
-      status: TimeEntryStatus.Submitted,
-      teamIds: scope.teamIds,
-      excludeUserId: user.id,
-    });
+    const [items, totalCount] = await Promise.all([
+      this.timeEntriesRepository.findWaitingFor(user.slack_team_id, user.id, {
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+      }),
+      this.timeEntriesRepository.countWaitingFor(user.slack_team_id, user.id),
+    ]);
+
+    return { items, totalCount };
   }
 
   // How many entries wait for the user (not all those they may decide on).
   public async countPending(user: IUserViewModel): Promise<number> {
-    if (isTimeEntriesAdmin(user.role)) {
-      return (await this.findWaitingForAdmin(user)).length;
-    }
-
-    const scope = await this.getScope(user);
-
-    return scope
-      ? this.timeEntriesRepository.count(this.getPendingFilter(user, scope))
+    return approvesTime(user)
+      ? this.timeEntriesRepository.countWaitingFor(user.slack_team_id, user.id)
       : 0;
   }
 
   // Approves the entry `id`, or every entry waiting for the user.
   public async approve(user: IUserViewModel, id?: string) {
-    if (id || !isTimeEntriesAdmin(user.role)) {
-      return this.decide(user, TimeEntryStatus.Approved, id ? { id } : {});
-    }
-
-    const waiting = await this.findWaitingForAdmin(user);
-
-    return this.decide(user, TimeEntryStatus.Approved, {
-      id: { operator: 'in', value: waiting.map(({ id }) => id) },
-    });
+    return this.decide(
+      user,
+      TimeEntryStatus.Approved,
+      id ? { id } : this.waitingFilter(user),
+    );
   }
 
   public async reject(
@@ -147,14 +120,30 @@ export class TimeEntryApprovalsService {
     entries: ITimeEntryViewModel[],
     slackTeamId: string,
   ): Promise<{ approver: IUserViewModel; entries: ITimeEntryViewModel[] }[]> {
-    const approversOf = await this.findApprovers(entries, slackTeamId);
+    if (!entries.length) {
+      return [];
+    }
+
+    // The approvers are among the active people with a role that approves.
+    const [pairs, approving] = await Promise.all([
+      this.timeEntriesRepository.findApproverIds(
+        slackTeamId,
+        entries.map(({ id }) => id),
+      ),
+      this.usersService.findMany({ slackTeamId, roles: [...MANAGER_ROLES] }),
+    ]);
+    const byId = new Map(approving.map((person) => [person.id, person]));
+    const entryById = new Map(entries.map((entry) => [entry.id, entry]));
     const groups = new Map<
       string,
       { approver: IUserViewModel; entries: ITimeEntryViewModel[] }
     >();
 
-    for (const entry of entries) {
-      for (const approver of approversOf.get(entry.id) ?? []) {
+    for (const { entry_id, approver_id } of pairs) {
+      const approver = byId.get(approver_id);
+      const entry = entryById.get(entry_id);
+
+      if (approver && entry) {
         const group = groups.get(approver.id) ?? { approver, entries: [] };
 
         group.entries.push(entry);
@@ -165,15 +154,15 @@ export class TimeEntryApprovalsService {
     return [...groups.values()];
   }
 
-  // Decides the pending entries `filter` narrows to (one by its id, or
-  // those waiting for the user) within what the user may decide.
+  // Decides the pending entries `narrowing` names (one by its id, or those
+  // waiting for the user) within what the user may decide.
   private async decide(
     user: IUserViewModel,
     status: TimeEntryStatus.Approved | TimeEntryStatus.Rejected,
-    filter: RepositoryFilter,
+    narrowing: RepositoryFilter | Promise<RepositoryFilter>,
     reason?: string,
   ): Promise<ITimeEntryViewModel[]> {
-    const scope = await this.getScope(user);
+    const [scope, filter] = await Promise.all([this.getScope(user), narrowing]);
 
     if (!scope) {
       throw new ForbiddenException('You cannot approve time entries');
@@ -200,65 +189,19 @@ export class TimeEntryApprovalsService {
     return decided;
   }
 
-  // The entries waiting for an admin or HR (see the class comment), newest
-  // work first: their keys, no joins.
-  private async findWaitingForAdmin(
-    user: IUserViewModel,
-  ): Promise<IEntryKey[]> {
-    const submitted = await this.timeEntriesRepository.findSubmittedKeys(
-      user.slack_team_id,
-      user.id,
-    );
-    const approversOf = await this.findApprovers(submitted, user.slack_team_id);
-
-    return submitted.filter((entry) =>
-      approversOf.get(entry.id)?.some(({ id }) => id === user.id),
-    );
-  }
-
-  // Who decides each entry, by entry ID: the active people with a role that
-  // approves whom its team lists as manager approvers, other than the
-  // owner; when there are none, fallbackApprovers. Everyone else with Admin
-  // or HR may still decide it.
-  private async findApprovers(
-    entries: IEntryKey[],
-    slackTeamId: string,
-  ): Promise<Map<string, IUserViewModel[]>> {
-    if (!entries.length) {
-      return new Map();
-    }
-
-    const [teams, approving] = await Promise.all([
-      this.teamsService.findMany({ slackTeamId }),
-      this.usersService.findMany({ slackTeamId, roles: [...MANAGER_ROLES] }),
-    ]);
-    const approversByTeam = new Map(
-      teams.map((team) => [team.id, team.manager_approvers ?? []]),
-    );
-    const bySlackId = new Map(
-      approving.map((person) => [person.slack_id, person]),
-    );
-
-    return new Map(
-      entries.map((entry) => {
-        const managers = (
-          (entry.team_id && approversByTeam.get(entry.team_id)) ||
-          []
-        )
-          .map((slackId) => bySlackId.get(slackId))
-          .filter(
-            (person): person is IUserViewModel =>
-              !!person && person.id !== entry.user_id,
-          );
-
-        return [
-          entry.id,
-          managers.length
-            ? managers
-            : (fallbackApprovers(approving, entry.user_id)?.approvers ?? []),
-        ];
-      }),
-    );
+  // The entries waiting for the user, by their IDs.
+  private async waitingFilter(user: IUserViewModel): Promise<RepositoryFilter> {
+    return {
+      id: {
+        operator: 'in',
+        value: approvesTime(user)
+          ? await this.timeEntriesRepository.findWaitingIds(
+              user.slack_team_id,
+              user.id,
+            )
+          : [],
+      },
+    };
   }
 
   // null when the user decides on nothing.
@@ -293,17 +236,6 @@ export class TimeEntryApprovalsService {
   }
 }
 
-// An entry as the lists show it (get_time_entries_list's columns).
-const toListItem = (entry: ITimeEntryViewModel): ITimeEntryListItem => ({
-  id: entry.id,
-  work_date: entry.work_date,
-  created_at: entry.created_at,
-  user_name: entry.user?.name ?? '',
-  project_name: entry.project?.name ?? '',
-  client_name: entry.client?.name ?? '',
-  minutes: entry.minutes,
-  description: entry.description ?? '',
-  rejection_reason: entry.rejection_reason ?? null,
-  user_id: entry.user_id,
-  status: entry.status,
-});
+// Only these roles decide on time entries; nothing waits for anyone else.
+const approvesTime = (user: IUserViewModel) =>
+  MANAGER_ROLES.includes(user.role);

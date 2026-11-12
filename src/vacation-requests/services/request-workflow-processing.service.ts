@@ -10,6 +10,7 @@ import { VacationWorkflowFinished } from '@modules/request-workflows/events/vaca
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { VacationRequestDecidedEvent } from '@modules/vacation-requests/events/vacation-request.events';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
+import { TransactionService } from 'src/database/transaction.service';
 
 export const FINISH_REQUEST_JOB = 'vacation-request-finish';
 
@@ -35,6 +36,7 @@ export class RequestWorkflowProcessingService implements OnModuleInit {
     private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly jobs: JobsService,
+    private readonly transactions: TransactionService,
   ) {}
 
   public onModuleInit() {
@@ -69,34 +71,40 @@ export class RequestWorkflowProcessingService implements OnModuleInit {
       includeInactive: true,
     });
 
-    // Two approvers deciding at once both finish the workflow, and a retry
-    // may follow a run that got this far; only the first one changes the
-    // request and tells people.
-    const updatedRequest = await this.vacationRequestsService.finishPending(
-      { id: requestId, slackTeamId },
-      status === RequestWorkflowStatus.Approved
-        ? VacationRequestStatus.Approved
-        : VacationRequestStatus.Rejected,
-      decidedBy,
-      rejectionReason,
-    );
-
-    if (!updatedRequest) {
-      this.logger.warn(
-        `Request ${requestId} is no longer pending, not finishing it again`,
+    // The request's outcome and the jobs that tell people of it commit
+    // together (emitAsync): a retry finds the request decided and stops, so
+    // a job saved after the commit could be lost for good.
+    await this.transactions.transaction(async () => {
+      // Two approvers deciding at once both finish the workflow, and a retry
+      // may follow a run that got this far; only the first one changes the
+      // request and tells people.
+      const updatedRequest = await this.vacationRequestsService.finishPending(
+        { id: requestId, slackTeamId },
+        status === RequestWorkflowStatus.Approved
+          ? VacationRequestStatus.Approved
+          : VacationRequestStatus.Rejected,
+        decidedBy,
+        rejectionReason,
       );
-      return;
-    }
 
-    const comments = await this.requestWorkflowStepCommentsService.findMany({
-      requestId,
-      slackTeamId,
+      if (!updatedRequest) {
+        this.logger.warn(
+          `Request ${requestId} is no longer pending, not finishing it again`,
+        );
+        return;
+      }
+
+      const comments = await this.requestWorkflowStepCommentsService.findMany({
+        requestId,
+        slackTeamId,
+      });
+
+      // Telling people is the Slack side's
+      // (VacationDecisionNotificationsService).
+      await this.eventEmitter.emitAsync(
+        VacationRequestEvent.Decided,
+        new VacationRequestDecidedEvent(updatedRequest, decidedBy, comments),
+      );
     });
-
-    // Telling people is the Slack side's (VacationDecisionNotificationsService).
-    this.eventEmitter.emit(
-      VacationRequestEvent.Decided,
-      new VacationRequestDecidedEvent(updatedRequest, decidedBy, comments),
-    );
   }
 }

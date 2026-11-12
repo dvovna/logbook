@@ -116,6 +116,7 @@ export default [{
           './src/projects',
           './src/slack-teams',
           './src/teams',
+          './src/team-file',
           './src/time-entries',
           './src/time-off-logging',
           './src/users',
@@ -142,6 +143,7 @@ export default [{
           './src/slack-teams',
           './src/team-setup',
           './src/teams',
+          './src/team-file',
           './src/time-entries',
           './src/time-off-logging',
           './src/user-data-import',
@@ -175,6 +177,21 @@ export default [{
         message: 'Avoid export *, use named exports for better tree-shaking and clarity',
       },
     ],
+  },
+}, {
+  // A vacation request's edit or deletion can leave its logged time behind:
+  // only TimeOffChangesService, which removes that time in the same
+  // transaction, uses the writes it is built from.
+  files: ['src/**/*.ts'],
+  ignores: ['src/vacation-requests/**', 'src/time-off-logging/**'],
+  rules: {
+    'no-restricted-properties': ['error', {
+      property: 'applyUpdate',
+      message: 'Change a vacation request through TimeOffChangesService.update, which removes its logged time with it.',
+    }, {
+      property: 'applyDelete',
+      message: 'Delete a vacation request through TimeOffChangesService.delete, which removes its logged time with it.',
+    }],
   },
 }, {
   files: ['bin/**/*.ts'],

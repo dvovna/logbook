@@ -26,6 +26,8 @@ import {
 } from './support/app-home';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
+import { UsersService } from '@modules/users/services/users.service';
+import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
 
 describe('Vacation request approval', () => {
   let t: ITestApp;
@@ -269,6 +271,63 @@ describe('Vacation request approval', () => {
     await click(hr, hrApproval, ApproverMessageActionId.Approve);
     await t.idle();
     expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+  });
+
+  describe('someone on both levels', () => {
+    let admin: Tables<'users'>;
+
+    beforeEach(async () => {
+      admin = await workspace.addUser({ role: UserRole.Admin });
+    });
+
+    it('is asked once, and their approval covers both', async () => {
+      const team = await workspace.addTeam({
+        manager_approvers: [admin.slack_id],
+        hr_approvers: [admin.slack_id],
+        rule_set_id: null,
+      });
+      await addMember(team);
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+
+      await click(
+        admin,
+        await approvalMessageTo(t, workspace, admin),
+        ApproverMessageActionId.Approve,
+      );
+      await t.idle();
+
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      expect(
+        t.slackApi.postedMessages(workspace.token, admin.slack_id),
+      ).toHaveLength(1);
+    });
+
+    it('leaves the others of an ALL level to decide', async () => {
+      const hr = await workspace.addUser({ role: UserRole.HR });
+      const team = await workspace.addTeam({
+        manager_approvers: [admin.slack_id],
+        hr_approvers: [admin.slack_id, hr.slack_id],
+        hr_approvers_rule: ApprovalRule.All,
+        rule_set_id: null,
+      });
+      await addMember(team);
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+
+      await click(
+        admin,
+        await approvalMessageTo(t, workspace, admin),
+        ApproverMessageActionId.Approve,
+      );
+      const hrApproval = await approvalMessageTo(t, workspace, hr);
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+
+      await click(hr, hrApproval, ApproverMessageActionId.Approve);
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      expect(
+        t.slackApi.postedMessages(workspace.token, admin.slack_id),
+      ).toHaveLength(1);
+    });
   });
 
   it('tells approvers the balance after, who else is off and where the request stands', async () => {
@@ -559,6 +618,37 @@ describe('Vacation request approval', () => {
       expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
     });
 
+    it('says so when someone else decided first', async () => {
+      const hr = await workspace.addUser({ role: UserRole.HR });
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, manager);
+      const [step] = await workspace.rows('request_workflow_steps');
+      const confirmation = await openModalFrom(
+        t,
+        workspace,
+        manager,
+        await openAppHomeTab(t, workspace, manager, [
+          NavigationActionId.Approvals,
+        ]),
+        ApprovalsTabActionId.ApproveTimeOff,
+        step.id,
+      );
+      // HR rejects it while the manager's form is open.
+      const hrUser = await t.app
+        .get(UsersService)
+        .findBySlackId(hr.slack_id, workspace.id);
+      await t.app.get(WorkflowDecisionsService).rejectStep(step.id, hrUser!);
+
+      const since = t.slackApi.mark();
+      await t.slack.submitView(workspace, manager, confirmation).expect(200);
+      await t.idle();
+
+      expect(noticeOf(await publishedHome(t, workspace, manager, since))).toBe(
+        'Not decided: someone else rejected it first.',
+      );
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Rejected);
+    });
+
     it('rejects, a reason being optional', async () => {
       const request = await requestVacation(t, workspace, member, workWeek(2));
       await approvalMessageTo(t, workspace, manager);
@@ -732,7 +822,7 @@ describe('Vacation request approval', () => {
       await requestVacation(t, workspace, member, workWeek(2));
 
       expect(await noticeTo(member)).toBe(
-        `📨 Your vacation request (${formatDateRange(start, end)}) went to the workspace admins for approval: you are not in a team.`,
+        `📨 Your vacation request (${formatDateRange(start, end)}) went to the workspace admins for approval: you are not in a team and the company rules name no other approvers.`,
       );
       expect(textOf(await approvalMessageTo(t, workspace, admin))).toContain(
         'Max Member',
@@ -778,6 +868,112 @@ describe('Vacation request approval', () => {
       );
       expect(await workspace.rows('request_workflow_steps')).toEqual([]);
       expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+    });
+  });
+
+  describe('approvers who can no longer decide', () => {
+    let hr: Tables<'users'>;
+    let admin: Tables<'users'>;
+
+    beforeEach(async () => {
+      hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+      admin = await workspace.addUser({ role: UserRole.Admin });
+    });
+
+    const messagesTo = (user: Tables<'users'>) =>
+      t.slackApi.postedMessages(workspace.token, user.slack_id);
+
+    // As People → Deactivate or Edit does it.
+    const change = async (
+      user: Tables<'users'>,
+      changes: { isActive?: boolean; role?: UserRole },
+    ) => {
+      const actor = await t.app
+        .get(UsersService)
+        .findBySlackId(admin.slack_id, workspace.id);
+      await t.app
+        .get(UsersService)
+        .update({ id: user.id, slackTeamId: workspace.id }, changes, actor!);
+      await t.idle();
+    };
+
+    it('are left out when the request is made, and HR gets it', async () => {
+      const gone = await workspace.addUser({
+        role: UserRole.Manager,
+        is_active: false,
+      });
+      const demoted = await workspace.addUser({ role: UserRole.Member });
+      const team = await workspace.addTeam({
+        manager_approvers: [gone.slack_id, demoted.slack_id],
+      });
+      await addMember(team);
+
+      await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, hr);
+
+      expect(messagesTo(gone)).toEqual([]);
+      expect(messagesTo(demoted)).toEqual([]);
+    });
+
+    it('pass the request on to the next level when deactivated while it waits', async () => {
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+        hr_approvers: [hr.slack_id],
+        rule_set_id: null,
+      });
+      await addMember(team);
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      const approval = await approvalMessageTo(t, workspace, manager);
+
+      await change(manager, { isActive: false });
+
+      const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+      expect(textOf(update)).toContain('Canceled');
+      const hrApproval = await approvalMessageTo(t, workspace, hr);
+      await click(hr, hrApproval, ApproverMessageActionId.Approve);
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+    });
+
+    it('leave their level to HR when no level is left after it', async () => {
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+      });
+      await addMember(team);
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, manager);
+
+      await change(manager, { role: UserRole.Member });
+
+      const hrApproval = await approvalMessageTo(t, workspace, hr);
+      const hrStep = (await workspace.rows('request_workflow_steps')).find(
+        ({ slack_user_id }) => slack_user_id === hr.slack_id,
+      );
+      expect(hrStep?.step_data).toMatchObject({
+        level_name: 'HR approval',
+        rule: ApprovalRule.Any,
+      });
+      await click(hr, hrApproval, ApproverMessageActionId.Approve);
+      await t.idle();
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+    });
+
+    it('complete an ALL level that everyone else approved', async () => {
+      const secondManager = await workspace.addUser({ role: UserRole.Manager });
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id, secondManager.slack_id],
+        manager_approvers_rule: ApprovalRule.All,
+      });
+      await addMember(team);
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      const first = await approvalMessageTo(t, workspace, manager);
+      await click(manager, first, ApproverMessageActionId.Approve);
+      await t.idle();
+
+      await change(secondManager, { isActive: false });
+
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      expect(messagesTo(hr)).toEqual([]);
     });
   });
 });

@@ -1,17 +1,13 @@
+import { billingSnapshotsLock } from 'src/database/advisory-locks';
 import { Injectable } from '@nestjs/common';
 import { ValidationError } from '@common/errors/validation.error';
 import { ISearchResult } from '@common/types/pagination.types';
 import { formatDateRange } from '@common/utils/date.utils';
-import { amountInCents } from '@common/utils/money.utils';
 import ClientsService from '@modules/clients/services/clients.service';
 import IClientViewModel from '@modules/clients/types/client.interface';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TransactionService } from 'src/database/transaction.service';
-import ProjectsService from 'src/projects/services/projects.service';
-import { ProjectRatesService } from 'src/projects/services/project-rates.service';
-import { IProjectRates } from 'src/projects/types/project-user-rate.types';
-import { rateOf } from 'src/time-entries/services/time-report.service';
 import { assertReportPeriod } from 'src/time-entries/utils/report-period';
 import {
   assertCanManageSnapshots,
@@ -22,7 +18,7 @@ import { BillingSnapshotEntriesRepository } from 'src/billing/repositories/billi
 import {
   IBillingSnapshot,
   IBillingSnapshotViewModel,
-  ISnapshotLineInsert,
+  ISnapshotTotals,
 } from 'src/billing/types/billing-snapshot.types';
 
 export interface ISnapshotParams {
@@ -32,22 +28,28 @@ export interface ISnapshotParams {
   toDate: string;
 }
 
-// What a snapshot of a client's period holds, or would hold now.
-export interface ISnapshotPreview {
+// What a snapshot of a client's period would hold now.
+export interface ISnapshotPreview extends ISnapshotTotals {
   clientName: string;
   fromDate: string;
   toDate: string;
   currency: string;
-  entryCount: number;
-  totalMinutes: number;
-  billableMinutes: number;
-  // Of the billable time with a rate, in cents.
-  amountCents: number;
-  // Billable time without a rate, so without an amount.
-  unratedMinutes: number;
 }
 
 const NO_SUCH_SNAPSHOT = 'This snapshot no longer exists.';
+
+const assertCanSnapshot = ({ user, fromDate, toDate }: ISnapshotParams) => {
+  assertCanManageSnapshots(user);
+  assertReportPeriod(fromDate, toDate);
+};
+
+const nothingLeft = (
+  client: IClientViewModel,
+  { fromDate, toDate }: ISnapshotParams,
+) =>
+  new ValidationError(
+    `No approved time of ${client.name} in ${formatDateRange(fromDate, toDate)} is left outside snapshots.`,
+  );
 
 // Billing snapshots: a client's approved time of a period, locked with the
 // rate and amount of each entry, for an invoice made elsewhere. A snapshot
@@ -65,63 +67,74 @@ export class BillingSnapshotsService {
     private readonly entriesRepository: BillingSnapshotEntriesRepository,
     private readonly transactions: TransactionService,
     private readonly clientsService: ClientsService,
-    private readonly projectsService: ProjectsService,
-    private readonly projectRatesService: ProjectRatesService,
     private readonly slackTeamsService: SlackTeamsService,
   ) {}
 
-  // What a snapshot of the client's period would hold if made now.
+  // What a snapshot of the client's period would hold if made now, worked
+  // out as create() works it out.
   public async preview(params: ISnapshotParams): Promise<ISnapshotPreview> {
-    const { client, currency, lines } = await this.collect(params);
+    assertCanSnapshot(params);
 
-    return this.toPreview(params, client, currency, lines);
+    const [client, currency, totals] = await Promise.all([
+      this.findClient(params),
+      this.slackTeamsService.getCurrency(params.user.slack_team_id),
+      this.entriesRepository.unbilledTotals(this.periodOf(params)),
+    ]);
+
+    return {
+      clientName: client.name,
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+      currency,
+      ...totals,
+    };
+  }
+
+  // The checks of create() that are quick, for the form to show before
+  // Slack's answer: the role, the period, the client, and that something is
+  // left to lock. create() makes them again.
+  public async assertCanCreate(params: ISnapshotParams): Promise<void> {
+    assertCanSnapshot(params);
+
+    const [client, hasUnbilled] = await Promise.all([
+      this.findClient(params),
+      this.entriesRepository.hasUnbilled(this.periodOf(params)),
+    ]);
+
+    if (!hasUnbilled) {
+      throw nothingLeft(client, params);
+    }
   }
 
   // Locks the client's approved time of the period that is in no snapshot
-  // yet, at today's rates. One transaction: the entries are locked (FOR
-  // UPDATE) as they are read, so none changes before the snapshot commits,
-  // and snapshots of one workspace are made one at a time.
+  // yet, at today's rates, in one statement (createFromUnbilled), which
+  // locks the entries it takes (FOR UPDATE) until the snapshot commits.
+  // Snapshots of one workspace are made one at a time: a second one waits
+  // for the first, then takes only what the first left.
   public async create(params: ISnapshotParams): Promise<IBillingSnapshot> {
     const { user } = params;
 
+    assertCanSnapshot(params);
+
+    const [client, currency] = await Promise.all([
+      this.findClient(params),
+      this.slackTeamsService.getCurrency(user.slack_team_id),
+    ]);
+
     return this.transactions.transaction(async () => {
-      await this.transactions.lock(`billing-snapshots:${user.slack_team_id}`);
+      await this.transactions.lock(billingSnapshotsLock(user.slack_team_id));
 
-      const { client, currency, lines } = await this.collect(params, {
-        lock: true,
+      const snapshot = await this.snapshotsRepository.createFromUnbilled({
+        ...this.periodOf(params),
+        currency,
+        createdBy: user.id,
       });
-      const totals = this.toPreview(params, client, currency, lines);
 
-      if (!lines.length) {
-        throw new ValidationError(
-          `No approved time of ${client.name} in ${formatDateRange(params.fromDate, params.toDate)} is left outside snapshots.`,
-        );
+      if (!snapshot) {
+        throw nothingLeft(client, params);
       }
 
-      const snapshot = await this.snapshotsRepository.create({
-        slack_team_id: user.slack_team_id,
-        client_id: client.id,
-        period_start: params.fromDate,
-        period_end: params.toDate,
-        currency,
-        total_minutes: totals.totalMinutes,
-        billable_minutes: totals.billableMinutes,
-        total_amount: totals.amountCents / 100,
-        created_at: new Date().toISOString(),
-        created_by: user.id,
-      });
-
-      await this.entriesRepository.insertLines(
-        user.slack_team_id,
-        snapshot.id,
-        lines,
-      );
-
-      return {
-        ...snapshot,
-        entryCount: totals.entryCount,
-        unratedMinutes: totals.unratedMinutes,
-      };
+      return snapshot;
     });
   }
 
@@ -239,24 +252,14 @@ export class BillingSnapshotsService {
     }));
   }
 
-  // The lines a snapshot of the period would hold: the client's approved
-  // entries in no snapshot, each with its rate (the person's own on the
-  // project, else the project's) and the amount of its billable time.
-  private async collect(
-    { user, clientId, fromDate, toDate }: ISnapshotParams,
-    { lock = false }: { lock?: boolean } = {},
-  ): Promise<{
-    client: IClientViewModel;
-    currency: string;
-    lines: ISnapshotLineInsert[];
-  }> {
-    assertCanManageSnapshots(user);
-    assertReportPeriod(fromDate, toDate);
-
-    const slackTeamId = user.slack_team_id;
+  // The client of the snapshot: the workspace's, archived ones too.
+  private async findClient({
+    user,
+    clientId,
+  }: ISnapshotParams): Promise<IClientViewModel> {
     const client = await this.clientsService.findOne({
       id: clientId,
-      slackTeamId,
+      slackTeamId: user.slack_team_id,
       includeArchived: true,
     });
 
@@ -264,69 +267,10 @@ export class BillingSnapshotsService {
       throw new ValidationError('Client not found.');
     }
 
-    // By project rather than the entry's client_id, which entries logged
-    // before it was filled in do not have (as the billing report does).
-    const projects = await this.projectsService.findMany({
-      slackTeamId,
-      clientId,
-      includeArchived: true,
-    });
-    const projectIds = projects.map(({ id }) => id);
-    const entries = await this.entriesRepository.findUnbilledApproved({
-      slackTeamId,
-      projectIds,
-      fromDate,
-      toDate,
-      lock,
-    });
-    const rates: Map<string, IProjectRates> = entries.length
-      ? await this.projectRatesService.findRates(projectIds, user)
-      : new Map();
-    const currency = await this.slackTeamsService.getCurrency(slackTeamId);
-
-    const lines = entries.map((entry): ISnapshotLineInsert => {
-      const hourlyRate = rateOf(rates, entry.project_id, entry.user_id);
-
-      return {
-        timeEntryId: entry.id,
-        minutes: entry.minutes,
-        billable: entry.billable,
-        hourlyRate,
-        amountCents:
-          entry.billable && hourlyRate !== null
-            ? amountInCents(entry.minutes, hourlyRate)
-            : null,
-      };
-    });
-
-    return { client, currency, lines };
+    return client;
   }
 
-  private toPreview(
-    { fromDate, toDate }: ISnapshotParams,
-    client: IClientViewModel,
-    currency: string,
-    lines: ISnapshotLineInsert[],
-  ): ISnapshotPreview {
-    const billable = lines.filter(({ billable }) => billable);
-    const sum = (items: ISnapshotLineInsert[]) =>
-      items.reduce((total, { minutes }) => total + minutes, 0);
-
-    return {
-      clientName: client.name,
-      fromDate,
-      toDate,
-      currency,
-      entryCount: lines.length,
-      totalMinutes: sum(lines),
-      billableMinutes: sum(billable),
-      amountCents: billable.reduce(
-        (total, { amountCents }) => total + (amountCents ?? 0),
-        0,
-      ),
-      unratedMinutes: sum(
-        billable.filter(({ hourlyRate }) => hourlyRate === null),
-      ),
-    };
+  private periodOf({ user, clientId, fromDate, toDate }: ISnapshotParams) {
+    return { slackTeamId: user.slack_team_id, clientId, fromDate, toDate };
   }
 }

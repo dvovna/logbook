@@ -1,8 +1,10 @@
 import { Logger } from '@nestjs/common';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
 import BaseTabService, {
+  IPublishBaseParams,
   ModalViewResolversMapType,
 } from 'src/slack/common/services/base-tab.service';
+import { IPendingApprovals } from 'src/slack/common/services/pending-approvals.service';
 import { TabId } from 'src/slack/common/services/tab-navigation.service';
 import UserRole from 'src/common/enums/user-role.enum';
 import { IUserViewModel } from 'src/users/types/user.interface';
@@ -23,11 +25,17 @@ const user: IUserViewModel = {
 const content = { type: 'section', text: { type: 'mrkdwn', text: 'Content' } };
 
 class TestTabService extends BaseTabService<ModalViewResolversMapType> {
+  public readonly shown: IPublishBaseParams[] = [];
+
   public constructor(tabId = TabId.Home) {
     super(tabId);
   }
 
-  protected getTabView(): Promise<ViewsPublishArguments> {
+  protected getTabView(
+    params: IPublishBaseParams,
+  ): Promise<ViewsPublishArguments> {
+    this.shown.push(params);
+
     return Promise.resolve({
       user_id: user.slack_id,
       view: { type: 'home', blocks: [content] },
@@ -107,6 +115,26 @@ describe('BaseTabService', () => {
       expect.objectContaining({ block_id: 'tab_notice' }),
       content,
     ]);
+  });
+
+  // Home shows the count too, and waits for it beside its own reads.
+  it('counts what waits for approval beside the screen, not before it', async () => {
+    let counted!: (pending: IPendingApprovals) => void;
+    pendingApprovalsService.count.mockReturnValue(
+      new Promise((resolve) => (counted = resolve)),
+    );
+    const service = createService();
+
+    const publishing = service.publish({ user });
+
+    expect(service.shown).toHaveLength(1);
+    counted({ timeOff: 0, timeEntries: 1 });
+    await publishing;
+    await expect(service.shown[0].pendingApprovals).resolves.toEqual({
+      timeOff: 0,
+      timeEntries: 1,
+    });
+    expect(navigationOf(published())).toContain('✅ Approvals (1)');
   });
 
   it('still shows the screen when the approvals cannot be counted', async () => {

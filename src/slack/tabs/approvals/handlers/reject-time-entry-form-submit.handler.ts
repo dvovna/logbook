@@ -22,6 +22,7 @@ import { ApprovalsTabModalName } from '@modules/slack/tabs/approvals/enums/appro
 import { IApprovalsTabMetaData } from '@modules/slack/tabs/approvals/views/approvals-tab.view';
 import { TimeEntryApprovalsService } from 'src/time-entries/services/time-entry-approvals.service';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
+import { TransactionService } from 'src/database/transaction.service';
 
 // Rejects the entry and tells its owner why, after Slack has its answer.
 @Injectable()
@@ -41,6 +42,7 @@ export class RejectTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
     private readonly timeEntryNotificationsService: TimeEntryNotificationsService,
     private readonly approvalsTabService: ApprovalsTabService,
     private readonly tabNavigationService: TabNavigationService,
+    private readonly transactions: TransactionService,
     formParser: RejectReasonModalViewValuesParser,
   ) {
     super(formParser);
@@ -51,15 +53,22 @@ export class RejectTimeEntryFormSubmitHandler extends BaseModalFormSubmitHandler
     meta: IRejectWithReasonModalViewMetadata,
     user: IUserViewModel,
   ) {
-    const entry = await this.timeEntryApprovalsService.reject(
-      user,
-      meta.id,
-      data.reason,
-    );
+    // The owner's DM is saved with the rejection.
+    return this.transactions.transaction(async () => {
+      const entry = await this.timeEntryApprovalsService.reject(
+        user,
+        meta.id,
+        data.reason,
+      );
 
-    this.timeEntryNotificationsService.notifyRejected(entry, user, data.reason);
+      await this.timeEntryNotificationsService.notifyRejected(
+        entry,
+        user,
+        data.reason,
+      );
 
-    return entry;
+      return entry;
+    });
   }
 
   protected successResponse(

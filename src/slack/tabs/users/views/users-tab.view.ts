@@ -1,3 +1,7 @@
+import {
+  getCurrentVacationPeriod,
+  getJoinedVacationPeriod,
+} from '@modules/vacation-requests/utils/vacation-period.utils';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { formatDate } from '@common/utils/date.utils';
 import { ListItem } from '@modules/slack/common/views/components/list-item.view';
@@ -93,11 +97,6 @@ export class UsersTabView extends BaseTabView<
             type: 'button',
             text: { type: 'plain_text', text: '📥 Import vacations (CSV)' },
             action_id: UsersTabViewActionId.ImportVacations,
-          },
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '📥 Import teams (CSV)' },
-            action_id: UsersTabViewActionId.ImportTeams,
           },
         ],
       });
@@ -215,7 +214,11 @@ export class UsersTabView extends BaseTabView<
             .join(' · '),
           user.contract_start_date &&
             `Contract start: ${formatDate(user.contract_start_date)}`,
-          !!user.carryover_days && `Carryover: ${user.carryover_days} days`,
+          // What HR entered counts in the year the person joined; later
+          // years carry over on their own (their usage shows it).
+          !!user.carryover_days &&
+            isJoinedYear(user) &&
+            `Carryover: ${user.carryover_days} days`,
         ],
         accessory: this.getUserRowAccessory(user, userRole),
       }),
@@ -259,3 +262,10 @@ export class UsersTabView extends BaseTabView<
     });
   }
 }
+
+const isJoinedYear = (user: IUserViewModel) =>
+  getJoinedVacationPeriod(
+    user.contract_start_date,
+    user.created_at,
+  ).periodStart.getTime() ===
+  getCurrentVacationPeriod(user.contract_start_date).periodStart.getTime();

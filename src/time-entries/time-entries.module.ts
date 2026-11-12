@@ -14,7 +14,13 @@ import { UsersModule } from '@modules/users/users.module';
 import { TimeEntriesScopeService } from 'src/time-entries/services/time-entries-scope.service';
 import { TimeReportService } from 'src/time-entries/services/time-report.service';
 import { TimeEntriesExportService } from 'src/time-entries/services/time-entries-export.service';
-import { TimesheetService } from 'src/time-entries/services/timesheet.service';
+import { TimesheetWeekService } from 'src/time-entries/services/timesheet-week.service';
+import { TimesheetSaveService } from 'src/time-entries/services/timesheet-save.service';
+import { TimeEntryWriter } from 'src/time-entries/services/time-entry-writer.service';
+import {
+  DEFAULT_TIME_ENTRIES_EXPORT_LIMITS,
+  TIME_ENTRIES_EXPORT_LIMITS,
+} from 'src/time-entries/constants/time-entries-export';
 
 @Module({
   imports: [
@@ -27,6 +33,7 @@ import { TimesheetService } from 'src/time-entries/services/timesheet.service';
   providers: [
     TimeEntriesRepository,
     TimeEntriesService,
+    TimeEntryWriter,
     TimeEntriesValidationService,
     TimeEntryApprovalsService,
     TimeEntriesSummaryService,
@@ -35,18 +42,25 @@ import { TimesheetService } from 'src/time-entries/services/timesheet.service';
     TimeEntriesScopeService,
     TimeReportService,
     TimeEntriesExportService,
-    TimesheetService,
+    {
+      provide: TIME_ENTRIES_EXPORT_LIMITS,
+      useValue: DEFAULT_TIME_ENTRIES_EXPORT_LIMITS,
+    },
+    TimesheetWeekService,
+    TimesheetSaveService,
   ],
   exports: [
     TimeEntriesSummaryService,
     BillingReportService,
     TimeEntriesService,
+    TimeEntryWriter,
     TimeEntryApprovalsService,
     TimeEntriesListQuery,
     TimeReportService,
     TimeEntriesExportService,
     TimeEntriesScopeService,
-    TimesheetService,
+    TimesheetWeekService,
+    TimesheetSaveService,
   ],
 })
 export class TimeEntriesModule {}

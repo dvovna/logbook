@@ -18,59 +18,23 @@ import { RepositoryFilter } from '@common/repositories/repository.types';
 import ProjectsService from 'src/projects/services/projects.service';
 import { GetUserProjectsQuery } from 'src/projects/queries/get-user-projects.query';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
-import { IRemovedVacationTime } from 'src/time-entries/types/removed-vacation-time.types';
 import { ValidationError } from '@common/errors/validation.error';
 import {
   isOpenTimeEntry,
   OPEN_TIME_ENTRY_STATUSES,
 } from 'src/time-entries/constants/open-time-entry-statuses';
-import {
-  BILLED_ENTRY_MESSAGE,
-  isBilledEntryError,
-} from 'src/time-entries/constants/billed-time-entries';
 import { TimeEntryChangedError } from 'src/time-entries/errors/time-entry-changed.error';
-import { getDateOnly } from '@common/utils/date.utils';
-
-interface ICreateParams {
-  userId: string;
-  // The team of the user the time is logged for.
-  teamId: string | null;
-  projectId: string;
-  workDate: Date;
-  minutes: number;
-  description?: string | null;
-  status: TimeEntryStatus;
-}
-
-interface IUpdateParams {
-  userId?: string;
-  teamId?: string | null;
-  projectId?: string;
-  workDate?: Date;
-  minutes?: number;
-  description?: string | null;
-  status?: TimeEntryStatus;
-}
-
-// What an entry takes from its project.
-interface IEntryProject {
-  id: string;
-  client_id: string | null;
-  billable: boolean;
-}
-
-type IEntryActor = Pick<IUserViewModel, 'id' | 'slack_team_id'>;
-
-interface IWriteOptions {
-  // Write only while the entry is a draft or rejected: the owner's rule, and
-  // the timesheet's for everyone. Admin and HR otherwise change any entry.
-  openOnly?: boolean;
-}
-
-interface IUpdateWriteOptions extends IWriteOptions {
-  // The new project, when the changes move the entry to one.
-  project?: IEntryProject;
-}
+import { TimeEntryWriter } from 'src/time-entries/services/time-entry-writer.service';
+import {
+  ITimeEntryCreateParams,
+  ITimeEntryUpdateParams,
+} from 'src/time-entries/types/time-entry-writes.types';
+import { TimeReportGrouping } from 'src/time-entries/enums/time-report-grouping.enum';
+import {
+  IReportEntriesQuery,
+  TimeReportCsvCursor,
+} from 'src/time-entries/types/time-report.types';
+import { TransactionService } from 'src/database/transaction.service';
 
 interface IFindParams {
   id?: string;
@@ -101,134 +65,34 @@ export class TimeEntriesService {
     private readonly projectsService: ProjectsService,
     private readonly getUserProjectsQuery: GetUserProjectsQuery,
     private readonly eventEmitter: EventEmitter2,
+    private readonly timeEntryWriter: TimeEntryWriter,
+    private readonly transactions: TransactionService,
   ) {}
 
   public async create(
-    createParams: ICreateParams,
+    createParams: ITimeEntryCreateParams,
     user: IUserViewModel,
   ): Promise<ITimeEntryViewModel> {
     const project = await this.getProject(createParams.projectId, user);
 
     await this.timeEntriesValidationService.validateCreate(createParams, user);
 
-    const created = await this.insert(createParams, project, user);
+    return this.submitting(createParams.status, async () => {
+      const created = await this.timeEntryWriter.insert(
+        createParams,
+        project,
+        user,
+      );
 
-    this.announceSubmitted([created], user);
+      await this.announceSubmitted([created], user);
 
-    return created;
-  }
-
-  // For an entry the caller has checked (create()).
-  private insert(
-    params: ICreateParams,
-    project: IEntryProject,
-    actor: IEntryActor,
-  ): Promise<ITimeEntryViewModel> {
-    return this.timeEntriesRepository.create(
-      this.newRow(params, project, actor),
-    );
-  }
-
-  // For entries the caller has checked (the timesheet), in one insert.
-  public insertMany(
-    entries: { params: ICreateParams; project: IEntryProject }[],
-    actor: IEntryActor,
-  ): Promise<ITimeEntryViewModel[]> {
-    return this.timeEntriesRepository.createMany(
-      entries.map(({ params, project }) => this.newRow(params, project, actor)),
-    );
-  }
-
-  // The approved time of a vacation: `minutes` on each of `dates`, in one
-  // insert. The caller has checked the person, the days and the project (no
-  // owner or assignment check, which are for people logging their own time),
-  // and takes care that no day gets two sets. Returns how many entries.
-  public async createForVacation({
-    userId,
-    teamId,
-    projectId,
-    minutes,
-    dates,
-    vacationRequestId,
-    description,
-    slackTeamId,
-  }: {
-    userId: string;
-    teamId: string | null;
-    projectId: string;
-    minutes: number;
-    dates: string[];
-    vacationRequestId: string;
-    // Of every entry: what the time is (the leave type).
-    description?: string;
-    slackTeamId: string;
-  }): Promise<number> {
-    if (!dates.length) {
-      return 0;
-    }
-
-    const project = await this.projectsService.findOne({
-      id: projectId,
-      slackTeamId,
+      return created;
     });
-
-    if (!project) {
-      throw new ValidationError('Project not found');
-    }
-
-    const created = await this.timeEntriesRepository.createMany(
-      dates.map((date) =>
-        this.newRow(
-          {
-            userId,
-            teamId,
-            projectId,
-            workDate: new Date(date),
-            minutes,
-            description,
-            status: TimeEntryStatus.Approved,
-          },
-          project,
-          { id: userId, slack_team_id: slackTeamId },
-          vacationRequestId,
-        ),
-      ),
-    );
-
-    return created.length;
-  }
-
-  // The row of a new entry: its client and billability are its project's.
-  private newRow(
-    params: ICreateParams,
-    project: IEntryProject,
-    actor: IEntryActor,
-    vacationRequestId: string | null = null,
-  ) {
-    const now = new Date().toISOString();
-
-    return {
-      user_id: params.userId,
-      project_id: project.id,
-      client_id: project.client_id,
-      work_date: params.workDate.toISOString(),
-      minutes: params.minutes,
-      description: params.description || null,
-      billable: project.billable,
-      status: params.status,
-      team_id: params.teamId,
-      vacation_request_id: vacationRequestId,
-      slack_team_id: actor.slack_team_id,
-      created_at: now,
-      updated_at: now,
-      created_by: actor.id,
-      updated_by: actor.id,
-    };
   }
 
   public async update(
     { id, slackTeamId }: IFindParams,
-    updateParams: IUpdateParams,
+    updateParams: ITimeEntryUpdateParams,
     user: IUserViewModel,
   ): Promise<ITimeEntryViewModel> {
     const existingEntry = await this.findOneWithValidation({
@@ -251,185 +115,26 @@ export class TimeEntriesService {
       user,
     );
 
-    const updated = await this.answeringAsTheCheck(
-      () => this.writeUpdate(existingEntry, updateParams, user, { project }),
-      async () =>
-        this.timeEntriesValidationService.validateUpdate(
-          await this.findOneWithValidation({ id, slackTeamId }),
-          updateParams,
-          user,
-        ),
-    );
+    return this.submitting(updateParams.status, async () => {
+      const updated = await this.answeringAsTheCheck(
+        () =>
+          this.timeEntryWriter.writeUpdate(existingEntry, updateParams, user, {
+            project,
+          }),
+        async () =>
+          this.timeEntriesValidationService.validateUpdate(
+            await this.findOneWithValidation({ id, slackTeamId }),
+            updateParams,
+            user,
+          ),
+      );
 
-    if (existingEntry.status !== TimeEntryStatus.Submitted) {
-      this.announceSubmitted([updated], user);
-    }
+      if (existingEntry.status !== TimeEntryStatus.Submitted) {
+        await this.announceSubmitted([updated], user);
+      }
 
-    return updated;
-  }
-
-  // Writes `changes` to `entry`, which the caller read and checked, unless it
-  // changed since: deleted, or no longer a draft or rejected when only such
-  // an entry may change (`openOnly`, by default the owner's rule). Throws
-  // TimeEntryChangedError then, and the billed message when a billing
-  // snapshot took the entry.
-  public async writeUpdate(
-    entry: ITimeEntryViewModel,
-    changes: IUpdateParams,
-    actor: IUserViewModel,
-    {
-      project,
-      openOnly = !isTimeEntriesAdmin(actor.role),
-    }: IUpdateWriteOptions = {},
-  ): Promise<ITimeEntryViewModel> {
-    const [updated] = await this.refusingBilled(() =>
-      this.timeEntriesRepository.updateMany(
-        this.unchangedSinceCheck(entry, openOnly),
-        {
-          ...this.changedColumns(changes, actor),
-          ...(project
-            ? {
-                project_id: project.id,
-                client_id: project.client_id,
-                billable: project.billable,
-              }
-            : {}),
-        },
-      ),
-    );
-
-    if (!updated) {
-      throw new TimeEntryChangedError();
-    }
-
-    return updated;
-  }
-
-  // Gives entries the caller read and checked their new minutes (by ID), and
-  // all of them `changes`, in one statement, as writeUpdate does one. Returns
-  // the IDs it left alone because the entry changed since: the caller throws
-  // and its transaction undoes the rest.
-  public async writeMinutes(
-    minutesById: Map<string, number>,
-    changes: Pick<IUpdateParams, 'description' | 'status'>,
-    actor: IUserViewModel,
-    { openOnly = !isTimeEntriesAdmin(actor.role) }: IWriteOptions = {},
-  ): Promise<string[]> {
-    const written = new Set(
-      await this.refusingBilled(() =>
-        this.timeEntriesRepository.setMinutes(
-          actor.slack_team_id,
-          minutesById,
-          this.changedColumns(changes, actor),
-          openOnly ? OPEN_TIME_ENTRY_STATUSES : undefined,
-        ),
-      ),
-    );
-
-    return [...minutesById.keys()].filter((id) => !written.has(id));
-  }
-
-  private changedColumns(changes: IUpdateParams, actor: IEntryActor) {
-    return {
-      ...(changes.userId !== undefined ? { user_id: changes.userId } : {}),
-      ...(changes.teamId !== undefined ? { team_id: changes.teamId } : {}),
-      ...(changes.workDate !== undefined
-        ? { work_date: changes.workDate.toISOString() }
-        : {}),
-      ...(changes.minutes !== undefined ? { minutes: changes.minutes } : {}),
-      ...(changes.description !== undefined
-        ? { description: changes.description }
-        : {}),
-      ...(changes.status !== undefined ? { status: changes.status } : {}),
-      // A changed entry is no longer the one that was rejected.
-      ...(changes.status !== undefined &&
-      changes.status !== TimeEntryStatus.Rejected
-        ? { rejection_reason: null }
-        : {}),
-      updated_at: new Date().toISOString(),
-      updated_by: actor.id,
-    };
-  }
-
-  // Deletes `entry` (keeping it as history), which the caller read and
-  // checked, unless it changed since, as writeUpdate.
-  public async writeDelete(
-    entry: ITimeEntryViewModel,
-    actor: IUserViewModel,
-    options: IWriteOptions = {},
-  ): Promise<void> {
-    if ((await this.writeDeletes([entry], actor, options)).length) {
-      throw new TimeEntryChangedError();
-    }
-  }
-
-  // Deletes entries the caller read and checked (keeping them as history) in
-  // one statement, as writeDelete does one. Returns the IDs it left alone
-  // because the entry changed since.
-  public async writeDeletes(
-    entries: ITimeEntryViewModel[],
-    actor: IUserViewModel,
-    { openOnly = !isTimeEntriesAdmin(actor.role) }: IWriteOptions = {},
-  ): Promise<string[]> {
-    if (!entries.length) {
-      return [];
-    }
-
-    const ids = entries.map(({ id }) => id);
-    const deleted = await this.refusingBilled(() =>
-      this.timeEntriesRepository.updateMany(
-        {
-          id: { operator: 'in', value: ids },
-          slack_team_id: actor.slack_team_id,
-          deleted_at: { operator: 'is', value: null },
-          ...(openOnly
-            ? { status: { operator: 'in', value: OPEN_TIME_ENTRY_STATUSES } }
-            : {}),
-        },
-        {
-          deleted_at: new Date().toISOString(),
-          deleted_by: actor.id,
-        },
-      ),
-    );
-    const written = new Set(deleted.map(({ id }) => id));
-
-    return ids.filter((id) => !written.has(id));
-  }
-
-  // Deletes the time logged from a vacation (keeping it as history) when the
-  // vacation changes, in the caller's transaction, in one statement. Entries
-  // in a billing snapshot can't change and stay; their days are returned,
-  // sorted, so the person who changed the vacation hears of them.
-  public async deleteVacationTime(
-    requestId: string,
-    slackTeamId: string,
-    user: IUserViewModel,
-  ): Promise<IRemovedVacationTime> {
-    const { deleted, billedDates } = await this.refusingBilled(() =>
-      this.timeEntriesRepository.deleteVacationTime(
-        slackTeamId,
-        requestId,
-        user.id,
-      ),
-    );
-
-    const owners = new Map<string, { minutes: number; projectIds: string[] }>();
-
-    for (const { user_id, minutes, project_id } of deleted) {
-      const owner = owners.get(user_id) ?? { minutes: 0, projectIds: [] };
-
-      owners.set(user_id, {
-        minutes: owner.minutes + minutes,
-        projectIds: [...new Set([...owner.projectIds, project_id])],
-      });
-    }
-
-    return {
-      deleted: deleted.length,
-      owners: [...owners].map(([userId, owner]) => ({ userId, ...owner })),
-      billedDates: [...new Set(billedDates.map(getDateOnly))].sort(),
-    };
+      return updated;
+    });
   }
 
   public findOne(params: IFindParams): Promise<ITimeEntryViewModel | null> {
@@ -450,6 +155,56 @@ export class TimeEntriesService {
 
   public async findMany(params: IFindParams) {
     return this.timeEntriesRepository.findMany(this.getFindQuery(params));
+  }
+
+  public sumMinutes({
+    slackTeamId,
+    ...params
+  }: {
+    slackTeamId: string;
+    dateFrom: string;
+    dateTo: string;
+    userId?: string;
+    teamIds?: string[];
+  }) {
+    return this.timeEntriesRepository.sumMinutes(slackTeamId, params);
+  }
+
+  public sumReportGroups(
+    slackTeamId: string,
+    query: IReportEntriesQuery,
+    groupBy: TimeReportGrouping,
+  ) {
+    return this.timeEntriesRepository.sumReportGroups(
+      slackTeamId,
+      query,
+      groupBy,
+    );
+  }
+
+  public findReportCsvPage(
+    slackTeamId: string,
+    query: IReportEntriesQuery,
+    page: { after?: TimeReportCsvCursor; limit: number; withRates: boolean },
+  ) {
+    return this.timeEntriesRepository.findReportCsvPage(
+      slackTeamId,
+      query,
+      page,
+    );
+  }
+
+  public sumOfUsers({
+    slackTeamId,
+    userIds,
+    ...period
+  }: {
+    slackTeamId: string;
+    userIds: string[];
+    dateFrom: string;
+    dateTo: string;
+  }) {
+    return this.timeEntriesRepository.sumOfUsers(slackTeamId, userIds, period);
   }
 
   public async search(
@@ -494,31 +249,45 @@ export class TimeEntriesService {
       }
     }
 
-    const submitted = await this.timeEntriesRepository.updateMany(
-      this.getFindQuery({
-        id,
-        userId: user.id,
-        slackTeamId,
-        dateFrom,
-        dateTo,
-        statuses: OPEN_TIME_ENTRY_STATUSES,
-      }),
-      {
-        status: TimeEntryStatus.Submitted,
-        rejection_reason: null,
-        updated_at: new Date().toISOString(),
-        updated_by: user.id,
-      },
-    );
+    return this.transactions.transaction(async () => {
+      const submitted = await this.timeEntriesRepository.updateMany(
+        this.getFindQuery({
+          id,
+          userId: user.id,
+          slackTeamId,
+          dateFrom,
+          dateTo,
+          statuses: OPEN_TIME_ENTRY_STATUSES,
+        }),
+        {
+          status: TimeEntryStatus.Submitted,
+          rejection_reason: null,
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        },
+      );
 
-    this.announceSubmitted(submitted, user);
+      await this.announceSubmitted(submitted, user);
 
-    return submitted;
+      return submitted;
+    });
+  }
+
+  // A write that may submit an entry runs in a transaction with the jobs
+  // that tell its approvers (announceSubmitted); any other needs none.
+  private submitting<T>(
+    status: TimeEntryStatus | undefined,
+    write: () => Promise<T>,
+  ): Promise<T> {
+    return status === TimeEntryStatus.Submitted
+      ? this.transactions.transaction(write)
+      : write();
   }
 
   // Entries that just went to their approvers: submitted by their owner, or
-  // logged or set as submitted by Admin or HR. The approvers hear of them.
-  private announceSubmitted(
+  // logged or set as submitted by Admin or HR. The approvers hear of them:
+  // the listener saves the jobs in the caller's transaction (emitAsync).
+  private async announceSubmitted(
     entries: ITimeEntryViewModel[],
     submittedBy: IUserViewModel,
   ) {
@@ -527,7 +296,7 @@ export class TimeEntriesService {
     );
 
     if (submitted.length) {
-      this.eventEmitter.emit(
+      await this.eventEmitter.emitAsync(
         TIME_ENTRIES_SUBMITTED,
         new TimeEntriesSubmittedEvent(
           submitted,
@@ -567,6 +336,16 @@ export class TimeEntriesService {
     );
   }
 
+  public findUserIdsWithOpenUpTo(params: {
+    slackTeamId: string;
+    dateTo: string;
+  }): Promise<string[]> {
+    return this.timeEntriesRepository.findUserIdsWithOpenUpTo(
+      params.slackTeamId,
+      params.dateTo,
+    );
+  }
+
   public count(params: IFindParams): Promise<number> {
     return this.timeEntriesRepository.count(this.getFindQuery(params));
   }
@@ -580,7 +359,7 @@ export class TimeEntriesService {
     await this.timeEntriesValidationService.validateDelete(entry, user);
 
     await this.answeringAsTheCheck(
-      () => this.writeDelete(entry, user),
+      () => this.timeEntryWriter.writeDelete(entry, user),
       async () =>
         this.timeEntriesValidationService.validateDelete(
           await this.findOneWithValidation(params),
@@ -589,22 +368,6 @@ export class TimeEntriesService {
     );
 
     return entry;
-  }
-
-  // The entry as the caller checked it: not deleted, and still a draft or
-  // rejected when `openOnly`.
-  private unchangedSinceCheck(
-    entry: ITimeEntryViewModel,
-    openOnly: boolean,
-  ): RepositoryFilter {
-    return {
-      id: entry.id,
-      slack_team_id: entry.slack_team_id,
-      deleted_at: { operator: 'is', value: null },
-      ...(openOnly
-        ? { status: { operator: 'in', value: OPEN_TIME_ENTRY_STATUSES } }
-        : {}),
-    };
   }
 
   // A write refused because the entry changed after its check answers as
@@ -619,20 +382,6 @@ export class TimeEntriesService {
     } catch (error) {
       if (error instanceof TimeEntryChangedError) {
         await check();
-      }
-
-      throw error;
-    }
-  }
-
-  // A snapshot can take the entry between the check and the write; the
-  // database then refuses the write (time_entries_keep_billed).
-  private async refusingBilled<T>(write: () => Promise<T>): Promise<T> {
-    try {
-      return await write();
-    } catch (error) {
-      if (isBilledEntryError(error)) {
-        throw new ValidationError(BILLED_ENTRY_MESSAGE);
       }
 
       throw error;

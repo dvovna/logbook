@@ -1,6 +1,6 @@
 import { UsersService } from '@modules/users/services/users.service';
 import { Injectable } from '@nestjs/common';
-import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import { RuleInputsValidationService } from '@modules/slack/tabs/teams/services/rule-inputs-validation.service';
 import { ValidationError } from '@common/errors/validation.error';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -12,9 +12,10 @@ import TeamModalViewValuesParser, {
 import TeamsService from '@modules/teams/services/teams.service';
 import {
   ITeamModalViewMetadata,
-  NO_POLICY_VALUE,
   TeamModalView,
 } from '@modules/slack/tabs/teams/views/team-modal.view';
+import { NO_POLICY_VALUE } from '@modules/slack/tabs/teams/constants/no-policy';
+import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
 import {
   TabId,
@@ -25,7 +26,7 @@ import {
   TeamsTabModalName,
   TeamsTabService,
 } from '@modules/slack/tabs/teams/services/teams-tab.service';
-import UserRole from '@common/enums/user-role.enum';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.view';
 
@@ -33,7 +34,7 @@ import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.vie
 @SlackHandler({
   callbackId: ViewCallbackId.TeamFormSubmit,
   type: 'view_submission',
-  allowedRoles: [UserRole.Admin, UserRole.HR],
+  allowedRoles: ADMIN_AND_HR_ROLES,
 })
 export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   ITeamModalViewMetadata,
@@ -45,7 +46,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     private readonly teamsService: TeamsService,
     private readonly teamsTabService: TeamsTabService,
     private readonly tabNavigationService: TabNavigationService,
-    private readonly vacationPoliciesService: VacationPoliciesService,
+    private readonly ruleInputsValidationService: RuleInputsValidationService,
     private readonly usersService: UsersService,
     teamModalViewValuesParser: TeamModalViewValuesParser,
   ) {
@@ -75,7 +76,13 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
   ) {
-    await this.assertPolicyInWorkspace(data, user);
+    await Promise.all([
+      this.ruleInputsValidationService.assertLevel1Approvers(
+        (data.manager_approvers ?? []).map(({ value }) => value),
+        user,
+      ),
+      this.assertOwnRules(data, user),
+    ]);
 
     const team = metadata.id
       ? await this.update(metadata.id, data, user)
@@ -93,28 +100,47 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     return team;
   }
 
-  // The policy ID comes from the form, so it has to be one of the
-  // workspace's policies.
-  private async assertPolicyInWorkspace(
-    data: ITeamFormViewData,
-    user: IUserViewModel,
-  ) {
-    const policyId = data.policy?.value;
-
-    if (!policyId || policyId === NO_POLICY_VALUE) {
+  // The fields of its own rules are checked only while the team has its
+  // own rules.
+  private async assertOwnRules(data: ITeamFormViewData, user: IUserViewModel) {
+    if (data.rules.value === TeamRulesChoice.Company) {
       return;
     }
 
-    const policy = await this.vacationPoliciesService.findOne({
-      id: policyId,
-      slackTeamId: user.slack_team_id,
-    });
-
-    if (!policy) {
-      throw new ValidationError(
-        'This vacation policy is not in this workspace.',
-      );
+    // The policy is required wherever the fields are shown: without it the
+    // rebuild of the form after choosing "own" never reached the user.
+    if (!data.policy) {
+      throw new ValidationError("Check the team's own rules, then save again.");
     }
+
+    await Promise.all([
+      this.ruleInputsValidationService.assertPolicyInWorkspace(
+        data.policy.value === NO_POLICY_VALUE ? null : data.policy.value,
+        user,
+      ),
+      this.ruleInputsValidationService.assertLevel2Approvers(
+        (data.hr_approvers ?? []).map(({ value }) => value),
+        user,
+      ),
+    ]);
+  }
+
+  // The fields of its own rules are only on the form, and only taken, while
+  // the team has its own rules. A team that follows the company rules keeps
+  // whatever it holds in them, which nothing reads.
+  private ownRulesOf(data: ITeamFormViewData) {
+    if (data.rules.value === TeamRulesChoice.Company) {
+      return { followsCompanyRules: true };
+    }
+
+    return {
+      followsCompanyRules: false,
+      vacationPolicyId:
+        data.policy?.value === NO_POLICY_VALUE ? null : data.policy?.value,
+      hrApprovers: data.hr_approvers?.map((option) => option.value),
+      approvalNotificationRecipients: data.approval_notification_recipients,
+      hrApproversRule: data.hr_approvers_rule?.[0]?.value || ApprovalRule.Any,
+    };
   }
 
   private create(
@@ -125,15 +151,11 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       {
         name: data.name,
         description: data.description,
-        vacationPolicyId:
-          data.policy?.value === NO_POLICY_VALUE ? null : data.policy?.value,
         slackTeamId: user.slack_team_id,
         managerApprovers: data.manager_approvers?.map((option) => option.value),
-        hrApprovers: data.hr_approvers?.map((option) => option.value),
-        approvalNotificationRecipients: data.approval_notification_recipients,
         managerApproversRule:
           data.manager_approvers_rule?.[0]?.value || ApprovalRule.Any,
-        hrApproversRule: data.hr_approvers_rule?.[0]?.value || ApprovalRule.Any,
+        ...this.ownRulesOf(data),
       },
       user,
     );
@@ -152,14 +174,10 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       {
         name: data.name,
         description: data.description,
-        vacationPolicyId:
-          data.policy?.value === NO_POLICY_VALUE ? null : data.policy?.value,
         managerApprovers: data.manager_approvers?.map((option) => option.value),
-        hrApprovers: data.hr_approvers?.map((option) => option.value),
-        approvalNotificationRecipients: data.approval_notification_recipients,
         managerApproversRule:
           data.manager_approvers_rule?.[0]?.value || ApprovalRule.Any,
-        hrApproversRule: data.hr_approvers_rule?.[0]?.value || ApprovalRule.Any,
+        ...this.ownRulesOf(data),
       },
       user,
     );
@@ -167,7 +185,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
 
   protected async errorResponse(
     errorMessage: string,
-    _data: ITeamFormViewData,
+    data: ITeamFormViewData,
     metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
   ) {
@@ -175,6 +193,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       metadata,
       errorMessage,
       user,
+      data.rules.value,
     );
 
     return SlackViewResponseFactory.update(updatedModalView);
@@ -184,6 +203,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     metadata: ITeamModalViewMetadata,
     errorMessage: string,
     user: IUserViewModel,
+    rules: TeamRulesChoice,
   ) {
     if (metadata.id) {
       return this.teamsTabService.getModalView(TeamsTabModalName.UpdateTeam, {
@@ -191,6 +211,8 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
         errorMessage,
         user,
         pageMetadata: metadata.pageMetadata,
+        rules,
+        ruleFieldsVersion: `${rules}.${Date.now().toString(36)}`,
       });
     }
 
@@ -198,6 +220,8 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       errorMessage,
       user,
       pageMetadata: metadata.pageMetadata,
+      rules,
+      ruleFieldsVersion: `${rules}.${Date.now().toString(36)}`,
     });
   }
 }

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { sql } from 'kysely';
 import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import UserRole from '@common/enums/user-role.enum';
+import { ITeamAssignment } from '@modules/users/types/team-assignment.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 
 @Injectable()
@@ -71,8 +73,8 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
   };
 
   // The users `userIds` of the workspace become the team's members, and its
-  // other members leave it. Returns the members. Several statements: the
-  // caller runs them in one transaction.
+  // other members leave it. Returns the users whose team changed. Several
+  // statements: the caller runs them in one transaction.
   public async setTeamMembers(params: {
     slackTeamId: string;
     teamId: string;
@@ -80,38 +82,163 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
     updatedBy: string;
   }): Promise<IUserViewModel[]> {
     const { slackTeamId, teamId, userIds, updatedBy } = params;
-    const team = await this.db
-      .selectFrom('teams')
-      .select('id')
-      .where('slack_team_id', '=', slackTeamId)
-      .where('id', '=', teamId)
-      .executeTakeFirst();
 
-    if (!team) {
-      throw new Error(`Team ${teamId} is not in workspace ${slackTeamId}`);
-    }
+    await this.assertTeamsInWorkspace(slackTeamId, [teamId]);
 
     const changed = {
       updated_at: new Date().toISOString(),
       updated_by: updatedBy,
     };
 
-    await this.updateInWorkspace(slackTeamId)
+    const left = await this.updateInWorkspace(slackTeamId)
       .set({ team_id: null, ...changed })
       .where('team_id', '=', teamId)
       .$if(userIds.length > 0, (query) => query.where('id', 'not in', userIds))
-      .execute();
-
-    if (userIds.length === 0) {
-      return [];
-    }
-
-    const members = await this.updateInWorkspace(slackTeamId)
-      .set({ team_id: teamId, ...changed })
-      .where('id', 'in', userIds)
       .returningAll()
       .execute();
 
-    return members.map(this.mapToViewModel);
+    if (userIds.length === 0) {
+      return left.map(this.mapToViewModel);
+    }
+
+    const joined = await this.updateInWorkspace(slackTeamId)
+      .set({ team_id: teamId, ...changed })
+      .where('id', 'in', userIds)
+      .where('team_id', 'is distinct from', teamId)
+      .returningAll()
+      .execute();
+
+    return [...left, ...joined].map(this.mapToViewModel);
+  }
+
+  // Each user of the workspace in `assignments` moves to their team, or out
+  // of any team; one already there is left alone. Returns the users that
+  // moved. Several statements: the caller runs them in one transaction.
+  public async assignTeams(params: {
+    slackTeamId: string;
+    assignments: ITeamAssignment[];
+    updatedBy: string;
+  }): Promise<IUserViewModel[]> {
+    const { slackTeamId, assignments, updatedBy } = params;
+    const usersByTeam = new Map<string | null, string[]>();
+
+    for (const { userId, teamId } of assignments) {
+      usersByTeam.set(teamId, [...(usersByTeam.get(teamId) ?? []), userId]);
+    }
+
+    await this.assertTeamsInWorkspace(
+      slackTeamId,
+      [...usersByTeam.keys()].filter(
+        (teamId): teamId is string => teamId !== null,
+      ),
+    );
+
+    const changed = {
+      updated_at: new Date().toISOString(),
+      updated_by: updatedBy,
+    };
+    const moved: IUserViewModel[] = [];
+
+    for (const [teamId, userIds] of usersByTeam) {
+      const rows = await this.updateInWorkspace(slackTeamId)
+        .set({ team_id: teamId, ...changed })
+        .where('id', 'in', userIds)
+        .where('team_id', 'is distinct from', teamId)
+        .returningAll()
+        .execute();
+
+      moved.push(...rows.map(this.mapToViewModel));
+    }
+
+    return moved;
+  }
+
+  // Each user moves from `from` to `to` only while they are still in `from`.
+  // Returns the users that moved.
+  public async restoreTeams(params: {
+    slackTeamId: string;
+    restores: { userId: string; from: string | null; to: string | null }[];
+    updatedBy: string;
+  }): Promise<IUserViewModel[]> {
+    const { slackTeamId, restores, updatedBy } = params;
+    const groups = new Map<
+      string,
+      { from: string | null; to: string | null; userIds: string[] }
+    >();
+
+    for (const { userId, from, to } of restores) {
+      const key = `${from}>${to}`;
+      const group = groups.get(key) ?? { from, to, userIds: [] };
+
+      group.userIds.push(userId);
+      groups.set(key, group);
+    }
+
+    await this.assertTeamsInWorkspace(
+      slackTeamId,
+      [...new Set(restores.map(({ to }) => to))].filter(
+        (teamId): teamId is string => teamId !== null,
+      ),
+    );
+
+    const moved: IUserViewModel[] = [];
+
+    for (const { from, to, userIds } of groups.values()) {
+      const rows = await this.updateInWorkspace(slackTeamId)
+        .set({
+          team_id: to,
+          updated_at: new Date().toISOString(),
+          updated_by: updatedBy,
+        })
+        .where('id', 'in', userIds)
+        .where('team_id', 'is not distinct from', from)
+        .returningAll()
+        .execute();
+
+      moved.push(...rows.map(this.mapToViewModel));
+    }
+
+    return moved;
+  }
+
+  // Each user's contract start ('YYYY-MM-DD…' by user ID), in one
+  // statement: the dates go as one JSON object.
+  public async setContractStartDates(params: {
+    slackTeamId: string;
+    dates: Record<string, string>;
+    updatedBy: string;
+  }): Promise<void> {
+    const { slackTeamId, dates, updatedBy } = params;
+
+    await this.updateInWorkspace(slackTeamId)
+      .set({
+        contract_start_date: sql<string>`(${JSON.stringify(dates)}::jsonb ->> users.id::text)::date`,
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy,
+      })
+      .where((eb) => eb('id', '=', eb.fn.any(eb.val(Object.keys(dates)))))
+      .execute();
+  }
+
+  // The foreign key lets a user point at another workspace's team.
+  private async assertTeamsInWorkspace(slackTeamId: string, teamIds: string[]) {
+    if (teamIds.length === 0) {
+      return;
+    }
+
+    const teams = await this.db
+      .selectFrom('teams')
+      .select('id')
+      .where('slack_team_id', '=', slackTeamId)
+      .where('id', 'in', teamIds)
+      .execute();
+
+    if (teams.length !== teamIds.length) {
+      const found = new Set(teams.map(({ id }) => id));
+
+      throw new Error(
+        `Team ${teamIds.find((id) => !found.has(id))} is not in workspace ${slackTeamId}`,
+      );
+    }
   }
 }

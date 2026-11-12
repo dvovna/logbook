@@ -45,6 +45,7 @@ export class SlackTeamsRepository extends BaseRepository<
       currency: row.currency,
       time_off_minutes_per_day: row.time_off_minutes_per_day,
       uninstalled_at: row.uninstalled_at,
+      members_imported_at: row.members_imported_at,
     };
   };
 
@@ -118,6 +119,57 @@ export class SlackTeamsRepository extends BaseRepository<
         .where('id', '=', id)
         .execute(),
     );
+  }
+
+  // A refreshed pair, saved only while the stored refresh token is still
+  // `current` as it was read (encrypted with a random IV, so no two stored
+  // pairs share it): a reinstall, an uninstall or another process's refresh
+  // that came first is never overwritten. False when one did.
+  public async replaceTokens(
+    id: string,
+    current: string,
+    tokens: IStoredTokens,
+  ): Promise<boolean> {
+    const rows = await this.failingWith('Failed to save the bot token', () =>
+      this.db
+        .updateTable('slack_teams')
+        .set(tokens)
+        .where('id', '=', id)
+        .where('slack_refresh_token', '=', current)
+        .returning('id')
+        .execute(),
+    );
+
+    return rows.length > 0;
+  }
+
+  // Marks the daily member import of the workspace as started at `now`,
+  // unless one started after `since`: true for the one caller that marked
+  // it, false when another process did (or the workspace is uninstalled).
+  public async claimMemberSync(
+    id: string,
+    since: Date,
+    now: Date,
+  ): Promise<boolean> {
+    const rows = await this.failingWith(
+      'Failed to claim the member import',
+      () =>
+        this.db
+          .updateTable('slack_teams')
+          .set({ members_synced_at: now.toISOString() })
+          .where('id', '=', id)
+          .where('uninstalled_at', 'is', null)
+          .where((eb) =>
+            eb.or([
+              eb('members_synced_at', 'is', null),
+              eb('members_synced_at', '<=', since.toISOString()),
+            ]),
+          )
+          .returning('id')
+          .execute(),
+    );
+
+    return rows.length > 0;
   }
 
   // Marks the reminder of the week starting `monday` as sent, once: true for

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CompiledQuery, sql } from 'kysely';
 import { runInBackground } from '@common/utils/run-in-background';
+import { compareLocks, IAdvisoryLock } from 'src/database/advisory-locks';
 import { DatabaseService } from 'src/database/database.service';
 import {
   currentTransaction,
@@ -34,6 +35,8 @@ export class TransactionService {
       trx: this.database.db,
       afterCommit: [],
       done: false,
+      heldLocks: new Set(),
+      lastLock: null,
     };
     let result: T;
 
@@ -71,15 +74,86 @@ export class TransactionService {
   }
 
   // Serializes the transactions that take the same key until they end, e.g.
-  // the checks of a per-workspace limit and the insert after them.
-  public async lock(key: string) {
-    if (!this.inTransaction) {
-      throw new Error(`lock(${key}) outside a transaction holds nothing`);
+  // the checks of a per-workspace limit and the insert after them. A lock
+  // that comes before the last one taken (compareLocks) throws before any
+  // SQL; one already held is a no-op.
+  public async lock(lock: IAdvisoryLock) {
+    const scope = currentTransaction();
+
+    if (!scope) {
+      throw new Error(`lock(${lock.key}) outside a transaction holds nothing`);
     }
 
-    await sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`.execute(
+    if (scope.heldLocks.has(lock.key)) {
+      return;
+    }
+
+    if (scope.lastLock && compareLocks(lock, scope.lastLock) < 0) {
+      throw new Error(
+        `lock(${lock.key}) is out of order: ${scope.lastLock.key} is held`,
+      );
+    }
+
+    await sql`select pg_advisory_xact_lock(hashtextextended(${lock.key}, 0))`.execute(
       this.database.db,
     );
+
+    scope.heldLocks.add(lock.key);
+    scope.lastLock = lock;
+  }
+
+  // For work that must run under `lock` and leaves taking it to its caller,
+  // who decides what else runs under it.
+  public assertHolds(lock: IAdvisoryLock) {
+    if (!currentTransaction()?.heldLocks.has(lock.key)) {
+      throw new Error(`${lock.key} must be held here`);
+    }
+  }
+
+  // lock() for each of `locks`, in compareLocks order, the ones not held yet
+  // in one statement (a CSV import takes one per pending request it
+  // replaces). The statement takes them one after another in that order.
+  public async lockInOrder(...locks: IAdvisoryLock[]) {
+    const scope = currentTransaction();
+
+    if (!scope) {
+      throw new Error(
+        `lockInOrder(${locks.map(({ key }) => key).join(', ')}) outside a transaction holds nothing`,
+      );
+    }
+
+    const keys = new Set<string>();
+    const toTake = [...locks].sort(compareLocks).filter(({ key }) => {
+      const isNew = !scope.heldLocks.has(key) && !keys.has(key);
+
+      keys.add(key);
+
+      return isNew;
+    });
+
+    if (!toTake.length) {
+      return;
+    }
+
+    if (scope.lastLock && compareLocks(toTake[0], scope.lastLock) < 0) {
+      throw new Error(
+        `lock(${toTake[0].key}) is out of order: ${scope.lastLock.key} is held`,
+      );
+    }
+
+    if (toTake.length === 1) {
+      return this.lock(toTake[0]);
+    }
+
+    await sql`
+      select pg_advisory_xact_lock(hashtextextended(lock.key, 0))
+      from unnest(${toTake.map(({ key }) => key)}::text[])
+        with ordinality as lock(key, position)
+      order by lock.position
+    `.execute(this.database.db);
+
+    toTake.forEach(({ key }) => scope.heldLocks.add(key));
+    scope.lastLock = toTake[toTake.length - 1];
   }
 
   // Lets every statement of the current transaction run up to `seconds`

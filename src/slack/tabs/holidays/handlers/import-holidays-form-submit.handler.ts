@@ -12,6 +12,7 @@ import { IHolidaysTabMetadata } from '@modules/slack/tabs/holidays/views/holiday
 import {
   ImportHolidaysModalView,
   IUploadCountryHolidaysModalViewMetadata,
+  WHOLE_COUNTRY,
 } from '@modules/slack/tabs/holidays/views/import-holidays-modal.view';
 import ImportHolidaysModalViewValuesParser, {
   IImportHolidaysFormData,
@@ -55,6 +56,10 @@ export class ImportHolidaysFormSubmitHandler extends BaseModalFormSubmitHandler<
         countryCode: data.country.value,
         year: parsedPageMetadata.filters.selectedYear,
         slackTeamId: user.slack_team_id,
+        region:
+          data.region && data.region.value !== WHOLE_COUNTRY
+            ? data.region.value
+            : undefined,
       },
       user,
     );
@@ -90,6 +95,7 @@ export class ImportHolidaysFormSubmitHandler extends BaseModalFormSubmitHandler<
           user,
           errorMessage,
           pageMetadata: metadata.pageMetadata,
+          regions: metadata.regions,
         },
       ),
     );

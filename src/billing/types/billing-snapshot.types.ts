@@ -34,24 +34,25 @@ export interface ISnapshotEntryStats {
 
 export type IBillingSnapshot = IBillingSnapshotViewModel & ISnapshotEntryStats;
 
-// An approved time entry that is in no snapshot yet.
-export interface IUnbilledEntry {
-  id: string;
-  user_id: string;
-  project_id: string;
-  minutes: number;
-  billable: boolean;
+// A snapshot's lines added up, or those a snapshot would take now.
+export interface ISnapshotTotals {
+  entryCount: number;
+  totalMinutes: number;
+  billableMinutes: number;
+  // Of the billable time with a rate, in cents.
+  amountCents: number;
+  // Billable time without a rate, so without an amount.
+  unratedMinutes: number;
 }
 
-// A line of a snapshot to store: the entry, and the rate and amount it is
-// billed at.
-export interface ISnapshotLineInsert {
-  timeEntryId: string;
-  minutes: number;
-  billable: boolean;
-  hourlyRate: number | null;
-  // In cents; null without a rate or when the entry isn't billable.
-  amountCents: number | null;
+// What a new snapshot is made of besides its lines.
+export interface INewSnapshot {
+  slackTeamId: string;
+  clientId: string;
+  fromDate: string;
+  toDate: string;
+  currency: string;
+  createdBy: string;
 }
 
 // A line of a snapshot with its entry, for the CSV.

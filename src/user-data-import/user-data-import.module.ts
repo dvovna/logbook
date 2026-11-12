@@ -5,8 +5,6 @@ import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requ
 import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
 import { UserVacationsImportService } from '@modules/user-data-import/services/user-vacations-import.service';
 import UserVacationsCsvParser from '@modules/user-data-import/parsers/user-vacations-csv.parser';
-import UserTeamMappingCsvParser from '@modules/user-data-import/parsers/user-team-mapping-csv.parser';
-import { UserTeamMappingImportService } from '@modules/user-data-import/services/user-team-mapping-import.service';
 
 @Module({
   imports: [
@@ -15,12 +13,7 @@ import { UserTeamMappingImportService } from '@modules/user-data-import/services
     VacationRequestsModule,
     SlackCommunicationModule,
   ],
-  providers: [
-    UserVacationsImportService,
-    UserVacationsCsvParser,
-    UserTeamMappingCsvParser,
-    UserTeamMappingImportService,
-  ],
-  exports: [UserVacationsImportService, UserTeamMappingImportService],
+  providers: [UserVacationsImportService, UserVacationsCsvParser],
+  exports: [UserVacationsImportService],
 })
 export class UserDataImportModule {}

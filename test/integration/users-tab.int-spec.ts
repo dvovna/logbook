@@ -85,28 +85,22 @@ describe('Users tab', () => {
     );
 
   describe('importing a CSV', () => {
-    it('shows admins how, for vacations and for teams', async () => {
+    it('shows admins how to import vacations', async () => {
       const tab = await openAppHomeTab(t, workspace, admin, USERS_TAB);
+      const modal = await openModalFrom(
+        t,
+        workspace,
+        admin,
+        tab,
+        UsersTabViewActionId.ImportVacations,
+      );
 
-      for (const [actionId, title, fileName] of [
-        [
-          UsersTabViewActionId.ImportVacations,
-          'Import vacations',
-          'user-vacations.csv',
-        ],
-        [
-          UsersTabViewActionId.ImportTeams,
-          'Import teams',
-          'user-team-mapping.csv',
-        ],
-      ] as const) {
-        const modal = await openModalFrom(t, workspace, admin, tab, actionId);
-
-        expect((modal as { title: { text: string } }).title.text).toBe(title);
-        expect(sectionTexts(modal)).toContainEqual(
-          expect.stringContaining(`Save the file as \`${fileName}\``),
-        );
-      }
+      expect((modal as { title: { text: string } }).title.text).toBe(
+        'Import vacations',
+      );
+      expect(sectionTexts(modal)).toContainEqual(
+        expect.stringContaining('Save the file as `user-vacations.csv`'),
+      );
     });
 
     it('is not offered to HR, and a forged click opens nothing', async () => {

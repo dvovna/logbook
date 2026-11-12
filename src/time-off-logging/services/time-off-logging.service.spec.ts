@@ -1,10 +1,14 @@
 import { ForbiddenException } from '@nestjs/common';
+import {
+  timesheetLock,
+  vacationRequestLock,
+} from 'src/database/advisory-locks';
 import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
 import VacationType from 'src/common/enums/vacation-type.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { TransactionService } from 'src/database/transaction.service';
 import ProjectsService from 'src/projects/services/projects.service';
-import TeamsService from 'src/teams/services/teams.service';
+import { TeamRulesService } from 'src/teams/services/team-rules.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { UsersService } from 'src/users/services/users.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
@@ -13,6 +17,7 @@ import { VacationRequestsService } from 'src/vacation-requests/services/vacation
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 import { TimeOffLoggingService } from 'src/time-off-logging/services/time-off-logging.service';
 import { TimeOffSettingsService } from 'src/time-off-logging/services/time-off-settings.service';
+import { VacationTimeService } from 'src/time-off-logging/services/vacation-time.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -42,9 +47,10 @@ describe('TimeOffLoggingService', () => {
   let requests: { findOneWithValidation: jest.Mock };
   let projects: { findMany: jest.Mock };
   let users: { findOne: jest.Mock };
-  let teams: { findOne: jest.Mock };
+  let teamRules: { forTeam: jest.Mock };
   let days: { workingDates: jest.Mock };
-  let entries: { findMany: jest.Mock; createForVacation: jest.Mock };
+  let entries: { findMany: jest.Mock };
+  let vacationTime: { log: jest.Mock };
   let lock: jest.Mock;
   let service: TimeOffLoggingService;
 
@@ -62,16 +68,14 @@ describe('TimeOffLoggingService', () => {
       findMany: jest.fn().mockResolvedValue([{ id: 'p1', name: 'Vacations' }]),
     };
     users = { findOne: jest.fn().mockResolvedValue(user) };
-    teams = {
-      findOne: jest.fn().mockResolvedValue({ vacation_policy_id: 'v1' }),
+    teamRules = {
+      forTeam: jest.fn().mockResolvedValue({ vacationPolicyId: 'v1' }),
     };
     days = {
       workingDates: jest.fn().mockResolvedValue(['2026-06-19', '2026-06-23']),
     };
-    entries = {
-      findMany: jest.fn().mockResolvedValue([]),
-      createForVacation: jest.fn().mockResolvedValue(2),
-    };
+    entries = { findMany: jest.fn().mockResolvedValue([]) };
+    vacationTime = { log: jest.fn().mockResolvedValue(2) };
     lock = jest.fn();
 
     service = new TimeOffLoggingService(
@@ -79,19 +83,21 @@ describe('TimeOffLoggingService', () => {
       requests as unknown as VacationRequestsService,
       projects as unknown as ProjectsService,
       users as unknown as UsersService,
-      teams as unknown as TeamsService,
+      teamRules as unknown as TeamRulesService,
       days as unknown as VacationDaysCalculationService,
       entries as unknown as TimeEntriesService,
+      vacationTime as unknown as VacationTimeService,
       {
         transaction: (work: () => Promise<unknown>) => work(),
-        lock,
+        lockInOrder: lock,
       } as unknown as TransactionService,
     );
   });
 
-  it('counts the days by the requester team policy', async () => {
+  it('counts the days by the policy the requester team follows', async () => {
     await service.offerFor(request());
 
+    expect(teamRules.forTeam).toHaveBeenCalledWith('t1', SLACK_TEAM_ID);
     expect(days.workingDates).toHaveBeenCalledWith(
       new Date('2026-06-19'),
       new Date('2026-06-23'),
@@ -142,15 +148,17 @@ describe('TimeOffLoggingService', () => {
 
     const result = await service.log(user, 'r1');
 
-    // The request's lock, then the one a timesheet save of the user takes.
-    expect(lock.mock.calls).toEqual([['time-off:r1'], ['timesheet:u1']]);
+    // The request's lock and the one a timesheet save of the user takes.
+    expect(lock.mock.calls).toEqual([
+      [vacationRequestLock('r1'), timesheetLock('u1')],
+    ]);
     expect(entries.findMany).toHaveBeenCalledWith({
       userId: 'u1',
       dateFrom: '2026-06-19',
       dateTo: '2026-06-23',
       slackTeamId: SLACK_TEAM_ID,
     });
-    expect(entries.createForVacation).toHaveBeenCalledWith({
+    expect(vacationTime.log).toHaveBeenCalledWith({
       userId: 'u1',
       teamId: 't1',
       projectId: 'p1',
@@ -171,7 +179,7 @@ describe('TimeOffLoggingService', () => {
 
     const result = await service.log(user, 'r1');
 
-    expect(entries.createForVacation).not.toHaveBeenCalled();
+    expect(vacationTime.log).not.toHaveBeenCalled();
     expect(result.logged).toEqual([]);
   });
 

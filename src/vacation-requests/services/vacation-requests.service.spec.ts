@@ -1,10 +1,11 @@
+import { vacationRequestLock } from 'src/database/advisory-locks';
 import { ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
 import { VacationRequestsValidationService } from 'src/vacation-requests/services/vacation-requests-validation.service';
 import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
-import TeamsService from 'src/teams/services/teams.service';
+import { TeamRulesService } from 'src/teams/services/team-rules.service';
 import { UsersService } from 'src/users/services/users.service';
 import { RequestWorkflowService } from 'src/request-workflows/services/request-workflow.service';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
@@ -15,7 +16,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { TransactionService } from 'src/database/transaction.service';
-import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
+import HolidaysService from 'src/holidays/services/holidays.service';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -60,7 +61,13 @@ const buildRequest = (
 
 describe('VacationRequestsService', () => {
   let repository: Record<
-    'findOne' | 'update' | 'create' | 'findMany' | 'createMany' | 'deleteMany',
+    | 'findOne'
+    | 'update'
+    | 'updateMany'
+    | 'create'
+    | 'findMany'
+    | 'createMany'
+    | 'deleteMany',
     jest.Mock
   >;
   let validator: Record<
@@ -71,11 +78,18 @@ describe('VacationRequestsService', () => {
     | 'checkDaysRequested',
     jest.Mock
   >;
-  let eventEmitter: { emit: jest.Mock };
-  let usersService: { findOneWithValidation: jest.Mock };
-  let teamsService: { findOneWithValidation: jest.Mock };
-  let timeEntriesService: { deleteVacationTime: jest.Mock };
-  let workflowService: { closeBeforeDelete: jest.Mock };
+  let eventEmitter: { emit: jest.Mock; emitAsync: jest.Mock };
+  // Whether each emitAsync came inside the transaction.
+  let emittedInTransaction: boolean[];
+  let usersService: {
+    findOneWithValidation: jest.Mock;
+    setContractStartDates: jest.Mock;
+  };
+  let teamRules: { forTeam: jest.Mock; forWorkspace: jest.Mock };
+  let workflowService: {
+    closeBeforeDelete: jest.Mock;
+    closeManyBeforeDelete: jest.Mock;
+  };
   let service: VacationRequestsService;
   // Which repository calls ran inside TransactionService.transaction().
   let inTransaction: boolean;
@@ -90,12 +104,14 @@ describe('VacationRequestsService', () => {
       }
     },
     lock: jest.fn(),
+    assertHolds: jest.fn(),
   };
 
   beforeEach(() => {
     repository = {
       findOne: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       create: jest.fn().mockResolvedValue(buildRequest()),
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn().mockResolvedValue([]),
@@ -108,31 +124,60 @@ describe('VacationRequestsService', () => {
       getUsage: jest.fn(),
       checkDaysRequested: jest.fn(),
     };
-    eventEmitter = { emit: jest.fn() };
-    usersService = { findOneWithValidation: jest.fn() };
-    teamsService = {
-      findOneWithValidation: jest
-        .fn()
-        .mockResolvedValue({ vacation_policy_id: null }),
+    emittedInTransaction = [];
+    eventEmitter = {
+      emit: jest.fn(),
+      emitAsync: jest.fn(() => {
+        emittedInTransaction.push(inTransaction);
+
+        return Promise.resolve([]);
+      }),
     };
-    timeEntriesService = {
-      deleteVacationTime: jest
-        .fn()
-        .mockResolvedValue({ deleted: 0, billedDates: [] }),
+    usersService = {
+      findOneWithValidation: jest.fn(),
+      setContractStartDates: jest.fn(),
     };
-    workflowService = { closeBeforeDelete: jest.fn() };
+    teamRules = {
+      forTeam: jest.fn().mockResolvedValue({ vacationPolicyId: null }),
+      forWorkspace: jest.fn().mockResolvedValue({
+        companyRules: { vacation_policy_id: 'policy-1' },
+        teams: [],
+      }),
+    };
+    workflowService = {
+      closeBeforeDelete: jest.fn(),
+      closeManyBeforeDelete: jest.fn(),
+    };
+    transactions.lock.mockReset();
+    transactions.assertHolds.mockReset();
 
     service = new VacationRequestsService(
       repository as unknown as VacationRequestsRepository,
       validator as unknown as VacationRequestsValidationService,
       {
         calculate: jest.fn().mockResolvedValue(5),
+        // March 4 is a holiday of the company rules' policy.
+        holidayDatesByPolicy: jest
+          .fn()
+          .mockResolvedValue(new Map([['policy-1', new Set(['2026-03-04'])]])),
+        workingDatesWithout: (start: Date, end: Date, holidays: Set<string>) =>
+          new VacationDaysCalculationService(
+            {} as HolidaysService,
+          ).workingDatesWithout(start, end, holidays),
+        workingDates: jest
+          .fn()
+          .mockResolvedValue([
+            '2026-02-02',
+            '2026-02-03',
+            '2026-02-04',
+            '2026-02-05',
+            '2026-02-06',
+          ]),
       } as unknown as VacationDaysCalculationService,
-      teamsService as unknown as TeamsService,
+      teamRules as unknown as TeamRulesService,
       eventEmitter as unknown as EventEmitter2,
       usersService as unknown as UsersService,
       transactions as unknown as TransactionService,
-      timeEntriesService as unknown as TimeEntriesService,
       workflowService as unknown as RequestWorkflowService,
     );
     inTransaction = false;
@@ -170,13 +215,13 @@ describe('VacationRequestsService', () => {
       );
 
       expect(validator.validateNoOverlap).not.toHaveBeenCalled();
+      expect(validator.validateDaysRequested).not.toHaveBeenCalled();
     });
 
     it('checks new dates on edit, ignoring the edited request itself', async () => {
       repository.findOne.mockResolvedValue(buildRequest());
-      repository.update.mockResolvedValue(buildRequest());
 
-      await service.update(
+      await service.checkUpdate(
         { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
         { endDate: new Date('2026-02-09') },
         requester,
@@ -193,9 +238,8 @@ describe('VacationRequestsService', () => {
 
     it('does not check when only the comment changes', async () => {
       repository.findOne.mockResolvedValue(buildRequest());
-      repository.update.mockResolvedValue(buildRequest());
 
-      await service.update(
+      await service.checkUpdate(
         { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
         { userComment: 'Updated' },
         requester,
@@ -242,24 +286,76 @@ describe('VacationRequestsService', () => {
     it("checks the requester's balance when the admin changes the dates", async () => {
       usersService.findOneWithValidation.mockResolvedValue(requester);
       repository.findOne.mockResolvedValue(buildRequest());
-      repository.update.mockResolvedValue(buildRequest());
 
       const usage = { limits: null };
       validator.getUsage.mockResolvedValue(usage);
 
-      await service.update(
+      await service.checkUpdate(
         { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
         { endDate: new Date('2026-02-09') },
         admin,
       );
 
-      // An edit reads the balance beside the working days, then checks it.
-      expect(validator.getUsage).toHaveBeenCalledWith(requester);
+      // An edit reads the balance beside the working days, without the
+      // request itself, then checks it.
+      expect(validator.getUsage).toHaveBeenCalledWith(
+        requester,
+        expect.objectContaining({ endDate: new Date('2026-02-09') }),
+        { excludeRequestId: 'request-1' },
+      );
       expect(validator.checkDaysRequested).toHaveBeenCalledWith(
-        expect.anything(),
+        expect.objectContaining({ workingDates: expect.any(Array) }),
         VacationType.AnnualLeave,
         usage,
       );
+    });
+
+    it('checks the balance when an edit makes sick leave annual leave', async () => {
+      usersService.findOneWithValidation.mockResolvedValue(requester);
+      repository.findOne.mockResolvedValue(
+        buildRequest({ type: VacationType.SickLeave }),
+      );
+      validator.getUsage.mockResolvedValue([]);
+
+      await service.checkUpdate(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { type: VacationType.AnnualLeave },
+        admin,
+      );
+
+      expect(validator.checkDaysRequested).toHaveBeenCalledWith(
+        expect.anything(),
+        VacationType.AnnualLeave,
+        [],
+      );
+    });
+
+    it('checks the balance when an edit brings back a rejected request', async () => {
+      usersService.findOneWithValidation.mockResolvedValue(requester);
+      repository.findOne.mockResolvedValue(
+        buildRequest({ status: VacationRequestStatus.Rejected }),
+      );
+
+      await service.checkUpdate(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { status: VacationRequestStatus.Approved },
+        admin,
+      );
+
+      expect(validator.getUsage).toHaveBeenCalled();
+    });
+
+    it('leaves the balance alone when an edit changes only the comment', async () => {
+      repository.findOne.mockResolvedValue(buildRequest());
+
+      await service.checkUpdate(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { userComment: 'Back on Monday' },
+        requester,
+      );
+
+      expect(validator.getUsage).not.toHaveBeenCalled();
+      expect(validator.checkDaysRequested).not.toHaveBeenCalled();
     });
 
     it("puts an edited request in its person's team", async () => {
@@ -268,9 +364,12 @@ describe('VacationRequestsService', () => {
       repository.findOne.mockResolvedValue(buildRequest());
       repository.update.mockResolvedValue(buildRequest());
 
-      await service.update(
-        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
-        { userId: 'user-2' },
+      await service.applyUpdate(
+        await service.checkUpdate(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          { userId: 'user-2' },
+          admin,
+        ),
         admin,
       );
 
@@ -278,10 +377,7 @@ describe('VacationRequestsService', () => {
         id: 'user-2',
         slackTeamId: SLACK_TEAM_ID,
       });
-      expect(teamsService.findOneWithValidation).toHaveBeenCalledWith({
-        id: 'team-2',
-        slackTeamId: SLACK_TEAM_ID,
-      });
+      expect(teamRules.forTeam).toHaveBeenCalledWith('team-2', SLACK_TEAM_ID);
       expect(repository.update).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ user_id: 'user-2', team_id: 'team-2' }),
@@ -395,11 +491,28 @@ describe('VacationRequestsService', () => {
       expect(repository.create).toHaveBeenCalled();
     });
 
+    // The listeners save the jobs that follow it (its approval) with it.
+    it('tells of the new request inside its transaction', async () => {
+      const created = buildRequest();
+      repository.create.mockResolvedValue(created);
+
+      await expect(service.create(ownRequest, requester)).resolves.toBe(
+        created,
+      );
+
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationRequestEvent.Created,
+        expect.objectContaining({ request: created, user: requester }),
+      );
+      expect(emittedInTransaction).toEqual([true]);
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
     it('refuses an edit that puts the end before the start', async () => {
       repository.findOne.mockResolvedValue(buildRequest());
 
       const error: unknown = await service
-        .update(
+        .checkUpdate(
           { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
           { endDate: new Date('2026-02-01') },
           requester,
@@ -408,7 +521,6 @@ describe('VacationRequestsService', () => {
 
       expect(error).toBeInstanceOf(ValidationError);
       expect(error).toMatchObject({ field: 'dates' });
-      expect(repository.update).not.toHaveBeenCalled();
     });
 
     it('cancels a request whose old comment would not pass today', async () => {
@@ -438,10 +550,12 @@ describe('VacationRequestsService', () => {
           updated_by: requester.id,
         }),
       );
-      expect(eventEmitter.emit).toHaveBeenCalledWith(
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
         VacationRequestEvent.Updated,
         expect.objectContaining({ request: canceled }),
       );
+      // Its listeners close the approvers' steps with it.
+      expect(emittedInTransaction).toEqual([true]);
       expect(result).toBe(canceled);
     });
 
@@ -451,6 +565,20 @@ describe('VacationRequestsService', () => {
       await expect(service.cancel('request-1', requester)).rejects.toThrow(
         ForbiddenException,
       );
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses the cancel when the request was approved since its check', async () => {
+      repository.findOne
+        .mockResolvedValueOnce(buildRequest())
+        .mockResolvedValue(
+          buildRequest({ status: VacationRequestStatus.Approved }),
+        );
+
+      await expect(service.cancel('request-1', requester)).rejects.toThrow(
+        'Only vacation requests waiting for approval can be canceled',
+      );
+      expect(transactions.lock).toHaveBeenCalled();
       expect(repository.update).not.toHaveBeenCalled();
     });
 
@@ -468,132 +596,95 @@ describe('VacationRequestsService', () => {
     });
   });
 
-  // Time logged from an approved vacation goes when the vacation changes.
-  describe('the logged time', () => {
+  describe('finishing a pending request', () => {
+    it('sets the outcome and tells of it inside one transaction', async () => {
+      const approved = buildRequest({ status: VacationRequestStatus.Approved });
+      repository.updateMany.mockResolvedValue([approved]);
+
+      await expect(
+        service.finishPending(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          VacationRequestStatus.Approved,
+          requester,
+        ),
+      ).resolves.toBe(approved);
+
+      expect(repository.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ status: VacationRequestStatus.Pending }),
+        expect.objectContaining({ status: VacationRequestStatus.Approved }),
+      );
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationRequestEvent.Updated,
+        expect.objectContaining({ request: approved }),
+      );
+      expect(emittedInTransaction).toEqual([true]);
+    });
+
+    it('tells nothing when the request no longer waits', async () => {
+      repository.updateMany.mockResolvedValue([]);
+
+      await expect(
+        service.finishPending(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          VacationRequestStatus.Rejected,
+          requester,
+        ),
+      ).resolves.toBeNull();
+
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('applying a checked edit', () => {
     const hr: IUserViewModel = { ...requester, id: 'hr-1', role: UserRole.HR };
     const approved = buildRequest({ status: VacationRequestStatus.Approved });
 
-    beforeEach(() => {
-      repository.findOne.mockResolvedValue(approved);
-      timeEntriesService.deleteVacationTime.mockImplementation(() => {
-        expect(inTransaction).toBe(true);
-
-        return Promise.resolve({ deleted: 3, billedDates: ['2026-02-04'] });
-      });
-    });
-
-    it.each([
-      ['the days', { end_date: '2026-02-09' }],
-      ['the status', { status: VacationRequestStatus.Rejected }],
-      ['the type', { type: VacationType.SickLeave }],
-      ['the person', { user_id: 'user-2' }],
-    ])(
-      'is removed with an edit of %s, in its transaction',
-      async (_change, changed) => {
-        repository.update.mockImplementation(() => {
-          expect(inTransaction).toBe(true);
-
-          return Promise.resolve({ ...approved, ...changed });
-        });
-
-        const result = await service.update(
-          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
-          {},
-          hr,
-        );
-
-        expect(transactions.lock).toHaveBeenCalledWith('time-off:request-1');
-        expect(timeEntriesService.deleteVacationTime).toHaveBeenCalledWith(
-          'request-1',
-          SLACK_TEAM_ID,
-          hr,
-        );
-        expect(result).toEqual({
-          request: { ...approved, ...changed },
-          billedDates: ['2026-02-04'],
-        });
-        // Whose time it was hears what went.
-        expect(eventEmitter.emit).toHaveBeenCalledWith(
-          VacationRequestEvent.Updated,
-          expect.objectContaining({
-            removedTime: { deleted: 3, billedDates: ['2026-02-04'] },
-          }),
-        );
-      },
-    );
-
-    it('stays with an edit of the comment', async () => {
-      repository.update.mockResolvedValue({
-        ...approved,
-        user_comment: 'Family trip',
-      });
-
-      const result = await service.update(
-        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
-        { userComment: 'Family trip' },
-        hr,
-      );
-
-      expect(timeEntriesService.deleteVacationTime).not.toHaveBeenCalled();
-      expect(result.billedDates).toEqual([]);
-    });
-
     // HR's form read the request while it was pending; the workflow approved
-    // it before the lock, and the requester logged it. An edit of the comment
-    // changes nothing of that time.
-    it('compares with the request as it is under the lock', async () => {
+    // it before the lock. The caller compares with the request as it is now.
+    it('reads the request again under its lock', async () => {
+      const calls: string[] = [];
       repository.findOne
         .mockResolvedValueOnce(
           buildRequest({ status: VacationRequestStatus.Pending }),
         )
-        .mockResolvedValueOnce(approved);
-      repository.update.mockResolvedValue({
-        ...approved,
-        user_comment: 'Family trip',
+        .mockImplementationOnce(() => {
+          calls.push('read');
+
+          return Promise.resolve(approved);
+        });
+      transactions.assertHolds.mockImplementation(() => {
+        calls.push('lock held');
+      });
+      repository.update.mockImplementation(() => {
+        calls.push('write');
+
+        return Promise.resolve({ ...approved, user_comment: 'Family trip' });
       });
 
-      await service.update(
+      const update = await service.checkUpdate(
         { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
         { userComment: 'Family trip' },
         hr,
       );
 
-      expect(repository.findOne).toHaveBeenCalledTimes(2);
-      expect(timeEntriesService.deleteVacationTime).not.toHaveBeenCalled();
-      expect(eventEmitter.emit).toHaveBeenCalledWith(
-        VacationRequestEvent.Updated,
-        expect.objectContaining({ previous: approved }),
+      expect(calls).toEqual([]);
+
+      const result = await service.applyUpdate(update, hr);
+
+      expect(transactions.assertHolds).toHaveBeenCalledWith(
+        vacationRequestLock('request-1'),
       );
-    });
-
-    it('is removed before the request is deleted, in one transaction', async () => {
-      const calls: string[] = [];
-      timeEntriesService.deleteVacationTime.mockImplementation(() => {
-        calls.push(`time, in a transaction: ${inTransaction}`);
-
-        return Promise.resolve({ deleted: 3, billedDates: ['2026-02-04'] });
-      });
-      repository.deleteMany.mockImplementation(() => {
-        calls.push(`request, in a transaction: ${inTransaction}`);
-      });
-
-      const result = await service.delete(
-        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
-        hr,
-      );
-
-      expect(calls).toEqual([
-        'time, in a transaction: true',
-        'request, in a transaction: true',
-      ]);
+      expect(calls).toEqual(['lock held', 'read', 'write']);
       expect(result).toEqual({
-        request: approved,
-        billedDates: ['2026-02-04'],
+        previous: approved,
+        request: { ...approved, user_comment: 'Family trip' },
       });
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
     });
   });
 
-  describe('delete', () => {
+  describe('applyDelete', () => {
     const admin: IUserViewModel = {
       ...requester,
       id: 'admin-1',
@@ -603,29 +694,32 @@ describe('VacationRequestsService', () => {
 
     // The steps go with the request (ON DELETE CASCADE): closing them and
     // deleting it either both happen or neither does.
-    it("closes the request's approvals in the transaction that deletes it", async () => {
+    it("closes the request's approvals, then deletes it, under its lock", async () => {
       const calls: string[] = [];
-      repository.findOne.mockResolvedValue(buildRequest());
+      transactions.assertHolds.mockImplementation(() => {
+        calls.push('lock held');
+      });
       workflowService.closeBeforeDelete.mockImplementation(() => {
-        calls.push(`close the approvals, in a transaction: ${inTransaction}`);
+        calls.push('close the approvals');
       });
       repository.deleteMany.mockImplementation(() => {
-        calls.push(`delete, in a transaction: ${inTransaction}`);
+        calls.push('delete');
       });
 
-      await service.delete(
-        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
-        admin,
-      );
+      await service.applyDelete(buildRequest(), admin);
 
+      expect(transactions.assertHolds).toHaveBeenCalledWith(
+        vacationRequestLock('request-1'),
+      );
       expect(workflowService.closeBeforeDelete).toHaveBeenCalledWith(
         'request-1',
         admin,
       );
-      expect(calls).toEqual([
-        'close the approvals, in a transaction: true',
-        'delete, in a transaction: true',
-      ]);
+      expect(repository.deleteMany).toHaveBeenCalledWith({
+        id: 'request-1',
+        slack_team_id: SLACK_TEAM_ID,
+      });
+      expect(calls).toEqual(['lock held', 'close the approvals', 'delete']);
     });
   });
 
@@ -662,7 +756,7 @@ describe('VacationRequestsService', () => {
       ]);
       expect(repository.deleteMany).toHaveBeenCalledWith({
         slack_team_id: SLACK_TEAM_ID,
-        user_id: requester.id,
+        user_id: [requester.id],
       });
       expect(repository.createMany).toHaveBeenCalledWith([
         expect.objectContaining({
@@ -671,11 +765,16 @@ describe('VacationRequestsService', () => {
           start_date: '2026-03-02T00:00:00.000Z',
           end_date: '2026-03-06T00:00:00.000Z',
           days: 5,
+          working_days: 4,
           type: VacationType.AnnualLeave,
           status: VacationRequestStatus.Approved,
           created_by: requester.id,
         }),
       ]);
+      expect(usersService.setContractStartDates).toHaveBeenCalledWith(
+        [],
+        requester,
+      );
     });
 
     // A refused import rolls back the closed steps and the jobs with it.
@@ -684,7 +783,7 @@ describe('VacationRequestsService', () => {
       repository.findMany.mockResolvedValue([
         buildRequest({ id: 'pending-1' }),
       ]);
-      workflowService.closeBeforeDelete.mockImplementation(() => {
+      workflowService.closeManyBeforeDelete.mockImplementation(() => {
         calls.push(`close the approvals, in a transaction: ${inTransaction}`);
       });
       repository.deleteMany.mockImplementation(() => {
@@ -694,18 +793,80 @@ describe('VacationRequestsService', () => {
       await service.replaceUserVacations(requester, vacations, requester);
 
       expect(repository.findMany).toHaveBeenCalledWith({
-        user_id: requester.id,
+        user_id: [requester.id],
         slack_team_id: SLACK_TEAM_ID,
         status: { operator: 'in', value: [VacationRequestStatus.Pending] },
       });
-      expect(workflowService.closeBeforeDelete).toHaveBeenCalledWith(
-        'pending-1',
+      expect(workflowService.closeManyBeforeDelete).toHaveBeenCalledWith(
+        ['pending-1'],
         requester,
       );
       expect(calls).toEqual([
         'close the approvals, in a transaction: true',
         'delete, in a transaction: true',
       ]);
+    });
+
+    // A CSV import of hundreds of people: the same statements as for one.
+    it('replaces the vacations of many people and sets their contract start with the same statements', async () => {
+      const team = { id: 'team-1', vacation_policy_id: null };
+      teamRules.forWorkspace.mockResolvedValue({
+        companyRules: { vacation_policy_id: 'policy-1' },
+        // A team of its own rules without a policy: no holidays.
+        teams: [{ team, vacationPolicyId: null }],
+      });
+      const people = Array.from({ length: 300 }, (_, index) => ({
+        ...requester,
+        id: `user-${index}`,
+        team_id: index % 2 ? team.id : null,
+      }));
+      const replacements = people.map((user) => ({
+        user,
+        vacations: vacations.map((vacation) => ({
+          ...vacation,
+          userId: user.id,
+          teamId: user.team_id,
+        })),
+        contractStartDate: new Date('2025-09-01'),
+      }));
+
+      await service.replaceVacations(replacements, requester);
+
+      expect(teamRules.forWorkspace).toHaveBeenCalledTimes(1);
+      expect(repository.findMany).toHaveBeenCalledTimes(1);
+      expect(workflowService.closeManyBeforeDelete).toHaveBeenCalledTimes(1);
+      expect(repository.deleteMany).toHaveBeenCalledTimes(1);
+      expect(repository.deleteMany).toHaveBeenCalledWith({
+        slack_team_id: SLACK_TEAM_ID,
+        user_id: people.map(({ id }) => id),
+      });
+      expect(repository.createMany).toHaveBeenCalledTimes(1);
+      const [rows] = repository.createMany.mock.calls[0] as [
+        { user_id: string; working_days: number }[],
+      ];
+      expect(rows).toHaveLength(300);
+      expect(rows.slice(0, 2)).toEqual([
+        expect.objectContaining({ user_id: 'user-0', working_days: 4 }),
+        expect.objectContaining({ user_id: 'user-1', working_days: 5 }),
+      ]);
+      expect(usersService.setContractStartDates).toHaveBeenCalledTimes(1);
+      expect(usersService.setContractStartDates).toHaveBeenCalledWith(
+        people.map(({ id }) => ({
+          userId: id,
+          contractStartDate: new Date('2025-09-01'),
+        })),
+        requester,
+      );
+    });
+
+    it('inserts a few thousand rows at a time', async () => {
+      const many = Array.from({ length: 4500 }, () => vacations[0]);
+
+      await service.replaceUserVacations(requester, many, requester);
+
+      expect(
+        repository.createMany.mock.calls.map(([rows]) => rows.length),
+      ).toEqual([2000, 2000, 500]);
     });
   });
 });

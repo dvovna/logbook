@@ -77,56 +77,7 @@ describe('Admin', () => {
     });
   });
 
-  describe('user-team-mapping.csv', () => {
-    const shareFile = (user: Tables<'users'>, name: string, content: string) =>
-      t.slack
-        .event(workspace, {
-          type: 'file_shared',
-          file_id: t.slackApi.addFile(name, content),
-          user_id: user.slack_id,
-          channel_id: 'D_TEST',
-        })
-        .expect(acknowledged);
-
-    it('moves users to the teams named in the file', async () => {
-      const design = await workspace.addTeam({ name: 'Design' });
-      const ada = await workspace.addUser({ email: 'ada@example.test' });
-      const bob = await workspace.addUser({ email: 'bob@example.test' });
-
-      await shareFile(
-        admin,
-        'user-team-mapping.csv',
-        `email;team_name\n${ada.email};Design\n`,
-      );
-
-      await t.idle();
-      expect((await workspace.row('users', ada.id)).team_id).toBe(design.id);
-      expect((await workspace.row('users', bob.id)).team_id).toBeNull();
-      expect(
-        t.slackApi.ephemeralMessages(workspace.token, admin.slack_id),
-      ).toHaveLength(1);
-    });
-
-    it('reports rows it cannot import', async () => {
-      const ada = await workspace.addUser({ email: 'ada@example.test' });
-
-      await shareFile(
-        admin,
-        'user-team-mapping.csv',
-        `email;team_name\n${ada.email};Nonexistent\n`,
-      );
-
-      await t.idle();
-      const [reply] = t.slackApi.ephemeralMessages(
-        workspace.token,
-        admin.slack_id,
-      );
-      expect(textOf(reply)).toContain(
-        '`user-team-mapping.csv` was not imported',
-      );
-      expect(textOf(reply)).toContain('Team not found: Nonexistent');
-    });
-
+  describe('a shared file', () => {
     it('logs, rather than crashes on, a file it cannot download', async () => {
       const rejections: unknown[] = [];
       const onRejection = (reason: unknown) => rejections.push(reason);
@@ -152,22 +103,6 @@ describe('Admin', () => {
       } finally {
         process.off('unhandledRejection', onRejection);
       }
-    });
-
-    it('ignores files shared by non-admins', async () => {
-      const member = await workspace.addUser();
-      const design = await workspace.addTeam({ name: 'Design' });
-
-      await shareFile(
-        member,
-        'user-team-mapping.csv',
-        `email;team_name\n${member.email};Design\n`,
-      );
-
-      await t.idle();
-      expect((await workspace.row('users', member.id)).team_id).toBeNull();
-      expect(design).toBeDefined();
-      expect(t.slackApi.callsWith(workspace.token, 'files.info')).toEqual([]);
     });
   });
 });

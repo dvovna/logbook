@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import {
-  IVacationRequestChange,
-  VacationRequestsService,
-} from '@modules/vacation-requests/services/vacation-requests.service';
+import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import { TimeOffChangesService } from 'src/time-off-logging/services/time-off-changes.service';
+import { IVacationRequestChange } from 'src/time-off-logging/types/time-off-change.types';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackViewResponseFactory from '@modules/slack/factories/slack-response.factory';
@@ -41,6 +40,7 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
 
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
+    private readonly timeOffChangesService: TimeOffChangesService,
     private readonly tabNavigationService: TabNavigationService,
     private readonly vacationRequestModalView: VacationRequestFormModalView,
     private readonly usersService: UsersService,
@@ -116,7 +116,7 @@ export class AdminVacationRequestHandler extends BaseModalFormSubmitHandler<
     data: IVacationRequestAdminFormViewData,
     user: IUserViewModel,
   ): Promise<IVacationRequestChange> {
-    return this.vacationRequestsService.update(
+    return this.timeOffChangesService.update(
       {
         id,
         slackTeamId: user.slack_team_id,

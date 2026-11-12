@@ -1,5 +1,4 @@
 import { MemberSyncScheduleService } from '@modules/team-setup/member-sync-schedule.service';
-import { WELCOME_TEXT } from '@modules/team-setup/team-setup-workflow.service';
 import { Logger } from '@nestjs/common';
 import AccessTokenService from '@modules/slack-communication/services/slack-access-token.service';
 import request from 'supertest';
@@ -175,7 +174,16 @@ describe('Installing the app (OAuth redirect)', () => {
       t.slackApi
         .postedMessages(`xoxb-${teamId}`, installer)
         .map(({ text }) => text),
-    ).toEqual([WELCOME_TEXT]);
+    ).toEqual([
+      [
+        "👋 *Logbook is installed, and you're its admin.* Set it up in the app's *Home* tab, in this order:",
+        '1. *More → Policies*: a vacation policy, with its days and holidays. Without one, time off is tracked with no limits.',
+        '2. *More → Teams → Company rules*: who approves after the team lead (HR, leadership), who hears of decisions, and the policy.',
+        "3. *More → Teams → Set up from a file*: fill in everyone's team and team lead, then send the file back.",
+        '4. *More → Projects*: projects, if you track time.',
+        'Until that is done, Home shows a checklist.',
+      ].join('\n'),
+    ]);
   });
 
   describe('again', () => {

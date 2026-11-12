@@ -492,6 +492,7 @@ describe('Access control', () => {
       'created_at',
       'currency',
       'id',
+      'members_imported_at',
       'name',
       'slack_id',
       'time_off_minutes_per_day',

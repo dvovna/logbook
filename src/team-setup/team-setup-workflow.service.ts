@@ -12,6 +12,8 @@ import {
 import { UsersService } from '@modules/users/services/users.service';
 import SlackUsersService from '@modules/slack-communication/services/slack-users.service';
 import { TeamUsersSyncService } from '@modules/team-setup/team-users-sync.service';
+import { NEW_PERSON_PROMPT_JOB } from 'src/team-file/constants/jobs';
+import { INewPersonPromptJob } from 'src/team-file/types/new-person-prompt-job.interface';
 import { TransactionService } from 'src/database/transaction.service';
 
 interface ITeamSetupWorkflowParams {
@@ -33,8 +35,8 @@ interface IWelcomeJob {
 export const WELCOME_TEXT = [
   "👋 *Logbook is installed, and you're its admin.* Set it up in the app's *Home* tab, in this order:",
   '1. *More → Policies*: a vacation policy, with its days and holidays. Without one, time off is tracked with no limits.',
-  "2. *More → Teams*: teams and their approvers. Approvers need the Manager or HR role: change people's roles under *More → People* first.",
-  "3. *More → People*, or a team's form: put everyone in a team, so their requests reach its approvers.",
+  '2. *More → Teams → Company rules*: who approves after the team lead (HR, leadership), who hears of decisions, and the policy.',
+  "3. *More → Teams → Set up from a file*: fill in everyone's team and team lead, then send the file back.",
   '4. *More → Projects*: projects, if you track time.',
   'Until that is done, Home shows a checklist.',
 ].join('\n');
@@ -44,6 +46,8 @@ export interface ISyncUsersJob {
   userSlackIdsToIgnore?: string[];
   // The daily sync (MemberSyncScheduleService): no install to wait for.
   scheduled?: boolean;
+  // Ask HR about the people this run adds: set by the daily import only.
+  askAboutNew?: boolean;
 }
 
 @Injectable()
@@ -80,7 +84,28 @@ export class TeamSetupWorkflowService implements OnModuleInit {
         await delay(5000);
       }
 
-      await this.teamUsersSyncService.syncUsers(job);
+      // The install and restore imports ask about nobody. The daily one
+      // asks about the people it adds, once the first import has finished:
+      // those joined Slack since.
+      const { members_imported_at } =
+        await this.slackTeamsService.findOneWithValidation({
+          id: job.slackTeamId,
+        });
+      const created = await this.teamUsersSyncService.syncUsers(job);
+
+      if (job.askAboutNew && members_imported_at) {
+        // Saved together, so a crash can't leave the rest unasked.
+        await this.transactions.transaction(async () => {
+          for (const { id } of created) {
+            await this.jobs.enqueue<INewPersonPromptJob>(
+              NEW_PERSON_PROMPT_JOB,
+              { slackTeamId: job.slackTeamId, userId: id },
+            );
+          }
+        });
+      }
+
+      await this.slackTeamsService.markMembersImported(job.slackTeamId);
     });
   }
 
