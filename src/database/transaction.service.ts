@@ -37,6 +37,7 @@ export class TransactionService {
       done: false,
       heldLocks: new Set(),
       lastLock: null,
+      onceKeys: new Set(),
     };
     let result: T;
 
@@ -71,6 +72,26 @@ export class TransactionService {
     }
 
     runInBackground(this.logger, 'run work after a commit', callback);
+  }
+
+  // Runs `work` the first time `key` comes up in the current transaction and
+  // never again in it, e.g. one job that several changes of a transaction
+  // each call for. Outside a transaction, every time.
+  public async once(key: string, work: () => Promise<unknown>) {
+    const scope = currentTransaction();
+
+    if (scope?.onceKeys.has(key)) {
+      return;
+    }
+
+    scope?.onceKeys.add(key);
+
+    try {
+      await work();
+    } catch (error) {
+      scope?.onceKeys.delete(key);
+      throw error;
+    }
   }
 
   // Serializes the transactions that take the same key until they end, e.g.
@@ -111,8 +132,7 @@ export class TransactionService {
   }
 
   // lock() for each of `locks`, in compareLocks order, the ones not held yet
-  // in one statement (a CSV import takes one per pending request it
-  // replaces). The statement takes them one after another in that order.
+  // in one statement, which takes them one after another in that order.
   public async lockInOrder(...locks: IAdvisoryLock[]) {
     const scope = currentTransaction();
 

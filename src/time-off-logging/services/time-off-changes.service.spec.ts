@@ -9,6 +9,7 @@ import { TimeOffChangesService } from 'src/time-off-logging/services/time-off-ch
 import { VacationTimeService } from 'src/time-off-logging/services/vacation-time.service';
 import { IUserViewModel } from 'src/users/types/user.interface';
 import VacationRequestEvent from 'src/vacation-requests/events/vacation-request-event.enum';
+import { VacationRequestDecidedEvent } from 'src/vacation-requests/events/vacation-request.events';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
 import { IVacationRequestViewModel } from 'src/vacation-requests/types/vacation-request.interface';
 
@@ -144,6 +145,71 @@ describe('TimeOffChangesService', () => {
       expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
         VacationRequestEvent.Updated,
         new TimeOffChangedEvent(changedRequest, hr, approved, removedTime),
+      );
+    },
+  );
+
+  // Setting the status is a decision by the editor, told as the workflow's
+  // is; the listeners save its jobs in the edit's transaction.
+  it.each([
+    [VacationRequestStatus.Pending, VacationRequestStatus.Approved],
+    [VacationRequestStatus.Pending, VacationRequestStatus.Rejected],
+    [VacationRequestStatus.Approved, VacationRequestStatus.Rejected],
+    [VacationRequestStatus.Rejected, VacationRequestStatus.Approved],
+  ])(
+    'decides a request that goes from %s to %s, after telling of the edit',
+    async (from, to) => {
+      const previous = { ...approved, status: from };
+      const decided = { ...approved, status: to };
+      applies(previous, decided);
+
+      await update({ status: to });
+
+      expect(eventEmitter.emitAsync.mock.calls).toEqual([
+        [
+          VacationRequestEvent.Updated,
+          expect.objectContaining({ request: decided, previous }),
+        ],
+        [
+          VacationRequestEvent.Decided,
+          new VacationRequestDecidedEvent(decided, hr),
+        ],
+      ]);
+    },
+  );
+
+  // A second submit of the form finds the request decided under the lock.
+  it.each([
+    ['keeps its status', VacationRequestStatus.Approved],
+    ['becomes pending again', VacationRequestStatus.Pending],
+    ['is canceled', VacationRequestStatus.Canceled],
+  ])('decides nothing when the request %s', async (_change, status) => {
+    applies(approved, { ...approved, status, end_date: '2026-02-09' });
+
+    await update({ status });
+
+    expect(eventEmitter.emitAsync).toHaveBeenCalledTimes(1);
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+      VacationRequestEvent.Updated,
+      expect.anything(),
+    );
+  });
+
+  // The requester withdrew it: setting it again records the outcome.
+  it.each([VacationRequestStatus.Approved, VacationRequestStatus.Rejected])(
+    'decides nothing when a canceled request is set to %s',
+    async (status) => {
+      applies(
+        { ...approved, status: VacationRequestStatus.Canceled },
+        { ...approved, status },
+      );
+
+      await update({ status });
+
+      expect(eventEmitter.emitAsync).toHaveBeenCalledTimes(1);
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationRequestEvent.Updated,
+        expect.anything(),
       );
     },
   );

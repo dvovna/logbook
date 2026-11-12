@@ -1,7 +1,5 @@
 import { TabId } from '@modules/slack/common/enums/tab-id.enum';
 import { rolesOfTab } from '@modules/slack/common/navigation/screens';
-import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
-import SlackCommandPromptsService from '@modules/slack-communication/services/slack-command-prompts.service';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   ISlackBlockActionPayload,
@@ -26,7 +24,9 @@ import { withMenuAction } from '@modules/slack/common/utils/slack-menu.utils';
 import { TabNavigationService } from '@modules/slack/common/services/tab-navigation.service';
 import { BaseTabActionHandler } from '@modules/slack/common/handlers/base-tab-action.handler';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
-import UserRole from '@common/enums/user-role.enum';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
+import { runInBackground } from '@common/utils/run-in-background';
+import { LeaveFileDmService } from '@modules/slack/leave-file/services/leave-file-dm.service';
 import { getCheckboxActionValues } from '@modules/slack/common/utils/payload.utils';
 import { parseMetadata } from '@modules/slack/common/utils/slack-metadata.utils';
 import { YesNoValue } from '@modules/slack/common/enums/yes-no-value.enum';
@@ -45,8 +45,7 @@ export default class UsersTabActionHandler extends BaseTabActionHandler {
   public constructor(
     tabNavigationService: TabNavigationService,
     private readonly usersTabService: UsersTabService,
-    private readonly slackCommunicationService: SlackCommunicationService,
-    private readonly promptsService: SlackCommandPromptsService,
+    private readonly leaveFileDmService: LeaveFileDmService,
   ) {
     super(tabNavigationService);
 
@@ -73,34 +72,21 @@ export default class UsersTabActionHandler extends BaseTabActionHandler {
       ),
       [UsersTabViewActionId.IncludeInactive]: this.handleIncludeInactiveFilter,
       [UsersTabViewActionId.ResetFilters]: withResetFilters(this.updateTab),
-      [UsersTabViewActionId.ImportVacations]: this.showImportInstructions,
+      [UsersTabViewActionId.ImportLeave]: this.sendLeaveTemplates,
     };
   }
 
-  // How to import a CSV; the upload itself happens in the Messages tab.
-  private showImportInstructions = async (
-    payload: ISlackInteractionPayload,
+  // Slack takes action ids from the client, so the role is checked here.
+  private sendLeaveTemplates = (
+    _payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
-    // The button is shown to admins only, but Slack takes action ids from
-    // the client.
-    if (user.role !== UserRole.Admin) {
+    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
       return;
     }
 
-    await this.slackCommunicationService.openView(
-      payload.trigger_id!,
-      {
-        type: 'modal',
-        callback_id: ViewCallbackId.CsvImportInstructions,
-        title: {
-          type: 'plain_text',
-          text: 'Import vacations',
-        },
-        close: { type: 'plain_text', text: 'Close' },
-        blocks: this.promptsService.getInstructionBlocks(),
-      },
-      user.slack_team_id,
+    runInBackground(this.logger, 'send the leave file templates', () =>
+      this.leaveFileDmService.sendTemplates(user),
     );
   };
 

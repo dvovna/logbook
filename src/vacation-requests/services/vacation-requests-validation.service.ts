@@ -3,10 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { ConfigService } from '@nestjs/config';
-import {
-  IVacationPeriodUsageData,
-  VacationsUsageService,
-} from '@modules/vacation-requests/services/vacation-usage.service';
+import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationType from '@common/enums/vacation-type.enum';
 import { ValidationError } from '@common/errors/validation.error';
@@ -153,10 +151,18 @@ export class VacationRequestsValidationService {
 
       const from = [start, getDateOnly(periodStart)].sort()[1];
       const to = [end, getDateOnly(periodEnd)].sort()[0];
-      const calendarDays = getDaysBetweenDates(new Date(from), new Date(to));
-      const workingDays = workingDates.filter(
-        (date) => date >= from && date <= to,
-      ).length;
+      const { correction } = limits;
+      // A unit a file balance gave is what was left on its day before any
+      // leave from that day on: the request takes from it only its days from
+      // then on, and nothing when it ends before.
+      const firstDayIn = (unit: 'days' | 'workingDays' | 'bonusDays') =>
+        correction && correction[unit] !== null && correction.balanceOn > from
+          ? correction.balanceOn
+          : from;
+      const calendarDays = (first: string) =>
+        first > to ? 0 : getDaysBetweenDates(new Date(first), new Date(to));
+      const workingDays = (first: string) =>
+        workingDates.filter((date) => date >= first && date <= to).length;
       // A year other than the current one is named: its balance is not the
       // one Home shows.
       const year =
@@ -169,13 +175,13 @@ export class VacationRequestsValidationService {
           const usageByType = usage[vacationType];
 
           this.validateVacationDaysUsage(
-            calendarDays,
+            calendarDays(firstDayIn('days')),
             usageByType.available,
             'vacation',
             year,
           );
           this.validateVacationDaysUsage(
-            workingDays,
+            workingDays(firstDayIn('workingDays')),
             usageByType.working_days_available,
             'working',
             year,
@@ -188,7 +194,7 @@ export class VacationRequestsValidationService {
           const usageByType = usage[vacationType];
 
           this.validateVacationDaysUsage(
-            workingDays,
+            workingDays(firstDayIn('bonusDays')),
             usageByType.available,
             'bonus',
             year,

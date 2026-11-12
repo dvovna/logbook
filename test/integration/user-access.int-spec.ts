@@ -62,22 +62,6 @@ describe('Deactivated users and people Logbook does not know', () => {
     });
   });
 
-  it('answers an admin command the same way', async () => {
-    const admin = await workspace.addUser({
-      role: UserRole.Admin,
-      is_active: false,
-    });
-
-    const response = await t.slack
-      .command('/api/slack/admin/user-vacations-upload', workspace, admin)
-      .expect(200);
-
-    expect(response.body).toEqual({
-      response_type: 'ephemeral',
-      text: DEACTIVATED,
-    });
-  });
-
   it('offers no options to search with', async () => {
     const deactivated = await workspace.addUser({
       role: UserRole.Admin,

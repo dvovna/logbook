@@ -73,8 +73,9 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
   };
 
   // The users `userIds` of the workspace become the team's members, and its
-  // other members leave it. Returns the users whose team changed. Several
-  // statements: the caller runs them in one transaction.
+  // other active members leave it: the team form lists only active people, so
+  // an inactive member keeps the team. Returns the users whose team changed.
+  // Several statements: the caller runs them in one transaction.
   public async setTeamMembers(params: {
     slackTeamId: string;
     teamId: string;
@@ -93,6 +94,7 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
     const left = await this.updateInWorkspace(slackTeamId)
       .set({ team_id: null, ...changed })
       .where('team_id', '=', teamId)
+      .where('is_active', '=', true)
       .$if(userIds.length > 0, (query) => query.where('id', 'not in', userIds))
       .returningAll()
       .execute();
@@ -218,6 +220,40 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
       })
       .where((eb) => eb('id', '=', eb.fn.any(eb.val(Object.keys(dates)))))
       .execute();
+  }
+
+  // Sets each user's contract start back, in one statement, only while it
+  // still is `expected`. Returns the IDs that changed.
+  public async restoreContractStartDates(params: {
+    slackTeamId: string;
+    changes: { userId: string; expected: string; before: string | null }[];
+    updatedBy: string;
+  }): Promise<string[]> {
+    const { slackTeamId, changes, updatedBy } = params;
+
+    const rows = await this.updateInWorkspace(slackTeamId)
+      .from(
+        sql<{ user_id: string; expected: string; before: string | null }>`(
+          select * from jsonb_to_recordset(${JSON.stringify(
+            changes.map(({ userId, expected, before }) => ({
+              user_id: userId,
+              expected,
+              before,
+            })),
+          )}::jsonb) as restores (user_id uuid, expected date, before date)
+        )`.as('restores'),
+      )
+      .set({
+        contract_start_date: sql<string | null>`restores.before`,
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy,
+      })
+      .whereRef('users.id', '=', 'restores.user_id')
+      .whereRef('users.contract_start_date', '=', 'restores.expected')
+      .returning('users.id')
+      .execute();
+
+    return rows.map(({ id }) => id);
   }
 
   // The foreign key lets a user point at another workspace's team.

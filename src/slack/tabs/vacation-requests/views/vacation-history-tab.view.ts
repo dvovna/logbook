@@ -29,6 +29,8 @@ import {
   FiltersBlockBuilder,
   IFiltersConfig,
 } from '@modules/slack/common/views/builders/filters-block.builder';
+import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
+import { fileBalanceLine } from '@modules/slack/common/views/data/leave-balance.text';
 import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
 
 export interface IVacationHistoryTabFilters {
@@ -48,6 +50,7 @@ interface IGetViewParams extends IBaseTabViewParams {
   // Approved time off ahead in the teams the viewer manages; null for a
   // member.
   upcoming: IVacationRequestViewModel[] | null;
+  fileBalance: ILeaveBalance | null;
 }
 
 @Injectable()
@@ -71,7 +74,7 @@ export class VacationHistoryTabView extends BaseTabView<
   }
 
   protected getContentBlocks(
-    { requests, years, upcoming }: IGetViewParams,
+    { requests, years, upcoming, fileBalance }: IGetViewParams,
     metadata?: IVacationHistoryTabMetadata,
   ): AnyBlock[] {
     return [
@@ -80,6 +83,16 @@ export class VacationHistoryTabView extends BaseTabView<
         type: 'section',
         text: { type: 'mrkdwn', text: '*Your requests*' },
       },
+      ...(fileBalance
+        ? [
+            {
+              type: 'context' as const,
+              elements: [
+                { type: 'mrkdwn' as const, text: fileBalanceLine(fileBalance) },
+              ],
+            },
+          ]
+        : []),
       ...this.getFilterBlocks(years, metadata?.filters),
       ...this.getRequestsListBlocks(requests),
     ];

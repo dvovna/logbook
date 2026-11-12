@@ -8,7 +8,6 @@ import { UsersModule } from '@modules/users/users.module';
 import SlackCommandsController from '@modules/slack/controllers/slack-commands.controller';
 import VacationCommandService from '@modules/slack/services/vacation-command.service';
 import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
-import AdminCommandsController from '@modules/slack/controllers/slack-admin-commands.controller';
 import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
 import SlackInteractionsController from '@modules/slack/controllers/slack-interactions.controller';
 import SlackInteractionsService from '@modules/slack/services/slack-interactions.service';
@@ -17,7 +16,6 @@ import { TeamSetupModule } from '@modules/team-setup/team-setup.module';
 import { SlackCommunicationModule } from '@modules/slack-communication/slack-communication.module';
 import SlackEventsController from '@modules/slack/controllers/slack-events.controller';
 import SlackEventsService from '@modules/slack/services/slack-events.service';
-import { UserDataImportModule } from '@modules/user-data-import/user-data-import.module';
 import FileUploadService from '@modules/slack/services/file-upload.service';
 import { SlackPayloadParsePipe } from '@modules/slack/pipes/slack-payload-parse.pipe';
 import { SlackPayloadParseMiddleware } from '@common/middlewares/slack-payload-parse.middleware';
@@ -48,6 +46,8 @@ import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 import { TeamFileSlackModule } from '@modules/slack/team-file/team-file-slack.module';
 import { TeamFileMessagesModule } from '@modules/slack/team-file/team-file-messages.module';
 import { TeamFileModule } from 'src/team-file/team-file.module';
+import { LeaveFileMessagesModule } from '@modules/slack/leave-file/leave-file-messages.module';
+import { LeaveFileModule } from 'src/leave-file/leave-file.module';
 @Module({
   imports: [
     TimeEntriesModule,
@@ -60,7 +60,6 @@ import { TeamFileModule } from 'src/team-file/team-file.module';
     VacationPoliciesModule,
     TeamSetupModule,
     SlackCommunicationModule,
-    UserDataImportModule,
     HolidaysModule,
     ProjectsModule,
     VacationRequestsTabModule,
@@ -80,11 +79,12 @@ import { TeamFileModule } from 'src/team-file/team-file.module';
     TeamFileSlackModule,
     TeamFileMessagesModule,
     TeamFileModule,
+    LeaveFileMessagesModule,
+    LeaveFileModule,
   ],
   controllers: [
     SlackOauthController,
     SlackCommandsController,
-    AdminCommandsController,
     SlackInteractionsController,
     SlackEventsController,
     SlackOptionsController,

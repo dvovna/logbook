@@ -1,3 +1,4 @@
+import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
 import { Injectable } from '@nestjs/common';
 import BaseTabService, {
   IPublishBaseParams,
@@ -50,6 +51,7 @@ export class VacationHistoryTabService extends BaseTabService<
 > {
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
+    private readonly vacationsUsageService: VacationsUsageService,
     private readonly vacationsHistoryTabView: VacationHistoryTabView,
     private readonly vacationDetailsModalService: VacationDetailsModalService,
     private readonly config: ConfigService,
@@ -74,9 +76,10 @@ export class VacationHistoryTabService extends BaseTabService<
   }
 
   protected async getTabView(params: IPublishVacationsHistoryTabViewParams) {
-    const [requests, upcoming] = await Promise.all([
+    const [requests, upcoming, usage] = await Promise.all([
       this.getVacationRequests(params),
       this.getUpcoming(params.user),
+      this.vacationsUsageService.getCurrentVacationPeriodUsage(params.user),
     ]);
 
     const minYear = this.config.getOrThrow<number>(EnvironmentVariable.MinYear);
@@ -88,6 +91,8 @@ export class VacationHistoryTabService extends BaseTabService<
         userRole: params.user.role,
         requests,
         upcoming,
+        // Named only while the current year's balance is the file's.
+        fileBalance: usage.limits?.correction ? usage.fileBalance : null,
         years: Array.from(
           { length: maxYear - minYear + 1 },
           (_, index) => index + minYear,

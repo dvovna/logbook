@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import EnvironmentVariable from '@common/enums/environment-variable.enum';
 import { configureApp } from './app.setup';
+import { handleStartupFailure } from '@common/utils/startup-failure';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -20,4 +21,4 @@ async function bootstrap() {
 
   await app.listen(port);
 }
-bootstrap();
+bootstrap().catch(handleStartupFailure);

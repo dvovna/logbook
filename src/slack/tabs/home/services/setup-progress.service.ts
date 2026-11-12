@@ -4,6 +4,7 @@ import { UsersService } from '@modules/users/services/users.service';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import ProjectsService from 'src/projects/services/projects.service';
+import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
 import { ISetupProgress } from '@modules/slack/tabs/home/types/setup-progress.interface';
 import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 
@@ -16,6 +17,7 @@ export class SetupProgressService {
     private readonly teamRulesService: TeamRulesService,
     private readonly usersService: UsersService,
     private readonly projectsService: ProjectsService,
+    private readonly leaveFileUploadsService: LeaveFileUploadsService,
   ) {}
 
   public async get(user: IUserViewModel): Promise<ISetupProgress | null> {
@@ -24,15 +26,17 @@ export class SetupProgressService {
     }
 
     const slackTeamId = user.slack_team_id;
-    const [policies, rules, peopleWithoutTeam, projects] = await Promise.all([
-      this.vacationPoliciesService.search({
-        filters: { slackTeamId },
-        pageSize: 1,
-      }),
-      this.teamRulesService.forWorkspace(slackTeamId),
-      this.usersService.count({ slackTeamId, withoutTeam: true }),
-      this.projectsService.count({ slackTeamId, includeArchived: true }),
-    ]);
+    const [policies, rules, peopleWithoutTeam, projects, hasLeaveImport] =
+      await Promise.all([
+        this.vacationPoliciesService.search({
+          filters: { slackTeamId },
+          pageSize: 1,
+        }),
+        this.teamRulesService.forWorkspace(slackTeamId),
+        this.usersService.count({ slackTeamId, withoutTeam: true }),
+        this.projectsService.count({ slackTeamId, includeArchived: true }),
+        this.leaveFileUploadsService.hasApplied(slackTeamId),
+      ]);
     const progress: ISetupProgress = {
       hasPolicy: policies.totalCount > 0,
       // With no teams, "every team has its own rules" is not an answer.
@@ -43,8 +47,10 @@ export class SetupProgressService {
       hasTeamWithApprovers: rules.teams.some(
         (team) => team.managerApprovers.length || team.hrApprovers.length,
       ),
+      companyRulesNameApprovers: rules.companyRules.hr_approvers.length > 0,
       peopleWithoutTeam,
       hasProjects: projects > 0,
+      hasLeaveImport,
     };
     const done =
       progress.hasPolicy &&

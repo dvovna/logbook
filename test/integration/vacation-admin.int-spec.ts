@@ -1,4 +1,11 @@
-import { actionIdsOf, modalError, noticeOf } from './support/tab-readers';
+import {
+  actionIdsOf,
+  buttonText,
+  modalError,
+  noticeOf,
+  sectionTexts,
+} from './support/tab-readers';
+import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -144,7 +151,7 @@ describe('Requests HR and admins manage for someone else', () => {
     );
     await t.idle();
     const [update] = t.slackApi.messageUpdates(workspace.token, approval);
-    expect(textOf(update)).toContain(`Canceled by <@${hr.slack_id}>`);
+    expect(textOf(update)).toContain(`Approved by <@${hr.slack_id}>`);
   });
 
   it("shows HR's own request form without the user and status fields", async () => {
@@ -282,6 +289,188 @@ describe('Requests HR and admins manage for someone else', () => {
       await edit({});
 
       expect(messagesToManager()).toHaveLength(2);
+    });
+  });
+
+  // A status set with Edit Request is a decision by whoever set it: people
+  // hear of it as they do of the approvers'.
+  describe('when HR approves or rejects a request with Edit Request', () => {
+    const OFFER = 'log_time_off';
+
+    let member: Tables<'users'>;
+    let recipient: Tables<'users'>;
+    let request: Tables<'vacation_requests'>;
+    let approval: Awaited<ReturnType<typeof approvalMessageTo>>;
+    let dates: string;
+
+    beforeEach(async () => {
+      recipient = await workspace.addUser({ name: 'Paula Payroll' });
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+        approval_notification_recipients: [recipient.slack_id],
+      });
+      member = await workspace.addUser({
+        team_id: team.id,
+        name: 'Max Member',
+      });
+      // Time off as time is set up for annual leave.
+      const vacations = await workspace.addProject({ name: 'Vacations' });
+      await t.db
+        .insertInto('time_off_projects')
+        .values({
+          slack_team_id: workspace.id,
+          vacation_type: VacationType.AnnualLeave,
+          project_id: vacations.id,
+        })
+        .execute();
+      request = await requestVacation(t, workspace, member, workWeek(2));
+      approval = await approvalMessageTo(t, workspace, manager);
+      dates = formatDateRange(request.start_date, request.end_date);
+    });
+
+    const editForm = async () =>
+      openModalFrom(
+        t,
+        workspace,
+        hr,
+        await openAppHomeTab(t, workspace, hr, [
+          NavigationActionId.TimeOff,
+          NavigationActionId.AllRequests,
+        ]),
+        VacationRequestsTabViewActionId.ManageRequestMenu,
+        `${VacationRequestsTabViewActionId.EditRequest}:${request.id}`,
+      );
+
+    // Edit Request with `changes`; the other fields keep the request's values.
+    const edit = async (changes: Record<string, string>, form?: View) => {
+      const response = await t.slack
+        .submitView(workspace, hr, form ?? (await editForm()), changes)
+        .expect(200);
+
+      expect(response.body).toEqual({ response_action: 'clear' });
+      await t.idle();
+    };
+
+    const messagesTo = (user: Tables<'users'>, since: number) =>
+      t.slackApi.postedMessages(workspace.token, user.slack_id, { since });
+
+    // The DMs `user` got after the mark `since`: their sections, and the
+    // button to log the time off if one has it.
+    const dmsTo = (user: Tables<'users'>, since: number) =>
+      messagesTo(user, since).map((message) => ({
+        sections: sectionTexts(message as unknown as View),
+        button: buttonText(message as unknown as View, OFFER),
+      }));
+
+    const decision = (outcome: 'approved' | 'rejected') =>
+      `${outcome === 'approved' ? '✅' : '❌'} *Your time off request was ${outcome}*\n*Annual leave* · ${dates} (5 days, 5 working)`;
+
+    it('tells the requester in one DM that holds the offer, and the recipients', async () => {
+      const since = t.slackApi.mark();
+
+      await edit({ status: VacationRequestStatus.Approved });
+
+      expect(dmsTo(member, since)).toEqual([
+        { sections: [decision('approved')], button: 'Log 40h to Vacations' },
+      ]);
+      const [toMember] = messagesTo(member, since);
+      expect(textOf(toMember)).toContain(`Approved by <@${hr.slack_id}>`);
+      expect(messagesTo(recipient, since).map(({ text }) => text)).toEqual([
+        `✅ Time off approved for *Max Member*\n*Annual leave* · ${dates} (5 days, 5 working)`,
+      ]);
+      // The approver's message shows the decision and who made it.
+      const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+      expect(textOf(update)).toContain(`Approved by <@${hr.slack_id}>`);
+      expect(actionIdsOf(update)).toEqual([]);
+
+      // The button logs the days.
+      await t.slack
+        .actOnMessage(workspace, member, toMember, OFFER)
+        .expect(200);
+      await t.idle();
+      expect(await workspace.rows('time_entries')).toHaveLength(5);
+    });
+
+    it('tells only the requester of a rejection', async () => {
+      const since = t.slackApi.mark();
+
+      await edit({ status: VacationRequestStatus.Rejected });
+
+      expect(dmsTo(member, since)).toEqual([
+        { sections: [decision('rejected')], button: undefined },
+      ]);
+      expect(textOf(messagesTo(member, since)[0])).toContain(
+        `Rejected by <@${hr.slack_id}>`,
+      );
+      expect(messagesTo(recipient, since)).toEqual([]);
+      const [update] = t.slackApi.messageUpdates(workspace.token, approval);
+      expect(textOf(update)).toContain(`Rejected by <@${hr.slack_id}>`);
+    });
+
+    it('tells the requester when an approved request is rejected', async () => {
+      await edit({ status: VacationRequestStatus.Approved });
+      const since = t.slackApi.mark();
+
+      await edit({ status: VacationRequestStatus.Rejected });
+
+      expect(dmsTo(member, since)).toEqual([
+        { sections: [decision('rejected')], button: undefined },
+      ]);
+      expect(messagesTo(recipient, since)).toEqual([]);
+
+      // The approval's jobs are done: nothing of it is sent again.
+      await t.retryJobs();
+      expect(messagesTo(member, since)).toHaveLength(1);
+    });
+
+    it('tells of the decision once when the form is sent twice', async () => {
+      const form = await editForm();
+      const since = t.slackApi.mark();
+
+      await edit({ status: VacationRequestStatus.Approved }, form);
+      await edit({ status: VacationRequestStatus.Approved }, form);
+
+      expect(dmsTo(member, since)).toEqual([
+        { sections: [decision('approved')], button: 'Log 40h to Vacations' },
+      ]);
+      expect(messagesTo(recipient, since)).toHaveLength(1);
+    });
+
+    it('decides nothing with an edit of the dates', async () => {
+      const moved = workWeek(3);
+      const since = t.slackApi.mark();
+
+      await edit({ start_date: moved.start, end_date: moved.end });
+
+      expect(
+        messagesTo(member, since).filter((message) =>
+          textOf(message).includes('Your time off request was'),
+        ),
+      ).toEqual([]);
+      expect(messagesTo(recipient, since)).toEqual([]);
+      expect(
+        (await workspace.row('vacation_requests', request.id)).status,
+      ).toBe(VacationRequestStatus.Pending);
+    });
+
+    // An approved request that stays approved gets the offer in a DM of its
+    // own, as before.
+    it('offers the new dates of an approved request, with no decision', async () => {
+      await edit({ status: VacationRequestStatus.Approved });
+      const moved = workWeek(3);
+      const since = t.slackApi.mark();
+
+      await edit({ start_date: moved.start, end_date: moved.end });
+
+      expect(dmsTo(member, since)).toEqual([
+        {
+          sections: [
+            `*Annual leave* · ${formatDateRange(moved.start, moved.end)}\nLog it as time on *Vacations*?`,
+          ],
+          button: 'Log 40h to Vacations',
+        },
+      ]);
+      expect(messagesTo(recipient, since)).toEqual([]);
     });
   });
 

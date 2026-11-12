@@ -39,6 +39,9 @@ interface IRequestJob {
   requestId: string;
   slackTeamId: string;
   decidedById: string;
+  // The outcome the job tells of. HR may change a decision with Edit
+  // Request: only the jobs of the request's current status send anything.
+  status?: VacationRequestStatus.Approved | VacationRequestStatus.Rejected;
 }
 
 interface IRecipientJob extends IRequestJob {
@@ -46,8 +49,10 @@ interface IRecipientJob extends IRequestJob {
 }
 
 // Tells the requester how their request was decided and, when it was approved,
-// the notification recipients of its team's rules (or of the company rules).
-// One job per message, so a retry sends only the messages that failed.
+// the notification recipients of its team's rules (or of the company rules):
+// at the end of its workflow, or when HR or an admin set the status with Edit
+// Request. One job per message, so a retry sends only the messages that
+// failed.
 @Injectable()
 export class VacationDecisionNotificationsService implements OnModuleInit {
   private readonly logger = new Logger(
@@ -88,6 +93,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
       decidedById: decidedBy.id,
+      status: request.status as IRequestJob['status'],
     };
 
     await this.jobs.enqueue<IRequestJob>(
@@ -165,17 +171,20 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
   }
 
   // The request as it is when the job runs: a retry after the request was
-  // canceled tells nobody anything.
-  private async loadDecided({ requestId, slackTeamId }: IRequestJob) {
+  // canceled, or decided otherwise since, tells nobody anything.
+  private async loadDecided({ requestId, slackTeamId, status }: IRequestJob) {
     const request = await this.vacationRequestsService.findOne({
       id: requestId,
       slackTeamId,
     });
 
-    if (
-      request?.status !== VacationRequestStatus.Approved &&
-      request?.status !== VacationRequestStatus.Rejected
-    ) {
+    // A job saved by an older version carries no status: any decision then.
+    const decided = status
+      ? request?.status === status
+      : request?.status === VacationRequestStatus.Approved ||
+        request?.status === VacationRequestStatus.Rejected;
+
+    if (!request || !decided) {
       return null;
     }
 

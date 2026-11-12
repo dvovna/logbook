@@ -23,6 +23,8 @@ import {
   TeamsTabModalName,
   TeamsTabService,
 } from '@modules/slack/tabs/teams/services/teams-tab.service';
+import { LeaveFileDmService } from '@modules/slack/leave-file/services/leave-file-dm.service';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { TeamFileDmService } from '@modules/slack/team-file/services/team-file-dm.service';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { submittedNotice } from '@modules/slack/tabs/time-tracking/utils/submitted-notice.utils';
@@ -43,6 +45,7 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
     private readonly timeEntriesService: TimeEntriesService,
     private readonly teamsTabService: TeamsTabService,
     private readonly teamFileDmService: TeamFileDmService,
+    private readonly leaveFileDmService: LeaveFileDmService,
     protected readonly tabNavigationService: TabNavigationService,
   ) {
     super(tabNavigationService);
@@ -58,6 +61,7 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
       [HomeTabActionId.SubmitTimeEntries]: this.handleSubmitTimeEntries,
       [TeamsTabViewActionId.CompanyRules]: this.handleCompanyRules,
       [TeamsTabViewActionId.TeamFile]: this.handleTeamFile,
+      [UsersTabViewActionId.ImportLeave]: this.handleImportLeave,
     };
   }
 
@@ -103,6 +107,19 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
 
     runInBackground(this.logger, 'send the team file', () =>
       this.teamFileDmService.sendTemplate(user),
+    );
+  };
+
+  private handleImportLeave = (
+    _payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
+      return;
+    }
+
+    runInBackground(this.logger, 'send the leave file templates', () =>
+      this.leaveFileDmService.sendTemplates(user),
     );
   };
 

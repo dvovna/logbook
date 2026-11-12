@@ -1,6 +1,7 @@
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import {
   TeamModalActionId,
@@ -34,11 +35,15 @@ const TEAM_STEP = {
   text: "*Create teams and pick their approvers*\nA team's approvers decide time off for its people. The team file sets up everyone at once.",
   buttons: [TeamsTabViewActionId.TeamFile, NavigationActionId.Teams],
 };
-const peopleStep = (count: number) => ({
+const peopleStep = (count: number, goTo = 'go to HR or the admins') => ({
   text: `*Put people in teams*
-${count} ${count === 1 ? 'person has' : 'people have'} no team: their requests go to HR or the admins.`,
+${count} ${count === 1 ? 'person has' : 'people have'} no team: their requests ${goTo}.`,
   button: NavigationActionId.People,
 });
+const LEAVE_STEP = {
+  text: '*Bring in leave balances* · _optional_\nBalances and past leave from your spreadsheet, so everyone starts with the right number.',
+  button: UsersTabViewActionId.ImportLeave,
+};
 const PROJECTS_STEP = {
   text: '*Add projects* · _optional_\nOnly if you track time: people log hours on them.',
   button: NavigationActionId.Projects,
@@ -86,6 +91,7 @@ describe('First setup', () => {
         { text: TEAM_STEP.text },
         { buttons: TEAM_STEP.buttons },
         peopleStep(2),
+        LEAVE_STEP,
         PROJECTS_STEP,
       ]);
     });
@@ -105,6 +111,7 @@ describe('First setup', () => {
           text: '✅ Done: vacation policy, company rules, team with approvers, projects',
         },
         peopleStep(2),
+        LEAVE_STEP,
       ]);
 
       await t.db
@@ -145,6 +152,7 @@ describe('First setup', () => {
           { text: '✅ Done: vacation policy, team with approvers' },
           RULES_STEP,
           peopleStep(1),
+          LEAVE_STEP,
           PROJECTS_STEP,
         ]);
 
@@ -154,6 +162,27 @@ describe('First setup', () => {
         expect(
           (await checklistOf(admin)).map(({ text }) => text),
         ).not.toContain(RULES_STEP.text);
+      });
+
+      it('says where the requests of people in no team go: the company rules approvers, else HR or the admins', async () => {
+        await workspace.addVacationPolicy();
+        await followingCompanyRules();
+        const peopleTexts = async () =>
+          (await checklistOf(admin))
+            .map(({ text }) => text)
+            .filter((text) => text?.startsWith('*Put people in teams*'));
+
+        expect(await peopleTexts()).toEqual([peopleStep(1).text]);
+
+        const hr = await workspace.addUser({ role: UserRole.HR });
+        await setCompanyApprovers([hr.slack_id]);
+
+        expect(await peopleTexts()).toEqual([
+          peopleStep(
+            2,
+            "skip level 1 and go to the company rules' approvers, or to HR or the admins when none of them can approve",
+          ).text,
+        ]);
       });
 
       it('counts as done when every team has rules of its own', async () => {
@@ -405,6 +434,28 @@ describe('First setup', () => {
       expect(await teamOf(ada)).toBe(team.id);
       expect(await teamOf(bob)).toBeNull();
       expect((await elsewhere.row('users', stranger.id)).team_id).toBeNull();
+    });
+
+    it('keeps the inactive members, which the form does not list', async () => {
+      const team = await workspace.addTeam({ name: 'Design' });
+      const ada = await workspace.addUser({
+        name: 'Ada Lovelace',
+        team_id: team.id,
+      });
+      const gone = await workspace.addUser({
+        name: 'Gone Away',
+        team_id: team.id,
+        is_active: false,
+      });
+
+      await t.slack
+        .submitView(workspace, admin, await openTeamForm(team.id), {
+          [TeamModalActionId.Members]: [],
+        })
+        .expect(200);
+
+      expect(await teamOf(ada)).toBeNull();
+      expect(await teamOf(gone)).toBe(team.id);
     });
   });
 });

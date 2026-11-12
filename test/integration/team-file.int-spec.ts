@@ -130,7 +130,7 @@ describe('Team file', () => {
         '*Left without a team (1)*\n• Dee Dunn',
         [
           '*Teams with no lead (2)*',
-          'Their requests go straight to the second approval.',
+          'Their requests skip level 1: they go to the second approval, or to HR or an admin when there is none.',
           '• Backend',
           '• Beta',
         ].join('\n'),
@@ -195,7 +195,7 @@ describe('Team file', () => {
         '*Placed in a team (1)*\n• Ann: Back &lt;end&gt;',
         [
           '*Teams with no lead (1)*',
-          'Their requests go straight to the second approval.',
+          'Their requests skip level 1: they go to the second approval, or to HR or an admin when there is none.',
           '• Back &lt;end&gt;',
         ].join('\n'),
         '*Team names matched*\n• back  &lt;END&gt; → Back &lt;end&gt;',
@@ -384,7 +384,7 @@ describe('Team file', () => {
       },
     );
 
-    it("tells a CSV without Email and Team columns that it isn't a team file", async () => {
+    it('tells a CSV without Email and Team columns what each kind of file needs', async () => {
       const posted = await share(hr, 'Name,Mail\nAnna,anna@example.test\n');
 
       expect(posted).toEqual([]);
@@ -393,7 +393,7 @@ describe('Team file', () => {
           .ephemeralMessages(workspace.token, hr.slack_id)
           .map(({ text }) => text),
       ).toEqual([
-        "❗️ This doesn't look like a team file: its first row needs Email and Team columns.",
+        "❗️ I can't tell what this file is. A team file needs Email and Team columns; leave balances need Email and Days left, Working days left, Bonus days left or Contract start; a leave history needs Email, Leave type, From and To.",
       ]);
       expect(await uploads()).toEqual([]);
     });
@@ -425,13 +425,14 @@ describe('Team file', () => {
       ).toEqual([]);
       expect(await uploads()).toEqual([]);
 
-      await shareInChannel('user-vacations.csv', 'email;contractStartDate\n');
+      await shareInChannel('leave-balances.csv', 'Email,Contract start\n');
 
+      expect(t.slackApi.callsWith(workspace.token, 'files.download')).toEqual(
+        [],
+      );
       expect(
-        t.slackApi
-          .ephemeralMessages(workspace.token, hr.slack_id)
-          .map(({ text }) => text),
-      ).toEqual(['⛔ Only admins can import vacations.']);
+        t.slackApi.ephemeralMessages(workspace.token, hr.slack_id),
+      ).toEqual([]);
     });
 
     it('refuses a manager who shares a team file and stores nothing', async () => {

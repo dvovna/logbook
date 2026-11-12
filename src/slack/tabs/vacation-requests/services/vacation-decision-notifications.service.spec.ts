@@ -39,6 +39,7 @@ describe('VacationDecisionNotificationsService', () => {
   let warn: jest.SpyInstance;
   let jobs: { enqueue: jest.Mock; enqueueMany: jest.Mock };
   let forTeam: jest.Mock;
+  let findRequest: jest.Mock;
   let service: VacationDecisionNotificationsService;
 
   beforeEach(() => {
@@ -58,13 +59,12 @@ describe('VacationDecisionNotificationsService', () => {
     warn = jest
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);
+    findRequest = jest.fn().mockResolvedValue(approved);
 
     service = new VacationDecisionNotificationsService(
       { forTeam } as unknown as TeamRulesService,
       { postMessage } as unknown as SlackCommunicationService,
-      {
-        findOne: jest.fn().mockResolvedValue(approved),
-      } as unknown as VacationRequestsService,
+      { findOne: findRequest } as unknown as VacationRequestsService,
       {
         findMany: jest.fn().mockResolvedValue([]),
       } as unknown as RequestWorkflowStepCommentsService,
@@ -86,18 +86,15 @@ describe('VacationDecisionNotificationsService', () => {
 
   afterEach(() => warn.mockRestore());
 
-  const notifyRequester = () =>
-    handlers.get(DecisionNotificationJob.Requester)!({
-      requestId: approved.id,
-      slackTeamId: SLACK_TEAM_ID,
-      decidedById: 'hr',
-    });
-
   const job = {
     requestId: approved.id,
     slackTeamId: SLACK_TEAM_ID,
     decidedById: 'hr',
+    status: VacationRequestStatus.Approved,
   };
+
+  const notifyRequester = () =>
+    handlers.get(DecisionNotificationJob.Requester)!(job);
 
   // In the transaction that decides the request: enqueue, not run.
   it('saves the jobs that tell the requester and the recipients of an approval', async () => {
@@ -119,8 +116,47 @@ describe('VacationDecisionNotificationsService', () => {
     } as VacationRequestDecidedEvent);
 
     expect(jobs.enqueue.mock.calls).toEqual([
-      [DecisionNotificationJob.Requester, job],
+      [
+        DecisionNotificationJob.Requester,
+        { ...job, status: VacationRequestStatus.Rejected },
+      ],
     ]);
+  });
+
+  // HR approved it with Edit Request, then rejected it: the approval's jobs
+  // that haven't run yet, or run again, tell of nothing.
+  it.each([
+    ['decided otherwise since', VacationRequestStatus.Rejected],
+    ['pending again', VacationRequestStatus.Pending],
+    ['canceled', VacationRequestStatus.Canceled],
+  ])('tells nobody of a request %s', async (_change, status) => {
+    findRequest.mockResolvedValue({ ...approved, status });
+
+    await notifyRequester();
+    await handlers.get(DecisionNotificationJob.Recipients)!(job);
+    await handlers.get(DecisionNotificationJob.Recipient)!({
+      ...job,
+      recipientSlackId: 'U_LEAD',
+    });
+
+    expect(postMessage).not.toHaveBeenCalled();
+    expect(jobs.enqueueMany).not.toHaveBeenCalled();
+  });
+
+  it('tells of a job saved before jobs carried their status', async () => {
+    const { status: _status, ...older } = job;
+
+    await handlers.get(DecisionNotificationJob.Requester)!(older);
+
+    expect(postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('tells nobody of a request deleted since', async () => {
+    findRequest.mockResolvedValue(null);
+
+    await notifyRequester();
+
+    expect(postMessage).not.toHaveBeenCalled();
   });
 
   it('saves a job per recipient before its own job ends', async () => {

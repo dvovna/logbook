@@ -22,7 +22,6 @@ export enum ViewCallbackId {
   UserFormSubmit = 'user_form_submit',
   ChangeUserStatus = 'change_user_status',
   ViewUserVacationUsage = 'view_user_vacation_usage',
-  CsvImportInstructions = 'csv_import_instructions',
 
   // teams
   TeamsTabView = 'teams_tab_view',
@@ -32,6 +31,9 @@ export enum ViewCallbackId {
 
   // The buttons of the DM that previews a team file.
   TeamFileMessage = 'team_file_message',
+
+  // The buttons of the DM that previews a leave balances or history file.
+  LeaveFileMessage = 'leave_file_message',
 
   // The DM that asks HR which team a new person is on.
   NewPersonPrompt = 'new_person_prompt',

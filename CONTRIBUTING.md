@@ -18,7 +18,8 @@ Remove tokens and personal data first. Security problems go through [SECURITY.md
 3. Add or update tests:
    - unit tests (`*.spec.ts`) sit next to the code;
    - integration tests are in `test/integration`. Use them for anything a user does in Slack.
-4. Before opening the pull request, make sure these pass:
+4. When people would notice the change (a screen, a button, a rule, a message, a setting), update its page in the documentation, `docs-site/src/content/docs`. [docs-site/README.md](docs-site/README.md) says where a page goes and how to write it.
+5. Before opening the pull request, make sure these pass:
    ```bash
    npx tsc --noEmit
    pnpm test
@@ -26,7 +27,7 @@ Remove tokens and personal data first. Security problems go through [SECURITY.md
    npx eslint src test
    ```
    The codebase is lint-clean and CI fails on any lint error. ESLint also reports code that Prettier would format differently; `pnpm lint` or `pnpm format` fixes that.
-5. Open the pull request against `development`, and say what the change does and how you checked it.
+6. Open the pull request against `development`, and say what the change does and how you checked it.
 
 ## Conventions
 
@@ -43,7 +44,7 @@ By contributing, you agree that your contribution is licensed under the project'
 ## Releasing
 
 1. In [CHANGELOG.md](CHANGELOG.md), give the new version its section and date, saying what changed for people who self-host and any step an update needs.
-2. Set the same version in `package.json`, commit, and push to `development` once CI is green.
+2. Set the same version in `package.json` and in the self-hosting docs (`docs-site/src/content/docs/self-hosting/install.md`: the clone tag and the image tag; a row for the release in the table of `update.md`), commit, and push to `development` once CI is green.
 3. Tag the commit and push the tag: `git tag v0.1.0 && git push origin v0.1.0`. The Release workflow builds the image for amd64 and arm64, pushes it to `ghcr.io/dvovna/logbook` and publishes the GitHub release with the changelog section.
 4. After the first release, make the package public once: the repository's Packages → logbook → Package settings → Change visibility.
 

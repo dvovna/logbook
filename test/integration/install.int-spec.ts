@@ -180,7 +180,8 @@ describe('Installing the app (OAuth redirect)', () => {
         '1. *More → Policies*: a vacation policy, with its days and holidays. Without one, time off is tracked with no limits.',
         '2. *More → Teams → Company rules*: who approves after the team lead (HR, leadership), who hears of decisions, and the policy.',
         "3. *More → Teams → Set up from a file*: fill in everyone's team and team lead, then send the file back.",
-        '4. *More → Projects*: projects, if you track time.',
+        "4. *More → People → Import leave*: everyone's leave balances and past leave, from two files.",
+        '5. *More → Projects*: projects, if you track time.',
         'Until that is done, Home shows a checklist.',
       ].join('\n'),
     ]);

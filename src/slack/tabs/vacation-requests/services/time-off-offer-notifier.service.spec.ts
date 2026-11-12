@@ -113,6 +113,79 @@ describe('TimeOffOfferNotifier', () => {
     ]);
   });
 
+  // The decision DM (VacationDecisionNotificationsService) holds the button.
+  it.each([VacationRequestStatus.Pending, VacationRequestStatus.Rejected])(
+    'offers nothing apart when an edit approves a %s request',
+    async (from) => {
+      await notifier.handleUpdated(
+        new TimeOffChangedEvent(
+          approved,
+          hr,
+          { ...approved, status: from },
+          {
+            deleted: 0,
+            owners: [],
+            billedDates: [],
+          },
+        ),
+      );
+
+      expect(enqueueMany).toHaveBeenCalledWith(TIME_OFF_OFFER_JOB, []);
+    },
+  );
+
+  // Not a decision (decidesRequest): no decision DM holds the button.
+  it('offers apart when an edit approves a request its requester canceled', async () => {
+    await notifier.handleUpdated(
+      new TimeOffChangedEvent(
+        approved,
+        hr,
+        { ...approved, status: VacationRequestStatus.Canceled },
+        { deleted: 0, owners: [], billedDates: [] },
+      ),
+    );
+
+    expect(enqueueMany).toHaveBeenCalledWith(TIME_OFF_OFFER_JOB, [offer]);
+  });
+
+  it('still tells what time went when an edit approves the request', async () => {
+    await notifier.handleUpdated(
+      new TimeOffChangedEvent(
+        approved,
+        hr,
+        { ...approved, status: VacationRequestStatus.Rejected },
+        removedTime,
+      ),
+    );
+
+    expect(enqueueMany).toHaveBeenCalledWith(TIME_OFF_OFFER_JOB, [
+      {
+        ...offer,
+        removed: expect.objectContaining({ userId: 'u1', change: 'changed' }),
+        removalOnly: true,
+      },
+    ]);
+  });
+
+  it('tells what time went when an edit rejects the request', async () => {
+    await notifier.handleUpdated(
+      new TimeOffChangedEvent(
+        { ...approved, status: VacationRequestStatus.Rejected },
+        hr,
+        approved,
+        removedTime,
+      ),
+    );
+
+    expect(enqueueMany).toHaveBeenCalledWith(TIME_OFF_OFFER_JOB, [
+      {
+        ...offer,
+        removed: expect.objectContaining({ userId: 'u1', change: 'rejected' }),
+        removalOnly: true,
+      },
+    ]);
+  });
+
   it('tells whose time went with a deleted request', async () => {
     await notifier.handleDeleted(
       new TimeOffChangedEvent(approved, hr, undefined, removedTime),

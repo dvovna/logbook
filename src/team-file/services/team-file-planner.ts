@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { digestOf } from '@common/utils/digest.utils';
 import UserRole from '@common/enums/user-role.enum';
 import {
   MAX_TEAM_LEADS,
@@ -341,26 +341,6 @@ export const planChangesNothing = (plan: ITeamFilePlan) =>
   !plan.leadChanges.length &&
   !plan.promotions.length;
 
-const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
-
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value
-      .map(canonical)
-      .sort((a, b) => compare(JSON.stringify(a), JSON.stringify(b)));
-  }
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value)
-        .sort(([a], [b]) => compare(a, b))
-        .map(([k, v]) => [k, canonical(v)]),
-    );
-  }
-  return value;
-}
-
 export function planDigest(plan: ITeamFilePlan): string {
-  return createHash('sha256')
-    .update(JSON.stringify(canonical(plan)))
-    .digest('hex');
+  return digestOf(plan);
 }

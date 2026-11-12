@@ -1,7 +1,9 @@
+import { Tables } from '@common/types/database.types';
 import UserRole from '@common/enums/user-role.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId, TestWorkspace } from './support/test-workspace';
-import { textOf } from './support/block-kit';
+import { openAppHomeTab } from './support/app-home';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { acknowledged } from './support/slack-test-client';
 
 // On Enterprise Grid one person has the same Slack user ID in every workspace
@@ -25,32 +27,55 @@ describe('The same Slack user in two workspaces', () => {
     personId = slackId('U');
   });
 
-  const askForVacationsUpload = async (workspace: TestWorkspace) => {
+  // The files the person gets when they click Import leave in a workspace's
+  // People screen. A member has no such button, but Slack takes ids from the
+  // client, so the click is made for everyone.
+  const clickImportLeave = async (
+    workspace: TestWorkspace,
+    person: Tables<'users'>,
+  ) => {
+    const home = await openAppHomeTab(t, workspace, person);
     const since = t.slackApi.mark();
 
     await t.slack
-      .command('/api/slack/admin/user-vacations-upload', workspace, {
-        slack_id: personId,
+      .interaction({
+        type: 'block_actions',
+        team: { id: workspace.slackId },
+        user: { id: personId },
+        trigger_id: 'trigger-forged',
+        container: { type: 'view' },
+        view: { team_id: workspace.slackId, ...home },
+        actions: [
+          {
+            type: 'button',
+            action_id: UsersTabViewActionId.ImportLeave,
+            block_id: 'forged',
+          },
+        ],
       })
-      .expect(acknowledged);
-
+      .expect(200);
     await t.idle();
-    const [reply] = t.slackApi.ephemeralMessages(workspace.token, personId, {
-      since,
-    });
-    expect(reply).toBeDefined();
 
-    return textOf(reply);
+    return t.slackApi
+      .uploadedFiles(workspace.token, `D${personId.slice(1)}`, { since })
+      .map(({ filename }) => filename);
   };
 
   it("acts with the person's role in the workspace the request comes from", async () => {
-    await first.addUser({ slack_id: personId, role: UserRole.Admin });
-    await second.addUser({ slack_id: personId, role: UserRole.Member });
+    const admin = await first.addUser({
+      slack_id: personId,
+      role: UserRole.Admin,
+    });
+    const member = await second.addUser({
+      slack_id: personId,
+      role: UserRole.Member,
+    });
 
-    expect(await askForVacationsUpload(first)).toContain('user-vacations.csv');
-    expect(await askForVacationsUpload(second)).toContain(
-      'Only users with role',
-    );
+    expect(await clickImportLeave(first, admin)).toEqual([
+      'leave-balances.csv',
+      'leave-history.csv',
+    ]);
+    expect(await clickImportLeave(second, member)).toEqual([]);
   });
 
   it('refuses a person the workspace does not know', async () => {

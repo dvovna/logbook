@@ -33,6 +33,20 @@ updates:
     commit-message:
       prefix: Update
 
+  # The docs site (docs-site/, Starlight): all updates in one weekly PR.
+  - package-ecosystem: npm
+    directory: /docs-site
+    target-branch: development
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      docs:
+        patterns: ['*']
+        update-types: [major, minor, patch]
+    commit-message:
+      prefix: Update
+
   - package-ecosystem: github-actions
     directory: /
     target-branch: development

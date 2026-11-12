@@ -287,6 +287,145 @@ export type Database = {
           },
         ];
       };
+      leave_balances: {
+        Row: {
+          balance_on: string;
+          bonus_days_left: number | null;
+          created_at: string;
+          days_left: number | null;
+          id: string;
+          set_by: string | null;
+          slack_team_id: string;
+          updated_at: string;
+          upload_id: string | null;
+          user_id: string;
+          working_days_left: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          balance_on: string;
+          bonus_days_left?: number | null;
+          created_at?: string;
+          days_left?: number | null;
+          id?: string;
+          set_by?: string | null;
+          slack_team_id: string;
+          updated_at?: string;
+          upload_id?: string | null;
+          user_id: string;
+          working_days_left?: number | null;
+        };
+        Update: {
+          balance_on?: string;
+          bonus_days_left?: number | null;
+          created_at?: string;
+          days_left?: number | null;
+          id?: string;
+          set_by?: string | null;
+          slack_team_id?: string;
+          updated_at?: string;
+          upload_id?: string | null;
+          user_id?: string;
+          working_days_left?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'leave_balances_set_by_fkey';
+            columns: ['set_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'leave_balances_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'leave_balances_upload_id_fkey';
+            columns: ['upload_id'];
+            isOneToOne: false;
+            referencedRelation: 'leave_file_uploads';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'leave_balances_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: true;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      leave_file_uploads: {
+        Row: {
+          applied_at: string | null;
+          created_at: string;
+          file_name: string;
+          id: string;
+          kind: string;
+          message_channel: string | null;
+          message_ts: string | null;
+          plan_digest: string;
+          rows: NonNullable<Json>;
+          slack_team_id: string;
+          status: string;
+          undo: Json | null;
+          undone_at: string | null;
+          uploaded_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          applied_at?: string | null;
+          created_at?: string;
+          file_name: string;
+          id?: string;
+          kind: string;
+          message_channel?: string | null;
+          message_ts?: string | null;
+          plan_digest: string;
+          rows: NonNullable<Json>;
+          slack_team_id: string;
+          status: string;
+          undo?: Json | null;
+          undone_at?: string | null;
+          uploaded_by?: string | null;
+        };
+        Update: {
+          applied_at?: string | null;
+          created_at?: string;
+          file_name?: string;
+          id?: string;
+          kind?: string;
+          message_channel?: string | null;
+          message_ts?: string | null;
+          plan_digest?: string;
+          rows?: NonNullable<Json>;
+          slack_team_id?: string;
+          status?: string;
+          undo?: Json | null;
+          undone_at?: string | null;
+          uploaded_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'leave_file_uploads_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'leave_file_uploads_uploaded_by_fkey';
+            columns: ['uploaded_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       new_person_prompts: {
         Row: {
           channel: string;
@@ -1307,11 +1446,13 @@ export type Database = {
         Row: {
           approved_by_hr: boolean;
           approved_by_manager: boolean;
+          awaits_approvers: boolean;
           created_at: string;
           created_by: string;
           days: number;
           end_date: string;
           id: string;
+          leave_file_upload_id: string | null;
           rejection_reason: string | null;
           slack_team_id: string;
           start_date: string;
@@ -1328,11 +1469,13 @@ export type Database = {
         Insert: {
           approved_by_hr?: boolean;
           approved_by_manager?: boolean;
+          awaits_approvers?: boolean;
           created_at?: string;
           created_by: string;
           days: number;
           end_date: string;
           id?: string;
+          leave_file_upload_id?: string | null;
           rejection_reason?: string | null;
           slack_team_id: string;
           start_date: string;
@@ -1348,11 +1491,13 @@ export type Database = {
         Update: {
           approved_by_hr?: boolean;
           approved_by_manager?: boolean;
+          awaits_approvers?: boolean;
           created_at?: string;
           created_by?: string;
           days?: number;
           end_date?: string;
           id?: string;
+          leave_file_upload_id?: string | null;
           rejection_reason?: string | null;
           slack_team_id?: string;
           start_date?: string;
@@ -1371,6 +1516,13 @@ export type Database = {
             columns: ['created_by'];
             isOneToOne: false;
             referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'vacation_requests_leave_file_upload_id_fkey';
+            columns: ['leave_file_upload_id'];
+            isOneToOne: false;
+            referencedRelation: 'leave_file_uploads';
             referencedColumns: ['id'];
           },
           {

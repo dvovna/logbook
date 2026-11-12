@@ -1,5 +1,15 @@
 import * as Sentry from '@sentry/node';
-import { initErrorReporting, reportError } from '@common/errors/error-reporter';
+import {
+  appRelease,
+  initErrorReporting,
+  reportError,
+} from '@common/errors/error-reporter';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const { version } = JSON.parse(
+  readFileSync(join(process.cwd(), 'package.json'), 'utf8'),
+) as { version: string };
 
 jest.mock('@sentry/node', () => ({
   init: jest.fn(),
@@ -8,6 +18,10 @@ jest.mock('@sentry/node', () => ({
 
 // The module keeps whether reporting is on, so the order matters here.
 describe('error reporting', () => {
+  it('names the release after the package', () => {
+    expect(appRelease()).toBe(`logbook@${version}`);
+  });
+
   it('stays off without SENTRY_DSN and sends nothing', () => {
     expect(initErrorReporting({})).toBe(false);
 
@@ -28,6 +42,7 @@ describe('error reporting', () => {
       expect.objectContaining({
         dsn: 'https://key@sentry.example/1',
         environment: 'production',
+        release: `logbook@${version}`,
         dataCollection: expect.objectContaining({
           userInfo: false,
           httpBodies: [],

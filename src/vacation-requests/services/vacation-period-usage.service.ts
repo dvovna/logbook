@@ -1,28 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
+import { vacationPolicyOfTeam } from '@modules/teams/utils/team-rules.utils';
 import { VacationDaysCalculationService } from '@modules/vacation-requests/services/vacation-days-calculation.service';
-import getDaysBetweenDates from '@common/utils/get-days-between-dates';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { getDateOnly } from '@common/utils/date.utils';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
-import VacationType from '@common/enums/vacation-type.enum';
+import { ICountedRequest } from '@modules/vacation-requests/utils/leave-balance.utils';
 import { VacationRequestsRepository } from '@modules/vacation-requests/repositories/vacation-requests.repository';
 import { IEffectiveTeamRules } from '@modules/teams/types/effective-team-rules.interface';
-
-export interface IVacationDaysUsage {
-  annualLeaveUsed: number;
-  annualLeaveWorkingDaysUsed: number;
-  bonusUsed: number;
-  sickUsed: number;
-  unpaidUsed: number;
-  otherUsed: number;
-}
-
-export interface IVacationPeriod {
-  periodStart: Date;
-  periodEnd: Date;
-}
 
 export interface IPeriodUsageOptions {
   // A request being edited, which the check counts with its new dates.
@@ -31,11 +17,10 @@ export interface IPeriodUsageOptions {
   ownRules?: Promise<IEffectiveTeamRules>;
 }
 
-// Counted from the requests every time, and their working days from the
-// holidays as they are now: a request keeps the working days it had when it
-// was made, which a holiday imported, added or switched off since makes
-// wrong. One query for the requests, then one per team and per policy among
-// them, however many periods.
+// The requests that count against a balance, read every time, and their
+// working days from the holidays as they are now: a request keeps the
+// working days it had when it was made, which a holiday imported, added or
+// switched off since makes wrong.
 @Injectable()
 export class VacationPeriodUsageService {
   public constructor(
@@ -44,61 +29,100 @@ export class VacationPeriodUsageService {
     private readonly vacationDaysCalculationService: VacationDaysCalculationService,
   ) {}
 
-  // The usage of each of `periods` (in order), from one read of the
-  // requests of all of them.
-  public async getUsageByPeriods(
+  // The user's requests with days from `from` to `to`, each with its working
+  // dates in that span. One query for the requests, then one per team and
+  // per policy among them.
+  public async countedRequests(
     user: IUserViewModel,
-    periods: IVacationPeriod[],
+    from: Date,
+    to: Date,
     { excludeRequestId, ownRules }: IPeriodUsageOptions = {},
-  ): Promise<IVacationDaysUsage[]> {
-    const from = periods[0].periodStart;
-    const to = periods[periods.length - 1].periodEnd;
-    const vacationRequests = await this.getVacationRequestsByPeriod(
-      user,
+  ): Promise<ICountedRequest[]> {
+    const vacationRequests = await this.findCounted(
+      user.id,
+      user.slack_team_id,
       from,
       to,
       excludeRequestId,
     );
     const holidaysOfTeam = this.holidaysByTeam(user, from, to, ownRules);
-    const requests = await Promise.all(
-      vacationRequests.map(async (vacation) => ({
-        vacation,
-        holidayDates: await holidaysOfTeam(vacation.team_id),
-      })),
-    );
 
-    return periods.map(({ periodStart, periodEnd }) =>
-      this.aggregateVacationDays(
-        requests
-          .filter(
-            ({ vacation }) =>
-              vacation.start_date <= getDateOnly(periodEnd) &&
-              vacation.end_date >= getDateOnly(periodStart),
-          )
-          .map(({ vacation, holidayDates }) =>
-            this.getDaysInPeriod(
-              vacation,
-              periodStart,
-              periodEnd,
-              holidayDates,
-            ),
-          ),
+    return Promise.all(
+      vacationRequests.map(async (vacation) =>
+        this.counted(
+          vacation,
+          from,
+          to,
+          await holidaysOfTeam(vacation.team_id),
+        ),
       ),
     );
   }
 
-  // Every request with days in the period, also one across its start or end.
-  private getVacationRequestsByPeriod(
-    user: IUserViewModel,
-    periodStart: Date,
-    periodEnd: Date,
-    excludeRequestId: string | undefined,
+  // countedRequests of people of one workspace, by user ID: one query for
+  // the requests, one for the rules of every team and one for the holidays,
+  // however many people.
+  public async countedRequestsOfUsers(
+    users: IUserViewModel[],
+    from: Date,
+    to: Date,
+  ): Promise<Map<string, ICountedRequest[]>> {
+    const byUser = new Map(
+      users.map(({ id }) => [id, [] as ICountedRequest[]]),
+    );
+
+    if (!users.length) {
+      return byUser;
+    }
+
+    const slackTeamId = users[0].slack_team_id;
+    const [vacationRequests, rules, holidays] = await Promise.all([
+      this.findCounted(
+        users.map(({ id }) => id),
+        slackTeamId,
+        from,
+        to,
+      ),
+      this.teamRulesService.forWorkspace(slackTeamId),
+      this.vacationDaysCalculationService.holidayDatesByPolicy(
+        slackTeamId,
+        from,
+        to,
+      ),
+    ]);
+    const policyOf = vacationPolicyOfTeam(rules);
+
+    for (const vacation of vacationRequests) {
+      const policyId = policyOf(vacation.team_id);
+
+      byUser
+        .get(vacation.user_id)
+        ?.push(
+          this.counted(
+            vacation,
+            from,
+            to,
+            (policyId && holidays.get(policyId)) || new Set(),
+          ),
+        );
+    }
+
+    return byUser;
+  }
+
+  // Every request with days in the span, also one across its start or end.
+  private findCounted(
+    userIds: string | string[],
+    slackTeamId: string,
+    from: Date,
+    to: Date,
+    excludeRequestId?: string,
   ) {
     return this.vacationRequestsRepository.findMany({
-      user_id: user.id,
-      slack_team_id: user.slack_team_id,
-      start_date: { operator: 'lte', value: getDateOnly(periodEnd) },
-      end_date: { operator: 'gte', value: getDateOnly(periodStart) },
+      user_id: userIds,
+      slack_team_id: slackTeamId,
+      start_date: { operator: 'lte', value: getDateOnly(to) },
+      end_date: { operator: 'gte', value: getDateOnly(from) },
       status: {
         operator: 'in',
         value: [VacationRequestStatus.Approved, VacationRequestStatus.Pending],
@@ -107,6 +131,30 @@ export class VacationPeriodUsageService {
         ? { id: { operator: 'neq', value: excludeRequestId } }
         : {}),
     });
+  }
+
+  // The holidays are read for the span only, so the working dates are too.
+  private counted(
+    vacation: IVacationRequestViewModel,
+    from: Date,
+    to: Date,
+    holidayDates: Set<string>,
+  ): ICountedRequest {
+    const start = new Date([vacation.start_date, getDateOnly(from)].sort()[1]);
+    const end = new Date([vacation.end_date, getDateOnly(to)].sort()[0]);
+
+    return {
+      id: vacation.id,
+      status: vacation.status,
+      type: vacation.type,
+      startDate: vacation.start_date,
+      endDate: vacation.end_date,
+      workingDates: this.vacationDaysCalculationService.workingDatesWithout(
+        start,
+        end,
+        holidayDates,
+      ),
+    };
   }
 
   // The period's holidays of the policy the team a request was filed in
@@ -157,67 +205,5 @@ export class VacationPeriodUsageService {
 
       return byTeam.get(key)!;
     };
-  }
-
-  // A request counts with its days (and working days) inside the period.
-  private getDaysInPeriod(
-    vacation: IVacationRequestViewModel,
-    periodStart: Date,
-    periodEnd: Date,
-    holidayDates: Set<string>,
-  ) {
-    const start = new Date(
-      [vacation.start_date, getDateOnly(periodStart)].sort()[1],
-    );
-    const end = new Date([vacation.end_date, getDateOnly(periodEnd)].sort()[0]);
-
-    return {
-      type: vacation.type,
-      days: getDaysBetweenDates(start, end),
-      working_days: this.vacationDaysCalculationService.workingDatesWithout(
-        start,
-        end,
-        holidayDates,
-      ).length,
-    };
-  }
-
-  private aggregateVacationDays(
-    vacations: Pick<
-      IVacationRequestViewModel,
-      'type' | 'days' | 'working_days'
-    >[],
-  ): IVacationDaysUsage {
-    return vacations.reduce<IVacationDaysUsage>(
-      (acc, vacation) => {
-        switch (vacation.type) {
-          case VacationType.AnnualLeave:
-            acc.annualLeaveUsed += vacation.days;
-            acc.annualLeaveWorkingDaysUsed += vacation.working_days;
-            break;
-          case VacationType.BonusDay:
-            acc.bonusUsed += vacation.working_days;
-            break;
-          case VacationType.SickLeave:
-            acc.sickUsed += vacation.days;
-            break;
-          case VacationType.UnpaidLeave:
-            acc.unpaidUsed += vacation.days;
-            break;
-          case VacationType.Other:
-            acc.otherUsed += vacation.days;
-            break;
-        }
-        return acc;
-      },
-      {
-        annualLeaveUsed: 0,
-        annualLeaveWorkingDaysUsed: 0,
-        bonusUsed: 0,
-        sickUsed: 0,
-        unpaidUsed: 0,
-        otherUsed: 0,
-      },
-    );
   }
 }

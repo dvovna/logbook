@@ -180,17 +180,6 @@ export default class SlackCommunicationService {
     );
   }
 
-  public async fetchFileContent(
-    fileUrl: string,
-    teamId: string,
-    maxBytes: number,
-  ) {
-    // TextDecoder drops a leading byte order mark, as Response.text() did.
-    return new TextDecoder('utf-8').decode(
-      await this.fetchFileBytes(fileUrl, teamId, maxBytes),
-    );
-  }
-
   // `call` with the workspace's token. When Slack refuses a cached token, a
   // reinstall or an uninstall in another process (a deploy runs two for a
   // while) revoked it, and that process's forget() cleared only its own

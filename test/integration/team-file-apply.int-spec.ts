@@ -296,7 +296,7 @@ describe('Team file Apply', () => {
       '*Moves between teams (1)*\n• Anna Novak: Backend → Acme',
       [
         '*Teams with no lead (2)*',
-        'Their requests go straight to the second approval.',
+        'Their requests skip level 1: they go to the second approval, or to HR or an admin when there is none.',
         '• Backend',
         '• Acme',
       ].join('\n'),

@@ -10,11 +10,17 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { AnyBlock } from '@slack/web-api';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationType from '@common/enums/vacation-type.enum';
-import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
+import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
+import {
+  correctionDetails,
+  fileBalanceLine,
+} from '@modules/slack/common/views/data/leave-balance.text';
 
 interface IGetParams extends IBaseModalViewParams {
   user: IUserViewModel;
   usage: IVacationPeriodUsageData | null;
+  fileBalance: ILeaveBalance | null;
 }
 
 const NO_LIMIT_TEXT = 'No limit: no vacation policy applies to this person';
@@ -32,7 +38,11 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
     };
   }
 
-  protected getViewBlocks({ user, usage }: IGetParams): AnyBlock[] {
+  protected getViewBlocks({
+    user,
+    usage,
+    fileBalance,
+  }: IGetParams): AnyBlock[] {
     if (!usage) {
       return [
         {
@@ -62,6 +72,13 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
       { type: 'divider' },
       this.buildAnnualLeaveBlock(usage.usage.annual_leave, usage.limits),
     ];
+
+    if (fileBalance && usage.limits?.correction) {
+      blocks.push({
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: fileBalanceLine(fileBalance) }],
+      });
+    }
 
     if (usage.usage.bonus_day.used > 0 || usage.usage.bonus_day.available > 0) {
       blocks.push(
@@ -113,6 +130,15 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
       if (carryover > 0) {
         availableText += ` (+*${carryover}* carryover)`;
       }
+
+      const corrections = correctionDetails(limits.correction, {
+        days: true,
+        workingDays: true,
+      });
+
+      if (corrections.length) {
+        availableText += ` (${corrections.join(', ')})`;
+      }
     }
 
     return {
@@ -131,6 +157,9 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
     const used = usage.used ?? 0;
     const available = usage.available ?? 0;
     const limit = limits?.bonusDays ?? 0;
+    const corrections = correctionDetails(limits?.correction, {
+      bonusDays: true,
+    });
 
     return {
       type: 'section',
@@ -138,7 +167,7 @@ export class UserVacationUsageModalView extends BaseModalView<IGetParams> {
         type: 'mrkdwn',
         text: `*${balanceTitle(VacationType.BonusDay)}*\n\nUsed: *${used}* days\n${
           limits
-            ? `Available: *${available}* / Limit: *${limit}* days`
+            ? `Available: *${available}* / Limit: *${limit}* days${corrections.length ? ` (${corrections.join(', ')})` : ''}`
             : NO_LIMIT_TEXT
         }`,
       },

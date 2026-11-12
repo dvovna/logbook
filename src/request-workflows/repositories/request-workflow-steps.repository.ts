@@ -41,7 +41,7 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
   // steps it decided, none when someone else was first.
   public async decide(params: {
     slackTeamId: string;
-    // Several: all their open steps (a CSV import closes many at once).
+    // Several: all their open steps (many requests closed at once).
     requestId: string | string[];
     status: string;
     decidedBySlackId: string;

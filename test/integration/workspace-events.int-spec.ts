@@ -91,6 +91,34 @@ describe('Slack events', () => {
     expect(user?.contract_start_date).not.toBeNull();
   });
 
+  // Logbook's roles are set in Logbook: the installer is its first admin.
+  it.each(['is_admin', 'is_owner'])(
+    'adds a Slack workspace %s who joins as a member',
+    async (slackRole) => {
+      const id = slackId('U');
+
+      await t.slack
+        .event(workspace, {
+          type: 'team_join',
+          user: {
+            ...slackMember(workspace, {
+              id,
+              name: 'Ada Lovelace',
+              email: 'ada@example.test',
+            }),
+            [slackRole]: true,
+          },
+        })
+        .expect(acknowledged);
+
+      await t.idle();
+
+      expect(
+        (await workspace.rows('users')).find(({ slack_id }) => slack_id === id),
+      ).toMatchObject({ role: UserRole.Member });
+    },
+  );
+
   // An app's bot joins the workspace when the app is installed.
   it('leaves out bots and accounts without an email that join', async () => {
     const failed = jest.spyOn(Logger.prototype, 'error');

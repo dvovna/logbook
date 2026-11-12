@@ -17,6 +17,7 @@ const RANK = {
   clients: 40,
   billingSnapshots: 50,
   teamFile: 60,
+  leaveFile: 65,
   singletonJob: 70,
   slackToken: 80,
 } as const;
@@ -53,6 +54,12 @@ export const billingSnapshotsLock = (slackTeamId: string): IAdvisoryLock => ({
 export const teamFileLock = (slackTeamId: string): IAdvisoryLock => ({
   key: `team-file:${slackTeamId}`,
   rank: RANK.teamFile,
+});
+
+// A leave file's preview, Apply and Undo: one at a time per workspace.
+export const leaveFileLock = (slackTeamId: string): IAdvisoryLock => ({
+  key: `leave-file:${slackTeamId}`,
+  rank: RANK.leaveFile,
 });
 
 // The check that no job of a name and key is pending, and the save after

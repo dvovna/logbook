@@ -263,7 +263,7 @@ describe('SlackApiClient', () => {
 
   describe('downloadFileBytes', () => {
     const fileUrl =
-      'https://files.slack.com/files-pri/T1-F1/download/user-vacations.csv';
+      'https://files.slack.com/files-pri/T1-F1/download/leave-balances.csv';
     let fetchMock: jest.SpyInstance;
 
     beforeEach(() => {

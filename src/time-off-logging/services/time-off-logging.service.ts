@@ -30,6 +30,11 @@ import {
   TimeOffLeaveType,
 } from 'src/time-off-logging/constants/time-off-leave-types';
 
+// Approved time off made in Logbook: imported leave gets no time.
+const loggable = (request: IVacationRequestViewModel) =>
+  request.status === VacationRequestStatus.Approved &&
+  !request.leave_file_upload_id;
+
 @Injectable()
 export class TimeOffLoggingService {
   public constructor(
@@ -44,8 +49,9 @@ export class TimeOffLoggingService {
     private readonly transactions: TransactionService,
   ) {}
 
-  // Null unless the time off is approved, its type has an active project,
-  // its requester is active and it has working days left.
+  // Null unless the time off is approved and not imported from a leave file,
+  // its type has an active project, its requester is active and it has
+  // working days left.
   public async offerFor(
     request: IVacationRequestViewModel,
   ): Promise<ITimeOffOffer | null> {
@@ -170,7 +176,9 @@ export class TimeOffLoggingService {
       throw new ForbiddenException('You can only log your own time off.');
     }
 
-    if (request.status !== VacationRequestStatus.Approved) {
+    // Imported leave is logged as no time, so a click on it is refused as
+    // on time off that isn't approved: no offer ever showed one.
+    if (!loggable(request)) {
       throw new ValidationError('This time off is no longer approved.');
     }
   }
@@ -178,10 +186,7 @@ export class TimeOffLoggingService {
   private async plan(
     request: IVacationRequestViewModel,
   ): Promise<ITimeOffPlan | null> {
-    if (
-      request.status !== VacationRequestStatus.Approved ||
-      !isTimeOffLeaveType(request.type)
-    ) {
+    if (!loggable(request) || !isTimeOffLeaveType(request.type)) {
       return null;
     }
 

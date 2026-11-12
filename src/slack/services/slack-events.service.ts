@@ -1,9 +1,7 @@
 import { isPersonWithEmail } from '@modules/slack-communication/services/slack-users.service';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
-import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import UserRole from '@common/enums/user-role.enum';
-import SlackUserAccessService from '@modules/slack/services/slack-user-access.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import FileUploadService from '@modules/slack/services/file-upload.service';
 import SlackEventType from '@modules/slack/enums/slack-event-type.enum';
@@ -122,7 +120,6 @@ export default class SlackEventsService implements OnModuleInit {
   private readonly logger = new Logger(SlackEventsService.name);
 
   public constructor(
-    private readonly slackUserAccessService: SlackUserAccessService,
     private readonly fileUploadService: FileUploadService,
     private readonly tabNavigationService: TabNavigationService,
     private readonly usersService: UsersService,
@@ -278,15 +275,14 @@ export default class SlackEventsService implements OnModuleInit {
       slackTeamId: user.slack_team_id,
     });
 
-    await this.usersService.upsert({
+    await this.usersService.refreshProfile({
       slackId: event.user.id,
-      role: user.role,
-      email: event.user.profile.email!,
+      email: event.user.profile.email,
       name: event.user.real_name || user.name,
       // A deleted Slack account deactivates the user, but nothing in Slack
       // reactivates one: someone deactivated in Logbook would otherwise come
-      // back (with their old role) after changing their status or avatar.
-      isActive: event.user.deleted ? false : user.is_active,
+      // back after changing their status or avatar.
+      isActive: event.user.deleted ? false : undefined,
       slackTeamId: user.slack_team_id,
     });
   }
@@ -305,12 +301,10 @@ export default class SlackEventsService implements OnModuleInit {
         slackTeamId: user.slack_team_id,
       });
 
-      await this.usersService.upsert({
+      await this.usersService.refreshProfile({
         slackId: user.slack_id,
-        role: user.role,
         email: event.user.profile.email || user.email,
         name: event.user.real_name || user.name,
-        isActive: user.is_active,
         slackTeamId: user.slack_team_id,
       });
 
@@ -345,10 +339,8 @@ export default class SlackEventsService implements OnModuleInit {
 
     const created = (await this.usersService.upsert({
       slackId: event.user.id,
-      role:
-        event.user.is_admin || event.user.is_owner
-          ? UserRole.Admin
-          : UserRole.Member,
+      // Whatever the Slack role: Logbook's roles are set in Logbook.
+      role: UserRole.Member,
       contractStartDate: new Date(),
       email: event.user.profile.email!,
       name: event.user.real_name,
@@ -376,16 +368,6 @@ export default class SlackEventsService implements OnModuleInit {
     // Files shared by people the app doesn't know, or has deactivated, are
     // not its business.
     if (!user?.is_active) {
-      return;
-    }
-
-    // A refusal is final: running the job again would only repeat it.
-    if (
-      !(await this.slackUserAccessService.checkUserRoleAccess(
-        user,
-        ADMIN_AND_HR_ROLES,
-      ))
-    ) {
       return;
     }
 

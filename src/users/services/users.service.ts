@@ -13,6 +13,8 @@ import {
   UserAccessChangedEvent,
   UserTeamChangedEvent,
 } from '@modules/users/events/users.events';
+import { canApprove } from '@modules/users/utils/approver-roles';
+import { publishApproversChanged } from '@modules/users/utils/approvers-changed';
 import { ITeamAssignment } from '@modules/users/types/team-assignment.interface';
 
 interface ICreateUserParams {
@@ -124,6 +126,43 @@ export class UsersService implements IUsersService {
     });
   }
 
+  // What Slack says about a person Logbook has: their profile and, for a
+  // deleted account, that they are inactive. Never the role or the team,
+  // which are Logbook's: a user read before this could carry ones that an
+  // admin has changed since (an upsert would write them back), and no role
+  // comes from Slack.
+  public async refreshProfile({
+    slackId,
+    slackTeamId,
+    email,
+    name,
+    isActive,
+  }: {
+    slackId: string;
+    slackTeamId: string;
+    email?: string;
+    name: string;
+    isActive?: boolean;
+  }) {
+    return this.changingAccess(isActive === false, async () => {
+      const user = await this.userRepository.update(
+        { slack_team_id: slackTeamId, slack_id: slackId },
+        {
+          email,
+          name,
+          is_active: isActive,
+          updated_at: new Date().toISOString(),
+        },
+      );
+
+      if (isActive === false) {
+        await this.tellAccessChanges([user]);
+      }
+
+      return user;
+    });
+  }
+
   public async search(
     params: ISearchUsersParams,
   ): Promise<ISearchResult<IUserViewModel>> {
@@ -213,18 +252,24 @@ export class UsersService implements IUsersService {
       return [];
     }
 
-    return this.userRepository.updateMany(
-      {
-        slack_team_id: updatedBy.slack_team_id,
-        id: { operator: 'in', value: userIds },
-        role: UserRole.Member,
-      },
-      {
-        role: UserRole.Manager,
-        updated_at: new Date().toISOString(),
-        updated_by: updatedBy.id,
-      },
-    );
+    return this.transactions.transaction(async () => {
+      const promoted = await this.userRepository.updateMany(
+        {
+          slack_team_id: updatedBy.slack_team_id,
+          id: { operator: 'in', value: userIds },
+          role: UserRole.Member,
+        },
+        {
+          role: UserRole.Manager,
+          updated_at: new Date().toISOString(),
+          updated_by: updatedBy.id,
+        },
+      );
+
+      await this.tellApprovers(promoted);
+
+      return promoted;
+    });
   }
 
   // The reverse of makeManagers: a Manager gets `role` back, and anyone whose
@@ -264,8 +309,8 @@ export class UsersService implements IUsersService {
     });
   }
 
-  // Sets the contract start of each user, in one statement (the CSV
-  // import). Nothing else changes, so nobody is told.
+  // Sets the contract start of each user, in one statement (a leave
+  // balances file). Nothing else changes, so nobody is told.
   public async setContractStartDates(
     changes: { userId: string; contractStartDate: Date }[],
     updatedBy: IUserViewModel,
@@ -282,6 +327,23 @@ export class UsersService implements IUsersService {
           contractStartDate.toISOString(),
         ]),
       ),
+      updatedBy: updatedBy.id,
+    });
+  }
+
+  // The reverse of setContractStartDates: each contract start goes back only
+  // while it still is `expected`. Returns the users that changed.
+  public async restoreContractStartDates(
+    changes: { userId: string; expected: string; before: string | null }[],
+    updatedBy: IUserViewModel,
+  ): Promise<string[]> {
+    if (!changes.length) {
+      return [];
+    }
+
+    return this.userRepository.restoreContractStartDates({
+      slackTeamId: updatedBy.slack_team_id,
+      changes,
       updatedBy: updatedBy.id,
     });
   }
@@ -412,14 +474,28 @@ export class UsersService implements IUsersService {
     }
   }
 
-  // The listener saves the job that hands the user's approvals over in the
-  // caller's transaction (emitAsync, see changingAccess).
+  // The listener saves the job that hands the approvals of someone who can
+  // no longer approve over in the caller's transaction (emitAsync, see
+  // changingAccess). Someone who can approve has none to hand over.
   private async tellAccessChanges(users: IUserViewModel[]) {
-    for (const user of users) {
+    for (const user of users.filter((user) => !canApprove(user))) {
       await this.eventEmitter.emitAsync(
         USER_ACCESS_CHANGED,
         new UserAccessChangedEvent(user.id, user.slack_team_id),
       );
+    }
+
+    await this.tellApprovers(users);
+  }
+
+  // The requests that waited for anyone who can approve them may go to
+  // `users` now: the listener saves the job that starts them in the caller's
+  // transaction.
+  private async tellApprovers(users: IUserViewModel[]) {
+    const approver = users.find(canApprove);
+
+    if (approver) {
+      await publishApproversChanged(this.eventEmitter, approver.slack_team_id);
     }
   }
 

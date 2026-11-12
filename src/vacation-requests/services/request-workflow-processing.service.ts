@@ -9,7 +9,6 @@ import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enu
 import { VacationWorkflowFinished } from '@modules/request-workflows/events/vacation-workflow.events';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { VacationRequestDecidedEvent } from '@modules/vacation-requests/events/vacation-request.events';
-import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import { TransactionService } from 'src/database/transaction.service';
 
 export const FINISH_REQUEST_JOB = 'vacation-request-finish';
@@ -33,7 +32,6 @@ export class RequestWorkflowProcessingService implements OnModuleInit {
   public constructor(
     private readonly vacationRequestsService: VacationRequestsService,
     private readonly usersService: UsersService,
-    private readonly requestWorkflowStepCommentsService: RequestWorkflowStepCommentsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly jobs: JobsService,
     private readonly transactions: TransactionService,
@@ -94,16 +92,11 @@ export class RequestWorkflowProcessingService implements OnModuleInit {
         return;
       }
 
-      const comments = await this.requestWorkflowStepCommentsService.findMany({
-        requestId,
-        slackTeamId,
-      });
-
       // Telling people is the Slack side's
       // (VacationDecisionNotificationsService).
       await this.eventEmitter.emitAsync(
         VacationRequestEvent.Decided,
-        new VacationRequestDecidedEvent(updatedRequest, decidedBy, comments),
+        new VacationRequestDecidedEvent(updatedRequest, decidedBy),
       );
     });
   }

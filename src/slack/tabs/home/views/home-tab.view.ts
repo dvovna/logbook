@@ -9,7 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
-import { IVacationPeriodUsageData } from '@modules/vacation-requests/services/vacation-usage.service';
+import { IVacationPeriodUsageData } from '@modules/vacation-requests/types/user-vacations-usage-info.interface';
 import {
   BaseTabView,
   IBaseTabViewParams,
@@ -23,10 +23,18 @@ import { IUserTimeSummary } from 'src/time-entries/services/time-entries-summary
 import { IPendingApprovals } from '@modules/slack/common/services/pending-approvals.service';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { ISetupProgress } from '@modules/slack/tabs/home/types/setup-progress.interface';
+import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
+import {
+  correctionDetails,
+  fileBalanceLine,
+} from '@modules/slack/common/views/data/leave-balance.text';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;
+  // The person's balance from a file, named under their annual leave.
+  fileBalance: ILeaveBalance | null;
   requestedVacations?: IVacationRequestViewModel[];
   timeSummary: IUserTimeSummary;
   pendingApprovals: IPendingApprovals;
@@ -59,6 +67,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
 
   public getContentBlocks({
     vacationUsageInfo,
+    fileBalance,
     requestedVacations,
     timeSummary,
     pendingApprovals,
@@ -69,6 +78,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       ...this.getAttentionBlocks(pendingApprovals),
       ...this.getUserViewBlocks(
         vacationUsageInfo,
+        fileBalance,
         timeSummary,
         requestedVacations,
       ),
@@ -86,8 +96,10 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     hasPolicy,
     hasCompanyApprovers,
     hasTeamWithApprovers,
+    companyRulesNameApprovers,
     peopleWithoutTeam,
     hasProjects,
+    hasLeaveImport,
   }: ISetupProgress): AnyBlock[] {
     const steps = [
       {
@@ -131,9 +143,23 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         key: 'people',
         done: peopleWithoutTeam === 0,
         title: 'Put people in teams',
-        why: `${pluralize('person', peopleWithoutTeam, true)} ${peopleWithoutTeam === 1 ? 'has' : 'have'} no team: their requests go to HR or the admins.`,
+        why: `${pluralize('person', peopleWithoutTeam, true)} ${peopleWithoutTeam === 1 ? 'has' : 'have'} no team: their requests ${companyRulesNameApprovers ? "skip level 1 and go to the company rules' approvers, or to HR or the admins when none of them can approve" : 'go to HR or the admins'}.`,
         doneLabel: 'everyone in a team',
         buttons: [{ text: 'Open People', actionId: NavigationActionId.People }],
+      },
+      {
+        key: 'leave',
+        optional: true,
+        done: hasLeaveImport,
+        title: 'Bring in leave balances',
+        why: 'Balances and past leave from your spreadsheet, so everyone starts with the right number.',
+        doneLabel: 'leave balances',
+        buttons: [
+          {
+            text: '📥 Import leave',
+            actionId: UsersTabViewActionId.ImportLeave,
+          },
+        ],
       },
       {
         key: 'projects',
@@ -246,6 +272,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
 
   private getUserViewBlocks(
     usageInfo: IVacationPeriodUsageData | null,
+    fileBalance: ILeaveBalance | null,
     timeSummary: IUserTimeSummary,
     requestedVacations?: IVacationRequestViewModel[],
   ): AnyBlock[] {
@@ -259,7 +286,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       },
       ...Divider.getBlocks(),
       ...this.getTimeTrackingBlocks(timeSummary),
-      ...this.getVacationUsageBlocks(usageInfo),
+      ...this.getVacationUsageBlocks(usageInfo, fileBalance),
       ...this.getRequestedVacationsBlocks(requestedVacations),
       {
         type: 'actions',
@@ -304,6 +331,13 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       details.push(`+*${limits.carryoverDays}* carryover`);
     }
 
+    details.push(
+      ...correctionDetails(limits.correction, {
+        days: true,
+        workingDays: true,
+      }),
+    );
+
     const detailsText = details.length ? ` (${details.join(', ')})` : '';
 
     return {
@@ -338,7 +372,11 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       );
     }
 
-    const detailsText = used > 0 ? ` (*${used}* used)` : '';
+    const details = [
+      ...(used > 0 ? [`*${used}* used`] : []),
+      ...correctionDetails(limits.correction, { bonusDays: true }),
+    ];
+    const detailsText = details.length ? ` (${details.join(', ')})` : '';
 
     return {
       type: 'section',
@@ -351,6 +389,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
 
   private getVacationUsageBlocks(
     vacationsUsageInfo: IVacationPeriodUsageData | null,
+    fileBalance: ILeaveBalance | null,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [
       ...Divider.getBlocks(),
@@ -378,6 +417,13 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         vacationsUsageInfo.limits,
       ),
     );
+
+    if (fileBalance && vacationsUsageInfo.limits?.correction) {
+      blocks.push({
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: fileBalanceLine(fileBalance) }],
+      });
+    }
 
     if (
       vacationsUsageInfo.usage.bonus_day.used > 0 ||

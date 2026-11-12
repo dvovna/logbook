@@ -45,6 +45,22 @@ jobs:
       - name: Lint
         run: npx eslint src test
 
+  # The docs site builds, so a broken page shows up before a release publishes
+  # it (the Site workflow runs from main).
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm install --ignore-workspace --frozen-lockfile
+        working-directory: docs-site
+      - run: pnpm build
+        working-directory: docs-site
+
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20

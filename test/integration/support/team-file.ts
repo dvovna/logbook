@@ -18,7 +18,7 @@ export const shareTeamFile = async (
   t: ITestApp,
   workspace: TestWorkspace,
   user: Tables<'users'>,
-  content: string,
+  content: string | Buffer,
   fileName = 'team-setup.csv',
 ) => {
   const since = t.slackApi.mark();

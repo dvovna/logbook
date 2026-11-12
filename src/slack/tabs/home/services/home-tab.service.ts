@@ -96,6 +96,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       userId: user.slack_id,
       userRole: user.role,
       vacationUsageInfo,
+      fileBalance: vacationUsageInfo.fileBalance,
       requestedVacations,
       timeSummary,
       pendingApprovals: approvals ?? { timeOff: 0, timeEntries: 0 },

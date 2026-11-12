@@ -55,7 +55,7 @@ export class VacationDaysCalculationService {
   }
 
   // holidayDates of every policy of the workspace at once, by policy ID: one
-  // statement for the vacations of many people (a CSV import).
+  // statement for the vacations of many people (a file with many people).
   public async holidayDatesByPolicy(
     slackTeamId: string,
     start: Date,

@@ -2,6 +2,40 @@
 
 Notable changes per release. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a minor version may need a step when you update; its section says which.
 
+## [Unreleased]
+
+## [0.4.0] - 2026-11-12
+
+Leave balances and history from your spreadsheet, a documentation site, and decisions and waiting requests that reach the people they concern. Update step: three database migrations and the app manifest, see Running it.
+
+### Documentation
+- Logbook has documentation at https://dvovna.github.io/logbook/docs/: guides for everyone, approvers, HR and admins, and finance, reference pages (roles and permissions, commands, notifications, file formats, configuration), and the self-hosting guide, which moved there from the README.
+
+### Time off
+- When HR or an admin approves or rejects a request with Edit Request, the requester and the notification recipients get the decision message, as after an approval, with the button to log the time off as time, and the approvers' messages show the decision instead of "Canceled". Setting the status of a request its requester canceled tells nobody.
+- A request that nobody could approve (the requester is the only admin and nobody has HR, say) goes for approval on its own once someone can: someone gets the Manager, HR or Admin role or is made active again, or a team's approvers or the company rules name someone. The requester is told where it went. Requests that waited before this update start within a day once someone can approve them.
+
+### Teams and people
+- Saving a team's form no longer takes the team's inactive members out of it.
+- People who join Slack after the app is installed become Members, even when they are Slack admins or owners; Slack profile changes never change a Logbook role.
+- Home's setup checklist and the team file's preview say where requests go when there is no level 1: the company rules' approvers when they name any, otherwise HR or the admins.
+
+### Leave balances and history
+- Bring in each person's leave from your spreadsheet: **People → 📥 Import leave** (or the new optional step on Home's setup checklist) sends two templates. `leave-balances.csv` holds each person's contract start and what they have left on a date (in calendar or working days, and bonus days); `leave-history.csv` one row per leave, taken or agreed. Send either back as CSV or Excel, in any order; a preview shows what changes, Apply it within 7 days, and Undo it for 7 days after. For Admin and HR.
+- A balance from a file is what the person has left on its date: leave from that date on is taken from it, leave before it isn't. Home and People show the difference from Logbook's own count as a correction, and the next year carries over from it.
+- Imported leave arrives approved, goes through no approval, notifies nobody and offers no time off as time. A history file only adds: leave already in Logbook is skipped and overlapping leave refused, and nothing people requested is changed or deleted.
+- Files saved from Excel or Google Sheets read as they are: US and UK dates with slashes (told apart per file), `;` with decimal commas, Excel date cells.
+- Removed: `user-vacations.csv` and the `/upload-vacations` command, which replaced all of a person's time off. The leave files replace them.
+- A leave history may have a Team column beside its Leave type, From and To, as exports of past leave often do; it is read as a history, not as a team file.
+- An Excel file that unpacks to more than 10 MB is refused before it is read.
+- Files shared in channels get no answer from Logbook. Someone without Admin or HR who shares a file in the Logbook DM gets a refusal that fits a file.
+
+### Running it
+- Update step: three database migrations (`20261112160000_requests_awaiting_approvers`, `20261112170000_mark_waiting_requests`, `20261113100000_leave_file`) and the app manifest: apply `slack-app-manifest.yml` again to drop `/upload-vacations` from an installed app.
+- Errors sent to Sentry carry the release they came from (`logbook@<version>`), so an issue shows which version brought it.
+- A process stopped while it was still starting (a quick redeploy or restart) no longer reports the failed start to Sentry, and a start that really fails exits with code 1 instead of staying up without a port when Sentry is set.
+- The Docker image (and `pnpm start:prod`) runs Node with source maps, so stack traces in the logs and in Sentry name the TypeScript file and line instead of the compiled JavaScript.
+
 ## [0.3.0] - 2026-11-12
 
 Company rules and teams set up from a file, approval levels that no longer get stuck, balances and holidays counted for the right year, and an app that holds up with hundreds of people per workspace. Update step: six database migrations and the app manifest, see Running it.
@@ -107,6 +141,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.4.0]: https://github.com/dvovna/logbook/releases/tag/v0.4.0
 [0.3.0]: https://github.com/dvovna/logbook/releases/tag/v0.3.0
 [0.2.0]: https://github.com/dvovna/logbook/releases/tag/v0.2.0
 [0.1.0]: https://github.com/dvovna/logbook/releases/tag/v0.1.0
