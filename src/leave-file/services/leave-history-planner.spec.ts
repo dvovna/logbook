@@ -401,6 +401,30 @@ describe('planLeaveHistory', () => {
     ]);
   });
 
+  it('lists the change on today of a person whose file balance is of an earlier year, as of one with none', () => {
+    const result = planLeaveHistory(
+      [row()],
+      state({
+        balanceOf: {
+          balanceOn: '2025-11-12',
+          daysLeft: 2,
+          workingDaysLeft: null,
+          bonusDaysLeft: null,
+        },
+      }),
+    );
+
+    expect(result.plannedLeave).toEqual([]);
+    // The file balance of 2025 carries 2 days over into 2026.
+    expect(result.balanceChanges).toEqual([
+      {
+        userId: anna.id,
+        before: { days: 28, workingDays: 25, bonusDays: 3 },
+        after: { days: 18, workingDays: 17, bonusDays: 3 },
+      },
+    ]);
+  });
+
   it('lists nothing planned for leave only before the balance date', () =>
     expect(
       planLeaveHistory(

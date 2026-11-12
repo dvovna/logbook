@@ -40,9 +40,11 @@ export interface ILeaveHistoryPlan {
   }[];
   // Rows already in Logbook as an approved or pending request.
   skipped: number;
-  // People with no file balance whose availability today the added rows change.
+  // People with no file balance in their current vacation year whose
+  // availability today the added rows change.
   balanceChanges: { userId: string; before: ILeft; after: ILeft }[];
-  // For people with a file balance: the added leave from its date, with
+  // For people with a file balance in their current vacation year: the
+  // added leave from its date, with
   // what the file said was left (`left`) and what all leave from its date
   // leaves of it (`after`), per unit the file gave.
   plannedLeave: {

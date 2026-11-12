@@ -1,7 +1,12 @@
 import { MAX_COMMENT_LENGTH } from '@common/constants/text-limits';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
-import { DAY_MS, formatDate, formatDateRange } from '@common/utils/date.utils';
+import {
+  DAY_MS,
+  formatDate,
+  formatDateRange,
+  getDateOnly,
+} from '@common/utils/date.utils';
 import getDaysBetweenDates from '@common/utils/get-days-between-dates';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
@@ -11,6 +16,7 @@ import {
   ILeft,
   leaveBalanceOf,
 } from '@modules/vacation-requests/utils/leave-balance.utils';
+import { getCurrentVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
 import { HISTORY_HEADERS } from 'src/leave-file/constants/leave-file-headers';
 import {
   MAX_LEAVE_AHEAD_DAYS,
@@ -246,17 +252,18 @@ export function planLeaveHistory(
     };
     const fileBalance = state.balanceOf.get(userId) ?? null;
     const after = [...input.requests, ...added];
+    const yearStart = getDateOnly(
+      getCurrentVacationPeriod(input.contractStartDate, today).periodStart,
+    );
 
-    if (!fileBalance) {
-      const before = leftOf({
-        ...input,
-        fileBalance: null,
-        date: today,
-      });
+    // A file balance of an earlier year only carries over into this one,
+    // which shows in what is available today, as for someone with none.
+    if (!fileBalance || fileBalance.balanceOn < yearStart) {
+      const before = leftOf({ ...input, fileBalance, date: today });
       const next = leftOf({
         ...input,
         requests: after,
-        fileBalance: null,
+        fileBalance,
         date: today,
       });
       if (!sameLeft(before, next)) {
