@@ -8,6 +8,15 @@ const STATE_COOKIE = 'slack_oauth_state';
 const STATE_COOKIE_PATH = '/api/slack/oauth';
 const STATE_TTL_MS = 10 * 60 * 1000;
 
+// The pages of public/ that say how an install ended. They read these
+// parameters and nothing else, and show none of them as text.
+const INSTALLED_PAGE = '/success.html';
+const FAILED_PAGE = '/install-failed.html';
+
+type FailureReason = 'canceled' | 'expired' | 'workspace' | 'failed';
+
+const failedPage = (reason: FailureReason) => `${FAILED_PAGE}?reason=${reason}`;
+
 const readCookie = (req: Request, name: string) =>
   (req.headers.cookie ?? '')
     .split(';')
@@ -60,17 +69,13 @@ export default class SlackOauthController {
     res.clearCookie(STATE_COOKIE, { path: STATE_COOKIE_PATH });
 
     if (error) {
-      return res.status(400).send('The installation was canceled.');
+      return res.redirect(failedPage('canceled'));
     }
 
     if (!sameState(expectedState, state)) {
       this.logger.warn('OAuth redirect with a missing or wrong state');
 
-      return res
-        .status(400)
-        .send(
-          'This installation link has expired or was not started here. Start again from /api/slack/install.',
-        );
+      return res.redirect(failedPage('expired'));
     }
 
     try {
@@ -88,14 +93,10 @@ export default class SlackOauthController {
             ),
           );
 
-        return res
-          .status(403)
-          .send(
-            'This Logbook server does not accept installs from your Slack workspace. Ask the person who runs it.',
-          );
+        return res.redirect(failedPage('workspace'));
       }
 
-      await this.teamSetupWorkflowService.execute({
+      const outcome = await this.teamSetupWorkflowService.execute({
         slackTeamId: data.team.id,
         slackTeamName: data.team.name,
         tokens: {
@@ -108,10 +109,19 @@ export default class SlackOauthController {
         slackUserId: data.authed_user.id,
       });
 
-      return res.redirect('/success.html');
+      // The workspace and the app, for the page's button to Logbook's Home:
+      // IDs, which Slack shows in its own addresses.
+      const page = new URLSearchParams({
+        installed: outcome,
+        team: data.team.id,
+        ...(data.app_id ? { app: data.app_id } : {}),
+      });
+
+      return res.redirect(`${INSTALLED_PAGE}?${page.toString()}`);
     } catch (error) {
       this.logger.error('OAuth error:', error);
-      return res.status(500).send('OAuth failed');
+
+      return res.redirect(failedPage('failed'));
     }
   }
 }

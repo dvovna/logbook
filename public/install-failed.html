@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Logbook was not installed. Why, and what to do.">
+  <title>Logbook was not installed</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/page.css">
+</head>
+<body>
+<main>
+  <a class="brand" href="https://dvovna.github.io/logbook/">
+    <img src="/favicon.svg" alt="" width="28" height="28">Logbook
+  </a>
+
+  <div class="sheet">
+    <span class="stamp stamp--failed">Not installed</span>
+    <h1>Logbook was not installed</h1>
+    <p id="lead">Slack or Logbook couldn't finish the install, and nothing changed in your workspace. Try again. If it happens again, the person who runs this Logbook server finds the reason in its logs.</p>
+
+    <div class="actions">
+      <a class="button" id="retry" href="/api/slack/install">Try again</a>
+      <a href="https://dvovna.github.io/logbook/docs/help/troubleshooting/">Troubleshooting</a>
+    </div>
+  </div>
+</main>
+
+<script>
+  // The redirect names why; anything else reads as the general failure.
+  (function () {
+    var reasons = {
+      canceled: 'The installation was canceled on Slack\'s page. Nothing changed in your workspace.',
+      expired: 'This installation link has expired or was not started here. Nothing changed in your workspace. Start again.',
+      workspace: 'This Logbook server does not accept installs from your Slack workspace. Ask the person who runs it.',
+    };
+    var reason = new URLSearchParams(location.search).get('reason');
+
+    if (Object.prototype.hasOwnProperty.call(reasons, reason)) {
+      document.getElementById('lead').textContent = reasons[reason];
+    }
+
+    if (reason === 'workspace') {
+      document.getElementById('retry').hidden = true;
+    }
+  })();
+</script>
+</body>
+</html>

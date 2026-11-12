@@ -20,6 +20,7 @@ type IOauthCompleteResponseData = {
   // seconds and the refresh token gets the next one.
   refresh_token?: string;
   expires_in?: number;
+  app_id?: string;
   team: {
     id: string;
     name: string;

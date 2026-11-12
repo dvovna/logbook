@@ -23,6 +23,11 @@ interface ITeamSetupWorkflowParams {
   slackUserId: string;
 }
 
+// What an install was: the workspace's first, one over a working install
+// (new scopes, a new token), or one that brought an uninstalled workspace
+// back.
+export type InstallOutcome = 'new' | 'again' | 'restored';
+
 export const SYNC_USERS_JOB = 'team-sync-users';
 export const WELCOME_JOB = 'team-welcome';
 
@@ -115,17 +120,15 @@ export class TeamSetupWorkflowService implements OnModuleInit {
     slackTeamName,
     slackUserId,
     tokens,
-  }: ITeamSetupWorkflowParams): Promise<void> {
+  }: ITeamSetupWorkflowParams): Promise<InstallOutcome> {
     const installed = await this.slackTeamsService.findOne({
       slackId: slackTeamId,
     });
 
     if (installed) {
-      return this.reinstall(installed, {
-        slackTeamName,
-        slackUserId,
-        tokens,
-      });
+      await this.reinstall(installed, { slackTeamName, slackUserId, tokens });
+
+      return installed.uninstalled_at ? 'restored' : 'again';
     }
 
     const { user: installer } = await this.slackUsersService.getUserWithToken(
@@ -163,6 +166,8 @@ export class TeamSetupWorkflowService implements OnModuleInit {
         userSlackIdsToIgnore: [slackUserId],
       });
     });
+
+    return 'new';
   }
 
   // Installing again (e.g. for new scopes) keeps the workspace's data and

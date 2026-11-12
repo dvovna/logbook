@@ -121,7 +121,9 @@ describe('Installing the app (OAuth redirect)', () => {
 
     const response = await install('code-ok');
     expect(response.status).toBe(302);
-    expect(response.headers.location).toBe('/success.html');
+    expect(response.headers.location).toMatch(
+      /^\/success\.html\?installed=new&team=T\w+&app=A0FAKEAPP$/,
+    );
 
     expect(
       t.slackApi.calls.find(({ method }) => method === 'oauth.v2.access')
@@ -428,7 +430,9 @@ describe('Installing the app (OAuth redirect)', () => {
     t.slackApi.addUser({ id: installer, teamId, name: 'Ivy', email: '' });
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
 
-    expect((await install(`no-email-${teamId}`)).status).toBe(500);
+    expect((await install(`no-email-${teamId}`)).headers.location).toBe(
+      '/install-failed.html?reason=failed',
+    );
     expect(await workspaceRow(teamId)).toBeNull();
   });
 
@@ -538,7 +542,9 @@ describe('Installing the app (OAuth redirect)', () => {
   it('fails without creating anything when Slack rejects the code', async () => {
     const since = t.slackApi.mark();
 
-    expect((await install('code-unknown')).status).toBe(500);
+    expect((await install('code-unknown')).headers.location).toBe(
+      '/install-failed.html?reason=failed',
+    );
 
     expect(t.slackApi.calls.slice(since).map(({ method }) => method)).toEqual([
       'oauth.v2.access',
@@ -569,7 +575,9 @@ describe('Installing the app (OAuth redirect)', () => {
       const { state } = await startInstall();
       const since = t.slackApi.mark();
 
-      await redirectBack(`code=code-ok&state=${state}`).expect(400);
+      await redirectBack(`code=code-ok&state=${state}`)
+        .expect(302)
+        .expect('Location', '/install-failed.html?reason=expired');
       expect(slackCallsSince(since)).toEqual([]);
     });
 
@@ -577,10 +585,9 @@ describe('Installing the app (OAuth redirect)', () => {
       const { stateCookie } = await startInstall();
       const since = t.slackApi.mark();
 
-      await redirectBack(
-        `code=code-ok&state=${'0'.repeat(48)}`,
-        stateCookie,
-      ).expect(400);
+      await redirectBack(`code=code-ok&state=${'0'.repeat(48)}`, stateCookie)
+        .expect(302)
+        .expect('Location', '/install-failed.html?reason=expired');
       expect(slackCallsSince(since)).toEqual([]);
     });
 
@@ -588,10 +595,9 @@ describe('Installing the app (OAuth redirect)', () => {
       const { state, stateCookie } = await startInstall();
       const since = t.slackApi.mark();
 
-      await redirectBack(
-        `error=access_denied&state=${state}`,
-        stateCookie,
-      ).expect(400);
+      await redirectBack(`error=access_denied&state=${state}`, stateCookie)
+        .expect(302)
+        .expect('Location', '/install-failed.html?reason=canceled');
       expect(slackCallsSince(since)).toEqual([]);
     });
   });
@@ -626,7 +632,9 @@ describe('Installing the app (OAuth redirect)', () => {
       const response = await install('code-listed');
 
       expect(response.status).toBe(302);
-      expect(response.headers.location).toBe('/success.html');
+      expect(response.headers.location).toMatch(
+        /^\/success\.html\?installed=new&team=T\w+&app=A0FAKEAPP$/,
+      );
     });
 
     it('refuses a workspace that is not on it and undoes the install', async () => {
@@ -635,8 +643,9 @@ describe('Installing the app (OAuth redirect)', () => {
 
       const response = await install('code-unlisted');
 
-      expect(response.status).toBe(403);
-      expect(response.text).toContain('does not accept installs');
+      expect(response.headers.location).toBe(
+        '/install-failed.html?reason=workspace',
+      );
       expect(await workspaceRow(teamId)).toBeNull();
       expect(
         t.slackApi.callsWith(`xoxb-${teamId}`, 'auth.revoke'),

@@ -1,41 +1,84 @@
-<!-- src/success/success.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Logbook installed 🎉</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #4A154B, #36C5F0);
-      color: white;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 0.5em;
-    }
-    p {
-      font-size: 1.2rem;
-      max-width: 400px;
-      text-align: center;
-    }
-    a {
-      color: #ffffff;
-      text-decoration: underline;
-      margin-top: 20px;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Logbook is installed in your Slack workspace. What to do next.">
+  <title>Logbook is installed</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/page.css">
 </head>
 <body>
-<h1>🎉 Logbook is installed!</h1>
-<p>You're all set. Open Logbook in Slack to request time off and log your hours.</p>
-<a href="slack://open">Open Slack</a>
+<main>
+  <a class="brand" href="https://dvovna.github.io/logbook/">
+    <img src="/favicon.svg" alt="" width="28" height="28">Logbook
+  </a>
+
+  <div class="sheet">
+    <span class="stamp" id="stamp">Installed</span>
+    <h1 id="title">Logbook is installed</h1>
+    <p id="lead">You are its admin. Setup happens in Slack: Logbook has sent you a message with the steps, and its Home tab shows a checklist until they are done.</p>
+
+    <section id="steps">
+      <h2>What to do next</h2>
+      <ol>
+        <li><span><strong>Add a vacation policy.</strong> Days a year and public holidays. Without one, time off is tracked with no limits.</span></li>
+        <li><span><strong>Set the company rules.</strong> Who approves after the team lead, and who hears of decisions.</span></li>
+        <li><span><strong>Create teams and put people in them.</strong> One at a time, or all at once from a file.</span></li>
+        <li><span><strong>Bring in leave balances.</strong> Optional: what everyone has left, and the leave already agreed.</span></li>
+      </ol>
+    </section>
+
+    <div class="actions">
+      <a class="button" id="open" href="slack://open">Open Logbook in Slack</a>
+      <a id="guide" href="https://dvovna.github.io/logbook/docs/getting-started/set-up-your-workspace/">Read the setup guide</a>
+    </div>
+
+    <p class="aside" id="aside">Have your people and leave in a spreadsheet? <a href="https://dvovna.github.io/logbook/docs/getting-started/set-up-with-an-agent/">An AI agent can prepare the files</a>.</p>
+  </div>
+</main>
+
+<script>
+  // The redirect names the kind of install and the workspace and app to
+  // open. Only values of the expected shape are used, and none is shown.
+  (function () {
+    var query = new URLSearchParams(location.search);
+    var texts = {
+      again: {
+        stamp: 'Updated',
+        title: 'Logbook is updated',
+        lead: "The app was installed again, with its current permissions. Your workspace's data, roles and settings are as they were.",
+      },
+      restored: {
+        stamp: 'Restored',
+        title: 'Logbook is back',
+        lead: "Your workspace's data, roles and settings are as they were. People who joined or left Slack meanwhile are being brought up to date.",
+      },
+    };
+    var kind = query.get('installed');
+    var text = Object.prototype.hasOwnProperty.call(texts, kind) && texts[kind];
+
+    if (text) {
+      document.title = text.title;
+      document.getElementById('stamp').textContent = text.stamp;
+      document.getElementById('title').textContent = text.title;
+      document.getElementById('lead').textContent = text.lead;
+      document.getElementById('steps').hidden = true;
+      document.getElementById('aside').hidden = true;
+      document.getElementById('guide').hidden = true;
+    }
+
+    var team = query.get('team') || '';
+    var app = query.get('app') || '';
+
+    if (/^T[A-Z0-9]{2,20}$/.test(team) && /^A[A-Z0-9]{2,20}$/.test(app)) {
+      // Slack's own page: it opens the app's Home in the desktop app, or in
+      // the browser when there is none.
+      document.getElementById('open').href =
+        'https://slack.com/app_redirect?app=' + app + '&team=' + team;
+    }
+  })();
+</script>
 </body>
 </html>
