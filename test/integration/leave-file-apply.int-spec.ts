@@ -205,7 +205,7 @@ describe('Leave file Apply', () => {
 
       expect(leaveFileTexts(second)).toEqual([
         "*Here's what leave-balances.csv will do*",
-        '*Vacation year changes (1)*: contract start set\n• Anna Novak: from 15 Jun (was 1 Jan)',
+        '*Vacation year changes (1)*: contract start set\n• Anna Novak: from 15 Jun (was 1 Jan). The balance of 10 Jun 2026 now falls in the year before and carries over.',
       ]);
 
       const result = await click(second, 'apply');

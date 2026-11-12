@@ -204,6 +204,26 @@ export function planLeaveBalances(
       },
     });
   }
+  const setBalance = new Set(plan.balances.map(({ userId }) => userId));
+  const yearStartOf = (contractStart: string | null) =>
+    getDateOnly(getCurrentVacationPeriod(contractStart, today).periodStart);
+
+  for (const change of plan.contractStarts) {
+    const kept = setBalance.has(change.userId)
+      ? undefined
+      : state.balanceOf.get(change.userId);
+
+    // In the current year before, out of it now: then it is in the year
+    // just before the current one, since it is no later than today.
+    if (
+      kept &&
+      kept.balanceOn >= yearStartOf(change.before) &&
+      kept.balanceOn < yearStartOf(change.after)
+    ) {
+      change.movedBalanceOn = kept.balanceOn;
+    }
+  }
+
   return plan;
 }
 

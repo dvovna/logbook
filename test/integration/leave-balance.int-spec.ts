@@ -304,32 +304,53 @@ describe('A balance from a file', () => {
       );
     });
 
-    it('keeps the usual carryover hint without days left in the file or before the joined year', async () => {
+    const openEditForm = async () =>
+      hintOf(
+        await openModalFrom(
+          t,
+          workspace,
+          hr,
+          await openAppHomeTab(t, workspace, hr, [NavigationActionId.People]),
+          UsersTabViewActionId.ManageUserMenu,
+          `${UsersTabViewActionId.EditUser}:${member.id}`,
+        ),
+      );
+
+    it('keeps the usual carryover hint without days left in the file', async () => {
       await setUp();
       await addBalance(member, { working_days_left: 14 });
-      const open = async () =>
-        hintOf(
-          await openModalFrom(
-            t,
-            workspace,
-            hr,
-            await openAppHomeTab(t, workspace, hr, [NavigationActionId.People]),
-            UsersTabViewActionId.ManageUserMenu,
-            `${UsersTabViewActionId.EditUser}:${member.id}`,
-          ),
-        );
-      const usual =
-        "Days left from before they joined, for the vacation year from 1 Jan 2026. Each later year carries over what is left on its own, up to the policy's limit.";
 
-      expect(await open()).toBe(usual);
+      expect(await openEditForm()).toBe(
+        "Days left from before they joined, for the vacation year from 1 Jan 2026. Each later year carries over what is left on its own, up to the policy's limit.",
+      );
+    });
+
+    it('says in the edit form when the balance from a file falls in the year before', async () => {
+      await setUp({ contract_start_date: '2020-06-15' });
+      await addBalance(member, { balance_on: '2026-06-10', days_left: 12 });
+
+      expect(await openEditForm()).toBe(
+        'The balance from a file (12 days left on 10 Jun 2026) falls in the vacation year before this one, so this year starts with what it carries over.',
+      );
 
       await t.db
         .updateTable('leave_balances')
-        .set({ days_left: 12, balance_on: '2025-12-01' })
+        .set({ days_left: null, working_days_left: 9, bonus_days_left: 1 })
         .where('user_id', '=', member.id)
         .execute();
 
-      expect(await open()).toBe(usual);
+      expect(await openEditForm()).toBe(
+        'The balance from a file (9 working days, 1 bonus day left on 10 Jun 2026) falls in the vacation year before this one, so this year starts with what it carries over.',
+      );
+    });
+
+    it('says so of a balance from the calendar year before, before the person joined', async () => {
+      await setUp();
+      await addBalance(member, { balance_on: '2025-12-01', days_left: 12 });
+
+      expect(await openEditForm()).toBe(
+        'The balance from a file (12 days left on 1 Dec 2025) falls in the vacation year before this one, so this year starts with what it carries over.',
+      );
     });
 
     it('shows the file line on Time off and only with a file balance', async () => {

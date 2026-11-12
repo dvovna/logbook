@@ -279,6 +279,50 @@ describe('planLeaveBalances', () => {
     expect(result.unusable).toEqual([]);
   });
 
+  describe('a kept balance and a new contract start', () => {
+    // Anna's file balance of 10 Jun stays: the row sets no balance.
+    const kept = state({ balanceOf: { balanceOn: '2026-06-10', daysLeft: 3 } });
+
+    it('notes the balance it moves into the year before', () =>
+      expect(
+        plan([row({ contractStart: '2020-06-15' })], kept).contractStarts,
+      ).toEqual([
+        {
+          userId: anna.id,
+          before: null,
+          after: '2020-06-15',
+          movedBalanceOn: '2026-06-10',
+        },
+      ]));
+
+    it('notes nothing when the balance stays in the current year', () =>
+      expect(
+        plan([row({ contractStart: '2020-03-01' })], kept).contractStarts,
+      ).toEqual([{ userId: anna.id, before: null, after: '2020-03-01' }]));
+
+    it('notes nothing when the row sets a new balance', () =>
+      expect(
+        plan(
+          [
+            row({
+              contractStart: '2020-06-15',
+              balanceOn: '2026-11-12',
+              daysLeft: '5',
+            }),
+          ],
+          kept,
+        ).contractStarts,
+      ).toEqual([{ userId: anna.id, before: null, after: '2020-06-15' }]));
+
+    it('notes nothing of a balance that was in an earlier year already', () =>
+      expect(
+        plan(
+          [row({ contractStart: '2020-06-15' })],
+          state({ balanceOf: { balanceOn: '2025-12-01', daysLeft: 3 } }),
+        ).contractStarts,
+      ).toEqual([{ userId: anna.id, before: null, after: '2020-06-15' }]));
+  });
+
   describe('unusable rows', () => {
     it('no email', () =>
       expect(reasonOf([row({ email: '  ' })])).toEqual([REASONS.noEmail]));

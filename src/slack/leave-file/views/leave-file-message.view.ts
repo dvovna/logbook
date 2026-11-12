@@ -130,10 +130,17 @@ const yearStartOf = (contractStart: string | null) =>
 const contractStartLine = ({
   before,
   after,
-}: ILeaveBalancesPlan['contractStarts'][number]) =>
-  yearStartOf(after) !== yearStartOf(before)
-    ? `from ${yearStartOf(after)} (was ${yearStartOf(before)})`
-    : `contract start ${formatDate(after)} (was ${before ? formatDate(before) : 'none'})`;
+  movedBalanceOn,
+}: ILeaveBalancesPlan['contractStarts'][number]) => {
+  const change =
+    yearStartOf(after) !== yearStartOf(before)
+      ? `from ${yearStartOf(after)} (was ${yearStartOf(before)})`
+      : `contract start ${formatDate(after)} (was ${before ? formatDate(before) : 'none'})`;
+
+  return movedBalanceOn
+    ? `${change}. The balance of ${formatDate(movedBalanceOn)} now falls in the year before and carries over.`
+    : change;
+};
 
 const typeCount = (type: VacationType, count: number) =>
   type === VacationType.BonusDay

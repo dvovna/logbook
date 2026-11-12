@@ -44,7 +44,15 @@ export interface ILeaveBalancesPlan {
       bonusDays: number | null;
     };
   }[];
-  contractStarts: { userId: string; before: string | null; after: string }[];
+  contractStarts: {
+    userId: string;
+    before: string | null;
+    after: string;
+    // The date of the person's earlier file balance, which the file keeps,
+    // when the new contract start moves it out of the current vacation year
+    // into the one before (where it carries over).
+    movedBalanceOn?: string;
+  }[];
   unchanged: number;
   unusable: { row: number; reason: string }[];
 }

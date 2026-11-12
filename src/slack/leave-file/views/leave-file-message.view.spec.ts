@@ -279,6 +279,32 @@ describe('LeaveFileMessageView', () => {
       ]);
     });
 
+    it('says when a new contract start moves a balance from a file into the year before', () => {
+      const message = view.preview(
+        balances(
+          balancesPlan({
+            contractStarts: [
+              {
+                userId: 'anna',
+                before: null,
+                after: '2020-06-15',
+                movedBalanceOn: '2026-06-10',
+              },
+            ],
+          }),
+        ),
+        balancesUpload,
+        TODAY,
+      );
+
+      expect(textsOf(message)[1]).toBe(
+        [
+          '*Vacation year changes (1)*: contract start set',
+          '• Anna Novak: from 15 Jun (was 1 Jan). The balance of 10 Jun 2026 now falls in the year before and carries over.',
+        ].join('\n'),
+      );
+    });
+
     it('lists planned leave per unit the leave takes from, with a negative balance and a single day', () => {
       const message = view.preview(
         balances(

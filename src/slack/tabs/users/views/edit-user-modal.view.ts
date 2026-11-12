@@ -1,7 +1,11 @@
 import { MAX_POLICY_DAYS } from '@modules/vacation-policies/constants/policy-limits';
-import { getJoinedVacationPeriod } from '@modules/vacation-requests/utils/vacation-period.utils';
+import {
+  getCurrentVacationPeriod,
+  getJoinedVacationPeriod,
+} from '@modules/vacation-requests/utils/vacation-period.utils';
 import pluralize from 'pluralize';
-import { getDateOnly, formatDate } from '@common/utils/date.utils';
+import { DAY_MS, getDateOnly, formatDate } from '@common/utils/date.utils';
+import { fileBalanceLeft } from '@modules/slack/common/views/data/leave-balance.text';
 import { Injectable } from '@nestjs/common';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import BaseModalView, {
@@ -108,6 +112,7 @@ export class EditUserModalView extends BaseModalView<
         user.carryover_days,
         getJoinedVacationPeriod(user.contract_start_date, user.created_at)
           .periodStart,
+        this.yearStarts(user.contract_start_date),
         fileBalance,
       ),
       ...(errorMessage ? [this.getGeneralErrorBlock(errorMessage)] : []),
@@ -119,24 +124,16 @@ export class EditUserModalView extends BaseModalView<
   private addUnusedDaysBlock(
     daysUnused: number | null = 0,
     joinedYearStart: Date,
+    yearStarts: { current: Date; before: Date },
     fileBalance: ILeaveBalance | null,
   ) {
-    // The file's days left replace the carryover in the year they are in; a
-    // unit the file left empty still counts it.
-    const fromFile =
-      fileBalance &&
-      fileBalance.days_left !== null &&
-      fileBalance.balance_on >= getDateOnly(joinedYearStart)
-        ? `This year's balance comes from a file (${pluralize('day', fileBalance.days_left, true)} left on ${formatDate(fileBalance.balance_on)}), so carryover here changes nothing.`
-        : null;
-
     return {
       type: 'input',
       block_id: 'carryover_days_block',
       hint: {
         type: 'plain_text',
         text:
-          fromFile ??
+          this.fileBalanceHint(fileBalance, joinedYearStart, yearStarts) ??
           `Days left from before they joined, for the vacation year from ${formatDate(joinedYearStart)}. Each later year carries over what is left on its own, up to the policy's limit.`,
       },
       element: {
@@ -152,5 +149,46 @@ export class EditUserModalView extends BaseModalView<
         text: 'Carryover Days',
       },
     };
+  }
+
+  // Where the current vacation year and the one before it start.
+  private yearStarts(contractStartDate: string | null | undefined) {
+    const current = getCurrentVacationPeriod(contractStartDate).periodStart;
+
+    return {
+      current,
+      before: getCurrentVacationPeriod(
+        contractStartDate,
+        new Date(current.getTime() - DAY_MS),
+      ).periodStart,
+    };
+  }
+
+  // What a balance from a file does to the carryover, or null when it does
+  // nothing to it.
+  private fileBalanceHint(
+    fileBalance: ILeaveBalance | null,
+    joinedYearStart: Date,
+    { current, before }: { current: Date; before: Date },
+  ) {
+    if (!fileBalance) {
+      return null;
+    }
+
+    // In the year before this one it carries over into this one, which then
+    // starts from it and not from the profile's carryover.
+    if (
+      fileBalance.balance_on < getDateOnly(current) &&
+      fileBalance.balance_on >= getDateOnly(before)
+    ) {
+      return `The balance from a file (${fileBalanceLeft(fileBalance)}) falls in the vacation year before this one, so this year starts with what it carries over.`;
+    }
+
+    // The file's days left replace the carryover in the year they are in; a
+    // unit the file left empty still counts it.
+    return fileBalance.days_left !== null &&
+      fileBalance.balance_on >= getDateOnly(joinedYearStart)
+      ? `This year's balance comes from a file (${pluralize('day', fileBalance.days_left, true)} left on ${formatDate(fileBalance.balance_on)}), so carryover here changes nothing.`
+      : null;
   }
 }

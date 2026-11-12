@@ -31,9 +31,9 @@ export const correctionDetails = (
   ].filter((detail): detail is string => detail !== null);
 };
 
-// "Set from a file: 12 days, 7 working days, 2 bonus days left on ...": what
-// HR gave, only the units the file had.
-export const fileBalanceLine = (balance: ILeaveBalance): string => {
+// "12 days, 7 working days, 2 bonus days left on 17 Jun 2026": what HR
+// gave, only the units the file had.
+export const fileBalanceLeft = (balance: ILeaveBalance): string => {
   const given = [
     balance.days_left !== null && pluralize('day', balance.days_left, true),
     balance.working_days_left !== null &&
@@ -42,5 +42,8 @@ export const fileBalanceLine = (balance: ILeaveBalance): string => {
       `${pluralize('bonus day', balance.bonus_days_left, true)}`,
   ].filter(Boolean);
 
-  return `Set from a file: ${given.join(', ')} left on ${formatDate(balance.balance_on)}.`;
+  return `${given.join(', ')} left on ${formatDate(balance.balance_on)}`;
 };
+
+export const fileBalanceLine = (balance: ILeaveBalance): string =>
+  `Set from a file: ${fileBalanceLeft(balance)}.`;
