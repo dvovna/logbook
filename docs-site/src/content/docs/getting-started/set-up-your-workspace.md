@@ -9,6 +9,8 @@ These steps turn a freshly installed, empty workspace into one where people can 
 
 After you install, Logbook sends you a direct message with the steps, and your **Home** tab shows a checklist.
 
+If your company already keeps its people, teams and leave in spreadsheets or an HR system, an AI agent can prepare the files and the values for these steps: see [Set up with an AI agent](/logbook/docs/getting-started/set-up-with-an-agent/).
+
 ## The setup checklist
 
 Admins and HR see **🚀 Set up Logbook** at the top of **Home**, with a count such as "2 of 4 done". It lists the steps still open, each with a short reason and a button to the screen that does it. Finished steps are folded into one line that starts with "✅ Done:". The checklist disappears once the four required steps are done. Projects are optional and don't count.

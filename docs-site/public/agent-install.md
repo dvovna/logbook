@@ -173,7 +173,7 @@ Finish with a short report, without any secret in it:
 - the Supabase project (name and ref) and its region;
 - the Slack app's ID;
 - that `.env` in the `logbook` folder holds every secret, that it must not be committed, and that `SLACK_TOKEN_ENCRYPTION_KEY` has to be kept safe: without it every workspace has to install the app again;
-- what is next for them in Slack: https://dvovna.github.io/logbook/docs/getting-started/set-up-your-workspace/
+- what is next for them in Slack: https://dvovna.github.io/logbook/docs/getting-started/set-up-your-workspace/, and that an agent can prepare the teams and leave files from their company's data: https://dvovna.github.io/logbook/docs/getting-started/set-up-with-an-agent/
 - how to update later: https://dvovna.github.io/logbook/docs/self-hosting/update/
 
 ## Updating an install
