@@ -3,6 +3,11 @@ import { KnownBlock } from '@slack/types';
 import capitalize from '@common/utils/capitalize';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import {
+  clip,
+  listSection,
+  section,
+} from '@modules/slack/common/views/components/message-sections';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TeamFileMessageActionId } from '@modules/slack/team-file/enums/team-file-message-action-id.enum';
 import { ITeamFileMessage } from '@modules/slack/team-file/types/team-file-message.interface';
@@ -16,9 +21,6 @@ import {
 import { ITeamFileClosedStatus } from 'src/team-file/types/team-file-apply-result.interface';
 import { ITeamFilePlan } from 'src/team-file/types/team-file-plan.interface';
 
-// Slack takes at most 3000 characters in a section.
-const MAX_SECTION_CHARACTERS = 3000;
-const MAX_LISTED = 10;
 // Names and reasons are typed by people, so the longest ones are cut before
 // they are escaped (cutting after could split an entity).
 const MAX_NAME_CHARACTERS = 80;
@@ -35,8 +37,6 @@ const CLOSED_TEXTS: Partial<Record<ITeamFileClosedStatus, string>> = {
   expired: 'This preview has expired. Send the file again.',
 };
 
-const clip = (text: string, max: number) =>
-  text.length > max ? `${text.slice(0, max - 1)}…` : text;
 const safe = (text: string, max = MAX_NAME_CHARACTERS) =>
   escapeMrkdwn(clip(text, max));
 const counted = (count: number, one: string, many: string) =>
@@ -48,33 +48,6 @@ const joinNames = (names: string[]) =>
   names.length < 2
     ? names.join('')
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-
-const section = (text: string): KnownBlock => ({
-  type: 'section',
-  text: { type: 'mrkdwn', text },
-});
-
-// A title and its bullets: at most 10, fewer when they would not fit in one
-// section, and what is left out is counted.
-function list(title: string, items: string[], intro?: string): KnownBlock {
-  const head = [title, ...(intro ? [intro] : [])].join('\n');
-  const lines: string[] = [];
-  let length = head.length;
-
-  for (const item of items.slice(0, MAX_LISTED)) {
-    const line = `• ${item}`;
-    // Leaves room for the "…and N more" line.
-    if (length + line.length + 30 > MAX_SECTION_CHARACTERS) break;
-    lines.push(line);
-    length += line.length + 1;
-  }
-
-  const more = items.length - lines.length;
-
-  return section(
-    [head, ...lines, ...(more > 0 ? [`…and ${more} more`] : [])].join('\n'),
-  );
-}
 
 @Injectable()
 export class TeamFileMessageView {
@@ -182,7 +155,7 @@ export class TeamFileMessageView {
       text,
       blocks: [
         kept.length
-          ? list(
+          ? listSection(
               text,
               kept.map((line) => safe(line, MAX_REASON_CHARACTERS)),
               'Kept as they are:',
@@ -237,7 +210,7 @@ export class TeamFileMessageView {
   private unusable(plan: ITeamFilePlan, title: string): KnownBlock[] {
     return plan.unusable.length
       ? [
-          list(
+          listSection(
             `⚠️ *${title} (${plan.unusable.length})*`,
             plan.unusable.map(
               ({ row, reason }) =>
@@ -267,7 +240,7 @@ export class TeamFileMessageView {
 
     if (plan.createTeams.length) {
       sections.push(
-        list(
+        listSection(
           `*Teams to create (${plan.createTeams.length})*`,
           plan.createTeams.map((team) => {
             const leads = team.leadIds.map(name);
@@ -294,7 +267,7 @@ export class TeamFileMessageView {
 
     if (moves.length) {
       sections.push(
-        list(
+        listSection(
           `*Moves between teams (${moves.length})*`,
           moves.map(
             (a) => `${name(a.userId)}: ${name(a.fromTeamId)} → ${target(a)}`,
@@ -309,12 +282,12 @@ export class TeamFileMessageView {
     ]);
 
     if (leadLines.length) {
-      sections.push(list('*Lead changes*', leadLines));
+      sections.push(listSection('*Lead changes*', leadLines));
     }
 
     if (plan.promotions.length) {
       sections.push(
-        list(
+        listSection(
           '*Becoming Managers because they lead a team*',
           plan.promotions.map(name),
         ),
@@ -323,7 +296,7 @@ export class TeamFileMessageView {
 
     if (placements.length) {
       sections.push(
-        list(
+        listSection(
           `*Placed in a team (${placements.length})*`,
           placements.map((a) => `${name(a.userId)}: ${target(a)}`),
         ),
@@ -332,7 +305,7 @@ export class TeamFileMessageView {
 
     if (plan.leftWithoutTeam.length) {
       sections.push(
-        list(
+        listSection(
           `*Left without a team (${plan.leftWithoutTeam.length})*`,
           plan.leftWithoutTeam.map(name),
         ),
@@ -341,7 +314,7 @@ export class TeamFileMessageView {
 
     if (plan.teamsWithoutLead.length) {
       sections.push(
-        list(
+        listSection(
           `*Teams with no lead (${plan.teamsWithoutLead.length})*`,
           plan.teamsWithoutLead.map((team) => safe(team)),
           'Their requests go straight to the second approval.',
@@ -351,7 +324,7 @@ export class TeamFileMessageView {
 
     if (plan.nameMatches.length) {
       sections.push(
-        list(
+        listSection(
           '*Team names matched*',
           plan.nameMatches.map(
             ({ written, teamName }) => `${safe(written)} → ${safe(teamName)}`,
