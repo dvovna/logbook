@@ -29,4 +29,5 @@ export interface IVacationRequestViewModel {
   updated_at: string | null;
   updated_by: string | null;
   created_by: string | null;
+  leave_file_upload_id: string | null;
 }
