@@ -103,7 +103,7 @@ Then:
 1. Put the app behind HTTPS: a reverse proxy, or a platform such as Render or Fly.io. [Where to run it](/logbook/docs/self-hosting/hosting/) has a ready configuration for Docker with HTTPS, Fly.io and Render.
 2. Set the platform's shutdown grace period to 30 seconds. The compose file and the `docker run` above already do. See [Operate](/logbook/docs/self-hosting/operate/#restarts-and-deploys).
 3. Point the platform's health check at `GET /health`. The Docker image already uses it.
-4. In the Slack app settings, open "Event Subscriptions" and retry the URL verification.
+4. In the Slack app settings, open "Event Subscriptions" and click **Retry** next to the Request URL until it says **Verified**. The app was created before Logbook ran, so Slack could not reach the URL then; with it unverified, the install of step 5 ends on a Slack page that says "There's been a glitch".
 
 Then check the whole setup from the source checkout: `pnpm checkup`. It reads `.env` and says what is missing; see [Check an install](/logbook/docs/self-hosting/operate/#check-an-install).
 

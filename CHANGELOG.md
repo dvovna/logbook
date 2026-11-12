@@ -4,6 +4,10 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Running it
+- The instructions for an AI agent, the "Where to run it" page and Install are corrected by the first real install an agent made from the prompt (on Fly.io): verifying the Slack app's events URL is a step before the install link, not an afterthought; Fly.io needs a card on file and its configuration is used as a copy; what each place costs is said up front; the Supabase CLI's `--yes` and free-project limit, Node through nvm and the `fly` CLI are covered.
+- `pnpm slack:app create` says to verify the events URL before installing.
+
 ## [0.5.0] - 2026-11-12
 
 Install Logbook with an AI agent from one prompt, with the commands that make it possible: the Slack app from the manifest through Slack's API, a checkup of an install, and ready configurations for three places to run it. No update step: only the new image.

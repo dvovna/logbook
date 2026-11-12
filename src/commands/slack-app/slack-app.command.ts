@@ -137,7 +137,7 @@ export async function slackApp(
       [
         `Created the Slack app ${appId} for ${domain}.`,
         `Its client ID, client secret, signing secret and redirect URI are in ${options.env}.`,
-        `Once Logbook runs on ${domain}: open https://api.slack.com/apps/${appId}/event-subscriptions and retry the URL verification if Slack asks, then install the app at https://${domain}/api/slack/install`,
+        `Slack couldn't verify the events URL yet, since Logbook doesn't run there. Once it runs on ${domain}: open https://api.slack.com/apps/${appId}/event-subscriptions and click Retry until the Request URL says Verified. Only then install the app at https://${domain}/api/slack/install`,
       ].join('\n'),
     );
 

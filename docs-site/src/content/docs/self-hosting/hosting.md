@@ -7,6 +7,8 @@ sidebar:
 
 Logbook needs a place that runs one container, answers Slack over HTTPS, and gives it 30 seconds to stop. The repository's `deploy/` folder has a configuration for each of the three below. Do steps 1 to 3 of [Install](/logbook/docs/self-hosting/install/) first: the database, the Slack app and `.env`.
 
+Logbook has to be awake all the time: Slack waits 3 seconds for an answer, and a free plan that puts the app to sleep takes longer to wake it. So Fly.io and Render both cost a little: on Fly.io one small machine that never stops (see [its pricing](https://fly.io/docs/about/pricing/)), on Render the Starter plan (see [its pricing](https://render.com/pricing)). A server you already have costs nothing more.
+
 Whichever you pick:
 
 - Run it in the region of your database. A click sends several statements one after another, and each is a round trip.
@@ -37,11 +39,12 @@ To update, set `LOGBOOK_VERSION` in `.env` if you pin one, then run `docker comp
 
 ## Fly.io
 
-You need the [`fly` CLI](https://fly.io/docs/flyctl/install/), signed in.
+You need the [`fly` CLI](https://fly.io/docs/flyctl/install/), signed in, and a card on file in Fly's dashboard: without one the first deploy is refused.
 
-1. From the repository's root, create the app from the configuration. It asks for a name and a region; pick the region of your database:
+1. From the repository's root, create the app from a copy of the configuration (`fly launch` rewrites the file it is given). It asks for a name and a region; pick the region of your database:
    ```bash
-   fly launch --config deploy/fly.toml --copy-config --no-deploy
+   cp deploy/fly.toml fly.toml
+   fly launch --copy-config --no-deploy
    ```
 2. Your domain is `<app-name>.fly.dev`. Put it into `.env` and the Slack app:
    ```bash
@@ -49,15 +52,15 @@ You need the [`fly` CLI](https://fly.io/docs/flyctl/install/), signed in.
    ```
 3. Give Fly the values of `.env` as secrets, and deploy one machine. `PORT` and the variables left empty stay out: the configuration sets the port the machine listens on.
    ```bash
-   grep -vE '^(#|$|PORT=|[A-Z_]+=$)' .env | fly secrets import --config deploy/fly.toml
-   fly deploy --config deploy/fly.toml --ha=false
+   grep -vE '^(#|$|PORT=|[A-Z_]+=$)' .env | fly secrets import
+   fly deploy --ha=false
    ```
 4. Check it:
    ```bash
    curl https://<app-name>.fly.dev/health
    ```
 
-`deploy/fly.toml` keeps one machine always on, checks `/health`, and sets `kill_timeout` to 30 seconds. To update, change the image tag in it if you pin a version, and run `fly deploy` again.
+The configuration keeps one machine always on, checks `/health`, and sets `kill_timeout` to 30 seconds. To update, change the image tag in your `fly.toml` if you pin a version, and run `fly deploy` again.
 
 ## Render
 

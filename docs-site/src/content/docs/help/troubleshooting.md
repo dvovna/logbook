@@ -114,6 +114,7 @@ Until then, HR or an admin can decide it in Time off → **All requests** → **
 
 | The browser says | Cause | What to do |
 | --- | --- | --- |
+| Slack's own page says "There's been a glitch" after you open the install link, and nothing reaches Logbook after `/api/slack/install`. | The app's events URL isn't verified: the app was created before Logbook ran, so Slack couldn't reach it. Or the browser is signed in to another workspace. | Open the Slack app's "Event Subscriptions" page and click **Retry** until the Request URL says **Verified**, then open the install link again. |
 | "This installation link has expired or was not started here. Start again from /api/slack/install." | The install wasn't started from `/api/slack/install` in this browser, or took more than 10 minutes. | Open `https://<your-domain>/api/slack/install` and approve again. |
 | "This Logbook server does not accept installs from your Slack workspace." | The server lists the workspaces allowed to install in `ALLOWED_SLACK_TEAM_IDS`, and yours isn't one of them. | Ask whoever runs the server to add your workspace ID. |
 | "The installation was canceled." | You canceled on Slack's page. | Start again. |
