@@ -1,3 +1,4 @@
+import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-balances.service';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { isPeopleAdmin } from '@modules/users/utils/people-admin-roles';
@@ -56,6 +57,7 @@ export class UsersTabService extends BaseTabService<
     private readonly userVacationUsageModalView: UserVacationUsageModalView,
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly vacationsUsageService: VacationsUsageService,
+    private readonly leaveBalancesService: LeaveBalancesService,
   ) {
     super(TabId.Users, {
       [UsersTabModalName.ViewVacationUsage]: async (params) =>
@@ -93,15 +95,19 @@ export class UsersTabService extends BaseTabService<
       slackTeamId: user.slack_team_id,
     });
     await this.teamsService.assertManagesTeam(user, userToView.team_id);
-    const usage =
-      await this.vacationsUsageService.getCurrentVacationPeriodUsage(
-        userToView,
-      );
+    const [usage, fileBalance] = await Promise.all([
+      this.vacationsUsageService.getCurrentVacationPeriodUsage(userToView),
+      this.leaveBalancesService.findOfUser(
+        userToView.id,
+        userToView.slack_team_id,
+      ),
+    ]);
 
     return this.userVacationUsageModalView.getView(
       {
         user: userToView,
         usage,
+        fileBalance,
         errorMessage,
       },
       {
@@ -127,14 +133,19 @@ export class UsersTabService extends BaseTabService<
       });
     }
 
-    const teams = await this.teamsService.findMany({
-      slackTeamId: user.slack_team_id,
-    });
+    const [teams, fileBalance] = await Promise.all([
+      this.teamsService.findMany({ slackTeamId: user.slack_team_id }),
+      this.leaveBalancesService.findOfUser(
+        userToEdit.id,
+        userToEdit.slack_team_id,
+      ),
+    ]);
 
     return this.editUserModalView.getView(
       {
         user: userToEdit,
         teams,
+        fileBalance,
         ...modalParams,
       },
       {

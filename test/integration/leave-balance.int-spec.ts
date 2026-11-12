@@ -4,6 +4,8 @@ import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
 import { toStoredBalance } from '@modules/vacation-requests/utils/leave-balance.utils';
+import { sectionTexts, modalError } from './support/tab-readers';
+import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { submitVacationRequest } from './support/vacation-flows';
@@ -85,6 +87,11 @@ describe('A balance from a file', () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+
+  const hintOf = (view: { blocks?: unknown[] }) =>
+    (view.blocks as { block_id?: string; hint?: { text: string } }[]).find(
+      ({ block_id }) => block_id === 'carryover_days_block',
+    )?.hint?.text;
 
   const notEnough = (requested: number, available: number) => ({
     response_action: 'errors',
@@ -185,6 +192,163 @@ describe('A balance from a file', () => {
       });
 
       expect(response).toEqual({ response_action: 'clear' });
+    });
+  });
+
+  describe('showing', () => {
+    const FILE_LINE =
+      'Set from a file: 12 days, 14 working days, 2 bonus days left on 17 Jun 2026.';
+
+    const contextTexts = (view: { blocks?: unknown[] }) =>
+      (view.blocks as { type: string; elements: { text: string }[] }[])
+        .filter((block) => block.type === 'context')
+        .flatMap((block) => block.elements.map(({ text }) => text));
+
+    const addFullBalance = () =>
+      addBalance(member, {
+        days_left: 12,
+        working_days_left: 14,
+        bonus_days_left: 2,
+      });
+
+    it('shows the correction and the file line on Home', async () => {
+      await setUp();
+      await addFullBalance();
+
+      const home = await openAppHomeTab(t, workspace, member);
+
+      expect(
+        sectionTexts(home).filter((text) => /^(Annual|Bonus)/.test(text)),
+      ).toEqual([
+        'Annual leave: *12 available* / 26 total (*10* used, *8* working, *-4* correction, *+2* working correction)',
+        'Bonus days: *2 available* / 3 total (*-1* correction)',
+      ]);
+      expect(contextTexts(home)).toEqual([FILE_LINE]);
+    });
+
+    it('names only the units the file gave', async () => {
+      await setUp();
+      await addBalance(member, { days_left: 12 });
+
+      const home = await openAppHomeTab(t, workspace, member);
+
+      expect(contextTexts(home)).toEqual([
+        'Set from a file: 12 days left on 17 Jun 2026.',
+      ]);
+      expect(
+        sectionTexts(home).filter((text) => text.startsWith('Annual')),
+      ).toEqual([
+        'Annual leave: *12 available* / 26 total (*10* used, *8* working, *-4* correction)',
+      ]);
+    });
+
+    it('shows nothing without a file balance', async () => {
+      await setUp();
+
+      const home = await openAppHomeTab(t, workspace, member);
+
+      expect(contextTexts(home)).toEqual([]);
+      expect(
+        sectionTexts(home).filter((text) => text.startsWith('Annual')),
+      ).toEqual([
+        'Annual leave: *16 available* / 26 total (*10* used, *8* working)',
+      ]);
+    });
+
+    it('shows nothing of a balance from an earlier year', async () => {
+      await setUp();
+      await addBalance(member, { balance_on: '2025-12-01', days_left: 12 });
+
+      expect(contextTexts(await openAppHomeTab(t, workspace, member))).toEqual(
+        [],
+      );
+    });
+
+    it('shows the correction and the file line in the usage modal', async () => {
+      await setUp();
+      await addFullBalance();
+      const usage = await openModalFrom(
+        t,
+        workspace,
+        hr,
+        await openAppHomeTab(t, workspace, hr, [NavigationActionId.People]),
+        UsersTabViewActionId.ManageUserMenu,
+        `${UsersTabViewActionId.ViewVacationUsage}:${member.id}`,
+      );
+
+      expect(sectionTexts(usage)).toEqual([
+        expect.stringMatching(
+          /^\*.*Annual leave\*\n\nUsed: \*10\* days \(\*8\* working\)\nAvailable: \*12\* \(\*14\* working\) \/ Limit: \*26\* days \(\*-4\* correction, \*\+2\* working correction\)$/,
+        ),
+        expect.stringMatching(
+          /^\*.*Bonus days\*\n\nUsed: \*0\* days\nAvailable: \*2\* \/ Limit: \*3\* days \(\*-1\* correction\)$/,
+        ),
+      ]);
+      expect(contextTexts(usage)).toEqual([FILE_LINE]);
+    });
+
+    it('says in the edit form that the file replaces the carryover', async () => {
+      await setUp({ carryover_days: 2 });
+      await addFullBalance();
+      const form = await openModalFrom(
+        t,
+        workspace,
+        hr,
+        await openAppHomeTab(t, workspace, hr, [NavigationActionId.People]),
+        UsersTabViewActionId.ManageUserMenu,
+        `${UsersTabViewActionId.EditUser}:${member.id}`,
+      );
+
+      expect(hintOf(form)).toBe(
+        "This year's balance comes from a file (12 days left on 17 Jun 2026), so carryover here changes nothing.",
+      );
+    });
+
+    it('keeps the usual carryover hint without days left in the file or before the joined year', async () => {
+      await setUp();
+      await addBalance(member, { working_days_left: 14 });
+      const open = async () =>
+        hintOf(
+          await openModalFrom(
+            t,
+            workspace,
+            hr,
+            await openAppHomeTab(t, workspace, hr, [NavigationActionId.People]),
+            UsersTabViewActionId.ManageUserMenu,
+            `${UsersTabViewActionId.EditUser}:${member.id}`,
+          ),
+        );
+      const usual =
+        "Days left from before they joined, for the vacation year from 1 Jan 2026. Each later year carries over what is left on its own, up to the policy's limit.";
+
+      expect(await open()).toBe(usual);
+
+      await t.db
+        .updateTable('leave_balances')
+        .set({ days_left: 12, balance_on: '2025-12-01' })
+        .where('user_id', '=', member.id)
+        .execute();
+
+      expect(await open()).toBe(usual);
+    });
+
+    it('shows the file line on Time off and only with a file balance', async () => {
+      await setUp();
+
+      expect(
+        contextTexts(
+          await openAppHomeTab(t, workspace, member, [
+            NavigationActionId.TimeOff,
+          ]),
+        ),
+      ).not.toContain(FILE_LINE);
+
+      await addFullBalance();
+      const history = await openAppHomeTab(t, workspace, member, [
+        NavigationActionId.TimeOff,
+      ]);
+
+      expect(contextTexts(history)[0]).toBe(FILE_LINE);
     });
   });
 

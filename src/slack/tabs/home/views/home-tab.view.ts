@@ -24,9 +24,16 @@ import { IPendingApprovals } from '@modules/slack/common/services/pending-approv
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { ISetupProgress } from '@modules/slack/tabs/home/types/setup-progress.interface';
+import { ILeaveBalance } from '@modules/vacation-requests/types/leave-balance.interface';
+import {
+  correctionDetails,
+  fileBalanceLine,
+} from '@modules/slack/common/views/data/leave-balance.text';
 
 interface IGetViewParams extends IBaseTabViewParams {
   vacationUsageInfo: IVacationPeriodUsageData | null;
+  // The person's balance from a file, named under their annual leave.
+  fileBalance: ILeaveBalance | null;
   requestedVacations?: IVacationRequestViewModel[];
   timeSummary: IUserTimeSummary;
   pendingApprovals: IPendingApprovals;
@@ -59,6 +66,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
 
   public getContentBlocks({
     vacationUsageInfo,
+    fileBalance,
     requestedVacations,
     timeSummary,
     pendingApprovals,
@@ -69,6 +77,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       ...this.getAttentionBlocks(pendingApprovals),
       ...this.getUserViewBlocks(
         vacationUsageInfo,
+        fileBalance,
         timeSummary,
         requestedVacations,
       ),
@@ -246,6 +255,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
 
   private getUserViewBlocks(
     usageInfo: IVacationPeriodUsageData | null,
+    fileBalance: ILeaveBalance | null,
     timeSummary: IUserTimeSummary,
     requestedVacations?: IVacationRequestViewModel[],
   ): AnyBlock[] {
@@ -259,7 +269,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       },
       ...Divider.getBlocks(),
       ...this.getTimeTrackingBlocks(timeSummary),
-      ...this.getVacationUsageBlocks(usageInfo),
+      ...this.getVacationUsageBlocks(usageInfo, fileBalance),
       ...this.getRequestedVacationsBlocks(requestedVacations),
       {
         type: 'actions',
@@ -304,6 +314,13 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       details.push(`+*${limits.carryoverDays}* carryover`);
     }
 
+    details.push(
+      ...correctionDetails(limits.correction, {
+        days: true,
+        workingDays: true,
+      }),
+    );
+
     const detailsText = details.length ? ` (${details.join(', ')})` : '';
 
     return {
@@ -338,7 +355,11 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       );
     }
 
-    const detailsText = used > 0 ? ` (*${used}* used)` : '';
+    const details = [
+      ...(used > 0 ? [`*${used}* used`] : []),
+      ...correctionDetails(limits.correction, { bonusDays: true }),
+    ];
+    const detailsText = details.length ? ` (${details.join(', ')})` : '';
 
     return {
       type: 'section',
@@ -351,6 +372,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
 
   private getVacationUsageBlocks(
     vacationsUsageInfo: IVacationPeriodUsageData | null,
+    fileBalance: ILeaveBalance | null,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [
       ...Divider.getBlocks(),
@@ -378,6 +400,13 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         vacationsUsageInfo.limits,
       ),
     );
+
+    if (fileBalance && vacationsUsageInfo.limits?.correction) {
+      blocks.push({
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: fileBalanceLine(fileBalance) }],
+      });
+    }
 
     if (
       vacationsUsageInfo.usage.bonus_day.used > 0 ||
