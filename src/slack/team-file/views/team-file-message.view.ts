@@ -232,7 +232,7 @@ export class TeamFileMessageView {
       id ? safe(names.get(id) ?? 'Unknown') : 'no team';
     const teamKeyNames = new Map(plan.createTeams.map((t) => [t.key, t.name]));
     const sections: KnownBlock[] = [];
-    // New teams follow the company rules: with no level 2 there, a request
+    // A new team follows the company rules: with no level 2 there, a request
     // with no lead goes to the fallback approvers.
     const withoutLeadGoTo = companyRules.hr_approvers.length
       ? 'straight to the second approval'
@@ -317,7 +317,9 @@ export class TeamFileMessageView {
         listSection(
           `*Teams with no lead (${plan.teamsWithoutLead.length})*`,
           plan.teamsWithoutLead.map((team) => safe(team)),
-          'Their requests go straight to the second approval.',
+          // Existing teams may keep rules of their own, so this can't name
+          // one level 2.
+          'Their requests skip level 1: they go to the second approval, or to HR or an admin when there is none.',
         ),
       );
     }

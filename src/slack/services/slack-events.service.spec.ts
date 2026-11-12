@@ -14,7 +14,6 @@ import SlackEventsService, {
   IUserChangeEvent,
   SlackEventJob,
 } from 'src/slack/services/slack-events.service';
-import SlackUserAccessService from 'src/slack/services/slack-user-access.service';
 import FileUploadService from 'src/slack/services/file-upload.service';
 import { TabNavigationService } from 'src/slack/common/services/tab-navigation.service';
 import { UsersService } from 'src/users/services/users.service';
@@ -55,6 +54,7 @@ const flushPromises = whenBackgroundWorkIsDone;
 describe('SlackEventsService', () => {
   let usersService: {
     upsert: jest.Mock;
+    refreshProfile: jest.Mock;
     findBySlackId: jest.Mock;
     findOne: jest.Mock;
   };
@@ -68,6 +68,7 @@ describe('SlackEventsService', () => {
   beforeEach(() => {
     usersService = {
       upsert: jest.fn().mockResolvedValue(undefined),
+      refreshProfile: jest.fn().mockResolvedValue(undefined),
       findBySlackId: jest.fn(),
       findOne: jest.fn().mockResolvedValue(null),
     };
@@ -89,7 +90,6 @@ describe('SlackEventsService', () => {
       .mockImplementation(() => undefined);
 
     service = new SlackEventsService(
-      {} as SlackUserAccessService,
       {} as FileUploadService,
       tabNavigationService as unknown as TabNavigationService,
       usersService as unknown as UsersService,
@@ -231,12 +231,46 @@ describe('SlackEventsService', () => {
       });
     });
 
-    it('creates workspace admins and owners as admins', async () => {
-      await sendTeamJoin({ ...slackUser, is_owner: true });
+    it.each([{ is_owner: true }, { is_admin: true }])(
+      'creates a Slack admin or owner (%j) as a member',
+      async (slackRole) => {
+        await sendTeamJoin({ ...slackUser, ...slackRole });
 
-      expect(usersService.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ role: UserRole.Admin }),
+        expect(usersService.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({ role: UserRole.Member }),
+        );
+      },
+    );
+
+    it('does not write the role of a person Logbook has', async () => {
+      const existing = {
+        id: 'user-1',
+        role: UserRole.HR,
+        is_active: true,
+        slack_id: 'U_NEW',
+        slack_team_id: slackTeam.id,
+        email: 'old@example.com',
+        name: 'Old Name',
+      } as IUserViewModel;
+      usersService.findOne.mockResolvedValue(existing);
+
+      await service.handleSlackEvent(
+        {
+          type: SlackEventType.TeamJoin,
+          user: { ...slackUser, is_owner: true },
+        },
+        existing,
+        { team_id: slackTeam.slack_id },
       );
+      await flushPromises();
+
+      expect(usersService.upsert).not.toHaveBeenCalled();
+      expect(usersService.refreshProfile).toHaveBeenCalledWith({
+        slackId: 'U_NEW',
+        email: 'new.user@example.com',
+        name: 'New User',
+        slackTeamId: slackTeam.id,
+      });
     });
   });
 
@@ -268,9 +302,9 @@ describe('SlackEventsService', () => {
         includeInactive: true,
       });
 
-      expect(usersService.upsert).toHaveBeenCalledWith({
+      expect(usersService.upsert).not.toHaveBeenCalled();
+      expect(usersService.refreshProfile).toHaveBeenCalledWith({
         slackId: 'U_NEW',
-        role: UserRole.HR,
         email: 'new.user@example.com',
         name: 'New User',
         isActive: false,

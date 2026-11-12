@@ -56,6 +56,7 @@ export class VacationRequestsRepository extends BaseRepository<
       updated_by: extendedRow.updated_by,
       created_by: extendedRow.created_by,
       leave_file_upload_id: extendedRow.leave_file_upload_id,
+      awaits_approvers: extendedRow.awaits_approvers,
     };
   };
 

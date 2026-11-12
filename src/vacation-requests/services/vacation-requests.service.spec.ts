@@ -623,6 +623,31 @@ describe('VacationRequestsService', () => {
       expect(emittedInTransaction).toEqual([true]);
     });
 
+    // An edit by HR that read the request as pending would otherwise
+    // overwrite the outcome and tell of a decision of its own.
+    it("takes the request's lock before it sets the outcome", async () => {
+      const calls: string[] = [];
+      transactions.lock.mockImplementation(() => {
+        calls.push(`lock, in a transaction: ${inTransaction}`);
+      });
+      repository.updateMany.mockImplementation(() => {
+        calls.push('write');
+
+        return Promise.resolve([]);
+      });
+
+      await service.finishPending(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        VacationRequestStatus.Approved,
+        requester,
+      );
+
+      expect(transactions.lock).toHaveBeenCalledWith(
+        vacationRequestLock('request-1'),
+      );
+      expect(calls).toEqual(['lock, in a transaction: true', 'write']);
+    });
+
     it('tells nothing when the request no longer waits', async () => {
       repository.updateMany.mockResolvedValue([]);
 
@@ -684,6 +709,56 @@ describe('VacationRequestsService', () => {
       });
       expect(eventEmitter.emit).not.toHaveBeenCalled();
       expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+    });
+
+    // A request the workflow rejected, approved by HR: the old reason would
+    // still show in the history and in Details.
+    it("drops the rejection's reason when the status changes", async () => {
+      const rejected = buildRequest({
+        status: VacationRequestStatus.Rejected,
+        rejection_reason: 'Release week',
+      });
+      repository.findOne.mockResolvedValue(rejected);
+      repository.update.mockResolvedValue(approved);
+
+      await service.applyUpdate(
+        await service.checkUpdate(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          { status: VacationRequestStatus.Approved },
+          hr,
+        ),
+        hr,
+      );
+
+      expect(repository.update).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          status: VacationRequestStatus.Approved,
+          rejection_reason: null,
+        }),
+      );
+    });
+
+    it('keeps the reason when the status stays', async () => {
+      const rejected = buildRequest({
+        status: VacationRequestStatus.Rejected,
+        rejection_reason: 'Release week',
+      });
+      repository.findOne.mockResolvedValue(rejected);
+      repository.update.mockResolvedValue(rejected);
+
+      await service.applyUpdate(
+        await service.checkUpdate(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          { status: VacationRequestStatus.Rejected, userComment: 'Noted' },
+          hr,
+        ),
+        hr,
+      );
+
+      expect(repository.update.mock.calls[0][1]).not.toHaveProperty(
+        'rejection_reason',
+      );
     });
   });
 

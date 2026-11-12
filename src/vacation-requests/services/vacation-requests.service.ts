@@ -322,6 +322,10 @@ export class VacationRequestsService implements IVacationRequestsService {
           ? { user_comment: changes.userComment }
           : {}),
         ...(changes.status !== undefined ? { status: changes.status } : {}),
+        // A rejection's reason goes with it; an edit gives none of its own.
+        ...(changes.status !== undefined && changes.status !== previous.status
+          ? { rejection_reason: null }
+          : {}),
         ...(changes.userId !== undefined ? { user_id: changes.userId } : {}),
         ...(teamId !== undefined ? { team_id: teamId } : {}),
         ...(days !== checked.days ? { days } : {}),
@@ -415,6 +419,33 @@ export class VacationRequestsService implements IVacationRequestsService {
     return this.vacationRequestsRepository.countByUser(slackTeamId);
   }
 
+  // The pending requests whose approval found nobody who could decide them
+  // (awaits_approvers), or only `requestId` while it is one of them.
+  public findAwaitingApprovers(slackTeamId: string, requestId?: string) {
+    return this.vacationRequestsRepository.findMany({
+      slack_team_id: slackTeamId,
+      status: VacationRequestStatus.Pending,
+      awaits_approvers: true,
+      ...(requestId ? { id: requestId } : {}),
+    });
+  }
+
+  // Marks the request as waiting for anyone who can approve it, or not any
+  // more. Not an edit: who changed the request last stays.
+  public async setAwaitsApprovers(
+    request: IVacationRequestViewModel,
+    awaitsApprovers: boolean,
+  ) {
+    if (!!request.awaits_approvers === awaitsApprovers) {
+      return;
+    }
+
+    await this.vacationRequestsRepository.updateMany(
+      { id: request.id, slack_team_id: request.slack_team_id },
+      { awaits_approvers: awaitsApprovers },
+    );
+  }
+
   public async search(
     params: ISearchRequestsParams,
   ): Promise<ISearchResult<IVacationRequestViewModel>> {
@@ -445,15 +476,20 @@ export class VacationRequestsService implements IVacationRequestsService {
 
   // Sets the outcome of the approval workflow if the request still waits for
   // it, in one statement. Null when it was decided (e.g. by another approver
-  // at the same time) or canceled in the meantime. The listeners of the
-  // change run in its transaction (the caller's, if any).
+  // at the same time, or by HR with Edit Request) or canceled in the
+  // meantime. The listeners of the change run in its transaction (the
+  // caller's, if any). Under the request's lock, as an edit or a cancel is:
+  // one that read the request as pending would otherwise overwrite this
+  // outcome, and tell of its own as well.
   public finishPending(
-    { id, slackTeamId }: IVacationRequestFindParams,
+    { id, slackTeamId }: { id: string; slackTeamId: string },
     status: VacationRequestStatus.Approved | VacationRequestStatus.Rejected,
     decidedBy: IUserViewModel,
     rejectionReason?: string,
   ) {
     return this.transactions.transaction(async () => {
+      await this.transactions.lock(vacationRequestLock(id));
+
       const [finished] = await this.vacationRequestsRepository.updateMany(
         {
           id,

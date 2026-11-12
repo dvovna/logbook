@@ -130,7 +130,7 @@ describe('Team file', () => {
         '*Left without a team (1)*\n• Dee Dunn',
         [
           '*Teams with no lead (2)*',
-          'Their requests go straight to the second approval.',
+          'Their requests skip level 1: they go to the second approval, or to HR or an admin when there is none.',
           '• Backend',
           '• Beta',
         ].join('\n'),
@@ -195,7 +195,7 @@ describe('Team file', () => {
         '*Placed in a team (1)*\n• Ann: Back &lt;end&gt;',
         [
           '*Teams with no lead (1)*',
-          'Their requests go straight to the second approval.',
+          'Their requests skip level 1: they go to the second approval, or to HR or an admin when there is none.',
           '• Back &lt;end&gt;',
         ].join('\n'),
         '*Team names matched*\n• back  &lt;END&gt; → Back &lt;end&gt;',

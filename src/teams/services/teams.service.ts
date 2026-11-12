@@ -16,6 +16,12 @@ import { ConfigService } from '@nestjs/config';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { RepositoryFilter } from '@common/repositories/repository.types';
 import { DuplicatedRecordError } from '@common/errors/duplicated-record.error';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { TransactionService } from 'src/database/transaction.service';
+import {
+  namesSomeoneNew,
+  writeNamingApprovers,
+} from '@modules/users/utils/approvers-changed';
 
 interface ICreateTeamParams {
   name: string;
@@ -83,7 +89,13 @@ export default class TeamsService implements ITeamsService {
     private readonly teamsRepository: TeamsRepository,
     private readonly ruleSetsRepository: RuleSetsRepository,
     private readonly config: ConfigService,
+    private readonly transactions: TransactionService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  private get publishing() {
+    return { transactions: this.transactions, eventEmitter: this.eventEmitter };
+  }
 
   public async findMany(params: IFindParams) {
     return this.teamsRepository.findMany(this.getFindQuery(params));
@@ -215,7 +227,39 @@ export default class TeamsService implements ITeamsService {
     }
   }
 
+  // A change that names someone as the team's approver who wasn't (or makes
+  // it follow the company rules, whose level 2 it then has) may start the
+  // requests that waited for anyone who can approve them. The team is read
+  // first only when the change names approvers at all. A new team needs
+  // none of this: it has no requests yet.
   public async update(
+    findParams: IFindParams,
+    updateParams: IUpdateParams,
+    user: IUserViewModel,
+  ) {
+    const mayName =
+      !!updateParams.managerApprovers?.length ||
+      !!updateParams.hrApprovers?.length ||
+      updateParams.followsCompanyRules === true;
+    const before = mayName ? await this.findOne(findParams) : null;
+    const namesNew =
+      !!before &&
+      (namesSomeoneNew(
+        before.manager_approvers,
+        updateParams.managerApprovers,
+      ) ||
+        namesSomeoneNew(before.hr_approvers, updateParams.hrApprovers) ||
+        (updateParams.followsCompanyRules === true && !before.rule_set_id));
+
+    return writeNamingApprovers(
+      this.publishing,
+      findParams.slackTeamId,
+      namesNew,
+      () => this.write(findParams, updateParams, user),
+    );
+  }
+
+  private async write(
     findParams: IFindParams,
     updateParams: IUpdateParams,
     user: IUserViewModel,
@@ -290,13 +334,19 @@ export default class TeamsService implements ITeamsService {
     approvers: string[],
     user: IUserViewModel,
   ) {
-    return !!(await this.teamsRepository.replaceApprovers(
-      teamId,
+    return writeNamingApprovers(
+      this.publishing,
       user.slack_team_id,
-      expected,
-      approvers,
-      user.id,
-    ));
+      namesSomeoneNew(expected, approvers),
+      async () =>
+        !!(await this.teamsRepository.replaceApprovers(
+          teamId,
+          user.slack_team_id,
+          expected,
+          approvers,
+          user.id,
+        )),
+    );
   }
 
   public count(params: IFindParams) {

@@ -187,6 +187,54 @@ describe('Jobs after a crash', () => {
     });
   });
 
+  it('tells the requester and the recipients of a status HR set just before', async () => {
+    const hr = await workspace.addUser({ role: UserRole.HR });
+    const recipient = await workspace.addUser({ name: 'Paula Payroll' });
+    await t.db
+      .updateTable('teams')
+      .set({ approval_notification_recipients: [recipient.slack_id] })
+      .where('id', '=', member.team_id!)
+      .execute();
+    const request = await requestVacation(t, workspace, member, workWeek(2));
+    await approvalMessageTo(t, workspace, manager);
+    const form = await openModalFrom(
+      t,
+      workspace,
+      hr,
+      await openAppHomeTab(t, workspace, hr, [
+        NavigationActionId.TimeOff,
+        NavigationActionId.AllRequests,
+      ]),
+      VacationRequestsTabViewActionId.ManageRequestMenu,
+      `${VacationRequestsTabViewActionId.EditRequest}:${request.id}`,
+    );
+    const decisions = () =>
+      messagesTo(member).filter((message) =>
+        textOf(message).includes('Your time off request was approved'),
+      );
+
+    await crashingAfter(() =>
+      t.slack
+        .submitView(workspace, hr, form, {
+          status: VacationRequestStatus.Approved,
+        })
+        .expect(200),
+    );
+
+    expect((await workspace.row('vacation_requests', request.id)).status).toBe(
+      VacationRequestStatus.Approved,
+    );
+    expect(decisions()).toEqual([]);
+    expect(messagesTo(recipient)).toEqual([]);
+
+    await t.retryJobs();
+
+    expect(decisions()).toHaveLength(1);
+    expect(messagesTo(recipient).map(({ text }) => text)).toEqual([
+      expect.stringContaining('Time off approved for *Max Member*'),
+    ]);
+  });
+
   it('tells the approver of time submitted just before', async () => {
     const website = await workspace.addProject({ name: 'Website' });
     const entry = await workspace.addTimeEntry(member, website, {
@@ -280,5 +328,38 @@ describe('Jobs after a crash', () => {
     await t.retryJobs();
 
     expect(await joined()).toMatchObject({ name: 'Ada Lovelace' });
+  });
+
+  it('asks someone given the HR role just before to approve a request that waited for anyone', async () => {
+    // The only admin, in no team, with nobody else to approve.
+    const admin = await workspace.addUser({ role: UserRole.Admin });
+    const request = await requestVacation(t, workspace, admin, workWeek(2));
+    await t.idle();
+    expect(await workspace.rows('request_workflow_steps')).toEqual([]);
+    const actor = await t.app
+      .get(UsersService)
+      .findOneWithValidation({ id: admin.id, slackTeamId: workspace.id });
+
+    await crashingAfter(() =>
+      t.app
+        .get(UsersService)
+        .update(
+          { id: member.id, slackTeamId: workspace.id },
+          { role: UserRole.HR },
+          actor,
+        ),
+    );
+
+    expect(messagesTo(member)).toEqual([]);
+
+    await t.retryJobs();
+
+    expect(await workspace.rows('request_workflow_steps')).toEqual([
+      expect.objectContaining({
+        request_id: request.id,
+        slack_user_id: member.slack_id,
+      }),
+    ]);
+    expect(messagesTo(member)).toHaveLength(1);
   });
 });

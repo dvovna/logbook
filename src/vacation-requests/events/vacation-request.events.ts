@@ -1,6 +1,5 @@
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
 import UserRole from '@common/enums/user-role.enum';
 
 export class VacationRequestCreatedEvent {
@@ -31,7 +30,6 @@ export class VacationRequestDecidedEvent {
   public constructor(
     public readonly request: IVacationRequestViewModel,
     public readonly decidedBy: IUserViewModel,
-    public readonly comments: IWorkflowStepCommentViewModel[],
   ) {}
 }
 

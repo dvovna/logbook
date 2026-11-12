@@ -11,6 +11,7 @@ import {
   ISyncUsersJob,
   SYNC_USERS_JOB,
 } from '@modules/team-setup/team-setup-workflow.service';
+import { START_WAITING_JOB } from '@modules/vacation-requests/constants/jobs';
 
 const SYNC_EVERY_MS = 24 * 60 * 60 * 1000;
 const CHECK_EVERY_MS = 60 * 60 * 1000;
@@ -27,6 +28,11 @@ const FIRST_CHECK_AFTER_MS = 10 * 60 * 1000;
 // claimed first (slack_teams.members_synced_at): with two processes at once
 // (a zero-downtime deploy) one of them imports it, and a restart doesn't
 // import again.
+//
+// The same daily turn looks again at the workspace's time off requests that
+// wait for anyone who can approve them: a request whose start failed, or
+// one that waited before the app marked such requests while someone who can
+// approve it was already there, starts then.
 @Injectable()
 export class MemberSyncScheduleService
   implements OnModuleInit, OnModuleDestroy
@@ -63,6 +69,7 @@ export class MemberSyncScheduleService
         await this.slackTeamsService.claimMemberSync(slackTeamId, since, now)
       ) {
         await this.sync(slackTeamId);
+        await this.jobs.enqueue(START_WAITING_JOB, { slackTeamId });
         synced += 1;
       }
     }

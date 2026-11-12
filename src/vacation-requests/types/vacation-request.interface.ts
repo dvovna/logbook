@@ -30,4 +30,7 @@ export interface IVacationRequestViewModel {
   updated_by: string | null;
   created_by: string | null;
   leave_file_upload_id: string | null;
+  // Pending with nobody who could decide it when its approval started: it
+  // starts once someone can (VacationRequestProcessingService).
+  awaits_approvers?: boolean;
 }

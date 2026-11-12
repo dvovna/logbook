@@ -145,13 +145,22 @@ export class RequestWorkflowService {
   // Closes every open step of the request (on cancel, and on any later update
   // of the request): approvers who got a message see it without buttons, steps
   // of levels that were never reached are closed too, so they never start.
-  public cancel(requestId: string, canceledBy: IUserViewModel) {
+  // `as` is the outcome they show: an edit that approves or rejects the
+  // request decides it for them.
+  public cancel(
+    requestId: string,
+    canceledBy: IUserViewModel,
+    as:
+      | RequestWorkflowStatus.Canceled
+      | RequestWorkflowStatus.Approved
+      | RequestWorkflowStatus.Rejected = RequestWorkflowStatus.Canceled,
+  ) {
     return this.transactions.transaction(async () => {
       await this.lockRequest(requestId);
 
       const canceledSteps = await this.requestWorkflowStepsService.decide(
         { requestId, slackTeamId: canceledBy.slack_team_id },
-        RequestWorkflowStatus.Canceled,
+        as,
         canceledBy,
       );
 

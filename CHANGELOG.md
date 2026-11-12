@@ -2,6 +2,31 @@
 
 Notable changes per release. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a minor version may need a step when you update; its section says which.
 
+## [Unreleased]
+
+### Documentation
+- Logbook has documentation at https://dvovna.github.io/logbook/docs/: guides for everyone, approvers, HR and admins, and finance, reference pages (roles and permissions, commands, notifications, file formats, configuration), and the self-hosting guide, which moved there from the README.
+
+### Time off
+- When HR or an admin approves or rejects a request with Edit Request, the requester and the notification recipients get the decision message, as after an approval, with the button to log the time off as time, and the approvers' messages show the decision instead of "Canceled". Setting the status of a request its requester canceled tells nobody.
+- A request that nobody could approve (the requester is the only admin and nobody has HR, say) goes for approval on its own once someone can: someone gets the Manager, HR or Admin role or is made active again, or a team's approvers or the company rules name someone. The requester is told where it went. Requests that waited before this update start within a day once someone can approve them.
+
+### Teams and people
+- Saving a team's form no longer takes the team's inactive members out of it.
+- People who join Slack after the app is installed become Members, even when they are Slack admins or owners; Slack profile changes never change a Logbook role.
+- Home's setup checklist and the team file's preview say where requests go when there is no level 1: the company rules' approvers when they name any, otherwise HR or the admins.
+
+### Imports
+- The `/upload-vacations` example is a complete file with its header row. A file without the header or without lines is reported as not imported, with the reason, instead of "✅ Imported" with zeros.
+- The vacation import's summary counts the vacations created, the people updated and the lines skipped. A person on several lines is imported once, from the last line, and the others are named.
+- Files shared in channels get no answer from Logbook, except `user-vacations.csv` from an admin. Someone without Admin or HR who shares a file in the Logbook DM gets a refusal that fits a file.
+
+### Running it
+- Update step: two database migrations (`20261112160000_requests_awaiting_approvers`, `20261112170000_mark_waiting_requests`).
+- Errors sent to Sentry carry the release they came from (`logbook@<version>`), so an issue shows which version brought it.
+- A process stopped while it was still starting (a quick redeploy or restart) no longer reports the failed start to Sentry, and a start that really fails exits with code 1 instead of staying up without a port when Sentry is set.
+- The Docker image (and `pnpm start:prod`) runs Node with source maps, so stack traces in the logs and in Sentry name the TypeScript file and line instead of the compiled JavaScript.
+
 ## [0.3.0] - 2026-11-12
 
 Company rules and teams set up from a file, approval levels that no longer get stuck, balances and holidays counted for the right year, and an app that holds up with hundreds of people per workspace. Update step: six database migrations and the app manifest, see Running it.

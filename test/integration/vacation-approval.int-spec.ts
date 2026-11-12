@@ -864,7 +864,7 @@ describe('Vacation request approval', () => {
       const request = await requestVacation(t, workspace, member, workWeek(2));
 
       expect(await noticeTo(member)).toBe(
-        `⚠️ Nobody can approve your vacation request (${formatDateRange(start, end)}) yet: your team has no other approvers, and nobody else has the HR or Admin role. It stays pending until an admin adds approvers to your team.`,
+        `⚠️ Nobody can approve your vacation request (${formatDateRange(start, end)}) yet: your team has no other approvers, and nobody else has the HR or Admin role. It goes for approval once an admin adds approvers to your team or gives someone the HR or Admin role.`,
       );
       expect(await workspace.rows('request_workflow_steps')).toEqual([]);
       expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);

@@ -1,6 +1,7 @@
 import { KnownBlock } from '@slack/types';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { TeamFileMessagesService } from '@modules/slack/team-file/services/team-file-messages.service';
@@ -35,6 +36,8 @@ export default class FileUploadService {
     private readonly leaveFileMessagesService: LeaveFileMessagesService,
   ) {}
 
+  // Files are the app's business only in the sharer's conversation with it;
+  // a file in a channel is for the people there, and nobody is answered.
   // The file is downloaded only when it may be a team or a leave file, and
   // not too large.
   public async handleFileUpload(
@@ -42,6 +45,18 @@ export default class FileUploadService {
     channelId: string,
     user: IUserViewModel,
   ) {
+    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
+      return isDirectMessage(channelId)
+        ? this.reply(user, {
+            text: '⛔ Only Admin or HR can import files into Logbook.',
+          })
+        : undefined;
+    }
+
+    if (!isDirectMessage(channelId)) {
+      return;
+    }
+
     const file = await this.slackCommunicationService.getFileInfo(
       fileId,
       user.slack_team_id,
@@ -56,9 +71,7 @@ export default class FileUploadService {
       return this.reply(user, this.getUnknownFileUploadPromptMessage());
     }
 
-    return isDirectMessage(channelId)
-      ? this.handleSpreadsheet(file.name, file.size ?? 0, url, user)
-      : undefined;
+    return this.handleSpreadsheet(file.name, file.size ?? 0, url, user);
   }
 
   // A team file is told by its Email and Team columns, a leave file by its

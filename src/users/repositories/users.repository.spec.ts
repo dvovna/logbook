@@ -106,6 +106,19 @@ describe('UsersRepository', () => {
       ]);
       expect(sqlOf(2)).toContain('"team_id" is distinct from $');
     });
+
+    it('takes out only the active members who are not chosen', async () => {
+      const { database, sqlOf } = recordingDatabase([[{ id: 'acme' }], []]);
+
+      await new UsersRepository(database).setTeamMembers({
+        slackTeamId: 'workspace-1',
+        teamId: 'acme',
+        userIds: [],
+        updatedBy: 'hr-1',
+      });
+
+      expect(sqlOf(1)).toContain('"is_active" = $');
+    });
   });
 
   // A leave file sets everyone's contract start at once.

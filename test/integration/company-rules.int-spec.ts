@@ -280,7 +280,7 @@ describe('Company rules', () => {
     await requestVacation(t, workspace, admin, second);
 
     expect((await messagesTo(admin)).map(({ text }) => text)).toEqual([
-      `⚠️ Nobody can approve your vacation request (${formatDateRange(second.start, second.end)}) yet: neither your team nor the company rules name other approvers, and nobody else has the HR or Admin role. It stays pending until an admin names approvers for your team or in the company rules.`,
+      `⚠️ Nobody can approve your vacation request (${formatDateRange(second.start, second.end)}) yet: neither your team nor the company rules name other approvers, and nobody else has the HR or Admin role. It goes for approval once an admin names approvers for your team or in the company rules, or gives someone the HR or Admin role.`,
     ]);
   });
 
