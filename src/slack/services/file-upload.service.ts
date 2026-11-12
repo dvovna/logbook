@@ -1,12 +1,7 @@
 import { KnownBlock } from '@slack/types';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import {
-  IImportResult,
-  UserVacationsImportService,
-} from '@modules/user-data-import/services/user-vacations-import.service';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { TeamFileMessagesService } from '@modules/slack/team-file/services/team-file-messages.service';
 import { LeaveFileMessagesService } from '@modules/slack/leave-file/services/leave-file-messages.service';
@@ -16,10 +11,8 @@ import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads
 import { parseLeaveFile } from 'src/leave-file/parsers/leave-file.parser';
 import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
 
-// Far more than the CSVs need (1000 rows each), small enough to hold in memory.
+// Far more than a file of 5000 rows needs, small enough to hold in memory.
 const MAX_IMPORT_FILE_BYTES = 1024 * 1024;
-
-const VACATIONS_FILE = 'user-vacations.csv';
 
 // Any other CSV or Excel file may be a team or a leave file; its columns
 // tell.
@@ -32,35 +25,18 @@ const UNKNOWN_FILE =
 // a channel is for the people there.
 const isDirectMessage = (channelId: string) => channelId.startsWith('D');
 
-// The problems a result lists; the rest are counted.
-const MAX_LISTED_PROBLEMS = 10;
-
-type Importer = (
-  fileContent: string,
-  user: IUserViewModel,
-) => Promise<IImportResult>;
-
 @Injectable()
 export default class FileUploadService {
-  // The CSV imports, by the name of the shared file.
-  private readonly importers: Record<string, Importer>;
-
   public constructor(
-    private readonly userVacationsImportService: UserVacationsImportService,
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly teamFileUploadsService: TeamFileUploadsService,
     private readonly teamFileMessagesService: TeamFileMessagesService,
     private readonly leaveFileUploadsService: LeaveFileUploadsService,
     private readonly leaveFileMessagesService: LeaveFileMessagesService,
-  ) {
-    this.importers = {
-      [VACATIONS_FILE]: (content, user) =>
-        this.userVacationsImportService.handle(content, user),
-    };
-  }
+  ) {}
 
-  // The file is downloaded only when it is one of the imports or may be a
-  // team or a leave file, and not too large.
+  // The file is downloaded only when it may be a team or a leave file, and
+  // not too large.
   public async handleFileUpload(
     fileId: string,
     channelId: string,
@@ -76,39 +52,13 @@ export default class FileUploadService {
       return;
     }
 
-    const importFile = file.name ? this.importers[file.name] : undefined;
-
-    if (!importFile) {
-      if (!file.name || !SPREADSHEET_NAME.test(file.name)) {
-        return this.reply(user, this.getUnknownFileUploadPromptMessage());
-      }
-
-      return isDirectMessage(channelId)
-        ? this.handleSpreadsheet(file.name, file.size ?? 0, url, user)
-        : undefined;
+    if (!file.name || !SPREADSHEET_NAME.test(file.name)) {
+      return this.reply(user, this.getUnknownFileUploadPromptMessage());
     }
 
-    if (file.name === VACATIONS_FILE && user.role !== UserRole.Admin) {
-      return this.reply(user, {
-        text: '⛔ Only admins can import vacations.',
-      });
-    }
-
-    if ((file.size ?? 0) > MAX_IMPORT_FILE_BYTES) {
-      return this.reply(user, {
-        text: '❗️ The file is larger than 1 MB, so it was not imported.',
-      });
-    }
-
-    const fileContent = await this.slackCommunicationService.fetchFileContent(
-      url,
-      user.slack_team_id,
-      MAX_IMPORT_FILE_BYTES,
-    );
-
-    const result = await importFile(fileContent, user);
-
-    await this.reply(user, this.getImportResultMessage(file.name!, result));
+    return isDirectMessage(channelId)
+      ? this.handleSpreadsheet(file.name, file.size ?? 0, url, user)
+      : undefined;
   }
 
   // A team file is told by its Email and Team columns, a leave file by its
@@ -184,43 +134,6 @@ export default class FileUploadService {
       message,
       user.slack_team_id,
     );
-  }
-
-  // E.g. "✅ Imported `user-vacations.csv`: Created 12 · Updated 3 ·
-  // Skipped 0", and the first problems when there were any.
-  private getImportResultMessage(fileName: string, result: IImportResult) {
-    const { created, updated, skipped, errors } = result;
-    const counts = `Created ${created} · Updated ${updated} · Skipped ${skipped}`;
-    const nothingImported = created + updated === 0;
-    const summary = !errors.length
-      ? `✅ Imported \`${fileName}\`: ${counts}`
-      : nothingImported
-        ? `❗️ \`${fileName}\` was not imported: ${counts}`
-        : `⚠️ Imported \`${fileName}\` with problems: ${counts}`;
-    const blocks: KnownBlock[] = [
-      { type: 'section', text: { type: 'mrkdwn', text: summary } },
-    ];
-
-    if (errors.length) {
-      const listed = errors
-        .slice(0, MAX_LISTED_PROBLEMS)
-        .map((error) => `• ${escapeMrkdwn(error)}`);
-      const more = errors.length - listed.length;
-
-      blocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: [
-            `*${errors.length === 1 ? '1 problem' : `${errors.length} problems`}:*`,
-            ...listed,
-            ...(more > 0 ? [`…and ${more} more`] : []),
-          ].join('\n'),
-        },
-      });
-    }
-
-    return { text: summary, blocks };
   }
 
   public getUnknownFileUploadPromptMessage() {

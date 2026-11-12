@@ -172,8 +172,7 @@ export class RequestWorkflowService {
   }
 
   // closeBeforeDelete for several requests, in the same few statements
-  // however many there are (a CSV import replaces every pending request of
-  // the people in it).
+  // however many there are.
   public async closeManyBeforeDelete(
     requestIds: string[],
     deletedBy: IUserViewModel,

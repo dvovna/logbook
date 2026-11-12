@@ -14,7 +14,6 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
 import { CacheModule } from '@nestjs/cache-manager';
-import { UserDataImportModule } from '@modules/user-data-import/user-data-import.module';
 import { TeamSetupModule } from './team-setup/team-setup.module';
 import { SlackCommunicationModule } from './slack-communication/slack-communication.module';
 import { TeamsModule } from './teams/teams.module';
@@ -62,7 +61,6 @@ import { LeaveFileModule } from 'src/leave-file/leave-file.module';
     SlackModule,
     SlackCommunicationModule,
     VacationPoliciesModule,
-    UserDataImportModule,
     TeamSetupModule,
     TeamsModule,
     ClientsModule,

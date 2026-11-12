@@ -1201,36 +1201,6 @@ describe('Time off logging', () => {
       expect(dmsSince(since)).toEqual([]);
     });
 
-    it('keeps the hours and drops the link on a CSV import', async () => {
-      const request = await loggedVacation();
-
-      await t.slack
-        .event(workspace, {
-          type: 'file_shared',
-          file_id: t.slackApi.addFile(
-            'user-vacations.csv',
-            [
-              'email;contractStartDate;vacation[0].startDate;vacation[0].endDate;vacation[0].type;vacation[0].status',
-              `${requester.email};2025-01-01;${THIS_WEEK.start};${THIS_WEEK.end};annual_leave;approved`,
-            ].join('\n'),
-          ),
-          user_id: admin.slack_id,
-          channel_id: 'D_TEST',
-        })
-        .expect(acknowledged);
-      await t.idle();
-
-      const [imported] = await workspace.rows('vacation_requests');
-      expect(imported.id).not.toBe(request.id);
-      expect(
-        (await liveEntries()).map(({ minutes, vacation_request_id }) => [
-          minutes,
-          vacation_request_id,
-        ]),
-      ).toEqual(Array(5).fill([480, null]));
-      expect(offersTo(requester)).toEqual([]);
-    });
-
     it('does nothing for edits that change neither dates nor status', async () => {
       const request = await loggedVacation();
       const before = await liveEntries();

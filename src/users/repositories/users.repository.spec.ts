@@ -108,7 +108,7 @@ describe('UsersRepository', () => {
     });
   });
 
-  // The CSV import of vacations sets everyone's contract start at once.
+  // A leave file sets everyone's contract start at once.
   it("sets each user's contract start in one statement of the workspace", async () => {
     const { database, queries, sqlOf, parametersOf } = recordingDatabase();
     const dates = {

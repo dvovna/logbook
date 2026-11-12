@@ -425,13 +425,14 @@ describe('Team file', () => {
       ).toEqual([]);
       expect(await uploads()).toEqual([]);
 
-      await shareInChannel('user-vacations.csv', 'email;contractStartDate\n');
+      await shareInChannel('leave-balances.csv', 'Email,Contract start\n');
 
+      expect(t.slackApi.callsWith(workspace.token, 'files.download')).toEqual(
+        [],
+      );
       expect(
-        t.slackApi
-          .ephemeralMessages(workspace.token, hr.slack_id)
-          .map(({ text }) => text),
-      ).toEqual(['⛔ Only admins can import vacations.']);
+        t.slackApi.ephemeralMessages(workspace.token, hr.slack_id),
+      ).toEqual([]);
     });
 
     it('refuses a manager who shares a team file and stores nothing', async () => {

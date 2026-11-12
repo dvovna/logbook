@@ -711,7 +711,6 @@ describe('RequestWorkflowService', () => {
       ]);
     });
 
-    // A CSV import replaces every pending request of its people.
     it('closes several requests with the same statements as one', async () => {
       const steps = [
         buildStep({ id: 'step-1' }),

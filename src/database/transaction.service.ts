@@ -111,8 +111,7 @@ export class TransactionService {
   }
 
   // lock() for each of `locks`, in compareLocks order, the ones not held yet
-  // in one statement (a CSV import takes one per pending request it
-  // replaces). The statement takes them one after another in that order.
+  // in one statement, which takes them one after another in that order.
   public async lockInOrder(...locks: IAdvisoryLock[]) {
     const scope = currentTransaction();
 

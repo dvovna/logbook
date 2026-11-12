@@ -25,10 +25,6 @@ features:
       url: https://APP_DOMAIN/api/slack/log
       description: Log time
       should_escape: false
-    - command: /upload-vacations
-      url: https://APP_DOMAIN/api/slack/admin/user-vacations-upload
-      description: Upload a CSV with vacation history (admins)
-      should_escape: false
 oauth_config:
   redirect_urls:
     - https://APP_DOMAIN/api/slack/oauth/redirect
