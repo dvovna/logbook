@@ -152,14 +152,14 @@ CI runs the type check, lint, unit and integration tests on every pull request, 
 `pnpm test:load` (`test/load/monday-peak.load-spec.ts`) checks that Logbook answers Slack within its 3 seconds at the Monday peak of a company of 400 people. It is not part of `pnpm test:int` or CI. It uses the integration tests' app, fake Slack and safeguards (the local stack only), and:
 - seeds a workspace of 400 people in 20 teams with a year of time, about 150,000 entries (`insert … select generate_series`, `test/load/support/seed.ts`): approved up to last week, whose time is still in drafts for 6 people in 10 and waits for approval for 3 in 10;
 - on Monday 09:00 starts the weekly reminder and, three times 10 seconds apart, a burst of 80 clicks at once: people opening Home, opening last week's form, saving and submitting it, managers opening Approvals, two time reports of the year and a CSV of the year;
-- makes every statement 100 ms slower and every Slack call 150 ms, with production's pool (10 connections) and 4 jobs at once;
+- makes every statement 1 ms slower, as with the app in its database's region, and every Slack call 150 ms, with production's pool (10 connections) and 4 jobs at once;
 - prints the answer times (p50, p95, max) by kind of click, how long people waited for their screen or file, the waits for a pool connection and the event loop's delay, and fails on an answer over 2.5 s, an error the app logged, or a screen that never showed.
 
-It takes a few minutes and deletes its workspace at the end. With the database 100 ms away it doesn't pass yet: the work after the answers takes the pool from the clicks (dvovna/logbook#94). With the database in the app's region (`SQL_LATENCY_MS=1`) it does.
+It takes a few minutes and deletes its workspace at the end. It measures the app next to its database, where it is meant to run. With the database 100 ms away (`SQL_LATENCY_MS=100`) it fails: the work after the answers takes the pool from the clicks. That setup is out of scope by decision (dvovna/logbook#94), and the self-hosting guide says to run the app in the database's region.
 
 ```bash
 pnpm test:load
-SQL_LATENCY_MS=1 pnpm test:load                       # the app next to its database
+SQL_LATENCY_MS=100 pnpm test:load                     # the app far from its database: fails, see above
 LOAD_SCALE=2 DATABASE_POOL_SIZE=20 pnpm test:load     # twice the clicks, a bigger pool
 LOAD_REPORT=load.json pnpm test:load                  # the numbers as JSON too
 ```

@@ -4,9 +4,10 @@ import { LeaveFileMessageHandler } from '@modules/slack/leave-file/handlers/leav
 import { LeaveFileMessagesService } from '@modules/slack/leave-file/services/leave-file-messages.service';
 import { LeaveFileMessageView } from '@modules/slack/leave-file/views/leave-file-message.view';
 import { LeaveFileModule } from 'src/leave-file/leave-file.module';
+import { UsersModule } from '@modules/users/users.module';
 
 @Module({
-  imports: [SlackCommonModule, LeaveFileModule],
+  imports: [SlackCommonModule, LeaveFileModule, UsersModule],
   providers: [
     LeaveFileMessageHandler,
     LeaveFileMessagesService,

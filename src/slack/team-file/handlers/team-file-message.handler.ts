@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import type { ButtonAction } from '@slack/bolt';
 import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { runInBackground } from '@common/utils/run-in-background';
@@ -23,6 +28,15 @@ import {
 } from '@modules/slack/tabs/teams/services/teams-tab.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
+import { JobsService } from '@common/jobs/jobs.service';
+import { UsersService } from '@modules/users/services/users.service';
+import {
+  defineUploadClickJob,
+  uploadClickJobOf,
+} from '@modules/slack/common/utils/upload-click-job';
+
+export const TEAM_FILE_APPLY_JOB = 'team-file-apply';
+export const TEAM_FILE_UNDO_JOB = 'team-file-undo';
 
 @Injectable()
 @SlackHandler({
@@ -30,7 +44,10 @@ import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads
   type: 'block_actions',
   allowedRoles: ADMIN_AND_HR_ROLES,
 })
-export class TeamFileMessageHandler extends BaseActionHandler {
+export class TeamFileMessageHandler
+  extends BaseActionHandler
+  implements OnModuleInit
+{
   private readonly logger = new Logger(TeamFileMessageHandler.name);
 
   protected actionMap: ActionMapType;
@@ -40,21 +57,53 @@ export class TeamFileMessageHandler extends BaseActionHandler {
     private readonly messagesService: TeamFileMessagesService,
     private readonly teamsTabService: TeamsTabService,
     private readonly tabNavigationService: TabNavigationService,
+    private readonly jobs: JobsService,
+    private readonly usersService: UsersService,
   ) {
     super();
 
     this.actionMap = {
       [TeamFileMessageActionId.Apply]: this.handleApply,
       [TeamFileMessageActionId.Undo]: this.handleUndo,
-      [TeamFileMessageActionId.Cancel]: withButtonAction(this.handleCancel),
+      [TeamFileMessageActionId.Cancel]: withButtonAction(
+        (uploadId: string, user: IUserViewModel) =>
+          // After the answer: replacing a long preview takes Slack a couple
+          // of seconds, of the 3 it waits for the click's answer.
+          runInBackground(this.logger, 'cancel a team file', () =>
+            this.handleCancel(uploadId, user),
+          ),
+      ),
       [TeamFileMessageActionId.Rules]: withButtonAction(this.handleRules),
       [NavigationActionId.Teams]: this.handleOpenTeams,
     };
   }
 
+  public onModuleInit() {
+    const deps = {
+      jobs: this.jobs,
+      usersService: this.usersService,
+      logger: this.logger,
+    };
+
+    defineUploadClickJob(
+      deps,
+      TEAM_FILE_APPLY_JOB,
+      'apply a team file',
+      ({ uploadId, digest = '' }, user) =>
+        this.messagesService.apply(uploadId, digest, user),
+    );
+    defineUploadClickJob(
+      deps,
+      TEAM_FILE_UNDO_JOB,
+      'undo a team file',
+      ({ uploadId }, user) => this.messagesService.undo(uploadId, user),
+    );
+  }
+
   // The value is `apply:<upload id>:<digest of the plan shown>`; a missing
   // part reads as an unknown upload or another plan. Applying takes many
-  // statements and Slack calls, longer than Slack waits for the answer.
+  // statements and Slack calls, longer than Slack waits for the answer, so
+  // it is a job (defineUploadClickJob), like Undo.
   private handleApply = (
     payload: ISlackBlockActionPayload,
     user: IUserViewModel,
@@ -63,8 +112,9 @@ export class TeamFileMessageHandler extends BaseActionHandler {
       (payload.actions[0] as ButtonAction).value ?? ''
     ).split(':');
 
-    runInBackground(this.logger, 'apply a team file', () =>
-      this.messagesService.apply(uploadId, digest, user),
+    return this.jobs.enqueue(
+      TEAM_FILE_APPLY_JOB,
+      uploadClickJobOf(user, uploadId, digest),
     );
   };
 
@@ -94,8 +144,9 @@ export class TeamFileMessageHandler extends BaseActionHandler {
       (payload.actions[0] as ButtonAction).value ?? ''
     ).split(':');
 
-    runInBackground(this.logger, 'undo a team file', () =>
-      this.messagesService.undo(uploadId, user),
+    return this.jobs.enqueue(
+      TEAM_FILE_UNDO_JOB,
+      uploadClickJobOf(user, uploadId),
     );
   };
 

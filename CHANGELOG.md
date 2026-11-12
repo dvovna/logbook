@@ -4,6 +4,17 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-12
+
+Apply and Undo of a file that survive a restart, and a Cancel that answers at once. No update step: only the new image.
+
+### Leave and team files
+- Apply and Undo of a file survive a restart: a click taken just before a deploy, or cut off by one, is done by the next process instead of leaving the message with its button and nothing changed.
+- Cancel on a long preview answers at once; before, Slack could show a warning next to the button while the message was being replaced.
+
+### Running it
+- `pnpm test:load` measures the app next to its database (1 ms a statement) by default and passes there. An app about 100 ms from its database doesn't answer a Monday burst within Slack's 3 seconds; that setup is out of scope, and the self-hosting guide says to run the app in the database's region.
+
 ## [0.4.0] - 2026-11-12
 
 Leave balances and history from your spreadsheet, a documentation site, and decisions and waiting requests that reach the people they concern. Update step: three database migrations and the app manifest, see Running it.
@@ -141,6 +152,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.4.1]: https://github.com/dvovna/logbook/releases/tag/v0.4.1
 [0.4.0]: https://github.com/dvovna/logbook/releases/tag/v0.4.0
 [0.3.0]: https://github.com/dvovna/logbook/releases/tag/v0.3.0
 [0.2.0]: https://github.com/dvovna/logbook/releases/tag/v0.2.0

@@ -19,6 +19,11 @@ import { textOf } from './support/block-kit';
 import { addDays, workWeek } from './support/dates';
 import { openAppHomeTab, openModalFrom } from './support/app-home';
 import {
+  historyCsv,
+  leaveFileTexts,
+  shareLeaveFile,
+} from './support/leave-file';
+import {
   approvalMessageTo,
   requestVacation,
   VACATIONS_COMMAND,
@@ -328,6 +333,46 @@ describe('Jobs after a crash', () => {
     await t.retryJobs();
 
     expect(await joined()).toMatchObject({ name: 'Ada Lovelace' });
+  });
+
+  // The click's job is saved before its answer: the file is applied, and its
+  // message says so, though the process that took the click did neither.
+  it('applies a leave file whose Apply was clicked just before', async () => {
+    const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hanna HR' });
+    const [preview] = await shareLeaveFile(
+      t,
+      workspace,
+      hr,
+      historyCsv(
+        `Max Member,${member.email},Annual leave,2026-04-06,2026-04-10,`,
+      ),
+      'leave-history.csv',
+    );
+
+    await crashingAfter(() =>
+      t.slack.actOnMessage(workspace, hr, preview, 'apply').expect(200),
+    );
+    await t.idle();
+
+    expect(await workspace.rows('vacation_requests')).toEqual([]);
+    expect(t.slackApi.messageUpdates(workspace.token, preview)).toEqual([]);
+
+    await t.retryJobs();
+
+    expect(
+      (await workspace.rows('vacation_requests')).map(
+        ({ user_id, start_date, status }) => [user_id, start_date, status],
+      ),
+    ).toEqual([[member.id, '2026-04-06', VacationRequestStatus.Approved]]);
+    expect(
+      leaveFileTexts(
+        t.slackApi.messageUpdates(workspace.token, preview).pop(),
+      )[0],
+    ).toBe('✅ Added 1 leave for 1 person.');
+
+    // A run after it was done does nothing more.
+    await t.retryJobs();
+    expect(await workspace.rows('vacation_requests')).toHaveLength(1);
   });
 
   it('asks someone given the HR role just before to approve a request that waited for anyone', async () => {
