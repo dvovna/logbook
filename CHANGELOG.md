@@ -4,6 +4,10 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
+Install Logbook with an AI agent from one prompt, with the commands that make it possible: the Slack app from the manifest through Slack's API, a checkup of an install, and ready configurations for three places to run it. No update step: only the new image.
+
 ### Running it
 - Install with an AI agent: paste the prompt from the new "Install with an AI agent" page into an agent such as Claude Code, and it sets up the database, the Slack app and the run by the instructions at `/logbook/docs/agent-install.md`, with a check after every step. It asks before anything that costs money or can't be undone, and keeps secrets out of the chat.
 - Ready configurations for three places to run Logbook, in `deploy/`: Docker on your own server with HTTPS from Caddy, Fly.io and Render. The new "Where to run it" page of the self-hosting guide has the steps for each.
@@ -158,6 +162,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.5.0]: https://github.com/dvovna/logbook/releases/tag/v0.5.0
 [0.4.1]: https://github.com/dvovna/logbook/releases/tag/v0.4.1
 [0.4.0]: https://github.com/dvovna/logbook/releases/tag/v0.4.0
 [0.3.0]: https://github.com/dvovna/logbook/releases/tag/v0.3.0

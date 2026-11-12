@@ -1,6 +1,6 @@
 {
   "name": "logbook",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Logbook: vacation requests with approvals, leave policies, holidays and time tracking in Slack",
   "author": "Dzmitry Vouna",
   "private": true,

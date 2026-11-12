@@ -57,7 +57,7 @@ These aren't checked at startup.
 | `NODE_ENV` | `production` in the Docker image | `production` writes logs as JSON lines at the `info` level; anything else writes them readable and colored, at the `debug` level. |
 | `LOG_LEVEL` | From `NODE_ENV` | The lowest level logged: `debug`, `info`, `warn` or `error`. |
 | `SLACK_APP_ID` | none | The Slack app's ID. Logbook doesn't read it: `pnpm slack:app create` writes it, and `pnpm slack:app update` takes the app to update from it. |
-| `LOGBOOK_VERSION` | `latest` | Read by `docker-compose.yml` only: the image tag to run, such as `0.4`. |
+| `LOGBOOK_VERSION` | `latest` | Read by `docker-compose.yml` only: the image tag to run, such as `0.5`. |
 
 ## Example
 
