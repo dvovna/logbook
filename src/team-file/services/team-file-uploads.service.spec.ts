@@ -134,6 +134,47 @@ describe('TeamFileUploadsService', () => {
     return { service, repository, usersService, teamsService };
   };
 
+  describe('previewed', () => {
+    const open = {
+      id: 'upload-1',
+      status: TeamFileUploadStatus.Previewed,
+      rows: [row(2, 'ann@x.test', 'Acme')],
+      created_at: new Date().toISOString(),
+    } as ITeamFileUpload;
+
+    it("plans the workspace's open preview again from its rows", async () => {
+      const { service, repository } = build();
+      repository.findOne.mockResolvedValue(open);
+
+      const result = await service.previewed('workspace-1');
+
+      expect(repository.findOne).toHaveBeenCalledWith({
+        slack_team_id: 'workspace-1',
+        status: TeamFileUploadStatus.Previewed,
+      });
+      expect(result?.upload).toBe(open);
+      expect(result?.plan.createTeams).toMatchObject([{ name: 'Acme' }]);
+      expect(result?.state.people.map(({ id }) => id)).toEqual(['ann', 'old']);
+    });
+
+    it.each([
+      ['no preview is open', null],
+      [
+        'the preview is older than 7 days',
+        {
+          ...open,
+          created_at: new Date(Date.now() - 8 * DAY_MS).toISOString(),
+        },
+      ],
+    ])('is null when %s', async (_case, upload) => {
+      const { service, repository, usersService } = build();
+      repository.findOne.mockResolvedValue(upload);
+
+      expect(await service.previewed('workspace-1')).toBeNull();
+      expect(usersService.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('receive', () => {
     it('plans against everyone in the workspace, active or not, and stores the rows and the plan digest', async () => {
       const { service, repository, usersService, teamsService } = build();

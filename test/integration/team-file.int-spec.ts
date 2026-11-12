@@ -310,6 +310,71 @@ describe('Team file', () => {
       expect(modal.title.text).toBe('Company rules');
     });
 
+    // Its last line would go on saying "no vacation policy" after the policy
+    // was chosen from its own button.
+    it('a save of the company rules writes the open preview again', async () => {
+      const anna = await workspace.addUser({ name: 'Anna Novak' });
+      const policy = await workspace.addVacationPolicy({ name: 'Standard' });
+      const [preview] = await share(hr, csv(`Anna,${anna.email},Acme,`));
+      const since = t.slackApi.mark();
+
+      await t.slack.actOnMessage(workspace, hr, preview, 'rules').expect(200);
+      await t.idle();
+
+      const form = t.slackApi.shownModal(workspace.token, { since });
+
+      await t.slack
+        .submitView(workspace, hr, form, { policy: policy.id })
+        .expect(200);
+      await t.idle();
+
+      const [update] = t.slackApi.messageUpdates(workspace.token, preview);
+
+      expect(sectionTexts(update as unknown as View)).toEqual([
+        ...sectionTexts(preview as unknown as View).slice(0, -1),
+        'New teams follow the company rules (vacation policy Standard; no second approvers yet; nobody notified of decisions).',
+      ]);
+      expect(actionIdsOf(update)).toEqual(actionIdsOf(preview));
+
+      // The buttons of the rewritten preview still apply it.
+      await t.slack
+        .actOnMessage(
+          workspace,
+          hr,
+          { ...preview, ...update } as typeof preview,
+          'apply',
+        )
+        .expect(200);
+      await t.idle();
+
+      expect((await uploads()).map(({ status }) => status)).toEqual([
+        'applied',
+      ]);
+    });
+
+    it('a save of the company rules leaves a closed preview alone', async () => {
+      const anna = await workspace.addUser({ name: 'Anna Novak' });
+      const [preview] = await share(hr, csv(`Anna,${anna.email},Acme,`));
+
+      await t.slack.actOnMessage(workspace, hr, preview, 'cancel').expect(200);
+      await t.idle();
+      await t.app.get(CompanyRulesService).update(
+        workspace.id,
+        {
+          hrApprovers: [],
+          hrApproversRule: ApprovalRule.Any,
+          notificationRecipients: [],
+          vacationPolicyId: null,
+        },
+        hr as unknown as IUserViewModel,
+      );
+      await t.idle();
+
+      expect(t.slackApi.messageUpdates(workspace.token, preview)).toHaveLength(
+        1,
+      );
+    });
+
     it('says so, with no buttons, when the file changes nothing', async () => {
       const backend = await workspace.addTeam({
         name: 'Backend',

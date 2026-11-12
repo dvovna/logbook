@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RuleSetsRepository } from '@modules/teams/repositories/rule-sets.repository';
+import {
+  COMPANY_RULES_SAVED,
+  CompanyRulesSavedEvent,
+} from '@modules/teams/events/company-rules.events';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -40,8 +44,7 @@ export class CompanyRulesService {
     user: IUserViewModel,
   ): Promise<IRuleSetViewModel> {
     const ruleSet = await this.get(slackTeamId);
-
-    return writeNamingApprovers(
+    const saved = await writeNamingApprovers(
       { transactions: this.transactions, eventEmitter: this.eventEmitter },
       slackTeamId,
       namesSomeoneNew(ruleSet.hr_approvers, params.hrApprovers),
@@ -58,6 +61,15 @@ export class CompanyRulesService {
           },
         ),
     );
+
+    // What shows the company rules elsewhere (an open team file preview)
+    // follows them.
+    this.eventEmitter.emit(
+      COMPANY_RULES_SAVED,
+      new CompanyRulesSavedEvent(slackTeamId),
+    );
+
+    return saved;
   }
 
   public async usesPolicy(

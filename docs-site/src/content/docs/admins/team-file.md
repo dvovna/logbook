@@ -58,7 +58,7 @@ Logbook answers with what the file will do, in this order:
 - **Team names matched**: how a name you wrote was read.
 - **Rows it can't use**, each with its row number and the reason, for example an email that isn't in the workspace, a deactivated person, or someone listed twice. Logbook skips these rows and applies the rest.
 
-A last line says what new teams get from the company rules. Under it are **Apply**, **Cancel** and **Company rules**, which opens the company rules to change them first.
+A last line says what new teams get from the company rules. Under it are **Apply**, **Cancel** and **Company rules**, which opens the company rules to change them first. When you save them, the preview's last line follows.
 
 If you find a mistake, fix the file and send it again. A newer file replaces the open preview.
 

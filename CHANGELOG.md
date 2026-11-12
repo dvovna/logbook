@@ -8,6 +8,9 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 - Set up with an AI agent: give an agent such as Claude or ChatGPT your people list and leave data with the prompt from the new "Set up with an AI agent" page, and it writes the team file, the leave balances and the leave history in Logbook's format and the values for the policy, holidays and company rules forms, by the instructions at `/logbook/docs/agent-setup.md`. You send the files to Logbook and apply them; the agent gets no access to Logbook or Slack.
 - `pnpm files:check <file>…` reads team and leave files as Logbook would and lists the rows it couldn't use, with the reason, before anyone sends them in Slack.
 
+### Leave and team files
+- A team file's preview follows the company rules: after you save them, from its **Company rules** button or anywhere else, its last line says what new teams get now. Before, it went on saying "no vacation policy" until the file was sent again.
+
 ### Running it
 - The instructions for an AI agent, the "Where to run it" page and Install are corrected by the first real install an agent made from the prompt (on Fly.io): verifying the Slack app's events URL is a step before the install link, not an afterthought; Fly.io needs a card on file and its configuration is used as a copy; what each place costs is said up front; the Supabase CLI's `--yes` and free-project limit, Node through nvm and the `fly` CLI are covered.
 - `pnpm slack:app create` says to verify the events URL before installing.
