@@ -2,7 +2,7 @@
 title: Operate
 description: 'Keep a self-hosted Logbook fast and healthy: where to run it, connections, restarts, health checks, errors, logs, data retention and backups.'
 sidebar:
-  order: 3
+  order: 4
 ---
 
 Once Logbook is installed, a few settings decide whether it answers Slack in time, survives restarts and keeps your data.
@@ -48,8 +48,8 @@ On a restart or a deploy Logbook gets SIGTERM. It then:
 | --- | --- |
 | `docker-compose.yml` | `stop_grace_period: 30s` (already set) |
 | `docker run` | `--stop-timeout 30` |
-| Render | `maxShutdownDelaySeconds` in `render.yaml` |
-| Fly.io | `kill_timeout` in `fly.toml` |
+| Render | `maxShutdownDelaySeconds` in `render.yaml` (set in `deploy/render.yaml`) |
+| Fly.io | `kill_timeout` in `fly.toml` (set in `deploy/fly.toml`) |
 
 Work cut off by a shorter grace period isn't lost: the next process retries it, but it comes minutes late.
 

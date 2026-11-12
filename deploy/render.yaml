@@ -1,0 +1,33 @@
+# Logbook on Render, as a Blueprint: in the dashboard choose New → Blueprint,
+# pick your fork of the repository and give deploy/render.yaml as the
+# Blueprint path. Render then asks for the values marked `sync: false`.
+services:
+  - type: web
+    name: logbook
+    runtime: image
+    image:
+      url: ghcr.io/dvovna/logbook:0.4
+    plan: starter
+    # The region of your database: every click sends several statements, and
+    # each is a round trip (virginia is next to Supabase's us-east-1,
+    # frankfurt to its eu-central-1).
+    region: virginia
+    # Logbook is built to run as one instance.
+    numInstances: 1
+    healthCheckPath: /health
+    # On SIGTERM Logbook finishes the work in flight and closes its
+    # connections, in 22 seconds at most.
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SLACK_CLIENT_ID
+        sync: false
+      - key: SLACK_CLIENT_SECRET
+        sync: false
+      - key: SLACK_SIGN_IN_SECRET
+        sync: false
+      - key: SLACK_REDIRECT_URI
+        sync: false
+      - key: SLACK_TOKEN_ENCRYPTION_KEY
+        sync: false

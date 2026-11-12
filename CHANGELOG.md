@@ -5,6 +5,7 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 ## [Unreleased]
 
 ### Running it
+- Ready configurations for three places to run Logbook, in `deploy/`: Docker on your own server with HTTPS from Caddy, Fly.io and Render. The new "Where to run it" page of the self-hosting guide has the steps for each.
 - `pnpm checkup` says what an install or an update still lacks, one line a check with what to do about it: the configuration, the database (connection, this release's migrations, closed API roles, round trip time), `/health` on your domain, and the Slack app's URLs. In the image: `node dist/checkup.js`.
 - `pnpm slack:app create --domain <domain>` creates the Slack app from the manifest through Slack's API and writes its ID, client ID, secrets and redirect URI into `.env`; `pnpm slack:app update --domain <domain>` brings an existing app to a new domain or a new release's manifest. Both take an app configuration token from `SLACK_CONFIG_TOKEN` or ask for it.
 

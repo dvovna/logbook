@@ -1,0 +1,46 @@
+# Logbook on Fly.io. From the repository's root:
+#
+#   fly launch --config deploy/fly.toml --copy-config --no-deploy
+#   grep -vE '^(#|$|PORT=)' .env | fly secrets import --config deploy/fly.toml
+#   fly deploy --config deploy/fly.toml --ha=false
+#
+# `fly launch` asks for the app's name and region and writes them here.
+
+app = "logbook"
+# The region of your database: every click sends several statements, and
+# each is a round trip (iad is Supabase's us-east-1, fra its eu-central-1).
+primary_region = "iad"
+
+# On SIGTERM Logbook finishes the work in flight and closes its connections,
+# in 22 seconds at most; Fly's default of 5 would cut it off.
+kill_signal = "SIGTERM"
+kill_timeout = 30
+
+[build]
+  image = "ghcr.io/dvovna/logbook:0.4"
+
+# The port the image listens on. Keep PORT out of the secrets: a secret of
+# that name would move the app off the port below.
+[env]
+  PORT = "10000"
+
+[http_service]
+  internal_port = 10000
+  force_https = true
+  # One machine, always on: Slack waits 3 seconds for an answer, less than a
+  # stopped machine takes to start, and Logbook is built to run as one
+  # instance.
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

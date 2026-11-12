@@ -2,7 +2,7 @@
 title: Update
 description: Move your Logbook to a new release, with its database migrations and any step the release needs.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 Most updates are a new image and the release's database migrations. Before 1.0, a minor version (0.4 to 0.5) may need a step of its own.
