@@ -1,0 +1,53 @@
+---
+title: Logbook docs
+description: How to use Logbook for time off and time tracking in Slack, set it up for your team, and run it yourself.
+template: splash
+hero:
+  tagline: Time off and time tracking that live in Slack. Request leave, log hours, approve both, and report on them without leaving the workspace.
+  actions:
+    - text: What Logbook is
+      link: /logbook/docs/getting-started/what-is-logbook/
+      icon: right-arrow
+    - text: Set up your workspace
+      link: /logbook/docs/getting-started/set-up-your-workspace/
+      variant: minimal
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Find your guide
+
+<CardGrid>
+  <LinkCard
+    title="For everyone"
+    description="Request time off, log your hours, send your week for approval."
+    href="/logbook/docs/everyone/request-time-off/"
+  />
+  <LinkCard
+    title="For approvers"
+    description="Decide on time off and time entries: managers, HR and admins."
+    href="/logbook/docs/approvers/approve-time-off/"
+  />
+  <LinkCard
+    title="For HR and admins"
+    description="People and roles, teams and company rules, policies and holidays."
+    href="/logbook/docs/admins/people-and-roles/"
+  />
+  <LinkCard
+    title="For finance"
+    description="Projects, rates, time reports, billing reports and snapshots."
+    href="/logbook/docs/finance/time-reports/"
+  />
+  <LinkCard
+    title="Reference"
+    description="Roles and permissions, commands, notifications, file formats."
+    href="/logbook/docs/reference/roles-and-permissions/"
+  />
+  <LinkCard
+    title="Self-hosting"
+    description="Install Logbook on your own server, update it and keep it running."
+    href="/logbook/docs/self-hosting/install/"
+  />
+</CardGrid>
+
+Something not working? See [Troubleshooting](/logbook/docs/help/troubleshooting/). What changed in each version is in the [changelog](https://github.com/dvovna/logbook/blob/main/CHANGELOG.md).

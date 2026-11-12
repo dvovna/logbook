@@ -27,6 +27,7 @@ export default [{
     '**/*.js',
     '**/*.mjs',
     '**/migrations/',
+    'docs-site/',
     '.history/',
     '**/database.types.ts'
   ],

@@ -7,6 +7,8 @@ Logbook keeps your team's time in Slack: the hours people log and the days they 
 
 You can self-host it, and one deployment can serve many Slack workspaces.
 
+**[Documentation](https://dvovna.github.io/logbook/docs/)**: how to use Logbook, set it up for your team, and run it yourself.
+
 ## Features
 
 **Vacations**
@@ -56,118 +58,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 
 ## Self-hosting
 
-You need:
-- the source of the release you run, for its database migrations: `git clone --branch v0.3.0 https://github.com/dvovna/logbook && cd logbook && pnpm install` (with pnpm 10, `npm install -g pnpm@10`; the steps below run the Supabase CLI pinned in it);
-- a Supabase project. The free plan runs the bot, but it keeps no backups and Supabase pauses it after a week of little activity (see [Run](#4-run)). For a company's real data, take a paid plan or back the database up yourself, e.g. with `pg_dump` over the session pooler connection string;
-- a host that runs Docker or Node 26, reachable from Slack over HTTPS;
-- permission to create a Slack app in your workspace.
-
-### 1. Database
-
-Create a Supabase project and apply the migrations:
-
-```bash
-pnpm supabase db push --remote "postgresql://postgres.<project-ref>:<db-password>@<pooler-host>:5432/postgres"
-```
-
-Take the session pooler connection string from the project's "Connect" dialog. The direct `db.<project-ref>.supabase.co` host is IPv6-only. The app connects with the same string (`DATABASE_URL` below).
-
-Run the app in the project's region. Every SQL statement is a round trip to the database, and a click such as saving a week or approving a request sends up to ten of them one after another before the app answers. A round trip takes about a millisecond within a region and about 100 ms between regions. Far from its database, the app spends up to a second of the 3 that Slack waits on the database alone, and every statement holds one of the pooler's few connections a hundred times longer, so the whole installation manages only a few clicks a second.
-
-### 2. Slack app
-
-1. Replace `APP_DOMAIN` in [`slack-app-manifest.yml`](slack-app-manifest.yml) with the domain the bot will run on:
-   ```bash
-   sed 's/APP_DOMAIN/vacations.example.com/g' slack-app-manifest.yml
-   ```
-2. Create the app from the result at https://api.slack.com/apps ("Create New App" → "From a manifest"). The manifest turns on token rotation: bot tokens expire after 12 hours and the app refreshes them, so a token that leaks is soon useless. Slack can't turn rotation off again for an app.
-3. To install it into other workspaces too, turn on public distribution in "Manage Distribution". Share `https://<your-domain>/api/slack/install` as the install link; see below. Without public distribution only your own workspace can install it, which is what a single company wants: with it, any Slack workspace that has the link can install the app on your server, unless you list the allowed ones in `ALLOWED_SLACK_TEAM_IDS`.
-
-### 3. Configuration
-
-Copy [`.env.example`](.env.example) to `.env` and fill it in:
-
-| Variable | Value |
-| --- | --- |
-| `DATABASE_URL` | The session pooler connection string from step 1 (port 5432, not 6543). The app reads and writes all its data over it, and the job queue, which retries Slack messages and workflow steps that failed, keeps its own `pgboss` schema there. The app doesn't use the Supabase API or its keys. |
-| `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` | Slack app → Basic Information |
-| `SLACK_SIGN_IN_SECRET` | Slack app → Basic Information → Signing Secret |
-| `SLACK_REDIRECT_URI` | `https://<your-domain>/api/slack/oauth/redirect` |
-| `SLACK_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the bot tokens in the database. Keep it with your other secrets: without it the app can't read the tokens, and every workspace has to install the app again. |
-| `PORT` | Port to listen on: 3000 in `.env.example`, and 3000 when it's unset, except in the Docker image, which sets 10000. |
-| `ALLOWED_SLACK_TEAM_IDS` | Optional. Comma-separated Slack workspace IDs (`T…`) that may install the app on your server. Any other workspace gets a refusal, and its token is revoked. Unset, every workspace with the install link may install. |
-| `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Optional. Sends unexpected errors to your Sentry project: the error and its stack, tagged with the release (`logbook@0.3.0`), no request data or people's details. Empty sends nothing anywhere. |
-| `DATABASE_POOL_SIZE` | Optional, default 10. Connections the app's pool may hold; the job queue holds 3 more. Together they must stay under the Supabase project's "Pool Size" (15 on the smaller compute sizes), the connections the session pooler allows at once for all its clients: 10 + 3 leaves 2 for `supabase db push` or `psql`. A query that finds no free connection within 2 seconds fails, and Slack shows an error instead of waiting for nothing. |
-| `JOBS_CONCURRENCY` | Optional, default 4. How many background jobs (messages, approval steps, imports, reminders) run at once; the others wait their turn, saved in the database, so a restart loses none. Keep it well under `DATABASE_POOL_SIZE`, so that a burst such as the Monday reminder leaves connections to the clicks people wait on. |
-
-The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` lists them.
-
-### 4. Run
-
-The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.3.0`), its minor line (`0.3`) and `latest`:
-
-```bash
-docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.3
-```
-
-The second port of `-p` is `PORT` from `.env`; with `PORT` left out of `.env`, the container listens on 10000, so map `-p 3000:10000`.
-
-Or with the compose file, which runs the same image (`LOGBOOK_VERSION` picks the tag, `latest` by default):
-
-```bash
-docker compose up -d
-```
-
-`docker compose up -d --build` builds the image from your checkout instead. Or without Docker:
-
-```bash
-pnpm install
-pnpm build
-pnpm start:prod
-```
-
-Put the app behind HTTPS (a reverse proxy, or a platform such as Render or Fly.io). Then open "Event Subscriptions" in the Slack app settings and retry the URL verification.
-
-On a restart or a deploy the app gets SIGTERM: it stops taking requests at once, finishes what is in flight (an approval, a CSV on its way) for up to 12 seconds, then closes its connections, in 22 seconds at most. `docker stop` kills a container after 10 seconds, so the compose file sets `stop_grace_period: 30s` and the `docker run` above passes `--stop-timeout 30`. A platform has its own grace period: set it to 30 seconds, e.g. `maxShutdownDelaySeconds` in Render's `render.yaml` or `kill_timeout` in Fly.io's `fly.toml`. Work cut off by a shorter one isn't lost, since the next process retries it, but it comes minutes late.
-
-`GET /health` answers 200 while the app reaches its database and 503 when it can't; point your platform's health check at it. The Docker image already uses it.
-
-On Supabase's free plan the health check also keeps the project awake. Supabase pauses a free project after 7 days of little activity. A quiet week, such as the New Year holidays, is enough, and then the bot stops answering until someone restores the project in the Supabase dashboard. Every `/health` call runs a query on the database, and Supabase counts database activity. So make sure something calls it regularly: the image's `HEALTHCHECK` does it every 30 seconds under Docker, but some platforms ignore it and need their own health check pointed at `/health`.
-
-### 5. Install
-
-Open `https://<your-domain>/api/slack/install` in the browser and approve the app. The link starts the OAuth flow with a one-time `state` bound to your browser, so only an installation started there can finish.
-
-Don't use "Install to Workspace" in the app settings, and don't use the sharable URL Slack generates. Both skip the `state`, so the bot refuses them and the workspace is never created. When you distribute the app, give out the `/api/slack/install` link.
-
-The person who installs the app becomes its admin. The other members are imported a few seconds later. Installing it again later (for example after an update adds scopes) only replaces the bot token: data and roles stay as they are.
-
-The CSV export needs the `files:write` scope, which the manifest got after the first installs. If your Slack app was created from an older manifest, add `files:write` under "OAuth & Permissions" → "Bot Token Scopes" (or update the app from the current manifest), then install the app again in every workspace through `/api/slack/install`. Until a workspace does, the export answers with a DM that asks for it. Uninstalling the app removes its bot token at once and keeps the workspace's data for `UNINSTALLED_DATA_RETENTION_DAYS` days (30 by default; 0 deletes it at once): installing again within that time restores everything, with the members who joined meanwhile. After it, the data is deleted for good. Then, in the App Home:
-- create vacation policies and their holidays under More → Policies;
-- give approvers the Manager or HR role under More → People;
-- create teams, their members and approvers under More → Teams.
-
-The installer gets a message with these steps, and Home shows admins and HR a checklist until they are done.
-
-### Updating
-
-An app created before token rotation keeps working with its tokens, which never expire. To switch to rotating tokens, turn on "Advanced token security via token rotation" under "OAuth & Permissions" and install the app again in each workspace: the new install gets a rotating token.
-
-Read the version's section in [CHANGELOG.md](CHANGELOG.md) first: it says when an update needs a step of its own. Check out the new release's tag, run `pnpm install`, apply the new migrations with `pnpm supabase db push --remote "<the same connection string>"`. Without `--remote` the CLI pushes to the local database. Apply the migrations before the new version starts: it checks the database at startup and refuses to start, naming the missing migrations, until they are applied. Then run the new image (`docker compose pull && docker compose up -d`, with `LOGBOOK_VERSION` set to the new version if you pin one).
-
-### Checking the database is closed
-
-The app reaches the database only through `DATABASE_URL`. The `anon` and `authenticated` roles of the Supabase API get no access to its tables and functions. After changing the schema outside the migrations (for example in Studio), check that this still holds; every query should return no rows:
-
-```sql
-select relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
- where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relrowsecurity;
-select grantee, table_name, privilege_type from information_schema.role_table_grants
- where table_schema = 'public' and grantee in ('anon', 'authenticated', 'PUBLIC');
-select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
- where n.nspname = 'public' and (has_function_privilege('anon', p.oid, 'execute')
-   or has_function_privilege('authenticated', p.oid, 'execute'));
-```
+Run Logbook on your own server: a Supabase project, a Slack app from [`slack-app-manifest.yml`](slack-app-manifest.yml), and the Docker image `ghcr.io/dvovna/logbook`. The [self-hosting guide](https://dvovna.github.io/logbook/docs/self-hosting/install/) walks through it, and covers [updating](https://dvovna.github.io/logbook/docs/self-hosting/update/) and [running it](https://dvovna.github.io/logbook/docs/self-hosting/operate/) day to day. Read the version's section in [CHANGELOG.md](CHANGELOG.md) before an update.
 
 ## Development
 

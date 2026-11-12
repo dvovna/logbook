@@ -4,6 +4,9 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Documentation
+- Logbook has documentation at https://dvovna.github.io/logbook/docs/: guides for everyone, approvers, HR and admins, and finance, reference pages (roles and permissions, commands, notifications, file formats, configuration), and the self-hosting guide, which moved there from the README.
+
 ### Running it
 - Errors sent to Sentry carry the release they came from (`logbook@<version>`), so an issue shows which version brought it.
 - A process stopped while it was still starting (a quick redeploy or restart) no longer reports the failed start to Sentry, and a start that really fails exits with code 1 instead of staying up without a port when Sentry is set.
