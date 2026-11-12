@@ -1,4 +1,5 @@
 import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
+import { COMPANY_RULES_SAVED } from '@modules/teams/events/company-rules.events';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -13,6 +14,7 @@ describe('CompanyRulesService', () => {
 
   it('update writes the default set and returns it', async () => {
     const updated = { id: 'set-1' } as IRuleSetViewModel;
+    const emit = jest.fn();
     const ruleSetsRepository = {
       ensureDefault: jest
         .fn()
@@ -22,7 +24,7 @@ describe('CompanyRulesService', () => {
     const service = new CompanyRulesService(
       ruleSetsRepository as never,
       transactions as never,
-      { emitAsync: jest.fn() } as never,
+      { emitAsync: jest.fn(), emit } as never,
     );
 
     const result = await service.update(
@@ -37,6 +39,9 @@ describe('CompanyRulesService', () => {
     );
 
     expect(result).toBe(updated);
+    expect(emit.mock.calls).toEqual([
+      [COMPANY_RULES_SAVED, { slackTeamId: 'ws-1' }],
+    ]);
     expect(ruleSetsRepository.update).toHaveBeenCalledWith(
       { id: 'set-1', slack_team_id: 'ws-1' },
       expect.objectContaining({
@@ -64,7 +69,7 @@ describe('CompanyRulesService', () => {
           .mockResolvedValue({ id: 'set-1', hr_approvers: before }),
         update: jest.fn().mockResolvedValue({ id: 'set-1' }),
       };
-      const eventEmitter = { emitAsync: jest.fn() };
+      const eventEmitter = { emitAsync: jest.fn(), emit: jest.fn() };
       const service = new CompanyRulesService(
         ruleSetsRepository as never,
         transactions as never,

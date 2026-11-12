@@ -1,8 +1,13 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { personLabel } from '@modules/slack/common/views/data/labels';
 import { ITeamFileMessage } from '@modules/slack/team-file/types/team-file-message.interface';
 import { TeamFileMessageView } from '@modules/slack/team-file/views/team-file-message.view';
+import {
+  COMPANY_RULES_SAVED,
+  CompanyRulesSavedEvent,
+} from '@modules/teams/events/company-rules.events';
 import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
@@ -69,6 +74,31 @@ export class TeamFileMessagesService {
     );
 
     await this.uploadsService.setMessage(upload.id, slackTeamId, channel!, ts!);
+  }
+
+  // The preview's last line says what new teams get from the company rules,
+  // and its Company rules button opens them: after a save the open preview
+  // is written again, so that it doesn't go on saying "no vacation policy".
+  @OnEvent(COMPANY_RULES_SAVED)
+  public async refreshPreview({ slackTeamId }: CompanyRulesSavedEvent) {
+    const open = await this.uploadsService.previewed(slackTeamId);
+
+    if (!open) {
+      return;
+    }
+
+    const { upload, plan, state } = open;
+
+    await this.replaceMessage(upload, {
+      text: this.view.previewText(upload.file_name),
+      blocks: this.view.preview(
+        plan,
+        namesOf(state),
+        await this.companyRulesService.get(slackTeamId),
+        upload.id,
+        upload.file_name,
+      ),
+    });
   }
 
   public async showCanceled(upload: ITeamFileUpload) {

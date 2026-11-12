@@ -17,6 +17,8 @@ The files you send to Logbook, and the ones it sends you. You send a file in you
 
 Logbook tells the files you send apart by their columns, not their names: a team file has **Email** and **Team**; a leave balances file has **Email** and at least one of **Contract start**, **Days left**, **Working days left** and **Bonus days left**, and no **Team**; a leave history has **Email**, **Leave type**, **From** and **To**. A file that is none of them gets an answer that names the three.
 
+Whoever runs Logbook from its source can check a file before sending it: `pnpm files:check <file>` lists the rows Logbook couldn't use, as far as the file alone tells. See [Set up with an AI agent](/logbook/docs/getting-started/set-up-with-an-agent/#check-the-files-yourself).
+
 ## Leave files
 
 What the two leave files have in common:

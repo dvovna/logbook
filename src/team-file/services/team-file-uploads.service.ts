@@ -190,6 +190,32 @@ export class TeamFileUploadsService {
     });
   }
 
+  // The workspace's open preview (a newer file supersedes the one before, so
+  // there is one at most), planned again from its rows; null when none is
+  // open.
+  public async previewed(slackTeamId: string): Promise<{
+    upload: ITeamFileUpload;
+    plan: ITeamFilePlan;
+    state: ITeamFileState;
+  } | null> {
+    const upload = await this.uploadsRepository.findOne({
+      slack_team_id: slackTeamId,
+      status: TeamFileUploadStatus.Previewed,
+    });
+
+    if (
+      !upload ||
+      Date.now() - Date.parse(upload.created_at) >
+        TEAM_FILE_PREVIEW_DAYS * DAY_MS
+    ) {
+      return null;
+    }
+
+    const state = await this.readState(slackTeamId);
+
+    return { upload, plan: this.plan(upload.rows, state), state };
+  }
+
   public undo(
     uploadId: string,
     user: IUserViewModel,
