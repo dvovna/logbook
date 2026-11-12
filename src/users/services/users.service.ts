@@ -286,6 +286,23 @@ export class UsersService implements IUsersService {
     });
   }
 
+  // The reverse of setContractStartDates: each contract start goes back only
+  // while it still is `expected`. Returns the users that changed.
+  public async restoreContractStartDates(
+    changes: { userId: string; expected: string; before: string | null }[],
+    updatedBy: IUserViewModel,
+  ): Promise<string[]> {
+    if (!changes.length) {
+      return [];
+    }
+
+    return this.userRepository.restoreContractStartDates({
+      slackTeamId: updatedBy.slack_team_id,
+      changes,
+      updatedBy: updatedBy.id,
+    });
+  }
+
   public count(params: IFindParams) {
     return this.userRepository.count(this.getFindQuery(params));
   }

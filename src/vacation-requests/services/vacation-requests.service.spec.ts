@@ -68,7 +68,8 @@ describe('VacationRequestsService', () => {
     | 'create'
     | 'findMany'
     | 'createMany'
-    | 'deleteMany',
+    | 'deleteMany'
+    | 'deleteUnchanged',
     jest.Mock
   >;
   let validator: Record<
@@ -117,6 +118,7 @@ describe('VacationRequestsService', () => {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn(),
+      deleteUnchanged: jest.fn(),
     };
     validator = {
       validateRequestLimits: jest.fn(),
@@ -963,6 +965,23 @@ describe('VacationRequestsService', () => {
 
       expect(teamRules.forWorkspace).not.toHaveBeenCalled();
       expect(repository.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleting the leaves of a history file', () => {
+    it('deletes the ones still as the upload left them, in the workspace, and returns their IDs', async () => {
+      const requests = [{ id: 'r1', updatedAt: '2026-06-17T09:00:00.000001Z' }];
+
+      repository.deleteUnchanged.mockResolvedValue(['r1']);
+
+      await expect(
+        service.deleteImported(requests, 'upload-1', SLACK_TEAM_ID),
+      ).resolves.toEqual(['r1']);
+      expect(repository.deleteUnchanged).toHaveBeenCalledWith(
+        SLACK_TEAM_ID,
+        'upload-1',
+        requests,
+      );
     });
   });
 });

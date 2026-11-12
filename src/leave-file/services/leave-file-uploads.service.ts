@@ -15,6 +15,7 @@ import {
   balancesPlanChangesNothing,
   planLeaveBalances,
 } from 'src/leave-file/services/leave-balances-planner';
+import { LeaveFileUndoService } from 'src/leave-file/services/leave-file-undo.service';
 import { LeaveFileStateService } from 'src/leave-file/services/leave-file-state.service';
 import {
   historyPlanChangesNothing,
@@ -29,6 +30,7 @@ import {
   ILeaveFilePreview,
 } from 'src/leave-file/types/leave-file-apply-result.interface';
 import { ILeaveFile } from 'src/leave-file/types/leave-file-row.interface';
+import { ILeaveFileUndoResult } from 'src/leave-file/types/leave-file-undo-result.interface';
 import { ILeaveFileUndo } from 'src/leave-file/types/leave-file-undo.interface';
 import { ILeaveFileUpload } from 'src/leave-file/types/leave-file-upload.interface';
 import {
@@ -60,6 +62,7 @@ export class LeaveFileUploadsService {
     private readonly leaveBalancesService: LeaveBalancesService,
     private readonly usersService: UsersService,
     private readonly transactions: TransactionService,
+    private readonly undoService: LeaveFileUndoService,
   ) {}
 
   // Plans the file against the workspace as it is now and keeps its rows for
@@ -206,6 +209,13 @@ export class LeaveFileUploadsService {
 
       return { kind: 'applied', preview, upload: applied };
     });
+  }
+
+  public undo(
+    uploadId: string,
+    user: IUserViewModel,
+  ): Promise<ILeaveFileUndoResult> {
+    return this.undoService.undo(uploadId, user);
   }
 
   public hasApplied(slackTeamId: string): Promise<boolean> {

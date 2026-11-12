@@ -629,6 +629,21 @@ export class VacationRequestsService implements IVacationRequestsService {
     return this.transactions.transaction(() => this.insertInChunks(records));
   }
 
+  // The reverse of addImported: deletes each leave of the upload that is
+  // still as the upload left it, in one statement. Returns the IDs deleted.
+  // Imported leaves are approved and have no workflow to close.
+  public deleteImported(
+    requests: { id: string; updatedAt: string }[],
+    uploadId: string,
+    slackTeamId: string,
+  ): Promise<string[]> {
+    return this.vacationRequestsRepository.deleteUnchanged(
+      slackTeamId,
+      uploadId,
+      requests,
+    );
+  }
+
   private async insertInChunks(
     records: Parameters<VacationRequestsRepository['createMany']>[0],
   ) {
@@ -684,6 +699,8 @@ export class VacationRequestsService implements IVacationRequestsService {
   private getFindQuery(params: IVacationRequestFindParams): RepositoryFilter {
     return {
       ...(params.id ? { id: params.id } : {}),
+      // An empty list matches nothing.
+      ...(params.ids ? { id: params.ids } : {}),
       ...(params.userId ? { user_id: params.userId } : {}),
       ...(params.userIds ? { user_id: params.userIds } : {}),
       ...(params.statuses

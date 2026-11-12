@@ -5,6 +5,7 @@ import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-poli
 import { VacationRequestsModule } from '@modules/vacation-requests/vacation-requests.module';
 import { LeaveFileUploadsRepository } from 'src/leave-file/repositories/leave-file-uploads.repository';
 import { LeaveFileStateService } from 'src/leave-file/services/leave-file-state.service';
+import { LeaveFileUndoService } from 'src/leave-file/services/leave-file-undo.service';
 import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
 
 @Module({
@@ -17,6 +18,7 @@ import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uplo
   providers: [
     LeaveFileUploadsRepository,
     LeaveFileStateService,
+    LeaveFileUndoService,
     LeaveFileUploadsService,
   ],
   exports: [LeaveFileUploadsService],

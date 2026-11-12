@@ -21,6 +21,7 @@ import { LeaveFileUploadStatus } from 'src/leave-file/enums/leave-file-upload-st
 import { LeaveFileUploadsRepository } from 'src/leave-file/repositories/leave-file-uploads.repository';
 import { planLeaveBalances } from 'src/leave-file/services/leave-balances-planner';
 import { LeaveFileStateService } from 'src/leave-file/services/leave-file-state.service';
+import { LeaveFileUndoService } from 'src/leave-file/services/leave-file-undo.service';
 import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
 import { planLeaveHistory } from 'src/leave-file/services/leave-history-planner';
 import { IStoredLeaveBalancesState } from 'src/leave-file/types/leave-balances-plan.interface';
@@ -238,6 +239,7 @@ describe('LeaveFileUploadsService', () => {
         calls.push('lock');
       }),
     };
+    const undoService = { undo: jest.fn() };
     const service = new LeaveFileUploadsService(
       repository as unknown as LeaveFileUploadsRepository,
       stateService as unknown as LeaveFileStateService,
@@ -245,10 +247,12 @@ describe('LeaveFileUploadsService', () => {
       leaveBalancesService as unknown as LeaveBalancesService,
       usersService as unknown as UsersService,
       transactions as unknown as TransactionService,
+      undoService as unknown as LeaveFileUndoService,
     );
 
     return {
       service,
+      undoService,
       repository,
       stateService,
       vacationRequestsService,
@@ -342,6 +346,18 @@ describe('LeaveFileUploadsService', () => {
         'workspace-1',
         LeaveFileKind.Balances,
       );
+    });
+  });
+
+  describe('undo', () => {
+    it('is the undo service’s', async () => {
+      const built = build();
+      const result = { kind: 'closed', reason: 'it was already undone' };
+
+      built.undoService.undo.mockResolvedValue(result);
+
+      await expect(built.service.undo(UPLOAD_ID, user)).resolves.toBe(result);
+      expect(built.undoService.undo).toHaveBeenCalledWith(UPLOAD_ID, user);
     });
   });
 

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { sql } from 'kysely';
 import {
   IRelation,
   BaseRepository,
@@ -57,4 +58,35 @@ export class VacationRequestsRepository extends BaseRepository<
       leave_file_upload_id: extendedRow.leave_file_upload_id,
     };
   };
+
+  // Deletes each request, in one statement, only while it is as its upload
+  // left it. Returns the IDs it deleted.
+  public async deleteUnchanged(
+    slackTeamId: string,
+    uploadId: string,
+    requests: { id: string; updatedAt: string }[],
+  ): Promise<string[]> {
+    if (!requests.length) {
+      return [];
+    }
+
+    const rows = await this.deleteInWorkspace(slackTeamId)
+      .using(
+        sql<{ id: string; updated_at: string }>`(
+          select * from jsonb_to_recordset(${JSON.stringify(
+            requests.map(({ id, updatedAt }) => ({
+              id,
+              updated_at: updatedAt,
+            })),
+          )}::jsonb) as unchanged (id uuid, updated_at timestamptz)
+        )`.as('unchanged'),
+      )
+      .whereRef('vacation_requests.id', '=', 'unchanged.id')
+      .whereRef('vacation_requests.updated_at', '=', 'unchanged.updated_at')
+      .where('vacation_requests.leave_file_upload_id', '=', uploadId)
+      .returning('vacation_requests.id')
+      .execute();
+
+    return rows.map(({ id }) => id);
+  }
 }

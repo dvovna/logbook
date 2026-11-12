@@ -220,6 +220,40 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
       .execute();
   }
 
+  // Sets each user's contract start back, in one statement, only while it
+  // still is `expected`. Returns the IDs that changed.
+  public async restoreContractStartDates(params: {
+    slackTeamId: string;
+    changes: { userId: string; expected: string; before: string | null }[];
+    updatedBy: string;
+  }): Promise<string[]> {
+    const { slackTeamId, changes, updatedBy } = params;
+
+    const rows = await this.updateInWorkspace(slackTeamId)
+      .from(
+        sql<{ user_id: string; expected: string; before: string | null }>`(
+          select * from jsonb_to_recordset(${JSON.stringify(
+            changes.map(({ userId, expected, before }) => ({
+              user_id: userId,
+              expected,
+              before,
+            })),
+          )}::jsonb) as restores (user_id uuid, expected date, before date)
+        )`.as('restores'),
+      )
+      .set({
+        contract_start_date: sql<string | null>`restores.before`,
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy,
+      })
+      .whereRef('users.id', '=', 'restores.user_id')
+      .whereRef('users.contract_start_date', '=', 'restores.expected')
+      .returning('users.id')
+      .execute();
+
+    return rows.map(({ id }) => id);
+  }
+
   // The foreign key lets a user point at another workspace's team.
   private async assertTeamsInWorkspace(slackTeamId: string, teamIds: string[]) {
     if (teamIds.length === 0) {

@@ -24,6 +24,7 @@ export interface IVacationRequestUpdateParams {
 
 export interface IVacationRequestFindParams {
   id?: string;
+  ids?: string[];
   userId?: string;
   userIds?: string[];
   teamId?: string;

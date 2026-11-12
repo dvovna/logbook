@@ -397,6 +397,223 @@ describe('Leave file uploads', () => {
     });
   });
 
+  describe('undoing a file', () => {
+    const applyHistory = async (rows: ILeaveHistoryRow[]) => {
+      const { upload } = await uploads.receive(
+        historyFile(rows),
+        'leave-history.csv',
+        asUser(hr),
+      );
+
+      await uploads.apply(upload.id, upload.plan_digest, asUser(hr));
+
+      return upload;
+    };
+
+    // The test clock ticks in steps, so an edit right after Apply could
+    // carry the same time.
+    const minutesLater = () => new Date(Date.now() + 60_000).toISOString();
+
+    const leave = (row: number, from: string, to: string) =>
+      historyRow(row, { from, to });
+
+    it('deletes the leaves as the upload left them and keeps one HR edited since, naming it', async () => {
+      const upload = await applyHistory([
+        leave(2, '2026-03-02', '2026-03-06'),
+        leave(3, '2026-07-06', '2026-07-07'),
+      ]);
+      const [edited] = (await workspace.rows('vacation_requests')).sort(
+        (a, b) => a.start_date.localeCompare(b.start_date),
+      );
+
+      await t.db
+        .updateTable('vacation_requests')
+        .set({ user_comment: 'Moved', updated_at: minutesLater() })
+        .where('id', '=', edited.id)
+        .execute();
+
+      const result = await uploads.undo(upload.id, asUser(hr));
+
+      expect(result).toMatchObject({
+        kind: 'undone',
+        restored: 1,
+        kept: [`${anna.name || anna.email}'s annual leave 2–6 Mar 2026`],
+      });
+      expect(
+        (await workspace.rows('vacation_requests')).map((r) => r.id),
+      ).toEqual([edited.id]);
+      expect(await uploadsOf()).toEqual({ [upload.id]: 'undone' });
+      await expect(uploads.undo(upload.id, asUser(hr))).resolves.toEqual({
+        kind: 'closed',
+        reason: 'it was already undone',
+      });
+    });
+
+    it('neither restores nor keeps a leave deleted since', async () => {
+      const upload = await applyHistory([leave(2, '2026-03-02', '2026-03-06')]);
+
+      await t.db.deleteFrom('vacation_requests').execute();
+
+      await expect(uploads.undo(upload.id, asUser(hr))).resolves.toMatchObject({
+        kind: 'undone',
+        restored: 0,
+        kept: [],
+      });
+    });
+
+    it('undoes an older upload after a newer one, leaving the newer one’s leaves', async () => {
+      const older = await applyHistory([leave(2, '2026-03-02', '2026-03-06')]);
+      const newer = await applyHistory([leave(2, '2026-07-06', '2026-07-07')]);
+
+      await expect(uploads.undo(older.id, asUser(hr))).resolves.toMatchObject({
+        kind: 'undone',
+        restored: 1,
+        kept: [],
+      });
+      expect(
+        (await workspace.rows('vacation_requests')).map((r) => ({
+          start: r.start_date,
+          upload: r.leave_file_upload_id,
+        })),
+      ).toEqual([{ start: '2026-07-06', upload: newer.id }]);
+    });
+
+    it('closes an upload applied more than 7 days ago and an ID of another workspace', async () => {
+      const upload = await applyHistory([leave(2, '2026-03-02', '2026-03-06')]);
+
+      await t.db
+        .updateTable('leave_file_uploads')
+        .set({
+          applied_at: new Date(Date.now() - 8 * 86_400_000).toISOString(),
+        })
+        .execute();
+
+      await expect(uploads.undo(upload.id, asUser(hr))).resolves.toEqual({
+        kind: 'closed',
+        reason: "it's been more than 7 days",
+      });
+      expect(await workspace.rows('vacation_requests')).toHaveLength(1);
+
+      const other = await t.createWorkspace();
+      const stranger = await other.addUser({ role: UserRole.HR });
+
+      await expect(uploads.undo(upload.id, asUser(stranger))).rejects.toThrow(
+        'This preview is no longer open.',
+      );
+    });
+
+    it('puts back the earlier balance and contract start, and keeps what changed since', async () => {
+      const [earlierUpload] = await t.db
+        .insertInto('leave_file_uploads')
+        .values({
+          slack_team_id: workspace.id,
+          uploaded_by: hr.id,
+          kind: 'balances',
+          file_name: 'leave-balances.csv',
+          rows: JSON.stringify([]),
+          plan_digest: 'digest',
+          status: 'applied',
+        })
+        .returningAll()
+        .execute();
+      const [earlier] = await t.db
+        .insertInto('leave_balances')
+        .values({
+          slack_team_id: workspace.id,
+          user_id: anna.id,
+          balance_on: '2026-05-01',
+          days_left: 3,
+          upload_id: earlierUpload.id,
+          set_by: hr.id,
+        })
+        .returningAll()
+        .execute();
+      const ben = await workspace.addUser({
+        name: 'Ben Brown',
+        contract_start_date: '2020-01-01',
+      });
+      const cara = await workspace.addUser({
+        name: 'Cara Cole',
+        team_id: team.id,
+        created_at: '2026-01-01T09:00:00Z',
+      });
+      const row = (
+        who: Tables<'users'>,
+        fields: Partial<ILeaveBalanceRow>,
+      ) => ({
+        row: 2,
+        name: '',
+        email: who.email,
+        contractStart: '',
+        balanceOn: '',
+        daysLeft: '',
+        workingDaysLeft: '',
+        bonusDaysLeft: '',
+        ...fields,
+      });
+      const { upload } = await uploads.receive(
+        balancesFile([
+          row(anna, {
+            contractStart: '2021-04-15',
+            balanceOn: '2026-06-17',
+            daysLeft: '12',
+          }),
+          row(ben, { contractStart: '2020-02-01' }),
+          row(cara, { balanceOn: '2026-06-17', daysLeft: '7' }),
+        ]),
+        'leave-balances.csv',
+        asUser(hr),
+      );
+
+      await uploads.apply(upload.id, upload.plan_digest, asUser(hr));
+      // Since the file: HR set Ben's contract start and Cara's balance again.
+      await t.db
+        .updateTable('users')
+        .set({ contract_start_date: '2019-09-09' })
+        .where('id', '=', ben.id)
+        .execute();
+      await t.db
+        .updateTable('leave_balances')
+        .set({ days_left: 8, updated_at: minutesLater() })
+        .where('user_id', '=', cara.id)
+        .execute();
+
+      const result = await uploads.undo(upload.id, asUser(hr));
+
+      expect(result).toMatchObject({
+        kind: 'undone',
+        // Anna's balance and contract start.
+        restored: 2,
+        kept: ["Cara Cole's balance", "Ben Brown's contract start"],
+      });
+      const balances = await workspace.rows('leave_balances');
+
+      expect(
+        balances
+          .map(({ user_id, days_left, upload_id }) => ({
+            user_id,
+            days_left,
+            upload_id,
+          }))
+          .sort((a, b) => a.days_left! - b.days_left!),
+      ).toEqual([
+        { user_id: anna.id, days_left: 3, upload_id: earlierUpload.id },
+        { user_id: cara.id, days_left: 8, upload_id: upload.id },
+      ]);
+      expect(balances.find((b) => b.user_id === anna.id)).toMatchObject({
+        balance_on: '2026-05-01',
+        updated_at: earlier.updated_at,
+      });
+      expect((await workspace.row('users', anna.id)).contract_start_date).toBe(
+        null,
+      );
+      expect((await workspace.row('users', ben.id)).contract_start_date).toBe(
+        '2019-09-09',
+      );
+      expect(await uploadsOf()).toMatchObject({ [upload.id]: 'undone' });
+    });
+  });
+
   it('replaces only the open preview of the same kind', async () => {
     const receive = async (kind: LeaveFileKind) =>
       (
