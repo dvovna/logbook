@@ -64,5 +64,7 @@ export interface ILeaveBalancesPlan {
     movedBalanceOn?: string;
   }[];
   unchanged: number;
-  unusable: { row: number; reason: string }[];
+  // `contractStartApplies`: the row's contract start applies, only the rest
+  // of it can't.
+  unusable: { row: number; reason: string; contractStartApplies?: boolean }[];
 }

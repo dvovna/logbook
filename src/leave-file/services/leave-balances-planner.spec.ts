@@ -335,7 +335,11 @@ describe('planLeaveBalances', () => {
     ]);
     expect(result.balances).toEqual([]);
     expect(result.unusable).toEqual([
-      { row: 2, reason: REASONS.noPolicy('Anna Novak') },
+      {
+        row: 2,
+        reason: REASONS.contractStartApplies(REASONS.noPolicy('Anna Novak')),
+        contractStartApplies: true,
+      },
     ]);
   });
 
@@ -358,9 +362,22 @@ describe('planLeaveBalances', () => {
     expect(result.contractStarts).toHaveLength(1);
     expect(result.balances).toEqual([]);
     expect(result.unusable).toEqual([
-      { row: 2, reason: REASONS.invalidDays('Days left', 'lots') },
+      {
+        row: 2,
+        reason:
+          'Days left "lots" isn\'t a number of days (its contract start still applies)',
+        contractStartApplies: true,
+      },
     ]);
   });
+
+  it('says nothing of a contract start the row gives as it is', () =>
+    expect(
+      plan(
+        [row({ contractStart: '2021-04-15', daysLeft: 'lots' })],
+        state({ people: [person({ contract_start_date: '2021-04-15' })] }),
+      ).unusable,
+    ).toEqual([{ row: 2, reason: REASONS.invalidDays('Days left', 'lots') }]));
 
   it('applies corrected contract starts from a template made last year', () => {
     const result = plan(
@@ -492,7 +509,11 @@ describe('planLeaveBalances', () => {
             daysLeft: '1',
           }),
         ]),
-      ).toEqual([REASONS.balanceOnOutsideYear('Anna Novak', '1 Nov 2026')]));
+      ).toEqual([
+        REASONS.contractStartApplies(
+          REASONS.balanceOnOutsideYear('Anna Novak', '1 Nov 2026'),
+        ),
+      ]));
     it('names the person by email without a name', () =>
       expect(
         reasonOf([row({ name: '', balanceOn: '2025-01-01', daysLeft: '1' })]),

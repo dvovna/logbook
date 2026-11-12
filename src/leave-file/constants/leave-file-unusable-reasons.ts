@@ -20,6 +20,9 @@ export const LEAVE_FILE_UNUSABLE_REASONS = {
   balanceOnFuture: (text: string) => `Balance on ${text} is after today`,
   balanceOnOutsideYear: (name: string, yearStart: string) =>
     `Balance on must fall in ${name}'s current vacation year, which starts ${yearStart}`,
+  // A row whose contract start applies, though the rest of it can't.
+  contractStartApplies: (reason: string) =>
+    `${reason} (its contract start still applies)`,
   noPolicy: (name: string) =>
     `${name} follows no vacation policy, so there is no balance to set. Set a policy first.`,
   unknownType: (text: string) =>

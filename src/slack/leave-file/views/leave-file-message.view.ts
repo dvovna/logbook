@@ -300,7 +300,13 @@ export class LeaveFileMessageView {
   // E.g. "✅ Set balances for 3 people. Changed the contract start of 1
   // person. 2 rows weren't used.", with the parts that are zero left out.
   private appliedText(preview: ILeaveFilePreview) {
-    const unusable = preview.plan.unusable.length;
+    // A row whose contract start applied was used, though not all of it.
+    const unusable =
+      preview.kind === LeaveFileKind.Balances
+        ? preview.plan.unusable.filter(
+            ({ contractStartApplies }) => !contractStartApplies,
+          ).length
+        : preview.plan.unusable.length;
     const unused = unusable
       ? `${counted(unusable, "row wasn't", "rows weren't")} used.`
       : null;

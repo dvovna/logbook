@@ -766,6 +766,38 @@ describe('LeaveFileMessageView', () => {
       });
     });
 
+    it("doesn't count a row whose contract start applied as unused, and lists what it couldn't do", () => {
+      const message = view.applied(
+        balances(
+          balancesPlan({
+            balances: [balance('kate', {})],
+            contractStarts: [
+              { userId: 'anna', before: null, after: '2021-04-15' },
+            ],
+            unusable: [
+              {
+                row: 2,
+                reason:
+                  'Anna Novak follows no vacation policy, so there is no balance to set. Set a policy first. (its contract start still applies)',
+                contractStartApplies: true,
+              },
+              { row: 3, reason: 'Row has no email' },
+            ],
+          }),
+        ),
+        'upload-1',
+      );
+
+      expect(textsOf(message).slice(0, 2)).toEqual([
+        "✅ Set balances for 1 person. Changed the contract start of 1 person. 1 row wasn't used.",
+        [
+          "⚠️ *Rows it didn't use (2)*",
+          '• Row 2: Anna Novak follows no vacation policy, so there is no balance to set. Set a policy first. (its contract start still applies)',
+          '• Row 3: Row has no email',
+        ].join('\n'),
+      ]);
+    });
+
     it('of contract starts only says only that', () => {
       expect(
         view.applied(

@@ -219,6 +219,28 @@ describe('Leave file Apply', () => {
       ]);
     });
 
+    it('counts a row whose contract start applied as used, and says what of it could not be', async () => {
+      const lost =
+        '• Row 2: Days left "lots" isn\'t a number of days (its contract start still applies)';
+      const [preview] = await shareBalances(
+        `Anna Novak,${anna.email},2021-04-15,,lots,,`,
+      );
+
+      expect(leaveFileTexts(preview)).toContain(
+        `⚠️ *Rows it can't use (1)*\n${lost}`,
+      );
+
+      const result = await click(preview, 'apply');
+
+      expect(leaveFileTexts(result)).toEqual([
+        '✅ Changed the contract start of 1 person.',
+        `⚠️ *Rows it didn't use (1)*\n${lost}`,
+      ]);
+      expect((await workspace.row('users', anna.id)).contract_start_date).toBe(
+        '2021-04-15',
+      );
+    });
+
     it("the result's Open People shows People", async () => {
       const applied = await apply(
         shareBalances(`Anna Novak,${anna.email},,2026-06-17,3,,`),

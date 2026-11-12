@@ -78,8 +78,17 @@ export function planLeaveBalances(
     const email = normalizeEmail(row.email);
     const person = peopleByEmail.get(email);
     const name = row.name.trim() || row.email.trim();
+    let startChanges = false;
     const unusable = (reason: string) =>
-      plan.unusable.push({ row: row.row, reason });
+      plan.unusable.push(
+        startChanges
+          ? {
+              row: row.row,
+              reason: REASONS.contractStartApplies(reason),
+              contractStartApplies: true,
+            }
+          : { row: row.row, reason },
+      );
 
     if (!email) {
       unusable(REASONS.noEmail);
@@ -112,12 +121,12 @@ export function planLeaveBalances(
     }
     const before = person.contract_start_date ?? null;
     const newStart = contractStart.kind === 'date' ? contractStart.value : null;
-    const startChanges = newStart !== null && newStart !== before;
     const contractStartDate = newStart ?? before;
 
     // A valid contract start applies whatever the balance part says, and a
     // row that gives no count sets no balance, so its Balance on is not read.
-    if (startChanges) {
+    if (newStart !== null && newStart !== before) {
+      startChanges = true;
       plan.contractStarts.push({ userId: person.id, before, after: newStart });
     }
     const givesCount = [
