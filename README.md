@@ -256,6 +256,25 @@ A bug a test has found but nobody has fixed yet stays in the suite as `it.failin
 
 CI runs the type check, lint, unit and integration tests on every pull request, and checks that `src/common/types/database.types.ts` matches the migrations.
 
+### Load test
+
+`pnpm test:load` (`test/load/monday-peak.load-spec.ts`) checks that Logbook answers Slack within its 3 seconds at the Monday peak of a company of 400 people. It is not part of `pnpm test:int` or CI. It uses the integration tests' app, fake Slack and safeguards (the local stack only), and:
+- seeds a workspace of 400 people in 20 teams with a year of time, about 150,000 entries (`insert … select generate_series`, `test/load/support/seed.ts`): approved up to last week, whose time is still in drafts for 6 people in 10 and waits for approval for 3 in 10;
+- on Monday 09:00 starts the weekly reminder and, three times 10 seconds apart, a burst of 80 clicks at once: people opening Home, opening last week's form, saving and submitting it, managers opening Approvals, two time reports of the year and a CSV of the year;
+- makes every statement 100 ms slower and every Slack call 150 ms, with production's pool (10 connections) and 4 jobs at once;
+- prints the answer times (p50, p95, max) by kind of click, how long people waited for their screen or file, the waits for a pool connection and the event loop's delay, and fails on an answer over 2.5 s, an error the app logged, or a screen that never showed.
+
+It takes a few minutes and deletes its workspace at the end. With the database 100 ms away it doesn't pass yet: the work after the answers takes the pool from the clicks (dvovna/logbook#94). With the database in the app's region (`SQL_LATENCY_MS=1`) it does.
+
+```bash
+pnpm test:load
+SQL_LATENCY_MS=1 pnpm test:load                       # the app next to its database
+LOAD_SCALE=2 DATABASE_POOL_SIZE=20 pnpm test:load     # twice the clicks, a bigger pool
+LOAD_REPORT=load.json pnpm test:load                  # the numbers as JSON too
+```
+
+`SLACK_LATENCY_MS`, `JOBS_CONCURRENCY`, `LOAD_WAVES` and `LOAD_WAVE_GAP_MS` change the rest. The app, the test client and the fake Slack share one Node process, so the event loop's delay counts the client's work too.
+
 ## Known limitations
 
 - Slack only; there is no Microsoft Teams support.

@@ -21,6 +21,7 @@ pnpm test             # jest
 pnpm test src/request-workflows/services/request-workflow.service.spec.ts   # one file
 pnpm test -t 'finishes the workflow'                                        # by test name
 pnpm test:int         # integration tests against the local Supabase stack
+pnpm test:load        # the Monday peak: 400 people, a burst of clicks, 100 ms to the database (README → "Load test")
 pnpm test:cov:all     # unit + integration with merged coverage (coverage/index.html)
 pnpm db:init          # recreate the local Supabase database from supabase/migrations
 pnpm db:types         # regenerate src/common/types/database.types.ts from the local database
