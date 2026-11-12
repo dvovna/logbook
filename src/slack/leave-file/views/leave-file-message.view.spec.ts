@@ -629,7 +629,7 @@ describe('LeaveFileMessageView', () => {
         "*Here's what leave-history.csv will do*",
         'Adds *5 leaves* for 3 people as approved. Nobody is asked to approve them and nobody gets a message.',
         '1 annual leave, 2 bonus days, 1 sick leave, 1 unpaid leave. 3 of them are from today on.',
-        '*Balances that change (1)*: people with no balance from a file\n• Anna Novak: 26 → 21 days left, 20 → 15 working days left',
+        '*Balances that change (1)*: people with no balance from a file this vacation year\n• Anna Novak: 26 → 21 days left, 20 → 15 working days left',
         '*Planned leave (1)*: taken from a balance from a file\n• Kate Moss: 2 bonus days left, 1 after 4 Dec 2026',
         '*Already in Logbook (4)*: skipped',
         "⚠️ *Rows it can't use (1)*\n• Row 9: overlaps row 2",

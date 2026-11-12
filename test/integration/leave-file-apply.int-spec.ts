@@ -601,7 +601,7 @@ describe('Leave file Apply', () => {
         CHANGED_SINCE_PREVIEW,
         'Adds *1 leave* for 1 person as approved. Nobody is asked to approve them and nobody gets a message.',
         '1 annual leave. 1 of them is from today on.',
-        '*Balances that change (1)*: people with no balance from a file\n• Anna Novak: 15 → 10 days left, 11 → 6 working days left',
+        '*Balances that change (1)*: people with no balance from a file this vacation year\n• Anna Novak: 15 → 10 days left, 11 → 6 working days left',
         "⚠️ *Rows it can't use (1)*\n• Row 2: overlaps Anna Novak's annual leave 8 Jul 2026",
       ]);
       expect(actionIdsOf(update!)).toEqual(['apply', 'cancel']);

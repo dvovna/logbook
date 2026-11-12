@@ -503,7 +503,7 @@ export class LeaveFileMessageView {
     if (plan.balanceChanges.length) {
       blocks.push(
         fullList(
-          `*Balances that change (${plan.balanceChanges.length})*: people with no balance from a file`,
+          `*Balances that change (${plan.balanceChanges.length})*: people with no balance from a file this vacation year`,
           plan.balanceChanges.map(
             ({ userId, before, after }) =>
               `${nameOf(userId)}: ${UNITS.filter(

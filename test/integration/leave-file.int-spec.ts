@@ -45,6 +45,19 @@ describe('Leave file', () => {
       since,
     });
 
+    expect(
+      t.slackApi
+        .postedMessages(workspace.token, user.slack_id, { since })
+        .map(({ text }) => text),
+    ).toEqual([
+      [
+        '📥 *Bring in leave from your spreadsheet.* Two files, in any order: send each back to me here. Nothing changes until you check what it will do and press Apply.',
+        "• *leave-balances.csv*: each person's contract start and what they have left on the *Balance on* date, before any leave from that date on. Fill *Days left* or *Working days left*, whichever you count in, and *Bonus days left* if you have them. An empty cell keeps what is there; a count from an earlier vacation year goes, and the preview says so.",
+        '• *leave-history.csv*: one row per leave: Email, Leave type (Annual leave, Bonus day, Sick leave, Unpaid leave or Other), From, To, and a Comment if you like. It arrives approved, and nobody is notified.',
+        'Set up a vacation policy and teams first: a balance needs a policy, and working days come from its holidays.',
+      ].join('\n'),
+      '🗓 And the leave history: one row per leave, taken or agreed.',
+    ]);
     expect(files.map(({ filename }) => filename)).toEqual([
       'leave-balances.csv',
       'leave-history.csv',
@@ -321,7 +334,7 @@ describe('Leave file', () => {
         "*Here's what leave-history.csv will do*",
         'Adds *4 leaves* for 2 people as approved. Nobody is asked to approve them and nobody gets a message.',
         '1 annual leave, 1 bonus day, 1 sick leave, 1 unpaid leave. 2 of them are from today on.',
-        '*Balances that change (1)*: people with no balance from a file\n• Anna Novak: 16 → 11 days left, 12 → 7 working days left',
+        '*Balances that change (1)*: people with no balance from a file this vacation year\n• Anna Novak: 16 → 11 days left, 12 → 7 working days left',
         '*Planned leave (1)*: taken from a balance from a file\n• Bo Brown: 2 bonus days left, 1 after 3 Jul 2026',
         '*Already in Logbook (1)*: skipped',
         "⚠️ *Rows it can't use (1)*\n• Row 7: overlaps Anna Novak's annual leave 2–11 Mar 2026",
