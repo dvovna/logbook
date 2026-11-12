@@ -9,6 +9,7 @@ import { TransactionService } from 'src/database/transaction.service';
 import getDaysBetweenDates from '@common/utils/get-days-between-dates';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import VacationType from '@common/enums/vacation-type.enum';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import { RepositoryFilter } from '@common/repositories/repository.types';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -54,7 +55,7 @@ export interface IVacationsReplacement {
 }
 
 // Rows per insert: a statement takes at most 65535 parameters, and a
-// vacation row has 11.
+// vacation row has at most 15.
 const INSERT_CHUNK_ROWS = 2000;
 
 // The value of a read started beside others, or its error.
@@ -566,19 +567,7 @@ export class VacationRequestsService implements IVacationRequestsService {
         user_id: userIds,
       });
 
-      const created: IVacationRequestViewModel[] = [];
-
-      for (
-        let from = 0;
-        from < vacationRecords.length;
-        from += INSERT_CHUNK_ROWS
-      ) {
-        created.push(
-          ...(await this.vacationRequestsRepository.createMany(
-            vacationRecords.slice(from, from + INSERT_CHUNK_ROWS),
-          )),
-        );
-      }
+      const created = await this.insertInChunks(vacationRecords);
 
       await this.usersService.setContractStartDates(contractStarts, replacedBy);
 
@@ -586,12 +575,82 @@ export class VacationRequestsService implements IVacationRequestsService {
     });
   }
 
+  // Adds a leave history file's leaves as approved and marked with its
+  // upload, in the caller's transaction and in the same few statements
+  // however many there are. They were taken or agreed already: no workflow,
+  // no event, so nobody is asked or told. A leave's working days come from
+  // the holidays of the policy its team follows.
+  public async addImported(
+    leaves: {
+      userId: string;
+      teamId: string | null;
+      type: VacationType;
+      startDate: string;
+      endDate: string;
+      comment: string | null;
+    }[],
+    importedBy: IUserViewModel,
+    uploadId: string,
+  ): Promise<IVacationRequestViewModel[]> {
+    if (!leaves.length) {
+      return [];
+    }
+
+    const slackTeamId = importedBy.slack_team_id;
+    const spans = leaves.map((leave) => ({
+      leave,
+      startDate: new Date(leave.startDate),
+      endDate: new Date(leave.endDate),
+    }));
+    const holidaysOfTeam = await this.readHolidaysOfTeams(slackTeamId, spans);
+    const now = new Date().toISOString();
+    const records = spans.map(({ leave, startDate, endDate }) => ({
+      slack_team_id: slackTeamId,
+      user_id: leave.userId,
+      team_id: leave.teamId,
+      start_date: leave.startDate,
+      end_date: leave.endDate,
+      days: getDaysBetweenDates(startDate, endDate),
+      working_days: this.workingDaysCalculationService.workingDatesWithout(
+        startDate,
+        endDate,
+        holidaysOfTeam(leave.teamId),
+      ).length,
+      type: leave.type,
+      status: VacationRequestStatus.Approved,
+      user_comment: leave.comment,
+      leave_file_upload_id: uploadId,
+      created_by: importedBy.id,
+      updated_by: importedBy.id,
+      created_at: now,
+      updated_at: now,
+    }));
+
+    return this.transactions.transaction(() => this.insertInChunks(records));
+  }
+
+  private async insertInChunks(
+    records: Parameters<VacationRequestsRepository['createMany']>[0],
+  ) {
+    const created: IVacationRequestViewModel[] = [];
+
+    for (let from = 0; from < records.length; from += INSERT_CHUNK_ROWS) {
+      created.push(
+        ...(await this.vacationRequestsRepository.createMany(
+          records.slice(from, from + INSERT_CHUNK_ROWS),
+        )),
+      );
+    }
+
+    return created;
+  }
+
   // The enabled holidays over the vacations' days of a team's vacation
   // policy (the company rules' for no team), as replaceUserVacations once
   // read them for each person: every policy's and every team's at once.
   private async readHolidaysOfTeams(
     slackTeamId: string,
-    vacations: IVacationRequestCreateParams[],
+    vacations: { startDate: Date; endDate: Date }[],
   ): Promise<(teamId: string | null) => Set<string>> {
     if (!vacations.length) {
       return () => new Set();

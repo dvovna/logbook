@@ -5,6 +5,7 @@ import {
   ICountedRequest,
   IFileBalance,
   ILeft,
+  IStoredBalance,
 } from '@modules/vacation-requests/utils/leave-balance.utils';
 
 export interface ILeaveBalancesState {
@@ -17,6 +18,12 @@ export interface ILeaveBalancesState {
   requestsOf: Map<string, ICountedRequest[]>;
   // The balances an earlier file set, by user id.
   balanceOf: Map<string, IFileBalance>;
+}
+
+// The state read from the workspace: each earlier balance as stored, which
+// Apply keeps for Undo to put back whole.
+export interface IStoredLeaveBalancesState extends ILeaveBalancesState {
+  balanceOf: Map<string, IStoredBalance>;
 }
 
 export interface ILeaveBalancesPlan {

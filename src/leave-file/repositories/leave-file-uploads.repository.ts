@@ -3,6 +3,11 @@ import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import { LeaveFileKind } from 'src/leave-file/enums/leave-file-kind.enum';
 import { LeaveFileUploadStatus } from 'src/leave-file/enums/leave-file-upload-status.enum';
+import {
+  ILeaveBalanceRow,
+  ILeaveHistoryRow,
+} from 'src/leave-file/types/leave-file-row.interface';
+import { ILeaveFileUndo } from 'src/leave-file/types/leave-file-undo.interface';
 import { ILeaveFileUpload } from 'src/leave-file/types/leave-file-upload.interface';
 
 @Injectable()
@@ -18,12 +23,12 @@ export class LeaveFileUploadsRepository extends BaseRepository<
     uploaded_by: row.uploaded_by,
     kind: row.kind as LeaveFileKind,
     file_name: row.file_name,
-    rows: row.rows as unknown as unknown[],
+    rows: row.rows as unknown as ILeaveBalanceRow[] | ILeaveHistoryRow[],
     plan_digest: row.plan_digest,
     status: row.status as LeaveFileUploadStatus,
     message_channel: row.message_channel,
     message_ts: row.message_ts,
-    undo: row.undo as unknown,
+    undo: row.undo as unknown as ILeaveFileUndo | null,
     created_at: row.created_at,
     applied_at: row.applied_at,
     undone_at: row.undone_at,
@@ -74,7 +79,7 @@ export class LeaveFileUploadsRepository extends BaseRepository<
     );
   }
 
-  public markApplied(id: string, slackTeamId: string, undo: unknown) {
+  public markApplied(id: string, slackTeamId: string, undo: ILeaveFileUndo) {
     return this.update(
       {
         id,

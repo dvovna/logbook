@@ -870,4 +870,99 @@ describe('VacationRequestsService', () => {
       ).toEqual([2000, 2000, 500]);
     });
   });
+
+  describe('adding the leaves of a history file', () => {
+    const leave = (
+      fields: Partial<Parameters<typeof service.addImported>[0][number]> = {},
+    ) => ({
+      userId: requester.id,
+      teamId: null as string | null,
+      type: VacationType.AnnualLeave,
+      startDate: '2026-03-02',
+      endDate: '2026-03-06',
+      comment: null as string | null,
+      ...fields,
+    });
+
+    it('inserts them approved and marked with the upload, a few thousand at a time in one transaction, and tells nobody', async () => {
+      const inserts: string[] = [];
+      repository.createMany.mockImplementation((rows: unknown[]) => {
+        inserts.push(`${rows.length} rows, in a transaction: ${inTransaction}`);
+
+        return Promise.resolve(rows.map(() => buildRequest()));
+      });
+      teamRules.forWorkspace.mockResolvedValue({
+        companyRules: { vacation_policy_id: 'policy-1' },
+        // A team of its own rules without a policy: no holidays.
+        teams: [{ team: { id: 'team-1' }, vacationPolicyId: null }],
+      });
+      const leaves = [
+        ...Array.from({ length: 2000 }, () => leave()),
+        leave({
+          teamId: 'team-1',
+          type: VacationType.SickLeave,
+          startDate: '2026-03-03',
+          endDate: '2026-03-04',
+          comment: 'Agreed by email',
+        }),
+      ];
+
+      const created = await service.addImported(leaves, requester, 'upload-1');
+
+      expect(created).toHaveLength(2001);
+      expect(inserts).toEqual([
+        '2000 rows, in a transaction: true',
+        '1 rows, in a transaction: true',
+      ]);
+      expect(teamRules.forWorkspace).toHaveBeenCalledTimes(1);
+      const [[first], [second]] = repository.createMany.mock.calls as [
+        unknown[],
+      ][];
+      const row = {
+        slack_team_id: SLACK_TEAM_ID,
+        user_id: requester.id,
+        status: VacationRequestStatus.Approved,
+        leave_file_upload_id: 'upload-1',
+        created_by: requester.id,
+        updated_by: requester.id,
+        created_at: expect.any(String),
+        updated_at: expect.any(String),
+      };
+      // March 4 is a holiday of the company rules' policy.
+      expect(first[0]).toEqual({
+        ...row,
+        team_id: null,
+        start_date: '2026-03-02',
+        end_date: '2026-03-06',
+        days: 5,
+        working_days: 4,
+        type: VacationType.AnnualLeave,
+        user_comment: null,
+      });
+      expect(second).toEqual([
+        {
+          ...row,
+          team_id: 'team-1',
+          start_date: '2026-03-03',
+          end_date: '2026-03-04',
+          days: 2,
+          working_days: 2,
+          type: VacationType.SickLeave,
+          user_comment: 'Agreed by email',
+        },
+      ]);
+      expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+      expect(workflowService.closeManyBeforeDelete).not.toHaveBeenCalled();
+    });
+
+    it('reads and writes nothing without leaves', async () => {
+      await expect(
+        service.addImported([], requester, 'upload-1'),
+      ).resolves.toEqual([]);
+
+      expect(teamRules.forWorkspace).not.toHaveBeenCalled();
+      expect(repository.createMany).not.toHaveBeenCalled();
+    });
+  });
 });
