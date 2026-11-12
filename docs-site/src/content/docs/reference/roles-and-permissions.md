@@ -110,7 +110,7 @@ Nobody changes time that is in a billing snapshot, Admin included, until an admi
 | Action | Admin | HR | Manager | Finance | Member |
 | --- | --- | --- | --- | --- | --- |
 | Create, edit and delete teams | Yes | Yes | — | — | — |
-| **Company rules** | Yes | Yes | — | — | — |
+| **⚙️ Company rules** | Yes | Yes | — | — | — |
 | **📄 Set up from a file** (the team file) | Yes | Yes | — | — | — |
 | Policies, holidays and the holiday import | Yes | Yes | — | — | — |
 

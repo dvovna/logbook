@@ -61,7 +61,7 @@ Logbook answers a file you send it in your conversation with it. Most answers ar
 
 | Message | When | To | What it holds or lets you do |
 | --- | --- | --- | --- |
-| Vacation import result | An admin sends `user-vacations.csv`. | The admin. | "✅ Imported", "⚠️ Imported … with problems" or "❗️ … was not imported", with the counts and up to 10 problems. Someone who isn't an admin gets "⛔ Only admins can import vacations." See [Imports](/logbook/docs/admins/imports/). |
+| Vacation import result | An admin sends `user-vacations.csv`. | The admin. | "✅ Imported", "⚠️ Imported … with problems" or "❗️ … was not imported", with the counts and up to 10 problems. HR gets "⛔ Only admins can import vacations." Anyone else who isn't an admin or HR gets "⛔ Only Admin or HR can use this command." for any file they share. See [Imports](/logbook/docs/admins/imports/). |
 | Team file preview | HR or an admin sends a team file. | The sender. | "Here's what *file* will do": the teams it creates, who moves where, lead changes, and rows it can't use. Buttons **Apply**, **Cancel** and **Company rules**. After **Apply** it shows what changed, with **Undo** and **Open Teams**. See [Team file](/logbook/docs/admins/team-file/). |
 | A file Logbook can't use | The file is larger than 1 MB, isn't UTF-8, can't be read, has no Email and Team columns, or isn't a CSV or Excel file. | The sender. | What is wrong, for example "❗️ This doesn't look like a team file: its first row needs Email and Team columns." or "❗️ Unknown file type." |
 

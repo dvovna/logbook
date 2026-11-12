@@ -12,9 +12,9 @@ Once a leave type has a project, people whose time off of that type is approved 
 ## Set it up
 
 1. Open **More** → **Projects**. Create the projects first if you don't have them yet; see [Projects and clients](/logbook/docs/finance/projects-and-clients/).
-2. Click **Time off projects**.
+2. Click **🌴 Time off projects**.
 3. In **Hours in a working day**, enter how many hours a day of time off counts, in 15-minute steps: `8`, or `7.5`. The default is 8.
-4. Choose a project for each leave type you want logged: **Annual leave**, **Bonus day**, **Sick leave**, **Unpaid leave**. Leave a type on **Not logged** to keep it out.
+4. Choose a project for each leave type you want logged: **🏖️ Annual leave**, **🎁 Bonus day**, **🤒 Sick leave**, **💸 Unpaid leave**. Leave a type on **Not logged** to keep it out.
 5. Click **Save**. Projects says the settings were saved.
 
 The form offers the workspace's active projects, any of them. Other leave is never logged.

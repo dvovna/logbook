@@ -41,7 +41,7 @@ See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/).
 
 ## 3. Create teams with approvers
 
-A team's approvers decide time off for its people. Level 1 is the team's managers. Only people with the Manager or Admin role can be level 1 approvers, and only people with the HR or Admin role can be level 2 approvers. Give those roles first under **People**.
+A team's approvers decide time off for its people. Level 1 is the team's managers. The team form offers people with the Manager or Admin role for level 1, and people with the HR or Admin role for level 2. Give those roles first under **People**.
 
 You have two ways to create teams:
 
@@ -50,7 +50,7 @@ You have two ways to create teams:
 
 ## 4. Put people in teams
 
-Someone in no team has their requests sent to HR, or to the admins when nobody has the HR role. To change a person's team or role, open **👥 People** from **☰ More** and use **Edit User**. The team form can also set a team's members in one go. See [People and roles](/logbook/docs/admins/people-and-roles/).
+Someone in no team has no level 1: their requests start at the company rules' level 2, or go to HR (or to the admins when nobody has the HR role) when nobody there can decide. To change a person's team or role, open **👥 People** from **☰ More** and use **Edit User**. The team form can also set a team's members in one go. See [People and roles](/logbook/docs/admins/people-and-roles/).
 
 ## Optional: projects and clients
 

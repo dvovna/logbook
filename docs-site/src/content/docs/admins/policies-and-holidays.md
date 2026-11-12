@@ -11,7 +11,7 @@ A policy applies to a team through its rules: the company rules' policy, or the 
 
 ## Create a policy
 
-1. Open **More** → **Policies** and click **Add Policy**.
+1. Open **More** → **Policies** and click **➕ Add Policy**.
 2. Fill in the fields below.
 3. Click **Submit**.
 
@@ -79,7 +79,7 @@ Each year is imported on its own: import again for the next year.
 
 ### Company holidays
 
-Under **Custom Holidays**, click **Add Holiday**, then enter the **Holiday Name** and **Date**. Use it for company days off that aren't public holidays.
+Under **Custom Holidays**, click **➕ Add Holiday**, then enter the **Holiday Name** and **Date**. Use it for company days off that aren't public holidays.
 
 ### Switch a holiday off
 

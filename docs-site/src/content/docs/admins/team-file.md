@@ -9,7 +9,7 @@ This page helps you set up every team and team lead at once, from a spreadsheet,
 
 ## Get the template
 
-1. Open **More** → **Teams** and click **Set up from a file**. The same button is on Home's setup checklist.
+1. Open **More** → **Teams** and click **📄 Set up from a file**. The same button is on Home's setup checklist.
 2. Logbook sends you a DM with `team-setup.csv`.
 
 The file lists every active person, with the team they are in now and whether they lead it. Nothing changes until you send it back, check the preview and click **Apply**.

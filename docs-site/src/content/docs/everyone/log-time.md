@@ -56,7 +56,7 @@ After saving, **My time** shows the week, or the day's week, with a notice such 
 
 ## Which projects you can log on
 
-You can log on the projects assigned to your team or to you. Admins and HR can log on any active project, and can log for other people from **📋 Time logs**.
+You can log on the projects assigned to your team or to you. Admins and HR can log on any active project, and can log for other people from **⏱ Time logs**.
 
 ## Drafts
 

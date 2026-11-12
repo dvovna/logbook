@@ -19,9 +19,9 @@ The balance and the teammates are taken when the request is sent for approval an
 
 The message has three buttons:
 
-- **Approve** approves at once. Logbook updates the message to show who approved.
-- **Reject** opens **Reject Request** with an optional **Reason**. The requester gets the reason with the decision, and every approver's message shows it.
-- **Comment** opens **Add Comment**. The comment shows on the messages of everyone at your level, and the requester gets it in a DM right away, with **View Details** and **Cancel Request** buttons.
+- **Approve ✅** approves at once. Logbook updates the message to show who approved.
+- **Reject ❌** opens **Reject Request** with an optional **Reason**. The requester gets the reason with the decision, and every approver's message shows it.
+- **Comment 💬** opens **Add Comment**. The comment shows on the messages of everyone at your level, and the requester gets it in a DM right away, with **View Details** and **Cancel Request** buttons.
 
 ## Levels
 

@@ -11,7 +11,7 @@ The import reads `user-vacations.csv`. For each person in it, it sets the contra
 
 ## Import a file
 
-1. Type `/upload-vacations` in any channel, or open **More** → **People** and click **Import vacations (CSV)**. Logbook shows you how to import, with the format.
+1. Type `/upload-vacations` in any channel, or open **More** → **People** and click **📥 Import vacations (CSV)**. Logbook shows you how to import, with the format.
 2. Save your file as `user-vacations.csv`. The name has to be exactly this: Logbook recognizes the import by its name.
 3. Upload it in your conversation with Logbook: open Logbook's **Messages** tab and drag the file in.
 4. Logbook imports it and answers with a summary.

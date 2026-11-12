@@ -15,7 +15,7 @@ Open **More** → **Teams**. Each team shows its rules (company or own), its vac
 
 ### Create or edit a team
 
-1. Click **Add Team**, or choose **Edit Team** in a team's **⋯** menu.
+1. Click **➕ Add Team**, or choose **Edit Team** in a team's **⋯** menu.
 2. Fill in the form (see the fields below).
 3. Click **Submit**. The screen says the team was created or updated.
 
@@ -23,7 +23,7 @@ The fields:
 
 - **Team Name**.
 - **Rules**: **Company rules** or **Its own rules**. Choosing **Its own rules** adds the fields of its own rules to the form.
-- **Members**: type a name to add someone. Someone in another team moves to this one, and their time off goes to this team's approvers from then on. Removing someone here takes them out of the team. A team of more than 100 people is changed person by person on **People**.
+- **Members**: type a name to add someone. Someone in another team moves to this one, and their time off goes to this team's approvers from then on. Removing someone here takes them out of the team, and so does saving the form for a team's inactive members, who aren't listed. A team of more than 100 people is changed person by person on **People**.
 - **Level 1: managers**: up to five people with the Manager or Admin role. To choose someone else, give them one of these roles on [People](/logbook/docs/admins/people-and-roles/) first.
 - **Level 1 rule**: tick **All listed approvers must approve** to need every one of them. Otherwise the first approval is enough.
 - **Description**, optional.
@@ -53,7 +53,7 @@ They apply to every team whose **Rules** are **Company rules**, and to everyone 
 
 To change them:
 
-1. On **Teams**, click **Company rules**.
+1. On **Teams**, click **⚙️ Company rules**.
 2. Choose the policy, the level 2 approvers and their rule, and the recipients.
 3. Click **Submit**. The screen says the company rules were saved.
 
@@ -67,11 +67,11 @@ Their submitted time waits for HR, or for the admins when nobody has the HR role
 
 ## The setup checklist
 
-Until the workspace is set up, Home shows HR and admins **Set up Logbook** with how many of four steps are done. Each step left has a button to the screen that does it:
+Until the workspace is set up, Home shows HR and admins **🚀 Set up Logbook** with how many of four steps are done. Each step left has a button to the screen that does it:
 
 1. **Create a vacation policy**: done when the workspace has a policy. See [Policies and holidays](/logbook/docs/admins/policies-and-holidays/).
 2. **Set the company rules**: done when the company rules name level 2 approvers, or when every team keeps its own rules.
-3. **Create teams and pick their approvers**: done when a team has approvers. **Set up from a file** sets up everyone at once.
+3. **Create teams and pick their approvers**: done when a team has approvers. **📄 Set up from a file** sets up everyone at once.
 4. **Put people in teams**: done when every active person has a team. Until then it counts the people without one.
 
 **Add projects** is listed too, as optional, for workspaces that track time. The checklist goes away once the four steps are done.

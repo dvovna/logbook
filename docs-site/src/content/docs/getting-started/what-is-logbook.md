@@ -17,7 +17,7 @@ Logbook is a Slack app for two jobs: asking for time off and getting it approved
 
 - **The Home tab of the Logbook app.** Open Logbook under **Apps** in the Slack sidebar and choose its **Home** tab. A row of buttons at the top moves between screens: **Home**, **My time**, **Time off**, **Approvals** and **☰ More**. **Approvals** shows only for managers, HR and admins. The **More** menu holds the rest of what your role may open.
 - **Direct messages from the bot.** Logbook writes to you when a request goes to approvers, moves up a level, gets a comment or is decided, and when time you submitted is rejected. Approvers get their requests there with **Approve** and **Reject** buttons.
-- **Two commands.** `/vacations` handles time off: `/vacations request`, `/vacations usage` and `/vacations cancel`. `/log` opens the **Log Time** form.
+- **Slash commands.** `/vacations` handles time off: `/vacations request`, `/vacations usage` and `/vacations cancel`. `/log` opens the **Log Time** form. Admins also have `/upload-vacations`, which imports vacation history from a file.
 
 ## Roles
 
