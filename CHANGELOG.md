@@ -4,6 +4,10 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Leave and team files
+- Apply and Undo of a file survive a restart: a click taken just before a deploy, or cut off by one, is done by the next process instead of leaving the message with its button and nothing changed.
+- Cancel on a long preview answers at once; before, Slack could show a warning next to the button while the message was being replaced.
+
 ## [0.4.0] - 2026-11-12
 
 Leave balances and history from your spreadsheet, a documentation site, and decisions and waiting requests that reach the people they concern. Update step: three database migrations and the app manifest, see Running it.
