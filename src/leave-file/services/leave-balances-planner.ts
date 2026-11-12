@@ -131,6 +131,21 @@ export function planLeaveBalances(
     const startChanges = newStart !== null && newStart !== before;
     const contractStartDate = newStart ?? before;
 
+    // A valid contract start applies whatever the balance part says, and a
+    // row that gives no count sets no balance, so its Balance on is not read.
+    if (startChanges) {
+      plan.contractStarts.push({ userId: person.id, before, after: newStart });
+    }
+    const givesCount = [
+      row.daysLeft,
+      row.workingDaysLeft,
+      row.bonusDaysLeft,
+    ].some((text) => text.trim() !== '');
+    if (!givesCount) {
+      if (!startChanges) plan.unchanged++;
+      continue;
+    }
+
     const balanceOnDate = parseFileDate(row.balanceOn, order);
     const balanceReason = badDateReason(
       balanceOnDate,
@@ -144,7 +159,7 @@ export function planLeaveBalances(
     const balanceOn =
       balanceOnDate.kind === 'date' ? balanceOnDate.value : state.today;
     if (balanceOn > state.today) {
-      unusable(REASONS.balanceOnFuture(row.balanceOn.trim()));
+      unusable(REASONS.balanceOnFuture(formatDate(balanceOn)));
       continue;
     }
     const yearStart = getDateOnly(
@@ -162,14 +177,6 @@ export function planLeaveBalances(
     }
     let counts = read.counts;
     const policy = state.policyOf.get(person.id) ?? null;
-
-    if (startChanges) {
-      plan.contractStarts.push({ userId: person.id, before, after: newStart });
-    }
-    if (counts.every((count) => count === null)) {
-      if (!startChanges) plan.unchanged++;
-      continue;
-    }
     if (!policy) {
       unusable(REASONS.noPolicy(name));
       continue;

@@ -245,6 +245,40 @@ describe('planLeaveBalances', () => {
     ]);
   });
 
+  it('applies a changed contract start whatever its Balance on says', () => {
+    const result = plan(
+      [row({ contractStart: '2021-04-15', balanceOn: '2025-01-01' })],
+      state(),
+    );
+    expect(result.contractStarts).toEqual([
+      { userId: anna.id, before: null, after: '2021-04-15' },
+    ]);
+    expect(result.unusable).toEqual([]);
+  });
+
+  it('applies a changed contract start beside a bad count and lists the count', () => {
+    const result = plan(
+      [row({ contractStart: '2021-04-15', daysLeft: 'lots' })],
+      state(),
+    );
+    expect(result.contractStarts).toHaveLength(1);
+    expect(result.balances).toEqual([]);
+    expect(result.unusable).toEqual([
+      { row: 2, reason: REASONS.invalidDays('Days left', 'lots') },
+    ]);
+  });
+
+  it('applies corrected contract starts from a template made last year', () => {
+    const result = plan(
+      [row({ contractStart: '2021-04-15', balanceOn: '2026-12-20' })],
+      { ...state(), today: '2027-01-05' },
+    );
+    expect(result.contractStarts).toEqual([
+      { userId: anna.id, before: null, after: '2021-04-15' },
+    ]);
+    expect(result.unusable).toEqual([]);
+  });
+
   describe('unusable rows', () => {
     it('no email', () =>
       expect(reasonOf([row({ email: '  ' })])).toEqual([REASONS.noEmail]));
@@ -268,22 +302,23 @@ describe('planLeaveBalances', () => {
         REASONS.invalidDate('Contract start', 'soon'),
       ]));
     it('invalid balance on', () =>
-      expect(reasonOf([row({ balanceOn: '2026-13-40' })])).toEqual([
-        REASONS.invalidDate('Balance on', '2026-13-40'),
-      ]));
+      expect(
+        reasonOf([row({ balanceOn: '2026-13-40', daysLeft: '1' })]),
+      ).toEqual([REASONS.invalidDate('Balance on', '2026-13-40')]));
     it('ambiguous date', () =>
-      expect(reasonOf([row({ balanceOn: '3/4/2026' })])).toEqual([
-        REASONS.ambiguousDate('Balance on', '3/4/2026'),
-      ]));
+      expect(reasonOf([row({ balanceOn: '3/4/2026', daysLeft: '1' })])).toEqual(
+        [REASONS.ambiguousDate('Balance on', '3/4/2026')],
+      ));
     it('inconsistent dates', () =>
       expect(
         reasonOf([
-          row({ balanceOn: '25/4/2026' }),
+          row({ balanceOn: '25/4/2026', daysLeft: '1' }),
           row({
             row: 3,
             email: 'boris@acme.test',
             name: 'Boris',
             balanceOn: '4/25/2026',
+            daysLeft: '1',
           }),
         ]),
       ).toEqual([
@@ -299,21 +334,27 @@ describe('planLeaveBalances', () => {
         REASONS.notHalf('Bonus days left', '1.3'),
       ]));
     it('a balance after today', () =>
-      expect(reasonOf([row({ balanceOn: '2026-11-13' })])).toEqual([
-        REASONS.balanceOnFuture('2026-11-13'),
-      ]));
+      expect(
+        reasonOf([row({ balanceOn: '2026-11-13', daysLeft: '1' })]),
+      ).toEqual([REASONS.balanceOnFuture('13 Nov 2026')]));
     it('a balance outside the current vacation year', () =>
-      expect(reasonOf([row({ balanceOn: '2025-12-31' })])).toEqual([
-        REASONS.balanceOnOutsideYear('Anna Novak', '1 Jan 2026'),
-      ]));
+      expect(
+        reasonOf([row({ balanceOn: '2025-12-31', daysLeft: '1' })]),
+      ).toEqual([REASONS.balanceOnOutsideYear('Anna Novak', '1 Jan 2026')]));
     it('the year follows the row’s new contract start', () =>
       expect(
         reasonOf([
-          row({ contractStart: '2020-11-01', balanceOn: '2026-10-31' }),
+          row({
+            contractStart: '2020-11-01',
+            balanceOn: '2026-10-31',
+            daysLeft: '1',
+          }),
         ]),
       ).toEqual([REASONS.balanceOnOutsideYear('Anna Novak', '1 Nov 2026')]));
     it('names the person by email without a name', () =>
-      expect(reasonOf([row({ name: '', balanceOn: '2025-01-01' })])).toEqual([
+      expect(
+        reasonOf([row({ name: '', balanceOn: '2025-01-01', daysLeft: '1' })]),
+      ).toEqual([
         REASONS.balanceOnOutsideYear('anna.novak@acme.test', '1 Jan 2026'),
       ]));
     it('no policy', () =>
