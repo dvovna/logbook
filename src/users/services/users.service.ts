@@ -264,8 +264,8 @@ export class UsersService implements IUsersService {
     });
   }
 
-  // Sets the contract start of each user, in one statement (the CSV
-  // import). Nothing else changes, so nobody is told.
+  // Sets the contract start of each user, in one statement (a leave
+  // balances file). Nothing else changes, so nobody is told.
   public async setContractStartDates(
     changes: { userId: string; contractStartDate: Date }[],
     updatedBy: IUserViewModel,
