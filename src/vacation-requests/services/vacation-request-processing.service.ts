@@ -4,7 +4,12 @@ import { VacationsUsageService } from '@modules/vacation-requests/services/vacat
 import VacationType from '@common/enums/vacation-type.enum';
 import { IRequestContext } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { reportError } from '@common/errors/error-reporter';
+import {
+  IStartWaitingJob,
+  START_WAITING_JOB,
+} from '@modules/vacation-requests/constants/jobs';
 import { JobsService } from '@common/jobs/jobs.service';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
@@ -33,26 +38,20 @@ import { TransactionService } from 'src/database/transaction.service';
 import { vacationRequestLock } from 'src/database/advisory-locks';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import { runOf } from '@modules/request-workflows/utils/workflow-runs';
+import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
+import { decidesRequest } from '@modules/vacation-requests/utils/request-decision.utils';
 import {
   APPROVERS_CHANGED,
   ApproversChangedEvent,
 } from '@modules/users/events/users.events';
 
 export const START_WORKFLOW_JOB = 'vacation-request-start-workflow';
-export const START_WAITING_JOB = 'vacation-request-start-waiting';
 
 interface IStartWorkflowJob {
   requestId: string;
   slackTeamId: string;
   // The run to start (workflow-runs.ts); the first one when missing.
   run?: string;
-}
-
-// The requests of the workspace that wait for anyone who can approve them.
-interface IStartWaitingJob {
-  slackTeamId: string;
-  // Only this one: the look again after its approval found nobody.
-  requestId?: string;
 }
 
 // What a request's approval would be now: its workflow, or null when nobody
@@ -64,6 +63,8 @@ interface IApprovalPlan {
 
 @Injectable()
 export class VacationRequestProcessingService implements OnModuleInit {
+  private readonly logger = new Logger(VacationRequestProcessingService.name);
+
   public constructor(
     private readonly teamRulesService: TeamRulesService,
     private readonly requestWorkflowService: RequestWorkflowService,
@@ -113,25 +114,34 @@ export class VacationRequestProcessingService implements OnModuleInit {
     );
   }
 
-  // Each in a transaction of its own: one that fails leaves the others
-  // started, and the retry finds only the ones still waiting.
+  // Each in a transaction of its own. A request that fails to start is
+  // reported and left waiting, and the others go on: retrying the job would
+  // retry all of them for hours over one that may never start. The next
+  // change of approvers, or the daily look (MemberSyncScheduleService),
+  // tries it again. The look again at one request is retried as a job.
   private async startWaiting({ slackTeamId, requestId }: IStartWaitingJob) {
     const waiting = await this.vacationRequestsService.findAwaitingApprovers(
       slackTeamId,
       requestId,
     );
-    let failure: unknown = null;
 
     for (const { id } of waiting) {
-      await this.start({ requestId: id, slackTeamId }, { waiting: true }).catch(
-        (error: unknown) => {
-          failure ??= error;
-        },
-      );
-    }
+      try {
+        await this.start({ requestId: id, slackTeamId }, { waiting: true });
+      } catch (error) {
+        if (requestId) {
+          throw error;
+        }
 
-    if (failure) {
-      throw failure;
+        this.logger.error(
+          `Could not start the approval of request ${id}: ${(error as Error).message}`,
+          (error as Error).stack,
+        );
+        reportError(error, {
+          task: 'start a request waiting for approvers',
+          requestId: id,
+        });
+      }
     }
   }
 
@@ -354,7 +364,17 @@ export class VacationRequestProcessingService implements OnModuleInit {
       return;
     }
 
-    await this.requestWorkflowService.cancel(request.id, updatedBy);
+    // Approved or rejected with Edit Request: the approvers' messages show
+    // the decision and who made it, as the requester's does.
+    await this.requestWorkflowService.cancel(
+      request.id,
+      updatedBy,
+      !previous || !decidesRequest(previous, request)
+        ? RequestWorkflowStatus.Canceled
+        : request.status === VacationRequestStatus.Approved
+          ? RequestWorkflowStatus.Approved
+          : RequestWorkflowStatus.Rejected,
+    );
 
     if (isPending) {
       await this.jobs.enqueue<IStartWorkflowJob>(START_WORKFLOW_JOB, {

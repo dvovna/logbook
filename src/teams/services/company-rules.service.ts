@@ -5,9 +5,9 @@ import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { IRuleSetViewModel } from '@modules/teams/types/rule-set.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
-  APPROVERS_CHANGED,
-  ApproversChangedEvent,
-} from '@modules/users/events/users.events';
+  namesSomeoneNew,
+  writeNamingApprovers,
+} from '@modules/users/utils/approvers-changed';
 import { TransactionService } from 'src/database/transaction.service';
 
 export interface ICompanyRulesParams {
@@ -32,46 +32,32 @@ export class CompanyRulesService {
     return this.ruleSetsRepository.ensureDefault(slackTeamId);
   }
 
-  // Level 2 naming someone it didn't runs in a transaction with the job that
-  // starts the requests waiting for anyone who can approve them
-  // (APPROVERS_CHANGED, emitAsync).
+  // Level 2 naming someone it didn't may start the requests that waited for
+  // anyone who can approve them (writeNamingApprovers).
   public async update(
     slackTeamId: string,
     params: ICompanyRulesParams,
     user: IUserViewModel,
   ): Promise<IRuleSetViewModel> {
     const ruleSet = await this.get(slackTeamId);
-    const write = () =>
-      this.ruleSetsRepository.update(
-        { id: ruleSet.id, slack_team_id: slackTeamId },
-        {
-          hr_approvers: params.hrApprovers,
-          hr_approvers_rule: params.hrApproversRule,
-          approval_notification_recipients: params.notificationRecipients,
-          vacation_policy_id: params.vacationPolicyId,
-          updated_at: new Date().toISOString(),
-          updated_by: user.id,
-        },
-      );
 
-    if (
-      params.hrApprovers.every((slackId) =>
-        ruleSet.hr_approvers.includes(slackId),
-      )
-    ) {
-      return write();
-    }
-
-    return this.transactions.transaction(async () => {
-      const updated = await write();
-
-      await this.eventEmitter.emitAsync(
-        APPROVERS_CHANGED,
-        new ApproversChangedEvent(slackTeamId),
-      );
-
-      return updated;
-    });
+    return writeNamingApprovers(
+      { transactions: this.transactions, eventEmitter: this.eventEmitter },
+      slackTeamId,
+      namesSomeoneNew(ruleSet.hr_approvers, params.hrApprovers),
+      () =>
+        this.ruleSetsRepository.update(
+          { id: ruleSet.id, slack_team_id: slackTeamId },
+          {
+            hr_approvers: params.hrApprovers,
+            hr_approvers_rule: params.hrApproversRule,
+            approval_notification_recipients: params.notificationRecipients,
+            vacation_policy_id: params.vacationPolicyId,
+            updated_at: new Date().toISOString(),
+            updated_by: user.id,
+          },
+        ),
+    );
   }
 
   public async usesPolicy(

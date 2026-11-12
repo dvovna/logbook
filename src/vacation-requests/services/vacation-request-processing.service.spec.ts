@@ -1,8 +1,7 @@
+import { Logger } from '@nestjs/common';
 import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
-import {
-  START_WAITING_JOB,
-  VacationRequestProcessingService,
-} from 'src/vacation-requests/services/vacation-request-processing.service';
+import { VacationRequestProcessingService } from 'src/vacation-requests/services/vacation-request-processing.service';
+import { START_WAITING_JOB } from 'src/vacation-requests/constants/jobs';
 import { TeamRulesService } from 'src/teams/services/team-rules.service';
 import { IEffectiveTeamRules } from 'src/teams/types/effective-team-rules.interface';
 import ITeamViewModel from 'src/teams/types/team.interface';
@@ -28,6 +27,7 @@ import { RequestWorkflowStepsService } from 'src/request-workflows/services/requ
 import { IRequestWorkflowStepViewModel } from 'src/request-workflows/types/request-workflow-step.interface';
 import { ApproversChangedEvent } from 'src/users/events/users.events';
 import { vacationRequestLock } from 'src/database/advisory-locks';
+import { RequestWorkflowStatus } from 'src/common/enums/request-workflow-status.enum';
 
 const SLACK_TEAM_ID = 'slack-team-1';
 
@@ -595,7 +595,10 @@ describe('VacationRequestProcessingService', () => {
       );
     });
 
-    it('starts the others when one fails, and fails the job', async () => {
+    it('starts the others when one fails, and reports it instead of failing the job', async () => {
+      const logged = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
       requestsService.findAwaitingApprovers.mockResolvedValue([
         { ...waiting, id: 'request-0' },
         waiting,
@@ -611,11 +614,29 @@ describe('VacationRequestProcessingService', () => {
         new ApproversChangedEvent(SLACK_TEAM_ID),
       );
 
-      await expect(jobs.done()).rejects.toThrow('no connection');
+      await jobs.done();
       expect(workflowService.create).toHaveBeenCalledTimes(2);
       expect(workflowService.create.mock.calls[1][0].requestId).toBe(
         'request-1',
       );
+      expect(logged).toHaveBeenCalledWith(
+        'Could not start the approval of request request-0: no connection',
+        expect.any(String),
+      );
+      logged.mockRestore();
+    });
+
+    // The look again at one request after its start found nobody.
+    it('fails the job of one request that fails, to retry it', async () => {
+      requestsService.findAwaitingApprovers.mockResolvedValue([waiting]);
+      workflowService.create.mockRejectedValueOnce(new Error('no connection'));
+
+      await (jobs.jobs.enqueue as jest.Mock)(START_WAITING_JOB, {
+        slackTeamId: SLACK_TEAM_ID,
+        requestId: waiting.id,
+      });
+
+      await expect(jobs.done()).rejects.toThrow('no connection');
     });
   });
 
@@ -631,10 +652,37 @@ describe('VacationRequestProcessingService', () => {
       ),
     );
 
-    expect(workflowService.cancel).toHaveBeenCalledWith('request-1', requester);
+    expect(workflowService.cancel).toHaveBeenCalledWith(
+      'request-1',
+      requester,
+      RequestWorkflowStatus.Canceled,
+    );
     expect(afterCommit).toEqual([]);
     expect(workflowService.create).not.toHaveBeenCalled();
   });
+
+  // HR approved or rejected it with Edit Request: the approvers' messages
+  // show that decision.
+  it.each([
+    [VacationRequestStatus.Approved, RequestWorkflowStatus.Approved],
+    [VacationRequestStatus.Rejected, RequestWorkflowStatus.Rejected],
+  ])(
+    'closes the steps of a pending request set to %s as decided',
+    async (status, as) => {
+      const hr = { id: 'hr-1' } as IUserViewModel;
+
+      await service.handleRequestUpdated(
+        new VacationRequestUpdatedEvent(
+          buildRequest(status),
+          hr,
+          buildRequest(VacationRequestStatus.Pending),
+        ),
+      );
+
+      expect(workflowService.cancel).toHaveBeenCalledWith('request-1', hr, as);
+      expect(workflowService.create).not.toHaveBeenCalled();
+    },
+  );
 
   // Nothing waits for approval then; only a race could have left a step.
   it('closes what is left of the workflow after the commit once the request no longer waited', async () => {
@@ -673,7 +721,11 @@ describe('VacationRequestProcessingService', () => {
     it('starts the approval again, as a new run, for new dates', async () => {
       await onEdited({ ...pending, end_date: '2026-02-09' });
 
-      expect(workflowService.cancel).toHaveBeenCalledWith('request-1', hr);
+      expect(workflowService.cancel).toHaveBeenCalledWith(
+        'request-1',
+        hr,
+        RequestWorkflowStatus.Canceled,
+      );
       expect(workflowService.create).toHaveBeenCalledWith(
         expect.objectContaining({
           requestId: 'request-1',

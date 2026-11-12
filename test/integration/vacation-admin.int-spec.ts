@@ -151,7 +151,7 @@ describe('Requests HR and admins manage for someone else', () => {
     );
     await t.idle();
     const [update] = t.slackApi.messageUpdates(workspace.token, approval);
-    expect(textOf(update)).toContain(`Canceled by <@${hr.slack_id}>`);
+    expect(textOf(update)).toContain(`Approved by <@${hr.slack_id}>`);
   });
 
   it("shows HR's own request form without the user and status fields", async () => {
@@ -378,9 +378,9 @@ describe('Requests HR and admins manage for someone else', () => {
       expect(messagesTo(recipient, since).map(({ text }) => text)).toEqual([
         `✅ Time off approved for *Max Member*\n*Annual leave* · ${dates} (5 days, 5 working)`,
       ]);
-      // The approver's message closes as on any change of the status.
+      // The approver's message shows the decision and who made it.
       const [update] = t.slackApi.messageUpdates(workspace.token, approval);
-      expect(textOf(update)).toContain(`Canceled by <@${hr.slack_id}>`);
+      expect(textOf(update)).toContain(`Approved by <@${hr.slack_id}>`);
       expect(actionIdsOf(update)).toEqual([]);
 
       // The button logs the days.
@@ -404,7 +404,7 @@ describe('Requests HR and admins manage for someone else', () => {
       );
       expect(messagesTo(recipient, since)).toEqual([]);
       const [update] = t.slackApi.messageUpdates(workspace.token, approval);
-      expect(textOf(update)).toContain(`Canceled by <@${hr.slack_id}>`);
+      expect(textOf(update)).toContain(`Rejected by <@${hr.slack_id}>`);
     });
 
     it('tells the requester when an approved request is rejected', async () => {

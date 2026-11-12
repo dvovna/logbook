@@ -1,3 +1,4 @@
+import ITeamViewModel from '@modules/teams/types/team.interface';
 import TeamsService from '@modules/teams/services/teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { APPROVERS_CHANGED } from '@modules/users/events/users.events';
@@ -76,8 +77,16 @@ describe('TeamsService.create', () => {
 describe('TeamsService.update', () => {
   const user = { id: 'user-1', slack_team_id: 'ws-1' } as IUserViewModel;
 
-  const setup = () => {
+  // The team as it is before the change: a lead and its own rules.
+  const setup = (
+    before: Partial<ITeamViewModel> = {
+      manager_approvers: ['U_LEAD'],
+      hr_approvers: ['U_HR'],
+      rule_set_id: null,
+    },
+  ) => {
     const teamsRepository = {
+      findOne: jest.fn().mockResolvedValue({ id: 'team-1', ...before }),
       update: jest.fn().mockResolvedValue({ id: 'team-1' }),
       replaceApprovers: jest.fn().mockResolvedValue({ id: 'team-1' }),
     };
@@ -129,10 +138,10 @@ describe('TeamsService.update', () => {
   // The requests that waited for anyone who can approve them are looked at
   // again, in a job saved with the change.
   it.each([
-    { managerApprovers: ['U_LEAD'] },
-    { followsCompanyRules: false, hrApprovers: ['U_HR'] },
-    { followsCompanyRules: true, managerApprovers: [] },
-  ])('tells of approvers it names: %j', async (params) => {
+    { managerApprovers: ['U_LEAD', 'U_NEW'] },
+    { followsCompanyRules: false, hrApprovers: ['U_NEW'] },
+    { followsCompanyRules: true, managerApprovers: ['U_LEAD'] },
+  ])('tells of someone new it names: %j', async (params) => {
     const { service, eventEmitter, emittedInTransaction } = setup();
 
     await service.update({ id: 'team-1', slackTeamId: 'ws-1' }, params, user);
@@ -143,13 +152,37 @@ describe('TeamsService.update', () => {
     expect(emittedInTransaction).toEqual([true]);
   });
 
+  // A save of the form that keeps the approvers, or takes some away, is
+  // a plain write.
   it.each([
     { name: 'Design' },
     { followsCompanyRules: false, managerApprovers: [], hrApprovers: [] },
-  ])('tells nothing when it names no approver: %j', async (params) => {
-    const { service, eventEmitter } = setup();
+    {
+      name: 'Design',
+      followsCompanyRules: false,
+      managerApprovers: ['U_LEAD'],
+      hrApprovers: ['U_HR'],
+    },
+  ])('tells nothing when it names nobody new: %j', async (params) => {
+    const { service, eventEmitter, emittedInTransaction } = setup();
 
     await service.update({ id: 'team-1', slackTeamId: 'ws-1' }, params, user);
+
+    expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+    expect(emittedInTransaction).toEqual([]);
+  });
+
+  it('tells nothing when a team that follows the company rules is saved again', async () => {
+    const { service, eventEmitter } = setup({
+      manager_approvers: ['U_LEAD'],
+      rule_set_id: 'set-1',
+    });
+
+    await service.update(
+      { id: 'team-1', slackTeamId: 'ws-1' },
+      { followsCompanyRules: true, managerApprovers: ['U_LEAD'] },
+      user,
+    );
 
     expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
   });

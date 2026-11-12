@@ -8,14 +8,13 @@ import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
 import { RepositoryFilter } from '@common/repositories/repository.types';
 import { UserUpdateValidatorService } from '@modules/users/services/user-update-validator.service';
 import {
-  APPROVERS_CHANGED,
-  ApproversChangedEvent,
   USER_ACCESS_CHANGED,
   USER_TEAM_CHANGED,
   UserAccessChangedEvent,
   UserTeamChangedEvent,
 } from '@modules/users/events/users.events';
 import { canApprove } from '@modules/users/utils/approver-roles';
+import { publishApproversChanged } from '@modules/users/utils/approvers-changed';
 import { ITeamAssignment } from '@modules/users/types/team-assignment.interface';
 
 interface ICreateUserParams {
@@ -479,10 +478,7 @@ export class UsersService implements IUsersService {
     const approver = users.find(canApprove);
 
     if (approver) {
-      await this.eventEmitter.emitAsync(
-        APPROVERS_CHANGED,
-        new ApproversChangedEvent(approver.slack_team_id),
-      );
+      await publishApproversChanged(this.eventEmitter, approver.slack_team_id);
     }
   }
 

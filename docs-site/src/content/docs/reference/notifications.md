@@ -23,7 +23,7 @@ A message that waits for a decision changes in place once the decision is made, 
 | Logged time off removed | HR or an admin changes the dates, status, type or person of a request whose time was logged, or deletes the request. | Whoever logged the time, unless they are deactivated. | "Your annual leave 15–19 Jun 2026 was rejected: the 40h logged on Project were removed." Days in a billing snapshot stay, and the message names them. When the request is still theirs and approved, the new offer comes in the same message. |
 
 :::note
-A request that HR or an admin sets to approved or rejected with **Edit Request** gets the same decision messages as one the approvers decide, naming them as who decided. A request they add already approved or rejected gets no decision message, since it records time off agreed elsewhere. Added as approved, it still gets the offer to log it as time.
+A request that HR or an admin sets to approved or rejected with **Edit Request** gets the same decision messages as one the approvers decide, naming them as who decided, unless its requester had canceled it. A request they add already approved or rejected gets no decision message, since it records time off agreed elsewhere. Added as approved, it still gets the offer to log it as time.
 :::
 
 ## Time

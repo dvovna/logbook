@@ -195,6 +195,25 @@ describe('TimeOffChangesService', () => {
     );
   });
 
+  // The requester withdrew it: setting it again records the outcome.
+  it.each([VacationRequestStatus.Approved, VacationRequestStatus.Rejected])(
+    'decides nothing when a canceled request is set to %s',
+    async (status) => {
+      applies(
+        { ...approved, status: VacationRequestStatus.Canceled },
+        { ...approved, status },
+      );
+
+      await update({ status });
+
+      expect(eventEmitter.emitAsync).toHaveBeenCalledTimes(1);
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationRequestEvent.Updated,
+        expect.anything(),
+      );
+    },
+  );
+
   it('stays with an edit of the comment', async () => {
     applies(approved, { ...approved, user_comment: 'Family trip' });
 

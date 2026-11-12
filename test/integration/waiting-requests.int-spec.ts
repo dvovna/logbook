@@ -8,7 +8,7 @@ import { NavigationActionId } from '@modules/slack/common/enums/navigation-actio
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { UsersService } from '@modules/users/services/users.service';
-import { START_WAITING_JOB } from '@modules/vacation-requests/services/vacation-request-processing.service';
+import { START_WAITING_JOB } from '@modules/vacation-requests/constants/jobs';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { workWeek } from './support/dates';

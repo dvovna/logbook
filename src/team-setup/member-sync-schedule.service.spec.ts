@@ -2,6 +2,7 @@ import { MemberSyncScheduleService } from '@modules/team-setup/member-sync-sched
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { JobsService } from '@common/jobs/jobs.service';
 import { SYNC_USERS_JOB } from '@modules/team-setup/team-setup-workflow.service';
+import { START_WAITING_JOB } from '@modules/vacation-requests/constants/jobs';
 
 describe('MemberSyncScheduleService', () => {
   it('imports the members of each installed workspace, one after another', async () => {
@@ -39,13 +40,22 @@ describe('MemberSyncScheduleService.syncDue', () => {
       // ws-2 was claimed by another process.
       claimMemberSync: jest.fn(async (id: string) => id !== 'ws-2'),
     };
-    const jobs = { run: jest.fn().mockResolvedValue(undefined) };
+    const jobs = {
+      run: jest.fn().mockResolvedValue(undefined),
+      enqueue: jest.fn().mockResolvedValue(undefined),
+    };
     const service = new MemberSyncScheduleService(
       slackTeamsService as unknown as SlackTeamsService,
       jobs as unknown as JobsService,
     );
 
     expect(await service.syncDue(now)).toBe(2);
+
+    // The same daily turn looks again at the requests waiting for approvers.
+    expect(jobs.enqueue.mock.calls).toEqual([
+      [START_WAITING_JOB, { slackTeamId: 'ws-1' }],
+      [START_WAITING_JOB, { slackTeamId: 'ws-3' }],
+    ]);
 
     expect(slackTeamsService.claimMemberSync).toHaveBeenCalledWith(
       'ws-1',

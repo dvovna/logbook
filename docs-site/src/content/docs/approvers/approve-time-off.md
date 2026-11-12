@@ -74,7 +74,7 @@ Logbook approves every open step of the level the request waits on, under either
 ## When a request or an approver changes
 
 - **An edit.** When HR or an admin changes the dates, type or person of a pending request with **Edit Request**, the open approval closes and starts again: everyone is asked again about the request as it is now. A change to the comment only leaves the approval as it was.
-- **A status set by hand.** When HR or an admin sets a request to approved or rejected with **Edit Request**, from pending or from the other decision, that is a decision by them. The approvers' messages close, and the decision messages below go out as if the approvers had decided, naming HR or the admin as who decided.
+- **A status set by hand.** When HR or an admin sets a request to approved or rejected with **Edit Request**, from pending or from the other decision, that is a decision by them. The approvers' messages close, and the decision messages below go out as if the approvers had decided, naming HR or the admin as who decided. Setting the status of a request its requester canceled only records it: nobody is told.
 - **Canceled or deleted.** The approvers' messages lose their buttons and say who canceled or deleted it.
 - **An approver can no longer decide.** When an approver is deactivated, or gets the Finance or Member role, which can't approve, their open steps close. If nobody else is left on that level, the request moves on as a new one would: to the next level, or, with none left, to HR or the admins. If someone on that level had already approved under "all", the level counts as done.
 
@@ -84,6 +84,6 @@ When the approvers decide, or HR or an admin sets the status with **Edit Request
 
 - The requester gets a DM: approved or rejected, by whom, the reason and the approver comments. An approved request may carry a button to log it as time; see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 - When it is approved, the team's **Approval Notification Recipients** get a DM too. They come from the team's own rules or the company rules, as they are at the time of the decision. They hear nothing of a rejection.
-- Every approver's message shows the decision. After **Edit Request**, the messages still open say "Canceled by" and who set the status.
+- Every approver's message shows the decision and who made it, HR or the admin after **Edit Request**.
 
 All messages are listed in [Notifications](/logbook/docs/reference/notifications/).

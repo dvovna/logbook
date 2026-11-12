@@ -11,7 +11,7 @@ If your company tracks hours, an approved time off can be logged as time with on
 
 Your admin has to choose a project for the leave type first. See [Time off as time settings](/logbook/docs/admins/time-off-as-time-settings/). It covers annual leave, bonus days, sick leave and unpaid leave, not **Other**.
 
-When the request is approved, the decision message has a button such as **Log 40h to Time off**: the hours are the working days times the hours in a working day that your admin set. The same goes when HR or an admin approves it with **Edit Request**. If they create your request already approved, you get a message of its own: "Log your Annual leave on … as time?" with the same button. Only you can click it.
+When the request is approved, the decision message has a button such as **Log 40h to Time off**: the hours are the working days times the hours in a working day that your admin set. The same goes when HR or an admin approves it with **Edit Request**. If they create your request already approved, or approve one you had canceled, you get a message of its own: "Log your Annual leave on … as time?" with the same button. Only you can click it.
 
 ## What it logs
 

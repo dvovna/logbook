@@ -170,8 +170,10 @@ describe('First setup', () => {
         await setCompanyApprovers([hr.slack_id]);
 
         expect(await peopleTexts()).toEqual([
-          peopleStep(2, "skip level 1 and go to the company rules' approvers")
-            .text,
+          peopleStep(
+            2,
+            "skip level 1 and go to the company rules' approvers, or to HR or the admins when none of them can approve",
+          ).text,
         ]);
       });
 

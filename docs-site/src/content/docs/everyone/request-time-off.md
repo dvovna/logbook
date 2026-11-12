@@ -59,7 +59,7 @@ Logbook writes to you in a direct message:
 - **Others off.** "⚠️ Also off on those days: …" lists teammates with time off on the same days, so you know it may be rejected.
 - **Each level approved.** After a level that isn't the last: "✅ Your vacation request (dates): Manager approval done by …. Now waiting for HR approval from …."
 - **Comments.** When an approver comments: "💬 … commented on your vacation request". The message has **📋 View Details** and **❌ Cancel Request**. The request stays pending. To change its dates, cancel it and request new ones.
-- **The decision.** "✅ Your time off request was approved" or "❌ Your time off request was rejected", with the reason, comments and who decided. You get it too when HR or an admin approves or rejects your request with **Edit Request**, even after it was decided. It then names them as who decided. After an approval the message may have a button to log the days as hours: see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
+- **The decision.** "✅ Your time off request was approved" or "❌ Your time off request was rejected", with the reason, comments and who decided. You get it too when HR or an admin approves or rejects your request with **Edit Request**, even after it was decided, but not after you canceled it. It then names them as who decided. After an approval the message may have a button to log the days as hours: see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 
 ## Cancel a pending request
 

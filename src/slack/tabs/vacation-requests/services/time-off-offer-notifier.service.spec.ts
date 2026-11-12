@@ -114,11 +114,7 @@ describe('TimeOffOfferNotifier', () => {
   });
 
   // The decision DM (VacationDecisionNotificationsService) holds the button.
-  it.each([
-    VacationRequestStatus.Pending,
-    VacationRequestStatus.Rejected,
-    VacationRequestStatus.Canceled,
-  ])(
+  it.each([VacationRequestStatus.Pending, VacationRequestStatus.Rejected])(
     'offers nothing apart when an edit approves a %s request',
     async (from) => {
       await notifier.handleUpdated(
@@ -137,6 +133,20 @@ describe('TimeOffOfferNotifier', () => {
       expect(enqueueMany).toHaveBeenCalledWith(TIME_OFF_OFFER_JOB, []);
     },
   );
+
+  // Not a decision (decidesRequest): no decision DM holds the button.
+  it('offers apart when an edit approves a request its requester canceled', async () => {
+    await notifier.handleUpdated(
+      new TimeOffChangedEvent(
+        approved,
+        hr,
+        { ...approved, status: VacationRequestStatus.Canceled },
+        { deleted: 0, owners: [], billedDates: [] },
+      ),
+    );
+
+    expect(enqueueMany).toHaveBeenCalledWith(TIME_OFF_OFFER_JOB, [offer]);
+  });
 
   it('still tells what time went when an edit approves the request', async () => {
     await notifier.handleUpdated(

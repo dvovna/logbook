@@ -4,8 +4,8 @@ export interface ISetupProgress {
   hasCompanyApprovers: boolean;
   hasTeamWithApprovers: boolean;
   // The company rules name level 2 approvers, who get the requests of
-  // people in no team (they have no level 1). Without them those requests
-  // go to HR or the admins.
+  // people in no team (they have no level 1). Without them, or when none of
+  // them can decide, those requests go to HR or the admins.
   companyRulesNameApprovers: boolean;
   // Active people in no team.
   peopleWithoutTeam: number;
