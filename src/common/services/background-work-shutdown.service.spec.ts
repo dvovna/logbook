@@ -10,6 +10,7 @@ import {
 } from '@common/constants/shutdown';
 import { BackgroundWorkShutdownService } from '@common/services/background-work-shutdown.service';
 import { runInBackground } from '@common/utils/run-in-background';
+import { isShuttingDown } from '@common/utils/shutdown-state';
 
 // Something a test lets happen when it wants to.
 const gate = () => {
@@ -36,6 +37,17 @@ describe('BackgroundWorkShutdownService', () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  it('marks the process as shutting down before anything closes', async () => {
+    const service = new BackgroundWorkShutdownService(new HttpAdapterHost());
+
+    expect(isShuttingDown()).toBe(false);
+
+    const shutdown = service.beforeApplicationShutdown('SIGTERM');
+
+    expect(isShuttingDown()).toBe(true);
+    await shutdown;
   });
 
   it('lets the app close once the background work is done', async () => {

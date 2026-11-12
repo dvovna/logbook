@@ -5,6 +5,7 @@ import { NextFunction, Request, Response } from 'express';
 import { SHUTDOWN_GRACE_MS } from '@common/constants/shutdown';
 import { finishesWithin } from '@common/utils/finishes-within';
 import { whenBackgroundWorkIsDone } from '@common/utils/run-in-background';
+import { markShuttingDown } from '@common/utils/shutdown-state';
 
 // On a deploy the old process gets SIGTERM while it may still be answering
 // Slack, or deciding approvals, posting notifications or sending a file after
@@ -51,6 +52,8 @@ export class BackgroundWorkShutdownService implements BeforeApplicationShutdown 
   };
 
   public async beforeApplicationShutdown(signal?: string) {
+    markShuttingDown();
+
     const server = this.adapterHost.httpAdapter?.getHttpServer() as
       Server | undefined;
 

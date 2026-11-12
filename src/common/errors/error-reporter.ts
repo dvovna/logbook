@@ -50,6 +50,10 @@ export const initErrorReporting = (env = process.env) => {
   return true;
 };
 
+// Sends what is still queued, before the process exits.
+export const flushErrorReports = (timeoutMs = 2000): Promise<boolean> =>
+  enabled ? Sentry.flush(timeoutMs) : Promise.resolve(true);
+
 export const reportError = (
   error: unknown,
   context: Record<string, unknown> = {},
