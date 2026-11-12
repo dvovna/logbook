@@ -2,7 +2,7 @@
 title: Where to run it
 description: 'Three ways to run Logbook behind HTTPS: Docker on your own server, Fly.io and Render, each with a ready configuration.'
 sidebar:
-  order: 2
+  order: 3
 ---
 
 Logbook needs a place that runs one container, answers Slack over HTTPS, and gives it 30 seconds to stop. The repository's `deploy/` folder has a configuration for each of the three below. Do steps 1 to 3 of [Install](/logbook/docs/self-hosting/install/) first: the database, the Slack app and `.env`.
@@ -47,9 +47,9 @@ You need the [`fly` CLI](https://fly.io/docs/flyctl/install/), signed in.
    ```bash
    pnpm slack:app update --domain <app-name>.fly.dev
    ```
-3. Give Fly the values of `.env` as secrets, and deploy one machine. `PORT` stays out: the configuration sets the port the machine listens on.
+3. Give Fly the values of `.env` as secrets, and deploy one machine. `PORT` and the variables left empty stay out: the configuration sets the port the machine listens on.
    ```bash
-   grep -vE '^(#|$|PORT=)' .env | fly secrets import --config deploy/fly.toml
+   grep -vE '^(#|$|PORT=|[A-Z_]+=$)' .env | fly secrets import --config deploy/fly.toml
    fly deploy --config deploy/fly.toml --ha=false
    ```
 4. Check it:

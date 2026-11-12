@@ -2,7 +2,7 @@
 title: Operate
 description: 'Keep a self-hosted Logbook fast and healthy: where to run it, connections, restarts, health checks, errors, logs, data retention and backups.'
 sidebar:
-  order: 4
+  order: 5
 ---
 
 Once Logbook is installed, a few settings decide whether it answers Slack in time, survives restarts and keeps your data.

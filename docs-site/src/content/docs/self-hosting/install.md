@@ -7,6 +7,10 @@ sidebar:
 
 One deployment of Logbook can serve one Slack workspace or many.
 
+:::tip[Let an AI agent do it]
+An AI coding agent can take these steps for you from one prompt. See [Install with an AI agent](/logbook/docs/self-hosting/install-with-an-agent/).
+:::
+
 ## What you need
 
 - The source of the release you run, for its database migrations. With pnpm 10:

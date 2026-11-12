@@ -58,7 +58,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 
 ## Self-hosting
 
-Run Logbook on your own server: a Supabase project, a Slack app from [`slack-app-manifest.yml`](slack-app-manifest.yml), and the Docker image `ghcr.io/dvovna/logbook`. The [self-hosting guide](https://dvovna.github.io/logbook/docs/self-hosting/install/) walks through it, and covers [updating](https://dvovna.github.io/logbook/docs/self-hosting/update/) and [running it](https://dvovna.github.io/logbook/docs/self-hosting/operate/) day to day. Read the version's section in [CHANGELOG.md](CHANGELOG.md) before an update.
+Run Logbook on your own server: a Supabase project, a Slack app from [`slack-app-manifest.yml`](slack-app-manifest.yml), and the Docker image `ghcr.io/dvovna/logbook`. The [self-hosting guide](https://dvovna.github.io/logbook/docs/self-hosting/install/) walks through it, an [AI agent can do it from one prompt](https://dvovna.github.io/logbook/docs/self-hosting/install-with-an-agent/), and covers [updating](https://dvovna.github.io/logbook/docs/self-hosting/update/) and [running it](https://dvovna.github.io/logbook/docs/self-hosting/operate/) day to day. Read the version's section in [CHANGELOG.md](CHANGELOG.md) before an update.
 
 ## Development
 
