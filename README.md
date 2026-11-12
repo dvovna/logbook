@@ -57,7 +57,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 ## Self-hosting
 
 You need:
-- the source of the release you run, for its database migrations: `git clone --branch v0.2.0 https://github.com/dvovna/logbook && cd logbook && pnpm install` (with pnpm 10, `npm install -g pnpm@10`; the steps below run the Supabase CLI pinned in it);
+- the source of the release you run, for its database migrations: `git clone --branch v0.3.0 https://github.com/dvovna/logbook && cd logbook && pnpm install` (with pnpm 10, `npm install -g pnpm@10`; the steps below run the Supabase CLI pinned in it);
 - a Supabase project. The free plan runs the bot, but it keeps no backups and Supabase pauses it after a week of little activity (see [Run](#4-run)). For a company's real data, take a paid plan or back the database up yourself, e.g. with `pg_dump` over the session pooler connection string;
 - a host that runs Docker or Node 26, reachable from Slack over HTTPS;
 - permission to create a Slack app in your workspace.
@@ -104,10 +104,10 @@ The per-user and per-workspace limits (`MAX_*`) have defaults; `.env.example` li
 
 ### 4. Run
 
-The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.2.0`), its minor line (`0.2`) and `latest`:
+The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.3.0`), its minor line (`0.3`) and `latest`:
 
 ```bash
-docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.2
+docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.3
 ```
 
 The second port of `-p` is `PORT` from `.env`; with `PORT` left out of `.env`, the container listens on 10000, so map `-p 3000:10000`.

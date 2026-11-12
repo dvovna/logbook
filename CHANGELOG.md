@@ -2,9 +2,9 @@
 
 Notable changes per release. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a minor version may need a step when you update; its section says which.
 
-## [Unreleased]
+## [0.3.0] - 2026-11-12
 
-Company rules, and teams set up from a file. Update step: six database migrations, see Running it.
+Company rules and teams set up from a file, approval levels that no longer get stuck, balances and holidays counted for the right year, and an app that holds up with hundreds of people per workspace. Update step: six database migrations and the app manifest, see Running it.
 
 ### Teams and approvers
 - Company rules, opened from Teams: the level 2 approvers and their rule, who hears of decisions, and the vacation policy. A team follows them or keeps rules of its own, chosen in the team form; people in no team follow them. Level 1 always comes from the team.
@@ -12,7 +12,20 @@ Company rules, and teams set up from a file. Update step: six database migration
 - When someone joins Slack after the app is set up, HR (the admins when nobody has the HR role) get a message asking which team they are on, with a list of teams and Not yet. The first answer places them and updates everyone's message; placing them any other way (the team form, People, the file) does too.
 - Home's setup checklist now has the company rules and the team file as steps, and the welcome message to the installing admin lists the steps in the same order.
 
+### Time off
+- A request is checked against the balance of the vacation year it falls in, not the current one, and an edit no longer counts it twice against the balance.
+- A vacation's working days follow holidays changed after it was requested.
+- Carryover is worked out for each vacation year: what was left of the year before carries over on its own, up to the policy's limit (calendar and working days apart). What HR enters on a person's profile counts only in the year they joined, which the form's hint names.
+- The country holiday import takes only public holidays of the whole country and of the region chosen; regional holidays and observances are no longer days off for everyone. Re-importing keeps the holidays you switched off, a holiday's date change moves it to its year, and deleting a policy is all or nothing. Policy fields and carryover hold up to 60 days, and bonus days count in working days.
+- Editing the dates, type or person of a pending request asks its approvers again; a comment-only edit leaves its approval as it was.
+- Approval goes only to people who can decide (active, with Admin, HR or Manager). When an approver is deactivated or loses that role, their open steps close and the request moves on as a new one would, so it no longer waits forever.
+- Someone who approved an earlier level approves their steps of the next level at once.
+- Approvals and All requests say when a decision wasn't made (someone decided first, the request changed or went, or it will be retried), and level 2 is called "Admin approval" when only admins are on it.
+
 ### Time tracking
+- The week form keeps refusing a cell whose time changed elsewhere after the form opened, also after Add a project, Show weekend or another day rebuilt it, and such a cell says what it holds now.
+- Every screen counts what waits for your approval in the database, beside its own reads: an admin's Approvals screen takes 2 round trips to the database instead of 6, and Home 4 instead of 6.
+- A billing report over more than 65,535 approved entries no longer fails.
 - The Monday reminder of unsubmitted time goes out within 10 minutes of 09:00 UTC, a few messages a second per workspace so that Slack doesn't refuse them, and a workspace where it fails no longer keeps the others from getting theirs.
 - Time reports and "Who hasn't submitted" are added up in the database, and the time report's CSV is read a page at a time: a year's report of a 400-person workspace takes a tenth of a second instead of three seconds and half a gigabyte of the app's memory, during which other people's clicks waited. Sending the CSV no longer works the report out twice. A CSV holds at most 200,000 entries; above that the DM asks for a shorter period or a narrower report.
 - A billing report is worked out once, after its form closes, instead of twice, once of them before Slack's answer. "Lock in a snapshot" opens its confirmation at once and adds up what it would lock in the database after, and a snapshot is made after the answer in one statement, then shown on Billing snapshots: a year of 50,000 entries no longer makes Slack show an error although the snapshot was made. When it can't be made, Reports says that nothing was locked and why; a second Lock at the same time waits for the first and takes only what is left.
@@ -94,5 +107,6 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.3.0]: https://github.com/dvovna/logbook/releases/tag/v0.3.0
 [0.2.0]: https://github.com/dvovna/logbook/releases/tag/v0.2.0
 [0.1.0]: https://github.com/dvovna/logbook/releases/tag/v0.1.0
