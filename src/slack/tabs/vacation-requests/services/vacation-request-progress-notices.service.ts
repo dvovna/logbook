@@ -309,13 +309,14 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
       return `📨 Your vacation request (${dates}) went to the workspace admins for approval: ${reason}.`;
     }
 
+    // A request keeps the team it was made in: what changes is who approves.
     const until = !inTeam
-      ? 'an admin puts you in a team or names approvers in the company rules'
+      ? 'an admin names approvers in the company rules or gives someone the HR or Admin role'
       : followsCompanyRules
-        ? 'an admin names approvers for your team or in the company rules'
-        : 'an admin adds approvers to your team';
+        ? 'an admin names approvers for your team or in the company rules, or gives someone the HR or Admin role'
+        : 'an admin adds approvers to your team or gives someone the HR or Admin role';
 
-    return `⚠️ Nobody can approve your vacation request (${dates}) yet: ${reason}, and nobody else has the HR or Admin role. It stays pending until ${until}.`;
+    return `⚠️ Nobody can approve your vacation request (${dates}) yet: ${reason}, and nobody else has the HR or Admin role. It goes for approval once ${until}.`;
   }
 
   private getOverlapText(colleaguesOff: IColleagueOff[]) {

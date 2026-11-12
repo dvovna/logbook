@@ -39,7 +39,7 @@ To change a role:
 
 Only an admin grants or removes the Admin or Finance role. HR can make someone a Manager, HR or Member, but not an admin or Finance, and can't change the role of someone who is already one. The workspace always keeps at least one active admin.
 
-A role also decides who can approve. Level 1 of a team takes people with the Manager or Admin role, level 2 people with the HR or Admin role. When someone gets the Finance or Member role, which can't approve, the requests waiting for them move on to other approvers; see [Approve time off](/logbook/docs/approvers/approve-time-off/#when-a-request-or-an-approver-changes).
+A role also decides who can approve. Level 1 of a team takes people with the Manager or Admin role, level 2 people with the HR or Admin role. When someone gets the Finance or Member role, which can't approve, the requests waiting for them move on to other approvers; see [Approve time off](/logbook/docs/approvers/approve-time-off/#when-a-request-or-an-approver-changes). When someone gets the Manager, HR or Admin role, or is activated again with one, a request that went to nobody, because nobody could approve it, goes to its approvers then, as a new request would; see [Approve time off](/logbook/docs/approvers/approve-time-off/#when-nobody-on-the-team-can-approve).
 
 ## Team, contract start and carryover
 
@@ -71,7 +71,7 @@ When someone's Slack account is deactivated, Logbook deactivates them too, with 
 You don't add people by hand. Logbook takes them from Slack:
 
 - **On install**, it imports every member of the workspace who is a person with an email, leaving out bots and deactivated accounts. They come in as Members, in no team, with no contract start date. Whoever installs Logbook is its first admin.
-- **When someone joins Slack** later, they are added right away, with the day they join as their contract start date. They come in as Members, or as Admins if they are an admin or owner of the Slack workspace.
+- **When someone joins Slack** later, they are added right away, with the day they join as their contract start date. They come in as Members, whatever their role in Slack. Logbook's roles are set in Logbook: an admin or HR gives them in **Edit User**.
 - **Once a day**, Logbook imports any member it is missing, for example someone who joined while Logbook was restarting. It only adds people: everyone it already has keeps their role, team and status.
 
 Name and email changes in Slack come over to Logbook.

@@ -49,17 +49,17 @@ Your team's approvers decide in levels:
 - Level 1 is your team's managers. Level 2 is HR. A level can need one approver ("any") or all of them.
 - Nobody approves their own request. If you are the only approver of your team, it goes to the next option.
 - If nobody on your team can approve, the request goes to everyone with the HR role. If nobody has it, it goes to the admins.
-- If there is nobody who could approve at all, the request stays pending until an admin sets approvers or puts you in a team.
+- If there is nobody who could approve at all, the request stays pending. Once an admin names approvers for your team or in the company rules, or gives someone the HR or Admin role, it goes to them as a new request would, and you get the message saying where it went.
 
 ## The messages you get
 
 Logbook writes to you in a direct message:
 
-- **Where it went.** "📨 Your vacation request (dates) went to … (Manager approval)." When it went to HR or the admins instead, it says why. When nobody can approve yet, you get a "⚠️ Nobody can approve your vacation request" message that says what an admin has to do.
+- **Where it went.** "📨 Your vacation request (dates) went to … (Manager approval)." When it went to HR or the admins instead, it says why. When nobody can approve yet, you get a "⚠️ Nobody can approve your vacation request" message that says what an admin has to do, and the "📨" message once someone can.
 - **Others off.** "⚠️ Also off on those days: …" lists teammates with time off on the same days, so you know it may be rejected.
 - **Each level approved.** After a level that isn't the last: "✅ Your vacation request (dates): Manager approval done by …. Now waiting for HR approval from …."
 - **Comments.** When an approver comments: "💬 … commented on your vacation request". The message has **📋 View Details** and **❌ Cancel Request**. The request stays pending. To change its dates, cancel it and request new ones.
-- **The decision.** "✅ Your time off request was approved" or "❌ Your time off request was rejected", with the reason, comments and who decided. After an approval you may get a button to log the days as hours: see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
+- **The decision.** "✅ Your time off request was approved" or "❌ Your time off request was rejected", with the reason, comments and who decided. You get it too when HR or an admin approves or rejects your request with **Edit Request**, even after it was decided. It then names them as who decided. After an approval the message may have a button to log the days as hours: see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 
 ## Cancel a pending request
 

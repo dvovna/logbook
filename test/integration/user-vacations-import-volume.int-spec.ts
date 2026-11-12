@@ -123,10 +123,10 @@ describe('user-vacations.csv of many people', () => {
     const many = await importCsv(people.map(({ email }) => line(email)));
 
     expect(few.reply).toBe(
-      '✅ Imported `user-vacations.csv`: Created 0 · Updated 3 · Skipped 0',
+      '✅ Imported `user-vacations.csv`: Created 6 · Updated 3 · Skipped 0',
     );
     expect(many.reply).toBe(
-      `✅ Imported \`user-vacations.csv\`: Created 0 · Updated ${PEOPLE} · Skipped 0`,
+      `✅ Imported \`user-vacations.csv\`: Created ${2 * PEOPLE} · Updated ${PEOPLE} · Skipped 0`,
     );
     expect(many.statements).toBeLessThanOrEqual(few.statements);
     expect(many.statements).toBeLessThan(30);
@@ -168,7 +168,7 @@ describe('user-vacations.csv of many people', () => {
     const many = await importCsv(people.map(({ email }) => line(email)));
 
     expect(many.reply).toBe(
-      `✅ Imported \`user-vacations.csv\`: Created 0 · Updated ${PEOPLE} · Skipped 0`,
+      `✅ Imported \`user-vacations.csv\`: Created ${2 * PEOPLE} · Updated ${PEOPLE} · Skipped 0`,
     );
     // Closing them: a lock, a decision, the comments and the jobs, and a
     // run of each job.
@@ -189,8 +189,10 @@ describe('user-vacations.csv of many people', () => {
 
     expect(reply).toBe(
       [
-        `⚠️ Imported \`user-vacations.csv\` with problems: Created 0 · Updated ${PEOPLE + 1} · Skipped 1`,
-        '*1 problem:*\n• User not found: ghost@example.test',
+        `⚠️ Imported \`user-vacations.csv\` with problems: Created ${2 * PEOPLE} · Updated ${PEOPLE} · Skipped 2`,
+        '*2 problems:*',
+        `• ${people[0].email} is in the file more than once: the last line is imported.`,
+        '• User not found: ghost@example.test',
       ].join('\n'),
     );
     expect(await workspace.rows('vacation_requests')).toHaveLength(2 * PEOPLE);

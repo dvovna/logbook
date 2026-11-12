@@ -1307,6 +1307,7 @@ export type Database = {
         Row: {
           approved_by_hr: boolean;
           approved_by_manager: boolean;
+          awaits_approvers: boolean;
           created_at: string;
           created_by: string;
           days: number;
@@ -1328,6 +1329,7 @@ export type Database = {
         Insert: {
           approved_by_hr?: boolean;
           approved_by_manager?: boolean;
+          awaits_approvers?: boolean;
           created_at?: string;
           created_by: string;
           days: number;
@@ -1348,6 +1350,7 @@ export type Database = {
         Update: {
           approved_by_hr?: boolean;
           approved_by_manager?: boolean;
+          awaits_approvers?: boolean;
           created_at?: string;
           created_by?: string;
           days?: number;

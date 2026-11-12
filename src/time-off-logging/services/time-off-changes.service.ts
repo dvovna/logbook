@@ -2,11 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
+import { VacationRequestDecidedEvent } from '@modules/vacation-requests/events/vacation-request.events';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import {
   IVacationRequestFindParams,
   IVacationRequestUpdateParams,
 } from '@modules/vacation-requests/types/vacation-request-params.types';
+import { decidesRequest } from '@modules/vacation-requests/utils/request-decision.utils';
 import { vacationRequestLock } from 'src/database/advisory-locks';
 import { TransactionService } from 'src/database/transaction.service';
 import { TimeOffChangedEvent } from 'src/time-off-logging/events/time-off.events';
@@ -66,6 +68,17 @@ export class TimeOffChangesService {
             removed,
           ),
         );
+
+        // Approving or rejecting it here decides it, by the editor: the
+        // requester and the recipients hear of it as of the workflow's
+        // decision. Compared with the request under the lock, so a second
+        // submit of the form decides nothing again.
+        if (decidesRequest(applied.previous, applied.request)) {
+          await this.eventEmitter.emitAsync(
+            VacationRequestEvent.Decided,
+            new VacationRequestDecidedEvent(applied.request, user),
+          );
+        }
 
         return { request: applied.request, removedTime: removed };
       },

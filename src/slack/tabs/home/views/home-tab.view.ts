@@ -86,6 +86,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     hasPolicy,
     hasCompanyApprovers,
     hasTeamWithApprovers,
+    companyRulesNameApprovers,
     peopleWithoutTeam,
     hasProjects,
   }: ISetupProgress): AnyBlock[] {
@@ -131,7 +132,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         key: 'people',
         done: peopleWithoutTeam === 0,
         title: 'Put people in teams',
-        why: `${pluralize('person', peopleWithoutTeam, true)} ${peopleWithoutTeam === 1 ? 'has' : 'have'} no team: their requests go to HR or the admins.`,
+        why: `${pluralize('person', peopleWithoutTeam, true)} ${peopleWithoutTeam === 1 ? 'has' : 'have'} no team: their requests ${companyRulesNameApprovers ? "skip level 1 and go to the company rules' approvers" : 'go to HR or the admins'}.`,
         doneLabel: 'everyone in a team',
         buttons: [{ text: 'Open People', actionId: NavigationActionId.People }],
       },

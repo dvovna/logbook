@@ -1,8 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { KnownBlock } from '@slack/types';
+import { userVacationsHeader } from '@modules/user-data-import/parsers/user-vacations-csv.parser';
 
 // Up to these in one file (FileUploadService, the import service).
 const LIMITS = 'up to 1000 lines and 1 MB';
+
+// The file as shown to the admin: it has to import as it is (a spec feeds it
+// to the parser).
+const EXAMPLE = [
+  userVacationsHeader(),
+  'john.doe@example.com;2022-01-01;2024-08-01;2024-08-10;annual_leave;approved;2024-09-15;2024-09-15;bonus_day;pending',
+  'jane.roe@example.com;2023-03-01;2024-07-01;2024-07-05;sick_leave;approved;;;;',
+];
 
 const section = (text: string): KnownBlock => ({
   type: 'section',
@@ -30,11 +39,9 @@ export default class SlackCommandPromptsService {
       ),
       steps('user-vacations.csv'),
       section(
-        `*Format:* one person per line, fields separated by \`;\`, ${LIMITS}. A person can have any number of vacations, four fields each:\n\`\`\`email;contractStartDate;startDate;endDate;type;status;startDate;endDate;type;status;...\`\`\``,
+        `*Format:* the first row is the header below; then one person per line, fields separated by \`;\`, ${LIMITS}. A person can have any number of vacations, four columns each (\`vacation[0]\`, \`vacation[1]\`, …: add the columns the person with the most vacations needs); leave the unused ones empty.`,
       ),
-      section(
-        '*Example:*\n```john.doe@example.com;2022-01-01;2024-08-01;2024-08-10;annual_leave;approved;2024-09-15;2024-09-15;bonus_day;pending```',
-      ),
+      section(`*Example:*\n\`\`\`${EXAMPLE.join('\n')}\`\`\``),
       {
         type: 'context',
         elements: [

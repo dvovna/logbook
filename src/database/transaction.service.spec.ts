@@ -138,3 +138,46 @@ describe('TransactionService locks', () => {
     );
   });
 });
+
+describe('TransactionService.once', () => {
+  it('runs the work of a key once per transaction', async () => {
+    const { transactions } = setup();
+    const work = jest.fn().mockResolvedValue(undefined);
+
+    await transactions.transaction(async () => {
+      await transactions.once('sweep:w1', work);
+      await transactions.once('sweep:w1', work);
+      await transactions.once('sweep:w2', work);
+    });
+    await transactions.transaction(() => transactions.once('sweep:w1', work));
+
+    expect(work).toHaveBeenCalledTimes(3);
+  });
+
+  it('runs it again after it failed', async () => {
+    const { transactions } = setup();
+    const work = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('no connection'))
+      .mockResolvedValue(undefined);
+
+    await transactions.transaction(async () => {
+      await expect(transactions.once('sweep:w1', work)).rejects.toThrow(
+        'no connection',
+      );
+      await transactions.once('sweep:w1', work);
+    });
+
+    expect(work).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs it every time outside a transaction', async () => {
+    const { transactions } = setup();
+    const work = jest.fn().mockResolvedValue(undefined);
+
+    await transactions.once('sweep:w1', work);
+    await transactions.once('sweep:w1', work);
+
+    expect(work).toHaveBeenCalledTimes(2);
+  });
+});

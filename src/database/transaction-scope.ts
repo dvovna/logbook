@@ -12,6 +12,8 @@ export interface ITransactionScope {
   done: boolean;
   heldLocks: Set<string>;
   lastLock: IAdvisoryLock | null;
+  // The keys TransactionService.once ran work for.
+  onceKeys: Set<string>;
 }
 
 // The transaction of the current async context: TransactionService starts it,

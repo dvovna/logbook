@@ -96,6 +96,33 @@ describe('TeamFileMessageView', () => {
       );
     });
 
+    const noLeadLine = (hrApprovers: string[]) => {
+      const sections = view.preview(
+        plan({
+          assignments: [
+            { userId: 'x', fromTeamId: null, toTeamId: 't', toTeamKey: null },
+          ],
+          teamsWithoutLead: ['Ops'],
+        }),
+        names,
+        companyRules(hrApprovers),
+        'upload-1',
+        'team.csv',
+      ) as { text?: { text: string } }[];
+
+      return sections.find(({ text }) =>
+        text?.text.startsWith('*Teams with no lead'),
+      )?.text?.text;
+    };
+
+    it('says where the requests of teams with no lead go, whatever rules they follow', () => {
+      for (const hrApprovers of [['UHR'], []]) {
+        expect(noLeadLine(hrApprovers)).toBe(
+          '*Teams with no lead (1)*\nTheir requests skip level 1: they go to the second approval, or to HR or an admin when there is none.\n• Ops',
+        );
+      }
+    });
+
     it('sends them to HR or an admin when the company rules name no second approval', () => {
       expect(newTeamLine([])).toBe(
         '*Teams to create (1)*\n• *Ops*: 1 person, no lead, so requests go to HR or an admin',

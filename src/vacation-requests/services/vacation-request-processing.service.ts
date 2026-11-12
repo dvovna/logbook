@@ -9,6 +9,7 @@ import { JobsService } from '@common/jobs/jobs.service';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import {
+  IApprovalFallback,
   VacationRequestCreatedEvent,
   VacationRequestSentForApprovalEvent,
   VacationRequestUpdatedEvent,
@@ -29,14 +30,36 @@ import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { TimeOffContextService } from '@modules/vacation-requests/services/time-off-context.service';
 import { TransactionService } from 'src/database/transaction.service';
+import { vacationRequestLock } from 'src/database/advisory-locks';
+import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
+import { runOf } from '@modules/request-workflows/utils/workflow-runs';
+import {
+  APPROVERS_CHANGED,
+  ApproversChangedEvent,
+} from '@modules/users/events/users.events';
 
 export const START_WORKFLOW_JOB = 'vacation-request-start-workflow';
+export const START_WAITING_JOB = 'vacation-request-start-waiting';
 
 interface IStartWorkflowJob {
   requestId: string;
   slackTeamId: string;
   // The run to start (workflow-runs.ts); the first one when missing.
   run?: string;
+}
+
+// The requests of the workspace that wait for anyone who can approve them.
+interface IStartWaitingJob {
+  slackTeamId: string;
+  // Only this one: the look again after its approval found nobody.
+  requestId?: string;
+}
+
+// What a request's approval would be now: its workflow, or null when nobody
+// can approve it, and why it went to HR or the admins, or to nobody.
+interface IApprovalPlan {
+  workflow: Omit<ICreateWorkflowParams, 'run'> | null;
+  fallback: IApprovalFallback | null;
 }
 
 @Injectable()
@@ -51,11 +74,15 @@ export class VacationRequestProcessingService implements OnModuleInit {
     private readonly vacationsUsageService: VacationsUsageService,
     private readonly timeOffContextService: TimeOffContextService,
     private readonly transactions: TransactionService,
+    private readonly requestWorkflowStepsService: RequestWorkflowStepsService,
   ) {}
 
   public onModuleInit() {
     this.jobs.define<IStartWorkflowJob>(START_WORKFLOW_JOB, (job) =>
-      this.startWorkflow(job),
+      this.start(job),
+    );
+    this.jobs.define<IStartWaitingJob>(START_WAITING_JOB, (job) =>
+      this.startWaiting(job),
     );
   }
 
@@ -76,21 +103,116 @@ export class VacationRequestProcessingService implements OnModuleInit {
     });
   }
 
-  private async startWorkflow({
-    requestId,
-    slackTeamId,
-    run = requestId,
-  }: IStartWorkflowJob) {
-    const request = await this.vacationRequestsService.findOne({
-      id: requestId,
-      slackTeamId,
-    });
+  // Someone may now approve the requests that found nobody who could: the
+  // job that starts them is saved with the change (emitAsync). One for the
+  // transaction, however many of its changes call for it (a team file).
+  @OnEvent(APPROVERS_CHANGED, { suppressErrors: false })
+  public async handleApproversChanged({ slackTeamId }: ApproversChangedEvent) {
+    await this.transactions.once(`${START_WAITING_JOB}:${slackTeamId}`, () =>
+      this.jobs.enqueue<IStartWaitingJob>(START_WAITING_JOB, { slackTeamId }),
+    );
+  }
 
-    // Canceled or changed before a retry: nothing to ask anymore.
-    if (request?.status !== VacationRequestStatus.Pending) {
+  // Each in a transaction of its own: one that fails leaves the others
+  // started, and the retry finds only the ones still waiting.
+  private async startWaiting({ slackTeamId, requestId }: IStartWaitingJob) {
+    const waiting = await this.vacationRequestsService.findAwaitingApprovers(
+      slackTeamId,
+      requestId,
+    );
+    let failure: unknown = null;
+
+    for (const { id } of waiting) {
+      await this.start({ requestId: id, slackTeamId }, { waiting: true }).catch(
+        (error: unknown) => {
+          failure ??= error;
+        },
+      );
+    }
+
+    if (failure) {
+      throw failure;
+    }
+  }
+
+  // Asks the approvers of a pending request, and tells the requester where
+  // it went. When nobody can approve it, it waits for someone who can
+  // (awaits_approvers) and the requester is told so; `waiting` (a change of
+  // approvers) then starts it as a new request would, or leaves it and tells
+  // nobody again.
+  //
+  // Planned on the pool; the start itself is one transaction under the
+  // request's lock, which an edit and a cancel take too. Whoever comes second
+  // sees what the first did: no request gets two workflows, nor a requester
+  // two DMs.
+  private async start(
+    { requestId, slackTeamId, run: jobRun }: IStartWorkflowJob,
+    { waiting = false } = {},
+  ) {
+    const find = () =>
+      this.vacationRequestsService.findOne({ id: requestId, slackTeamId });
+    const read = await find();
+
+    if (!awaitsStart(read, waiting)) {
       return;
     }
 
+    const planned = await this.plan(read);
+
+    await this.transactions.transaction(async () => {
+      await this.transactions.lock(vacationRequestLock(requestId));
+
+      const [request, steps] = await Promise.all([
+        find(),
+        this.requestWorkflowStepsService.findMany({ requestId, slackTeamId }),
+      ]);
+      // A waiting request asked before had its run closed by an edit.
+      const run =
+        jobRun ?? (waiting && steps.length ? randomUUID() : requestId);
+
+      // Canceled or decided meanwhile; or started already, by an earlier try
+      // of this job, a later edit's run or a change of approvers.
+      if (
+        !awaitsStart(request, waiting) ||
+        steps.some((step) => !step.completed_at || runOf(step) === run)
+      ) {
+        return;
+      }
+
+      // Edited since it was planned: the approvers decide on it as it is.
+      const { workflow, fallback } =
+        request.updated_at === read.updated_at
+          ? planned
+          : await this.plan(request);
+
+      if (!workflow && waiting) {
+        return;
+      }
+
+      if (workflow) {
+        await this.requestWorkflowService.create({ ...workflow, run });
+      } else {
+        // A change that made someone an approver while this read the rules
+        // looked for waiting requests before this one waited: look again
+        // once it does.
+        await this.jobs.enqueue<IStartWaitingJob>(START_WAITING_JOB, {
+          slackTeamId,
+          requestId,
+        });
+      }
+
+      await this.vacationRequestsService.setAwaitsApprovers(request, !workflow);
+      // The job that tells the requester, saved with the workflow.
+      await this.eventEmitter.emitAsync(
+        VacationRequestEvent.SentForApproval,
+        new VacationRequestSentForApprovalEvent(request, fallback),
+      );
+    });
+  }
+
+  private async plan(
+    request: IVacationRequestViewModel,
+  ): Promise<IApprovalPlan> {
     const [rules, approvers] = await Promise.all([
       this.teamRulesService.forTeam(request.team?.id, request.slack_team_id),
       // Everyone who can decide a step: active, with an approving role.
@@ -104,10 +226,9 @@ export class VacationRequestProcessingService implements OnModuleInit {
     );
     const canDecide = new Set(roleOf.keys());
 
-    const workflow: ICreateWorkflowParams = {
+    const workflow: Omit<ICreateWorkflowParams, 'run'> = {
       requestId: request.id,
       slackTeamId: request.slack_team_id,
-      run,
       snapshot: {
         user_id: request.user!.id,
         slack_user_id: request.user!.slack_id,
@@ -157,12 +278,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     ].filter((level): level is ICreateWorkflowLevelParams => level !== null);
 
     if (levels.length) {
-      await this.sendForApproval(
-        { ...workflow, levels },
-        new VacationRequestSentForApprovalEvent(request, null),
-      );
-
-      return;
+      return { workflow: { ...workflow, levels }, fallback: null };
     }
 
     // Nobody its rules name can approve it, so it would wait forever: it goes
@@ -170,8 +286,8 @@ export class VacationRequestProcessingService implements OnModuleInit {
     // is told so.
     const fallback = this.findFallbackApprovers(request, approvers);
 
-    await this.sendForApproval(
-      fallback && {
+    return {
+      workflow: fallback && {
         ...workflow,
         levels: [
           this.buildApproverLevel(
@@ -181,30 +297,12 @@ export class VacationRequestProcessingService implements OnModuleInit {
           )!,
         ],
       },
-      new VacationRequestSentForApprovalEvent(request, {
+      fallback: {
         inTeam: Boolean(rules.team),
         followsCompanyRules: rules.followsCompanyRules,
         sentTo: fallback?.role ?? null,
-      }),
-    );
-  }
-
-  // The workflow, if there is one, and the job that tells the requester
-  // where the request went, in one transaction (emitAsync).
-  private sendForApproval(
-    workflow: ICreateWorkflowParams | null,
-    sent: VacationRequestSentForApprovalEvent,
-  ) {
-    return this.transactions.transaction(async () => {
-      if (workflow) {
-        await this.requestWorkflowService.create(workflow);
-      }
-
-      await this.eventEmitter.emitAsync(
-        VacationRequestEvent.SentForApproval,
-        sent,
-      );
-    });
+      },
+    };
   }
 
   // Everyone with the HR role, else every admin; never the requester
@@ -339,6 +437,14 @@ export class VacationRequestProcessingService implements OnModuleInit {
     }
   }
 }
+
+// Pending, and when `waiting`, waiting for anyone who can approve it.
+const awaitsStart = (
+  request: IVacationRequestViewModel | null,
+  waiting: boolean,
+): request is IVacationRequestViewModel =>
+  request?.status === VacationRequestStatus.Pending &&
+  (!waiting || !!request.awaits_approvers);
 
 const changesWhatApproversDecide = (
   before: IVacationRequestViewModel,

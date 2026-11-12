@@ -2,6 +2,7 @@ import { KnownBlock } from '@slack/types';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import {
   IImportResult,
@@ -52,13 +53,24 @@ export default class FileUploadService {
     };
   }
 
-  // The file is downloaded only when it is one of the imports or may be a
-  // team file, and not too large.
+  // Files are the app's business only in the sharer's conversation with it
+  // (imports and the team file) and, for user-vacations.csv, where the
+  // /upload-vacations prompt was shown; a file in a channel is for the people
+  // there, and nobody is answered. The file is downloaded only when it is one
+  // of the imports or may be a team file, and not too large.
   public async handleFileUpload(
     fileId: string,
     channelId: string,
     user: IUserViewModel,
   ) {
+    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
+      return isDirectMessage(channelId)
+        ? this.reply(user, {
+            text: '⛔ Only Admin or HR can import files into Logbook.',
+          })
+        : undefined;
+    }
+
     const file = await this.slackCommunicationService.getFileInfo(
       fileId,
       user.slack_team_id,
@@ -72,13 +84,15 @@ export default class FileUploadService {
     const importFile = file.name ? this.importers[file.name] : undefined;
 
     if (!importFile) {
+      if (!isDirectMessage(channelId)) {
+        return;
+      }
+
       if (!file.name || !TEAM_FILE_NAME.test(file.name)) {
         return this.reply(user, this.getUnknownFileUploadPromptMessage());
       }
 
-      return isDirectMessage(channelId)
-        ? this.handleTeamFile(file.name, file.size ?? 0, url, user)
-        : undefined;
+      return this.handleTeamFile(file.name, file.size ?? 0, url, user);
     }
 
     if (file.name === VACATIONS_FILE && user.role !== UserRole.Admin) {

@@ -1084,14 +1084,26 @@ describe('Time off logging', () => {
         await editAsHr(rejected, { status: VacationRequestStatus.Rejected }),
       ).toBe('✅ Vacation request updated.');
       expect(await liveEntries()).toEqual([]);
-      expect(dmsSince(since)).toEqual([
-        {
-          sections: [
-            `Your ${THIS_WEEK_TEXT} was rejected: the 40h logged on Vacations were removed.`,
-          ],
-          button: undefined,
-        },
-      ]);
+      // The rejection is a decision, told apart from the time that went: that
+      // DM still reaches whoever logged the time, whatever the request
+      // becomes before it goes.
+      expect(dmsSince(since)).toHaveLength(2);
+      expect(dmsSince(since)).toEqual(
+        expect.arrayContaining([
+          {
+            sections: [
+              `❌ *Your time off request was rejected*\n*Annual leave* · ${formatDateRange(THIS_WEEK.start, THIS_WEEK.end)} (5 days, 5 working)`,
+            ],
+            button: undefined,
+          },
+          {
+            sections: [
+              `Your ${THIS_WEEK_TEXT} was rejected: the 40h logged on Vacations were removed.`,
+            ],
+            button: undefined,
+          },
+        ]),
+      );
 
       const deleted = await loggedVacation(NEXT_WEEK);
       since = t.slackApi.mark();

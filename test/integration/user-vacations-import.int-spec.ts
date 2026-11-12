@@ -76,14 +76,13 @@ describe('user-vacations.csv', () => {
   });
 
   // Shares the file and returns the app's reply to the admin.
-  const importCsv = async (...rows: string[]) => {
+  const importFile = async (content: string) => {
+    const since = t.slackApi.mark();
+
     await t.slack
       .event(workspace, {
         type: 'file_shared',
-        file_id: t.slackApi.addFile(
-          'user-vacations.csv',
-          [HEADER, ...rows].join('\n'),
-        ),
+        file_id: t.slackApi.addFile('user-vacations.csv', content),
         user_id: admin.slack_id,
         channel_id: 'D_TEST',
       })
@@ -93,6 +92,7 @@ describe('user-vacations.csv', () => {
     const [reply] = t.slackApi.ephemeralMessages(
       workspace.token,
       admin.slack_id,
+      { since },
     );
 
     // The summary, then the problems, if any.
@@ -100,6 +100,9 @@ describe('user-vacations.csv', () => {
       ? sectionTexts(reply as unknown as View).join('\n')
       : undefined;
   };
+
+  const importCsv = (...rows: string[]) =>
+    importFile([HEADER, ...rows].join('\n'));
 
   const vacationsOf = async (user: Tables<'users'>) =>
     (await workspace.rows('vacation_requests'))
@@ -134,7 +137,7 @@ describe('user-vacations.csv', () => {
     );
 
     expect(reply).toBe(
-      '✅ Imported `user-vacations.csv`: Created 0 · Updated 1 · Skipped 0',
+      '✅ Imported `user-vacations.csv`: Created 2 · Updated 1 · Skipped 0',
     );
     // March 4 is a holiday of Ada's policy.
     expect(await vacationsOf(ada)).toEqual([
@@ -255,6 +258,35 @@ describe('user-vacations.csv', () => {
     ]);
   });
 
+  it('does not report an import of a file with no lines or no header as done', async () => {
+    await workspace.addVacationRequest(ada, {
+      start_date: '2026-01-05',
+      end_date: '2026-01-09',
+    });
+    const withoutHeader = row(ada.email, '2025-09-01', [
+      '2026-03-02',
+      '2026-03-06',
+      'annual_leave',
+      'approved',
+    ]);
+
+    for (const content of [
+      HEADER,
+      withoutHeader,
+      `${withoutHeader}\n${withoutHeader}`,
+    ]) {
+      const reply = await importFile(content);
+
+      expect(reply).toContain('`user-vacations.csv` was not imported');
+      expect(reply).not.toContain('✅');
+      expect(reply).toContain(HEADER);
+    }
+
+    expect(await vacationsOf(ada)).toEqual([
+      expect.objectContaining({ start_date: '2026-01-05' }),
+    ]);
+  });
+
   it('imports the users it knows and reports the others', async () => {
     const reply = await importCsv(
       row(ada.email, '2025-09-01', [
@@ -268,7 +300,7 @@ describe('user-vacations.csv', () => {
 
     expect(reply).toBe(
       [
-        '⚠️ Imported `user-vacations.csv` with problems: Created 0 · Updated 1 · Skipped 1',
+        '⚠️ Imported `user-vacations.csv` with problems: Created 1 · Updated 1 · Skipped 1',
         '*1 problem:*\n• User not found: ghost@example.test',
       ].join('\n'),
     );
@@ -389,13 +421,14 @@ describe('user-vacations.csv', () => {
       name: string,
       content: string,
       size?: number,
+      channelId = 'D_TEST',
     ) => {
       await t.slack
         .event(workspace, {
           type: 'file_shared',
           file_id: t.slackApi.addFile(name, content, { size }),
           user_id: user.slack_id,
-          channel_id: 'D_TEST',
+          channel_id: channelId,
         })
         .expect(acknowledged);
       await t.idle();
@@ -422,12 +455,56 @@ describe('user-vacations.csv', () => {
       ]),
     ];
 
-    it('ignores a file shared by a member', async () => {
+    it("tells a member who shares a file in the app's conversation that only Admin or HR import files", async () => {
       const reply = await share(ada, 'user-vacations.csv', csv().join('\n'));
 
-      expect(reply).toBe('⛔ Only Admin or HR can use this command.');
+      expect(reply).toBe('⛔ Only Admin or HR can import files into Logbook.');
       expect(downloads()).toEqual([]);
       expect(await vacationsOf(ada)).toEqual([]);
+    });
+
+    it('answers a member who shares a file in a channel with nothing', async () => {
+      for (const [name, content] of [
+        ['user-vacations.csv', csv().join('\n')],
+        ['photo.png', 'png'],
+      ]) {
+        const reply = await share(ada, name, content, undefined, 'C_GENERAL');
+
+        expect(reply).toBeUndefined();
+      }
+
+      expect(downloads()).toEqual([]);
+      expect(await vacationsOf(ada)).toEqual([]);
+      expect(t.slackApi.postedMessages(workspace.token, ada.slack_id)).toEqual(
+        [],
+      );
+    });
+
+    it("leaves an admin's image in a channel alone", async () => {
+      const reply = await share(
+        admin,
+        'photo.png',
+        'png',
+        undefined,
+        'C_GENERAL',
+      );
+
+      expect(reply).toBeUndefined();
+      expect(downloads()).toEqual([]);
+    });
+
+    it('still imports user-vacations.csv an admin shares in a channel', async () => {
+      const reply = await share(
+        admin,
+        'user-vacations.csv',
+        csv().join('\n'),
+        undefined,
+        'C_GENERAL',
+      );
+
+      expect(reply).toBe(
+        '✅ Imported `user-vacations.csv`: Created 1 · Updated 1 · Skipped 0',
+      );
     });
 
     it('HR sharing user-vacations.csv is told only admins can import vacations', async () => {

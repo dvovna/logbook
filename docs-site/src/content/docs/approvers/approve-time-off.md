@@ -47,7 +47,7 @@ See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/) for
 
 When neither level has anyone who can decide (no team, no approvers, or the requester is the only one), the request goes to everyone with the HR role as one level, any one of them. With nobody on HR it goes to every admin. The requester is told where it went and why.
 
-If there is nobody at all, the request stays pending and the requester is told that nobody can approve it yet. HR or an admin can still set its status with **Edit Request** on **All requests**.
+If there is nobody at all, the request stays pending and the requester is told that nobody can approve it yet. It goes for approval once someone can: when someone gets the Manager, HR or Admin role or is activated again, or a team's approvers or the company rules name someone new. It then goes where a new request would, and the requester is told where. Until then, HR or an admin can set its status with **Edit Request** on **All requests**.
 
 ## The Approvals screen
 
@@ -74,16 +74,16 @@ Logbook approves every open step of the level the request waits on, under either
 ## When a request or an approver changes
 
 - **An edit.** When HR or an admin changes the dates, type or person of a pending request with **Edit Request**, the open approval closes and starts again: everyone is asked again about the request as it is now. A change to the comment only leaves the approval as it was.
-- **A status set by hand.** When HR or an admin sets a pending request's status with **Edit Request**, the approvers' messages close. The decision messages below are not sent: they go only when approvers decide.
+- **A status set by hand.** When HR or an admin sets a request to approved or rejected with **Edit Request**, from pending or from the other decision, that is a decision by them. The approvers' messages close, and the decision messages below go out as if the approvers had decided, naming HR or the admin as who decided.
 - **Canceled or deleted.** The approvers' messages lose their buttons and say who canceled or deleted it.
 - **An approver can no longer decide.** When an approver is deactivated, or gets the Finance or Member role, which can't approve, their open steps close. If nobody else is left on that level, the request moves on as a new one would: to the next level, or, with none left, to HR or the admins. If someone on that level had already approved under "all", the level counts as done.
 
 ## Who hears of the decision
 
-When the approvers decide:
+When the approvers decide, or HR or an admin sets the status with **Edit Request**:
 
 - The requester gets a DM: approved or rejected, by whom, the reason and the approver comments. An approved request may carry a button to log it as time; see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 - When it is approved, the team's **Approval Notification Recipients** get a DM too. They come from the team's own rules or the company rules, as they are at the time of the decision. They hear nothing of a rejection.
-- Every approver's message shows the decision.
+- Every approver's message shows the decision. After **Edit Request**, the messages still open say "Canceled by" and who set the status.
 
 All messages are listed in [Notifications](/logbook/docs/reference/notifications/).

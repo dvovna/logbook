@@ -54,7 +54,7 @@ Logbook answers with what the file will do, in this order:
 - **Teams to create**, with their leads and how many people. A new team with no lead sends its requests to the company rules' level 2, or to HR or an admin when there is none.
 - **Moves between teams**, **Lead changes**, and who is **Becoming Managers because they lead a team**.
 - **Placed in a team** and **Left without a team**.
-- **Teams with no lead**: their requests skip level 1.
+- **Teams with no lead**: their requests skip level 1 and go to the level 2 of the rules the team follows, or to HR or an admin when there is none.
 - **Team names matched**: how a name you wrote was read.
 - **Rows it can't use**, each with its row number and the reason, for example an email that isn't in the workspace, a deactivated person, or someone listed twice. Logbook skips these rows and applies the rest.
 

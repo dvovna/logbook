@@ -43,6 +43,7 @@ export class SetupProgressService {
       hasTeamWithApprovers: rules.teams.some(
         (team) => team.managerApprovers.length || team.hrApprovers.length,
       ),
+      companyRulesNameApprovers: rules.companyRules.hr_approvers.length > 0,
       peopleWithoutTeam,
       hasProjects: projects > 0,
     };

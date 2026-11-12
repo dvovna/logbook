@@ -73,8 +73,9 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
   };
 
   // The users `userIds` of the workspace become the team's members, and its
-  // other members leave it. Returns the users whose team changed. Several
-  // statements: the caller runs them in one transaction.
+  // other active members leave it: the team form lists only active people, so
+  // an inactive member keeps the team. Returns the users whose team changed.
+  // Several statements: the caller runs them in one transaction.
   public async setTeamMembers(params: {
     slackTeamId: string;
     teamId: string;
@@ -93,6 +94,7 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
     const left = await this.updateInWorkspace(slackTeamId)
       .set({ team_id: null, ...changed })
       .where('team_id', '=', teamId)
+      .where('is_active', '=', true)
       .$if(userIds.length > 0, (query) => query.where('id', 'not in', userIds))
       .returningAll()
       .execute();

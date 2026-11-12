@@ -136,7 +136,7 @@ Nobody changes time that is in a billing snapshot, Admin included, until an admi
 
 - The person who installs Logbook becomes its first admin.
 - Everyone else in the Slack workspace is added as a Member, a few seconds after the install and by the daily import of members.
-- When Slack tells Logbook that someone joined the workspace, they are added as a Member, or as an Admin when they are an admin or owner of the Slack workspace.
+- When Slack tells Logbook that someone joined the workspace, they are added as a Member, whatever their role in Slack. Slack never changes a role in Logbook.
 - Installing Logbook again keeps everyone's role. Whoever installs it again doesn't become an admin.
 - HR and admins change roles in More → **People** → ⋯ → **Edit User**. See [People and roles](/logbook/docs/admins/people-and-roles/).
 

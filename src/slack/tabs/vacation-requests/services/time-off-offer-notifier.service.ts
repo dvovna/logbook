@@ -8,6 +8,7 @@ import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vaca
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { VacationRequestCreatedEvent } from '@modules/vacation-requests/events/vacation-request.events';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
+import { decidesRequest } from '@modules/vacation-requests/utils/request-decision.utils';
 import { TIME_OFF_OFFER_JOB } from '@modules/slack/tabs/vacation-requests/constants/time-off-offer';
 import {
   IOfferJob,
@@ -53,10 +54,12 @@ export class TimeOffOfferNotifier implements OnModuleInit {
     }
   }
 
-  // The workflow's own approval carries no `previous`: its decision DM holds
-  // the button. Removed time is told to whoever logged it: in the offer's DM
-  // when the request is still theirs and approved, else in a DM of its own; a
-  // new person gets the offer in a DM of their own.
+  // A request HR or an admin changed that stays approved is offered again.
+  // The workflow's own approval carries no `previous`, and an edit into
+  // approved is a decision (decidesRequest): their decision DM holds the
+  // button. Removed time is told to whoever logged it: in the offer's DM when
+  // the request is still theirs and approved, else in a DM of its own; a new
+  // person gets the offer in a DM of their own.
   @OnEvent(VacationRequestEvent.Updated, { suppressErrors: false })
   public async handleUpdated({
     request,
@@ -66,6 +69,7 @@ export class TimeOffOfferNotifier implements OnModuleInit {
     const offers =
       !!previous &&
       request.status === VacationRequestStatus.Approved &&
+      !decidesRequest(previous, request) &&
       changesLoggedTime(previous, request);
 
     if (!previous || !removedTime) {

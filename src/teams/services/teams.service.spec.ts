@@ -1,5 +1,27 @@
 import TeamsService from '@modules/teams/services/teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
+import { APPROVERS_CHANGED } from '@modules/users/events/users.events';
+
+// A transaction that runs its work; `inTransaction` says whether an event
+// came inside one.
+const fakeTransactions = () => {
+  const state = { inTransaction: false };
+
+  return {
+    state,
+    transactions: {
+      transaction: async <T>(work: () => Promise<T>) => {
+        state.inTransaction = true;
+
+        try {
+          return await work();
+        } finally {
+          state.inTransaction = false;
+        }
+      },
+    },
+  };
+};
 
 describe('TeamsService.create', () => {
   const user = { id: 'user-1' } as IUserViewModel;
@@ -13,13 +35,16 @@ describe('TeamsService.create', () => {
       ensureDefault: jest.fn().mockResolvedValue({ id: 'set-1' }),
     };
     const config = { getOrThrow: jest.fn().mockReturnValue(10) };
+    const eventEmitter = { emitAsync: jest.fn() };
     const service = new TeamsService(
       teamsRepository as never,
       ruleSetsRepository as never,
       config as never,
+      fakeTransactions().transactions as never,
+      eventEmitter as never,
     );
 
-    return { service, teamsRepository };
+    return { service, teamsRepository, eventEmitter };
   };
 
   it('sets rule_set_id to the default set unless followsCompanyRules is false', async () => {
@@ -34,23 +59,54 @@ describe('TeamsService.create', () => {
     expect(teamsRepository.create.mock.calls[0][0].rule_set_id).toBe('set-1');
     expect(teamsRepository.create.mock.calls[1][0].rule_set_id).toBeNull();
   });
+
+  // A request keeps the team it was made in: a new team has none.
+  it('tells nobody of its approvers', async () => {
+    const { service, eventEmitter } = setup();
+
+    await service.create(
+      { name: 'A', slackTeamId: 'ws-1', managerApprovers: ['U_LEAD'] },
+      user,
+    );
+
+    expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+  });
 });
 
 describe('TeamsService.update', () => {
-  const user = { id: 'user-1' } as IUserViewModel;
+  const user = { id: 'user-1', slack_team_id: 'ws-1' } as IUserViewModel;
 
-  it('followsCompanyRules false clears rule_set_id, true sets the default set', async () => {
+  const setup = () => {
     const teamsRepository = {
       update: jest.fn().mockResolvedValue({ id: 'team-1' }),
+      replaceApprovers: jest.fn().mockResolvedValue({ id: 'team-1' }),
     };
     const ruleSetsRepository = {
       ensureDefault: jest.fn().mockResolvedValue({ id: 'set-1' }),
+    };
+    const { state, transactions } = fakeTransactions();
+    // Whether each event came inside the transaction of the write.
+    const emittedInTransaction: boolean[] = [];
+    const eventEmitter = {
+      emitAsync: jest.fn(() => {
+        emittedInTransaction.push(state.inTransaction);
+
+        return Promise.resolve([]);
+      }),
     };
     const service = new TeamsService(
       teamsRepository as never,
       ruleSetsRepository as never,
       {} as never,
+      transactions as never,
+      eventEmitter as never,
     );
+
+    return { service, teamsRepository, eventEmitter, emittedInTransaction };
+  };
+
+  it('followsCompanyRules false clears rule_set_id, true sets the default set', async () => {
+    const { service, teamsRepository } = setup();
 
     await service.update(
       { id: 'team-1', slackTeamId: 'ws-1' },
@@ -68,5 +124,47 @@ describe('TeamsService.update', () => {
     expect(sets[0].rule_set_id).toBeNull();
     expect(sets[1].rule_set_id).toBe('set-1');
     expect('rule_set_id' in sets[2]).toBe(false);
+  });
+
+  // The requests that waited for anyone who can approve them are looked at
+  // again, in a job saved with the change.
+  it.each([
+    { managerApprovers: ['U_LEAD'] },
+    { followsCompanyRules: false, hrApprovers: ['U_HR'] },
+    { followsCompanyRules: true, managerApprovers: [] },
+  ])('tells of approvers it names: %j', async (params) => {
+    const { service, eventEmitter, emittedInTransaction } = setup();
+
+    await service.update({ id: 'team-1', slackTeamId: 'ws-1' }, params, user);
+
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith(APPROVERS_CHANGED, {
+      slackTeamId: 'ws-1',
+    });
+    expect(emittedInTransaction).toEqual([true]);
+  });
+
+  it.each([
+    { name: 'Design' },
+    { followsCompanyRules: false, managerApprovers: [], hrApprovers: [] },
+  ])('tells nothing when it names no approver: %j', async (params) => {
+    const { service, eventEmitter } = setup();
+
+    await service.update({ id: 'team-1', slackTeamId: 'ws-1' }, params, user);
+
+    expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
+  });
+
+  it('tells of the leads an Undo puts back', async () => {
+    const { service, eventEmitter, emittedInTransaction } = setup();
+
+    expect(
+      await service.replaceApprovers('team-1', ['U_NEW'], ['U_OLD'], user),
+    ).toBe(true);
+    expect(await service.replaceApprovers('team-1', ['U_OLD'], [], user)).toBe(
+      true,
+    );
+
+    expect(eventEmitter.emitAsync).toHaveBeenCalledTimes(1);
+    expect(emittedInTransaction).toEqual([true]);
   });
 });

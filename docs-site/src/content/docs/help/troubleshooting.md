@@ -68,11 +68,13 @@ Other answers instead of a file:
 
 **What you see:** "⚠️ Nobody can approve your vacation request (…) yet", and the request stays pending.
 
-**Cause:** nobody but you can decide it. You're in no team, or your team lists no approvers under **Level 1: managers** and the company rules name none under **Level 2: HR**, and nobody else has the HR or Admin role. A request that went nowhere doesn't move on its own when approvers are added later.
+**Cause:** nobody but you can decide it. You're in no team, or your team lists no approvers under **Level 1: managers** and the company rules name none under **Level 2: HR**, and nobody else has the HR or Admin role.
 
 **What to do:**
-1. HR or an admin names approvers: a team's **Level 1: managers**, **Level 2: HR** in Teams → **Company rules**, or the HR role for someone. See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/).
-2. Then either cancel the request and request the days again, so it goes to the new approvers, or HR or an admin decides it in Time off → **All requests** → **Edit Request**.
+1. HR or an admin names approvers: a team's **Level 1: managers**, **Level 2: HR** in Teams → **Company rules**, or the HR or Admin role for someone. See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/).
+2. The request then goes to them on its own, and you get "📨 Your vacation request (…) went to …". Nothing else to do.
+
+Until then, HR or an admin can decide it in Time off → **All requests** → **Edit Request**.
 
 **Approve for Approvers** doesn't help here: it answers "This request is not waiting for anyone to approve it." It is for a request whose approver is away. See [Approve time off](/logbook/docs/approvers/approve-time-off/).
 

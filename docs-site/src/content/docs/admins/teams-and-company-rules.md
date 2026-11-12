@@ -23,7 +23,7 @@ The fields:
 
 - **Team Name**.
 - **Rules**: **Company rules** or **Its own rules**. Choosing **Its own rules** adds the fields of its own rules to the form.
-- **Members**: type a name to add someone. Someone in another team moves to this one, and their time off goes to this team's approvers from then on. Removing someone here takes them out of the team, and so does saving the form for a team's inactive members, who aren't listed. A team of more than 100 people is changed person by person on **People**.
+- **Members**: type a name to add someone. Someone in another team moves to this one, and their time off goes to this team's approvers from then on. Removing someone here takes them out of the team. Saving the form changes only the people it lists: inactive members, who aren't listed, stay in the team. A team of more than 100 people is changed person by person on **People**.
 - **Level 1: managers**: up to five people with the Manager or Admin role. To choose someone else, give them one of these roles on [People](/logbook/docs/admins/people-and-roles/) first.
 - **Level 1 rule**: tick **All listed approvers must approve** to need every one of them. Otherwise the first approval is enough.
 - **Description**, optional.
@@ -57,7 +57,7 @@ To change them:
 2. Choose the policy, the level 2 approvers and their rule, and the recipients.
 3. Click **Submit**. The screen says the company rules were saved.
 
-Changes count from then on: a request already waiting keeps the approvers it was sent to. The notification recipients are read when a request is approved.
+Changes count from then on: a request already waiting keeps the approvers it was sent to. A request that went to nobody, because nobody could approve it, goes to the new approvers then. The notification recipients are read when a request is approved.
 
 ### People in no team
 

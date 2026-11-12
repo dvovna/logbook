@@ -16,7 +16,9 @@ The import reads `user-vacations.csv`. For each person in it, it sets the contra
 3. Upload it in your conversation with Logbook: open Logbook's **Messages** tab and drag the file in.
 4. Logbook imports it and answers with a summary.
 
-The summary counts the lines, for example "Imported `user-vacations.csv`: Created 0 · Updated 12 · Skipped 1". **Updated** counts the people whose time off was replaced, **Skipped** the lines left out. When there were problems, it lists the first ten.
+The summary counts what happened, for example "Imported `user-vacations.csv`: Created 25 · Updated 12 · Skipped 1". **Created** counts the time off requests that were added, **Updated** the people whose time off was replaced, **Skipped** the lines left out. When there were problems, it lists the first ten.
+
+The example in Logbook's instructions is a complete file: copy it, replace the emails and dates, and save it. A file that has no header row, or only a header, is not imported. The answer is "❗️ `user-vacations.csv` was not imported" with the reason and the header it needs.
 
 ## What it replaces
 
@@ -42,11 +44,11 @@ What else to know:
 
 - A line whose email Logbook doesn't know, or of someone deactivated, is skipped. The other lines are imported.
 - When any line is malformed (an invalid email or date, a request that ends before it starts, an unknown type or status), nothing is imported. Fix the file and upload it again.
-- When a person is on several lines, the last one counts.
+- When a person is on several lines, the last one is imported. The earlier ones are skipped, and the answer lists them.
 
 ## The format, in short
 
-A CSV with fields separated by `;`. The first line names the columns. Each line after it is one person: their email, their contract start, then four fields for each request.
+A CSV with fields separated by `;`. The first line is the header, which names the columns; a file without it is not imported. Each line after it is one person: their email, their contract start, then four fields for each request.
 
 ```
 email;contractStartDate;vacation[0].startDate;vacation[0].endDate;vacation[0].type;vacation[0].status;vacation[1].startDate;vacation[1].endDate;vacation[1].type;vacation[1].status

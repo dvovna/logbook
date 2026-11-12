@@ -2,6 +2,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import UserRole from '@common/enums/user-role.enum';
 import { TransactionService } from 'src/database/transaction.service';
 import {
+  APPROVERS_CHANGED,
+  ApproversChangedEvent,
   USER_ACCESS_CHANGED,
   USER_TEAM_CHANGED,
   UserAccessChangedEvent,
@@ -203,6 +205,43 @@ describe('UsersService', () => {
     );
   });
 
+  // The requests that waited for anyone who can approve them may go to them
+  // now; they have no approvals to hand over.
+  it.each<[string, { role?: UserRole; isActive?: boolean }, IUserViewModel]>([
+    ['gets the HR role', { role: UserRole.HR }, user('ann', 'acme')],
+    [
+      'is made active again',
+      { isActive: true },
+      { ...user('ann', 'acme', UserRole.Manager), is_active: false },
+    ],
+  ])(
+    'tells of an approver inside the transaction when someone %s',
+    async (_case, changes, before) => {
+      const { service, repository, eventEmitter, calls } = build();
+      repository.findOne.mockResolvedValue(before);
+      repository.update.mockImplementation(async () => {
+        calls.push('update');
+
+        return {
+          ...before,
+          role: changes.role ?? before.role,
+          is_active: true,
+        };
+      });
+
+      await service.update(
+        { id: 'ann', slackTeamId: 'workspace-1' },
+        changes,
+        hr,
+      );
+
+      expect(calls).toEqual(['begin', 'update', 'emitAsync', 'commit']);
+      expect(eventEmitter.emitAsync.mock.calls).toEqual([
+        [APPROVERS_CHANGED, new ApproversChangedEvent('workspace-1')],
+      ]);
+    },
+  );
+
   it('needs no transaction for a change that leaves access alone', async () => {
     const { service, repository, transactions, eventEmitter } = build();
     repository.findOne.mockResolvedValue(user('ann', 'acme'));
@@ -240,6 +279,21 @@ describe('UsersService', () => {
           updated_by: 'hr-1',
         },
       );
+    });
+
+    it('tells of the new approvers once, in the transaction', async () => {
+      const { service, repository, eventEmitter, calls } = build();
+      repository.updateMany.mockResolvedValue([
+        { ...user('ann', null, UserRole.Manager), is_active: true },
+        { ...user('bo', null, UserRole.Manager), is_active: true },
+      ]);
+
+      await service.makeManagers(['ann', 'bo'], hr);
+
+      expect(calls).toEqual(['begin', 'emitAsync', 'commit']);
+      expect(eventEmitter.emitAsync.mock.calls).toEqual([
+        [APPROVERS_CHANGED, new ApproversChangedEvent('workspace-1')],
+      ]);
     });
 
     it('does nothing without users', async () => {

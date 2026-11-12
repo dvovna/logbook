@@ -6,7 +6,9 @@ import {
   IVacationsReplacement,
   VacationRequestsService,
 } from '@modules/vacation-requests/services/vacation-requests.service';
-import UserVacationsCsvParser from '@modules/user-data-import/parsers/user-vacations-csv.parser';
+import UserVacationsCsvParser, {
+  userVacationsHeader,
+} from '@modules/user-data-import/parsers/user-vacations-csv.parser';
 import { UserVacationsImportService } from '@modules/user-data-import/services/user-vacations-import.service';
 
 const person = (name: string): IUserViewModel =>
@@ -75,7 +77,7 @@ describe('UserVacationsImportService', () => {
       [bob.id, ['2026-03-02'], '2025-09-01'],
     ]);
     expect(result).toEqual({
-      created: 0,
+      created: 2,
       updated: 2,
       skipped: 1,
       errors: ['User not found: ghost@example.test'],
@@ -83,14 +85,55 @@ describe('UserVacationsImportService', () => {
   });
 
   // As when the lines were imported one after another.
-  it('gives a person on two lines the last one, and counts both', async () => {
+  it('gives a person on two lines the last one, and skips the first', async () => {
     const result = await service.handle(
       csv(line(ada.email, '2026-03-02'), line(ada.email, '2026-04-01')),
       admin,
     );
 
     expect(replaced(0)).toEqual([[ada.id, ['2026-04-01'], '2025-09-01']]);
-    expect(result.updated).toBe(2);
+    expect(result).toEqual({
+      created: 1,
+      updated: 1,
+      skipped: 1,
+      errors: [
+        `${ada.email} is in the file more than once: the last line is imported.`,
+      ],
+    });
+  });
+
+  it('counts the vacations written as created and the people as updated', async () => {
+    const twoVacations = `${ada.email};2025-09-01;2026-03-02;2026-03-02;annual_leave;approved;2026-04-01;2026-04-01;sick_leave;pending`;
+    const header = userVacationsHeader(2);
+
+    const result = await service.handle(
+      [header, twoVacations, `${bob.email};2025-09-01;;;;;;;;`].join('\n'),
+      admin,
+    );
+
+    expect(result).toEqual({
+      created: 2,
+      updated: 2,
+      skipped: 0,
+      errors: [],
+    });
+  });
+
+  it.each([
+    ['an empty file', ''],
+    ['a header and no lines', userVacationsHeader() + '\n'],
+    [
+      'lines without a header',
+      [line(ada.email), line(bob.email)].join('\n') + '\n',
+    ],
+    ['one line without a header', line(ada.email)],
+  ])('does not import %s, and says why', async (_name, content) => {
+    const result = await service.handle(content, admin);
+
+    expect(replaceVacations).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ created: 0, updated: 0, skipped: 0 });
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(userVacationsHeader());
   });
 
   it('imports line by line when the import at once fails, and reports the lines that fail, in order', async () => {
@@ -121,7 +164,7 @@ describe('UserVacationsImportService', () => {
       cy.id,
     ]);
     expect(result).toEqual({
-      created: 0,
+      created: 2,
       updated: 2,
       skipped: 2,
       errors: [

@@ -66,7 +66,9 @@ bo@example.com;2023-01-09;2026-05-04;2026-05-08;sick_leave;approved;;;;
 - A person's time off ends at the first empty start date.
 - A line whose email isn't an active person's in Logbook is skipped; the other lines are imported.
 - A line with a missing or wrong field (an email that isn't one, a date, type or status Logbook doesn't know, an end before its start) stops the whole file: nothing is imported, and the answer lists the problems.
-- A person on several lines gets the last one.
+- A file with no header (its first line has to start with `email;contractStartDate`) or with no lines below it isn't imported: the answer says why and shows the header.
+- A person on several lines gets the last one. The earlier lines are skipped, and the answer lists them.
+- The summary counts **Created** (time off requests added), **Updated** (people whose time off was replaced) and **Skipped** (lines left out).
 
 :::caution
 The import replaces all of a person's time off, including requests that wait for approval: their approvers' messages close. A line with a contract start and no vacations removes all the person's time off.

@@ -6,9 +6,13 @@ import {
 } from '@modules/vacation-requests/services/vacation-requests.service';
 import UserVacationsCsvParser, {
   IUserVacationRecord,
+  userVacationsHeader,
 } from '@modules/user-data-import/parsers/user-vacations-csv.parser';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 
+// `created` counts the vacations written, `updated` the people whose
+// vacations were replaced (nobody is created: a line of a person Logbook
+// doesn't know is skipped), `skipped` the lines left out, whatever the reason.
 export interface IImportResult {
   created: number;
   updated: number;
@@ -61,6 +65,14 @@ export class UserVacationsImportService {
 
         return result;
       }
+
+      if (!records.length) {
+        result.errors.push(
+          `The file has no lines below its header row. It needs the header (for example ${userVacationsHeader()}) and then one person per line.`,
+        );
+
+        return result;
+      }
     } catch (error) {
       this.logger.error('CSV parsing failed', error);
 
@@ -96,8 +108,27 @@ export class UserVacationsImportService {
       await this.importOneByOne(outcomes, user);
     }
 
+    // The last line of a person is the one imported.
+    const lastLineOf = new Map(
+      replacements.map((replacement) => [replacement.user.id, replacement]),
+    );
+
     for (const outcome of outcomes) {
-      if ('problem' in outcome) {
+      if ('replacement' in outcome && outcome.failure === undefined) {
+        if (
+          lastLineOf.get(outcome.replacement.user.id) !== outcome.replacement
+        ) {
+          result.errors.push(
+            `${outcome.replacement.user.email} is in the file more than once: the last line is imported.`,
+          );
+          result.skipped++;
+
+          continue;
+        }
+
+        result.updated++;
+        result.created += outcome.replacement.vacations.length;
+      } else if ('problem' in outcome) {
         result.errors.push(outcome.problem);
         result.skipped += outcome.skipped ? 1 : 0;
       } else if (outcome.failure !== undefined) {
@@ -105,8 +136,6 @@ export class UserVacationsImportService {
           `Failed to import ${outcome.replacement.user.email}: ${outcome.failure}`,
         );
         result.skipped++;
-      } else {
-        result.updated++;
       }
     }
 
@@ -129,7 +158,7 @@ export class UserVacationsImportService {
       if (record.vacations.length > MAX_ALLOWED_VACATIONS) {
         return {
           problem: `User can have a maximum of ${MAX_ALLOWED_VACATIONS} vacations. Skipping ${record.email}.`,
-          skipped: false,
+          skipped: true,
         };
       }
 

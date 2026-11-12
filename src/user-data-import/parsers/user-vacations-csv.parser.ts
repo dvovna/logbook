@@ -15,8 +15,27 @@ export interface IUserVacationRecord {
   }[];
 }
 
+const VACATION_FIELDS = ['startDate', 'endDate', 'type', 'status'] as const;
+
+// The first row of user-vacations.csv, with columns for `vacations` vacations
+// of a person; the parser reads the ones the file has, up to 100.
+export const userVacationsHeader = (vacations = 2) =>
+  [
+    'email',
+    'contractStartDate',
+    ...Array.from({ length: vacations }, (_, i) =>
+      VACATION_FIELDS.map((field) => `vacation[${i}].${field}`),
+    ).flat(),
+  ].join(';');
+
 @Injectable()
 export default class UserVacationsCsvParser extends AbstractCsvParser<IUserVacationRecord> {
+  protected readonly requiredColumns = ['email', 'contractStartDate'];
+
+  protected headerErrorMessage() {
+    return `The first row has to be the header, which starts with email;contractStartDate. For example:\n${userVacationsHeader()}`;
+  }
+
   protected parseRow(row: Record<string, string>) {
     const { email, contractStartDate, ...rest } = row;
 
