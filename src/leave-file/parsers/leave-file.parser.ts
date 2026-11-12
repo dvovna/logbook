@@ -65,8 +65,9 @@ const BALANCE_VALUE_COLUMNS: Column[] = [
 ];
 
 // Reads the lines of a leave file into raw rows, by what its header holds.
-// Null when it is neither a balances nor a history file. A file with Email and
-// Team columns is the team file's.
+// Null when it is neither a balances nor a history file. A history may have a
+// Team column beside its Leave type, From and To; any other file with Email
+// and Team columns is the team file's.
 export const parseLeaveFile = (
   lines: ISpreadsheetLine[],
 ): ILeaveFile | null => {

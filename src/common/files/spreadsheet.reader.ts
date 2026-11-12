@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
 import { CellValue, Workbook } from 'exceljs';
 import { fromCsvText } from '@common/utils/csv.utils';
+import { unpackedSize } from '@common/files/zip-size';
 
 // Each line with its number in the file.
 export interface ISpreadsheetLine {
@@ -11,6 +12,10 @@ export interface ISpreadsheetLine {
 
 const UNREADABLE_FILE =
   "The file can't be read: save it as CSV or Excel and send it again.";
+const TOO_LARGE_UNPACKED =
+  'The Excel file holds too much to read. Keep only the sheet with the rows, or save it as CSV, and send it again.';
+// A sheet of 5000 rows unpacks to a few megabytes.
+const MAX_UNPACKED_BYTES = 10 * 1024 * 1024;
 const NOT_UTF8 =
   'The file isn\'t saved as UTF-8: save it as "CSV UTF-8" or as an Excel file and send it again.';
 
@@ -64,6 +69,15 @@ const readCsv = (content: Buffer): ISpreadsheetLine[] => {
 };
 
 const readExcel = async (content: Buffer): Promise<ISpreadsheetLine[]> => {
+  // The 1 MB a file may have is its packed size.
+  const size = unpackedSize(content, MAX_UNPACKED_BYTES);
+
+  if (size !== 'fits') {
+    throw new BadRequestException(
+      size === 'too-large' ? TOO_LARGE_UNPACKED : UNREADABLE_FILE,
+    );
+  }
+
   const workbook = new Workbook();
 
   try {

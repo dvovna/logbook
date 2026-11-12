@@ -343,6 +343,26 @@ describe('Leave file', () => {
       expect(await state()).toEqual(before);
     });
 
+    // An export of past leave often names the team beside each leave.
+    it('of a history with a Team column is a history, not a team file', async () => {
+      const before = await state();
+
+      const [preview] = await share(
+        [
+          'Name,Email,Team,Leave type,From,To',
+          `Anna Novak,${anna.email},Platform,Annual leave,2026-04-06,2026-04-10`,
+          `Anna Novak,${anna.email},Platform,Sick leave,2026-05-04,2026-05-05`,
+        ].join('\n'),
+        'leave-export.csv',
+      );
+
+      expect(leaveFileTexts(preview).slice(0, 2)).toEqual([
+        "*Here's what leave-export.csv will do*",
+        'Adds *2 leaves* for 1 person as approved. Nobody is asked to approve them and nobody gets a message.',
+      ]);
+      expect(await state()).toEqual(before);
+    });
+
     it('shows Slack markup in the file name, names and reasons escaped', async () => {
       const eve = await addPerson('Eve <!here> & Co');
 

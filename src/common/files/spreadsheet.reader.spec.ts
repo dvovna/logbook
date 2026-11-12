@@ -150,6 +150,25 @@ describe('readSpreadsheet', () => {
     ).rejects.toEqual(unreadable);
   });
 
+  // The megabyte a file may have is its packed size (zip-size.spec.ts).
+  it('refuses an xlsx that unpacks to far more than its rows need', async () => {
+    const workbook = new Workbook();
+    workbook
+      .addWorksheet('People')
+      .addRows(
+        Array.from({ length: 150_000 }, (_, row) => [row, row, row, row, row]),
+      );
+
+    await expect(
+      readSpreadsheet(await workbookBuffer(workbook), 'a.xlsx'),
+    ).rejects.toEqual(
+      new BadRequestException(
+        'The Excel file holds too much to read. Keep only the sheet with the rows, or save it as CSV, and send it again.',
+      ),
+    );
+    // Writing 150,000 rows takes seconds on a busy machine.
+  }, 60_000);
+
   it('refuses a CSV that is not UTF-8', async () => {
     // "Zoë" in Windows-1252, as Excel's plain "CSV" writes it.
     const content = Buffer.concat([

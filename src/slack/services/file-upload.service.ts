@@ -11,12 +11,12 @@ import { parseTeamFile } from 'src/team-file/parsers/team-file.parser';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
 import { parseLeaveFile } from 'src/leave-file/parsers/leave-file.parser';
 import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
+import { LeaveFileKind } from 'src/leave-file/enums/leave-file-kind.enum';
 
 // Far more than a file of 5000 rows needs, small enough to hold in memory.
 const MAX_IMPORT_FILE_BYTES = 1024 * 1024;
 
-// Any other CSV or Excel file may be a team or a leave file; its columns
-// tell.
+// A CSV or Excel file may be a team or a leave file; its columns tell.
 const SPREADSHEET_NAME = /\.(csv|xlsx)$/i;
 
 const UNKNOWN_FILE =
@@ -100,8 +100,12 @@ export default class FileUploadService {
     try {
       const lines = await readSpreadsheet(bytes, fileName);
 
-      teamRows = parseTeamFile(lines);
-      leaveFile = teamRows ? null : parseLeaveFile(lines);
+      // A leave history may name the team beside each leave: its Leave
+      // type, From and To columns tell it from a team file.
+      leaveFile = parseLeaveFile(lines);
+      teamRows =
+        leaveFile?.kind === LeaveFileKind.History ? null : parseTeamFile(lines);
+      leaveFile = teamRows ? null : leaveFile;
     } catch (error) {
       if (!(error instanceof BadRequestException)) {
         throw error;

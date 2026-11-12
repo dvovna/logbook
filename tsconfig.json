@@ -38,8 +38,6 @@
       "@modules/team-setup/*": ["./src/team-setup/*"],
       "@modules/teams": ["./src/teams/index"],
       "@modules/teams/*": ["./src/teams/*"],
-      "@modules/user-data-import": ["./src/user-data-import/index"],
-      "@modules/user-data-import/*": ["./src/user-data-import/*"],
       "@modules/users": ["./src/users/index"],
       "@modules/users/*": ["./src/users/*"],
       "@modules/vacation-policies": ["./src/vacation-policies/index"],

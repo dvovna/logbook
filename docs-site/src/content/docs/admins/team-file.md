@@ -45,7 +45,7 @@ Save the file as CSV or as an Excel workbook (`.xlsx`) and send it to Logbook in
 
 - A CSV may use commas or semicolons. Save it as UTF-8 ("CSV UTF-8" in Excel): Logbook refuses a CSV in another encoding when it has letters such as é or ö.
 - In a workbook, Logbook reads the first sheet.
-- The first row needs at least the Email and Team columns. A file can have up to 1,000 rows and 1 MB.
+- The first row needs at least the Email and Team columns. A file can have up to 1,000 rows and 1 MB. A file that also has Leave type, From and To columns is read as a leave history.
 
 ## Check the preview
 

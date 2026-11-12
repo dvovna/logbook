@@ -64,7 +64,7 @@ Click **Apply** within 7 days. If Logbook changed in between, you get a new prev
 
 ## The format, in short
 
-- CSV with `,` or `;`, saved as UTF-8, or an Excel file (its first sheet). Up to 5,000 rows and 1 MB.
+- CSV with `,` or `;`, saved as UTF-8, or an Excel file (its first sheet). Up to 5,000 rows and 1 MB; an Excel file may unpack to 10 MB at most. A history may have a Team column too.
 - Logbook tells the files apart by their columns, whatever their names. Columns can come in any order, and header names ignore case and spaces.
 - Dates as `2026-11-12`, `12.11.2026`, Excel date cells, or with slashes. Slash dates are read the same way for the whole file: if any has a first number over 12 it is day/month, if any has a second number over 12 it is month/day. When the file can't tell, write the dates as `2026-11-12` or save it as Excel.
 
