@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
+import { ReceiptsSlackModule } from '@modules/slack/receipts/receipts-slack.module';
 import { SlackCommonModule } from '@modules/slack/common/slack-common.module';
 import { ArchiveReimbursementFormSubmitHandler } from '@modules/slack/tabs/receipts/handlers/archive-reimbursement-form-submit.handler';
 import { ReceiptsTabActionHandler } from '@modules/slack/tabs/receipts/handlers/receipts-tab-action.handler';
@@ -18,7 +19,13 @@ import { ReceiptsModule } from 'src/receipts/receipts.module';
 // Receipts (More → Manage → Receipts, Admin and Finance): a month of a
 // reimbursement with the decisions, and its child screen, Reimbursements.
 @Module({
-  imports: [SlackCommonModule, SlackTeamsModule, UsersModule, ReceiptsModule],
+  imports: [
+    SlackCommonModule,
+    SlackTeamsModule,
+    UsersModule,
+    ReceiptsModule,
+    ReceiptsSlackModule,
+  ],
   providers: [
     ReceiptsTabActionHandler,
     RejectReceiptFormSubmitHandler,

@@ -3,7 +3,11 @@
 export enum ReceiptsTabActionId {
   AcceptReceipt = 'accept_receipt',
   RejectReceipt = 'reject_receipt',
-  // The ⋯ menu of a decided receipt: the opposite decision.
+  // The receipt's file, to the viewer's DM.
+  OpenReceipt = 'open_receipt',
+  // The month's two CSVs and files, as a ZIP in parts, to the viewer's DM.
+  DownloadMonth = 'download_receipts_month',
+  // The ⋯ menu of a decided receipt: Open and the opposite decision.
   ManageReceiptMenu = 'check_receipt_menu',
   PreviousMonth = 'receipts_previous_month',
   NextMonth = 'receipts_next_month',

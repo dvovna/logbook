@@ -223,7 +223,7 @@ export class ReceiptsTabView extends BaseTabView<
         ? [text(this.getSentNothing(overview.sentNothing))]
         : []),
       ...Divider.getBlocks(),
-      this.getButtonsBlock(),
+      this.getButtonsBlock(overview.people.length > 0),
     ];
   }
 
@@ -409,13 +409,14 @@ export class ReceiptsTabView extends BaseTabView<
                 receipt.id,
                 'danger',
               ),
+              button('Open', ReceiptsTabActionId.OpenReceipt, receipt.id),
             ],
           }
         : { accessory: this.getDecidedMenu(receipt) }),
     });
   }
 
-  // The opposite decision: one option, which ListItem shows as a button.
+  // Open, and the opposite decision.
   private getDecidedMenu({
     id,
     status,
@@ -430,6 +431,10 @@ export class ReceiptsTabView extends BaseTabView<
       action_id: ReceiptsTabActionId.ManageReceiptMenu,
       options: [
         {
+          text: { type: 'plain_text', text: 'Open' },
+          value: `${ReceiptsTabActionId.OpenReceipt}:${id}`,
+        },
+        {
           text: { type: 'plain_text', text: accepted ? 'Reject' : 'Accept' },
           value: `${action}:${id}`,
         },
@@ -437,10 +442,14 @@ export class ReceiptsTabView extends BaseTabView<
     };
   }
 
-  private getButtonsBlock(): AnyBlock {
+  // The month's archive is offered when it holds a receipt.
+  private getButtonsBlock(withDownload = false): AnyBlock {
     return {
       type: 'actions',
       elements: [
+        ...(withDownload
+          ? [button('📦 Download the month', ReceiptsTabActionId.DownloadMonth)]
+          : []),
         button('⚙️ Reimbursements', ReceiptsTabActionId.OpenReimbursements),
       ],
     };

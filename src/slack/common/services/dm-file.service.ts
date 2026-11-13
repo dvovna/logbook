@@ -32,10 +32,12 @@ export class DmFileService {
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {}
 
+  // Resolves false when the workspace can't take files (only the message
+  // went), so that a caller with more files stops.
   public async send(
     user: IUserViewModel,
     { intro, title, filename, content }: IDmFile,
-  ) {
+  ): Promise<boolean> {
     const teamId = user.slack_team_id;
     let fileId: string;
 
@@ -51,7 +53,7 @@ export class DmFileService {
 
       await this.say(user, withoutFile(intro));
 
-      return;
+      return false;
     }
 
     const message = await this.slackCommunicationService.postMessage(
@@ -76,7 +78,7 @@ export class DmFileService {
           teamId,
         );
 
-        return;
+        return false;
       }
 
       await this.slackCommunicationService
@@ -89,6 +91,8 @@ export class DmFileService {
 
       throw error;
     }
+
+    return true;
   }
 
   // A message without a file, e.g. that there is nothing to export.

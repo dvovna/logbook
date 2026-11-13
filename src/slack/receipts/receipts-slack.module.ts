@@ -6,6 +6,7 @@ import { ReceiptDetailsSubmitHandler } from '@modules/slack/receipts/handlers/re
 import { ReceivedReceiptMessageHandler } from '@modules/slack/receipts/handlers/received-receipt-message.handler';
 import { ReceiptDetailsParser } from '@modules/slack/receipts/parsers/receipt-details.parser';
 import { ReceiptRejectionNotifier } from '@modules/slack/receipts/services/receipt-rejection-notifier.service';
+import { ReceiptFilesDmService } from '@modules/slack/receipts/services/receipt-files-dm.service';
 import { ReceiptIntakeService } from '@modules/slack/receipts/services/receipt-intake.service';
 import { ReceiptDetailsModalView } from '@modules/slack/receipts/views/receipt-details-modal.view';
 import { ReceiptRejectedMessageView } from '@modules/slack/receipts/views/receipt-rejected-message.view';
@@ -17,6 +18,7 @@ import { ReceiptsModule } from 'src/receipts/receipts.module';
   imports: [SlackCommonModule, SlackTeamsModule, ReceiptsModule, UsersModule],
   providers: [
     ReceiptIntakeService,
+    ReceiptFilesDmService,
     ReceivedReceiptMessageView,
     ReceiptRejectedMessageView,
     ReceiptRejectionNotifier,
@@ -26,6 +28,10 @@ import { ReceiptsModule } from 'src/receipts/receipts.module';
     ReceivedReceiptMessageHandler,
     ReceiptDetailsSubmitHandler,
   ],
-  exports: [ReceiptIntakeService, ReceiptDetailsModalView],
+  exports: [
+    ReceiptIntakeService,
+    ReceiptFilesDmService,
+    ReceiptDetailsModalView,
+  ],
 })
 export class ReceiptsSlackModule {}

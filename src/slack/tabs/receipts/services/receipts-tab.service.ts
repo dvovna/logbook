@@ -3,6 +3,10 @@ import { View } from '@slack/types/dist/views';
 import { ValidationError } from '@common/errors/validation.error';
 import { getDateOnly } from '@common/utils/date.utils';
 import { formatMoney } from '@common/utils/money.utils';
+import {
+  ReceiptFilesDmService,
+  FILE_DELETED,
+} from '@modules/slack/receipts/services/receipt-files-dm.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import BaseTabService, {
   IOpenModalBaseParams,
@@ -67,6 +71,7 @@ export class ReceiptsTabService extends BaseTabService<
     private readonly rejectModalView: RejectReceiptModalView,
     private readonly reimbursementModalView: ReimbursementModalView,
     private readonly confirmationModalView: ConfirmationModalView,
+    private readonly filesDm: ReceiptFilesDmService,
   ) {
     super(TabId.Receipts, {
       [ReceiptsModalName.RejectReceipt]: (params) =>
@@ -156,6 +161,87 @@ export class ReceiptsTabService extends BaseTabService<
       const receipt = await this.decisions.accept(receiptId, user);
 
       notice = `✅ Accepted ${receipt.fileName} from ${await this.ownerName(receipt)}.`;
+    } catch (error) {
+      notice = this.refusalNotice(error);
+    }
+
+    await this.publish({ user, metadata, notice });
+  }
+
+  // Open: the file goes to the viewer's DM as a job. A receipt that is
+  // gone or not the workspace's, or a file past retention, is a notice and
+  // saves no job.
+  public async openFile(
+    receiptId: string,
+    user: IUserViewModel,
+    metadata: IReceiptsTabMetadata,
+  ) {
+    let notice: string;
+
+    try {
+      assertCanManageReceipts(user);
+
+      const receipt = await this.receipts.findById(
+        receiptId,
+        user.slack_team_id,
+      );
+
+      if (!receipt) {
+        throw new NotFoundException(`Receipt ${receiptId} not found`);
+      }
+
+      if (receipt.status === ReceiptStatus.Draft) {
+        throw new ValidationError(
+          'This receipt has not been sent for checking yet.',
+        );
+      }
+
+      const name = escapeMrkdwn(receipt.fileName);
+
+      if (receipt.fileDeletedAt) {
+        notice = FILE_DELETED;
+      } else {
+        notice = (await this.filesDm.startOpen(user, receipt.id))
+          ? `📎 Sending ${name} to your Messages.`
+          : `📎 ${name} is already on its way to your Messages.`;
+      }
+    } catch (error) {
+      notice = this.refusalNotice(error);
+    }
+
+    await this.publish({ user, metadata, notice });
+  }
+
+  // Download the month: the screen's month as a ZIP in parts, as a job.
+  public async downloadMonth(
+    user: IUserViewModel,
+    metadata: IReceiptsTabMetadata,
+  ) {
+    let notice: string;
+
+    try {
+      assertCanManageReceipts(user);
+
+      const { reimbursementId, month } = metadata;
+
+      if (!reimbursementId || !month || !isMonthStart(month)) {
+        throw new ValidationError('Choose a reimbursement and a month first.');
+      }
+
+      const reimbursement = await this.reimbursements.findById(
+        reimbursementId,
+        user.slack_team_id,
+      );
+
+      if (!reimbursement) {
+        throw new NotFoundException(
+          `Reimbursement ${reimbursementId} not found`,
+        );
+      }
+
+      notice = (await this.filesDm.startDownload(user, reimbursement.id, month))
+        ? '📦 Sending the archive to your Messages.'
+        : '📦 The archive is already on its way to your Messages.';
     } catch (error) {
       notice = this.refusalNotice(error);
     }

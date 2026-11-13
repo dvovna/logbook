@@ -85,6 +85,9 @@ export const buildMonthOverview = ({
           .filter((owner) => owner !== person.id)
           .map((owner) => nameOf.get(owner))
           .filter((name): name is string => name !== undefined),
+        decidedByName: receipt.decidedBy
+          ? (nameOf.get(receipt.decidedBy) ?? null)
+          : null,
       })),
       acceptedCents,
       submittedCents,

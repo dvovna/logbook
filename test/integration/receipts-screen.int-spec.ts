@@ -135,6 +135,7 @@ describe('The Receipts screen', () => {
           buttons: [
             ReceiptsTabActionId.AcceptReceipt,
             ReceiptsTabActionId.RejectReceipt,
+            ReceiptsTabActionId.OpenReceipt,
           ],
           menu: [],
           menuLabels: [],
@@ -143,15 +144,21 @@ describe('The Receipts screen', () => {
           title: 'pool.jpg',
           fields: { Amount: '$15.00', Status: '✅ Accepted' },
           buttons: [],
-          menu: [ReceiptsTabActionId.RejectReceipt],
-          menuLabels: ['Reject'],
+          menu: [
+            ReceiptsTabActionId.OpenReceipt,
+            ReceiptsTabActionId.RejectReceipt,
+          ],
+          menuLabels: ['Open', 'Reject'],
         },
         {
           title: 'club.pdf',
           fields: { Amount: '$60.00', Status: '✅ Accepted' },
           buttons: [],
-          menu: [ReceiptsTabActionId.RejectReceipt],
-          menuLabels: ['Reject'],
+          menu: [
+            ReceiptsTabActionId.OpenReceipt,
+            ReceiptsTabActionId.RejectReceipt,
+          ],
+          menuLabels: ['Open', 'Reject'],
         },
       ]);
     });
@@ -421,6 +428,7 @@ describe('The Receipts screen', () => {
         Array(5).fill([
           ReceiptsTabActionId.AcceptReceipt,
           ReceiptsTabActionId.RejectReceipt,
+          ReceiptsTabActionId.OpenReceipt,
         ]),
       );
       expect(actionIdsOf(person)).not.toContain(ReceiptsTabActionId.NextMonth);
@@ -612,7 +620,10 @@ describe('The Receipts screen', () => {
             Status: '❌ Rejected',
             Reason: 'Blurry',
           },
-          menu: [ReceiptsTabActionId.AcceptReceipt],
+          menu: [
+            ReceiptsTabActionId.OpenReceipt,
+            ReceiptsTabActionId.AcceptReceipt,
+          ],
         }),
       );
 

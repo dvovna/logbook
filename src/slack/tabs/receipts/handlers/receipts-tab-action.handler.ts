@@ -48,6 +48,13 @@ export class ReceiptsTabActionHandler extends BaseTabActionHandler {
         this.accept(this.valueOf(payload), payload, user),
       [ReceiptsTabActionId.RejectReceipt]: (payload, user) =>
         this.openReject(this.valueOf(payload), payload, user),
+      [ReceiptsTabActionId.OpenReceipt]: (payload, user) =>
+        this.openFile(this.valueOf(payload), payload, user),
+      [ReceiptsTabActionId.DownloadMonth]: (payload, user) =>
+        this.receiptsTabService.downloadMonth(
+          user,
+          parseMetadata<IReceiptsTabMetadata>(payload),
+        ),
       [ReceiptsTabActionId.ManageReceiptMenu]: withMenuAction<
         ReceiptsTabActionId,
         [IUserViewModel]
@@ -133,6 +140,18 @@ export class ReceiptsTabActionHandler extends BaseTabActionHandler {
     );
   }
 
+  private openFile(
+    receiptId: string,
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) {
+    return this.receiptsTabService.openFile(
+      receiptId,
+      user,
+      parseMetadata<IReceiptsTabMetadata>(payload),
+    );
+  }
+
   private openReject(
     receiptId: string,
     payload: ISlackInteractionPayload,
@@ -157,6 +176,8 @@ export class ReceiptsTabActionHandler extends BaseTabActionHandler {
         return this.accept(receiptId, payload, user);
       case ReceiptsTabActionId.RejectReceipt:
         return this.openReject(receiptId, payload, user);
+      case ReceiptsTabActionId.OpenReceipt:
+        return this.openFile(receiptId, payload, user);
       default:
         this.logger.warn(`Unhandled receipt menu action: ${actionType}`);
     }

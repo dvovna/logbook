@@ -65,11 +65,13 @@ export class ReceiptsMonthService {
       );
     }
 
-    // Owners deactivated since (receipts or same files) stay in the month.
+    // Owners and deciders deactivated since (receipts or same files) are still
+    // named in the month.
     const known = new Set(users.map(({ id }) => id));
     const missing = [
       ...new Set([
         ...receipts.map(({ userId }) => userId),
+        ...receipts.flatMap(({ decidedBy }) => (decidedBy ? [decidedBy] : [])),
         ...[...sameFileOwners.values()].flat(),
       ]),
     ].filter((id) => !known.has(id));

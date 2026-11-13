@@ -5,6 +5,8 @@ export interface IReceiptsMonthReceipt extends IReceiptViewModel {
   late: boolean;
   // Other people who sent the same file, by name.
   alsoSentBy: string[];
+  // Who accepted or rejected it, by name (or email); null while it waits.
+  decidedByName: string | null;
 }
 
 export interface IReceiptsMonthPerson {
