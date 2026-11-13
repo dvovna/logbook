@@ -14,6 +14,7 @@ const RANK = {
   vacationRequest: 10,
   workflow: 20,
   timesheet: 30,
+  receipt: 35,
   clients: 40,
   billingSnapshots: 50,
   teamFile: 60,
@@ -38,6 +39,13 @@ export const workflowLock = (requestId: string): IAdvisoryLock => ({
 export const timesheetLock = (userId: string): IAdvisoryLock => ({
   key: `timesheet:${userId}`,
   rank: RANK.timesheet,
+});
+
+// A receipt's decisions and its owner's changes, after the owner's time when
+// both are taken.
+export const receiptLock = (receiptId: string): IAdvisoryLock => ({
+  key: `receipt:${receiptId}`,
+  rank: RANK.receipt,
 });
 
 export const clientsLock = (slackTeamId: string): IAdvisoryLock => ({
