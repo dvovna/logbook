@@ -19,6 +19,9 @@ import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choi
 import { ApprovalsTabActionId } from '@modules/slack/tabs/approvals/enums/approvals-tab-action-id.enum';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
+import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
+import { ReceiptsTabActionId } from '@modules/slack/tabs/receipts/enums/receipts-tab-action-id.enum';
+import { seedReceipt, seedReimbursement } from './support/receipts';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -506,6 +509,50 @@ describe('Access to objects by ID', () => {
     beforeEach(async () => {
       admin = await workspace.addUser({ role: UserRole.Admin });
       other = await t.createWorkspace();
+    });
+
+    it('are not decided on as receipts, nor is a form opened for them', async () => {
+      const finance = await workspace.addUser({ role: UserRole.Finance });
+      await seedReimbursement(t, workspace);
+      const strangersGym = await seedReimbursement(t, other);
+      const stranger = await other.addUser({ name: 'Stranger' });
+      const strangers = await seedReceipt(t, other, stranger, {
+        reimbursement: strangersGym,
+        month: '2026-06-01',
+        amountCents: 1000,
+      });
+      const screen = await openAppHomeTab(t, workspace, finance, [
+        NavigationActionId.Receipts,
+      ]);
+      const since = t.slackApi.mark();
+
+      await forge(finance, screen, {
+        type: 'button',
+        action_id: ReceiptsTabActionId.AcceptReceipt,
+        value: strangers.id,
+      });
+      await forge(finance, screen, {
+        type: 'button',
+        action_id: ReceiptsTabActionId.RejectReceipt,
+        value: strangers.id,
+      });
+      await forge(
+        finance,
+        screen,
+        menu(
+          ReceiptsTabActionId.ManageReceiptMenu,
+          `${ReceiptsTabActionId.AcceptReceipt}:${strangers.id}`,
+        ),
+      );
+
+      expect(openedModals(since)).toHaveLength(0);
+      expect(await other.rows('receipts')).toEqual([
+        expect.objectContaining({
+          id: strangers.id,
+          status: ReceiptStatus.Submitted,
+          decided_by: null,
+        }),
+      ]);
     });
 
     it('are not assigned to a project', async () => {

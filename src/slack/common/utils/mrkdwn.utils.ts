@@ -11,3 +11,13 @@ export const escapeMrkdwn = (text: string | null | undefined) =>
 // Someone's words as a quote, every line of it, safe to put in mrkdwn.
 export const quoteMrkdwn = (text: string) =>
   `>${escapeMrkdwn(text).replace(/\n/g, '\n>')}`;
+
+// escapeMrkdwn within `max` characters, for a field of Slack's limited
+// length: escaping makes `&` five characters. An entity is never cut in two.
+export const escapeClipped = (text: string | null | undefined, max: number) => {
+  const escaped = escapeMrkdwn(text);
+
+  return escaped.length <= max
+    ? escaped
+    : `${escaped.slice(0, max - 1).replace(/&[a-z]*$/, '')}…`;
+};

@@ -34,6 +34,16 @@ A request that HR or an admin sets to approved or rejected with **Edit Request**
 | Your time was rejected | An approver rejects an entry. | The person whose entry it is. | Who rejected it, the project and client, the day and hours, the reason, and "Fix it under Home → ✏️ Edit Entries (week of …) and submit it again." |
 | The Monday reminder | Every Monday, within 10 minutes of 09:00 UTC, once a week. | Everyone active with drafts or rejected entries dated before that week. | ":alarm_clock: You have *N time entries* (hours) from … not submitted yet", how many were rejected and in which weeks, and "Your approvers see time only once you submit it: Home → 📤 Submit for Approval." |
 
+## Receipts
+
+| Message | When | To | What it holds or lets you do |
+| --- | --- | --- | --- |
+| Got your receipt | You send a photo or PDF in your conversation with Logbook. | You. | "🧾 Got your receipt *name*. Add the details so Finance can check it." with **Add details** and **Discard**. After you submit the form it says "🧾 *name* · Reimbursement · Month · Amount — sent to Finance." See [Send receipts](/logbook/docs/everyone/receipts/). |
+| Your receipt was rejected | Admin or Finance rejects it. | The person who sent it. | "❌ Your receipt *name* for Reimbursement, Month was rejected: *reason*" and the button **Edit details**. |
+| Receipts are due | The 1st of the next month, and the day before the due date. | People who sent nothing; the day before the due date also people with receipts that need details. Not people who turned the reminders off. | "🧾 Receipts for *Reimbursement* for Month are due by …" or "… are due tomorrow, …", and the button **I don't use this**. |
+| The month's summary | The day after the due date. | Admin and Finance. | "🧾 *Reimbursement*, Month: 14 of 22 people sent receipts, 3 waiting for you." and the button **Open receipts**. See [Receipts](/logbook/docs/finance/receipts/). |
+| A receipt's file, a month's archive | Admin or Finance chooses **Open**, or **📦 Download the month**. | Them. | "🧾 Person · Reimbursement · Month · Amount" with the file, or "📦 Receipts for Reimbursement, Month (part 1 of 2)." with a zip. |
+
 ## People and setup
 
 | Message | When | To | What it holds or lets you do |
@@ -64,7 +74,7 @@ Logbook answers a file you send it in your conversation with it. Most answers ar
 | Leave file preview | HR or an admin sends `leave-balances.csv` or `leave-history.csv`. | The sender. | "Here's what *file* will do": for balances, the corrections, the contract starts it sets, the planned leave taken from a balance and the earlier balances that go; for a history, the leaves it adds by type, the balances that change and what it skips; for both, the rows it can't use. Buttons **Apply** and **Cancel**. After **Apply** it says what was set or added, with **Undo** and **Open People** or **Open Time off**. See [Leave balances and history](/logbook/docs/admins/imports/). |
 | Leave file templates | HR or an admin clicks **📥 Import leave**. | The clicker. | "📥 Bring in leave from your spreadsheet", with `leave-balances.csv`, then "🗓 And the leave history" with `leave-history.csv`. |
 | Team file preview | HR or an admin sends a team file. | The sender. | "Here's what *file* will do": the teams it creates, who moves where, lead changes, and rows it can't use. Buttons **Apply**, **Cancel** and **Company rules**. After **Apply** it shows what changed, with **Undo** and **Open Teams**. See [Team file](/logbook/docs/admins/team-file/). |
-| A file Logbook can't use | The file is larger than 1 MB, isn't UTF-8, can't be read, has neither a team file's nor a leave file's columns, or isn't a CSV or Excel file. Someone without Admin or HR who shares a file in their conversation with Logbook is refused; a file shared in a channel gets no answer. | The sender. | What is wrong, for example "❗️ I can't tell what this file is." with the columns each file needs, "❗️ Unknown file type." or "⛔ Only Admin or HR can import files into Logbook." |
+| A file Logbook can't use | The file is larger than 1 MB, isn't UTF-8, can't be read, has neither a team file's nor a leave file's columns, or isn't a CSV or Excel file. Someone without Admin or HR who shares a file that is not a photo or a PDF of a receipt in their conversation with Logbook is refused; a file shared in a channel gets no answer. | The sender. | What is wrong, for example "❗️ I can't tell what this file is." with the columns each file needs, "❗️ Unknown file type." or "⛔ Only Admin or HR can import files into Logbook." |
 
 ## When Logbook doesn't know you
 

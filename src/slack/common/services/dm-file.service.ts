@@ -12,7 +12,7 @@ interface IDmFile {
   intro: string;
   title: string;
   filename: string;
-  content: string;
+  content: string | Buffer;
 }
 
 const withoutFile = (intro: string) => `${intro}\n${NO_FILES_PERMISSION}`;
@@ -32,10 +32,14 @@ export class DmFileService {
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {}
 
+  // Resolves false when the workspace can't take files (only the message
+  // went), so that a caller with more files stops. `quietWithoutFiles`: then
+  // nothing is said, for a file whose sibling told it already.
   public async send(
     user: IUserViewModel,
     { intro, title, filename, content }: IDmFile,
-  ) {
+    { quietWithoutFiles = false } = {},
+  ): Promise<boolean> {
     const teamId = user.slack_team_id;
     let fileId: string;
 
@@ -49,9 +53,11 @@ export class DmFileService {
         throw error;
       }
 
-      await this.say(user, withoutFile(intro));
+      if (!quietWithoutFiles) {
+        await this.say(user, withoutFile(intro));
+      }
 
-      return;
+      return false;
     }
 
     const message = await this.slackCommunicationService.postMessage(
@@ -68,7 +74,7 @@ export class DmFileService {
         teamId,
       );
     } catch (error) {
-      if (slackErrorOf(error) === 'missing_scope') {
+      if (slackErrorOf(error) === 'missing_scope' && !quietWithoutFiles) {
         await this.slackCommunicationService.updateMessage(
           channel,
           ts,
@@ -76,7 +82,7 @@ export class DmFileService {
           teamId,
         );
 
-        return;
+        return false;
       }
 
       await this.slackCommunicationService
@@ -87,8 +93,14 @@ export class DmFileService {
           ),
         );
 
+      if (slackErrorOf(error) === 'missing_scope') {
+        return false;
+      }
+
       throw error;
     }
+
+    return true;
   }
 
   // A message without a file, e.g. that there is nothing to export.

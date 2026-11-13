@@ -33,6 +33,22 @@ export interface ISlackApiCall {
   result?: SlackJson;
 }
 
+const MIMETYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  heic: 'image/heic',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  csv: 'text/csv',
+};
+
+// What files.info reports for a file of this name.
+const mimetypeOf = (name: string) =>
+  MIMETYPES[name.split('.').pop()?.toLowerCase() ?? ''] ??
+  'application/octet-stream';
+
 export interface IPostedMessage {
   // The user or channel ID the app posted to.
   to: string;
@@ -76,7 +92,9 @@ export interface IUploadedFile {
   channel: string;
   filename: string;
   title?: string;
+  // As text, for CSVs; `bytes` is what was sent, for any file.
   content: string;
+  bytes: Buffer;
 }
 
 // Calls a test can make fail (failNext).
@@ -121,7 +139,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   // Files uploaded but not necessarily shared yet, by file ID.
   private readonly uploads = new Map<
     string,
-    { filename: string; content: string }
+    { filename: string; content: string | Buffer }
   >();
   private messageCount = 0;
   // The version of each open modal, by view ID, as Slack keeps it.
@@ -306,11 +324,18 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     return this.callsWith(token, 'files.completeUploadExternal', options)
       .filter(({ params }) => params.channel_id === channel)
       .flatMap(({ params }) =>
-        params.files.map(({ id, title }: { id: string; title?: string }) => ({
-          channel,
-          title,
-          ...this.uploads.get(id)!,
-        })),
+        params.files.map(({ id, title }: { id: string; title?: string }) => {
+          const { filename, content } = this.uploads.get(id)!;
+          const bytes = Buffer.from(content);
+
+          return {
+            channel,
+            title,
+            filename,
+            content: bytes.toString(),
+            bytes,
+          };
+        }),
       );
   }
 
@@ -486,6 +511,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
         id: fileId,
         name: file.name,
         size: file.size,
+        mimetype: mimetypeOf(file.name),
         url_private_download: `https://files.slack.com/files-pri/T_TEST-${fileId}/download/${file.name}`,
       };
     });

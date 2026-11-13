@@ -101,4 +101,22 @@ export enum ViewCallbackId {
   ClientsTabView = 'clients_tab_view',
   ClientFormSubmit = 'client_form_submit',
   ChangeClientStatus = 'change_client_status',
+
+  // receipts
+  // The DM that waits for the details of a receipt the person sent.
+  ReceivedReceiptMessage = 'received_receipt_message',
+  ReceiptDetailsForm = 'receipt_details_form',
+  MyReceiptsTabView = 'my_receipts_tab_view',
+  DeleteReceiptForm = 'delete_receipt_form',
+  // The DM that tells a person their receipt was rejected.
+  ReceiptRejectedMessage = 'receipt_rejected_message',
+  // The DMs that remind of a month's receipts, and tell Finance how it went.
+  ReceiptReminderMessage = 'receipt_reminder_message',
+  // Finance's screen and its forms.
+  ReceiptsTabView = 'receipts_tab_view',
+  RejectReceiptForm = 'reject_receipt_form',
+  ReimbursementForm = 'reimbursement_form',
+  ArchiveReimbursementForm = 'archive_reimbursement_form',
+  // Which reimbursements the person gets reminders about.
+  RemindersForm = 'reminders_form',
 }

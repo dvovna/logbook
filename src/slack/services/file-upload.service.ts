@@ -11,6 +11,8 @@ import { parseTeamFile } from 'src/team-file/parsers/team-file.parser';
 import { TeamFileUploadsService } from 'src/team-file/services/team-file-uploads.service';
 import { parseLeaveFile } from 'src/leave-file/parsers/leave-file.parser';
 import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
+import { ReceiptIntakeService } from '@modules/slack/receipts/services/receipt-intake.service';
+import { RECEIPT_FILE_NAME } from 'src/receipts/constants/receipt-limits';
 import { LeaveFileKind } from 'src/leave-file/enums/leave-file-kind.enum';
 
 // Far more than a file of 5000 rows needs, small enough to hold in memory.
@@ -34,25 +36,18 @@ export default class FileUploadService {
     private readonly teamFileMessagesService: TeamFileMessagesService,
     private readonly leaveFileUploadsService: LeaveFileUploadsService,
     private readonly leaveFileMessagesService: LeaveFileMessagesService,
+    private readonly receiptIntakeService: ReceiptIntakeService,
   ) {}
 
   // Files are the app's business only in the sharer's conversation with it;
   // a file in a channel is for the people there, and nobody is answered.
-  // The file is downloaded only when it may be a team or a leave file, and
-  // not too large.
+  // The file is downloaded only when it is a receipt or may be a team or a
+  // leave file, and not too large.
   public async handleFileUpload(
     fileId: string,
     channelId: string,
     user: IUserViewModel,
   ) {
-    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
-      return isDirectMessage(channelId)
-        ? this.reply(user, {
-            text: '⛔ Only Admin or HR can import files into Logbook.',
-          })
-        : undefined;
-    }
-
     if (!isDirectMessage(channelId)) {
       return;
     }
@@ -61,8 +56,28 @@ export default class FileUploadService {
       fileId,
       user.slack_team_id,
     );
-
     const url = file?.url_private_download;
+
+    // A receipt is every person's to send; the rest is Admin's and HR's.
+    if (url && file.name && RECEIPT_FILE_NAME.test(file.name)) {
+      return this.receiptIntakeService.handle(
+        {
+          id: fileId,
+          name: file.name,
+          size: file.size ?? 0,
+          mimetype: file.mimetype ?? 'application/octet-stream',
+          url,
+        },
+        user,
+      );
+    }
+
+    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
+      return this.reply(user, {
+        text: '⛔ Only Admin or HR can import files into Logbook.',
+      });
+    }
+
     if (!url) {
       return;
     }

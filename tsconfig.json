@@ -26,6 +26,8 @@
       "@common/*": ["./src/common/*"],
       "@modules/holidays": ["./src/holidays/index"],
       "@modules/holidays/*": ["./src/holidays/*"],
+      "@modules/receipts": ["./src/receipts/index"],
+      "@modules/receipts/*": ["./src/receipts/*"],
       "@modules/request-workflows": ["./src/request-workflows/index"],
       "@modules/request-workflows/*": ["./src/request-workflows/*"],
       "@modules/slack": ["./src/slack/index"],

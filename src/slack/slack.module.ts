@@ -40,6 +40,8 @@ import { ApprovalsTabModule } from '@modules/slack/tabs/approvals/approvals-tab.
 import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
 import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-tracking.module';
 import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module';
+import { ReceiptsTabModule } from '@modules/slack/tabs/receipts/receipts-tab.module';
+import { MyReceiptsTabModule } from '@modules/slack/tabs/my-receipts/my-receipts-tab.module';
 import { BillingSnapshotsTabModule } from '@modules/slack/tabs/billing-snapshots/billing-snapshots-tab.module';
 
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
@@ -48,6 +50,7 @@ import { TeamFileMessagesModule } from '@modules/slack/team-file/team-file-messa
 import { TeamFileModule } from 'src/team-file/team-file.module';
 import { LeaveFileMessagesModule } from '@modules/slack/leave-file/leave-file-messages.module';
 import { LeaveFileModule } from 'src/leave-file/leave-file.module';
+import { ReceiptsSlackModule } from '@modules/slack/receipts/receipts-slack.module';
 @Module({
   imports: [
     TimeEntriesModule,
@@ -75,12 +78,15 @@ import { LeaveFileModule } from 'src/leave-file/leave-file.module';
     TimeTrackingModule,
     ClientsTabModule,
     BillingSnapshotsTabModule,
+    MyReceiptsTabModule,
+    ReceiptsTabModule,
     ApprovalsTabModule,
     TeamFileSlackModule,
     TeamFileMessagesModule,
     TeamFileModule,
     LeaveFileMessagesModule,
     LeaveFileModule,
+    ReceiptsSlackModule,
   ],
   controllers: [
     SlackOauthController,

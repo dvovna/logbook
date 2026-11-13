@@ -12,6 +12,7 @@ enum EnvironmentVariable {
   MinYear = 'MIN_YEAR',
   MaxYear = 'MAX_YEAR',
   UninstalledDataRetentionDays = 'UNINSTALLED_DATA_RETENTION_DAYS',
+  ReceiptFileRetentionDays = 'RECEIPT_FILE_RETENTION_DAYS',
   MaxRequestsPerUser = 'MAX_REQUESTS_PER_USER',
   MaxPendingRequestsPerUser = 'MAX_PENDING_REQUESTS_PER_USER',
   MaxTeamsPerSlackTeam = 'MAX_TEAMS_PER_SLACK_TEAM',

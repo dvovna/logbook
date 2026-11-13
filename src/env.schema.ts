@@ -53,6 +53,10 @@ export const envSchema = z.object({
   // again restores it; 0 deletes it at once.
   UNINSTALLED_DATA_RETENTION_DAYS: z.coerce.number().int().min(0).default(30),
 
+  // How long the files of receipts are kept, counted from when the receipt
+  // was accepted or rejected; the receipt itself stays.
+  RECEIPT_FILE_RETENTION_DAYS: z.coerce.number().int().min(1).default(1095),
+
   // The range of years the year filters offer.
   MIN_YEAR: z.coerce.number().int().min(1900).default(2020),
   MAX_YEAR: z.coerce.number().int().max(2100).default(2035),

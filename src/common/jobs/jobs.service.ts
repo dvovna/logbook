@@ -216,7 +216,7 @@ export class JobsService
     name: string,
     singletonKey: string,
     payload: Payload,
-    { firstRun }: IEnqueueSingletonOptions<Payload> = {},
+    { firstRun, pendingAlso = [] }: IEnqueueSingletonOptions<Payload> = {},
   ): Promise<boolean> {
     const handler = this.handlerOf(name);
 
@@ -225,8 +225,10 @@ export class JobsService
     return this.transactions.transaction(async () => {
       await this.transactions.lock(singletonJobLock(name, singletonKey));
 
-      if (await this.isPending(name, singletonKey)) {
-        return false;
+      for (const queue of [name, ...pendingAlso]) {
+        if (await this.isPending(queue, singletonKey)) {
+          return false;
+        }
       }
 
       await this.saveToRunAfterCommit(
@@ -247,7 +249,7 @@ export class JobsService
   public async enqueueMany<Payload extends object>(
     name: string,
     payloads: Payload[],
-    { perSecond }: IEnqueueManyOptions = {},
+    { perSecond, singletonKey }: IEnqueueManyOptions = {},
   ): Promise<void> {
     const handler = this.handlerOf(name);
 
@@ -275,6 +277,7 @@ export class JobsService
         data: payload,
         // Seconds after Postgres's now(), as send() counts them.
         startAfter: String(waitSeconds),
+        ...(singletonKey ? { singletonKey } : {}),
       })),
       { db: this.transactions.sqlExecutor() },
     );

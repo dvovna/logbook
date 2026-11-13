@@ -4,6 +4,8 @@ import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { Tables } from '@common/types/database.types';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
+import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
+import { ReceiptsTabActionId } from '@modules/slack/tabs/receipts/enums/receipts-tab-action-id.enum';
 import { ClientsTabViewActionId } from '@modules/slack/tabs/clients/enums/clients-tab-view-actions-id.enum';
 import { ProjectsTabViewActionId } from '@modules/slack/tabs/projects/enums/projects-tab-view-actions-id.enum';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
@@ -11,6 +13,7 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
+import { seedReceipt, seedReimbursement } from './support/receipts';
 import { navigate, openAppHomeTab, openModalFrom } from './support/app-home';
 import { fillForm, findAction, SlackJson } from './support/block-kit';
 import { actionIdsOf, listItems, modalError } from './support/tab-readers';
@@ -163,6 +166,18 @@ describe('Access control', () => {
       ]);
     });
 
+    it.each(['manager', 'hr', 'member'] as const)(
+      'keeps a %s out of Receipts, which are for Admin and Finance',
+      async (role) => {
+        expect(
+          await navigateFromHome(
+            { manager, hr, member }[role],
+            NavigationActionId.Receipts,
+          ),
+        ).toEqual([ViewCallbackId.HomeTabView]);
+      },
+    );
+
     it.each(['manager', 'hr'] as const)(
       'keeps a %s out of Billing snapshots, which are for Admin and Finance',
       async (role) => {
@@ -196,6 +211,7 @@ describe('Access control', () => {
         'member',
         [
           NavigationActionId.Home,
+          NavigationActionId.MyReceipts,
           NavigationActionId.MyTime,
           NavigationActionId.TimeOff,
           NavigationActionId.Reports,
@@ -205,6 +221,7 @@ describe('Access control', () => {
         'manager',
         [
           NavigationActionId.Home,
+          NavigationActionId.MyReceipts,
           NavigationActionId.MyTime,
           NavigationActionId.TimeOff,
           NavigationActionId.Approvals,
@@ -218,19 +235,23 @@ describe('Access control', () => {
       [
         'hr',
         SCREEN_ACTIONS.filter(
-          (action) => action !== NavigationActionId.BillingSnapshots,
+          (action) =>
+            action !== NavigationActionId.BillingSnapshots &&
+            action !== NavigationActionId.Receipts,
         ),
       ],
       [
         'finance',
         [
           NavigationActionId.Home,
+          NavigationActionId.MyReceipts,
           NavigationActionId.MyTime,
           NavigationActionId.TimeOff,
           NavigationActionId.Reports,
           NavigationActionId.Projects,
           NavigationActionId.Clients,
           NavigationActionId.BillingSnapshots,
+          NavigationActionId.Receipts,
         ],
       ],
       ['admin', SCREEN_ACTIONS],
@@ -238,6 +259,10 @@ describe('Access control', () => {
       'leads a %s from every button and menu option only to screens it may open',
       async (role, reachable) => {
         const user = { member, manager, hr, finance, admin }[role];
+
+        // Home offers My receipts only where receipts are collected.
+        await seedReimbursement(t, workspace);
+
         const navigation = new Set<string>(SCREEN_ACTIONS);
         const followed = new Set<string>();
         const bounced: string[] = [];
@@ -290,6 +315,58 @@ describe('Access control', () => {
         await navigateFromHome(admin, NavigationActionId.Settings),
       ).toEqual([ViewCallbackId.TeamsTabView]);
     });
+  });
+
+  describe('receipts', () => {
+    // The Accept and Reject buttons of Finance's screen, sent by someone who
+    // never sees that screen, with a real receipt's ID.
+    it.each(['manager', 'hr', 'member'] as const)(
+      'are not decided on by a %s',
+      async (role) => {
+        const gym = await seedReimbursement(t, workspace, { name: 'Gym' });
+        const receipt = await seedReceipt(t, workspace, member, {
+          reimbursement: gym,
+          month: '2026-06-01',
+          amountCents: 1000,
+        });
+        const screen = await openAppHomeTab(t, workspace, admin, [
+          NavigationActionId.Receipts,
+        ]);
+        const user = { manager, hr, member }[role];
+        const since = t.slackApi.mark();
+
+        for (const actionId of [
+          ReceiptsTabActionId.AcceptReceipt,
+          ReceiptsTabActionId.RejectReceipt,
+        ]) {
+          await t.slack.interaction({
+            type: 'block_actions',
+            team: { id: workspace.slackId },
+            user: { id: user.slack_id, team_id: workspace.slackId },
+            trigger_id: 'trigger-forged',
+            container: { type: 'view' },
+            view: { team_id: workspace.slackId, ...screen },
+            actions: [
+              {
+                type: 'button',
+                action_id: actionId,
+                block_id: 'forged',
+                value: receipt.id,
+                action_ts: '1',
+              },
+            ],
+          });
+        }
+        await t.idle();
+
+        expect(
+          t.slackApi.callsWith(workspace.token, 'views.open', { since }),
+        ).toHaveLength(0);
+        expect((await workspace.row('receipts', receipt.id)).status).toBe(
+          ReceiptStatus.Submitted,
+        );
+      },
+    );
   });
 
   // Chooses `value` in the menu `actionId` of `view`, whether or not the menu

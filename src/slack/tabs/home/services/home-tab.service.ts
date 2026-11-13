@@ -14,6 +14,8 @@ import ConfirmationModalView from '@modules/slack/common/views/components/confir
 import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
 import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
+import { getDateOnly } from '@common/utils/date.utils';
+import { ReceiptsHomeService } from 'src/receipts/services/receipts-home.service';
 import { TimeEntriesSummaryService } from 'src/time-entries/services/time-entries-summary.service';
 
 export enum HomeTabModalName {
@@ -59,6 +61,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
     private readonly setupProgressService: SetupProgressService,
+    private readonly receiptsHomeService: ReceiptsHomeService,
     private readonly projectsService: ProjectsService,
   ) {
     super(TabId.Home, {
@@ -84,6 +87,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       requestedVacations,
       timeSummary,
       setup,
+      receipts,
       approvals,
       projectsCount,
     ] = await Promise.all([
@@ -96,6 +100,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       }),
       this.timeEntriesSummaryService.getUserSummary(user),
       this.setupProgressService.get(user, projects),
+      this.receiptsHomeService.summaryFor(user, getDateOnly(new Date())),
       // Counted by BaseTabService for the Approvals button too.
       pendingApprovals,
       projects,
@@ -111,6 +116,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       tracksTime: projectsCount > 0,
       pendingApprovals: approvals ?? { timeOff: 0, timeEntries: 0 },
       setup,
+      receipts,
     });
   }
 

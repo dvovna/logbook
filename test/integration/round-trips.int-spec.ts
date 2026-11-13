@@ -18,7 +18,8 @@ import { cellKey } from '@modules/slack/tabs/time-tracking/utils/timesheet-cell-
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { navigate, openAppHomeTab, openModalFrom } from './support/app-home';
-import { buttonText } from './support/tab-readers';
+import { buttonText, sectionTexts } from './support/tab-readers';
+import { seedReceipt, seedReimbursement } from './support/receipts';
 import { workWeek } from './support/dates';
 import {
   approvalMessageTo,
@@ -89,10 +90,12 @@ const SCREEN_ROUND_TRIPS: Record<
   string,
   { roundTrips: number; statements: number }
 > = {
-  'show Home to an admin': { roundTrips: 4, statements: 16 },
+  'show Home to an admin': { roundTrips: 4, statements: 20 },
+  'show Home to an admin with receipts': { roundTrips: 2, statements: 20 },
+  'show Receipts to an admin': { roundTrips: 3, statements: 11 },
   'show Approvals to an admin': { roundTrips: 2, statements: 6 },
   'show Reports to an admin': { roundTrips: 2, statements: 5 },
-  'show Home to a manager': { roundTrips: 3, statements: 9 },
+  'show Home to a manager': { roundTrips: 3, statements: 13 },
   'show Reports to a manager': { roundTrips: 3, statements: 6 },
 };
 
@@ -412,6 +415,60 @@ describe('Round trips to the database before the answer', () => {
           NavigationActionId.Reports,
         ),
       screen,
+    );
+  });
+
+  // The receipts' reads sit beside Home's others: no round trip more.
+  it('shows Home when receipts are collected', async () => {
+    const admin = await workspace.addUser({ role: UserRole.Admin });
+    const gym = await seedReimbursement(t, workspace, { name: 'Gym' });
+
+    await seedReceipt(t, workspace, admin, {
+      reimbursement: gym,
+      month: '2026-06-01',
+      amountCents: 4500,
+    });
+    const approvals = await openAppHomeTab(t, workspace, admin, [
+      NavigationActionId.Approvals,
+    ]);
+
+    const home = await measure(
+      'show Home to an admin with receipts',
+      () => navigate(t, workspace, admin, approvals, NavigationActionId.Home),
+      { screen: true },
+    );
+
+    expect(sectionTexts(home)).toContain(
+      'Gym · June 2026: 1 receipt, $45.00 · due 5 Jul',
+    );
+  });
+
+  // The month's reads sit beside each other: people, teams, receipts and
+  // the rest at once, whatever the number of receipts.
+  it('shows Receipts to an admin', async () => {
+    const admin = await workspace.addUser({ role: UserRole.Admin });
+    const gym = await seedReimbursement(t, workspace, {
+      name: 'Gym',
+      limitCents: 5000,
+    });
+
+    for (const amountCents of [1500, 2500, 3500]) {
+      await seedReceipt(t, workspace, member, {
+        reimbursement: gym,
+        month: '2026-06-01',
+        amountCents,
+      });
+    }
+    const home = await openAppHomeTab(t, workspace, admin);
+
+    const receipts = await measure(
+      'show Receipts to an admin',
+      () => navigate(t, workspace, admin, home, NavigationActionId.Receipts),
+      { screen: true },
+    );
+
+    expect(sectionTexts(receipts)).toContain(
+      '*Mia* · $75.00 of $50.00 ⚠️ over the limit',
     );
   });
 

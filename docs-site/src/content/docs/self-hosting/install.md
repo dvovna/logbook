@@ -127,12 +127,12 @@ Installing again later (for example after an update adds scopes) only replaces t
 
 ## An app created from an older manifest
 
-The CSV files Logbook sends need the `files:write` scope, which the manifest got after the first installs. If your Slack app was created from an older manifest:
+The files Logbook sends (the CSV exports, a receipt's file and a month's receipts) need the `files:write` scope, which the manifest got after the first installs. If your Slack app was created from an older manifest:
 
 1. Add `files:write` under "OAuth & Permissions" → "Bot Token Scopes", or update the app from the current manifest.
 2. Install the app again in every workspace through `/api/slack/install`.
 
-Until a workspace does, a CSV comes as a message that asks for it.
+Until a workspace does, a CSV comes as a message that asks for it, and so does a receipt file.
 
 ## Next
 

@@ -14,4 +14,6 @@ export enum TabId {
   Clients = 'clients_tab',
   VacationRequests = 'vacation_requests_tab',
   BillingSnapshots = 'billing_snapshots_tab',
+  MyReceipts = 'my_receipts_tab',
+  Receipts = 'receipts_tab',
 }

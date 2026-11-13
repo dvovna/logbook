@@ -27,6 +27,7 @@ import { LeaveFileDmService } from '@modules/slack/leave-file/services/leave-fil
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { TeamFileDmService } from '@modules/slack/team-file/services/team-file-dm.service';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
+import { RemindersModalService } from '@modules/slack/receipts/services/reminders-modal.service';
 import { submittedNotice } from '@modules/slack/tabs/time-tracking/utils/submitted-notice.utils';
 
 @Injectable()
@@ -46,6 +47,7 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
     private readonly teamsTabService: TeamsTabService,
     private readonly teamFileDmService: TeamFileDmService,
     private readonly leaveFileDmService: LeaveFileDmService,
+    private readonly remindersModalService: RemindersModalService,
     protected readonly tabNavigationService: TabNavigationService,
   ) {
     super(tabNavigationService);
@@ -62,6 +64,7 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
       [TeamsTabViewActionId.CompanyRules]: this.handleCompanyRules,
       [TeamsTabViewActionId.TeamFile]: this.handleTeamFile,
       [UsersTabViewActionId.ImportLeave]: this.handleImportLeave,
+      [HomeTabActionId.Reminders]: this.handleReminders,
     };
   }
 
@@ -120,6 +123,16 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
 
     runInBackground(this.logger, 'send the leave file templates', () =>
       this.leaveFileDmService.sendTemplates(user),
+    );
+  };
+
+  private handleReminders = async (
+    payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    await this.remindersModalService.open(
+      payload.trigger_id || user.slack_id,
+      user,
     );
   };
 

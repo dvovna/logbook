@@ -23,6 +23,7 @@ import { RequestWorkflowsModule } from './request-workflows/request-workflows.mo
 import { LoggerModule } from 'nestjs-pino';
 import { pinoHttpOptions } from '@common/logging/pino-http.options';
 import { ClientsModule } from '@modules/clients/clients.module';
+import { ReceiptsModule } from '@modules/receipts/receipts.module';
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 import { TimeOffLoggingModule } from 'src/time-off-logging/time-off-logging.module';
 import { TeamFileModule } from 'src/team-file/team-file.module';
@@ -64,6 +65,7 @@ import { LeaveFileModule } from 'src/leave-file/leave-file.module';
     TeamSetupModule,
     TeamsModule,
     ClientsModule,
+    ReceiptsModule,
     RequestWorkflowsModule,
     TimeEntriesModule,
     TimeOffLoggingModule,

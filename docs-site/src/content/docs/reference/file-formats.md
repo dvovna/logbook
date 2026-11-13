@@ -1,6 +1,6 @@
 ---
 title: File formats
-description: The columns and rules of the files Logbook reads (leave balances and history, the team file) and writes (time report and billing snapshot CSVs).
+description: The columns and rules of the files Logbook reads (leave balances and history, the team file, receipts) and writes (time report and billing snapshot CSVs, receipt archives).
 sidebar:
   order: 4
 ---
@@ -14,6 +14,8 @@ The files you send to Logbook, and the ones it sends you. You send a file in you
 | The team file | Logbook sends a template, you send it back | HR and admins | [Team file](/logbook/docs/admins/team-file/) |
 | Time report CSV | Logbook sends it | Everyone, for the time they see | [Time reports](/logbook/docs/finance/time-reports/) |
 | Billing snapshot CSV | Logbook sends it | Admin and Finance | [Billing](/logbook/docs/finance/billing/) |
+| A receipt (photo or PDF) | You send it | Everyone | [Send receipts](/logbook/docs/everyone/receipts/) |
+| A receipt's file, and a month's archive | Logbook sends it | Admin and Finance | [Receipts](/logbook/docs/finance/receipts/) |
 
 Logbook tells the files you send apart by their columns, not their names: a team file has **Email** and **Team**; a leave balances file has **Email** and at least one of **Contract start**, **Days left**, **Working days left** and **Bonus days left**, and no **Team**; a leave history has **Email**, **Leave type**, **From** and **To**. A file that is none of them gets an answer that names the three.
 
@@ -181,3 +183,17 @@ The time report CSV, the billing snapshot CSV and the team and leave file templa
 | Line ends | CRLF |
 | Quotes | A field with a comma, a quote or a line break is put in double quotes; a quote inside is doubled. |
 | Formula guard | Text people typed that starts with `=`, `+`, `-`, `@`, a tab or a carriage return gets a `'` in front, so a spreadsheet doesn't run it as a formula. Logbook drops that `'` again when it reads a team or leave file. |
+
+## Receipts
+
+| | |
+| --- | --- |
+| File types | JPG, PNG, HEIC, WebP, GIF and PDF, told by the file's name |
+| Size | At most 10 MB a file |
+| Same file twice | A person can send a file once; after a rejection they can send it again |
+| Reimbursements | At most 10 active ones in a workspace |
+| Drafts | A receipt with no details is deleted, with its file, after 30 days |
+| Files | Deleted `RECEIPT_FILE_RETENTION_DAYS` after the decision (1095 days by default); the receipt stays. A receipt waiting for a decision keeps its file. |
+| Archive of a month | `receipts.csv` and `totals.csv` and the files, in parts of about 20 MB |
+
+A receipt is a photo or PDF sent in your conversation with Logbook, by anyone. Any other file there is read as a team or leave file, and only HR and admins may send those. Receipt files are kept in Logbook's database; see [Operate](/logbook/docs/self-hosting/operate/#receipt-files).

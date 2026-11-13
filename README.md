@@ -47,6 +47,7 @@ You can self-host it, and one deployment can serve many Slack workspaces.
 - Billing snapshots: admins and finance lock a billing report's approved time with today's rates, for an invoice you make elsewhere (Logbook makes no invoices). Nobody can change the time in a snapshot. A snapshot's CSV is sent to you in a DM (date, person, email, team, project, description, hours, billable, rate, amount, currency), and you mark it invoiced (or not invoiced again). The list filters by client. An admin can unlock a snapshot to correct its time, which deletes it.
 - An uninvoiced report per client, for all time or a period: approved billable time in no snapshot, with its amount at today's rates, and the time of snapshots not marked invoiced yet.
 - Admins and HR see everyone's time logs.
+- Receipts for reimbursements (a gym, lunches): people send a photo or PDF of a receipt to Logbook in Slack, add the reimbursement, month and amount, and follow it as waiting, accepted or rejected. Admins and finance check a month on a screen, accept or reject with a reason, open a file, and download the month as an archive (`receipts.csv`, `totals.csv` and the files). Logbook reminds people itself and sends admins and finance a summary after the due date; files are kept for `RECEIPT_FILE_RETENTION_DAYS` (1095) after the decision.
 
 ## How it works
 

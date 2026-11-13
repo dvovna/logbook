@@ -4,7 +4,10 @@ import {
 } from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
-import { formatDateRange } from '@common/utils/date.utils';
+import { formatDateRange, formatDayMonth } from '@common/utils/date.utils';
+import { formatMoney } from '@common/utils/money.utils';
+import { monthLabel } from '@modules/receipts/utils/receipt-months';
+import { IReceiptsHomeSummary } from 'src/receipts/services/receipts-home.service';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -42,6 +45,8 @@ interface IGetViewParams extends IBaseTabViewParams {
   pendingApprovals: IPendingApprovals;
   // The setup checklist, for Admin and HR until the workspace is set up.
   setup: ISetupProgress | null;
+  // What the workspace collects receipts for, null when nothing.
+  receipts: IReceiptsHomeSummary | null;
 }
 
 // The setup checklist's blocks: `setup`, `setup_done`, `setup_<step>`.
@@ -55,6 +60,7 @@ export enum HomeTabActionId {
   LogTime = 'log_time',
   EditTimeEntries = 'edit_time_entries',
   SubmitTimeEntries = 'submit_time_entries_from_home',
+  Reminders = 'open_receipt_reminders',
 }
 
 @Injectable()
@@ -75,6 +81,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     tracksTime,
     pendingApprovals,
     setup,
+    receipts,
   }: IGetViewParams) {
     const hasTime =
       tracksTime ||
@@ -85,6 +92,8 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       setup ? this.getSetupBlocks(setup) : [],
       this.getAttentionBlocks(pendingApprovals),
       hasTime ? this.getTimeTrackingBlocks(timeSummary) : [],
+      receipts ? this.getReceiptsBlocks(receipts) : [],
+      // Last: the button under the parts requests time off.
       this.getVacationUsageBlocks(vacationUsageInfo, fileBalance),
       this.getRequestedVacationsBlocks(requestedVacations),
     ].filter((blocks) => blocks.length);
@@ -289,6 +298,56 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
             },
           ]
         : []),
+    ];
+  }
+
+  // What was sent for each reimbursement being collected, and when it is
+  // due.
+  private getReceiptsBlocks({
+    lines,
+    drafts,
+    remindersOff,
+    currency,
+  }: IReceiptsHomeSummary): AnyBlock[] {
+    const section = (text: string): AnyBlock => ({
+      type: 'section',
+      text: { type: 'mrkdwn', text },
+    });
+
+    return [
+      section('*🧾 Receipts*'),
+      ...(remindersOff ? [section('You turned receipt reminders off.')] : []),
+      ...lines.map(({ reimbursementName, month, count, totalCents, dueDate }) =>
+        section(
+          `${escapeMrkdwn(reimbursementName)} · ${monthLabel(month)}: ${
+            count
+              ? `${pluralize('receipt', count, true)}, ${formatMoney(totalCents, currency)}`
+              : 'nothing sent yet'
+          } · due ${formatDayMonth(dueDate)}`,
+        ),
+      ),
+      ...(drafts
+        ? [
+            section(
+              `${pluralize('receipt', drafts, true)} ${drafts === 1 ? 'needs' : 'need'} details`,
+            ),
+          ]
+        : []),
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'My receipts' },
+            action_id: NavigationActionId.MyReceipts,
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '🔔 Reminders', emoji: true },
+            action_id: HomeTabActionId.Reminders,
+          },
+        ],
+      },
     ];
   }
 
