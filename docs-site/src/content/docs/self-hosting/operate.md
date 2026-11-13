@@ -95,6 +95,8 @@ The app also runs work on a timer:
 | --- | --- |
 | Import the members of each workspace | Checked every hour, the first time 10 minutes after the start; a workspace is imported once a day. |
 | The Monday reminder of unsubmitted time | Checked every 10 minutes; sent from Monday 09:00 UTC, once a week. |
+| Reminders of receipts, and the summary for Admin and Finance | Checked every 10 minutes; sent from 09:00 UTC on the day, once for each reimbursement and month. |
+| Delete expired receipt files and old drafts | Checked every hour, the first time 15 minutes after the start. |
 | Delete workspaces uninstalled longer than the retention period | A minute after the start, then every 6 hours. |
 
 ## Error tracking with Sentry
@@ -131,6 +133,14 @@ When a workspace uninstalls the app:
 - after that, the data is deleted for good, one workspace at a time.
 
 With `UNINSTALLED_DATA_RETENTION_DAYS=0` the data is deleted when the app is uninstalled.
+
+## Receipt files
+
+The photos and PDFs people send as receipts are kept in the database, in the table `receipt_files`, not on the app's disk. They are part of every backup, and the database grows with them: roughly 1 to 2 GB a year for 400 people. Files are at most 10 MB each.
+
+- The file of a receipt that Admin or Finance has decided is deleted `RECEIPT_FILE_RETENTION_DAYS` days after the decision (1095, three years, by default). The receipt itself stays. The file of a receipt still waiting is never deleted.
+- A file whose receipt got no details is deleted after 30 days, with the receipt.
+- Open and Download send files to Slack and need the `files:write` scope; see [An app created from an older manifest](/logbook/docs/self-hosting/install/#an-app-created-from-an-older-manifest).
 
 ## Backups
 

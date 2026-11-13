@@ -29,6 +29,7 @@ Logbook reads its configuration from environment variables, usually from a `.env
 | `SENTRY_DSN` | Unset: nothing is sent | A Sentry project's DSN. Unexpected errors go there, with their stack only: no request data and no people's details. Each event carries the release, `logbook@<version>`. See [Operate](/logbook/docs/self-hosting/operate/#error-tracking-with-sentry). |
 | `SENTRY_ENVIRONMENT` | `NODE_ENV`, else `development` | The environment Sentry events carry. In the Docker image `NODE_ENV` is `production`. |
 | `UNINSTALLED_DATA_RETENTION_DAYS` | `30` | Days a workspace's data is kept after it uninstalls the app. Installing again within them restores everything. `0` deletes the data when the app is uninstalled. |
+| `RECEIPT_FILE_RETENTION_DAYS` | `1095` | Days the file of a receipt is kept after Admin or Finance accepted or rejected it. The receipt itself stays. A receipt still waiting keeps its file. At least 1. |
 | `MIN_YEAR` | `2020` | The first year the year filters offer (time off lists, holidays). At least 1900. |
 | `MAX_YEAR` | `2035` | The last year the year filters offer. At most 2100. |
 

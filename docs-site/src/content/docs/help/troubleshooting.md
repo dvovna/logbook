@@ -42,7 +42,7 @@ Find what you see, then its cause and what to do. Some fixes are for whoever run
 
 ## A CSV doesn't come with its message
 
-**What you see:** you asked for a CSV and got "⚠️ I couldn't attach the file: Logbook doesn't have the permission to upload files in this workspace yet."
+**What you see:** you asked for a CSV, or for a receipt's file or a month of receipts, and got "⚠️ I couldn't attach the file: Logbook doesn't have the permission to upload files in this workspace yet."
 
 **Cause:** Logbook was installed in your workspace before it asked for the permission to upload files (`files:write`).
 
