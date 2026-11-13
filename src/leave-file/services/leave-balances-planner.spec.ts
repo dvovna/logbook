@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import UserRole from '@common/enums/user-role.enum';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
@@ -64,6 +65,7 @@ const person = (overrides: Partial<IUserViewModel>): IUserViewModel => ({
   slack_team_id: 'slack-team-1',
   slack_id: 'U1',
   created_at: '2026-01-01',
+  time_reminder: TimeReminder.Weekly,
   ...overrides,
 });
 

@@ -16,7 +16,7 @@ An AI coding agent can take these steps for you from one prompt. See [Install wi
 - The source of the release you run, for its database migrations. With pnpm 10:
   ```bash
   npm install -g pnpm@10
-  git clone --branch v0.5.3 https://github.com/dvovna/logbook && cd logbook && pnpm install
+  git clone --branch v0.6.0 https://github.com/dvovna/logbook && cd logbook && pnpm install
   ```
   The steps below run the Supabase CLI pinned in it.
 - A Supabase project. The free plan runs the bot, but it keeps no backups, and Supabase pauses it after a week of little activity (see [Operate](/logbook/docs/self-hosting/operate/#health-check)). For a company's real data, take a paid plan or back the database up yourself (see [Backups](/logbook/docs/self-hosting/operate/#backups)).
@@ -76,10 +76,10 @@ The optional settings (allowed workspaces, Sentry, pool sizes, data retention, l
 
 ## 4. Run
 
-The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.5.3`), its minor line (`0.5`) and `latest`:
+The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.6.0`), its minor line (`0.6`) and `latest`:
 
 ```bash
-docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.5
+docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.6
 ```
 
 The second port of `-p` is `PORT` from `.env`. With `PORT` left out of `.env`, the container listens on 10000, so map `-p 3000:10000`.
@@ -127,12 +127,12 @@ Installing again later (for example after an update adds scopes) only replaces t
 
 ## An app created from an older manifest
 
-The CSV files Logbook sends need the `files:write` scope, which the manifest got after the first installs. If your Slack app was created from an older manifest:
+The files Logbook sends (the CSV exports, a receipt's file and a month's receipts) need the `files:write` scope, which the manifest got after the first installs. If your Slack app was created from an older manifest:
 
 1. Add `files:write` under "OAuth & Permissions" → "Bot Token Scopes", or update the app from the current manifest.
 2. Install the app again in every workspace through `/api/slack/install`.
 
-Until a workspace does, a CSV comes as a message that asks for it.
+Until a workspace does, a CSV comes as a message that asks for it, and so does a receipt file.
 
 ## Next
 

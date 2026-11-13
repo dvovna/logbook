@@ -1,6 +1,6 @@
 {
   "name": "logbook",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "Logbook: vacation requests with approvals, leave policies, holidays and time tracking in Slack",
   "author": "Dzmitry Vouna",
   "private": true,
@@ -47,6 +47,7 @@
     "csv-parse": "^7.0.3",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
+    "fflate": "^0.8.3",
     "keyv": "^6.1.0",
     "kysely": "^0.28.19",
     "lodash": "^4.17.21",

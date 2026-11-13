@@ -66,10 +66,8 @@ export class ChangeUserStatusFormSubmitHandler extends BaseModalFormSubmitHandle
         slackTeamId: user.slack_team_id,
         includeInactive: true,
       },
-      {
-        isActive: !userToChange.is_active,
-        updatedBy: user.id,
-      },
+      { isActive: !userToChange.is_active },
+      user,
     );
 
     if (!updatedUser) {

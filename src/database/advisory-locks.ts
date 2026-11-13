@@ -11,9 +11,11 @@ export interface IAdvisoryLock {
 // workflow's; logging time off as time and a timesheet save both take the
 // person's time last. The workspace locks are taken alone.
 const RANK = {
+  admins: 5,
   vacationRequest: 10,
   workflow: 20,
   timesheet: 30,
+  receipt: 35,
   clients: 40,
   billingSnapshots: 50,
   teamFile: 60,
@@ -24,6 +26,14 @@ const RANK = {
 
 export const compareLocks = (a: IAdvisoryLock, b: IAdvisoryLock) =>
   a.rank - b.rank || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+
+// Taking the Admin role from someone, or deactivating an admin: one at a
+// time per workspace, so that two admins who demote each other at once
+// don't leave it with none (UsersService.update).
+export const adminsLock = (slackTeamId: string): IAdvisoryLock => ({
+  key: `admins:${slackTeamId}`,
+  rank: RANK.admins,
+});
 
 export const vacationRequestLock = (requestId: string): IAdvisoryLock => ({
   key: `vacation-request:${requestId}`,
@@ -38,6 +48,18 @@ export const workflowLock = (requestId: string): IAdvisoryLock => ({
 export const timesheetLock = (userId: string): IAdvisoryLock => ({
   key: `timesheet:${userId}`,
   rank: RANK.timesheet,
+});
+
+// A receipt's decisions and its owner's changes, after the owner's time when
+// both are taken.
+export const receiptLock = (receiptId: string): IAdvisoryLock => ({
+  key: `receipt:${receiptId}`,
+  rank: RANK.receipt,
+});
+
+export const reimbursementsLock = (slackTeamId: string): IAdvisoryLock => ({
+  key: `reimbursements:${slackTeamId}`,
+  rank: RANK.clients,
 });
 
 export const clientsLock = (slackTeamId: string): IAdvisoryLock => ({

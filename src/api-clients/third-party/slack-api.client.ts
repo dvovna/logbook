@@ -21,7 +21,7 @@ interface ISendEphemeralMessageParams extends ISendMessageParams {
 
 export interface IUploadFileParams {
   filename: string;
-  content: string;
+  content: string | Buffer;
   accessToken: string;
 }
 
@@ -109,6 +109,10 @@ export const uploadTimeoutMs = (bytes: number) =>
       Math.floor(bytes / 1024 ** 2) * UPLOAD_TIMEOUT_PER_MB_MS,
     MAX_UPLOAD_TIMEOUT_MS,
   );
+
+// A download Slack's file host hasn't finished in this long is stuck: what
+// the app downloads is a receipt or a team file, 10 MB at most.
+const DOWNLOAD_TIMEOUT_MS = 30_000;
 
 const isSlackFileUrl = (url: string) => {
   try {
@@ -290,10 +294,18 @@ export default class SlackApiClient {
 
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     });
 
     if (!response.ok) {
       throw new Error(`Failed to download the file: ${response.status}`);
+    }
+
+    // Refused before it is read when Slack says so; checked again after,
+    // since the header may be missing.
+    if (Number(response.headers.get('content-length')) > maxBytes) {
+      await response.body?.cancel();
+      throw new Error(`The file is larger than ${maxBytes} bytes`);
     }
 
     const content = Buffer.from(await response.arrayBuffer());
@@ -313,7 +325,8 @@ export default class SlackApiClient {
     content,
     accessToken,
   }: IUploadFileParams): Promise<string> {
-    const bytes = Buffer.from(content);
+    // A Buffer (an archive part of tens of megabytes) goes as it is.
+    const bytes = Buffer.isBuffer(content) ? content : Buffer.from(content);
 
     const { upload_url: uploadUrl, file_id: fileId } = await this.send(
       'files.getUploadURLExternal',
@@ -332,7 +345,7 @@ export default class SlackApiClient {
 
     const response = await fetch(uploadUrl, {
       method: 'POST',
-      body: bytes,
+      body: bytes as Buffer<ArrayBuffer>,
       signal: AbortSignal.timeout(uploadTimeoutMs(bytes.byteLength)),
     });
 

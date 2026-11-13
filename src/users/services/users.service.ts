@@ -1,7 +1,9 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
 import { TransactionService } from 'src/database/transaction.service';
+import { adminsLock } from 'src/database/advisory-locks';
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
@@ -352,6 +354,18 @@ export class UsersService implements IUsersService {
     return this.userRepository.count(this.getFindQuery(params));
   }
 
+  // The person's own choice of how often they are reminded of unsubmitted
+  // time: no rule of access to check, as `update` does for a profile.
+  public async setTimeReminder(
+    user: IUserViewModel,
+    timeReminder: TimeReminder,
+  ): Promise<void> {
+    await this.userRepository.update(
+      { id: user.id, slack_team_id: user.slack_team_id },
+      { time_reminder: timeReminder },
+    );
+  }
+
   public async update(
     findParams: IFindParams,
     params: Partial<ICreateUserParams>,
@@ -364,6 +378,20 @@ export class UsersService implements IUsersService {
     return this.changingAccess(
       params.role !== undefined || params.isActive !== undefined,
       async () => {
+        if (
+          this.userUpdateValidatorService.takesAdminAway(
+            userBeforeUpdate,
+            params,
+          )
+        ) {
+          await this.transactions.lock(
+            adminsLock(userBeforeUpdate.slack_team_id),
+          );
+          await this.userUpdateValidatorService.assertAdminRemains(
+            userBeforeUpdate.slack_team_id,
+          );
+        }
+
         const user = await this.userRepository.update(
           this.getFindQuery(findParams),
           {

@@ -1,4 +1,7 @@
-import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import {
+  escapeClipped,
+  escapeMrkdwn,
+} from '@modules/slack/common/utils/mrkdwn.utils';
 
 describe('escapeMrkdwn', () => {
   it('shows links, mentions and entities as typed', () => {
@@ -12,5 +15,13 @@ describe('escapeMrkdwn', () => {
       'Family trip *Rome*, back on Monday',
     );
     expect(escapeMrkdwn(undefined)).toBe('');
+  });
+});
+
+describe('escapeClipped', () => {
+  it('keeps escaped text within `max` characters, never cutting an entity', () => {
+    expect(escapeClipped('a&b', 10)).toBe('a&amp;b');
+    expect(escapeClipped('&&&', 10)).toBe('&amp;…');
+    expect(escapeClipped('&'.repeat(500), 500).length).toBeLessThanOrEqual(500);
   });
 });

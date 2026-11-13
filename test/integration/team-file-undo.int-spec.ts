@@ -180,6 +180,38 @@ describe('Team file Undo', () => {
     ]);
   });
 
+  // Two applies in the same millisecond: the file made later is the newer.
+  it('tells the newer of two files applied at the same moment', async () => {
+    const anna = await workspace.addUser({ name: 'Anna Novak' });
+    const bo = await workspace.addUser({ name: 'Bo Brown' });
+    const first = await apply(csv(`Anna Novak,${anna.email},Acme,`));
+    const second = await apply(csv(`Bo Brown,${bo.email},Beta,`));
+
+    // The older file's row is written last, so that nothing but the order
+    // the query asks for can put the newer one first.
+    const [older, newer] = (await uploads()).sort((a, b) =>
+      a.created_at.localeCompare(b.created_at),
+    );
+
+    for (const { id } of [newer, older]) {
+      await t.db
+        .updateTable('team_file_uploads')
+        .set({ applied_at: '2026-06-17T09:00:00.000Z' })
+        .where('id', '=', id)
+        .execute();
+    }
+    const since = t.slackApi.mark();
+
+    await click(first, 'undo');
+    expect(told(since)).toEqual([
+      'Undo is no longer available: a newer file was applied.',
+    ]);
+
+    expect(messageTexts(await click(second, 'undo'))).toEqual([
+      '↩️ Undone: 2 changes restored.',
+    ]);
+  });
+
   it('Undo of the newer file makes the one before it undoable', async () => {
     const anna = await workspace.addUser({ name: 'Anna Novak' });
     const bo = await workspace.addUser({ name: 'Bo Brown' });

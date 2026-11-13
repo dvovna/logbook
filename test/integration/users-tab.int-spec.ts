@@ -148,7 +148,10 @@ describe('Users tab', () => {
       const since = t.slackApi.mark();
       await t.slack.submitView(workspace, admin, confirmation).expect(200);
 
-      expect((await workspace.row('users', ada.id)).is_active).toBe(false);
+      expect(await workspace.row('users', ada.id)).toMatchObject({
+        is_active: false,
+        updated_by: admin.id,
+      });
       expect(
         titlesOf(await publishedHome(t, workspace, admin, since)),
       ).not.toContain(titleOf(ada));
@@ -158,6 +161,39 @@ describe('Users tab', () => {
         '*Your Logbook access is turned off*',
         'Ask an admin of this workspace to turn it back on, then try again.',
       ]);
+    });
+
+    it('leaves an admin when two admins deactivate each other at once', async () => {
+      const bea = await workspace.addUser({
+        role: UserRole.Admin,
+        name: 'Bea Admin',
+      });
+      const confirmationOf = async (
+        actor: Tables<'users'>,
+        target: Tables<'users'>,
+      ) =>
+        openModalFrom(
+          t,
+          workspace,
+          actor,
+          await openUsersTab(actor),
+          UsersTabViewActionId.ManageUserMenu,
+          `${UsersTabViewActionId.ChangeStatus}:${target.id}`,
+        );
+      const byAnn = await confirmationOf(admin, bea);
+      const byBea = await confirmationOf(bea, admin);
+
+      await Promise.all([
+        t.slack.submitView(workspace, admin, byAnn).expect(200),
+        t.slack.submitView(workspace, bea, byBea).expect(200),
+      ]);
+      await t.idle();
+
+      expect(
+        (await workspace.rows('users')).filter(
+          ({ role, is_active }) => role === UserRole.Admin && is_active,
+        ),
+      ).toHaveLength(1);
     });
 
     it('activates a user again from the list with inactive users', async () => {

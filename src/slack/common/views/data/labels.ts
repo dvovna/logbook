@@ -1,8 +1,10 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { IOption } from '@common/types/option.interface';
 import { WorkflowStepStatus } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { ReceiptStatus } from 'src/receipts/enums/receipt-status.enum';
 import { ProjectStatus } from 'src/projects/enums/project-status.enum';
 import { TimesheetCellLock } from 'src/time-entries/types/timesheet.types';
 import { BILLED_ENTRY_MESSAGE } from 'src/time-entries/constants/billed-time-entries';
@@ -117,6 +119,22 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, ILabel> = {
   [ProjectStatus.Active]: { label: 'Active', icon: '🟢' },
   [ProjectStatus.OnHold]: { label: 'On hold', icon: '⏸️' },
   [ProjectStatus.Completed]: { label: 'Completed', icon: '🏁' },
+};
+
+export const RECEIPT_STATUS_LABELS: Record<ReceiptStatus, ILabel> = {
+  [ReceiptStatus.Draft]: { label: 'Needs details', icon: '📝' },
+  [ReceiptStatus.Submitted]: { label: 'Waiting', icon: '⏳' },
+  [ReceiptStatus.Accepted]: { label: 'Accepted', icon: '✅' },
+  [ReceiptStatus.Rejected]: { label: 'Rejected', icon: '❌' },
+};
+
+// How often a person is reminded of unsubmitted time, in the order the
+// Reminders form offers them.
+export const TIME_REMINDER_LABELS: Record<TimeReminder, string> = {
+  [TimeReminder.Daily]: 'Every working day',
+  [TimeReminder.Weekly]: 'Every Monday',
+  [TimeReminder.Monthly]: 'First Monday of the month',
+  [TimeReminder.Off]: 'Never',
 };
 
 // A value as the app shows it: '⏳ Pending'.

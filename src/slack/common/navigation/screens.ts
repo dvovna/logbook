@@ -31,6 +31,9 @@ export enum ScreenId {
   AllRequests = 'all_requests',
   TimeLogs = 'time_logs',
   BillingSnapshots = 'billing_snapshots',
+  MyReceipts = 'my_receipts',
+  Receipts = 'receipts',
+  Reimbursements = 'reimbursements',
 }
 
 export interface IScreen {
@@ -85,8 +88,8 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     menuGroup: MenuGroup.Manage,
   },
   // Time reports for everyone, each of their own scope (a member's own time,
-  // a manager's teams); the billing report and everyone's time logs are for
-  // Admin and HR.
+  // a manager's teams); the billing report is for Admin and Finance,
+  // everyone's time logs for Admin and HR.
   [ScreenId.Reports]: {
     title: '📊 Reports',
     roles: ALL_ROLES,
@@ -151,6 +154,29 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     tabId: TabId.BillingSnapshots,
     actionId: NavigationActionId.BillingSnapshots,
     parent: ScreenId.Reports,
+  },
+  [ScreenId.MyReceipts]: {
+    title: '🧾 My receipts',
+    roles: ALL_ROLES,
+    tabId: TabId.MyReceipts,
+    actionId: NavigationActionId.MyReceipts,
+    parent: ScreenId.Home,
+  },
+  // Admin and Finance check the month's receipts (BILLING_ROLES, as for rates
+  // and billing).
+  [ScreenId.Receipts]: {
+    title: '🧾 Receipts',
+    roles: BILLING_ROLES,
+    tabId: TabId.Receipts,
+    actionId: NavigationActionId.Receipts,
+    menuGroup: MenuGroup.Manage,
+  },
+  [ScreenId.Reimbursements]: {
+    title: '⚙️ Reimbursements',
+    roles: BILLING_ROLES,
+    tabId: TabId.Receipts,
+    metadata: { reimbursements: true },
+    parent: ScreenId.Receipts,
   },
 };
 

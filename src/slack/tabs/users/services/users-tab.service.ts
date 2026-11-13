@@ -141,6 +141,7 @@ export class UsersTabService extends BaseTabService<
     return this.editUserModalView.getView(
       {
         user: userToEdit,
+        editorRole: user.role,
         teams,
         fileBalance,
         ...modalParams,

@@ -4,6 +4,42 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-13
+
+Receipts for reimbursements, and a time reminder each person sets for themselves. Update step: two database migrations, see Running it.
+
+### Receipts
+- A company that pays back gym or lunch costs can collect the receipts in Logbook. Admin or Finance sets up a reimbursement on More → 🧾 Receipts → ⚙️ Reimbursements: a name, the day of the next month receipts are due and an optional limit per person and month.
+- People send a photo or PDF to Logbook in Messages, add the reimbursement, month, amount and a comment, and follow the receipt on Home → My receipts, where they fix or delete one that isn't accepted.
+- Admin and Finance check a month on More → 🧾 Receipts: each person's receipts with their total against the limit, who sent nothing, Accept and Reject with a reason (the person gets it in a message), Open (the file comes to your Messages) and 📦 Download the month (a ZIP of `receipts.csv`, `totals.csv` and the files, in parts of about 20 MB). HR and managers see none of it.
+- Logbook reminds people who sent nothing, on the 1st and the day before the due date, and sends Admin and Finance a summary the day after. "I don't use this" under a reminder, or Home → 🔔 Reminders, turns them off per reimbursement.
+- The files are kept in the database, at most 10 MB each, and deleted `RECEIPT_FILE_RETENTION_DAYS` days (1095 by default) after the receipt was decided; one still waiting keeps its file.
+
+### Time
+- Everyone chooses how often Logbook reminds them of time they haven't submitted, on Home → 🔔 Reminders: every working day, every Monday (as it was, and still the default), the first Monday of the month, or never. The reminder says where to change it.
+
+### Home
+- Home no longer replaces the screen you are on when a message from Logbook arrives or you look at its Messages tab; it shows Home only when you open the Home tab.
+
+### Fixed
+- The search of the Projects filter no longer answers a member, who could read the names of every project through it.
+- Two admins who deactivate or demote each other at the same moment no longer leave the workspace without an admin: one of them is refused.
+- Approval notification recipients have to be active people in Logbook, and someone deactivated since no longer gets the decisions.
+- An entry edited by HR or an admin keeps the team it was logged in, even when its person moved to another team since: who approves it and whose reports hold it no longer change with a typo fix.
+- Deactivating or activating someone records who did it.
+- Undo of a team file is offered for the right one when two files were applied in the same instant: the one made later is the newer.
+
+### People and time off
+- HR is offered only what it can do: the Edit User form lists the roles HR may give (not Admin or Finance), an admin's menu has no Deactivate User for HR, and nobody sees Approve for Approvers on their own request.
+- A project's assignments and the client forms are refused when they open for a role that can't save them (Finance, a manager), not only on Save.
+
+### Running it
+- Update step: two database migrations (`20261113110000_receipts`, `20261113120000_time_reminder_settings`). They only add tables and columns.
+- A new optional variable, `RECEIPT_FILE_RETENTION_DAYS` (default 1095).
+- Receipt files live in the database, so it and its backups grow by what people send: a photo from a phone is 1 to 4 MB, about 10 GB a year for 400 people with one receipt a month. Check your database plan's size limit before you collect receipts more often than that.
+- Open and Download the month need the `files:write` permission, as the CSV exports do. A workspace without it gets a message that says to install Logbook again, through its install link.
+- A rollback to 0.5 reminds everyone of unsubmitted time weekly again, whatever they chose; their choices are kept for the next update. If the update runs over Monday 09:00 UTC, the old version may still send that Monday's reminder to everyone.
+
 ## [0.5.3] - 2026-11-13
 
 A shorter Home, most of all before a workspace is set up. No update step: only the new image.
@@ -192,6 +228,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.6.0]: https://github.com/dvovna/logbook/releases/tag/v0.6.0
 [0.5.3]: https://github.com/dvovna/logbook/releases/tag/v0.5.3
 [0.5.2]: https://github.com/dvovna/logbook/releases/tag/v0.5.2
 [0.5.1]: https://github.com/dvovna/logbook/releases/tag/v0.5.1

@@ -5,7 +5,11 @@ import {
 import { View } from '@slack/types/dist/views';
 import { sql } from 'kysely';
 import * as errorReporter from '@common/errors/error-reporter';
-import { IJobsOptions, JOBS_OPTIONS } from '@common/jobs/jobs.service';
+import {
+  IJobsOptions,
+  JobsService,
+  JOBS_OPTIONS,
+} from '@common/jobs/jobs.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import UserRole from '@common/enums/user-role.enum';
@@ -1163,6 +1167,32 @@ describe('Time entries', () => {
       ).toBe('2h');
     });
 
+    it('keeps the team an entry was logged in when its person moved since', async () => {
+      const ops = await workspace.addTeam({ name: 'Ops' });
+      const entry = await workspace.addTimeEntry(member, website, {
+        team_id: design.id,
+      });
+      await t.db
+        .updateTable('users')
+        .set({ team_id: ops.id })
+        .where('id', '=', member.id)
+        .execute();
+
+      await t.slack
+        .submitView(
+          workspace,
+          admin,
+          await openFromMenu(TimeEntriesTabViewActionId.EditTimeEntry, entry),
+          { description: 'Typo fixed' },
+        )
+        .expect(200);
+
+      expect(await workspace.row('time_entries', entry.id)).toMatchObject({
+        description: 'Typo fixed',
+        team_id: design.id,
+      });
+    });
+
     it('lets a member edit their own entry from Edit Entries', async () => {
       const entry = await workspace.addTimeEntry(member, website, {
         minutes: 90,
@@ -1281,6 +1311,7 @@ describe('Time entries', () => {
           ':alarm_clock: You have *2 time entries* (3h) from 10–11 Jun 2026 not submitted yet.',
           '1 of them was rejected: fix it under Home → ✏️ Edit Entries (week of 8 Jun).',
           'Your approvers see time only once you submit it: Home → 📤 Submit for Approval.',
+          'Change how often you are reminded: Home → 🔔 Reminders.',
         ].join('\n'),
       ]);
       expect(
@@ -1439,6 +1470,143 @@ describe('Time entries', () => {
       expect(
         t.slackApi.postedMessages(workspace.token, member.slack_id, { since }),
       ).toHaveLength(1);
+    });
+
+    describe('by how often each person wants it', () => {
+      const remindedEvery = (user: Tables<'users'>, timeReminder: string) =>
+        t.db
+          .updateTable('users')
+          .set({ time_reminder: timeReminder })
+          .where('id', '=', user.id)
+          .execute();
+
+      const textsTo = (user: Tables<'users'>, since: number) =>
+        t.slackApi
+          .postedMessages(workspace.token, user.slack_id, { since })
+          .map(({ text }) => text);
+
+      it('reminds the daily ones every working day of what is open from before it, once', async () => {
+        const reminders = t.app.get(TimeEntryRemindersService);
+        await remindedEvery(member, 'daily');
+        await workspace.addTimeEntry(member, website, {
+          work_date: '2026-06-16',
+          minutes: 120,
+        });
+        // Today's draft is no reason yet, and the admin is reminded weekly.
+        await workspace.addTimeEntry(member, website, {
+          work_date: '2026-06-17',
+        });
+        await workspace.addTimeEntry(admin, website, {
+          work_date: '2026-06-16',
+        });
+        const since = t.slackApi.mark();
+
+        expect(await reminders.remindDaily(workspace.id, '2026-06-17')).toBe(1);
+        await t.idle();
+        expect(textsTo(member, since)).toEqual([
+          [
+            ':alarm_clock: You have *1 time entry* (2h) from 16 Jun 2026 not submitted yet.',
+            'Your approvers see time only once you submit it: Home → 📤 Submit for Approval.',
+            'Change how often you are reminded: Home → 🔔 Reminders.',
+          ].join('\n'),
+        ]);
+        expect(textsTo(admin, since)).toEqual([]);
+
+        expect(await reminders.remindDaily(workspace.id, '2026-06-17')).toBe(0);
+        expect(await reminders.remindDaily(workspace.id, '2026-06-18')).toBe(1);
+      });
+
+      it('leaves the daily, monthly and switched-off ones out of an ordinary week', async () => {
+        const reminders = t.app.get(TimeEntryRemindersService);
+        const daily = await workspace.addUser({ name: 'Dana Daily' });
+        const monthly = await workspace.addUser({ name: 'Mona Monthly' });
+        const never = await workspace.addUser({ name: 'Nora Never' });
+        await remindedEvery(daily, 'daily');
+        await remindedEvery(monthly, 'monthly');
+        await remindedEvery(never, 'off');
+
+        for (const user of [member, daily, monthly, never]) {
+          await workspace.addTimeEntry(user, website, {
+            work_date: '2026-06-10',
+          });
+        }
+        const since = t.slackApi.mark();
+
+        expect(
+          await reminders.remindWorkspace(workspace.id, '2026-06-15'),
+        ).toBe(1);
+        await t.idle();
+        expect(textsTo(member, since)).toHaveLength(1);
+        expect(textsTo(daily, since)).toEqual([]);
+        expect(textsTo(monthly, since)).toEqual([]);
+        expect(textsTo(never, since)).toEqual([]);
+      });
+
+      it('reminds the monthly ones in the week of the first Monday only', async () => {
+        const reminders = t.app.get(TimeEntryRemindersService);
+        await remindedEvery(member, 'monthly');
+        await workspace.addTimeEntry(member, website, {
+          work_date: '2026-05-28',
+        });
+
+        expect(
+          await reminders.remindWorkspace(workspace.id, '2026-06-01'),
+        ).toBe(1);
+        expect(
+          await reminders.remindWorkspace(workspace.id, '2026-06-08'),
+        ).toBe(0);
+      });
+
+      // On a Monday the week's and the day's reminders both go out.
+      it('reminds a daily person once on a Monday', async () => {
+        const reminders = t.app.get(TimeEntryRemindersService);
+        await remindedEvery(member, 'daily');
+        await workspace.addTimeEntry(member, website, {
+          work_date: '2026-06-10',
+        });
+        const since = t.slackApi.mark();
+
+        await reminders.remindWorkspace(workspace.id, '2026-06-15');
+        await reminders.remindDaily(workspace.id, '2026-06-15');
+        await t.idle();
+
+        expect(textsTo(member, since)).toHaveLength(1);
+      });
+
+      it('sends nothing to someone who turned the reminder off after it was saved', async () => {
+        const reminders = t.app.get(TimeEntryRemindersService);
+        await workspace.addTimeEntry(member, website, {
+          work_date: '2026-06-10',
+        });
+        t.slackApi.failNextTo(member.slack_id);
+        const since = t.slackApi.mark();
+
+        expect(
+          await reminders.remindWorkspace(workspace.id, '2026-06-15'),
+        ).toBe(1);
+        await t.idle();
+        await remindedEvery(member, 'off');
+        await t.retryJobs();
+
+        expect(textsTo(member, since)).toEqual([]);
+      });
+
+      // A job the release before saved names only its Monday.
+      it('still sends a reminder saved without its last day', async () => {
+        await workspace.addTimeEntry(member, website, {
+          work_date: '2026-06-10',
+        });
+        const since = t.slackApi.mark();
+
+        await t.app.get(JobsService).enqueue(REMIND_UNSUBMITTED_JOB, {
+          slackTeamId: workspace.id,
+          userId: member.id,
+          monday: '2026-06-15',
+        });
+        await t.idle();
+
+        expect(textsTo(member, since)).toHaveLength(1);
+      });
     });
 
     it('waits for Monday 09:00 UTC', async () => {

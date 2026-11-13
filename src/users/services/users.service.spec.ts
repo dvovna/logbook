@@ -67,6 +67,7 @@ describe('UsersService', () => {
       repository as unknown as UsersRepository,
       {
         validate: jest.fn(),
+        takesAdminAway: jest.fn().mockReturnValue(false),
       } as unknown as UserUpdateValidatorService,
       transactions as unknown as TransactionService,
       eventEmitter as unknown as EventEmitter2,

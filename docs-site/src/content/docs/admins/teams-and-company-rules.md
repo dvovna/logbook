@@ -33,7 +33,7 @@ With **Its own rules**, the team also has:
 - **Vacation Policy**: a policy, or **No Policy** to only track time off.
 - **Level 2: HR**: up to five people with the HR or Admin role.
 - **Level 2 rule**: the same choice as for level 1.
-- **Approval Notification Recipients**: up to five people who get a DM when a request is approved. Anyone in the workspace can be one.
+- **Approval Notification Recipients**: up to five people who get a DM when a request is approved. Anyone active in Logbook can be one; someone deactivated later stops getting them.
 
 Level 1 always comes from the team, also when it follows the company rules. Nobody approves their own request: a manager's own request skips them.
 

@@ -715,6 +715,256 @@ export type Database = {
           },
         ];
       };
+      receipt_files: {
+        Row: {
+          content: string;
+          receipt_id: string;
+          slack_team_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          content: string;
+          receipt_id: string;
+          slack_team_id: string;
+        };
+        Update: {
+          content?: string;
+          receipt_id?: string;
+          slack_team_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'receipt_files_receipt_id_fkey';
+            columns: ['receipt_id'];
+            isOneToOne: true;
+            referencedRelation: 'receipts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'receipt_files_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      receipts: {
+        Row: {
+          amount_cents: number | null;
+          comment: string | null;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          file_deleted_at: string | null;
+          file_name: string;
+          id: string;
+          mime_type: string;
+          month: string | null;
+          reimbursement_id: string | null;
+          rejection_reason: string | null;
+          sha256: string;
+          size_bytes: number;
+          slack_file_id: string;
+          slack_team_id: string;
+          status: string;
+          submitted_at: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          amount_cents?: number | null;
+          comment?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          file_deleted_at?: string | null;
+          file_name: string;
+          id?: string;
+          mime_type: string;
+          month?: string | null;
+          reimbursement_id?: string | null;
+          rejection_reason?: string | null;
+          sha256: string;
+          size_bytes: number;
+          slack_file_id: string;
+          slack_team_id: string;
+          status?: string;
+          submitted_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          amount_cents?: number | null;
+          comment?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          file_deleted_at?: string | null;
+          file_name?: string;
+          id?: string;
+          mime_type?: string;
+          month?: string | null;
+          reimbursement_id?: string | null;
+          rejection_reason?: string | null;
+          sha256?: string;
+          size_bytes?: number;
+          slack_file_id?: string;
+          slack_team_id?: string;
+          status?: string;
+          submitted_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'receipts_decided_by_fkey';
+            columns: ['decided_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'receipts_reimbursement_id_fkey';
+            columns: ['reimbursement_id'];
+            isOneToOne: false;
+            referencedRelation: 'reimbursements';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'receipts_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'receipts_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      reimbursement_opt_outs: {
+        Row: {
+          reimbursement_id: string;
+          slack_team_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          reimbursement_id: string;
+          slack_team_id: string;
+          user_id: string;
+        };
+        Update: {
+          reimbursement_id?: string;
+          slack_team_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'reimbursement_opt_outs_reimbursement_id_fkey';
+            columns: ['reimbursement_id'];
+            isOneToOne: false;
+            referencedRelation: 'reimbursements';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reimbursement_opt_outs_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reimbursement_opt_outs_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      reimbursement_reminders: {
+        Row: {
+          created_at: string;
+          kind: string;
+          month: string;
+          reimbursement_id: string;
+          slack_team_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          kind: string;
+          month: string;
+          reimbursement_id: string;
+          slack_team_id: string;
+        };
+        Update: {
+          created_at?: string;
+          kind?: string;
+          month?: string;
+          reimbursement_id?: string;
+          slack_team_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'reimbursement_reminders_reimbursement_id_fkey';
+            columns: ['reimbursement_id'];
+            isOneToOne: false;
+            referencedRelation: 'reimbursements';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reimbursement_reminders_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      reimbursements: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          due_day: number;
+          id: string;
+          limit_cents: number | null;
+          name: string;
+          slack_team_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          due_day: number;
+          id?: string;
+          limit_cents?: number | null;
+          name: string;
+          slack_team_id: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          due_day?: number;
+          id?: string;
+          limit_cents?: number | null;
+          name?: string;
+          slack_team_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'reimbursements_slack_team_id_fkey';
+            columns: ['slack_team_id'];
+            isOneToOne: false;
+            referencedRelation: 'slack_teams';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       request_workflow_step_comments: {
         Row: {
           comment: string;
@@ -950,6 +1200,7 @@ export type Database = {
           slack_token: string | null;
           slack_token_expires_at: string | null;
           time_off_minutes_per_day: number;
+          time_reminder_day: string | null;
           time_reminder_week: string | null;
           uninstalled_at: string | null;
         };
@@ -966,6 +1217,7 @@ export type Database = {
           slack_token?: string | null;
           slack_token_expires_at?: string | null;
           time_off_minutes_per_day?: number;
+          time_reminder_day?: string | null;
           time_reminder_week?: string | null;
           uninstalled_at?: string | null;
         };
@@ -981,6 +1233,7 @@ export type Database = {
           slack_token?: string | null;
           slack_token_expires_at?: string | null;
           time_off_minutes_per_day?: number;
+          time_reminder_day?: string | null;
           time_reminder_week?: string | null;
           uninstalled_at?: string | null;
         };
@@ -1319,6 +1572,7 @@ export type Database = {
           slack_id: string;
           slack_team_id: string;
           team_id: string | null;
+          time_reminder: string;
           updated_at: string;
           updated_by: string | null;
         };
@@ -1335,6 +1589,7 @@ export type Database = {
           slack_id: string;
           slack_team_id: string;
           team_id?: string | null;
+          time_reminder?: string;
           updated_at?: string;
           updated_by?: string | null;
         };
@@ -1350,6 +1605,7 @@ export type Database = {
           slack_id?: string;
           slack_team_id?: string;
           team_id?: string | null;
+          time_reminder?: string;
           updated_at?: string;
           updated_by?: string | null;
         };

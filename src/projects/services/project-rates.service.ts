@@ -38,7 +38,7 @@ const toPersonRate = (rate: IProjectUserRateViewModel): IPersonRate => ({
 });
 
 // People's own hourly rates on projects, which replace the project's rate
-// for their time on it. Every method checks that the user is Admin or HR,
+// for their time on it. Every method checks that the user is Admin or Finance,
 // and that the project and the person are the user's workspace's: their IDs
 // come from forms.
 @Injectable()

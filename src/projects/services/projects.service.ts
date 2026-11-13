@@ -43,7 +43,7 @@ interface IUpdateParams {
   description?: string;
   billable?: boolean;
   status?: ProjectStatus;
-  // Admin and HR only; null clears it.
+  // Admin and Finance only; null clears it.
   hourlyRate?: number | null;
   archivedAt?: string | null;
   archivedBy?: string | null;

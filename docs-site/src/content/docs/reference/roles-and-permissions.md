@@ -9,10 +9,10 @@ Every person in Logbook has one role. Use this page to check what a role can see
 
 | Role | In short |
 | --- | --- |
-| Admin | Everything, including rates, billing, the currency and deleting time off requests. |
+| Admin | Everything, including rates, billing, receipts, the currency and deleting time off requests. |
 | HR | People, teams, policies and everyone's time off. Sees everyone's time, without rates or amounts. |
 | Manager | Approves time off and time for the teams that list them under **Level 1: managers**, and sees those teams' people and time. |
-| Finance | Rates, amounts, billing reports and billing snapshots. Sees everyone's time in reports. Requests time off and logs time like a member, approves nothing and manages no people. |
+| Finance | Rates, amounts, billing reports and billing snapshots, and checking receipts for reimbursements. Sees everyone's time in reports. Requests time off and logs time like a member, approves nothing and manages no people. |
 | Member | Requests time off, logs and submits time, and sees their own time in reports. |
 
 In the tables below:
@@ -31,6 +31,8 @@ In the tables below:
 | More → **Reports** | Yes | Yes | Yes | Yes | Yes |
 | More → **Teams**, **Policies** (and a policy's **Holidays**) | Yes | Yes | — | — | — |
 | More → **Projects**, **Clients** | Yes | Yes | Yes | Yes | — |
+| **My receipts** (from **Home**) | Yes | Yes | Yes | Yes | Yes |
+| More → **🧾 Receipts**, and its **⚙️ Reimbursements** | Yes | — | — | Yes | — |
 | Time off → **All requests** | Yes | Yes | Their teams | — | — |
 | Reports → **Time logs** | Yes | Yes | — | — | — |
 | Reports → **Billing snapshots** | Yes | — | — | Yes | — |
@@ -76,6 +78,15 @@ Who is asked:
 | See everyone's entries (**Time logs**) | Yes | Yes | — | — | — |
 
 Nobody changes time that is in a billing snapshot, Admin included, until an admin unlocks the snapshot.
+
+## Receipts
+
+| Action | Admin | HR | Manager | Finance | Member |
+| --- | --- | --- | --- | --- | --- |
+| Send, edit and delete their own receipts, turn their reminders off | Own | Own | Own | Own | Own |
+| Add, edit and archive reimbursements | Yes | — | — | Yes | — |
+| See, accept and reject people's receipts, open a file, download a month | Yes | — | — | Yes | — |
+| Decide on their own receipt | Only if there is no other active person with the Admin or Finance role | — | — | Only if there is no other active person with the Admin or Finance role | — |
 
 ## Reports
 

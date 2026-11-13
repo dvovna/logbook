@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { CLIENT_EDITOR_ROLES } from '@common/constants/role-groups';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import BaseTabService, {
   IOpenModalBaseParams,
@@ -83,10 +85,22 @@ export class ClientsTabService extends BaseTabService<ClientsTabModalViewResolve
     );
   }
 
+  // As the forms' submits: a manager sees the clients but changes none.
+  private assertCanEditClients({ role }: IUserViewModel) {
+    if (!CLIENT_EDITOR_ROLES.includes(role)) {
+      throw new ForbiddenException(
+        'Only admins, HR and Finance change clients.',
+      );
+    }
+  }
+
   private async getCreateClientModalView({
+    user,
     errorMessage,
     pageMetadata,
   }: IOpenModalBaseParams<string>) {
+    this.assertCanEditClients(user);
+
     return this.clientModalView.getView({ errorMessage }, { pageMetadata });
   }
 
@@ -96,6 +110,8 @@ export class ClientsTabService extends BaseTabService<ClientsTabModalViewResolve
     pageMetadata,
     errorMessage,
   }: IClientModalViewParams) {
+    this.assertCanEditClients(user);
+
     const client = await this.clientsService.findOneWithValidation({
       id: clientId,
       slackTeamId: user.slack_team_id,
@@ -116,6 +132,8 @@ export class ClientsTabService extends BaseTabService<ClientsTabModalViewResolve
     errorMessage,
     pageMetadata,
   }: IClientModalViewParams) {
+    this.assertCanEditClients(user);
+
     const client = await this.clientsService.findOneWithValidation({
       id: clientId,
       slackTeamId: user.slack_team_id,

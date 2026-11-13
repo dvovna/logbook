@@ -5,7 +5,7 @@ sidebar:
   order: 4
 ---
 
-Most updates are a new image and the release's database migrations. Before 1.0, a minor version (0.5 to 0.6) may need a step of its own.
+Most updates are a new image and the release's database migrations. Before 1.0, a minor version (0.6 to 0.7) may need a step of its own.
 
 ## Find the release's update step
 
@@ -22,6 +22,7 @@ Every release has a section in [CHANGELOG.md](https://github.com/dvovna/logbook/
 | 0.5.1 | None: only the new image. |
 | 0.5.2 | None: only the new image. |
 | 0.5.3 | None: only the new image. |
+| 0.6.0 | Two database migrations. |
 
 When you skip releases, take the steps of every release in between. The migrations of all of them apply in one push.
 
@@ -31,7 +32,7 @@ When you skip releases, take the steps of every release in between. The migratio
 2. Check out the new release's tag in your copy of the source, and install its tools:
    ```bash
    git fetch --tags
-   git checkout v0.5.3
+   git checkout v0.6.0
    pnpm install
    ```
    Use the tag of the version you update to.
@@ -47,7 +48,7 @@ When you skip releases, take the steps of every release in between. The migratio
    ```
    With `docker run`, pull the new tag, stop and remove the old container, and start it again with the same command as at [install](/logbook/docs/self-hosting/install/#4-run):
    ```bash
-   docker pull ghcr.io/dvovna/logbook:0.5
+   docker pull ghcr.io/dvovna/logbook:0.6
    docker stop logbook && docker rm logbook
    ```
 
@@ -60,7 +61,7 @@ The database lacks 2 migration(s) this version needs: 20261110171144, 2026111110
 ```
 
 :::tip
-An image tagged with a minor line, such as `0.5`, gets that line's patch releases with `docker compose pull` or `docker pull`. A new minor version needs the new tag, and may need a step.
+An image tagged with a minor line, such as `0.6`, gets that line's patch releases with `docker compose pull` or `docker pull`. A new minor version needs the new tag, and may need a step.
 :::
 
 ## Apply the Slack app manifest again

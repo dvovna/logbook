@@ -6,7 +6,7 @@ services:
     name: logbook
     runtime: image
     image:
-      url: ghcr.io/dvovna/logbook:0.5
+      url: ghcr.io/dvovna/logbook:0.6
     plan: starter
     # The region of your database: every click sends several statements, and
     # each is a round trip (virginia is next to Supabase's us-east-1,

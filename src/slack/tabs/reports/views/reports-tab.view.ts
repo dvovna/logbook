@@ -112,8 +112,8 @@ const context = (text: string): AnyBlock => ({
 
 // The week at a glance and the time report, for everyone in their scope
 // (TimeEntriesScopeService); for Admin and Finance also the billing report (and
-// locking its time in a snapshot), the uninvoiced report, billing snapshots
-// and everyone's time logs.
+// locking its time in a snapshot), the uninvoiced report and billing
+// snapshots; for Admin and HR everyone's time logs.
 @Injectable()
 export class ReportsTabView extends BaseTabView<
   IGetViewParams,

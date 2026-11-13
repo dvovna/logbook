@@ -29,6 +29,7 @@ Logbook reads its configuration from environment variables, usually from a `.env
 | `SENTRY_DSN` | Unset: nothing is sent | A Sentry project's DSN. Unexpected errors go there, with their stack only: no request data and no people's details. Each event carries the release, `logbook@<version>`. See [Operate](/logbook/docs/self-hosting/operate/#error-tracking-with-sentry). |
 | `SENTRY_ENVIRONMENT` | `NODE_ENV`, else `development` | The environment Sentry events carry. In the Docker image `NODE_ENV` is `production`. |
 | `UNINSTALLED_DATA_RETENTION_DAYS` | `30` | Days a workspace's data is kept after it uninstalls the app. Installing again within them restores everything. `0` deletes the data when the app is uninstalled. |
+| `RECEIPT_FILE_RETENTION_DAYS` | `1095` | Days the file of a receipt is kept after Admin or Finance accepted or rejected it. The receipt itself stays. A receipt still waiting keeps its file. At least 1. |
 | `MIN_YEAR` | `2020` | The first year the year filters offer (time off lists, holidays). At least 1900. |
 | `MAX_YEAR` | `2035` | The last year the year filters offer. At most 2100. |
 
@@ -57,7 +58,7 @@ These aren't checked at startup.
 | `NODE_ENV` | `production` in the Docker image | `production` writes logs as JSON lines at the `info` level; anything else writes them readable and colored, at the `debug` level. |
 | `LOG_LEVEL` | From `NODE_ENV` | The lowest level logged: `debug`, `info`, `warn` or `error`. |
 | `SLACK_APP_ID` | none | The Slack app's ID. Logbook doesn't read it: `pnpm slack:app create` writes it, and `pnpm slack:app update` takes the app to update from it. |
-| `LOGBOOK_VERSION` | `latest` | Read by `docker-compose.yml` only: the image tag to run, such as `0.5`. |
+| `LOGBOOK_VERSION` | `latest` | Read by `docker-compose.yml` only: the image tag to run, such as `0.6`. |
 
 ## Example
 

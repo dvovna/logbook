@@ -2,6 +2,9 @@ export interface IEnqueueManyOptions {
   // At most this many first runs start in a second, e.g. to stay under
   // Slack's rate limits when the jobs message a whole workspace.
   perSecond?: number;
+  // Each job's singleton_key, so that enqueueSingleton's `pendingAlso` sees
+  // them, e.g. the parts of one export a planning job saved.
+  singletonKey?: string;
 }
 
 export type JobHandler<Payload> = (payload: Payload) => Promise<void>;
@@ -18,6 +21,10 @@ export interface IEnqueueSingletonOptions<Payload> {
   // what the caller has at hand (e.g. a report it made for its answer).
   // Retries run the handler, from the payload alone.
   firstRun?: JobHandler<Payload>;
+  // Other job names whose saved or running jobs with the same key count as
+  // this one's: the jobs the singleton job leaves behind (enqueueMany's
+  // `singletonKey`).
+  pendingAlso?: string[];
 }
 
 // A job's copy in pg-boss, for its retries.

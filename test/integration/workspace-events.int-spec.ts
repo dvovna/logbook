@@ -376,6 +376,25 @@ describe('Slack events', () => {
     expect(t.slackApi.homeView(workspace.token, member.slack_id)).toBeDefined();
   });
 
+  // Slack sends the event for the Messages tab too, and at times when a
+  // message of the app arrives: Home would replace the screen the person is
+  // on (a file they opened from Receipts just came).
+  it('publishes nothing when the Messages tab is opened', async () => {
+    const member = await workspace.addUser();
+
+    await t.slack
+      .event(workspace, {
+        type: 'app_home_opened',
+        user: member.slack_id,
+        channel: 'D_TEST',
+        tab: 'messages',
+      })
+      .expect(acknowledged);
+
+    await t.idle();
+    expect(t.slackApi.callsWith(workspace.token)).toEqual([]);
+  });
+
   it('ignores App Home opened by someone the bot does not know', async () => {
     await t.slack
       .event(workspace, {

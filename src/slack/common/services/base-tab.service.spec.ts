@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { Logger } from '@nestjs/common';
 import { ViewsPublishArguments } from '@slack/web-api/dist/types/request/views';
 import BaseTabService, {
@@ -20,6 +21,7 @@ const user: IUserViewModel = {
   slack_team_id: 'slack-team-1',
   slack_id: 'U_ADMIN',
   created_at: '2026-01-01T00:00:00Z',
+  time_reminder: TimeReminder.Weekly,
 };
 
 const content = { type: 'section', text: { type: 'mrkdwn', text: 'Content' } };

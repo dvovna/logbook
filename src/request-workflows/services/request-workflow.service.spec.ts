@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { workflowLock } from 'src/database/advisory-locks';
 import { ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -52,6 +53,7 @@ const approver: IUserViewModel = {
   slack_team_id: SLACK_TEAM_ID,
   slack_id: 'U_APPROVER',
   created_at: '2026-01-01T00:00:00Z',
+  time_reminder: TimeReminder.Weekly,
 };
 
 const comments: IWorkflowStepCommentViewModel[] = [

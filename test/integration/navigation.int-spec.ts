@@ -7,6 +7,7 @@ import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-req
 import { PolicyTabViewActionId } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-tab.view';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { View } from '@slack/types/dist/views';
+import { ReceiptsTabActionId } from '@modules/slack/tabs/receipts/enums/receipts-tab-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { SlackJson } from './support/block-kit';
@@ -100,7 +101,7 @@ describe('Navigation', () => {
     });
 
     expect(menuOf(await openAppHomeTab(t, workspace, admin))).toEqual({
-      Manage: ['👥 People', '📊 Reports'],
+      Manage: ['👥 People', '📊 Reports', '🧾 Receipts'],
       Settings: ['🏢 Teams', '📜 Policies', '📁 Projects', '💼 Clients'],
     });
   });
@@ -127,6 +128,41 @@ describe('Navigation', () => {
       NavigationActionId.Home,
     );
     expect(rowOf(home, HEADER_BLOCK_IDS.navigation)).toContain('☰ More ▾');
+  });
+
+  it('goes back from Reimbursements to Receipts', async () => {
+    const receipts = await openAppHomeTab(t, workspace, admin, [
+      NavigationActionId.Receipts,
+    ]);
+
+    expect(rowOf(receipts, HEADER_BLOCK_IDS.navigation)).toContain(
+      '[🧾 Receipts ▾]',
+    );
+
+    const reimbursements = await actOnTab(
+      t,
+      workspace,
+      admin,
+      receipts,
+      ReceiptsTabActionId.OpenReimbursements,
+    );
+
+    expect(rowOf(reimbursements, HEADER_BLOCK_IDS.navigation)).toContain(
+      '[🧾 Receipts ▾]',
+    );
+    expect(rowOf(reimbursements, HEADER_BLOCK_IDS.back)).toEqual([
+      '⬅️ Back to 🧾 Receipts',
+    ]);
+
+    const back = await actOnTab(
+      t,
+      workspace,
+      admin,
+      reimbursements,
+      NavigationActionId.Receipts,
+    );
+
+    expect(rowOf(back, HEADER_BLOCK_IDS.back)).toEqual([]);
   });
 
   it('goes back from Holidays to Policies', async () => {

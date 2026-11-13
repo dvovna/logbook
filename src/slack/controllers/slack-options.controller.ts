@@ -10,6 +10,10 @@ import {
   UseFilters,
 } from '@nestjs/common';
 import { Request } from 'express';
+import {
+  canOpenScreen,
+  ScreenId,
+} from '@modules/slack/common/navigation/screens';
 import type { BlockSuggestion } from '@slack/bolt/dist/types/options';
 import { SlackSignatureGuard } from '@modules/slack/guards/slack-signature.guard';
 import { SlackUserGuard } from '@modules/slack/guards/slack-user.guard';
@@ -122,12 +126,16 @@ export class SlackOptionsController {
             })
           : { options: [] };
       }
+      // The filter of Projects, for those who may open it: a member sees
+      // only the projects they log time on.
       case ProjectsTabViewActionId.FindProjectByName: {
-        return this.projectOptionsService.searchProjects({
-          query: payload.value,
-          user: request.user!,
-          includeArchived: true,
-        });
+        return canOpenScreen(ScreenId.Projects, request.user!.role)
+          ? this.projectOptionsService.searchProjects({
+              query: payload.value,
+              user: request.user!,
+              includeArchived: true,
+            })
+          : { options: [] };
       }
       default: {
         return { options: [] };
