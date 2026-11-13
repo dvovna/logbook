@@ -63,6 +63,14 @@ export enum HomeTabActionId {
   Reminders = 'open_receipt_reminders',
 }
 
+// Opens the person's own reminder settings: time, and receipts where the
+// workspace collects them.
+const REMINDERS_BUTTON = {
+  type: 'button' as const,
+  text: { type: 'plain_text' as const, text: '🔔 Reminders', emoji: true },
+  action_id: HomeTabActionId.Reminders,
+};
+
 @Injectable()
 export class HomeTabView extends BaseTabView<IGetViewParams, never> {
   protected callbackId = ViewCallbackId.HomeTabView;
@@ -92,7 +100,9 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       setup ? this.getSetupBlocks(setup) : [],
       this.getAttentionBlocks(pendingApprovals),
       hasTime ? this.getTimeTrackingBlocks(timeSummary) : [],
-      receipts ? this.getReceiptsBlocks(receipts) : [],
+      // Reminders are set from the time row; someone who tracks no time
+      // gets the button with their receipts.
+      receipts ? this.getReceiptsBlocks(receipts, !hasTime) : [],
       // Last: the button under the parts requests time off.
       this.getVacationUsageBlocks(vacationUsageInfo, fileBalance),
       this.getRequestedVacationsBlocks(requestedVacations),
@@ -303,12 +313,10 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
 
   // What was sent for each reimbursement being collected, and when it is
   // due.
-  private getReceiptsBlocks({
-    lines,
-    drafts,
-    remindersOff,
-    currency,
-  }: IReceiptsHomeSummary): AnyBlock[] {
+  private getReceiptsBlocks(
+    { lines, drafts, remindersOff, currency }: IReceiptsHomeSummary,
+    withReminders: boolean,
+  ): AnyBlock[] {
     const section = (text: string): AnyBlock => ({
       type: 'section',
       text: { type: 'mrkdwn', text },
@@ -341,11 +349,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
             text: { type: 'plain_text', text: 'My receipts' },
             action_id: NavigationActionId.MyReceipts,
           },
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '🔔 Reminders', emoji: true },
-            action_id: HomeTabActionId.Reminders,
-          },
+          ...(withReminders ? [REMINDERS_BUTTON] : []),
         ],
       },
     ];
@@ -678,6 +682,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
             text: { type: 'plain_text', text: '✏️ Edit Entries' },
             action_id: HomeTabActionId.EditTimeEntries,
           },
+          REMINDERS_BUTTON,
         ],
       },
     ];

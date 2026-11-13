@@ -5,6 +5,7 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ReceiptsService } from '@modules/receipts/services/receipts.service';
 import { ReceiptsMonthService } from '@modules/receipts/services/receipts-month.service';
 import { ReimbursementOptOutsService } from '@modules/receipts/services/reimbursement-opt-outs.service';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -73,6 +74,20 @@ describe('Receipt reminders opt-outs', () => {
     };
   };
 
+  const timeReminder = (form: View) => {
+    const { options, initial_option: initial } = (
+      form.blocks as {
+        block_id?: string;
+        element?: { options: IOption[]; initial_option?: IOption };
+      }[]
+    ).find(({ block_id }) => block_id === 'time_reminder_block')!.element!;
+
+    return {
+      options: options.map((option) => option.text.text),
+      initial: initial?.text.text,
+    };
+  };
+
   const openForm = async () =>
     openModalFrom(
       t,
@@ -92,13 +107,37 @@ describe('Receipt reminders opt-outs', () => {
       options: ['Lunch', 'Sport'],
       initial: ['Lunch', 'Sport'],
     });
-    expect(sectionTexts(form).concat(JSON.stringify(form.blocks))).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining(
-          'Reminders about logging time will be set here too.',
-        ),
-      ]),
+    expect(timeReminder(form)).toEqual({
+      options: [
+        'Every working day',
+        'Every Monday',
+        'First Monday of the month',
+        'Never',
+      ],
+      initial: 'Every Monday',
+    });
+  });
+
+  it('saves how often the person is reminded of time, and no opt-out with it', async () => {
+    const form = await openForm();
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .submitView(workspace, member, form, { timeReminder: 'daily' })
+      .expect(200)
+      .expect(({ body }) => expect(body).toEqual({ response_action: 'clear' }));
+    await t.idle();
+
+    expect((await workspace.row('users', member.id)).time_reminder).toBe(
+      'daily',
     );
+    expect(await rows()).toEqual([]);
+    expect(
+      noticeOf(
+        t.slackApi.homeView(workspace.token, member.slack_id, { since })!,
+      ),
+    ).toBe('✅ Reminders saved.');
+    expect(timeReminder(await openForm()).initial).toBe('Every working day');
   });
 
   it('opts out of an unchecked reimbursement, and Home and Finance follow', async () => {
@@ -281,7 +320,33 @@ describe('Receipt reminders opt-outs', () => {
     ).toContain('You turned receipt reminders off.');
   });
 
-  it('opens nothing when the workspace has no reimbursement any more', async () => {
+  it('offers the time reminder alone in a workspace that collects no receipts', async () => {
+    const empty = await t.createWorkspace();
+    const person = await empty.addUser({ name: 'Solo' });
+    await empty.addProject({ name: 'Website' });
+    const home = await openAppHomeTab(t, empty, person);
+    const form = await openModalFrom(
+      t,
+      empty,
+      person,
+      home,
+      HomeTabActionId.Reminders,
+    );
+
+    expect(
+      (form.blocks as { block_id?: string }[]).map(({ block_id }) => block_id),
+    ).toEqual(['time_reminder_block']);
+
+    await t.slack
+      .submitView(empty, person, form, { timeReminder: 'off' })
+      .expect(200)
+      .expect(({ body }) => expect(body).toEqual({ response_action: 'clear' }));
+    await t.idle();
+
+    expect((await empty.row('users', person.id)).time_reminder).toBe('off');
+  });
+
+  it('keeps the form to the time reminder once the reimbursements are archived', async () => {
     const home = await openAppHomeTab(t, workspace, member);
 
     await t.db
@@ -289,23 +354,54 @@ describe('Receipt reminders opt-outs', () => {
       .set({ archived_at: new Date().toISOString() })
       .where('slack_team_id', '=', workspace.id)
       .execute();
-    const since = t.slackApi.mark();
 
-    await t.slack
-      .actOnView(workspace, member, home, HomeTabActionId.Reminders)
-      .expect(200);
-    await t.idle();
+    const form = await openModalFrom(
+      t,
+      workspace,
+      member,
+      home,
+      HomeTabActionId.Reminders,
+    );
 
     expect(
-      t.slackApi.callsWith(workspace.token, 'views.open', { since }),
-    ).toEqual([]);
+      (form.blocks as { block_id?: string }[]).map(({ block_id }) => block_id),
+    ).toEqual(['time_reminder_block']);
   });
 
-  it('opens nothing without reimbursements', async () => {
+  // The button sits with what the person has: the time row, or the receipts
+  // of someone who tracks no time; with neither there is nothing to remind of.
+  it('puts the button with time, with receipts, or nowhere', async () => {
+    const reminderBlocks = (home: View) =>
+      (
+        home.blocks as {
+          type: string;
+          elements?: { action_id?: string }[];
+        }[]
+      )
+        .filter(({ elements }) =>
+          elements?.some(
+            ({ action_id }) => action_id === HomeTabActionId.Reminders,
+          ),
+        )
+        .map(({ elements }) => elements!.map(({ action_id }) => action_id));
+
+    // Receipts, and no project in the workspace: with the receipts.
+    expect(reminderBlocks(await openAppHomeTab(t, workspace, member))).toEqual([
+      [NavigationActionId.MyReceipts, HomeTabActionId.Reminders],
+    ]);
+
+    // A project too: in the time row, once.
+    await workspace.addProject({ name: 'Website' });
+    expect(reminderBlocks(await openAppHomeTab(t, workspace, member))).toEqual([
+      [
+        HomeTabActionId.LogTime,
+        HomeTabActionId.EditTimeEntries,
+        HomeTabActionId.Reminders,
+      ],
+    ]);
+
     const empty = await t.createWorkspace();
     const person = await empty.addUser({ name: 'Solo' });
-    const home = await openAppHomeTab(t, empty, person);
-
-    expect(actionIdsOf(home)).not.toContain(HomeTabActionId.Reminders);
+    expect(reminderBlocks(await openAppHomeTab(t, empty, person))).toEqual([]);
   });
 });

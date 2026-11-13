@@ -1,3 +1,4 @@
+import { UsersService } from '@modules/users/services/users.service';
 import { Injectable } from '@nestjs/common';
 import type { ViewResponseAction } from '@slack/bolt/dist/types/view';
 import { ALL_ROLES } from '@common/constants/role-groups';
@@ -29,6 +30,7 @@ export class RemindersFormSubmitHandler extends BaseModalFormSubmitHandler<
 > {
   public constructor(
     private readonly optOuts: ReimbursementOptOutsService,
+    private readonly usersService: UsersService,
     private readonly tabNavigationService: TabNavigationService,
     parser: RemindersFormParser,
   ) {
@@ -41,11 +43,14 @@ export class RemindersFormSubmitHandler extends BaseModalFormSubmitHandler<
     { shownIds }: IRemindersMetadata,
     user: IUserViewModel,
   ): Promise<void> {
-    await this.optOuts.setReminded(
-      user,
-      shownIds ?? [],
-      data.reminded.map(({ value }) => value),
-    );
+    await Promise.all([
+      this.usersService.setTimeReminder(user, data.timeReminder.value),
+      this.optOuts.setReminded(
+        user,
+        shownIds ?? [],
+        data.reminded.map(({ value }) => value),
+      ),
+    ]);
 
     this.tabNavigationService.navigate(TabId.Home, {
       user,
