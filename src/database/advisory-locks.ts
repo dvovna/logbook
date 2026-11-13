@@ -48,6 +48,11 @@ export const receiptLock = (receiptId: string): IAdvisoryLock => ({
   rank: RANK.receipt,
 });
 
+export const reimbursementsLock = (slackTeamId: string): IAdvisoryLock => ({
+  key: `reimbursements:${slackTeamId}`,
+  rank: RANK.clients,
+});
+
 export const clientsLock = (slackTeamId: string): IAdvisoryLock => ({
   key: `clients:${slackTeamId}`,
   rank: RANK.clients,
