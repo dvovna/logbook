@@ -3,6 +3,7 @@ import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
 import { ReceiptsRepository } from '@modules/receipts/repositories/receipts.repository';
+import { ReimbursementOptOutsService } from '@modules/receipts/services/reimbursement-opt-outs.service';
 import { ReimbursementsService } from '@modules/receipts/services/reimbursements.service';
 import {
   collectedMonth,
@@ -22,6 +23,8 @@ export interface IReceiptsHomeSummary {
   lines: IReceiptsHomeLine[];
   // Receipts the person sent and gave no details yet.
   drafts: number;
+  // Every reimbursement's reminders are off for the person.
+  remindersOff: boolean;
   // The workspace's, for the amounts.
   currency: string;
 }
@@ -33,6 +36,7 @@ export class ReceiptsHomeService {
   public constructor(
     private readonly receipts: ReceiptsRepository,
     private readonly reimbursements: ReimbursementsService,
+    private readonly optOuts: ReimbursementOptOutsService,
     private readonly slackTeams: SlackTeamsService,
   ) {}
 
@@ -44,7 +48,7 @@ export class ReceiptsHomeService {
     user: IUserViewModel,
     today: string,
   ): Promise<IReceiptsHomeSummary | null> {
-    const [active, counted, drafts, currency] = await Promise.all([
+    const [active, counted, drafts, currency, optedOut] = await Promise.all([
       this.reimbursements.findActive(user.slack_team_id),
       this.receipts.findMany({
         slack_team_id: user.slack_team_id,
@@ -60,16 +64,19 @@ export class ReceiptsHomeService {
         status: ReceiptStatus.Draft,
       }),
       this.slackTeams.getCurrency(user.slack_team_id),
+      this.optOuts.findOptedOutIds(user),
     ]);
 
     if (!active.length) {
       return null;
     }
 
-    const collecting = active.map((reimbursement) => ({
-      reimbursement,
-      month: collectedMonth(today, reimbursement.dueDay),
-    }));
+    const collecting = active
+      .filter(({ id }) => !optedOut.includes(id))
+      .map((reimbursement) => ({
+        reimbursement,
+        month: collectedMonth(today, reimbursement.dueDay),
+      }));
 
     return {
       lines: collecting.map(({ reimbursement, month }) => {
@@ -91,6 +98,7 @@ export class ReceiptsHomeService {
         };
       }),
       drafts,
+      remindersOff: collecting.length === 0,
       currency,
     };
   }

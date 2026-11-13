@@ -26,4 +26,55 @@ export class ReimbursementOptOutsRepository extends BaseRepository<
     userId: row.user_id,
     reimbursementId: row.reimbursement_id,
   });
+
+  public async findOptedOutIds(
+    slackTeamId: string,
+    userId: string,
+  ): Promise<string[]> {
+    const rows = await this.findMany({
+      slack_team_id: slackTeamId,
+      user_id: userId,
+    });
+
+    return rows.map(({ reimbursementId }) => reimbursementId);
+  }
+
+  public async findOptedOutUserIds(
+    slackTeamId: string,
+    reimbursementId: string,
+  ): Promise<string[]> {
+    const rows = await this.findMany({
+      slack_team_id: slackTeamId,
+      reimbursement_id: reimbursementId,
+    });
+
+    return rows.map(({ userId }) => userId);
+  }
+
+  public async add(
+    slackTeamId: string,
+    userId: string,
+    reimbursementIds: string[],
+  ): Promise<void> {
+    await this.upsert(
+      reimbursementIds.map((reimbursementId) => ({
+        slack_team_id: slackTeamId,
+        user_id: userId,
+        reimbursement_id: reimbursementId,
+      })),
+      ['user_id', 'reimbursement_id'],
+    );
+  }
+
+  public async remove(
+    slackTeamId: string,
+    userId: string,
+    reimbursementIds: string[],
+  ): Promise<void> {
+    await this.deleteMany({
+      slack_team_id: slackTeamId,
+      user_id: userId,
+      reimbursement_id: reimbursementIds,
+    });
+  }
 }

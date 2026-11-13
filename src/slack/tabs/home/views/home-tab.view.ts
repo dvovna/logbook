@@ -58,6 +58,7 @@ export enum HomeTabActionId {
   LogTime = 'log_time',
   EditTimeEntries = 'edit_time_entries',
   SubmitTimeEntries = 'submit_time_entries_from_home',
+  Reminders = 'open_receipt_reminders',
 }
 
 @Injectable()
@@ -251,6 +252,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
   private getReceiptsBlocks({
     lines,
     drafts,
+    remindersOff,
     currency,
   }: IReceiptsHomeSummary): AnyBlock[] {
     const section = (text: string): AnyBlock => ({
@@ -261,6 +263,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     return [
       ...Divider.getBlocks(),
       section('*🧾 Receipts*'),
+      ...(remindersOff ? [section('You turned receipt reminders off.')] : []),
       ...lines.map(({ reimbursementName, month, count, totalCents, dueDate }) =>
         section(
           `${escapeMrkdwn(reimbursementName)} · ${monthLabel(month)}: ${
@@ -284,6 +287,11 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
             type: 'button',
             text: { type: 'plain_text', text: 'My receipts' },
             action_id: NavigationActionId.MyReceipts,
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '🔔 Reminders', emoji: true },
+            action_id: HomeTabActionId.Reminders,
           },
         ],
       },

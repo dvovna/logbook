@@ -6,7 +6,7 @@ import TeamsService from '@modules/teams/services/teams.service';
 import { assertCanManageReceipts } from '@modules/receipts/constants/receipt-roles';
 import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
 import { ReceiptsRepository } from '@modules/receipts/repositories/receipts.repository';
-import { ReimbursementOptOutsRepository } from '@modules/receipts/repositories/reimbursement-opt-outs.repository';
+import { ReimbursementOptOutsService } from '@modules/receipts/services/reimbursement-opt-outs.service';
 import { ReimbursementsService } from '@modules/receipts/services/reimbursements.service';
 import { IReceiptsMonth } from '@modules/receipts/types/receipts-month.interface';
 import { buildMonthOverview } from '@modules/receipts/utils/month-overview';
@@ -16,7 +16,7 @@ import { isMonthStart } from '@modules/receipts/utils/receipt-months';
 export class ReceiptsMonthService {
   public constructor(
     private readonly receipts: ReceiptsRepository,
-    private readonly optOuts: ReimbursementOptOutsRepository,
+    private readonly optOuts: ReimbursementOptOutsService,
     private readonly reimbursements: ReimbursementsService,
     private readonly users: UsersService,
     private readonly teams: TeamsService,
@@ -48,10 +48,7 @@ export class ReceiptsMonthService {
         ),
         this.users.findMany({ slackTeamId }),
         this.teams.findMany({ slackTeamId }),
-        this.optOuts.findMany({
-          slack_team_id: slackTeamId,
-          reimbursement_id: params.reimbursementId,
-        }),
+        this.optOuts.findOptedOutUserIds(params.reimbursementId, slackTeamId),
         this.receipts.findFileOwners(
           slackTeamId,
           params.reimbursementId,
@@ -96,7 +93,7 @@ export class ReceiptsMonthService {
         active: user.is_active,
         teamName: (user.team_id && teamNames.get(user.team_id)) || null,
       })),
-      optedOutUserIds: new Set(optOuts.map(({ userId }) => userId)),
+      optedOutUserIds: new Set(optOuts),
       sameFileOwners,
     });
   }

@@ -115,4 +115,6 @@ export enum ViewCallbackId {
   RejectReceiptForm = 'reject_receipt_form',
   ReimbursementForm = 'reimbursement_form',
   ArchiveReimbursementForm = 'archive_reimbursement_form',
+  // Which reimbursements the person gets reminders about.
+  RemindersForm = 'reminders_form',
 }

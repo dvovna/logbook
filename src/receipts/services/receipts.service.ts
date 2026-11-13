@@ -14,6 +14,7 @@ import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
 import { ReceiptChangedError } from '@modules/receipts/errors/receipt-changed.error';
 import { ReceiptsRepository } from '@modules/receipts/repositories/receipts.repository';
 import { ReceiptFileStore } from '@modules/receipts/services/receipt-file.store';
+import { ReimbursementOptOutsService } from '@modules/receipts/services/reimbursement-opt-outs.service';
 import { ReimbursementsService } from '@modules/receipts/services/reimbursements.service';
 import { IReceiptViewModel } from '@modules/receipts/types/receipt.interface';
 import { offeredMonths } from '@modules/receipts/utils/receipt-months';
@@ -52,6 +53,7 @@ export class ReceiptsService {
     private readonly receipts: ReceiptsRepository,
     private readonly files: ReceiptFileStore,
     private readonly reimbursements: ReimbursementsService,
+    private readonly optOuts: ReimbursementOptOutsService,
     private readonly transactions: TransactionService,
   ) {}
 
@@ -153,6 +155,13 @@ export class ReceiptsService {
       if (!saved) {
         throw new ReceiptChangedError();
       }
+
+      // Sending a receipt for it means the person wants it.
+      await this.optOuts.removeFor(
+        user.id,
+        checked.reimbursementId,
+        user.slack_team_id,
+      );
 
       return saved;
     });

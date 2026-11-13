@@ -16,6 +16,7 @@ import { ReceiptsArchiveService } from '@modules/receipts/services/receipts-arch
 import { ReceiptsHomeService } from '@modules/receipts/services/receipts-home.service';
 import { ReceiptsMonthService } from '@modules/receipts/services/receipts-month.service';
 import { ReceiptsService } from '@modules/receipts/services/receipts.service';
+import { ReimbursementOptOutsService } from '@modules/receipts/services/reimbursement-opt-outs.service';
 import { ReimbursementsService } from '@modules/receipts/services/reimbursements.service';
 
 @Module({
@@ -25,6 +26,7 @@ import { ReimbursementsService } from '@modules/receipts/services/reimbursements
     ReimbursementsRepository,
     ReimbursementOptOutsRepository,
     ReimbursementsService,
+    ReimbursementOptOutsService,
     { provide: ReceiptFileStore, useClass: PostgresReceiptFileStore },
     ReceiptsService,
     ReceiptsHomeService,
@@ -43,6 +45,7 @@ import { ReimbursementsService } from '@modules/receipts/services/reimbursements
     ReceiptsMonthService,
     ReceiptsArchiveService,
     ReimbursementsService,
+    ReimbursementOptOutsService,
     ReceiptFileStore,
   ],
 })
