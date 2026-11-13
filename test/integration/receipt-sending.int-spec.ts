@@ -146,6 +146,45 @@ describe('Sending a receipt in the DM', () => {
       ).toHaveLength(2);
     });
 
+    it('tells the person when they share again a file whose receipt they sent', async () => {
+      const sport = await seedReimbursement(t, workspace);
+      const fileId = t.slackApi.addFile('gym.pdf', 'bytes');
+      const share = async () => {
+        await t.slack
+          .event(workspace, {
+            type: 'file_shared',
+            file_id: fileId,
+            user_id: member.slack_id,
+            channel_id: dmOf(member),
+          })
+          .expect(acknowledged);
+        await t.idle();
+      };
+
+      await share();
+      const [receipt] = await receipts();
+      await t.db
+        .updateTable('receipts')
+        .set({
+          status: ReceiptStatus.Submitted,
+          reimbursement_id: sport.id,
+          month: '2026-06-01',
+          amount_cents: 2000,
+          submitted_at: new Date().toISOString(),
+        })
+        .where('id', '=', receipt.id)
+        .execute();
+      await share();
+
+      expect(await receipts()).toHaveLength(1);
+      expect(
+        t.slackApi.postedMessages(workspace.token, member.slack_id),
+      ).toHaveLength(1);
+      expect(ephemeralTo(member)).toEqual([
+        `You already sent this file on ${formatDate(receipt.created_at)} (⏳ Waiting).`,
+      ]);
+    });
+
     it('leaves a file in a channel alone', async () => {
       await seedReimbursement(t, workspace);
       const since = t.slackApi.mark();

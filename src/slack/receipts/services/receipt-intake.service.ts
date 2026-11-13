@@ -71,18 +71,19 @@ export class ReceiptIntakeService {
       content,
     });
 
-    if (outcome === 'duplicate') {
+    // The same bytes, or the same Slack file shared again once its receipt
+    // was sent. A second run of a file whose receipt is still a draft (the
+    // first one failed before or while posting) posts its message again:
+    // whether it exists is not known (that would take scopes the app
+    // doesn't ask for).
+    if (
+      outcome === 'duplicate' ||
+      (outcome === 'again' && receipt.status !== ReceiptStatus.Draft)
+    ) {
       return this.reply(
         user,
         `You already sent this file on ${formatDate(receipt.createdAt)} (${withIcon(RECEIPT_STATUS_LABELS[receipt.status])}).`,
       );
-    }
-
-    // A second run of a file whose receipt is still a draft: the first one
-    // failed before or while posting. Whether its message exists is not
-    // known (that would take scopes the app doesn't ask for).
-    if (outcome === 'again' && receipt.status !== ReceiptStatus.Draft) {
-      return;
     }
 
     await this.postWaiting(user, receipt);
