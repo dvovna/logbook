@@ -248,6 +248,30 @@ describe('The Receipts screen', () => {
       ]);
     });
 
+    it('keeps a receipt of the longest text people type within Slack’s 2000 characters a field', async () => {
+      // `&`, `<` and `>` are 4 or 5 characters each once escaped.
+      const receipt = await seed(anna, {
+        fileName: `${'&<>'.repeat(40)}.pdf`,
+        amountCents: 3000,
+        status: ReceiptStatus.Rejected,
+      });
+      await t.db
+        .updateTable('receipts')
+        .set({ comment: '&<>'.repeat(100), rejection_reason: '&'.repeat(500) })
+        .where('id', '=', receipt.id)
+        .execute();
+
+      // The fake refuses a view Slack would refuse, and the test with it.
+      const tab = await open();
+      const [field] = (tab.blocks as { fields?: { text: string }[] }[]).flatMap(
+        ({ fields }) => fields ?? [],
+      );
+
+      expect(field.text.length).toBeLessThanOrEqual(2000);
+      expect(field.text).toContain('Comment: &amp;&lt;&gt;');
+      expect(field.text).toContain('Reason: &amp;&amp;');
+    });
+
     it('shows the next month empty', async () => {
       await seed(anna, { fileName: 'gym-june.pdf', amountCents: 3000 });
 

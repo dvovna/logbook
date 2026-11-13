@@ -4,7 +4,10 @@ import { SectionBlockAccessory } from '@slack/types/dist/block-kit/blocks';
 import { formatDayMonth } from '@common/utils/date.utils';
 import { formatMoney } from '@common/utils/money.utils';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
-import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import {
+  escapeClipped,
+  escapeMrkdwn,
+} from '@modules/slack/common/utils/mrkdwn.utils';
 import { toPlainTextOption } from '@modules/slack/common/utils/view.utils';
 import {
   BaseTabView,
@@ -126,6 +129,10 @@ export const receiptsShownPerPerson = (
 // title.
 const MAX_OPTION_CHARACTERS = 75;
 const MAX_FILE_NAME_CHARACTERS = 100;
+// A receipt is one field of at most 2000 characters: the title (100
+// characters escaped, so 500 at most), the amount and status, and these.
+const MAX_NAMES_CHARACTERS = 250;
+const MAX_TYPED_CHARACTERS = 500;
 // The names "Sent nothing" lists.
 const MAX_NAMES_LISTED = 15;
 
@@ -399,11 +406,11 @@ export class ReceiptsTabView extends BaseTabView<
         line,
         receipt.late && '⏰ Late',
         receipt.alsoSentBy.length > 0 &&
-          `Same file as ${receipt.alsoSentBy.map(escapeMrkdwn).join(', ')}`,
-        detail('Comment', receipt.comment && escapeMrkdwn(receipt.comment)),
+          `Same file as ${escapeClipped(receipt.alsoSentBy.join(', '), MAX_NAMES_CHARACTERS)}`,
+        detail('Comment', escapeClipped(receipt.comment, MAX_TYPED_CHARACTERS)),
         detail(
           'Reason',
-          receipt.rejectionReason && escapeMrkdwn(receipt.rejectionReason),
+          escapeClipped(receipt.rejectionReason, MAX_TYPED_CHARACTERS),
         ),
       ],
       ...(waiting

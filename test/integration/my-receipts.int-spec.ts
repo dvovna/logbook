@@ -148,6 +148,23 @@ describe('My receipts', () => {
       });
     });
 
+    it('keeps a receipt of the longest text people type within Slack’s 2000 characters a field', async () => {
+      sport = await seedReimbursement(t, workspace, { name: 'Sport' });
+      await seed(member, {
+        fileName: `${'&<>'.repeat(40)}.pdf`,
+        status: ReceiptStatus.Rejected,
+        rejectionReason: '&'.repeat(500),
+      });
+
+      const tab = await openAppHomeTab(t, workspace, member, MY_RECEIPTS);
+      const [field] = (tab.blocks as { fields?: { text: string }[] }[]).flatMap(
+        ({ fields }) => fields ?? [],
+      );
+
+      expect(field.text.length).toBeLessThanOrEqual(2000);
+      expect(field.text).toContain('Reason: &amp;&amp;');
+    });
+
     it('shows a rejection’s reason, and no menu on an accepted receipt', async () => {
       sport = await seedReimbursement(t, workspace, { name: 'Sport' });
       await seed(member, {

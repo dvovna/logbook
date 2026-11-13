@@ -6,7 +6,8 @@ import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
 import { IReceiptViewModel } from '@modules/receipts/types/receipt.interface';
 import { monthLabel } from '@modules/receipts/utils/receipt-months';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
-import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
+import { escapeClipped } from '@modules/slack/common/utils/mrkdwn.utils';
+import { clip } from '@modules/slack/common/views/components/message-sections';
 import {
   BaseTabView,
   IBaseTabViewParams,
@@ -34,6 +35,12 @@ interface IGetViewParams extends IBaseTabViewParams {
 // Slack takes 100 blocks in a view: an item is two and its month's heading a
 // third, and the header and the intro take a few more.
 export const MAX_SHOWN_RECEIPTS = 25;
+
+// A receipt is one field of at most 2000 characters: the title (100
+// characters, 500 escaped), the amount and status, and these.
+const MAX_FILE_NAME_CHARACTERS = 100;
+const MAX_NAME_CHARACTERS = 300;
+const MAX_REASON_CHARACTERS = 500;
 
 @Injectable()
 export class MyReceiptsTabView extends BaseTabView<IGetViewParams, never> {
@@ -76,13 +83,14 @@ export class MyReceiptsTabView extends BaseTabView<IGetViewParams, never> {
 
       blocks.push(
         ...ListItem.getBlocks({
-          title: receipt.fileName,
+          title: clip(receipt.fileName, MAX_FILE_NAME_CHARACTERS),
           details: [
             detail(
               'Reimbursement',
               receipt.reimbursementId &&
-                escapeMrkdwn(
-                  reimbursementNames.get(receipt.reimbursementId) ?? '',
+                escapeClipped(
+                  reimbursementNames.get(receipt.reimbursementId),
+                  MAX_NAME_CHARACTERS,
                 ),
             ),
             detail(
@@ -94,7 +102,7 @@ export class MyReceiptsTabView extends BaseTabView<IGetViewParams, never> {
             detail('Status', withIcon(RECEIPT_STATUS_LABELS[receipt.status])),
             detail(
               'Reason',
-              receipt.rejectionReason && escapeMrkdwn(receipt.rejectionReason),
+              escapeClipped(receipt.rejectionReason, MAX_REASON_CHARACTERS),
             ),
           ],
           accessory: this.menuOf(receipt),
