@@ -9,6 +9,10 @@ export interface IReceiptsArchiveLimits {
   // about as slow as a part takes, so that a big month leaves the slots to
   // the rest.
   partsPerSecond: number;
+  // A month of more parts gets its CSVs only: a part is a DM of about
+  // 20 MB and a job slot for as long as its upload takes, so 50 are
+  // already a gigabyte in one conversation.
+  maxParts: number;
 }
 
 export const RECEIPTS_ARCHIVE_LIMITS = Symbol('RECEIPTS_ARCHIVE_LIMITS');
@@ -16,4 +20,5 @@ export const RECEIPTS_ARCHIVE_LIMITS = Symbol('RECEIPTS_ARCHIVE_LIMITS');
 export const DEFAULT_RECEIPTS_ARCHIVE_LIMITS: IReceiptsArchiveLimits = {
   partBytes: ARCHIVE_PART_BYTES,
   partsPerSecond: 0.2,
+  maxParts: 50,
 };

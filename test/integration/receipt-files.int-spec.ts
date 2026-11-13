@@ -399,6 +399,33 @@ describe('Receipt files', () => {
         ]);
       });
 
+      // A month of lunch receipts is hundreds of parts: gigabytes in one DM,
+      // and the job slots taken for as long as it lasts.
+      it('sends only the CSVs of a month too big to send', async () => {
+        limits().maxParts = 2;
+
+        const tab = await screen();
+        const since = t.slackApi.mark();
+
+        await click(finance, tab, ReceiptsTabActionId.DownloadMonth);
+        await t.idle();
+
+        expect(textsTo(finance, since)).toEqual([
+          '📦 Receipts for Sport, June 2026: the two CSVs only. The month has 3 files, too many to send here. Open a file from Receipts when you need it.',
+        ]);
+        expect(
+          filesTo(finance, since).map(({ filename, bytes }) => [
+            filename,
+            Object.keys(entriesOf(bytes)).sort(),
+          ]),
+        ).toEqual([
+          [
+            'Receipts Sport 2026-06 CSVs only.zip',
+            ['receipts.csv', 'totals.csv'],
+          ],
+        ]);
+      });
+
       // Each part holds its files and their ZIP in memory: the job slots
       // would let four go at once.
       it('uploads one part at a time, however fast they start', async () => {

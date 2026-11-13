@@ -1,3 +1,4 @@
+import pluralize from 'pluralize';
 import {
   ForbiddenException,
   Inject,
@@ -57,6 +58,9 @@ interface IMonthPartJob extends IMonthDownloadJob {
   part: number;
   parts: number;
   receiptIds: string[];
+  // How many files the month has, when they are too many to send and this
+  // part carries the CSVs alone.
+  filesLeftOut?: number;
 }
 
 // One download of a month to one person: the planning job and its parts.
@@ -288,10 +292,13 @@ export class ReceiptFilesDmService implements OnModuleInit {
       user.slack_team_id,
     );
     const { parts } = this.archive.plan(overview, currency);
-    // A month whose files are all gone still has its CSVs.
-    const receiptIdsByPart = parts.length
-      ? parts.map((files) => files.map(({ receiptId }) => receiptId))
-      : [[]];
+    const tooBig = parts.length > this.limits.maxParts;
+    // A month whose files are all gone, or are too many to send, still has
+    // its CSVs.
+    const receiptIdsByPart =
+      parts.length && !tooBig
+        ? parts.map((files) => files.map(({ receiptId }) => receiptId))
+        : [[]];
 
     await this.jobs.enqueueMany<IMonthPartJob>(
       RECEIPTS_MONTH_PART_JOB,
@@ -303,6 +310,7 @@ export class ReceiptFilesDmService implements OnModuleInit {
         part: i + 1,
         parts: receiptIdsByPart.length,
         receiptIds,
+        ...(tooBig && { filesLeftOut: parts.flat().length }),
       })),
       {
         perSecond: this.limits.partsPerSecond,
@@ -328,7 +336,12 @@ export class ReceiptFilesDmService implements OnModuleInit {
     );
     const files = new Map(parts.flat().map((file) => [file.receiptId, file]));
     const label = `${overview.reimbursement.name}, ${monthLabel(job.month)}`;
-    const ofParts = `part ${job.part} of ${job.parts}`;
+    const ofParts = job.filesLeftOut
+      ? 'CSVs only'
+      : `part ${job.part} of ${job.parts}`;
+    const intro = job.filesLeftOut
+      ? `📦 Receipts for ${escapeMrkdwn(label)}: the two CSVs only. The month has ${pluralize('file', job.filesLeftOut, true)}, too many to send here. Open a file from Receipts when you need it.`
+      : `📦 Receipts for ${escapeMrkdwn(label)} (${ofParts}).`;
 
     await this.heavyWork.run(async () => {
       const entries = await this.archive.readPart(
@@ -348,7 +361,7 @@ export class ReceiptFilesDmService implements OnModuleInit {
       await this.dmFileService.send(
         user,
         {
-          intro: `📦 Receipts for ${escapeMrkdwn(label)} (${ofParts}).`,
+          intro,
           title: `Receipts for ${label} (${ofParts})`,
           filename: `${safeFileName(`Receipts ${overview.reimbursement.name} ${job.month.slice(0, 7)} ${ofParts}`)}.zip`,
           content: this.archive.buildPart(entries),
