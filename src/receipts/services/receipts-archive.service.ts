@@ -144,13 +144,21 @@ export class ReceiptsArchiveService {
 
   // Images and PDFs are compressed already: stored, not deflated.
   public buildPart(entries: { name: string; content: Buffer }[]): Buffer {
-    return Buffer.from(
-      zipSync(
-        Object.fromEntries(
-          entries.map(({ name, content }) => [name, new Uint8Array(content)]),
-        ),
-        { level: 0 },
+    // Views of the same memory, not copies: a part is tens of megabytes.
+    const zip = zipSync(
+      Object.fromEntries(
+        entries.map(({ name, content }) => [
+          name,
+          new Uint8Array(
+            content.buffer,
+            content.byteOffset,
+            content.byteLength,
+          ),
+        ]),
       ),
+      { level: 0 },
     );
+
+    return Buffer.from(zip.buffer, zip.byteOffset, zip.byteLength);
   }
 }

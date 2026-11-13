@@ -313,7 +313,8 @@ export default class SlackApiClient {
     content,
     accessToken,
   }: IUploadFileParams): Promise<string> {
-    const bytes = Buffer.from(content);
+    // A Buffer (an archive part of tens of megabytes) goes as it is.
+    const bytes = Buffer.isBuffer(content) ? content : Buffer.from(content);
 
     const { upload_url: uploadUrl, file_id: fileId } = await this.send(
       'files.getUploadURLExternal',
@@ -332,7 +333,7 @@ export default class SlackApiClient {
 
     const response = await fetch(uploadUrl, {
       method: 'POST',
-      body: bytes,
+      body: bytes as Buffer<ArrayBuffer>,
       signal: AbortSignal.timeout(uploadTimeoutMs(bytes.byteLength)),
     });
 

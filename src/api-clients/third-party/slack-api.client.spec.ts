@@ -358,6 +358,19 @@ describe('SlackApiClient', () => {
       });
     });
 
+    // An archive part is tens of megabytes: it is sent as it is.
+    it('sends a Buffer as the same Buffer, without a copy', async () => {
+      const content = Buffer.from('PK part');
+
+      await client.uploadFile({
+        filename: 'part.zip',
+        content,
+        accessToken: 'xoxb-1',
+      });
+
+      expect(fetchMock.mock.calls[0][1].body).toBe(content);
+    });
+
     it('uploads nowhere but to Slack', async () => {
       slack.files.getUploadURLExternal.mockResolvedValue({
         ...ok,

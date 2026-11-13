@@ -18,6 +18,7 @@ import { assertCanManageReceipts } from 'src/receipts/constants/receipt-roles';
 import { ReceiptStatus } from 'src/receipts/enums/receipt-status.enum';
 import { ReceiptFileStore } from 'src/receipts/services/receipt-file.store';
 import {
+  IArchiveFile,
   ReceiptsArchiveService,
   safeFileName,
 } from 'src/receipts/services/receipts-archive.service';
@@ -242,21 +243,17 @@ export class ReceiptFilesDmService implements OnModuleInit {
     const label = `${overview.reimbursement.name}, ${monthLabel(month)}`;
 
     for (const [i, part] of parts.entries()) {
-      const entries = await this.archive.readPart(part, user.slack_team_id);
-
-      if (i === 0) {
-        entries.unshift(
-          { name: 'receipts.csv', content: Buffer.from(receiptsCsv) },
-          { name: 'totals.csv', content: Buffer.from(totalsCsv) },
-        );
-      }
-
+      const zip = await this.zipPart(
+        part,
+        user.slack_team_id,
+        i === 0 ? { receiptsCsv, totalsCsv } : null,
+      );
       const ofParts = `part ${i + 1} of ${parts.length}`;
       const sent = await this.dmFileService.send(user, {
         intro: `📦 Receipts for ${escapeMrkdwn(label)} (${ofParts}).`,
         title: `Receipts for ${label} (${ofParts})`,
         filename: `${safeFileName(`Receipts ${overview.reimbursement.name} ${month.slice(0, 7)} ${ofParts}`)}.zip`,
-        content: this.archive.buildPart(entries),
+        content: zip,
       });
 
       // Without files:write the first message already said how to fix it.
@@ -264,6 +261,25 @@ export class ReceiptFilesDmService implements OnModuleInit {
         return;
       }
     }
+  }
+
+  // The files are read and zipped in here, so that only the zip is held
+  // while it is sent.
+  private async zipPart(
+    part: IArchiveFile[],
+    slackTeamId: string,
+    csvs: { receiptsCsv: string; totalsCsv: string } | null,
+  ): Promise<Buffer> {
+    const entries = await this.archive.readPart(part, slackTeamId);
+
+    if (csvs) {
+      entries.unshift(
+        { name: 'receipts.csv', content: Buffer.from(csvs.receiptsCsv) },
+        { name: 'totals.csv', content: Buffer.from(csvs.totalsCsv) },
+      );
+    }
+
+    return this.archive.buildPart(entries);
   }
 
   private async tellFileNotSent({ slackTeamId, userId }: IReceiptOpenJob) {
