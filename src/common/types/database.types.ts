@@ -1200,6 +1200,7 @@ export type Database = {
           slack_token: string | null;
           slack_token_expires_at: string | null;
           time_off_minutes_per_day: number;
+          time_reminder_day: string | null;
           time_reminder_week: string | null;
           uninstalled_at: string | null;
         };
@@ -1216,6 +1217,7 @@ export type Database = {
           slack_token?: string | null;
           slack_token_expires_at?: string | null;
           time_off_minutes_per_day?: number;
+          time_reminder_day?: string | null;
           time_reminder_week?: string | null;
           uninstalled_at?: string | null;
         };
@@ -1231,6 +1233,7 @@ export type Database = {
           slack_token?: string | null;
           slack_token_expires_at?: string | null;
           time_off_minutes_per_day?: number;
+          time_reminder_day?: string | null;
           time_reminder_week?: string | null;
           uninstalled_at?: string | null;
         };
@@ -1569,6 +1572,7 @@ export type Database = {
           slack_id: string;
           slack_team_id: string;
           team_id: string | null;
+          time_reminder: string;
           updated_at: string;
           updated_by: string | null;
         };
@@ -1585,6 +1589,7 @@ export type Database = {
           slack_id: string;
           slack_team_id: string;
           team_id?: string | null;
+          time_reminder?: string;
           updated_at?: string;
           updated_by?: string | null;
         };
@@ -1600,6 +1605,7 @@ export type Database = {
           slack_id?: string;
           slack_team_id?: string;
           team_id?: string | null;
+          time_reminder?: string;
           updated_at?: string;
           updated_by?: string | null;
         };

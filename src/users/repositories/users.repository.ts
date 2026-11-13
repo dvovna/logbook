@@ -3,6 +3,7 @@ import { sql } from 'kysely';
 import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import UserRole from '@common/enums/user-role.enum';
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { ITeamAssignment } from '@modules/users/types/team-assignment.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 
@@ -67,6 +68,7 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
       slack_team_id: row.slack_team_id,
       team_id: row.team_id,
       created_at: row.created_at,
+      time_reminder: row.time_reminder as TimeReminder,
       updated_at: row.updated_at,
       updated_by: row.updated_by,
     };

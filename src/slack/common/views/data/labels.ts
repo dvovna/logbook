@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import VacationType from '@common/enums/vacation-type.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { IOption } from '@common/types/option.interface';
@@ -125,6 +126,15 @@ export const RECEIPT_STATUS_LABELS: Record<ReceiptStatus, ILabel> = {
   [ReceiptStatus.Submitted]: { label: 'Waiting', icon: '⏳' },
   [ReceiptStatus.Accepted]: { label: 'Accepted', icon: '✅' },
   [ReceiptStatus.Rejected]: { label: 'Rejected', icon: '❌' },
+};
+
+// How often a person is reminded of unsubmitted time, in the order the
+// Reminders form offers them.
+export const TIME_REMINDER_LABELS: Record<TimeReminder, string> = {
+  [TimeReminder.Daily]: 'Every working day',
+  [TimeReminder.Weekly]: 'Every Monday',
+  [TimeReminder.Monthly]: 'First Monday of the month',
+  [TimeReminder.Off]: 'Never',
 };
 
 // A value as the app shows it: '⏳ Pending'.

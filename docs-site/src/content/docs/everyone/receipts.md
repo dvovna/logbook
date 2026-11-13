@@ -73,6 +73,6 @@ Logbook reminds you to send receipts, in a direct message from Logbook:
 
 To stop the reminders for a reimbursement you don't use, choose **I don't use this** under a reminder. Logbook confirms "🔕 You won't be reminded about …".
 
-To change it later, choose **🔔 Reminders** on **Home**. Tick the reimbursements you want reminders about and choose **Save**. Sending a receipt for a reimbursement turns its reminders on again. While all of them are off, **Home** says "You turned receipt reminders off."
+To change it later, choose **🔔 Reminders** on **Home**. Tick the reimbursements you want reminders about and choose **Save**. The same form sets how often you are reminded of unsubmitted time; see [The reminder](/logbook/docs/everyone/submit-time/#the-reminder). Sending a receipt for a reimbursement turns its reminders on again. While all of them are off, **Home** says "You turned receipt reminders off."
 
 See [Finance: receipts](/logbook/docs/finance/receipts/) for how the receipts are checked, and [Receipt limits](/logbook/docs/reference/file-formats/#receipts) for the files.

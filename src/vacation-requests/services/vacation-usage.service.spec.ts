@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import { VacationPeriodUsageService } from 'src/vacation-requests/services/vacation-period-usage.service';
 import { LeaveBalancesService } from 'src/vacation-requests/services/leave-balances.service';
@@ -25,6 +26,7 @@ const buildUser = (
   slack_team_id: SLACK_TEAM_ID,
   slack_id: 'U_MEMBER',
   created_at: '2026-01-01T00:00:00Z',
+  time_reminder: TimeReminder.Weekly,
   contract_start_date: null,
   carryover_days: 0,
   ...overrides,

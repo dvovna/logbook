@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { ForbiddenException } from '@nestjs/common';
 import { TimeEntryApprovalsService } from 'src/time-entries/services/time-entry-approvals.service';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
@@ -21,6 +22,7 @@ const admin: IUserViewModel = {
   slack_team_id: 'slack-team-1',
   slack_id: 'U_ADMIN',
   created_at: '2026-01-01T00:00:00Z',
+  time_reminder: TimeReminder.Weekly,
 };
 
 describe('TimeEntryApprovalsService', () => {

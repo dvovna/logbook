@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { Injectable } from '@nestjs/common';
 import { ExpressionBuilder, RawBuilder, sql } from 'kysely';
 import UserRole from '@common/enums/user-role.enum';
@@ -650,13 +651,26 @@ export class TimeEntriesRepository extends BaseRepository<
   public async findUserIdsWithOpenUpTo(
     slackTeamId: string,
     dateTo: string,
+    reminders: TimeReminder[],
   ): Promise<string[]> {
+    if (!reminders.length) {
+      return [];
+    }
+
     const rows = await this.selectInWorkspace(slackTeamId)
       .select('user_id')
       .distinct()
       .where('status', 'in', OPEN_TIME_ENTRY_STATUSES)
       .where('deleted_at', 'is', null)
       .where('work_date', '<=', dateTo)
+      .where('user_id', 'in', (eb) =>
+        eb
+          .selectFrom('users')
+          .select('users.id')
+          .where('users.slack_team_id', '=', slackTeamId)
+          .where('users.is_active', '=', true)
+          .where('users.time_reminder', 'in', reminders),
+      )
       .execute();
 
     return rows.map(({ user_id }) => user_id);

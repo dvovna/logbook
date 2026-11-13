@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   TIME_ENTRIES_SUBMITTED,
@@ -347,10 +348,12 @@ export class TimeEntriesService {
   public findUserIdsWithOpenUpTo(params: {
     slackTeamId: string;
     dateTo: string;
+    reminders: TimeReminder[];
   }): Promise<string[]> {
     return this.timeEntriesRepository.findUserIdsWithOpenUpTo(
       params.slackTeamId,
       params.dateTo,
+      params.reminders,
     );
   }
 

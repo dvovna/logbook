@@ -14,21 +14,20 @@ export class RemindersModalService {
     private readonly slackCommunicationService: SlackCommunicationService,
   ) {}
 
-  // Opens nothing when the workspace collects nothing: Home offers no
-  // button then.
+  // The receipts part only for a workspace that collects them.
   public async open(triggerId: string, user: IUserViewModel) {
     const [reimbursements, optedOutIds] = await Promise.all([
       this.reimbursements.findActive(user.slack_team_id),
       this.optOuts.findOptedOutIds(user),
     ]);
 
-    if (!reimbursements.length) {
-      return;
-    }
-
     await this.slackCommunicationService.openView(
       triggerId,
-      this.view.build({ reimbursements, optedOutIds }),
+      this.view.build({
+        reimbursements,
+        optedOutIds,
+        timeReminder: user.time_reminder,
+      }),
       user.slack_team_id,
     );
   }

@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { Logger } from '@nestjs/common';
 import * as errorReporter from '@common/errors/error-reporter';
 import { JobsService } from '@common/jobs/jobs.service';
@@ -20,6 +21,7 @@ describe('TimeEntryRemindersService', () => {
   let slackTeamsService: {
     findInstalledIds: jest.Mock;
     claimReminderWeek: jest.Mock;
+    claimReminderDay: jest.Mock;
   };
   let timeEntriesService: { findUserIdsWithOpenUpTo: jest.Mock };
   let jobs: { define: jest.Mock; enqueueMany: jest.Mock };
@@ -32,6 +34,8 @@ describe('TimeEntryRemindersService', () => {
     slackTeamsService = {
       findInstalledIds: jest.fn().mockResolvedValue(['w1']),
       claimReminderWeek: jest.fn().mockResolvedValue(true),
+      // The day's reminder went out already, unless a test says otherwise.
+      claimReminderDay: jest.fn().mockResolvedValue(false),
     };
     timeEntriesService = {
       findUserIdsWithOpenUpTo: jest.fn().mockResolvedValue(['u1', 'u2']),
@@ -68,15 +72,75 @@ describe('TimeEntryRemindersService', () => {
     expect(timeEntriesService.findUserIdsWithOpenUpTo).toHaveBeenCalledWith({
       slackTeamId: 'w1',
       dateTo: '2026-06-14',
+      reminders: [TimeReminder.Weekly],
     });
     expect(jobs.enqueueMany).toHaveBeenCalledTimes(1);
     expect(jobs.enqueueMany).toHaveBeenCalledWith(
       REMIND_UNSUBMITTED_JOB,
       [
-        { slackTeamId: 'w1', userId: 'u1', monday: MONDAY },
-        { slackTeamId: 'w1', userId: 'u2', monday: MONDAY },
+        {
+          slackTeamId: 'w1',
+          userId: 'u1',
+          dateTo: '2026-06-14',
+          monday: MONDAY,
+        },
+        {
+          slackTeamId: 'w1',
+          userId: 'u2',
+          dateTo: '2026-06-14',
+          monday: MONDAY,
+        },
       ],
       { perSecond: 5 },
+    );
+  });
+
+  it('reminds the monthly ones too in the week of the first Monday', async () => {
+    await service.remindWorkspace('w1', '2026-06-01');
+
+    expect(timeEntriesService.findUserIdsWithOpenUpTo).toHaveBeenCalledWith({
+      slackTeamId: 'w1',
+      dateTo: '2026-05-31',
+      reminders: [TimeReminder.Weekly, TimeReminder.Monthly],
+    });
+  });
+
+  it('reminds the daily ones of what is open from before the day, once a day', async () => {
+    slackTeamsService.claimReminderDay.mockResolvedValueOnce(true);
+
+    // A Wednesday: the week was claimed on Monday.
+    slackTeamsService.claimReminderWeek.mockResolvedValue(false);
+
+    await expect(
+      service.remindAll(new Date('2026-06-17T09:05:00Z')),
+    ).resolves.toBe(2);
+
+    expect(slackTeamsService.claimReminderDay).toHaveBeenCalledWith(
+      'w1',
+      '2026-06-17',
+    );
+    expect(timeEntriesService.findUserIdsWithOpenUpTo).toHaveBeenCalledWith({
+      slackTeamId: 'w1',
+      dateTo: '2026-06-16',
+      reminders: [TimeReminder.Daily],
+    });
+    expect(jobs.enqueueMany).toHaveBeenCalledWith(
+      REMIND_UNSUBMITTED_JOB,
+      [
+        { slackTeamId: 'w1', userId: 'u1', dateTo: '2026-06-16' },
+        { slackTeamId: 'w1', userId: 'u2', dateTo: '2026-06-16' },
+      ],
+      { perSecond: 5 },
+    );
+  });
+
+  it('claims no day at the weekend, and the week still', async () => {
+    await service.remindAll(new Date('2026-06-20T12:00:00Z'));
+
+    expect(slackTeamsService.claimReminderDay).not.toHaveBeenCalled();
+    expect(slackTeamsService.claimReminderWeek).toHaveBeenCalledWith(
+      'w1',
+      MONDAY,
     );
   });
 
@@ -104,7 +168,14 @@ describe('TimeEntryRemindersService', () => {
     expect(jobs.enqueueMany).toHaveBeenCalledTimes(1);
     expect(jobs.enqueueMany).toHaveBeenCalledWith(
       REMIND_UNSUBMITTED_JOB,
-      [{ slackTeamId: 'w2', userId: 'u3', monday: MONDAY }],
+      [
+        {
+          slackTeamId: 'w2',
+          userId: 'u3',
+          dateTo: '2026-06-14',
+          monday: MONDAY,
+        },
+      ],
       { perSecond: 5 },
     );
     expect(error).toHaveBeenCalledWith(

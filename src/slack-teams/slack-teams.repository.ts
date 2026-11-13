@@ -197,6 +197,30 @@ export class SlackTeamsRepository extends BaseRepository<
     return rows.length > 0;
   }
 
+  // The same for the reminder of `day`, which goes to the people reminded
+  // every working day.
+  public async claimReminderDay(id: string, day: string): Promise<boolean> {
+    const rows = await this.failingWith(
+      'Failed to claim the daily reminder',
+      () =>
+        this.db
+          .updateTable('slack_teams')
+          .set({ time_reminder_day: day })
+          .where('id', '=', id)
+          .where('uninstalled_at', 'is', null)
+          .where((eb) =>
+            eb.or([
+              eb('time_reminder_day', 'is', null),
+              eb('time_reminder_day', '<', day),
+            ]),
+          )
+          .returning('id')
+          .execute(),
+    );
+
+    return rows.length > 0;
+  }
+
   private async failingWith<T>(message: string, query: () => Promise<T>) {
     try {
       return await query();
