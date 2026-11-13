@@ -3,6 +3,7 @@ import { Tables } from '@common/types/database.types';
 import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
 import { ITestApp } from './test-app';
 import { TestWorkspace } from './test-workspace';
+import { shareTeamFile } from './team-file';
 
 export const seedReimbursement = (
   t: ITestApp,
@@ -65,3 +66,13 @@ export const seedReceipt = async (
 
   return receipt;
 };
+
+// Shares the file in the DM with the app, as a photo or a PDF, and returns
+// what the app posted back to the sender.
+export const shareReceipt = (
+  t: ITestApp,
+  workspace: TestWorkspace,
+  user: Tables<'users'>,
+  content: string | Buffer,
+  fileName = 'receipt.pdf',
+) => shareTeamFile(t, workspace, user, content, fileName);

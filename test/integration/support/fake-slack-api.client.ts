@@ -33,6 +33,22 @@ export interface ISlackApiCall {
   result?: SlackJson;
 }
 
+const MIMETYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  heic: 'image/heic',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  csv: 'text/csv',
+};
+
+// What files.info reports for a file of this name.
+const mimetypeOf = (name: string) =>
+  MIMETYPES[name.split('.').pop()?.toLowerCase() ?? ''] ??
+  'application/octet-stream';
+
 export interface IPostedMessage {
   // The user or channel ID the app posted to.
   to: string;
@@ -486,6 +502,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
         id: fileId,
         name: file.name,
         size: file.size,
+        mimetype: mimetypeOf(file.name),
         url_private_download: `https://files.slack.com/files-pri/T_TEST-${fileId}/download/${file.name}`,
       };
     });

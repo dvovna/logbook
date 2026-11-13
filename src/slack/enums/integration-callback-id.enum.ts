@@ -101,4 +101,9 @@ export enum ViewCallbackId {
   ClientsTabView = 'clients_tab_view',
   ClientFormSubmit = 'client_form_submit',
   ChangeClientStatus = 'change_client_status',
+
+  // receipts
+  // The DM that waits for the details of a receipt the person sent.
+  ReceivedReceiptMessage = 'received_receipt_message',
+  ReceiptDetailsForm = 'receipt_details_form',
 }
