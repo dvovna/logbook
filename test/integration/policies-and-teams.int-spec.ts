@@ -14,6 +14,8 @@ import { createTestApp, ITestApp } from './support/test-app';
 import { chooseTeamRules } from './support/team-form';
 import { TestWorkspace } from './support/test-workspace';
 import { findAction } from './support/block-kit';
+import { acknowledged } from './support/slack-test-client';
+import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
 import {
   openAppHomeTab,
   openModalFrom,
@@ -86,8 +88,13 @@ describe('Vacation policies and teams', () => {
 
       expect(response.body).toEqual({ response_action: 'clear' });
       expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
-        '✅ Policy Berlin created.',
+        '✅ Policy Berlin created. It applies to everyone: the company rules use it. Next: its public holidays, with 🎉 Holidays.',
       );
+      const [berlin] = await workspace.rows('vacation_policies');
+      expect(
+        (await t.app.get(CompanyRulesService).get(workspace.id))
+          .vacation_policy_id,
+      ).toBe(berlin.id);
       expect(await workspace.rows('vacation_policies')).toEqual([
         expect.objectContaining({
           name: 'Berlin',
@@ -97,6 +104,38 @@ describe('Vacation policies and teams', () => {
           carryover_days: 5,
         }),
       ]);
+    });
+
+    // The company rules keep the policy they name: a second one waits for
+    // someone to choose it.
+    it('leaves a second policy to be chosen', async () => {
+      const first = await workspace.addVacationPolicy({ name: 'Berlin' });
+      await t.app
+        .get(CompanyRulesService)
+        .adoptPolicyIfNone(workspace.id, first.id);
+      const form = await openModal(
+        POLICIES_TAB,
+        PolicyTabViewActionId.AddPolicy,
+      );
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .submitView(workspace, admin, form, {
+          name: 'Lisbon',
+          vacation_days: '22',
+          working_days: '22',
+          bonus_days: '0',
+          carryover_days: '0',
+        })
+        .expect(200);
+
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Policy Lisbon created. Choose it in the company rules or a team to apply it. Next: its public holidays, with 🎉 Holidays.',
+      );
+      expect(
+        (await t.app.get(CompanyRulesService).get(workspace.id))
+          .vacation_policy_id,
+      ).toBe(first.id);
     });
 
     it('changes a policy', async () => {
@@ -250,7 +289,7 @@ describe('Vacation policies and teams', () => {
     );
     expect(teamItem.fields).toMatchObject({
       Rules: 'own',
-      Approvers: `managers <@${manager.slack_id}> (any one), then HR <@${hr.slack_id}> (all)`,
+      Approvers: `team <@${manager.slack_id}> (any one), then HR <@${hr.slack_id}> (all)`,
       Members: '2 (Ada Lovelace, Bob Builder)',
     });
 
@@ -294,24 +333,30 @@ describe('Vacation policies and teams', () => {
         role: UserRole.HR,
         name: 'Hana HR',
       });
-      await workspace.addUser({ name: 'Mia Member' });
+      const mia = await workspace.addUser({ name: 'Mia Member' });
+      await workspace.addUser({ role: UserRole.Finance, name: 'Mia Finance' });
       const newTeamForm = await openModal(
         TEAMS_TAB,
         TeamsTabViewActionId.AddTeam,
       );
       const form = await chooseRules(newTeamForm, TeamRulesChoice.Own);
 
-      // Members cannot approve: only managers and admins, or HR and admins.
-      const optionsOf = (actionId: string) =>
-        findAction(form.blocks, actionId)
+      // Anyone may be a team's approver but Finance, which approves nothing;
+      // the second approval takes HR and admins.
+      const suggested = await t.slack
+        .suggest(workspace, admin, form, TeamModalActionId.Approvers, 'mia')
+        .expect(acknowledged);
+      expect(suggested.body.options).toEqual([
+        {
+          text: { type: 'plain_text', text: 'Mia Member' },
+          value: mia.slack_id,
+        },
+      ]);
+      expect(
+        findAction(form.blocks, 'hr_approvers')
           .element.options.map(({ value }: { value: string }) => value)
-          .sort();
-      expect(optionsOf('manager_approvers')).toEqual(
-        [admin.slack_id, manager.slack_id].sort(),
-      );
-      expect(optionsOf('hr_approvers')).toEqual(
-        [admin.slack_id, hr.slack_id].sort(),
-      );
+          .sort(),
+      ).toEqual([admin.slack_id, hr.slack_id].sort());
 
       const since = t.slackApi.mark();
       const response = await t.slack
@@ -319,7 +364,7 @@ describe('Vacation policies and teams', () => {
           name: 'Design',
           description: 'Product design',
           policy: policy.id,
-          manager_approvers: [manager.slack_id, admin.slack_id],
+          manager_approvers: [manager.slack_id, mia.slack_id],
           manager_approvers_rule: [ApprovalRule.All],
           hr_approvers: [hr.slack_id],
           approval_notification_recipients: [admin.slack_id],
@@ -328,14 +373,17 @@ describe('Vacation policies and teams', () => {
 
       expect(response.body).toEqual({ response_action: 'clear' });
       expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
-        '✅ Team Design created.',
+        '✅ Team Design created. Now Managers, to approve its time off: Mia Member.',
+      );
+      expect((await workspace.row('users', mia.id)).role).toBe(
+        UserRole.Manager,
       );
       expect(await workspace.rows('teams')).toEqual([
         expect.objectContaining({
           name: 'Design',
           description: 'Product design',
           vacation_policy_id: policy.id,
-          manager_approvers: [manager.slack_id, admin.slack_id],
+          manager_approvers: [manager.slack_id, mia.slack_id],
           manager_approvers_rule: ApprovalRule.All,
           hr_approvers: [hr.slack_id],
           hr_approvers_rule: ApprovalRule.Any,
@@ -374,8 +422,8 @@ describe('Vacation policies and teams', () => {
     });
 
     // Slack takes the chosen options from the client.
-    it('refuses a level 1 approver the form never offered', async () => {
-      const member = await workspace.addUser({ role: UserRole.Member });
+    it('refuses a team approver the search never offers', async () => {
+      const finance = await workspace.addUser({ role: UserRole.Finance });
       const form = await openModal(TEAMS_TAB, TeamsTabViewActionId.AddTeam);
 
       const response = await t.slack
@@ -387,11 +435,11 @@ describe('Vacation policies and teams', () => {
           {
             manager_approvers_block: {
               manager_approvers: {
-                type: 'multi_static_select',
+                type: 'multi_external_select',
                 selected_options: [
                   {
-                    text: { type: 'plain_text', text: member.name },
-                    value: member.slack_id,
+                    text: { type: 'plain_text', text: finance.name },
+                    value: finance.slack_id,
                   },
                 ],
               },
@@ -404,7 +452,7 @@ describe('Vacation policies and teams', () => {
         response_action: 'errors',
         errors: {
           manager_approvers_block:
-            'Level 1 approvers need the Manager, HR or Admin role.',
+            "A team's approvers need to be active people without the Finance role.",
         },
       });
       expect(await workspace.rows('teams')).toEqual([]);

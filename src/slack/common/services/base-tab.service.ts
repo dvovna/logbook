@@ -20,6 +20,7 @@ import {
   IPendingApprovals,
   PendingApprovalsService,
 } from '@modules/slack/common/services/pending-approvals.service';
+import { TimeTrackingUseService } from '@modules/slack/common/services/time-tracking-use.service';
 import { AnyBlock } from '@slack/web-api';
 
 // Kept apart, so that TabNavigationService can use them without importing
@@ -59,6 +60,9 @@ export default abstract class BaseTabService<
 
   @Inject(PendingApprovalsService)
   private readonly pendingApprovalsService: PendingApprovalsService;
+
+  @Inject(TimeTrackingUseService)
+  private readonly timeTrackingUseService: TimeTrackingUseService;
 
   protected constructor(
     private tabId: TabId,
@@ -102,9 +106,19 @@ export default abstract class BaseTabService<
       const counting = params.user.is_active
         ? this.countPendingApprovals(params.user)
         : Promise.resolve(undefined);
-      const [tabView, pendingApprovals] = await Promise.all([
-        this.getSafeTabView({ ...params, pendingApprovals: counting }),
+      // Navigation without the screens about time is only tidier: when
+      // this fails, they show.
+      const tracking = this.timeTrackingUseService
+        .tracksTime(params.user.slack_team_id)
+        .catch(() => true);
+      const [tabView, pendingApprovals, tracksTime] = await Promise.all([
+        this.getSafeTabView({
+          ...params,
+          pendingApprovals: counting,
+          tracksTime: tracking,
+        }),
         counting,
+        tracking,
       ]);
       const header = params.user.is_active
         ? [
@@ -114,6 +128,7 @@ export default abstract class BaseTabService<
               approvalsCount:
                 pendingApprovals &&
                 pendingApprovals.timeOff + pendingApprovals.timeEntries,
+              tracksTime,
             }),
             ...this.getNoticeBlocks(params.notice),
           ]

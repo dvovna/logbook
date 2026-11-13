@@ -129,7 +129,7 @@ Dan Wu,dan@example.com,,
 ```
 
 - People who aren't in the file stay as they are.
-- A team lead becomes one of the team's **Level 1: managers**. A Member marked as a lead becomes a Manager. A lead of the team who is in the file without the mark stops being one.
+- A team lead becomes one of the team's **Team approvers**. A Member marked as a lead becomes a Manager. A lead of the team who is in the file without the mark stops being one.
 - A lead needs a team. People with the HR or Finance role can't be leads, and a team can have up to 5 leads.
 - A row Logbook can't use is listed in the preview with the reason; the other rows still apply.
 - Nothing changes until you click **Apply**. The preview stays open for 7 days, and **Undo** works for 7 days after **Apply**.

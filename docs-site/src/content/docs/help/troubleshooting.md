@@ -68,10 +68,10 @@ Other answers instead of a file:
 
 **What you see:** "⚠️ Nobody can approve your vacation request (…) yet", and the request stays pending.
 
-**Cause:** nobody but you can decide it. You're in no team, or your team lists no approvers under **Level 1: managers** and the company rules name none under **Level 2: HR**, and nobody else has the HR or Admin role.
+**Cause:** nobody but you can decide it. You're in no team, or your team lists no approvers under **Team approvers** and the company rules name none under **Second approval (HR)**, and nobody else has the HR or Admin role.
 
 **What to do:**
-1. HR or an admin names approvers: a team's **Level 1: managers**, **Level 2: HR** in Teams → **Company rules**, or the HR or Admin role for someone. See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/).
+1. HR or an admin names approvers: a team's **Team approvers**, **Second approval (HR)** in Teams → **Company rules**, or the HR or Admin role for someone. See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/).
 2. The request then goes to them on its own, and you get "📨 Your vacation request (…) went to …". Nothing else to do.
 
 Until then, HR or an admin can decide it in Time off → **All requests** → **Edit Request**.

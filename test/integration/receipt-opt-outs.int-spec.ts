@@ -393,11 +393,7 @@ describe('Receipt reminders opt-outs', () => {
     // A project too: in the time row, once.
     await workspace.addProject({ name: 'Website' });
     expect(reminderBlocks(await openAppHomeTab(t, workspace, member))).toEqual([
-      [
-        HomeTabActionId.LogTime,
-        HomeTabActionId.EditTimeEntries,
-        HomeTabActionId.Reminders,
-      ],
+      [HomeTabActionId.LogTime, HomeTabActionId.Reminders],
     ]);
 
     const empty = await t.createWorkspace();

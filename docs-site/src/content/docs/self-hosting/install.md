@@ -119,7 +119,7 @@ Don't use "Install to Workspace" in the app settings, and don't use the sharable
 :::
 
 What happens next:
-- The person who installs the app becomes its admin and gets a welcome message with the setup steps.
+- The person who installs the app becomes its admin and gets a welcome message that points to the setup checklist.
 - The other members of the workspace are imported a few seconds later, as Members.
 - **Home** shows admins and HR a checklist until the workspace is set up. See [Set up your workspace](/logbook/docs/getting-started/set-up-your-workspace/).
 

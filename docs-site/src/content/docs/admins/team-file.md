@@ -28,10 +28,10 @@ Open the file in a spreadsheet app. It has four columns:
 How Logbook reads it:
 
 - A team name matches an existing team whatever its case and extra spaces. When two teams differ only in case, write the exact name.
-- A lead is a level 1 approver of their team. Someone with the Member role who leads a team becomes a Manager. People with the HR or Finance role can't lead a team. A team has at most five leads.
+- A lead is one of their team's approvers, who decide its time off first. Someone with the Member role who leads a team becomes a Manager. People with the HR or Finance role can't lead a team. A team has at most five leads.
 - Someone in the file who led their team and isn't marked as lead any more stops leading it. Approvers who aren't in the file stay.
 - People you delete from the file stay as they are.
-- A new team follows the company rules, and any one of its leads approves at level 1. See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/).
+- A new team follows the company rules, and any one of its leads approves for the team. See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/).
 
 :::caution
 An empty Team cell takes the person out of their team, and an empty Team lead cell takes away their lead. Delete the rows of people you don't want to change.
@@ -51,10 +51,10 @@ Save the file as CSV or as an Excel workbook (`.xlsx`) and send it to Logbook in
 
 Logbook answers with what the file will do, in this order:
 
-- **Teams to create**, with their leads and how many people. A new team with no lead sends its requests to the company rules' level 2, or to HR or an admin when there is none.
+- **Teams to create**, with their leads and how many people. A new team with no lead sends its requests to the company rules' second approval, or to HR or an admin when there is none.
 - **Moves between teams**, **Lead changes**, and who is **Becoming Managers because they lead a team**.
 - **Placed in a team** and **Left without a team**.
-- **Teams with no lead**: their requests skip level 1 and go to the level 2 of the rules the team follows, or to HR or an admin when there is none.
+- **Teams with no lead**: their requests skip the team's approval and go to the second approval of the rules the team follows, or to HR or an admin when there is none.
 - **Team names matched**: how a name you wrote was read.
 - **Rows it can't use**, each with its row number and the reason, for example an email that isn't in the workspace, a deactivated person, or someone listed twice. Logbook skips these rows and applies the rest.
 

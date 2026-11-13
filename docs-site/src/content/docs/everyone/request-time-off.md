@@ -46,7 +46,7 @@ Type `/vacations usage` to see your days used and left. Only you see the answer.
 
 Your team's approvers decide in levels:
 
-- Level 1 is your team's managers. Level 2 is HR. A level can need one approver ("any") or all of them.
+- First your team's approvers, then, if your company has one, a second approval by HR. A level can need one approver ("any") or all of them.
 - Nobody approves their own request. If you are the only approver of your team, it goes to the next option.
 - If nobody on your team can approve, the request goes to everyone with the HR role. If nobody has it, it goes to the admins.
 - If there is nobody who could approve at all, the request stays pending. Once an admin names approvers for your team or in the company rules, or gives someone the HR or Admin role, it goes to them as a new request would, and you get the message saying where it went.

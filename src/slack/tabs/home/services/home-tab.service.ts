@@ -46,7 +46,7 @@ type HomeTabModalViewResolversMapType = {
   ) => Promise<View>;
 };
 
-import ProjectsService from 'src/projects/services/projects.service';
+import { TimeTrackingUseService } from '@modules/slack/common/services/time-tracking-use.service';
 import { SetupProgressService } from '@modules/slack/tabs/home/services/setup-progress.service';
 
 @Injectable()
@@ -62,7 +62,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
     private readonly setupProgressService: SetupProgressService,
     private readonly receiptsHomeService: ReceiptsHomeService,
-    private readonly projectsService: ProjectsService,
+    private readonly timeTracking: TimeTrackingUseService,
   ) {
     super(TabId.Home, {
       [HomeTabModalName.ViewVacationRequest]: (params) =>
@@ -76,12 +76,14 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     });
   }
 
-  public async getTabView({ user, pendingApprovals }: IPublishBaseParams) {
-    // Archived ones too: time logged on them is still the person's.
-    const projects = this.projectsService.count({
-      slackTeamId: user.slack_team_id,
-      includeArchived: true,
-    });
+  public async getTabView({
+    user,
+    pendingApprovals,
+    tracksTime: tracking,
+  }: IPublishBaseParams) {
+    // Read by BaseTabService for the navigation too.
+    const tracksTime =
+      tracking ?? this.timeTracking.tracksTime(user.slack_team_id);
     const [
       vacationUsageInfo,
       requestedVacations,
@@ -89,7 +91,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       setup,
       receipts,
       approvals,
-      projectsCount,
+      workspaceTracksTime,
     ] = await Promise.all([
       this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
       this.vacationsService.findMany({
@@ -99,11 +101,11 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
         statuses: [VacationRequestStatus.Pending],
       }),
       this.timeEntriesSummaryService.getUserSummary(user),
-      this.setupProgressService.get(user, projects),
+      this.setupProgressService.get(user, tracksTime),
       this.receiptsHomeService.summaryFor(user, getDateOnly(new Date())),
       // Counted by BaseTabService for the Approvals button too.
       pendingApprovals,
-      projects,
+      tracksTime,
     ]);
 
     return this.homeTabViewService.getView({
@@ -113,7 +115,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       fileBalance: vacationUsageInfo.fileBalance,
       requestedVacations,
       timeSummary,
-      tracksTime: projectsCount > 0,
+      tracksTime: workspaceTracksTime,
       pendingApprovals: approvals ?? { timeOff: 0, timeEntries: 0 },
       setup,
       receipts,

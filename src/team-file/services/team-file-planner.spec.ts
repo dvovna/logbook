@@ -230,7 +230,7 @@ describe('planTeamFile', () => {
       unusable: [
         {
           row: 2,
-          reason: `Ann has the ${label} role, which can't approve at level 1`,
+          reason: `Ann has the ${label} role, which can't approve a team's time off`,
         },
       ],
     });

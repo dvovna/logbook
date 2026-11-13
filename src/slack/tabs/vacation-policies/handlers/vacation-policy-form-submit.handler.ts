@@ -6,13 +6,14 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import PolicyModalViewValuesParser, {
   IVacationPolicyFormData,
 } from '@modules/slack/tabs/vacation-policies/parsers/policy-modal-view-values.parser';
-import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
+import VacationPoliciesService, {
+  ICreatedPolicy,
+} from '@modules/vacation-policies/services/vacation-policies.service';
 import {
   IVacationPolicyModalViewMetadata,
   VacationPolicyModalView,
 } from '@modules/slack/tabs/vacation-policies/views/vacation-policy-modal.view';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
-import IVacationPolicyViewModel from '@modules/vacation-policies/types/vacation-policy.interface';
 import {
   TabId,
   TabNavigationService,
@@ -28,7 +29,7 @@ import UserRole from '@common/enums/user-role.enum';
 export class VacationPolicyFormSubmitHandler extends BaseModalFormSubmitHandler<
   IVacationPolicyModalViewMetadata,
   IVacationPolicyFormData,
-  IVacationPolicyViewModel
+  ICreatedPolicy
 > {
   public constructor(
     private readonly vacationPolicyModalView: VacationPolicyModalView,
@@ -39,14 +40,24 @@ export class VacationPolicyFormSubmitHandler extends BaseModalFormSubmitHandler<
     super(vacationPolicyModalViewValuesParser);
   }
 
+  // A new policy's notice says whom it applies to and where its holidays
+  // are, which its form doesn't have.
   protected successResponse(
-    policy: IVacationPolicyViewModel,
+    { policy, adoptedByCompanyRules }: ICreatedPolicy,
     user: IUserViewModel,
     metadata: IVacationPolicyModalViewMetadata,
   ) {
     this.tabNavigationService.navigate(TabId.VacationPolicies, {
       user,
-      notice: `✅ Policy ${policy.name} ${metadata.id ? 'updated' : 'created'}.`,
+      notice: metadata.id
+        ? `✅ Policy ${policy.name} updated.`
+        : [
+            `✅ Policy ${policy.name} created.`,
+            adoptedByCompanyRules
+              ? 'It applies to everyone: the company rules use it.'
+              : 'Choose it in the company rules or a team to apply it.',
+            'Next: its public holidays, with 🎉 Holidays.',
+          ].join(' '),
     });
 
     return SlackViewResponseFactory.success();
@@ -76,12 +87,12 @@ export class VacationPolicyFormSubmitHandler extends BaseModalFormSubmitHandler<
     );
   }
 
-  private update(
+  private async update(
     id: string,
     data: IVacationPolicyFormData,
     user: IUserViewModel,
-  ) {
-    return this.vacationPoliciesService.update(
+  ): Promise<ICreatedPolicy> {
+    const policy = await this.vacationPoliciesService.update(
       {
         id,
         slackTeamId: user.slack_team_id,
@@ -95,6 +106,8 @@ export class VacationPolicyFormSubmitHandler extends BaseModalFormSubmitHandler<
       },
       user,
     );
+
+    return { policy, adoptedByCompanyRules: false };
   }
 
   protected errorResponse(

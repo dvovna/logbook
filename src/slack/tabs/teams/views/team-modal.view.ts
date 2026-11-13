@@ -5,7 +5,6 @@ import BaseModalView, {
   IBaseModalViewParams,
 } from '@modules/slack/common/views/base-modal.view';
 import { AnyBlock, PlainTextOption } from '@slack/web-api';
-import { SlackMultiStaticSelectView } from '@modules/slack/common/views/components/slack-multi-static-select.view';
 import { IOption } from '@common/types/option.interface';
 import { InputCheckboxesBlockBuilder } from '@modules/slack/common/views/builders/input-checkboxes-block.builder';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
@@ -168,7 +167,7 @@ export class TeamModalView extends BaseModalView<
       label: { type: 'plain_text', text: 'Rules' },
       hint: {
         type: 'plain_text',
-        text: 'Level 2, who hears of decisions and the vacation policy come from the company rules (Teams → Company rules) or are set for this team.',
+        text: 'The second approval, who hears of decisions and the vacation policy come from the company rules (Teams → Company rules) or are set for this team.',
       },
       element: {
         type: 'static_select',
@@ -179,28 +178,39 @@ export class TeamModalView extends BaseModalView<
     };
   }
 
+  // Anyone active but Finance, searched as you type: a Member chosen here
+  // becomes a Manager on save, as the team file makes its leads, so a new
+  // workspace, where everyone is a Member, can name its team's approvers.
   private getManagerBlocks(params: IGetViewParams) {
+    const chosen = params.initialData?.managerApprovers ?? [];
+    const initialOptions = params.managers
+      .filter(({ id }) => chosen.includes(id))
+      .map(toPlainTextOption);
+
     return [
-      ...SlackMultiStaticSelectView.getView({
-        blockId: 'manager_approvers_block',
-        actionId: 'manager_approvers',
-        label: 'Level 1: managers',
-        hint: 'People with the Manager or Admin role. Give someone that role under People to choose them here.',
-        maxSelectedItems: MAX_TEAM_LEADS,
-        emptyText:
-          'Level 1 approvers are people with the Manager or Admin role. Nobody has it yet: change a role under People first.',
+      {
+        type: 'input',
+        block_id: 'manager_approvers_block',
         optional: true,
-        placeholder: 'Manager Approvers',
-        options: params.managers,
-        initialValues: params.initialData?.managerApprovers,
-      }),
+        label: { type: 'plain_text', text: 'Team approvers' },
+        hint: {
+          type: 'plain_text',
+          text: "They approve this team's time off first. Someone with the Member role becomes a Manager.",
+        },
+        element: {
+          type: 'multi_external_select',
+          action_id: TeamModalActionId.Approvers,
+          placeholder: { type: 'plain_text', text: 'Type a name' },
+          min_query_length: 2,
+          max_selected_items: MAX_TEAM_LEADS,
+          ...(initialOptions.length ? { initial_options: initialOptions } : {}),
+        },
+      } as AnyBlock,
       ...InputCheckboxesBlockBuilder.build({
         blockId: 'manager_approvers_rule_block',
         actionId: 'manager_approvers_rule',
-        label: 'Level 1 rule',
-        options: [
-          { name: 'All listed approvers must approve', id: ApprovalRule.All },
-        ],
+        label: "Team approvers' rule",
+        options: [{ name: 'All of them must approve', id: ApprovalRule.All }],
         initialValues:
           params.initialData?.managerApproversRule === ApprovalRule.All
             ? [ApprovalRule.All]

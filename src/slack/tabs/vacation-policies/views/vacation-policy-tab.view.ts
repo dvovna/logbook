@@ -105,7 +105,23 @@ export class VacationPolicyTabView extends BaseTabView<
             ? `up to ${policy.carryover_days} days from the previous year`
             : 'none',
         ),
-        detail('Used by', teams.length ? listNames(teams) : 'no team yet'),
+        detail(
+          'Used by',
+          teams.length
+            ? listNames(teams)
+            : 'nobody yet: choose it in the company rules or a team',
+        ),
+      ],
+      // Holidays are half of a policy and its form doesn't have them: a
+      // button, not an option hidden in the menu. It goes through the menu's
+      // action, which reads a button's value too.
+      buttons: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '🎉 Holidays' },
+          action_id: PolicyTabViewActionId.ManagePolicyMenu,
+          value: `${PolicyTabViewActionId.EditHolidays}:${policy.id}`,
+        },
       ],
       accessory: {
         type: 'overflow',
@@ -114,10 +130,6 @@ export class VacationPolicyTabView extends BaseTabView<
           {
             text: { type: 'plain_text', text: 'Edit Policy' },
             value: `${PolicyTabViewActionId.EditPolicy}:${policy.id}`,
-          },
-          {
-            text: { type: 'plain_text', text: 'Edit Holidays' },
-            value: `${PolicyTabViewActionId.EditHolidays}:${policy.id}`,
           },
           {
             text: { type: 'plain_text', text: 'Delete Policy' },

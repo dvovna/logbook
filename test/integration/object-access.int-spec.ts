@@ -479,7 +479,7 @@ describe('Access to objects by ID', () => {
       });
       const own = await workspace.addTimeEntry(member, project);
       const entries = await openAppHomeTab(t, workspace, member, [
-        HomeTabActionId.EditTimeEntries,
+        NavigationActionId.MyTime,
       ]);
 
       for (const [entry, opens] of [
@@ -866,7 +866,7 @@ describe('Access to objects by ID', () => {
     it("of someone else are not deleted or submitted by a member's menu", async () => {
       const theirs = await workspace.addTimeEntry(outsider, project);
       const entries = await openAppHomeTab(t, workspace, member, [
-        HomeTabActionId.EditTimeEntries,
+        NavigationActionId.MyTime,
       ]);
       const since = t.slackApi.mark();
 

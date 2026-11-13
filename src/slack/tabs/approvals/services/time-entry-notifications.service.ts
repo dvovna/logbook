@@ -198,7 +198,7 @@ export class TimeEntryNotificationsService implements OnModuleInit {
     const lines = [
       `:x: ${escapeMrkdwn(reviewer.name)} rejected your time entry: *${project}*${client}, ${workDate}, ${getDisplayTime(entry.minutes)}.`,
       ...(reason ? [quoteMrkdwn(reason)] : []),
-      `Fix it under Home → ✏️ Edit Entries (week of ${week}) and submit it again.`,
+      `Fix it under 🕒 My time (week of ${week}) and submit it again.`,
     ];
 
     await this.slackCommunicationService.postMessage(

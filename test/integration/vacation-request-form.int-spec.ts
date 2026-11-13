@@ -87,6 +87,13 @@ describe('Time off request form', () => {
 
   it('closes and goes back to Time off with its filters, sent from there', async () => {
     const dates = workWeek(2);
+    // Filters show once the list has something to narrow; the filter
+    // leaves this one out.
+    const sick = await workspace.addVacationRequest(member, {
+      start_date: '2026-01-05',
+      end_date: '2026-01-06',
+      type: VacationType.SickLeave,
+    });
     const timeOff = await actOnTab(
       t,
       workspace,
@@ -114,7 +121,9 @@ describe('Time off request form', () => {
       filters: { type: VacationType.AnnualLeave },
       page: 1,
     });
-    const [request] = await workspace.rows('vacation_requests');
+    const [request] = (await workspace.rows('vacation_requests')).filter(
+      ({ id }) => id !== sick.id,
+    );
     expect(listItems(tab).map(({ id }) => id)).toEqual([request.id]);
   });
 

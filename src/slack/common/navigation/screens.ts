@@ -52,6 +52,9 @@ export interface IScreen {
   menuGroup?: MenuGroup;
   // Opened from that screen: Back goes there, and the navigation marks it.
   parent?: ScreenId;
+  // Only about logged time: left out of the navigation of a workspace with
+  // no project, where nobody can log any. It still opens (/log, a link).
+  aboutTime?: boolean;
 }
 
 export const SCREENS: Record<ScreenId, IScreen> = {
@@ -67,6 +70,7 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     tabId: TabId.TimeEntries,
     metadata: { ownEntriesOnly: true },
     actionId: NavigationActionId.MyTime,
+    aboutTime: true,
   },
   [ScreenId.TimeOff]: {
     title: '🌴 Time off',
@@ -96,6 +100,7 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     tabId: TabId.Reports,
     actionId: NavigationActionId.Reports,
     menuGroup: MenuGroup.Manage,
+    aboutTime: true,
   },
 
   [ScreenId.Teams]: {

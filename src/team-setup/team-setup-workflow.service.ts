@@ -36,15 +36,13 @@ interface IWelcomeJob {
   slackUserId: string;
 }
 
-// The installing admin's first message: what to set up, in what order.
+// The installing admin's first message: where setup happens. The steps
+// themselves are the checklist on Home, which says what is done and has a
+// button for each; listing them here too would only drift from it.
 export const WELCOME_TEXT = [
-  "👋 *Logbook is installed, and you're its admin.* Set it up in the app's *Home* tab, in this order:",
-  '1. *More → Policies*: a vacation policy, with its days and holidays. Without one, time off is tracked with no limits.',
-  '2. *More → Teams → Company rules*: who approves after the team lead (HR, leadership), who hears of decisions, and the policy.',
-  "3. *More → Teams → Set up from a file*: fill in everyone's team and team lead, then send the file back.",
-  "4. *More → People → Import leave*: everyone's leave balances and past leave, from two files.",
-  '5. *More → Projects*: projects, if you track time.',
-  'Until that is done, Home shows a checklist.',
+  "👋 *Logbook is installed, and you're its admin.*",
+  "Open the *Home* tab of this app: a checklist there walks you through setup, a step at a time, each with its button, and goes away once you're done.",
+  'Have your people and leave in a spreadsheet? Logbook takes them as files: the checklist offers the templates.',
 ].join('\n');
 
 export interface ISyncUsersJob {

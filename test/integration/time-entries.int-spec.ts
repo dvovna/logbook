@@ -46,8 +46,8 @@ import {
 // Reports → Time logs, Admin's and HR's.
 const TIME_LOGS_TAB = [NavigationActionId.Reports, NavigationActionId.TimeLogs];
 
-// Home → Edit Entries.
-const MY_ENTRIES_TAB = [HomeTabActionId.EditTimeEntries];
+// My time.
+const MY_ENTRIES_TAB = [NavigationActionId.MyTime];
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -600,7 +600,7 @@ describe('Time entries', () => {
         workspace,
         member,
         home,
-        HomeTabActionId.EditTimeEntries,
+        NavigationActionId.MyTime,
       );
       // Their own list: the project leads, without their name.
       expect(listItems(myEntries)).toEqual([
@@ -617,7 +617,7 @@ describe('Time entries', () => {
       expect(totalCount(myEntries)).toBe(1);
     });
 
-    it('goes back to Home from Edit Entries', async () => {
+    it('goes back to Home from My time', async () => {
       const myEntries = await openAppHomeTab(
         t,
         workspace,
@@ -711,6 +711,8 @@ describe('Time entries', () => {
 
     it('lets a member filter by their own projects only', async () => {
       await workspace.addProject({ name: 'Website archive' });
+      // Filters show once the list has something to narrow.
+      await workspace.addTimeEntry(member, website, { work_date: today() });
       const myEntries = await openAppHomeTab(
         t,
         workspace,
@@ -817,7 +819,7 @@ describe('Time entries', () => {
       expect(descriptionsOf(myTime)).toEqual(['Audit']);
     });
 
-    it('shows an admin only their own entries under Edit Entries, on every page', async () => {
+    it('shows an admin only their own entries on My time, on every page', async () => {
       // Eleven entries of the shown week, one more than a page.
       for (let entry = 0; entry < 11; entry += 1) {
         await workspace.addTimeEntry(admin, website, {
@@ -1193,7 +1195,7 @@ describe('Time entries', () => {
       });
     });
 
-    it('lets a member edit their own entry from Edit Entries', async () => {
+    it('lets a member edit their own entry from My time', async () => {
       const entry = await workspace.addTimeEntry(member, website, {
         minutes: 90,
       });
@@ -1309,7 +1311,7 @@ describe('Time entries', () => {
       ).toEqual([
         [
           ':alarm_clock: You have *2 time entries* (3h) from 10–11 Jun 2026 not submitted yet.',
-          '1 of them was rejected: fix it under Home → ✏️ Edit Entries (week of 8 Jun).',
+          '1 of them was rejected: fix it under 🕒 My time (week of 8 Jun).',
           'Your approvers see time only once you submit it: Home → 📤 Submit for Approval.',
           'Change how often you are reminded: Home → 🔔 Reminders.',
         ].join('\n'),

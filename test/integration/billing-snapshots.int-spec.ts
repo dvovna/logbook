@@ -1099,6 +1099,9 @@ describe('Billing snapshots', () => {
     it("leaves another workspace's snapshot alone", async () => {
       const other = await t.createWorkspace();
       const otherAdmin = await other.addUser({ role: UserRole.Admin });
+      // Reports, which leads to the snapshots, is in the navigation of a
+      // workspace that tracks time.
+      await other.addProject();
       const id = await snapshotId();
       const since = t.slackApi.mark();
 

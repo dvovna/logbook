@@ -41,7 +41,7 @@ If drafts or rejected entries are in earlier weeks than the one shown, a line un
 
 ## The reminder
 
-Logbook reminds you of time you haven't submitted, in a direct message. It counts your drafts and rejected entries and their hours, says how many were rejected and which weeks they are in, and points you to **Home → ✏️ Edit Entries** and **📤 Submit for Approval**. With nothing left to submit, no reminder comes.
+Logbook reminds you of time you haven't submitted, in a direct message. It counts your drafts and rejected entries and their hours, says how many were rejected and which weeks they are in, and points you to **🕒 My time** and **📤 Submit for Approval**. With nothing left to submit, no reminder comes.
 
 Unless you change it, the reminder comes on Monday morning (UTC), about entries from before that week.
 

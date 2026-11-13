@@ -13,7 +13,7 @@ A policy applies to a team through its rules: the company rules' policy, or the 
 
 1. Open **More** → **Policies** and click **➕ Add Policy**.
 2. Fill in the fields below.
-3. Click **Submit**.
+3. Click **Submit**. While the company rules name no policy, the new one goes into them and applies to everyone who follows them; the screen says so. Otherwise it says to choose the policy in the company rules or a team.
 
 | Field | What it means |
 | --- | --- |
@@ -25,7 +25,7 @@ A policy applies to a team through its rules: the company rules' policy, or the 
 
 Each field takes up to 60 days.
 
-The list shows each policy's days, its carryover and the teams that use it. Its **⋯** menu has **Edit Policy**, **Edit Holidays** and **Delete Policy**. You can't delete a policy the company rules or a team's own rules use: choose another one there first. Its holidays are deleted with it.
+The list shows each policy's days, its carryover and the teams that use it, or "nobody yet: choose it in the company rules or a team". Each policy has a **🎉 Holidays** button, and its **⋯** menu has **Edit Policy** and **Delete Policy**. You can't delete a policy the company rules or a team's own rules use: choose another one there first. Its holidays are deleted with it.
 
 ## What a policy checks
 
@@ -64,7 +64,7 @@ Bonus days don't carry over. Logbook works carryover out from the requests each 
 
 Each policy has its own holidays. An enabled holiday is not a working day for the teams on that policy.
 
-To open them, choose **Edit Holidays** in the policy's **⋯** menu. The screen shows one year at a time: pick another in **Select Year**.
+To open them, click the policy's **🎉 Holidays** button. The screen shows one year at a time: pick another in **Select Year**.
 
 ### Import public holidays
 

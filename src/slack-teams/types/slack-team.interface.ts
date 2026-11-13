@@ -11,6 +11,9 @@ interface ISlackTeamViewModel {
   // Set when the first member import finished; people added after it are
   // new, and HR is asked which team they are on.
   members_imported_at: string | null;
+  // Set when an admin or HR took the message that tells people about
+  // Logbook, the setup checklist's last step.
+  team_told_at: string | null;
 }
 
 export default ISlackTeamViewModel;

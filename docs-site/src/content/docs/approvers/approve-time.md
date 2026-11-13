@@ -11,7 +11,7 @@ Managers, HR and admins approve or reject the time entries people submit. Nobody
 
 A submitted entry waits for the approvers of the team it was logged in (the owner's team at the time):
 
-1. The people the team lists under **Level 1: managers**, if at least one of them is active, has the Manager, HR or Admin role, and isn't the owner.
+1. The people the team lists under **Team approvers**, if at least one of them is active, has the Manager, HR or Admin role, and isn't the owner.
 2. Otherwise everyone with the HR role. This covers the entries of people in no team, of a team with no managers, and of the team's only manager.
 3. Otherwise, when nobody has the HR role, every admin.
 

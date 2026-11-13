@@ -20,6 +20,9 @@ export interface IPublishBaseParams<TabMetadata = unknown> {
   // BaseTabService, beside the screen's own reads, for the Approvals button
   // and for Home. Never rejects; undefined when it couldn't be counted.
   pendingApprovals?: Promise<IPendingApprovals | undefined>;
+  // Whether the workspace has a project, read once per publish beside the
+  // screen's own reads, for the navigation and for Home.
+  tracksTime?: Promise<boolean>;
 }
 
 export const TAB_NOTICE_BLOCK_ID = 'tab_notice';

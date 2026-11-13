@@ -28,13 +28,18 @@ import {
 
 const POLICY_STEP = {
   title: 'Create a vacation policy',
-  why: "Days per year and public holidays. Without one, balances aren't checked.",
+  why: "Days per year and public holidays. The first one applies to everyone; without one, balances aren't checked.",
   button: NavigationActionId.Policies,
 };
 const RULES_STEP = {
   title: 'Set the company rules',
-  why: 'Who approves after the team lead, who hears of decisions, and the policy teams follow.',
+  why: "Whether anyone approves after the team's approvers (HR, leadership), and who hears of decisions. Save them even with no second approval.",
   button: TeamsTabViewActionId.CompanyRules,
+};
+const TELL_STEP = {
+  title: 'Tell your team',
+  why: 'People find Logbook only if someone tells them. Get a ready message in your DMs and post it in a channel everyone reads.',
+  button: HomeTabActionId.TellTeam,
 };
 const TEAM_STEP = {
   title: 'Create teams and pick their approvers',
@@ -110,13 +115,59 @@ describe('First setup', () => {
       await workspace.addUser({ name: 'Mo Member' });
 
       expect(await checklistOf(admin)).toEqual([
-        { text: '*🚀 Set up Logbook* · 0 of 4 done' },
+        { text: '*🚀 Set up Logbook* · 0 of 5 done' },
         ...next(POLICY_STEP),
         then(RULES_STEP),
         then(TEAM_STEP),
         then(peopleStep(2)),
+        then(TELL_STEP),
         ...OPTIONAL_STEPS,
       ]);
+    });
+
+    // A policy nobody follows limits nothing: the step is done once the
+    // company rules or a team name one, which the first one does by itself.
+    it('counts the policy only once it applies to someone', async () => {
+      const policy = await workspace.addVacationPolicy();
+
+      expect(await shows(POLICY_STEP)).toBe(true);
+
+      await t.app
+        .get(CompanyRulesService)
+        .adoptPolicyIfNone(workspace.id, policy.id);
+
+      expect(await shows(POLICY_STEP)).toBe(false);
+    });
+
+    it('sends the message for the team, then counts the team told', async () => {
+      await workspace.addProject();
+      const home = await openAppHomeTab(t, workspace, admin);
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .actOnView(workspace, admin, home, HomeTabActionId.TellTeam)
+        .expect(200);
+      const published = await publishedHome(t, workspace, admin, since);
+
+      expect(
+        t.slackApi
+          .postedMessages(workspace.token, admin.slack_id, { since })
+          .map(({ text }) => text),
+      ).toEqual([
+        [
+          'Copy this into a channel everyone reads, e.g. #general:',
+          '',
+          'Hi everyone! We now use *Logbook* in Slack for time off and time tracking.',
+          '• Find *Logbook* under *Apps* in the Slack sidebar and open its *Home* tab: it shows your balance and your requests.',
+          '• To request time off, click *🌴 Request time off* there, or type `/vacations request` in any channel.',
+          '• To log your hours, click *➕ Log Time* there, or type `/log`.',
+          "• Requests go to your team's approvers, and Logbook messages you when they're decided.",
+        ].join('\n'),
+      ]);
+      expect(noticeOf(published)).toBe(
+        '✅ The message for your team is in your DMs from Logbook: copy it into a channel.',
+      );
+      expect(await shows(TELL_STEP)).toBe(false);
     });
 
     it('goes once policy, rules, a team with approvers and everyone in a team are done', async () => {
@@ -129,11 +180,12 @@ describe('First setup', () => {
       const member = await workspace.addUser({ name: 'Mo Member' });
 
       expect(await checklistOf(admin)).toEqual([
-        { text: '*🚀 Set up Logbook* · 3 of 4 done' },
+        { text: '*🚀 Set up Logbook* · 3 of 5 done' },
         {
           text: '✅ Done: vacation policy, company rules, team with approvers, projects',
         },
         ...next(peopleStep(2)),
+        then(TELL_STEP),
         { text: 'Optional: bring in leave balances' },
         { buttons: [UsersTabViewActionId.ImportLeave] },
       ]);
@@ -144,10 +196,19 @@ describe('First setup', () => {
         .where('id', 'in', [admin.id, member.id])
         .execute();
 
+      expect(await shows(TELL_STEP)).toBe(true);
+
+      await t.db
+        .updateTable('slack_teams')
+        .set({ team_told_at: new Date().toISOString() })
+        .where('id', '=', workspace.id)
+        .execute();
+
       expect(await checklistOf(admin)).toEqual([]);
     });
 
     describe('company rules', () => {
+      // Saves the company rules as the form does, keeping their policy.
       const setCompanyApprovers = async (hrApprovers: string[]) =>
         t.app.get(CompanyRulesService).update(
           workspace.id,
@@ -155,10 +216,20 @@ describe('First setup', () => {
             hrApprovers,
             hrApproversRule: ApprovalRule.Any,
             notificationRecipients: [],
-            vacationPolicyId: null,
+            vacationPolicyId: (
+              await t.app.get(CompanyRulesService).get(workspace.id)
+            ).vacation_policy_id,
           },
           admin as unknown as IUserViewModel,
         );
+      // A policy the company rules use, as the first one created is.
+      const applyPolicy = async () =>
+        t.app
+          .get(CompanyRulesService)
+          .adoptPolicyIfNone(
+            workspace.id,
+            (await workspace.addVacationPolicy()).id,
+          );
 
       const followingCompanyRules = async () =>
         workspace.addTeam({
@@ -167,26 +238,28 @@ describe('First setup', () => {
           manager_approvers: [admin.slack_id],
         });
 
-      it('shows company rules until they name a second approver', async () => {
-        await workspace.addVacationPolicy();
+      // A small company may want the team's approval alone: saving the
+      // rules is the step, a second approval or none.
+      it('shows company rules until someone saves them, with or without a second approver', async () => {
+        await applyPolicy();
         await followingCompanyRules();
 
         expect(await checklistOf(admin)).toEqual([
-          { text: '*🚀 Set up Logbook* · 2 of 4 done' },
+          { text: '*🚀 Set up Logbook* · 2 of 5 done' },
           { text: '✅ Done: vacation policy, team with approvers' },
           ...next(RULES_STEP),
           then(peopleStep(1)),
+          then(TELL_STEP),
           ...OPTIONAL_STEPS,
         ]);
 
-        const hr = await workspace.addUser({ role: UserRole.HR });
-        await setCompanyApprovers([hr.slack_id]);
+        await setCompanyApprovers([]);
 
         expect(await shows(RULES_STEP)).toBe(false);
       });
 
       it('says where the requests of people in no team go: the company rules approvers, else HR or the admins', async () => {
-        await workspace.addVacationPolicy();
+        await applyPolicy();
         // A team with rules of its own: the company rules step is done, so
         // people in teams is the next one and says why.
         await workspace.addTeam({ hr_approvers: [admin.slack_id] });
@@ -204,7 +277,7 @@ describe('First setup', () => {
           nextText(
             peopleStep(
               2,
-              "skip level 1 and go to the company rules' approvers, or to HR or the admins when none of them can approve",
+              "skip the team's approval and go to the company rules' second approval, or to HR or the admins when nobody there can approve",
             ),
           ),
         ]);

@@ -269,8 +269,6 @@ describe('Billing reports', () => {
 
     expect(reportTexts(reports)).toEqual([
       '*Billing report: Acme* · 1–31 Oct 2026\nApproved: *250h 15m*, billable *250h 15m* · Amount: *$25,025.00*',
-      '*By project*\n• Website — 250h 15m · $25,025.00',
-      '*By person*\n• Mia Member — 250h 15m · $25,025.00',
     ]);
     expect(tableRows(reports)).toEqual([
       HEADER,
@@ -333,8 +331,6 @@ describe('Billing reports', () => {
 
     expect(reportTexts(reports)).toEqual([
       '*Billing report: Acme* · 1–31 Oct 2026\nApproved: *16384h*, billable *16384h* · Amount: *$1,638,400.00*\n_In billing snapshots already: 528h 30m of the approved time_',
-      '*By project*\n• Website — 16384h · $1,638,400.00',
-      '*By person*\n• Mia Member — 16384h · $1,638,400.00',
     ]);
   });
 

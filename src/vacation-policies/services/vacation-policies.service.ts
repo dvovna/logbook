@@ -42,6 +42,13 @@ interface IFindParams {
   slackTeamId: string;
 }
 
+export interface ICreatedPolicy {
+  policy: IVacationPolicyViewModel;
+  // The company rules named no policy and now name this one: it applies to
+  // everyone who follows them.
+  adoptedByCompanyRules: boolean;
+}
+
 type ISearchPoliciesParams = ISearchParams<IFindParams>;
 
 interface IVacationPoliciesService {
@@ -53,7 +60,7 @@ interface IVacationPoliciesService {
   create(
     createParams: ICreatePolicyParams,
     user: IUserViewModel,
-  ): Promise<IVacationPolicyViewModel>;
+  ): Promise<ICreatedPolicy>;
   update(
     findParams: IFindParams,
     updateParams: IUpdateParams,
@@ -125,25 +132,34 @@ export default class VacationPoliciesService implements IVacationPoliciesService
 
     const createdAt = new Date().toISOString();
 
-    const policy = await this.vacationPoliciesRepository.create({
-      name: createParams.name,
-      slack_team_id: createParams.slackTeamId,
-      vacation_days: createParams.vacationDays,
-      working_days: createParams.workingDays,
-      bonus_days: createParams.bonusDays,
-      carryover_days: createParams.carryoverDays,
-      created_at: createdAt,
-      updated_at: createdAt,
-      created_by: user.id,
-      updated_by: user.id,
+    const created = await this.transactions.transaction(async () => {
+      const policy = await this.vacationPoliciesRepository.create({
+        name: createParams.name,
+        slack_team_id: createParams.slackTeamId,
+        vacation_days: createParams.vacationDays,
+        working_days: createParams.workingDays,
+        bonus_days: createParams.bonusDays,
+        carryover_days: createParams.carryoverDays,
+        created_at: createdAt,
+        updated_at: createdAt,
+        created_by: user.id,
+        updated_by: user.id,
+      });
+      const adoptedByCompanyRules =
+        await this.companyRulesService.adoptPolicyIfNone(
+          createParams.slackTeamId,
+          policy.id,
+        );
+
+      return { policy, adoptedByCompanyRules };
     });
 
     this.eventEmitter.emit(
       VacationPolicyEvent.Created,
-      new VacationPolicyCreatedEvent(policy),
+      new VacationPolicyCreatedEvent(created.policy),
     );
 
-    return policy;
+    return created;
   }
 
   public async update(

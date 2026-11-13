@@ -60,7 +60,7 @@ interface IGetTimeEntriesViewParams extends IBaseTabViewParams {
 export interface ITimeEntriesTabMetaData {
   page?: number;
   filters?: ITimeEntriesListFilters;
-  // Opened from Home → Edit Entries: the viewer's entries even for Admin/HR.
+  // My time: the viewer's entries even for Admin/HR.
   ownEntriesOnly?: boolean;
   // My time: the Monday of the shown week, today's week when it is left out.
   weekStart?: string;
@@ -86,12 +86,18 @@ export class TimeEntriesTabView extends BaseTabView<
       : `*${SCREENS[ScreenId.MyTime].title}*`;
   }
 
-  protected getTitleAccessory(): SectionBlockAccessory {
-    return {
-      type: 'button',
-      text: { type: 'plain_text', text: '➕ Add Time Entry' },
-      action_id: TimeEntriesTabViewActionId.AddTimeEntry,
-    };
+  // Time logs only: Admin and HR log for someone else there. My time fills
+  // its week and days with the buttons under the table.
+  protected getTitleAccessory({
+    canFilterByUser,
+  }: IGetTimeEntriesViewParams): SectionBlockAccessory | null {
+    return canFilterByUser
+      ? {
+          type: 'button',
+          text: { type: 'plain_text', text: '➕ Add Time Entry' },
+          action_id: TimeEntriesTabViewActionId.AddTimeEntry,
+        }
+      : null;
   }
 
   protected getContentBlocks(
@@ -117,7 +123,12 @@ export class TimeEntriesTabView extends BaseTabView<
       );
     }
 
-    blocks.push(...this.getFiltersBlocks(canFilterByUser, !week, filters));
+    // Nothing to narrow in an empty list unless a filter emptied it.
+    const filtered = !!filters && Object.values(filters).some((value) => value);
+
+    if (filtered || timeEntriesListData.totalCount > 0) {
+      blocks.push(...this.getFiltersBlocks(canFilterByUser, !week, filters));
+    }
 
     // Grouped by day: a day's line comes before its first entry.
     let day: string | undefined;
@@ -207,6 +218,8 @@ export class TimeEntriesTabView extends BaseTabView<
       {
         type: 'button',
         text: { type: 'plain_text', text: '✏️ Fill in the week' },
+        // The way to log time here, until there is something to submit.
+        ...(toSubmit > 0 ? {} : { style: 'primary' }),
         action_id: TimeEntriesTabViewActionId.FillWeek,
       },
       {

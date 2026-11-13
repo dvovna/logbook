@@ -61,6 +61,8 @@ describe('Shutdown', () => {
 
   it('takes no new request, answers the one in flight, then closes', async () => {
     const admin = await workspace.addUser({ role: UserRole.Admin });
+    // Reports is in the navigation of a workspace that tracks time.
+    await workspace.addProject();
     const reports = await openAppHomeTab(t, workspace, admin, [
       NavigationActionId.Reports,
     ]);

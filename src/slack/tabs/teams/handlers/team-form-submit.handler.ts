@@ -29,6 +29,13 @@ import {
 import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.view';
+import { listNames } from '@modules/slack/common/utils/list.utils';
+
+interface ISavedTeam {
+  team: ITeamViewModel;
+  // Members chosen as its approvers, now Managers.
+  promoted: IUserViewModel[];
+}
 
 @Injectable()
 @SlackHandler({
@@ -39,7 +46,7 @@ import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.vie
 export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   ITeamModalViewMetadata,
   ITeamFormViewData,
-  ITeamViewModel
+  ISavedTeam
 > {
   public constructor(
     private readonly teamModalView: TeamModalView,
@@ -54,7 +61,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   }
 
   protected successResponse(
-    team: ITeamViewModel,
+    { team, promoted }: ISavedTeam,
     user: IUserViewModel,
     metadata: ITeamModalViewMetadata,
   ) {
@@ -65,7 +72,13 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     this.tabNavigationService.navigate(TabId.Teams, {
       user,
       metadata: pageMetadata,
-      notice: `✅ Team ${team.name} ${metadata.id ? 'updated' : 'created'}.`,
+      notice: [
+        `✅ Team ${team.name} ${metadata.id ? 'updated' : 'created'}.`,
+        promoted.length &&
+          `Now Managers, to approve its time off: ${listNames(promoted.map(({ name }) => name))}.`,
+      ]
+        .filter(Boolean)
+        .join(' '),
     });
 
     return SlackViewResponseFactory.success();
@@ -75,9 +88,9 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     data: ITeamFormViewData,
     metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
-  ) {
-    await Promise.all([
-      this.ruleInputsValidationService.assertLevel1Approvers(
+  ): Promise<ISavedTeam> {
+    const [toPromote] = await Promise.all([
+      this.ruleInputsValidationService.teamApproversToPromote(
         (data.manager_approvers ?? []).map(({ value }) => value),
         user,
       ),
@@ -97,7 +110,14 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       );
     }
 
-    return team;
+    // After the team names them: the change of role tells the waiting
+    // requests that someone can now approve (makeManagers).
+    const promoted = await this.usersService.makeManagers(
+      toPromote.map(({ id }) => id),
+      user,
+    );
+
+    return { team, promoted };
   }
 
   // The fields of its own rules are checked only while the team has its
