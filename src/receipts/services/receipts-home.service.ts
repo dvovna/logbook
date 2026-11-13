@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
 import { ReceiptsRepository } from '@modules/receipts/repositories/receipts.repository';
@@ -21,6 +22,8 @@ export interface IReceiptsHomeSummary {
   lines: IReceiptsHomeLine[];
   // Receipts the person sent and gave no details yet.
   drafts: number;
+  // The workspace's, for the amounts.
+  currency: string;
 }
 
 const COUNTED = [ReceiptStatus.Submitted, ReceiptStatus.Accepted];
@@ -30,14 +33,34 @@ export class ReceiptsHomeService {
   public constructor(
     private readonly receipts: ReceiptsRepository,
     private readonly reimbursements: ReimbursementsService,
+    private readonly slackTeams: SlackTeamsService,
   ) {}
 
-  // Null with nothing to collect, after one read: Home asks everyone.
+  // Every read at once, so that Home gains no round trip: what is collected
+  // is known only from the reimbursements, but it is always last month or
+  // this one (due days are 1 to 28), so the receipts of those two months are
+  // read beside them and picked afterwards. Null with nothing to collect.
   public async summaryFor(
     user: IUserViewModel,
     today: string,
   ): Promise<IReceiptsHomeSummary | null> {
-    const active = await this.reimbursements.findActive(user.slack_team_id);
+    const [active, counted, drafts, currency] = await Promise.all([
+      this.reimbursements.findActive(user.slack_team_id),
+      this.receipts.findMany({
+        slack_team_id: user.slack_team_id,
+        user_id: user.id,
+        status: COUNTED,
+        month: [
+          ...new Set([collectedMonth(today, 1), collectedMonth(today, 28)]),
+        ],
+      }),
+      this.receipts.count({
+        slack_team_id: user.slack_team_id,
+        user_id: user.id,
+        status: ReceiptStatus.Draft,
+      }),
+      this.slackTeams.getCurrency(user.slack_team_id),
+    ]);
 
     if (!active.length) {
       return null;
@@ -47,22 +70,6 @@ export class ReceiptsHomeService {
       reimbursement,
       month: collectedMonth(today, reimbursement.dueDay),
     }));
-    const [counted, drafts] = await Promise.all([
-      this.receipts.findMany({
-        slack_team_id: user.slack_team_id,
-        user_id: user.id,
-        status: COUNTED,
-        reimbursement_id: collecting.map(
-          ({ reimbursement }) => reimbursement.id,
-        ),
-        month: [...new Set(collecting.map(({ month }) => month))],
-      }),
-      this.receipts.count({
-        slack_team_id: user.slack_team_id,
-        user_id: user.id,
-        status: ReceiptStatus.Draft,
-      }),
-    ]);
 
     return {
       lines: collecting.map(({ reimbursement, month }) => {
@@ -84,6 +91,7 @@ export class ReceiptsHomeService {
         };
       }),
       drafts,
+      currency,
     };
   }
 }

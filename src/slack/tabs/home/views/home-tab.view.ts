@@ -44,7 +44,7 @@ interface IGetViewParams extends IBaseTabViewParams {
   // The setup checklist, for Admin and HR until the workspace is set up.
   setup: ISetupProgress | null;
   // What the workspace collects receipts for, null when nothing.
-  receipts: (IReceiptsHomeSummary & { currency: string }) | null;
+  receipts: IReceiptsHomeSummary | null;
 }
 
 // The setup checklist's blocks: `setup`, `setup_done`, `setup_<step>`.
@@ -252,7 +252,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     lines,
     drafts,
     currency,
-  }: NonNullable<IGetViewParams['receipts']>): AnyBlock[] {
+  }: IReceiptsHomeSummary): AnyBlock[] {
     const section = (text: string): AnyBlock => ({
       type: 'section',
       text: { type: 'mrkdwn', text },

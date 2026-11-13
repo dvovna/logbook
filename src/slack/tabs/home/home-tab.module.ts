@@ -21,7 +21,6 @@ import { TeamsTabModule } from '@modules/slack/tabs/teams/teams-tab.module';
 import { LeaveFileSlackModule } from '@modules/slack/leave-file/leave-file-slack.module';
 import { LeaveFileModule } from 'src/leave-file/leave-file.module';
 import { TeamFileSlackModule } from '@modules/slack/team-file/team-file-slack.module';
-import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
 import { ReceiptsModule } from 'src/receipts/receipts.module';
 import { RequesterNoticeMessageHandler } from '@modules/slack/tabs/home/handlers/requester-notice-message.handler';
 
@@ -42,7 +41,6 @@ import { RequesterNoticeMessageHandler } from '@modules/slack/tabs/home/handlers
     LeaveFileSlackModule,
     LeaveFileModule,
     ReceiptsModule,
-    SlackTeamsModule,
   ],
   providers: [
     SetupProgressService,
