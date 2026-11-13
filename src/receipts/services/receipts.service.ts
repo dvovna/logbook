@@ -181,6 +181,36 @@ export class ReceiptsService {
     });
   }
 
+  // The delete of the DM's Discard button, which a stale message can still
+  // show after the receipt was sent: only a draft goes, and the caller is
+  // told when it was not one.
+  public async discardDraft(
+    receiptId: string,
+    user: IUserViewModel,
+  ): Promise<{ discarded: boolean; receipt: IReceiptViewModel }> {
+    return this.transactions.transaction(async () => {
+      await this.transactions.lock(receiptLock(receiptId));
+
+      const receipt = await this.findOwnById(receiptId, user);
+
+      if (receipt.status !== ReceiptStatus.Draft) {
+        return { discarded: false, receipt };
+      }
+
+      const deleted = await this.receipts.deleteMany({
+        id: receipt.id,
+        slack_team_id: user.slack_team_id,
+        status: ReceiptStatus.Draft,
+      });
+
+      if (deleted !== 1) {
+        throw new ReceiptChangedError();
+      }
+
+      return { discarded: true, receipt };
+    });
+  }
+
   // Newest month first; drafts, which have none yet, come before them.
   public findOwn(user: IUserViewModel): Promise<IReceiptViewModel[]> {
     return this.receipts.findMany(

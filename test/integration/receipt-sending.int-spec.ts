@@ -375,4 +375,53 @@ describe('Sending a receipt in the DM', () => {
       messageTexts(t.slackApi.messageUpdates(workspace.token, message).pop()),
     ).toEqual(['🗑 Discarded *gym.pdf*.']);
   });
+
+  it('Discard on a receipt that was already sent keeps it and shows the sent text', async () => {
+    const gym = await seedReimbursement(t, workspace, { name: 'Gym' });
+    const [message] = await shareReceipt(t, workspace, member, 'b', 'gym.pdf');
+
+    // As if the update of the message to its sent text had failed.
+    await t.db
+      .updateTable('receipts')
+      .set({
+        status: ReceiptStatus.Submitted,
+        reimbursement_id: gym.id,
+        month: '2026-05-01',
+        amount_cents: 4550,
+        submitted_at: new Date().toISOString(),
+      })
+      .where('slack_team_id', '=', workspace.id)
+      .execute();
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .actOnMessage(
+        workspace,
+        member,
+        message,
+        ReceiptActionId.Discard,
+        (await receipts())[0].id,
+      )
+      .expect(200);
+    await t.idle();
+
+    expect(await receipts()).toHaveLength(1);
+    expect(
+      await t.db
+        .selectFrom('receipt_files')
+        .select('receipt_id')
+        .where('slack_team_id', '=', workspace.id)
+        .execute(),
+    ).toHaveLength(1);
+    expect(
+      t.slackApi
+        .ephemeralMessages(workspace.token, member.slack_id, { since })
+        .map(({ text }) => text),
+    ).toEqual([
+      'This receipt was already sent to Finance. You can delete it in Home → My receipts.',
+    ]);
+    expect(
+      messageTexts(t.slackApi.messageUpdates(workspace.token, message).pop()),
+    ).toEqual(['🧾 *gym.pdf* · Gym · May 2026 · $45.50 — sent to Finance.']);
+  });
 });

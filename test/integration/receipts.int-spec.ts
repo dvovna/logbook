@@ -260,6 +260,42 @@ describe('Receipts', () => {
     });
   });
 
+  describe('discarding a draft', () => {
+    it('removes a draft with its file', async () => {
+      const { receipt } = await service.receive(input('F1', Buffer.from('a')));
+
+      const result = await service.discardDraft(receipt.id, asUser(owner));
+
+      expect(result.discarded).toBe(true);
+      expect(await rows('receipts')).toHaveLength(0);
+      expect(await rows('receipt_files')).toHaveLength(0);
+    });
+
+    it('keeps a receipt that is not a draft and says so', async () => {
+      const submitted = await seedReceipt(t, workspace, owner, {
+        reimbursement: gym,
+        month: '2026-05-01',
+        amountCents: 1000,
+      });
+
+      const result = await service.discardDraft(submitted.id, asUser(owner));
+
+      expect(result.discarded).toBe(false);
+      expect(result.receipt.status).toBe(ReceiptStatus.Submitted);
+      expect(await rows('receipts')).toHaveLength(1);
+      expect(await rows('receipt_files')).toHaveLength(1);
+    });
+
+    it('refuses another member', async () => {
+      const { receipt } = await service.receive(input('F1', Buffer.from('a')));
+
+      await expect(
+        service.discardDraft(receipt.id, asUser(other)),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(await rows('receipts')).toHaveLength(1);
+    });
+  });
+
   describe('listing', () => {
     it('lists the owner’s receipts, newest month first, without reading files', async () => {
       const april = await seedReceipt(t, workspace, owner, {

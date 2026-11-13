@@ -17,6 +17,7 @@ import { ReceiptDetailsModalView } from '@modules/slack/receipts/views/receipt-d
 import { ReceivedReceiptMessageView } from '@modules/slack/receipts/views/received-receipt-message.view';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { getDateOnly } from '@common/utils/date.utils';
+import { IReceiptViewModel } from 'src/receipts/types/receipt.interface';
 import { ReceiptsService } from 'src/receipts/services/receipts.service';
 import { ReimbursementsService } from 'src/receipts/services/reimbursements.service';
 
@@ -99,29 +100,54 @@ export class ReceivedReceiptMessageHandler extends BaseActionHandler {
     payload: ISlackBlockActionPayload,
     user: IUserViewModel,
   ) {
-    const receipt = await this.receipts.findOwnById(
+    const { discarded, receipt } = await this.receipts.discardDraft(
       this.receiptIdOf(payload),
       user,
     );
-
-    await this.receipts.delete(receipt.id, user);
-
     const channel = payload.channel?.id;
     const ts = payload.message?.ts;
 
-    if (channel && ts) {
-      runInBackground(
-        this.logger,
-        'replace the discarded receipt message',
-        () =>
-          this.slackCommunicationService.updateMessage(
-            channel,
-            ts,
-            this.messageView.discarded(receipt),
-            user.slack_team_id,
-          ),
+    if (!discarded) {
+      await this.tell(
+        user,
+        'This receipt was already sent to Finance. You can delete it in Home → My receipts.',
       );
     }
+
+    if (channel && ts) {
+      runInBackground(this.logger, 'replace the receipt message', async () => {
+        const message = discarded
+          ? this.messageView.discarded(receipt)
+          : await this.sentMessage(receipt, user);
+
+        if (message) {
+          await this.slackCommunicationService.updateMessage(
+            channel,
+            ts,
+            message,
+            user.slack_team_id,
+          );
+        }
+      });
+    }
+  }
+
+  // Left as it is when the receipt has no details to show.
+  private async sentMessage(receipt: IReceiptViewModel, user: IUserViewModel) {
+    const reimbursement =
+      receipt.reimbursementId &&
+      (await this.reimbursements.findById(
+        receipt.reimbursementId,
+        user.slack_team_id,
+      ));
+
+    return reimbursement
+      ? this.messageView.sent(
+          receipt,
+          reimbursement,
+          await this.slackTeamsService.getCurrency(user.slack_team_id),
+        )
+      : null;
   }
 
   // A refusal or a missing receipt is told to the clicker; a receipt that
