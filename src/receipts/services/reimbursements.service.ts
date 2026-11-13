@@ -166,7 +166,7 @@ export class ReimbursementsService {
   }
 
   private assertNameFree(name: string, others: IReimbursementViewModel[]) {
-    if (others.some((item) => item.name === name)) {
+    if (others.some((item) => item.name.toLowerCase() === name.toLowerCase())) {
       throw new DuplicatedRecordError(
         'A reimbursement with this name already exists.',
         'name',

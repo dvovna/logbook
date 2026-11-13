@@ -99,6 +99,31 @@ describe('ReimbursementsService', () => {
     });
   });
 
+  it('compares names ignoring case on create', async () => {
+    repository.findMany.mockResolvedValue([reimbursement('r2', 'Gym')]);
+
+    await expect(
+      service.create({ ...INPUT, name: 'gym' }, userWith(UserRole.Admin)),
+    ).rejects.toMatchObject({
+      constructor: DuplicatedRecordError,
+      field: 'name',
+    });
+  });
+
+  it('compares names ignoring case on update', async () => {
+    repository.findMany.mockResolvedValue([
+      reimbursement('r1', 'Lunch'),
+      reimbursement('r2', 'Gym'),
+    ]);
+
+    await expect(
+      service.update('r1', { ...INPUT, name: 'GYM' }, userWith(UserRole.Admin)),
+    ).rejects.toMatchObject({
+      constructor: DuplicatedRecordError,
+      field: 'name',
+    });
+  });
+
   it('reads only active reimbursements, so an archived name may be reused', async () => {
     await service.create(INPUT, userWith(UserRole.Admin));
 
