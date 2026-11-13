@@ -61,4 +61,56 @@ describe('remindersDue', () => {
       { kind: ReimbursementReminderKind.Opened, month: '2026-12-01' },
     ]);
   });
+
+  describe('where the creation guard cannot decide', () => {
+    const old = '2026-01-10T10:00:00.000000+00:00';
+    const on = (iso: string, dueDay: number) =>
+      remindersDue(new Date(iso), { dueDay, createdAt: old });
+    const opened = (month: string) => ({
+      kind: ReimbursementReminderKind.Opened,
+      month,
+    });
+    const due = (month: string) => ({
+      kind: ReimbursementReminderKind.Due,
+      month,
+    });
+    const summary = (month: string) => ({
+      kind: ReimbursementReminderKind.Summary,
+      month,
+    });
+
+    it('due day 1: no due reminder, summary on the 2nd', () => {
+      expect(on('2026-10-31T12:00:00Z', 1)).toEqual([]);
+      expect(on('2026-11-01T09:00:00Z', 1)).toEqual([opened('2026-10-01')]);
+      expect(on('2026-11-02T09:00:00Z', 1)).toEqual([summary('2026-10-01')]);
+    });
+
+    it('due day 2: no due reminder, it would be the 1st', () => {
+      expect(on('2026-11-01T09:00:00Z', 2)).toEqual([opened('2026-10-01')]);
+      expect(on('2026-11-03T09:00:00Z', 2)).toEqual([summary('2026-10-01')]);
+    });
+
+    it('due day 3: due reminder on the 2nd', () => {
+      expect(on('2026-11-02T09:00:00Z', 3)).toEqual([due('2026-10-01')]);
+    });
+
+    it('due day 28 in a short February', () => {
+      expect(on('2027-02-27T09:00:00Z', 28)).toEqual([due('2027-01-01')]);
+      // Two are due on one day: the newer month's first.
+      expect(on('2027-03-01T09:00:00Z', 28)).toEqual([
+        opened('2027-02-01'),
+        summary('2027-01-01'),
+      ]);
+    });
+
+    it('due day 28 in a leap year', () => {
+      expect(on('2028-02-29T09:00:00Z', 28)).toEqual([summary('2028-01-01')]);
+      expect(on('2028-03-01T09:00:00Z', 28)).toEqual([opened('2028-02-01')]);
+    });
+
+    it('crosses the year end', () => {
+      expect(on('2027-01-01T09:00:00Z', 4)).toEqual([opened('2026-12-01')]);
+      expect(on('2027-01-05T09:00:00Z', 4)).toEqual([summary('2026-12-01')]);
+    });
+  });
 });
