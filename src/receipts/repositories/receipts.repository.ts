@@ -58,6 +58,8 @@ export class ReceiptsRepository extends BaseRepository<
     return Number(result.numDeletedRows);
   }
 
+  // Only decided receipts: the file of one Finance hasn't decided on is the
+  // evidence it needs, however old.
   // Rows another sweep holds are skipped, so two processes never wait for or
   // repeat each other.
   public async lockIdsWithFilesBefore(
@@ -67,10 +69,10 @@ export class ReceiptsRepository extends BaseRepository<
   ): Promise<string[]> {
     const rows = await this.selectInWorkspace(slackTeamId)
       .select('id')
-      .where('status', '<>', ReceiptStatus.Draft)
+      .where('status', 'in', [ReceiptStatus.Accepted, ReceiptStatus.Rejected])
       .where('file_deleted_at', 'is', null)
-      .where('created_at', '<', cutoff.toISOString())
-      .orderBy('created_at')
+      .where('decided_at', '<', cutoff.toISOString())
+      .orderBy('decided_at')
       .limit(limit)
       .forUpdate()
       .skipLocked()

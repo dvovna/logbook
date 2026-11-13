@@ -21,8 +21,8 @@ const BATCH_SIZE = 500;
 
 // Deletes what isn't kept for ever: drafts nobody finished within
 // DRAFT_LIFETIME_DAYS, with their files, and the files of the other receipts
-// after RECEIPT_FILE_RETENTION_DAYS from when they were sent (the receipt
-// stays, with file_deleted_at). Every process sweeps every hour; a second
+// after RECEIPT_FILE_RETENTION_DAYS from their decision (the receipt stays,
+// with file_deleted_at; one still waiting for Finance keeps its file). Every process sweeps every hour; a second
 // sweep finds nothing left, and one at the same moment skips the rows the
 // first holds.
 @Injectable()

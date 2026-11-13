@@ -36,7 +36,19 @@ describe('Receipt retention', () => {
     sport = await seedReimbursement(t, workspace, { name: 'Sport' });
   });
 
-  const seed = async (status: ReceiptStatus, ageDays: number, now: Date) => {
+  const daysBefore = (now: Date, days: number) =>
+    new Date(now.getTime() - days * DAY_MS).toISOString();
+
+  // Decided receipts are decided as old as they are, unless said otherwise.
+  const seed = async (
+    status: ReceiptStatus,
+    ageDays: number,
+    now: Date,
+    decidedDaysAgo: number | null = status === ReceiptStatus.Accepted ||
+    status === ReceiptStatus.Rejected
+      ? ageDays
+      : null,
+  ) => {
     const receipt = await seedReceipt(t, workspace, anna, {
       reimbursement: sport,
       month: JUNE,
@@ -47,7 +59,9 @@ describe('Receipt retention', () => {
     await t.db
       .updateTable('receipts')
       .set({
-        created_at: new Date(now.getTime() - ageDays * DAY_MS).toISOString(),
+        created_at: daysBefore(now, ageDays),
+        decided_at:
+          decidedDaysAgo === null ? null : daysBefore(now, decidedDaysAgo),
       })
       .where('id', '=', receipt.id)
       .execute();
@@ -85,24 +99,28 @@ describe('Receipt retention', () => {
     expect(await fileOf(young.id)).toBeDefined();
   });
 
-  it('keeps the row of an old receipt and deletes its file, once', async () => {
-    const accepted = await seed(ReceiptStatus.Accepted, 0, new Date());
-    const recent = await seed(ReceiptStatus.Rejected, 0, new Date());
+  it('keeps the row of an old decided receipt and deletes its file, once', async () => {
+    const now = new Date();
+    const accepted = await seed(ReceiptStatus.Accepted, 0, now);
+    const rejected = await seed(ReceiptStatus.Rejected, 0, now);
+    const recent = await seed(ReceiptStatus.Rejected, 0, now);
 
     travelTo('2029-06-20');
     await t.db
       .updateTable('receipts')
-      .set({ created_at: '2029-06-19T00:00:00Z' })
+      .set({ decided_at: '2029-06-19T00:00:00Z' })
       .where('id', '=', recent.id)
       .execute();
 
     expect(await retention.sweepWorkspace(workspace.id)).toEqual({
-      files: 1,
+      files: 2,
       drafts: 0,
     });
 
-    expect((await rowOf(accepted.id))?.file_deleted_at).not.toBeNull();
-    expect(await fileOf(accepted.id)).toBeUndefined();
+    for (const { id } of [accepted, rejected]) {
+      expect((await rowOf(id))?.file_deleted_at).not.toBeNull();
+      expect(await fileOf(id)).toBeUndefined();
+    }
     expect((await rowOf(recent.id))?.file_deleted_at).toBeNull();
     expect(await fileOf(recent.id)).toBeDefined();
     expect(await retention.sweepWorkspace(workspace.id)).toEqual({
@@ -111,19 +129,43 @@ describe('Receipt retention', () => {
     });
   });
 
+  it('keeps the file of a receipt nobody has decided, however old', async () => {
+    const now = new Date();
+    const waiting = await seed(ReceiptStatus.Submitted, 4 * 365, now);
+
+    expect(await retention.sweepWorkspace(workspace.id, now)).toEqual({
+      files: 0,
+      drafts: 0,
+    });
+
+    expect((await rowOf(waiting.id))?.file_deleted_at).toBeNull();
+    expect(await fileOf(waiting.id)).toBeDefined();
+  });
+
+  it('counts the retention from the decision, not from when the receipt was sent', async () => {
+    const now = new Date();
+    const decidedYesterday = await seed(
+      ReceiptStatus.Accepted,
+      4 * 365,
+      now,
+      1,
+    );
+
+    expect(await retention.sweepWorkspace(workspace.id, now)).toEqual({
+      files: 0,
+      drafts: 0,
+    });
+
+    expect((await rowOf(decidedYesterday.id))?.file_deleted_at).toBeNull();
+    expect(await fileOf(decidedYesterday.id)).toBeDefined();
+  });
+
   it('deletes the files of several receipts at once', async () => {
     const now = new Date();
-    const old = new Date(now.getTime() - 1100 * DAY_MS);
-    const ids: string[] = [];
 
     for (let i = 0; i < 3; i += 1) {
-      ids.push((await seed(ReceiptStatus.Submitted, 0, now)).id);
+      await seed(ReceiptStatus.Accepted, 1100, now);
     }
-    await t.db
-      .updateTable('receipts')
-      .set({ created_at: old.toISOString() })
-      .where('id', 'in', ids)
-      .execute();
 
     expect(await retention.sweepWorkspace(workspace.id, now)).toEqual({
       files: 3,
@@ -162,11 +204,31 @@ describe('Receipt retention', () => {
   });
 
   it('sweeps every installed workspace', async () => {
-    const receipt = await seed(ReceiptStatus.Draft, 31, new Date());
+    const now = new Date();
+    const receipt = await seed(ReceiptStatus.Draft, 31, now);
+    const other = await t.createWorkspace();
+    const bob = await other.addUser({ name: 'Bob' });
+    const gym = await seedReimbursement(t, other, { name: 'Gym' });
+    const youngDraft = await seedReceipt(t, other, bob, {
+      reimbursement: gym,
+      month: JUNE,
+      amountCents: 1000,
+      status: ReceiptStatus.Draft,
+    });
+    const recentFile = await seedReceipt(t, other, bob, {
+      reimbursement: gym,
+      month: JUNE,
+      amountCents: 1000,
+      status: ReceiptStatus.Accepted,
+    });
 
-    await retention.sweep();
+    await retention.sweep(now);
 
     expect(await rowOf(receipt.id)).toBeUndefined();
+    expect(await rowOf(youngDraft.id)).toBeDefined();
+    expect(await fileOf(youngDraft.id)).toBeDefined();
+    expect((await rowOf(recentFile.id))?.file_deleted_at).toBeNull();
+    expect(await fileOf(recentFile.id)).toBeDefined();
   });
 
   it('leaves no row of the feature behind when the workspace is deleted', async () => {
@@ -177,6 +239,15 @@ describe('Receipt retention', () => {
         slack_team_id: workspace.id,
         user_id: anna.id,
         reimbursement_id: sport.id,
+      })
+      .execute();
+    await t.db
+      .insertInto('reimbursement_reminders')
+      .values({
+        slack_team_id: workspace.id,
+        reimbursement_id: sport.id,
+        month: JUNE,
+        kind: 'opened',
       })
       .execute();
 
