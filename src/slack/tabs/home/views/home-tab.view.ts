@@ -92,9 +92,10 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       setup ? this.getSetupBlocks(setup) : [],
       this.getAttentionBlocks(pendingApprovals),
       hasTime ? this.getTimeTrackingBlocks(timeSummary) : [],
+      receipts ? this.getReceiptsBlocks(receipts) : [],
+      // Last: the button under the parts requests time off.
       this.getVacationUsageBlocks(vacationUsageInfo, fileBalance),
       this.getRequestedVacationsBlocks(requestedVacations),
-      receipts ? this.getReceiptsBlocks(receipts) : [],
     ].filter((blocks) => blocks.length);
 
     return [
