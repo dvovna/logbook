@@ -27,6 +27,7 @@ Receipts for reimbursements, and a time reminder each person sets for themselves
 - Approval notification recipients have to be active people in Logbook, and someone deactivated since no longer gets the decisions.
 - An entry edited by HR or an admin keeps the team it was logged in, even when its person moved to another team since: who approves it and whose reports hold it no longer change with a typo fix.
 - Deactivating or activating someone records who did it.
+- Undo of a team file is offered for the right one when two files were applied in the same instant: the one made later is the newer.
 
 ### People and time off
 - HR is offered only what it can do: the Edit User form lists the roles HR may give (not Admin or Finance), an admin's menu has no Deactivate User for HR, and nobody sees Approve for Approvers on their own request.

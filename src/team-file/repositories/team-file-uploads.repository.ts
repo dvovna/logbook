@@ -85,12 +85,15 @@ export class TeamFileUploadsRepository extends BaseRepository<
     );
   }
 
-  // The workspace's upload that Undo may work on: the applied one applied last.
+  // The workspace's upload that Undo may work on: the applied one applied
+  // last. `applied_at` is the app's clock, in milliseconds: of two applied in
+  // the same one, the file made later is the later.
   public async findLatestApplied(slackTeamId: string) {
     const row = await this.selectInWorkspace(slackTeamId)
       .selectAll()
       .where('status', '=', TeamFileUploadStatus.Applied)
       .orderBy('applied_at', 'desc')
+      .orderBy('created_at', 'desc')
       .limit(1)
       .executeTakeFirst();
 
