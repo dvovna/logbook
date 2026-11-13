@@ -86,7 +86,7 @@ Nobody changes time that is in a billing snapshot, Admin included, until an admi
 | Send, edit and delete their own receipts, turn their reminders off | Own | Own | Own | Own | Own |
 | Add, edit and archive reimbursements | Yes | — | — | Yes | — |
 | See, accept and reject people's receipts, open a file, download a month | Yes | — | — | Yes | — |
-| Decide on their own receipt | Only if nobody else has the Admin or Finance role | — | — | Only if nobody else has the Admin or Finance role | — |
+| Decide on their own receipt | Only if there is no other active person with the Admin or Finance role | — | — | Only if there is no other active person with the Admin or Finance role | — |
 
 ## Reports
 

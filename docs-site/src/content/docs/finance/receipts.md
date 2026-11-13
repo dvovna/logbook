@@ -52,7 +52,7 @@ A decided receipt has a menu with **Open** and the opposite decision (**Reject**
 
 Two of you can click at the same moment: the second finds the receipt changed and the screen shows the new state.
 
-Nobody decides on their own receipt. If you are the only person with the Admin or Finance role, you can.
+Nobody decides on their own receipt. If there is no other active person with the Admin or Finance role, you can.
 
 ## Download the month
 

@@ -60,7 +60,7 @@ You get a direct message: "❌ Your receipt *name* for Gym, October 2026 was rej
 
 Finance may set a limit per person and month for a reimbursement. If your accepted and waiting receipts add up to more, Finance sees a warning, and only the limit is paid back.
 
-Admin and Finance decide on receipts. Nobody decides on their own, unless nobody else in the workspace has the Admin or Finance role. HR and managers don't see other people's receipts.
+Admin and Finance decide on receipts. Nobody decides on their own, unless the workspace has no other active person with the Admin or Finance role. HR and managers don't see other people's receipts.
 
 ## Reminders
 
