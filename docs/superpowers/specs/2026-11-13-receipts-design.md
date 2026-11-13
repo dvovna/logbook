@@ -168,4 +168,5 @@ Reminders are per reimbursement, since each has its own due day: a person in thr
 - An archive part is about 20 MB; a big month arrives as several files. If sending fails midway, the retry sends every part again.
 - Home shows amounts with the currency sign; My receipts shows the 25 newest receipts.
 - A person can't decide their own receipt unless nobody else in the workspace is an active Admin or Finance person.
+- A decision is made on the receipt as Finance's screen showed it: Accept and Reject carry when it was sent, and a receipt its owner saved again since is refused ("This receipt was changed meanwhile.") and shown as it is now.
 - An archived reimbursement stays on Finance's screen while it holds a receipt that isn't a draft: offered after the active ones as "<name> (archived)", with every action of the screen (decisions, Open, Download, Show all), no "Sent nothing", and the header "N people sent receipts · K waiting". People can't choose it: editing a receipt of one opens the form with the active reimbursements and none chosen, and with none active the person is told "There are no reimbursements to send receipts for yet." instead.

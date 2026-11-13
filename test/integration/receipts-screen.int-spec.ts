@@ -4,6 +4,7 @@ import { Tables } from '@common/types/database.types';
 import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ReceiptActionId } from '@modules/slack/receipts/enums/receipt-action-id.enum';
+import { MyReceiptsActionId } from '@modules/slack/tabs/my-receipts/enums/my-receipts-action-id.enum';
 import { ReceiptsTabActionId } from '@modules/slack/tabs/receipts/enums/receipts-tab-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
@@ -21,7 +22,12 @@ import {
   openModalFrom,
   publishedHome,
 } from './support/app-home';
-import { seedReceipt, seedReimbursement } from './support/receipts';
+import {
+  buttonValueOf,
+  menuValueOf,
+  seedReceipt,
+  seedReimbursement,
+} from './support/receipts';
 
 const RECEIPTS = [NavigationActionId.Receipts];
 
@@ -111,11 +117,6 @@ describe('The Receipts screen', () => {
         ...(block.accessory ? [block.accessory] : []),
       ],
     );
-
-  // The value of the first button of `actionId` the view shows.
-  const decisionValueOf = (view: View, actionId: ReceiptsTabActionId) =>
-    elementsOf(view).find((element) => element.action_id === actionId)!
-      .value!;
 
   const reimbursementOptions = (view: View) =>
     elementsOf(view)
@@ -340,7 +341,7 @@ describe('The Receipts screen', () => {
         finance,
         tab,
         ReceiptsTabActionId.AcceptReceipt,
-        decisionValueOf(tab, ReceiptsTabActionId.AcceptReceipt),
+        buttonValueOf(tab, ReceiptsTabActionId.AcceptReceipt, receipt.id),
       );
 
       expect(noticeOf(accepted)).toBe(
@@ -363,7 +364,9 @@ describe('The Receipts screen', () => {
         `${ReceiptsTabActionId.OpenReceipt}:${receipt.id}`,
       );
 
-      expect(noticeOf(opened)).toBe('📎 Sending gym-june.pdf to your Messages.');
+      expect(noticeOf(opened)).toBe(
+        '📎 Sending gym-june.pdf to your Messages.',
+      );
 
       const downloaded = await actOnTab(
         t,
@@ -632,7 +635,7 @@ describe('The Receipts screen', () => {
         finance,
         view,
         ReceiptsTabActionId.RejectReceipt,
-        fifth.id,
+        buttonValueOf(view, ReceiptsTabActionId.RejectReceipt, fifth.id),
       );
       const since = t.slackApi.mark();
 
@@ -658,7 +661,7 @@ describe('The Receipts screen', () => {
         finance,
         shown,
         ReceiptsTabActionId.ManageReceiptMenu,
-        `${ReceiptsTabActionId.AcceptReceipt}:${fifth.id}`,
+        menuValueOf(shown, ReceiptsTabActionId.AcceptReceipt, fifth.id),
       );
 
       expect(noticeOf(reversed)).toBe('✅ Accepted p1-5.pdf from Person 01.');
@@ -716,7 +719,7 @@ describe('The Receipts screen', () => {
       receipt: Tables<'receipts'>,
       view: View,
       actionId: ReceiptsTabActionId,
-      value = receipt.id,
+      value = buttonValueOf(view, actionId, receipt.id),
     ) => actOnTab(t, workspace, finance, view, actionId, value);
 
     it('accepts a receipt and says so', async () => {
@@ -777,7 +780,7 @@ describe('The Receipts screen', () => {
         receipt,
         tab,
         ReceiptsTabActionId.ManageReceiptMenu,
-        `${ReceiptsTabActionId.AcceptReceipt}:${receipt.id}`,
+        menuValueOf(tab, ReceiptsTabActionId.AcceptReceipt, receipt.id),
       );
 
       expect(noticeOf(shown)).toBe('✅ Accepted gym-june.pdf from Anna Kim.');
@@ -808,18 +811,115 @@ describe('The Receipts screen', () => {
       expect(noticeOf(shown)).toBe('⚠️ This receipt was changed meanwhile.');
     });
 
+    describe('a receipt its owner changed since the screen was shown', () => {
+      // The owner edits the waiting receipt in My receipts.
+      const ownerChangesAmount = async (
+        receipt: Tables<'receipts'>,
+        amount: string,
+      ) => {
+        const mine = await openAppHomeTab(t, workspace, anna, [
+          NavigationActionId.MyReceipts,
+        ]);
+        const form = await openModalFrom(
+          t,
+          workspace,
+          anna,
+          mine,
+          MyReceiptsActionId.ManageReceiptMenu,
+          `${MyReceiptsActionId.EditReceipt}:${receipt.id}`,
+        );
+
+        await t.slack.submitView(workspace, anna, form, { amount }).expect(200);
+        await t.idle();
+      };
+
+      it('is not accepted from the screen as it was, which shows it as it is', async () => {
+        const receipt = await seed(anna, {
+          fileName: 'gym-june.pdf',
+          amountCents: 3000,
+        });
+        const stale = await open();
+
+        await ownerChangesAmount(receipt, '300.00');
+
+        const shown = await decide(
+          receipt,
+          stale,
+          ReceiptsTabActionId.AcceptReceipt,
+        );
+
+        expect(noticeOf(shown)).toBe('⚠️ This receipt was changed meanwhile.');
+        expect(await receiptRow(receipt.id)).toEqual(
+          expect.objectContaining({
+            status: ReceiptStatus.Submitted,
+            amount_cents: 30000,
+            decided_by: null,
+          }),
+        );
+        expect(listItems(shown)[0].fields).toEqual({
+          Amount: '$300.00',
+          Status: '⏳ Waiting',
+        });
+      });
+
+      it('is not rejected through a form opened from the screen as it was', async () => {
+        const receipt = await seed(anna, {
+          fileName: 'gym-june.pdf',
+          amountCents: 3000,
+        });
+        const stale = await open();
+        const form = await openModalFrom(
+          t,
+          workspace,
+          finance,
+          stale,
+          ReceiptsTabActionId.RejectReceipt,
+          buttonValueOf(stale, ReceiptsTabActionId.RejectReceipt, receipt.id),
+        );
+
+        await ownerChangesAmount(receipt, '300.00');
+        const since = t.slackApi.mark();
+
+        await t.slack
+          .submitView(workspace, finance, form, { reason: 'Too much' })
+          .expect(200)
+          .expect(({ body }) =>
+            expect(body).toEqual({ response_action: 'clear' }),
+          );
+
+        const shown = await publishedHome(t, workspace, finance, since);
+
+        expect(noticeOf(shown)).toBe('⚠️ This receipt was changed meanwhile.');
+        expect(listItems(shown)[0].fields).toEqual({
+          Amount: '$300.00',
+          Status: '⏳ Waiting',
+        });
+        expect(await receiptRow(receipt.id)).toEqual(
+          expect.objectContaining({
+            status: ReceiptStatus.Submitted,
+            amount_cents: 30000,
+            rejection_reason: null,
+          }),
+        );
+        expect(
+          t.slackApi.postedMessages(workspace.token, anna.slack_id),
+        ).toEqual([]);
+      });
+    });
+
     it('rejects with a reason, and tells the owner in a DM', async () => {
       const receipt = await seed(anna, {
         fileName: 'gym-june.pdf',
         amountCents: 3000,
       });
+      const stale = await open();
       const form = await openModalFrom(
         t,
         workspace,
         finance,
-        await open(),
+        stale,
         ReceiptsTabActionId.RejectReceipt,
-        receipt.id,
+        buttonValueOf(stale, ReceiptsTabActionId.RejectReceipt, receipt.id),
       );
 
       const empty = await t.slack
@@ -869,13 +969,14 @@ describe('The Receipts screen', () => {
         fileName: 'gym-june.pdf',
         amountCents: 3000,
       });
+      const stale = await open();
       const form = await openModalFrom(
         t,
         workspace,
         finance,
-        await open(),
+        stale,
         ReceiptsTabActionId.RejectReceipt,
-        receipt.id,
+        buttonValueOf(stale, ReceiptsTabActionId.RejectReceipt, receipt.id),
       );
 
       await t.slack

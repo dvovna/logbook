@@ -22,6 +22,7 @@ import { ReceiptsModalName } from '@modules/slack/tabs/receipts/enums/receipts-t
 import { IReimbursementFormData } from '@modules/slack/tabs/receipts/parsers/reimbursement-modal.parser';
 import { ReimbursementModalView } from '@modules/slack/tabs/receipts/views/reimbursement-modal.view';
 import { RejectReceiptModalView } from '@modules/slack/tabs/receipts/views/reject-receipt-modal.view';
+import { IDecisionValue } from '@modules/slack/tabs/receipts/utils/receipt-decision-value';
 import {
   IReceiptsTabMetadata,
   PEOPLE_PAGE_SIZE,
@@ -33,7 +34,11 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
 import { assertCanManageReceipts } from 'src/receipts/constants/receipt-roles';
 import { ReceiptStatus } from 'src/receipts/enums/receipt-status.enum';
-import { ReceiptDecisionsService } from 'src/receipts/services/receipt-decisions.service';
+import { ReceiptChangedError } from 'src/receipts/errors/receipt-changed.error';
+import {
+  IExpectedReceipt,
+  ReceiptDecisionsService,
+} from 'src/receipts/services/receipt-decisions.service';
 import { ReceiptsMonthService } from 'src/receipts/services/receipts-month.service';
 import { ReceiptsService } from 'src/receipts/services/receipts.service';
 import { ReimbursementsService } from 'src/receipts/services/reimbursements.service';
@@ -45,6 +50,8 @@ import {
 
 export interface IReceiptsModalParams extends IOpenModalBaseParams<string> {
   receiptId?: string;
+  // When the receipt was sent as the screen showed it.
+  expectedSubmittedAt?: string;
   reimbursementId?: string;
   // What the form is filled with again after an error: what was typed.
   typed?: IReimbursementFormData;
@@ -156,15 +163,17 @@ export class ReceiptsTabService extends BaseTabService<
     );
   }
 
+  // A receipt sent again since the screen showed it is refused, and the
+  // screen shows it as it is now.
   public async accept(
-    receiptId: string,
+    { receiptId, expected }: IDecisionValue,
     user: IUserViewModel,
     metadata: IReceiptsTabMetadata,
   ) {
     let notice: string;
 
     try {
-      const receipt = await this.decisions.accept(receiptId, user);
+      const receipt = await this.decisions.accept(receiptId, user, expected);
 
       notice = `✅ Accepted ${receipt.fileName} from ${await this.ownerName(receipt)}.`;
     } catch (error) {
@@ -255,13 +264,26 @@ export class ReceiptsTabService extends BaseTabService<
     await this.publish({ user, metadata, notice });
   }
 
-  // The notice a form that rejects shows on the screen.
+  // The notice a form that rejects shows on the screen. A receipt sent again
+  // since the form was opened closes it with the refusal, and the screen
+  // shows the receipt as it is now.
   public async reject(
     receiptId: string,
     reason: string,
     user: IUserViewModel,
+    expected?: IExpectedReceipt,
   ): Promise<string> {
-    const receipt = await this.decisions.reject(receiptId, reason, user);
+    let receipt: IReceiptViewModel;
+
+    try {
+      receipt = await this.decisions.reject(receiptId, reason, user, expected);
+    } catch (error) {
+      if (error instanceof ReceiptChangedError) {
+        return `⚠️ ${error.message}`;
+      }
+
+      throw error;
+    }
 
     return `❌ Rejected ${receipt.fileName}. ${await this.ownerName(receipt)} gets a message about it.`;
   }
@@ -313,6 +335,7 @@ export class ReceiptsTabService extends BaseTabService<
   private async getRejectModal({
     user,
     receiptId,
+    expectedSubmittedAt,
     pageMetadata,
     errorMessage,
   }: IReceiptsModalParams) {
@@ -348,7 +371,7 @@ export class ReceiptsTabService extends BaseTabService<
             : formatMoney(receipt.amountCents, currency),
         errorMessage,
       },
-      { id: receipt.id, pageMetadata },
+      { id: receipt.id, submittedAt: expectedSubmittedAt, pageMetadata },
     );
   }
 

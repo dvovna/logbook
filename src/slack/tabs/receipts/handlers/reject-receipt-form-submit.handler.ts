@@ -43,7 +43,14 @@ export class RejectReceiptFormSubmitHandler extends BaseModalFormSubmitHandler<
     meta: IRejectReceiptMetadata,
     user: IUserViewModel,
   ) {
-    return this.receiptsTabService.reject(meta.id, data.reason, user);
+    return this.receiptsTabService.reject(
+      meta.id,
+      data.reason,
+      user,
+      meta.submittedAt === undefined
+        ? undefined
+        : { submittedAt: meta.submittedAt },
+    );
   }
 
   protected successResponse(
@@ -70,6 +77,7 @@ export class RejectReceiptFormSubmitHandler extends BaseModalFormSubmitHandler<
       await this.receiptsTabService.getRejectErrorModal({
         user,
         receiptId: meta.id,
+        expectedSubmittedAt: meta.submittedAt,
         errorMessage,
         pageMetadata: meta.pageMetadata ?? '',
       }),

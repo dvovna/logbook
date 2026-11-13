@@ -23,6 +23,14 @@ import {
 import { ReceiptsRepository } from '@modules/receipts/repositories/receipts.repository';
 import { IReceiptViewModel } from '@modules/receipts/types/receipt.interface';
 
+// The receipt as the person deciding saw it.
+export interface IExpectedReceipt {
+  submittedAt: string | null;
+}
+
+const sameMoment = (a: string | null, b: string | null) =>
+  a === b || (a !== null && b !== null && Date.parse(a) === Date.parse(b));
+
 @Injectable()
 export class ReceiptDecisionsService {
   public constructor(
@@ -35,17 +43,21 @@ export class ReceiptDecisionsService {
   public accept(
     receiptId: string,
     actor: IUserViewModel,
+    expected?: IExpectedReceipt,
   ): Promise<IReceiptViewModel> {
-    return this.decide(receiptId, actor, {
-      status: ReceiptStatus.Accepted,
-      rejection_reason: null,
-    });
+    return this.decide(
+      receiptId,
+      actor,
+      { status: ReceiptStatus.Accepted, rejection_reason: null },
+      expected,
+    );
   }
 
   public async reject(
     receiptId: string,
     reason: string,
     actor: IUserViewModel,
+    expected?: IExpectedReceipt,
   ): Promise<IReceiptViewModel> {
     const trimmed = reason.trim();
 
@@ -56,20 +68,24 @@ export class ReceiptDecisionsService {
       );
     }
 
-    return this.decide(receiptId, actor, {
-      status: ReceiptStatus.Rejected,
-      rejection_reason: trimmed,
-    });
+    return this.decide(
+      receiptId,
+      actor,
+      { status: ReceiptStatus.Rejected, rejection_reason: trimmed },
+      expected,
+    );
   }
 
-  // A decision is made on the receipt as the person saw it: the update takes
-  // only a receipt still in that status and sent at that moment (its owner
-  // sending it again is a new one), so of two decisions at once the second
-  // finds it changed, and an owner's change meanwhile is never decided over.
+  // A decision is made on the receipt as the person saw it: `expected` is
+  // when it was sent as the screen showed it (its owner saving it again sends
+  // it again), and the update takes only a receipt still in the status and
+  // sent at the moment read here, so of two decisions at once the second
+  // finds it changed, and an owner's change is never decided over.
   private async decide(
     receiptId: string,
     actor: IUserViewModel,
     change: { status: ReceiptStatus; rejection_reason: string | null },
+    expected?: IExpectedReceipt,
   ): Promise<IReceiptViewModel> {
     assertCanManageReceipts(actor);
 
@@ -80,6 +96,10 @@ export class ReceiptDecisionsService {
 
     if (!receipt) {
       throw new NotFoundException(`Receipt ${receiptId} not found`);
+    }
+
+    if (expected && !sameMoment(receipt.submittedAt, expected.submittedAt)) {
+      throw new ReceiptChangedError();
     }
 
     if (

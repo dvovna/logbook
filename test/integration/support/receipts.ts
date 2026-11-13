@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'crypto';
+import { View } from '@slack/types/dist/views';
 import { Tables } from '@common/types/database.types';
 import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
 import { ITestApp } from './test-app';
@@ -76,3 +77,55 @@ export const shareReceipt = (
   content: string | Buffer,
   fileName = 'receipt.pdf',
 ) => shareTeamFile(t, workspace, user, content, fileName);
+
+type SlackElement = {
+  type?: string;
+  action_id?: string;
+  value?: string;
+  options?: { value: string }[];
+};
+
+const elementsOf = (view: View): SlackElement[] =>
+  (
+    view.blocks as { elements?: SlackElement[]; accessory?: SlackElement }[]
+  ).flatMap((block) => [
+    ...(block.elements ?? []),
+    ...(block.accessory ? [block.accessory] : []),
+  ]);
+
+// What Finance's screen put in a receipt's Accept or Reject button: the
+// receipt and the moment it was sent, as it was shown.
+export const buttonValueOf = (
+  view: View,
+  actionId: string,
+  receiptId: string,
+): string => {
+  const button = elementsOf(view).find(
+    (element) =>
+      element.action_id === actionId && element.value?.startsWith(receiptId),
+  );
+
+  if (!button?.value) {
+    throw new Error(`No ${actionId} button for receipt ${receiptId}`);
+  }
+
+  return button.value;
+};
+
+// The same in the ⋯ menu of a decided receipt: `<action>:<value>`.
+export const menuValueOf = (
+  view: View,
+  action: string,
+  receiptId: string,
+): string => {
+  const value = elementsOf(view)
+    .flatMap(({ options }) => options ?? [])
+    .map((option) => option.value)
+    .find((option) => option.startsWith(`${action}:${receiptId}`));
+
+  if (!value) {
+    throw new Error(`No ${action} option for receipt ${receiptId}`);
+  }
+
+  return value;
+};

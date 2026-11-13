@@ -23,6 +23,7 @@ import {
 } from '@modules/slack/common/views/data/labels';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ReceiptsTabActionId } from '@modules/slack/tabs/receipts/enums/receipts-tab-action-id.enum';
+import { toDecisionValue } from '@modules/slack/tabs/receipts/utils/receipt-decision-value';
 import { ReceiptStatus } from 'src/receipts/enums/receipt-status.enum';
 import {
   IReceiptsMonth,
@@ -379,6 +380,7 @@ export class ReceiptsTabView extends BaseTabView<
     currency: string,
   ): AnyBlock[] {
     const waiting = receipt.status === ReceiptStatus.Submitted;
+    const decision = toDecisionValue(receipt);
     const line = [
       detail(
         'Amount',
@@ -410,13 +412,13 @@ export class ReceiptsTabView extends BaseTabView<
               button(
                 'Accept',
                 ReceiptsTabActionId.AcceptReceipt,
-                receipt.id,
+                decision,
                 'primary',
               ),
               button(
                 'Reject',
                 ReceiptsTabActionId.RejectReceipt,
-                receipt.id,
+                decision,
                 'danger',
               ),
               button('Open', ReceiptsTabActionId.OpenReceipt, receipt.id),
@@ -427,10 +429,10 @@ export class ReceiptsTabView extends BaseTabView<
   }
 
   // Open, and the opposite decision.
-  private getDecidedMenu({
-    id,
-    status,
-  }: IReceiptsMonthReceipt): SectionBlockAccessory {
+  private getDecidedMenu(
+    receipt: IReceiptsMonthReceipt,
+  ): SectionBlockAccessory {
+    const { id, status } = receipt;
     const accepted = status === ReceiptStatus.Accepted;
     const action = accepted
       ? ReceiptsTabActionId.RejectReceipt
@@ -446,7 +448,7 @@ export class ReceiptsTabView extends BaseTabView<
         },
         {
           text: { type: 'plain_text', text: accepted ? 'Reject' : 'Accept' },
-          value: `${action}:${id}`,
+          value: `${action}:${toDecisionValue(receipt)}`,
         },
       ],
     };

@@ -18,6 +18,9 @@ interface IRejectReceiptParams extends IBaseModalViewParams {
 
 export interface IRejectReceiptMetadata {
   id: string;
+  // When the receipt was sent as the screen showed it (none from a view
+  // published before it was added).
+  submittedAt?: string;
   // The screen to show again after the decision.
   pageMetadata?: string;
 }

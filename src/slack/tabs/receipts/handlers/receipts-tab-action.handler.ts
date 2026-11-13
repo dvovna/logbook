@@ -22,6 +22,7 @@ import {
 } from '@modules/slack/tabs/receipts/enums/receipts-tab-action-id.enum';
 import { ReceiptsTabService } from '@modules/slack/tabs/receipts/services/receipts-tab.service';
 import { IReceiptsTabMetadata } from '@modules/slack/tabs/receipts/views/receipts-tab.view';
+import { parseDecisionValue } from '@modules/slack/tabs/receipts/utils/receipt-decision-value';
 
 // The receipt and reimbursement IDs come from buttons and menus, so from the
 // client: the services check that they are the workspace's, and the role.
@@ -128,13 +129,14 @@ export class ReceiptsTabActionHandler extends BaseTabActionHandler {
     );
   }
 
+  // `value`: the receipt and when it was sent as the screen showed it.
   private accept(
-    receiptId: string,
+    value: string,
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) {
     return this.receiptsTabService.accept(
-      receiptId,
+      parseDecisionValue(value),
       user,
       parseMetadata<IReceiptsTabMetadata>(payload),
     );
@@ -153,13 +155,15 @@ export class ReceiptsTabActionHandler extends BaseTabActionHandler {
   }
 
   private openReject(
-    receiptId: string,
+    value: string,
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) {
+    const { receiptId, expected } = parseDecisionValue(value);
+
     return this.openModal(
       ReceiptsModalName.RejectReceipt,
-      { receiptId },
+      { receiptId, expectedSubmittedAt: expected?.submittedAt },
       payload,
       user,
     );
@@ -167,17 +171,17 @@ export class ReceiptsTabActionHandler extends BaseTabActionHandler {
 
   private handleReceiptMenu = async (
     actionType: ReceiptsTabActionId,
-    receiptId: string,
+    value: string,
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) => {
     switch (actionType) {
       case ReceiptsTabActionId.AcceptReceipt:
-        return this.accept(receiptId, payload, user);
+        return this.accept(value, payload, user);
       case ReceiptsTabActionId.RejectReceipt:
-        return this.openReject(receiptId, payload, user);
+        return this.openReject(value, payload, user);
       case ReceiptsTabActionId.OpenReceipt:
-        return this.openFile(receiptId, payload, user);
+        return this.openFile(value, payload, user);
       default:
         this.logger.warn(`Unhandled receipt menu action: ${actionType}`);
     }
@@ -211,7 +215,11 @@ export class ReceiptsTabActionHandler extends BaseTabActionHandler {
 
   private async openModal(
     modalName: ReceiptsModalName,
-    ids: { receiptId?: string; reimbursementId?: string },
+    ids: {
+      receiptId?: string;
+      expectedSubmittedAt?: string;
+      reimbursementId?: string;
+    },
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
   ) {

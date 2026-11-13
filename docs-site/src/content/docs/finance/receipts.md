@@ -50,7 +50,7 @@ A waiting receipt has three buttons:
 
 A decided receipt has a menu with **Open** and the opposite decision (**Reject** for an accepted one, **Accept** for a rejected one), so you can change your mind. Changing a decision to a rejection sends the person the same message.
 
-Two of you can click at the same moment: the second finds the receipt changed and the screen shows the new state.
+Two of you can click at the same moment: the second finds the receipt changed and the screen shows the new state. The same happens when the person changed the receipt after your screen showed it, for example its amount: Logbook refuses the decision with "⚠️ This receipt was changed meanwhile." and shows the receipt as it is now, so you decide on what you see.
 
 Nobody decides on their own receipt. If there is no other active person with the Admin or Finance role, you can.
 
