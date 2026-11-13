@@ -13,6 +13,7 @@ import {
 import { PostgresReceiptFileStore } from '@modules/receipts/services/postgres-receipt-file.store';
 import { ReceiptFileStore } from '@modules/receipts/services/receipt-file.store';
 import { ReceiptDecisionsService } from '@modules/receipts/services/receipt-decisions.service';
+import { ReceiptRetentionService } from '@modules/receipts/services/receipt-retention.service';
 import { ReceiptsArchiveService } from '@modules/receipts/services/receipts-archive.service';
 import { ReceiptsHomeService } from '@modules/receipts/services/receipts-home.service';
 import { ReceiptsMonthService } from '@modules/receipts/services/receipts-month.service';
@@ -35,6 +36,7 @@ import { ReimbursementsService } from '@modules/receipts/services/reimbursements
     ReceiptDecisionsService,
     ReceiptsMonthService,
     ReceiptsArchiveService,
+    ReceiptRetentionService,
     {
       provide: RECEIPTS_ARCHIVE_LIMITS,
       useValue: { ...DEFAULT_RECEIPTS_ARCHIVE_LIMITS },

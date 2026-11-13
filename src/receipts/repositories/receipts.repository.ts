@@ -45,6 +45,58 @@ export class ReceiptsRepository extends BaseRepository<
     return owners;
   }
 
+  // Their files go with them (receipt_files cascades).
+  public async deleteDraftsBefore(
+    slackTeamId: string,
+    cutoff: Date,
+  ): Promise<number> {
+    const result = await this.deleteInWorkspace(slackTeamId)
+      .where('status', '=', ReceiptStatus.Draft)
+      .where('created_at', '<', cutoff.toISOString())
+      .executeTakeFirstOrThrow();
+
+    return Number(result.numDeletedRows);
+  }
+
+  // Rows another sweep holds are skipped, so two processes never wait for or
+  // repeat each other.
+  public async lockIdsWithFilesBefore(
+    slackTeamId: string,
+    cutoff: Date,
+    limit: number,
+  ): Promise<string[]> {
+    const rows = await this.selectInWorkspace(slackTeamId)
+      .select('id')
+      .where('status', '<>', ReceiptStatus.Draft)
+      .where('file_deleted_at', 'is', null)
+      .where('created_at', '<', cutoff.toISOString())
+      .orderBy('created_at')
+      .limit(limit)
+      .forUpdate()
+      .skipLocked()
+      .execute();
+
+    return rows.map(({ id }) => id as string);
+  }
+
+  public async markFilesDeleted(
+    slackTeamId: string,
+    ids: string[],
+    at: Date,
+  ): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+
+    const result = await this.updateInWorkspace(slackTeamId)
+      .set({ file_deleted_at: at.toISOString() })
+      .where('id', '=', (eb) => eb.fn.any(eb.val(ids)))
+      .where('file_deleted_at', 'is', null)
+      .executeTakeFirstOrThrow();
+
+    return Number(result.numUpdatedRows);
+  }
+
   protected mapToViewModel = (row: SqlRow<'receipts'>): IReceiptViewModel => ({
     id: row.id,
     slackTeamId: row.slack_team_id,
