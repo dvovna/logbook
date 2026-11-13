@@ -399,6 +399,33 @@ describe('Receipt files', () => {
         ]);
       });
 
+      // Each part holds its files and their ZIP in memory: the job slots
+      // would let four go at once.
+      it('uploads one part at a time, however fast they start', async () => {
+        const uploadFile = t.slackApi.uploadFile.bind(t.slackApi);
+        let uploading = 0;
+        let mostAtOnce = 0;
+
+        jest
+          .spyOn(t.slackApi, 'uploadFile')
+          .mockImplementation(async (params) => {
+            uploading += 1;
+            mostAtOnce = Math.max(mostAtOnce, uploading);
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            uploading -= 1;
+
+            return uploadFile(params);
+          });
+        const tab = await screen();
+        const since = t.slackApi.mark();
+
+        await click(finance, tab, ReceiptsTabActionId.DownloadMonth);
+        await t.idle();
+
+        expect(partsSent(since)).toEqual(ALL_PARTS);
+        expect(mostAtOnce).toBe(1);
+      });
+
       it('sends again only the part that failed, on its retry', async () => {
         const shareFile = t.slackApi.shareFile.bind(t.slackApi);
         let failed = false;

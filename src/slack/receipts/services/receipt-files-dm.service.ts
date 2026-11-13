@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { JobsService } from '@common/jobs/jobs.service';
 import { ValidationError } from '@common/errors/validation.error';
+import { ConcurrencyLimit } from '@common/utils/concurrency-limit';
 import { formatMoney } from '@common/utils/money.utils';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { DmFileService } from '@modules/slack/common/services/dm-file.service';
@@ -71,6 +72,14 @@ const downloadKey = (userId: string, reimbursementId: string, month: string) =>
 @Injectable()
 export class ReceiptFilesDmService implements OnModuleInit {
   private readonly logger = new Logger(ReceiptFilesDmService.name);
+
+  // One file or part is read, zipped and uploaded at a time in the process.
+  // A part holds its files and the ZIP made of them, and pg reads bytea as
+  // hex text: about 100 MB each while it lasts, so as many at once as there
+  // are job slots is more than a 512 MB machine has. The saved copies of a
+  // download whose process stopped come due together, and the worker starts
+  // them together.
+  private readonly heavyWork = new ConcurrencyLimit(1);
 
   public constructor(
     private readonly receipts: ReceiptsService,
@@ -203,11 +212,7 @@ export class ReceiptFilesDmService implements OnModuleInit {
       );
     }
 
-    const content = receipt.fileDeletedAt
-      ? null
-      : await this.store.get(receipt.id, user.slack_team_id);
-
-    if (!content) {
+    if (receipt.fileDeletedAt) {
       await this.dmFileService.say(user, FILE_DELETED);
 
       return;
@@ -237,11 +242,22 @@ export class ReceiptFilesDmService implements OnModuleInit {
       .filter(Boolean)
       .join(' · ');
 
-    await this.dmFileService.send(user, {
-      intro: `🧾 ${intro}`,
-      title: receipt.fileName,
-      filename: receipt.fileName,
-      content,
+    await this.heavyWork.run(async () => {
+      const content = await this.store.get(receipt.id, user.slack_team_id);
+
+      // Deleted after the retention period since the receipt was read.
+      if (!content) {
+        await this.dmFileService.say(user, FILE_DELETED);
+
+        return;
+      }
+
+      await this.dmFileService.send(user, {
+        intro: `🧾 ${intro}`,
+        title: receipt.fileName,
+        filename: receipt.fileName,
+        content,
+      });
     });
   }
 
@@ -311,32 +327,35 @@ export class ReceiptFilesDmService implements OnModuleInit {
       currency,
     );
     const files = new Map(parts.flat().map((file) => [file.receiptId, file]));
-    const entries = await this.archive.readPart(
-      job.receiptIds.flatMap((id) => files.get(id) ?? []),
-      user.slack_team_id,
-    );
-
-    if (job.part === 1) {
-      entries.unshift(
-        { name: 'receipts.csv', content: Buffer.from(receiptsCsv) },
-        { name: 'totals.csv', content: Buffer.from(totalsCsv) },
-      );
-    }
-
     const label = `${overview.reimbursement.name}, ${monthLabel(job.month)}`;
     const ofParts = `part ${job.part} of ${job.parts}`;
 
-    // Without files:write part 1 says how to fix it; the others end quietly.
-    await this.dmFileService.send(
-      user,
-      {
-        intro: `📦 Receipts for ${escapeMrkdwn(label)} (${ofParts}).`,
-        title: `Receipts for ${label} (${ofParts})`,
-        filename: `${safeFileName(`Receipts ${overview.reimbursement.name} ${job.month.slice(0, 7)} ${ofParts}`)}.zip`,
-        content: this.archive.buildPart(entries),
-      },
-      { quietWithoutFiles: job.part > 1 },
-    );
+    await this.heavyWork.run(async () => {
+      const entries = await this.archive.readPart(
+        job.receiptIds.flatMap((id) => files.get(id) ?? []),
+        user.slack_team_id,
+      );
+
+      if (job.part === 1) {
+        entries.unshift(
+          { name: 'receipts.csv', content: Buffer.from(receiptsCsv) },
+          { name: 'totals.csv', content: Buffer.from(totalsCsv) },
+        );
+      }
+
+      // Without files:write part 1 says how to fix it; the others end
+      // quietly.
+      await this.dmFileService.send(
+        user,
+        {
+          intro: `📦 Receipts for ${escapeMrkdwn(label)} (${ofParts}).`,
+          title: `Receipts for ${label} (${ofParts})`,
+          filename: `${safeFileName(`Receipts ${overview.reimbursement.name} ${job.month.slice(0, 7)} ${ofParts}`)}.zip`,
+          content: this.archive.buildPart(entries),
+        },
+        { quietWithoutFiles: job.part > 1 },
+      );
+    });
   }
 
   private async tellFileNotSent({ slackTeamId, userId }: IReceiptOpenJob) {
