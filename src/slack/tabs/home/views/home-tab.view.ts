@@ -4,7 +4,10 @@ import {
 } from '@modules/slack/common/views/data/labels';
 import { SCREENS, ScreenId } from '@modules/slack/common/navigation/screens';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
-import { formatDateRange } from '@common/utils/date.utils';
+import { formatDateRange, formatDayMonth } from '@common/utils/date.utils';
+import { formatMoney } from '@common/utils/money.utils';
+import { monthLabel } from '@modules/receipts/utils/receipt-months';
+import { IReceiptsHomeSummary } from 'src/receipts/services/receipts-home.service';
 import { Injectable } from '@nestjs/common';
 import { AnyBlock } from '@slack/web-api';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
@@ -40,6 +43,8 @@ interface IGetViewParams extends IBaseTabViewParams {
   pendingApprovals: IPendingApprovals;
   // The setup checklist, for Admin and HR until the workspace is set up.
   setup: ISetupProgress | null;
+  // What the workspace collects receipts for, null when nothing.
+  receipts: (IReceiptsHomeSummary & { currency: string }) | null;
 }
 
 // The setup checklist's blocks: `setup`, `setup_done`, `setup_<step>`.
@@ -72,6 +77,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     timeSummary,
     pendingApprovals,
     setup,
+    receipts,
   }: IGetViewParams) {
     return [
       ...(setup ? this.getSetupBlocks(setup) : []),
@@ -82,6 +88,7 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         timeSummary,
         requestedVacations,
       ),
+      ...(receipts ? this.getReceiptsBlocks(receipts) : []),
     ];
   }
 
@@ -236,6 +243,50 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
               ];
         }),
       ...Divider.getBlocks(),
+    ];
+  }
+
+  // What was sent for each reimbursement being collected, and when it is
+  // due.
+  private getReceiptsBlocks({
+    lines,
+    drafts,
+    currency,
+  }: NonNullable<IGetViewParams['receipts']>): AnyBlock[] {
+    const section = (text: string): AnyBlock => ({
+      type: 'section',
+      text: { type: 'mrkdwn', text },
+    });
+
+    return [
+      ...Divider.getBlocks(),
+      section('*🧾 Receipts*'),
+      ...lines.map(({ reimbursementName, month, count, totalCents, dueDate }) =>
+        section(
+          `${escapeMrkdwn(reimbursementName)} · ${monthLabel(month)}: ${
+            count
+              ? `${pluralize('receipt', count, true)}, ${formatMoney(totalCents, currency)}`
+              : 'nothing sent yet'
+          } · due ${formatDayMonth(dueDate)}`,
+        ),
+      ),
+      ...(drafts
+        ? [
+            section(
+              `${pluralize('receipt', drafts, true)} ${drafts === 1 ? 'needs' : 'need'} details`,
+            ),
+          ]
+        : []),
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'My receipts' },
+            action_id: NavigationActionId.MyReceipts,
+          },
+        ],
+      },
     ];
   }
 

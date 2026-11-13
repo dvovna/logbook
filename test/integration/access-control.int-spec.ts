@@ -9,6 +9,7 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
+import { seedReimbursement } from './support/receipts';
 import { navigate, openAppHomeTab, openModalFrom } from './support/app-home';
 import { SlackJson } from './support/block-kit';
 import { actionIdsOf, modalError } from './support/tab-readers';
@@ -194,6 +195,7 @@ describe('Access control', () => {
         'member',
         [
           NavigationActionId.Home,
+          NavigationActionId.MyReceipts,
           NavigationActionId.MyTime,
           NavigationActionId.TimeOff,
           NavigationActionId.Reports,
@@ -203,6 +205,7 @@ describe('Access control', () => {
         'manager',
         [
           NavigationActionId.Home,
+          NavigationActionId.MyReceipts,
           NavigationActionId.MyTime,
           NavigationActionId.TimeOff,
           NavigationActionId.Approvals,
@@ -223,6 +226,7 @@ describe('Access control', () => {
         'finance',
         [
           NavigationActionId.Home,
+          NavigationActionId.MyReceipts,
           NavigationActionId.MyTime,
           NavigationActionId.TimeOff,
           NavigationActionId.Reports,
@@ -236,6 +240,10 @@ describe('Access control', () => {
       'leads a %s from every button and menu option only to screens it may open',
       async (role, reachable) => {
         const user = { member, manager, hr, finance, admin }[role];
+
+        // Home offers My receipts only where receipts are collected.
+        await seedReimbursement(t, workspace);
+
         const navigation = new Set<string>(SCREEN_ACTIONS);
         const followed = new Set<string>();
         const bounced: string[] = [];

@@ -106,4 +106,6 @@ export enum ViewCallbackId {
   // The DM that waits for the details of a receipt the person sent.
   ReceivedReceiptMessage = 'received_receipt_message',
   ReceiptDetailsForm = 'receipt_details_form',
+  MyReceiptsTabView = 'my_receipts_tab_view',
+  DeleteReceiptForm = 'delete_receipt_form',
 }

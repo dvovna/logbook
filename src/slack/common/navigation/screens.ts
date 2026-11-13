@@ -31,6 +31,7 @@ export enum ScreenId {
   AllRequests = 'all_requests',
   TimeLogs = 'time_logs',
   BillingSnapshots = 'billing_snapshots',
+  MyReceipts = 'my_receipts',
 }
 
 export interface IScreen {
@@ -151,6 +152,13 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     tabId: TabId.BillingSnapshots,
     actionId: NavigationActionId.BillingSnapshots,
     parent: ScreenId.Reports,
+  },
+  [ScreenId.MyReceipts]: {
+    title: '🧾 My receipts',
+    roles: ALL_ROLES,
+    tabId: TabId.MyReceipts,
+    actionId: NavigationActionId.MyReceipts,
+    parent: ScreenId.Home,
   },
 };
 

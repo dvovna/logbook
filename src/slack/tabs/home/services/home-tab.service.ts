@@ -8,12 +8,16 @@ import BaseTabService, {
   IPublishBaseParams,
 } from '@modules/slack/common/services/base-tab.service';
 import { View } from '@slack/types/dist/views';
+import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
 import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
+import { getDateOnly } from '@common/utils/date.utils';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
+import { ReceiptsHomeService } from 'src/receipts/services/receipts-home.service';
 import { TimeEntriesSummaryService } from 'src/time-entries/services/time-entries-summary.service';
 
 export enum HomeTabModalName {
@@ -58,6 +62,8 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
     private readonly setupProgressService: SetupProgressService,
+    private readonly receiptsHomeService: ReceiptsHomeService,
+    private readonly slackTeamsService: SlackTeamsService,
   ) {
     super(TabId.Home, {
       [HomeTabModalName.ViewVacationRequest]: (params) =>
@@ -77,6 +83,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       requestedVacations,
       timeSummary,
       setup,
+      receipts,
       approvals,
     ] = await Promise.all([
       this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
@@ -88,6 +95,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       }),
       this.timeEntriesSummaryService.getUserSummary(user),
       this.setupProgressService.get(user),
+      this.getReceipts(user),
       // Counted by BaseTabService for the Approvals button too.
       pendingApprovals,
     ]);
@@ -101,7 +109,24 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       timeSummary,
       pendingApprovals: approvals ?? { timeOff: 0, timeEntries: 0 },
       setup,
+      receipts,
     });
+  }
+
+  // Beside Home's other reads: one statement, and no currency, when the
+  // workspace collects no receipts.
+  private async getReceipts(user: IUserViewModel) {
+    const summary = await this.receiptsHomeService.summaryFor(
+      user,
+      getDateOnly(new Date()),
+    );
+
+    return (
+      summary && {
+        ...summary,
+        currency: await this.slackTeamsService.getCurrency(user.slack_team_id),
+      }
+    );
   }
 
   private getViewVacationRequestModal(params: IRequestModalParams) {

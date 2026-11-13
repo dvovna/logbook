@@ -3,6 +3,7 @@ import { ReceiptsRepository } from '@modules/receipts/repositories/receipts.repo
 import { ReimbursementsRepository } from '@modules/receipts/repositories/reimbursements.repository';
 import { PostgresReceiptFileStore } from '@modules/receipts/services/postgres-receipt-file.store';
 import { ReceiptFileStore } from '@modules/receipts/services/receipt-file.store';
+import { ReceiptsHomeService } from '@modules/receipts/services/receipts-home.service';
 import { ReceiptsService } from '@modules/receipts/services/receipts.service';
 import { ReimbursementsService } from '@modules/receipts/services/reimbursements.service';
 
@@ -13,7 +14,13 @@ import { ReimbursementsService } from '@modules/receipts/services/reimbursements
     ReimbursementsService,
     { provide: ReceiptFileStore, useClass: PostgresReceiptFileStore },
     ReceiptsService,
+    ReceiptsHomeService,
   ],
-  exports: [ReceiptsService, ReimbursementsService, ReceiptFileStore],
+  exports: [
+    ReceiptsService,
+    ReceiptsHomeService,
+    ReimbursementsService,
+    ReceiptFileStore,
+  ],
 })
 export class ReceiptsModule {}

@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ALL_ROLES } from '@common/constants/role-groups';
 import { getDateOnly } from '@common/utils/date.utils';
 import { runInBackground } from '@common/utils/run-in-background';
+import {
+  TabId,
+  TabNavigationService,
+} from '@modules/slack/common/services/tab-navigation.service';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { BaseModalFormSubmitHandler } from '@modules/slack/common/handlers/base-modal-view-submit.handler';
@@ -42,6 +46,7 @@ export class ReceiptDetailsSubmitHandler extends BaseModalFormSubmitHandler<
     private readonly slackCommunicationService: SlackCommunicationService,
     private readonly modalView: ReceiptDetailsModalView,
     private readonly messageView: ReceivedReceiptMessageView,
+    private readonly tabNavigationService: TabNavigationService,
     parser: ReceiptDetailsParser,
   ) {
     super(parser);
@@ -67,12 +72,18 @@ export class ReceiptDetailsSubmitHandler extends BaseModalFormSubmitHandler<
   protected successResponse(
     receipt: IReceiptViewModel,
     user: IUserViewModel,
-    { channel, ts }: IReceiptDetailsMetadata,
+    { channel, ts, pageMetadata }: IReceiptDetailsMetadata,
   ) {
     if (channel && ts) {
       runInBackground(this.receiptLogger, 'replace the receipt message', () =>
         this.showSent(receipt, user, channel, ts),
       );
+    } else if (pageMetadata !== undefined) {
+      // Opened from My receipts.
+      this.tabNavigationService.navigate(TabId.MyReceipts, {
+        user,
+        notice: '✅ Receipt sent to Finance.',
+      });
     }
 
     return SlackViewResponseFactory.success();

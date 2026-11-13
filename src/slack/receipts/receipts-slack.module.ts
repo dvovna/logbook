@@ -19,6 +19,6 @@ import { ReceiptsModule } from 'src/receipts/receipts.module';
     ReceivedReceiptMessageHandler,
     ReceiptDetailsSubmitHandler,
   ],
-  exports: [ReceiptIntakeService],
+  exports: [ReceiptIntakeService, ReceiptDetailsModalView],
 })
 export class ReceiptsSlackModule {}
