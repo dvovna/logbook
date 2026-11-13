@@ -74,6 +74,10 @@ create index if not exists receipts_decided_by_idx
 create index if not exists receipts_workspace_user_sha256_idx
     on public.receipts (slack_team_id, user_id, sha256);
 
+-- Finds everyone's receipts with the same file as one of a month's.
+create index if not exists receipts_workspace_sha256_idx
+    on public.receipts (slack_team_id, sha256);
+
 alter table public.receipts enable row level security;
 
 -- Apart from receipts so that no list or select * reads the bytes.

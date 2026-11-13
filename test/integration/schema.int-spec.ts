@@ -47,4 +47,18 @@ describe('Schema', () => {
 
     expect(rows.map(({ foreign_key }) => foreign_key)).toEqual([]);
   });
+
+  // A month's receipts are joined to every receipt of the workspace with the
+  // same file (ReceiptsRepository.findFileOwners).
+  it('has an index for the receipts of a workspace by their file', async () => {
+    const { rows } = await sql<{ indexname: string }>`
+      select indexname from pg_indexes
+      where schemaname = 'public' and tablename = 'receipts'
+        and indexdef like '%(slack_team_id, sha256)'
+    `.execute(t.db);
+
+    expect(rows.map(({ indexname }) => indexname)).toEqual([
+      'receipts_workspace_sha256_idx',
+    ]);
+  });
 });
