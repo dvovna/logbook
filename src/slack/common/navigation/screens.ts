@@ -32,6 +32,8 @@ export enum ScreenId {
   TimeLogs = 'time_logs',
   BillingSnapshots = 'billing_snapshots',
   MyReceipts = 'my_receipts',
+  Receipts = 'receipts',
+  Reimbursements = 'reimbursements',
 }
 
 export interface IScreen {
@@ -159,6 +161,22 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     tabId: TabId.MyReceipts,
     actionId: NavigationActionId.MyReceipts,
     parent: ScreenId.Home,
+  },
+  // Admin and Finance check the month's receipts (BILLING_ROLES, as for rates
+  // and billing).
+  [ScreenId.Receipts]: {
+    title: '🧾 Receipts',
+    roles: BILLING_ROLES,
+    tabId: TabId.Receipts,
+    actionId: NavigationActionId.Receipts,
+    menuGroup: MenuGroup.Manage,
+  },
+  [ScreenId.Reimbursements]: {
+    title: '⚙️ Reimbursements',
+    roles: BILLING_ROLES,
+    tabId: TabId.Receipts,
+    metadata: { reimbursements: true },
+    parent: ScreenId.Receipts,
   },
 };
 

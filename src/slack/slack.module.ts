@@ -40,6 +40,7 @@ import { ApprovalsTabModule } from '@modules/slack/tabs/approvals/approvals-tab.
 import { UserOptionsService } from '@modules/slack/services/option-services/user-options.service';
 import { TimeTrackingModule } from '@modules/slack/tabs/time-tracking/time-tracking.module';
 import { ClientsTabModule } from '@modules/slack/tabs/clients/clients-tab.module';
+import { ReceiptsTabModule } from '@modules/slack/tabs/receipts/receipts-tab.module';
 import { MyReceiptsTabModule } from '@modules/slack/tabs/my-receipts/my-receipts-tab.module';
 import { BillingSnapshotsTabModule } from '@modules/slack/tabs/billing-snapshots/billing-snapshots-tab.module';
 
@@ -78,6 +79,7 @@ import { ReceiptsSlackModule } from '@modules/slack/receipts/receipts-slack.modu
     ClientsTabModule,
     BillingSnapshotsTabModule,
     MyReceiptsTabModule,
+    ReceiptsTabModule,
     ApprovalsTabModule,
     TeamFileSlackModule,
     TeamFileMessagesModule,

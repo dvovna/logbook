@@ -1,4 +1,5 @@
 import {
+  addMonths,
   collectedMonth,
   dueDateOf,
   isLate,
@@ -8,6 +9,12 @@ import {
 } from '@modules/receipts/utils/receipt-months';
 
 describe('receipt months', () => {
+  it('moves a month across a year', () => {
+    expect(addMonths('2026-01-01', -1)).toBe('2025-12-01');
+    expect(addMonths('2026-12-01', 1)).toBe('2027-01-01');
+    expect(addMonths('2026-06-01', 0)).toBe('2026-06-01');
+  });
+
   it('takes the month of a date', () => {
     expect(monthOf('2026-10-17')).toBe('2026-10-01');
   });

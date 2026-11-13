@@ -3,4 +3,6 @@
 export enum ReceiptActionId {
   AddDetails = 'receipt_add_details',
   Discard = 'receipt_discard',
+  // The button of the DM about a rejected receipt.
+  EditDetails = 'receipt_edit_details',
 }

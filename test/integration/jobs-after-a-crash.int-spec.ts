@@ -12,6 +12,9 @@ import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-re
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 import { UsersService } from '@modules/users/services/users.service';
 import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
+import { ReceiptDecisionsService } from '@modules/receipts/services/receipt-decisions.service';
+import { seedReceipt, seedReimbursement } from './support/receipts';
 import { createTestApp, ITestApp } from './support/test-app';
 import { slackId, TestWorkspace } from './support/test-workspace';
 import { acknowledged } from './support/slack-test-client';
@@ -406,5 +409,68 @@ describe('Jobs after a crash', () => {
       }),
     ]);
     expect(messagesTo(member)).toHaveLength(1);
+  });
+
+  describe('a receipt rejected just before', () => {
+    // The rejection commits with the job that tells its owner; the process
+    // dies before the job runs.
+    const rejectedJustBefore = async () => {
+      const finance = await workspace.addUser({ role: UserRole.Finance });
+      const gym = await seedReimbursement(t, workspace, { name: 'Gym' });
+      const receipt = await seedReceipt(t, workspace, member, {
+        reimbursement: gym,
+        month: '2026-06-01',
+        amountCents: 1500,
+      });
+      const actor = await t.app
+        .get(UsersService)
+        .findOneWithValidation({ id: finance.id, slackTeamId: workspace.id });
+
+      await crashingAfter(() =>
+        t.app.get(ReceiptDecisionsService).reject(receipt.id, 'Blurry', actor),
+      );
+
+      return receipt;
+    };
+    const dms = () =>
+      messagesTo(member).filter((message) =>
+        textOf(message).includes('was rejected: Blurry'),
+      );
+
+    it('tells its owner', async () => {
+      await rejectedJustBefore();
+
+      expect(dms()).toEqual([]);
+
+      await t.retryJobs();
+
+      expect(dms()).toHaveLength(1);
+    });
+
+    it('tells nobody when the owner sent it again meanwhile', async () => {
+      const receipt = await rejectedJustBefore();
+
+      await t.db
+        .updateTable('receipts')
+        .set({ status: ReceiptStatus.Submitted, rejection_reason: null })
+        .where('id', '=', receipt.id)
+        .execute();
+      await t.retryJobs();
+
+      expect(dms()).toEqual([]);
+    });
+
+    it('tells nobody who has been deactivated', async () => {
+      await rejectedJustBefore();
+
+      await t.db
+        .updateTable('users')
+        .set({ is_active: false })
+        .where('id', '=', member.id)
+        .execute();
+      await t.retryJobs();
+
+      expect(dms()).toEqual([]);
+    });
   });
 });

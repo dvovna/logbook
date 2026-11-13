@@ -8,6 +8,17 @@ const partsOf = (date: string) => ({
   monthIndex: Number(date.slice(5, 7)) - 1,
 });
 
+const MONTH_START = /^\d{4}-(0[1-9]|1[0-2])-01$/;
+
+export const isMonthStart = (value: string): boolean => MONTH_START.test(value);
+
+// `month` moved by `months` (negative: back).
+export const addMonths = (month: string, months: number): string => {
+  const { year, monthIndex } = partsOf(month);
+
+  return monthStart(year, monthIndex + months);
+};
+
 export const monthOf = (date: string): string => `${date.slice(0, 7)}-01`;
 
 // The month after `month`, on `dueDay`: October's receipts are due in November.

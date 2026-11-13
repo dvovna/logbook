@@ -92,6 +92,7 @@ const SCREEN_ROUND_TRIPS: Record<
 > = {
   'show Home to an admin': { roundTrips: 4, statements: 20 },
   'show Home to an admin with receipts': { roundTrips: 2, statements: 20 },
+  'show Receipts to an admin': { roundTrips: 3, statements: 11 },
   'show Approvals to an admin': { roundTrips: 2, statements: 6 },
   'show Reports to an admin': { roundTrips: 2, statements: 5 },
   'show Home to a manager': { roundTrips: 3, statements: 13 },
@@ -439,6 +440,35 @@ describe('Round trips to the database before the answer', () => {
 
     expect(sectionTexts(home)).toContain(
       'Gym · June 2026: 1 receipt, $45.00 · due 5 Jul',
+    );
+  });
+
+  // The month's reads sit beside each other: people, teams, receipts and
+  // the rest at once, whatever the number of receipts.
+  it('shows Receipts to an admin', async () => {
+    const admin = await workspace.addUser({ role: UserRole.Admin });
+    const gym = await seedReimbursement(t, workspace, {
+      name: 'Gym',
+      limitCents: 5000,
+    });
+
+    for (const amountCents of [1500, 2500, 3500]) {
+      await seedReceipt(t, workspace, member, {
+        reimbursement: gym,
+        month: '2026-06-01',
+        amountCents,
+      });
+    }
+    const home = await openAppHomeTab(t, workspace, admin);
+
+    const receipts = await measure(
+      'show Receipts to an admin',
+      () => navigate(t, workspace, admin, home, NavigationActionId.Receipts),
+      { screen: true },
+    );
+
+    expect(sectionTexts(receipts)).toContain(
+      '*Mia* · $75.00 of $50.00 ⚠️ over the limit',
     );
   });
 

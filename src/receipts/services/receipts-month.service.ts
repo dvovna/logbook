@@ -10,8 +10,7 @@ import { ReimbursementOptOutsRepository } from '@modules/receipts/repositories/r
 import { ReimbursementsService } from '@modules/receipts/services/reimbursements.service';
 import { IReceiptsMonth } from '@modules/receipts/types/receipts-month.interface';
 import { buildMonthOverview } from '@modules/receipts/utils/month-overview';
-
-const MONTH = /^\d{4}-(0[1-9]|1[0-2])-01$/;
+import { isMonthStart } from '@modules/receipts/utils/receipt-months';
 
 @Injectable()
 export class ReceiptsMonthService {
@@ -30,7 +29,7 @@ export class ReceiptsMonthService {
   ): Promise<IReceiptsMonth> {
     assertCanManageReceipts(actor);
 
-    if (!MONTH.test(params.month)) {
+    if (!isMonthStart(params.month)) {
       throw new ValidationError('Choose a month.', 'month');
     }
 
