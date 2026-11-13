@@ -272,6 +272,29 @@ describe('The Receipts screen', () => {
       expect(field.text).toContain('Reason: &amp;&amp;');
     });
 
+    it('marks the same file sent twice by one person', async () => {
+      const file = Buffer.from('one photo');
+
+      await seed(anna, {
+        fileName: 'gym.pdf',
+        amountCents: 2000,
+        content: file,
+      });
+      await seed(anna, {
+        fileName: 'gym-again.pdf',
+        amountCents: 2000,
+        content: file,
+        month: '2026-05-01',
+      });
+
+      const tab = await open();
+
+      expect(titlesOf(tab)).toEqual(['gym.pdf']);
+      expect(JSON.stringify(tab.blocks)).toContain(
+        'Same file as another of their receipts',
+      );
+    });
+
     it('shows the next month empty', async () => {
       await seed(anna, { fileName: 'gym-june.pdf', amountCents: 3000 });
 

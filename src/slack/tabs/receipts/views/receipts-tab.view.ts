@@ -407,6 +407,7 @@ export class ReceiptsTabView extends BaseTabView<
         receipt.late && '⏰ Late',
         receipt.alsoSentBy.length > 0 &&
           `Same file as ${escapeClipped(receipt.alsoSentBy.join(', '), MAX_NAMES_CHARACTERS)}`,
+        receipt.sentAgain && 'Same file as another of their receipts',
         detail('Comment', escapeClipped(receipt.comment, MAX_TYPED_CHARACTERS)),
         detail(
           'Reason',

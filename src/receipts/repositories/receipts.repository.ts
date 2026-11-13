@@ -14,7 +14,7 @@ export class ReceiptsRepository extends BaseRepository<
 
   // Who sent each file (by its hash) that a reimbursement's month holds: the
   // owners of every sent receipt, in any month, with the same file as one of
-  // those. The receipt's own owner is among them.
+  // those, once per receipt. The receipt's own owner is among them.
   public async findFileOwners(
     slackTeamId: string,
     reimbursementId: string,
@@ -27,7 +27,7 @@ export class ReceiptsRepository extends BaseRepository<
           .onRef('same.slack_team_id', '=', 'mine.slack_team_id')
           .onRef('same.sha256', '=', 'mine.sha256'),
       )
-      .select(['same.sha256', 'same.user_id'])
+      .select(['same.id', 'same.sha256', 'same.user_id'])
       .distinct()
       .where('mine.slack_team_id', '=', slackTeamId)
       .where('mine.reimbursement_id', '=', reimbursementId)

@@ -37,6 +37,7 @@ Each receipt shows its file name, **Amount**, **Status**, the **Comment** and, w
 
 - **⏰ Late**: it was sent after the due day.
 - **Same file as** a name: another person sent the same file.
+- **Same file as another of their receipts**: the person sent this file before, in another receipt (any month or reimbursement).
 
 Waiting receipts come first. The screen shows as many receipts per person as fit a page. A person with more has a button **Show all N receipts**, which opens their receipts, a page at a time. Choose **◀ All people** to go back. People are listed ten to a page.
 

@@ -24,7 +24,8 @@ export interface IMonthOverviewInput {
   // are not.
   people: IOverviewPerson[];
   optedOutUserIds: ReadonlySet<string>;
-  // The owners' IDs of each file (by its hash), the receipt's own included.
+  // The owners' IDs of each file (by its hash), once per receipt with it,
+  // the receipt's own included.
   sameFileOwners: Map<string, string[]>;
 }
 
@@ -76,19 +77,24 @@ export const buildMonthOverview = ({
       email: person.email,
       active: person.active,
       teamName: person.teamName,
-      receipts: own.map((receipt) => ({
-        ...receipt,
-        late:
-          receipt.submittedAt !== null &&
-          isLate(receipt.submittedAt, month, reimbursement.dueDay),
-        alsoSentBy: (sameFileOwners.get(receipt.sha256) ?? [])
-          .filter((owner) => owner !== person.id)
-          .map((owner) => nameOf.get(owner))
-          .filter((name): name is string => name !== undefined),
-        decidedByName: receipt.decidedBy
-          ? (nameOf.get(receipt.decidedBy) ?? null)
-          : null,
-      })),
+      receipts: own.map((receipt) => {
+        const owners = sameFileOwners.get(receipt.sha256) ?? [];
+
+        return {
+          ...receipt,
+          late:
+            receipt.submittedAt !== null &&
+            isLate(receipt.submittedAt, month, reimbursement.dueDay),
+          alsoSentBy: [...new Set(owners)]
+            .filter((owner) => owner !== person.id)
+            .map((owner) => nameOf.get(owner))
+            .filter((name): name is string => name !== undefined),
+          sentAgain: owners.filter((owner) => owner === person.id).length > 1,
+          decidedByName: receipt.decidedBy
+            ? (nameOf.get(receipt.decidedBy) ?? null)
+            : null,
+        };
+      }),
       acceptedCents,
       submittedCents,
       toReimburseCents: toReimburseCents(

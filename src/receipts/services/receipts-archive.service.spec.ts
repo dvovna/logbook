@@ -32,6 +32,7 @@ const receipt = (
   createdAt: '2026-11-01T09:00:00.000Z',
   late: false,
   alsoSentBy: [],
+  sentAgain: false,
   decidedByName: 'Bea Boss',
   ...fields,
 });

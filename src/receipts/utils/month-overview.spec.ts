@@ -128,6 +128,20 @@ describe('buildMonthOverview', () => {
     });
 
     expect(result.people[0].receipts[0].alsoSentBy).toEqual(['Bob']);
+    expect(result.people[0].receipts[0].sentAgain).toBe(false);
+  });
+
+  it('marks a file its owner sent in another receipt too, naming each other person once', () => {
+    const own = receipt('a', ReceiptStatus.Submitted, 1000, { sha256: 'same' });
+    const result = overview({
+      people: [person('a', 'Ann'), person('b', 'Bob')],
+      receipts: [own],
+      // An owner once per receipt with the file.
+      sameFileOwners: new Map([['same', ['a', 'b', 'a', 'b']]]),
+    });
+
+    expect(result.people[0].receipts[0].sentAgain).toBe(true);
+    expect(result.people[0].receipts[0].alsoSentBy).toEqual(['Bob']);
   });
 
   it('marks a receipt sent after the due day as late and sorts by name', () => {
