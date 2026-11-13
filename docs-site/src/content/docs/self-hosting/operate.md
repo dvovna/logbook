@@ -136,7 +136,7 @@ With `UNINSTALLED_DATA_RETENTION_DAYS=0` the data is deleted when the app is uni
 
 ## Receipt files
 
-The photos and PDFs people send as receipts are kept in the database, in the table `receipt_files`, not on the app's disk. They are part of every backup, and the database grows with them: roughly 1 to 2 GB a year for 400 people. Files are at most 10 MB each.
+The photos and PDFs people send as receipts are kept in the database, in the table `receipt_files`, not on the app's disk. They are part of every backup, and the database grows with them. A photo from a phone is 1 to 4 MB, so 400 people who each send one receipt a month add about 10 GB a year. Receipts sent every working day (lunches) add about 190 GB a year for the same 400 people, which is more than this setup is meant for: check the size limit of your database plan before you collect receipts that often. Files are at most 10 MB each.
 
 - The file of a receipt that Admin or Finance has decided is deleted `RECEIPT_FILE_RETENTION_DAYS` days after the decision (1095, three years, by default). The receipt itself stays. The file of a receipt still waiting is never deleted.
 - A file whose receipt got no details is deleted after 30 days, with the receipt.
