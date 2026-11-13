@@ -4,6 +4,29 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-13
+
+A clearer first setup, and lighter screens. Update step: one database migration, see Running it.
+
+### Setup
+- The setup checklist has a last step, Tell your team: 📣 Get the message sends you a ready message about Logbook to post in a channel everyone reads.
+- The workspace's first vacation policy applies to everyone at once: the company rules take it. The policy step is done once a policy applies to someone, not when one merely exists.
+- The company rules step is done once someone saves them: a second approval is no longer needed. Leave Second approval (HR) empty to let a team's approvers decide alone.
+- A team's approvers are chosen by name in the team form, from the active Members, Managers and Admins. A Member chosen there becomes a Manager on save, so a new workspace, where everyone is a Member, can name its approvers without changing roles first. Edit Team shows the team's approvers whatever their role now.
+- The welcome message and the page after the install point to the checklist instead of listing steps of their own.
+- Each policy has a 🎉 Holidays button; Edit Holidays left its ⋯ menu.
+- The forms no longer say level 1 and level 2: Team approvers and Second approval (HR). Approval Notification Recipients is Who hears of decisions.
+
+### Screens
+- A workspace with no project leaves My time and Reports out of the navigation; `/log` still opens My time.
+- Home's time section no longer has ✏️ Edit Entries, which My time does, and My time no longer has ➕ Add Time Entry, which Fill in the week and Fill in today do (Time logs keeps it). The messages about rejected and unsubmitted time point to 🕒 My time.
+- Time off, My time and Projects show no filters while their list is empty.
+- Reports has the reports in one row and Billing snapshots and Time logs in a second. The billing report lists By project and By person when they add to its table: totals spread over several rows, or rows the table had to leave out.
+
+### Running it
+- Update step: one database migration (`20261113130000_team_told`). It adds a column, and marks every workspace installed before as having told its team, so their checklist doesn't come back for the new step.
+- A workspace whose company rules and teams name no vacation policy gets the checklist again, at Create a vacation policy: before, a policy that existed was enough.
+
 ## [0.6.0] - 2026-11-13
 
 Receipts for reimbursements, and a time reminder each person sets for themselves. Update step: two database migrations, see Running it.
@@ -228,6 +251,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.6.1]: https://github.com/dvovna/logbook/releases/tag/v0.6.1
 [0.6.0]: https://github.com/dvovna/logbook/releases/tag/v0.6.0
 [0.5.3]: https://github.com/dvovna/logbook/releases/tag/v0.5.3
 [0.5.2]: https://github.com/dvovna/logbook/releases/tag/v0.5.2
