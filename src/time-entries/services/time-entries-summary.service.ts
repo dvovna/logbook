@@ -71,7 +71,7 @@ export class TimeEntriesSummaryService {
   }
 
   // This week's time `user` sees in reports (TimeEntriesScopeService): the
-  // whole workspace for Admin and HR, a manager's teams and own time, else
+  // whole workspace for Admin, HR and Finance, a manager's teams and own time, else
   // their own.
   public async getWeekSummary(
     user: IUserViewModel,

@@ -72,6 +72,10 @@ describe('VacationDecisionNotificationsService', () => {
         findOneWithValidation: jest
           .fn()
           .mockResolvedValue({ id: 'hr', slack_id: 'U_HR' }),
+        // Every recipient is active.
+        findMany: jest.fn(({ slackIds }: { slackIds: string[] }) =>
+          Promise.resolve(slackIds.map((slack_id) => ({ slack_id }))),
+        ),
       } as unknown as UsersService,
       {
         ...jobs,

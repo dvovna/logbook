@@ -272,7 +272,17 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
       request.slack_team_id,
     );
 
-    return notificationRecipients;
+    if (!notificationRecipients.length) {
+      return [];
+    }
+
+    // Someone deactivated since the rules were saved hears no more.
+    const active = await this.usersService.findMany({
+      slackTeamId: request.slack_team_id,
+      slackIds: notificationRecipients,
+    });
+
+    return active.map(({ slack_id }) => slack_id);
   }
 
   private getNotificationMessage(

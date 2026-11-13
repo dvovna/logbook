@@ -59,6 +59,26 @@ export class RuleInputsValidationService {
     }
   }
 
+  // The select offers everyone in Slack: a decision goes only to active
+  // people of the workspace.
+  public async assertRecipients(slackIds: string[], user: IUserViewModel) {
+    if (!slackIds.length) {
+      return;
+    }
+
+    const active = await this.usersService.findMany({
+      slackTeamId: user.slack_team_id,
+      slackIds,
+    });
+
+    if (active.length < new Set(slackIds).size) {
+      throw new ValidationError(
+        'Notification recipients need to be active people in Logbook.',
+        'approval_notification_recipients',
+      );
+    }
+  }
+
   public async assertLevel2Approvers(slackIds: string[], user: IUserViewModel) {
     if (!slackIds.length) {
       return;

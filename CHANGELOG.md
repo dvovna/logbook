@@ -4,6 +4,13 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Fixed
+- The search of the Projects filter no longer answers a member, who could read the names of every project through it.
+- Two admins who deactivate or demote each other at the same moment no longer leave the workspace without an admin: one of them is refused.
+- Approval notification recipients have to be active people in Logbook, and someone deactivated since no longer gets the decisions.
+- An entry edited by HR or an admin keeps the team it was logged in, even when its person moved to another team since: who approves it and whose reports hold it no longer change with a typo fix.
+- Deactivating or activating someone records who did it.
+
 ## [0.5.3] - 2026-11-13
 
 A shorter Home, most of all before a workspace is set up. No update step: only the new image.

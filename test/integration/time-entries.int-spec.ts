@@ -1163,6 +1163,32 @@ describe('Time entries', () => {
       ).toBe('2h');
     });
 
+    it('keeps the team an entry was logged in when its person moved since', async () => {
+      const ops = await workspace.addTeam({ name: 'Ops' });
+      const entry = await workspace.addTimeEntry(member, website, {
+        team_id: design.id,
+      });
+      await t.db
+        .updateTable('users')
+        .set({ team_id: ops.id })
+        .where('id', '=', member.id)
+        .execute();
+
+      await t.slack
+        .submitView(
+          workspace,
+          admin,
+          await openFromMenu(TimeEntriesTabViewActionId.EditTimeEntry, entry),
+          { description: 'Typo fixed' },
+        )
+        .expect(200);
+
+      expect(await workspace.row('time_entries', entry.id)).toMatchObject({
+        description: 'Typo fixed',
+        team_id: design.id,
+      });
+    });
+
     it('lets a member edit their own entry from Edit Entries', async () => {
       const entry = await workspace.addTimeEntry(member, website, {
         minutes: 90,

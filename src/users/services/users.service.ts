@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
 import { TransactionService } from 'src/database/transaction.service';
+import { adminsLock } from 'src/database/advisory-locks';
 import UserRole from '@common/enums/user-role.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ISearchParams, ISearchResult } from '@common/types/pagination.types';
@@ -364,6 +365,20 @@ export class UsersService implements IUsersService {
     return this.changingAccess(
       params.role !== undefined || params.isActive !== undefined,
       async () => {
+        if (
+          this.userUpdateValidatorService.takesAdminAway(
+            userBeforeUpdate,
+            params,
+          )
+        ) {
+          await this.transactions.lock(
+            adminsLock(userBeforeUpdate.slack_team_id),
+          );
+          await this.userUpdateValidatorService.assertAdminRemains(
+            userBeforeUpdate.slack_team_id,
+          );
+        }
+
         const user = await this.userRepository.update(
           this.getFindQuery(findParams),
           {

@@ -16,6 +16,8 @@ import {
 } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { chooseTeamRules } from './support/team-form';
 import { TeamRulesChoice } from '@modules/slack/tabs/teams/enums/team-rules-choice.enum';
+import { ApprovalsTabActionId } from '@modules/slack/tabs/approvals/enums/approvals-tab-action-id.enum';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
 import { TimeEntriesTabViewActionId } from '@modules/slack/tabs/time-tracking/enums/time-entries-tab-view-action-id.enums';
 import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-view-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
@@ -681,6 +683,191 @@ describe('Access to objects by ID', () => {
         },
       });
       expect(await workspace.rows('teams')).toEqual([]);
+    });
+  });
+
+  it('finds no projects for a member through the filter of Projects', async () => {
+    const admin = await workspace.addUser({ role: UserRole.Admin });
+    const member = await workspace.addUser({ name: 'Mo Member' });
+    await workspace.addProject({ name: 'Secret launch' });
+    const search = {
+      type: 'home',
+      blocks: [
+        {
+          type: 'actions',
+          block_id: 'forged',
+          elements: [
+            {
+              type: 'external_select',
+              action_id: ProjectsTabViewActionId.FindProjectByName,
+            },
+          ],
+        },
+      ],
+    } as unknown as View;
+
+    const names = async (user: Tables<'users'>) =>
+      (
+        await t.slack
+          .suggest(
+            workspace,
+            user,
+            search,
+            ProjectsTabViewActionId.FindProjectByName,
+            '',
+          )
+          .expect(acknowledged)
+      ).body.options.map(({ text }: { text: { text: string } }) => text.text);
+
+    expect(await names(member)).toEqual([]);
+    expect(await names(admin)).toEqual(['Secret launch']);
+  });
+
+  describe('time entries', () => {
+    let manager: Tables<'users'>;
+    let member: Tables<'users'>;
+    let outsider: Tables<'users'>;
+    let project: Tables<'projects'>;
+    let approvals: View;
+
+    const submitted = (user: Tables<'users'>) =>
+      workspace.addTimeEntry(user, project, {
+        status: TimeEntryStatus.Submitted,
+      });
+
+    const statusOf = async (entry: Tables<'time_entries'>) =>
+      (await workspace.row('time_entries', entry.id)).status;
+
+    const button = (actionId: string, value: string) => ({
+      type: 'button',
+      action_id: actionId,
+      value,
+    });
+
+    beforeEach(async () => {
+      manager = await workspace.addUser({ role: UserRole.Manager });
+      const design = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+      });
+      const ops = await workspace.addTeam();
+      member = await workspace.addUser({ team_id: design.id });
+      outsider = await workspace.addUser({ team_id: ops.id });
+      project = await workspace.addProject();
+      // One entry waits for the manager, so the inbox has its buttons.
+      await submitted(member);
+      approvals = await openAppHomeTab(t, workspace, manager, [
+        NavigationActionId.Approvals,
+      ]);
+    });
+
+    it("of another team, or the manager's own, are not approved by a manager", async () => {
+      const theirs = await submitted(outsider);
+      const own = await submitted(manager);
+
+      for (const entry of [theirs, own]) {
+        await forge(
+          manager,
+          approvals,
+          button(ApprovalsTabActionId.ApproveEntry, entry.id),
+        );
+
+        expect(await statusOf(entry)).toBe(TimeEntryStatus.Submitted);
+      }
+    });
+
+    it('of another team are not rejected by a manager', async () => {
+      const theirs = await submitted(outsider);
+      const since = t.slackApi.mark();
+
+      await forge(
+        manager,
+        approvals,
+        button(ApprovalsTabActionId.RejectEntry, theirs.id),
+      );
+      const reject = t.slackApi.shownModal(workspace.token, { since });
+
+      const response = await t.slack
+        .submitView(workspace, manager, reject, { reason: 'Not mine' })
+        .expect(200);
+      await t.idle();
+
+      expect(modalError(response.body.view)).toBe(
+        'This time entry is no longer waiting for your approval.',
+      );
+      expect(await statusOf(theirs)).toBe(TimeEntryStatus.Submitted);
+      expect(
+        t.slackApi.postedMessages(workspace.token, outsider.slack_id),
+      ).toEqual([]);
+    });
+
+    it.each([UserRole.Finance, UserRole.Member])(
+      'are not approved by a %s who sends the click of Approvals',
+      async (role) => {
+        const intruder = await workspace.addUser({ role });
+        const entry = await submitted(outsider);
+
+        await forge(
+          intruder,
+          approvals,
+          button(ApprovalsTabActionId.ApproveEntry, entry.id),
+        );
+
+        expect(await statusOf(entry)).toBe(TimeEntryStatus.Submitted);
+      },
+    );
+
+    it("of someone else are not deleted or submitted by a member's menu", async () => {
+      const theirs = await workspace.addTimeEntry(outsider, project);
+      const entries = await openAppHomeTab(t, workspace, member, [
+        HomeTabActionId.EditTimeEntries,
+      ]);
+      const since = t.slackApi.mark();
+
+      for (const action of [
+        TimeEntriesTabViewActionId.DeleteTimeEntry,
+        TimeEntriesTabViewActionId.SubmitTimeEntry,
+      ]) {
+        await forge(
+          member,
+          entries,
+          menu(
+            TimeEntriesTabViewActionId.ManageTimeEntryMenu,
+            `${action}:${theirs.id}`,
+          ),
+        );
+      }
+
+      expect(openedModals(since)).toEqual([]);
+      expect(await workspace.row('time_entries', theirs.id)).toMatchObject({
+        status: TimeEntryStatus.Draft,
+        deleted_at: null,
+      });
+    });
+
+    it('are not logged by an admin for a person of another workspace', async () => {
+      const admin = await workspace.addUser({ role: UserRole.Admin });
+      const elsewhere = await t.createWorkspace();
+      const stranger = await elsewhere.addUser();
+      const form = await openModalFrom(
+        t,
+        workspace,
+        admin,
+        await openAppHomeTab(t, workspace, admin),
+        HomeTabActionId.LogTime,
+      );
+
+      const response = await submitForged(
+        admin,
+        form,
+        { projectId: project.id, workDate: '2026-06-17', hours: '1' },
+        { [TimeEntriesTabViewActionId.SelectUser]: stranger.id },
+      );
+
+      expect(modalError(response.body.view)).toBe('User not found.');
+      expect(await elsewhere.rows('time_entries')).toEqual([]);
+      expect(
+        (await workspace.rows('time_entries')).map(({ user_id }) => user_id),
+      ).not.toContain(stranger.id);
     });
   });
 
