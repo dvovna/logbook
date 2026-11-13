@@ -165,7 +165,7 @@ Reminders are per reimbursement, since each has its own due day: a person in thr
 - At most 10 active reimbursements per workspace.
 - The 🔔 Reminders form changes only the reimbursements it showed.
 - Reminder days come from the real due date: "opened" on the 1st of the next month, "due" the day before the due date (only when the due day is 3 or later), the summary for Admin and Finance the day after it; all from 09:00 UTC, a missed day is skipped.
-- An archive part is about 20 MB; a big month arrives as several files. If sending fails midway, the retry sends every part again.
+- An archive part is about 20 MB; a big month arrives as several files. Each part is its own job (the click's job only plans them, saving one job per part, started 2 s apart), so a retry sends only the part that failed, no run lasts long enough to be run twice by the job worker, and a second click is refused while any part is still on its way. Without `files:write` only part 1 says how to fix it.
 - Home shows amounts with the currency sign; My receipts shows the 25 newest receipts.
 - A person can't decide their own receipt unless nobody else in the workspace is an active Admin or Finance person.
 - A decision is made on the receipt as Finance's screen showed it: Accept and Reject carry when it was sent, and a receipt its owner saved again since is refused ("This receipt was changed meanwhile.") and shown as it is now.

@@ -73,7 +73,7 @@ describe('ReceiptsArchiveService', () => {
   const store = { get: jest.fn() };
   const service = new ReceiptsArchiveService(
     store as unknown as ReceiptFileStore,
-    { partBytes: 100 },
+    { partBytes: 100, partsPerSecond: 1 },
   );
 
   beforeEach(() => store.get.mockReset());

@@ -64,7 +64,7 @@ The first part holds two CSV files, and every part holds the receipts' files:
 - `totals.csv`: one line per person: Person, Email, Accepted, Limit, To reimburse. **To reimburse** is the accepted amount, but at most the limit.
 - The files, named `Person name - 1.jpg`, `Person name - 2.pdf` and so on. The **File** column of `receipts.csv` says which one belongs to a line. A receipt whose file was deleted after the retention period has an empty **File**.
 
-The archive is named like `Receipts Gym 2026-10 part 1 of 2.zip`. A part holds about 20 MB of files, so a big month arrives as several. If sending fails midway, Logbook tries again later and sends every part again, so you may get a part twice.
+The archive is named like `Receipts Gym 2026-10 part 1 of 2.zip`. A part holds about 20 MB of files, so a big month arrives as several. Each part is sent on its own, a couple of seconds apart. If sending a part fails, Logbook tries that part again later; the others aren't sent again. Without the permission below, only the first part's message says so.
 
 Open and Download both need the permission `files:write`. A workspace that installed Logbook before it existed has to install Logbook again, through its install link. See [A CSV doesn't come with its message](/logbook/docs/help/troubleshooting/#a-csv-doesnt-come-with-its-message). Nothing is lost.
 

@@ -1,10 +1,16 @@
 import { unzipSync } from 'fflate';
+import { sql } from 'kysely';
 import { View } from '@slack/types/dist/views';
 import UserRole from '@common/enums/user-role.enum';
 import { Tables } from '@common/types/database.types';
 import { NO_FILES_PERMISSION } from '@modules/slack/common/services/dm-file.service';
 import { ReceiptStatus } from '@modules/receipts/enums/receipt-status.enum';
-import { RECEIPTS_ARCHIVE_LIMITS } from '@modules/receipts/constants/receipts-archive';
+import {
+  IReceiptsArchiveLimits,
+  RECEIPTS_ARCHIVE_LIMITS,
+} from '@modules/receipts/constants/receipts-archive';
+import { JOBS_OPTIONS } from '@common/jobs/jobs.service';
+import delay from '@common/utils/delay';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { ReceiptsTabActionId } from '@modules/slack/tabs/receipts/enums/receipts-tab-action-id.enum';
 import { createTestApp, ITestApp } from './support/test-app';
@@ -101,6 +107,29 @@ describe('Receipt files', () => {
     t.slackApi
       .shownMessages(workspace.token, user.slack_id, { since })
       .map(({ text }) => text);
+
+  // The archive's jobs still saved: waiting, running or to be retried.
+  const savedJobs = async () => {
+    const { schema } = t.app.get(JOBS_OPTIONS);
+    const { rows } = await sql<{ name: string }>`
+      select name from ${sql.id(schema, 'job')}
+      where name like 'receipts-month%' and state < 'completed'
+    `.execute(t.db);
+
+    return rows.map(({ name }) => name);
+  };
+
+  const isPart = (name: string) => name === 'receipts-month-part';
+
+  const waitFor = async (condition: () => Promise<boolean>) => {
+    for (let tries = 0; !(await condition()); tries++) {
+      if (tries > 100) {
+        throw new Error('Waited too long');
+      }
+
+      await delay(20);
+    }
+  };
 
   const holdUploads = () => {
     let open = () => {};
@@ -301,20 +330,15 @@ describe('Receipt files', () => {
     });
 
     describe('in parts', () => {
-      // The app's limit on a part, which the test lowers.
+      // The app's limits on a part and on how fast parts start, which the
+      // tests lower and raise.
       const limits = () => t.app.get(RECEIPTS_ARCHIVE_LIMITS);
-      let original: number;
+      let original: IReceiptsArchiveLimits;
 
-      beforeEach(() => {
-        original = limits().partBytes;
-      });
-
-      afterEach(() => {
-        limits().partBytes = original;
-      });
-
-      it('sends a part at a time, the CSVs in the first', async () => {
+      beforeEach(async () => {
+        original = { ...limits() };
         limits().partBytes = 1024;
+        limits().partsPerSecond = 100;
 
         for (let i = 0; i < 3; i++) {
           await seed(anna, {
@@ -322,6 +346,24 @@ describe('Receipt files', () => {
             status: ReceiptStatus.Accepted,
           });
         }
+      });
+
+      afterEach(() => {
+        Object.assign(limits(), original);
+      });
+
+      const partsSent = (since: number) =>
+        filesTo(finance, since)
+          .map(({ filename }) => filename)
+          .sort();
+
+      const ALL_PARTS = [
+        'Receipts Sport 2026-06 part 1 of 3.zip',
+        'Receipts Sport 2026-06 part 2 of 3.zip',
+        'Receipts Sport 2026-06 part 3 of 3.zip',
+      ];
+
+      it('sends a part at a time, the CSVs in the first', async () => {
         const tab = await screen();
         const since = t.slackApi.mark();
 
@@ -342,6 +384,76 @@ describe('Receipt files', () => {
           ['Anna Kim - 2.pdf'],
           ['Anna Kim - 3.pdf'],
         ]);
+      });
+
+      it('sends again only the part that failed, on its retry', async () => {
+        const shareFile = t.slackApi.shareFile.bind(t.slackApi);
+        let failed = false;
+
+        jest
+          .spyOn(t.slackApi, 'shareFile')
+          .mockImplementation(async (params) => {
+            if (!failed && params.title.includes('part 2 of 3')) {
+              failed = true;
+              throw new Error('Slack is down');
+            }
+
+            return shareFile(params);
+          });
+        const tab = await screen();
+        const since = t.slackApi.mark();
+
+        await click(finance, tab, ReceiptsTabActionId.DownloadMonth);
+        await t.idle();
+
+        expect(partsSent(since)).toEqual([ALL_PARTS[0], ALL_PARTS[2]]);
+
+        await t.retryJobs();
+
+        expect(partsSent(since)).toEqual(ALL_PARTS);
+        expect(textsTo(finance, since)).toHaveLength(3);
+      });
+
+      it('starts no second set while parts are still on their way', async () => {
+        const tab = await screen();
+        const since = t.slackApi.mark();
+        const openUploads = holdUploads();
+
+        try {
+          await click(finance, tab, ReceiptsTabActionId.DownloadMonth);
+          // Only the parts are left: the job that planned them is done.
+          await waitFor(async () => {
+            const saved = await savedJobs();
+
+            return saved.length > 0 && saved.every(isPart);
+          });
+
+          await click(finance, tab, ReceiptsTabActionId.DownloadMonth);
+        } finally {
+          openUploads();
+        }
+        await t.idle();
+
+        expect(noticesSince(since)).toEqual([
+          '📦 Sending the archive to your Messages.',
+          '📦 The archive is already on its way to your Messages.',
+        ]);
+        expect(partsSent(since)).toEqual(ALL_PARTS);
+      });
+
+      it('asks for a reinstall once without files:write', async () => {
+        const tab = await screen();
+        const since = t.slackApi.mark();
+        t.slackApi.failNext('files.getUploadURLExternal', 3, 'missing_scope');
+
+        await click(finance, tab, ReceiptsTabActionId.DownloadMonth);
+        await t.idle();
+        await t.retryJobs();
+
+        expect(textsTo(finance, since)).toEqual([
+          `📦 Receipts for Sport, June 2026 (part 1 of 3).\n${NO_FILES_PERMISSION}`,
+        ]);
+        expect(await savedJobs()).toEqual([]);
       });
     });
 

@@ -33,10 +33,12 @@ export class DmFileService {
   ) {}
 
   // Resolves false when the workspace can't take files (only the message
-  // went), so that a caller with more files stops.
+  // went), so that a caller with more files stops. `quietWithoutFiles`: then
+  // nothing is said, for a file whose sibling told it already.
   public async send(
     user: IUserViewModel,
     { intro, title, filename, content }: IDmFile,
+    { quietWithoutFiles = false } = {},
   ): Promise<boolean> {
     const teamId = user.slack_team_id;
     let fileId: string;
@@ -51,7 +53,9 @@ export class DmFileService {
         throw error;
       }
 
-      await this.say(user, withoutFile(intro));
+      if (!quietWithoutFiles) {
+        await this.say(user, withoutFile(intro));
+      }
 
       return false;
     }
@@ -70,7 +74,7 @@ export class DmFileService {
         teamId,
       );
     } catch (error) {
-      if (slackErrorOf(error) === 'missing_scope') {
+      if (slackErrorOf(error) === 'missing_scope' && !quietWithoutFiles) {
         await this.slackCommunicationService.updateMessage(
           channel,
           ts,
@@ -88,6 +92,10 @@ export class DmFileService {
             `Failed to delete the message of a file that wasn't shared: ${deleteError.message}`,
           ),
         );
+
+      if (slackErrorOf(error) === 'missing_scope') {
+        return false;
+      }
 
       throw error;
     }

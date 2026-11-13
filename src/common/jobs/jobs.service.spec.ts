@@ -253,6 +253,27 @@ describe('JobsService', () => {
       expect(queue.deleteJob).toHaveBeenCalledWith('notify', 'job-1');
     });
 
+    it('saves and runs nothing while a job of another name it waits for has the key', async () => {
+      executor.executeSql
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{}] });
+
+      expect(
+        await jobs.enqueueSingleton(
+          'notify',
+          'U1:june',
+          { to: 'U1' },
+          { pendingAlso: ['notify-part'] },
+        ),
+      ).toBe(false);
+
+      expect(executor.executeSql).toHaveBeenLastCalledWith(
+        expect.stringContaining(`"pgboss".job where name = $1`),
+        ['notify-part', 'U1:june'],
+      );
+      expect(queue.send).not.toHaveBeenCalled();
+    });
+
     it('saves and runs nothing while a job with the key is pending', async () => {
       executor.executeSql.mockResolvedValueOnce({ rows: [{}] });
 
@@ -385,6 +406,23 @@ describe('JobsService', () => {
       expect(queue.deleteJob.mock.calls).toEqual(
         saved.map(({ id }) => ['notify', id]),
       );
+    });
+
+    it('gives every job the singleton key it is given', async () => {
+      transactions.inTransaction = true;
+
+      await jobs.enqueueMany('notify', [{ to: 'U1' }, { to: 'U2' }], {
+        singletonKey: 'U1:june',
+      });
+
+      const [[saved]] = queue.insert.mock.calls as unknown as [
+        [{ singletonKey?: string }[]],
+      ];
+
+      expect(saved.map(({ singletonKey }) => singletonKey)).toEqual([
+        'U1:june',
+        'U1:june',
+      ]);
     });
 
     it('saves nothing for no jobs', async () => {

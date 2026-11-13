@@ -52,6 +52,7 @@ import { ReimbursementsService } from '@modules/receipts/services/reimbursements
     ReimbursementOptOutsService,
     ReimbursementRemindersRepository,
     ReceiptFileStore,
+    RECEIPTS_ARCHIVE_LIMITS,
   ],
 })
 export class ReceiptsModule {}

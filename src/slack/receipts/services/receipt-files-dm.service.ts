@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -15,10 +16,13 @@ import { personLabel } from '@modules/slack/common/views/data/labels';
 import { UsersService } from '@modules/users/services/users.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { assertCanManageReceipts } from 'src/receipts/constants/receipt-roles';
+import {
+  IReceiptsArchiveLimits,
+  RECEIPTS_ARCHIVE_LIMITS,
+} from 'src/receipts/constants/receipts-archive';
 import { ReceiptStatus } from 'src/receipts/enums/receipt-status.enum';
 import { ReceiptFileStore } from 'src/receipts/services/receipt-file.store';
 import {
-  IArchiveFile,
   ReceiptsArchiveService,
   safeFileName,
 } from 'src/receipts/services/receipts-archive.service';
@@ -29,6 +33,7 @@ import { monthLabel } from 'src/receipts/utils/receipt-months';
 
 export const RECEIPT_OPEN_JOB = 'receipt-open';
 export const RECEIPTS_MONTH_DOWNLOAD_JOB = 'receipts-month-download';
+export const RECEIPTS_MONTH_PART_JOB = 'receipts-month-part';
 
 export const FILE_DELETED = 'This file was deleted after the retention period.';
 
@@ -44,6 +49,18 @@ interface IMonthDownloadJob {
   reimbursementId: string;
   month: string;
 }
+
+// One part of a month's archive: its receipts by ID, the files read when it
+// runs. Part 1 carries the CSVs, made from the month as it is then.
+interface IMonthPartJob extends IMonthDownloadJob {
+  part: number;
+  parts: number;
+  receiptIds: string[];
+}
+
+// One download of a month to one person: the planning job and its parts.
+const downloadKey = (userId: string, reimbursementId: string, month: string) =>
+  `${userId}:${reimbursementId}:${month}`;
 
 // Receipt files for Admin and Finance, in their DM with the app: one file
 // (Open) or a month as a ZIP in parts (Download the month). Jobs: a restart
@@ -65,6 +82,8 @@ export class ReceiptFilesDmService implements OnModuleInit {
     private readonly usersService: UsersService,
     private readonly dmFileService: DmFileService,
     private readonly jobs: JobsService,
+    @Inject(RECEIPTS_ARCHIVE_LIMITS)
+    private readonly limits: IReceiptsArchiveLimits,
   ) {}
 
   public onModuleInit() {
@@ -87,8 +106,20 @@ export class ReceiptFilesDmService implements OnModuleInit {
 
         if (user) {
           await this.endsOnRefusal(() =>
-            this.sendMonth(user, reimbursementId, month),
+            this.planMonth(user, reimbursementId, month),
           );
+        }
+      },
+      { onGiveUp: (job) => this.tellArchiveNotSent(job) },
+    );
+
+    this.jobs.define<IMonthPartJob>(
+      RECEIPTS_MONTH_PART_JOB,
+      async (job) => {
+        const user = await this.activeUser(job.userId, job.slackTeamId);
+
+        if (user) {
+          await this.endsOnRefusal(() => this.sendPart(user, job));
         }
       },
       { onGiveUp: (job) => this.tellArchiveNotSent(job) },
@@ -116,7 +147,7 @@ export class ReceiptFilesDmService implements OnModuleInit {
   ): Promise<boolean> {
     return this.jobs.enqueueSingleton<IMonthDownloadJob>(
       RECEIPTS_MONTH_DOWNLOAD_JOB,
-      `${user.id}:${reimbursementId}:${month}`,
+      downloadKey(user.id, reimbursementId, month),
       {
         slackTeamId: user.slack_team_id,
         userId: user.id,
@@ -126,8 +157,10 @@ export class ReceiptFilesDmService implements OnModuleInit {
       {
         firstRun: () =>
           this.endsOnRefusal(() =>
-            this.sendMonth(user, reimbursementId, month),
+            this.planMonth(user, reimbursementId, month),
           ),
+        // Its parts, saved by it, are the same download.
+        pendingAlso: [RECEIPTS_MONTH_PART_JOB],
       },
     );
   }
@@ -212,9 +245,11 @@ export class ReceiptFilesDmService implements OnModuleInit {
     });
   }
 
-  // The parts one after another: each is read, zipped and sent before the
-  // next is read, so the app holds one part at a time.
-  private async sendMonth(
+  // Saves a job per part and ends: each part is read, zipped and sent by its
+  // own job, which a failure retries alone, so that no run lasts long enough
+  // for its saved copy to be run beside it. They start spaced out, so that a
+  // big month leaves job slots to the rest.
+  private async planMonth(
     user: IUserViewModel,
     reimbursementId: string,
     month: string,
@@ -236,50 +271,72 @@ export class ReceiptFilesDmService implements OnModuleInit {
     const currency = await this.slackTeamsService.getCurrency(
       user.slack_team_id,
     );
+    const { parts } = this.archive.plan(overview, currency);
+    // A month whose files are all gone still has its CSVs.
+    const receiptIdsByPart = parts.length
+      ? parts.map((files) => files.map(({ receiptId }) => receiptId))
+      : [[]];
+
+    await this.jobs.enqueueMany<IMonthPartJob>(
+      RECEIPTS_MONTH_PART_JOB,
+      receiptIdsByPart.map((receiptIds, i) => ({
+        slackTeamId: user.slack_team_id,
+        userId: user.id,
+        reimbursementId,
+        month,
+        part: i + 1,
+        parts: receiptIdsByPart.length,
+        receiptIds,
+      })),
+      {
+        perSecond: this.limits.partsPerSecond,
+        singletonKey: downloadKey(user.id, reimbursementId, month),
+      },
+    );
+  }
+
+  // The month is read again (the role is checked by it): the files' names
+  // and the CSVs are the month's as it is now. A receipt deleted since, or
+  // whose file is past retention, is left out.
+  private async sendPart(user: IUserViewModel, job: IMonthPartJob) {
+    const [overview, currency] = await Promise.all([
+      this.months.getMonth(
+        { reimbursementId: job.reimbursementId, month: job.month },
+        user,
+      ),
+      this.slackTeamsService.getCurrency(user.slack_team_id),
+    ]);
     const { receiptsCsv, totalsCsv, parts } = this.archive.plan(
       overview,
       currency,
     );
-    const label = `${overview.reimbursement.name}, ${monthLabel(month)}`;
+    const files = new Map(parts.flat().map((file) => [file.receiptId, file]));
+    const entries = await this.archive.readPart(
+      job.receiptIds.flatMap((id) => files.get(id) ?? []),
+      user.slack_team_id,
+    );
 
-    for (const [i, part] of parts.entries()) {
-      const zip = await this.zipPart(
-        part,
-        user.slack_team_id,
-        i === 0 ? { receiptsCsv, totalsCsv } : null,
+    if (job.part === 1) {
+      entries.unshift(
+        { name: 'receipts.csv', content: Buffer.from(receiptsCsv) },
+        { name: 'totals.csv', content: Buffer.from(totalsCsv) },
       );
-      const ofParts = `part ${i + 1} of ${parts.length}`;
-      const sent = await this.dmFileService.send(user, {
+    }
+
+    const label = `${overview.reimbursement.name}, ${monthLabel(job.month)}`;
+    const ofParts = `part ${job.part} of ${job.parts}`;
+
+    // Without files:write part 1 says how to fix it; the others end quietly.
+    await this.dmFileService.send(
+      user,
+      {
         intro: `📦 Receipts for ${escapeMrkdwn(label)} (${ofParts}).`,
         title: `Receipts for ${label} (${ofParts})`,
-        filename: `${safeFileName(`Receipts ${overview.reimbursement.name} ${month.slice(0, 7)} ${ofParts}`)}.zip`,
-        content: zip,
-      });
-
-      // Without files:write the first message already said how to fix it.
-      if (!sent) {
-        return;
-      }
-    }
-  }
-
-  // The files are read and zipped in here, so that only the zip is held
-  // while it is sent.
-  private async zipPart(
-    part: IArchiveFile[],
-    slackTeamId: string,
-    csvs: { receiptsCsv: string; totalsCsv: string } | null,
-  ): Promise<Buffer> {
-    const entries = await this.archive.readPart(part, slackTeamId);
-
-    if (csvs) {
-      entries.unshift(
-        { name: 'receipts.csv', content: Buffer.from(csvs.receiptsCsv) },
-        { name: 'totals.csv', content: Buffer.from(csvs.totalsCsv) },
-      );
-    }
-
-    return this.archive.buildPart(entries);
+        filename: `${safeFileName(`Receipts ${overview.reimbursement.name} ${job.month.slice(0, 7)} ${ofParts}`)}.zip`,
+        content: this.archive.buildPart(entries),
+      },
+      { quietWithoutFiles: job.part > 1 },
+    );
   }
 
   private async tellFileNotSent({ slackTeamId, userId }: IReceiptOpenJob) {
@@ -298,7 +355,8 @@ export class ReceiptFilesDmService implements OnModuleInit {
     userId,
     reimbursementId,
     month,
-  }: IMonthDownloadJob) {
+    ...part
+  }: IMonthDownloadJob | IMonthPartJob) {
     const user = await this.activeUser(userId, slackTeamId);
 
     if (!user) {
@@ -311,7 +369,7 @@ export class ReceiptFilesDmService implements OnModuleInit {
 
     await this.dmFileService.say(
       user,
-      `⚠️ I couldn't send the receipts${reimbursement ? ` of ${escapeMrkdwn(reimbursement.name)}` : ''} for ${monthLabel(month)}: sending them kept failing for hours. Download them again from Receipts.`,
+      `⚠️ I couldn't send the receipts${reimbursement ? ` of ${escapeMrkdwn(reimbursement.name)}` : ''} for ${monthLabel(month)}${'part' in part ? ` (part ${part.part} of ${part.parts})` : ''}: sending them kept failing for hours. Download them again from Receipts.`,
     );
   }
 }
