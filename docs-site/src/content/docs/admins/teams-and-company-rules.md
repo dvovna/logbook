@@ -67,7 +67,7 @@ Their submitted time waits for HR, or for the admins when nobody has the HR role
 
 ## The setup checklist
 
-Until the workspace is set up, Home shows HR and admins **🚀 Set up Logbook** with how many of four steps are done. Each step left has a button to the screen that does it:
+Until the workspace is set up, Home shows HR and admins **🚀 Set up Logbook** with how many of four steps are done. The next step is shown in full and the others in a line each, with a button to the screen that does it:
 
 1. **Create a vacation policy**: done when the workspace has a policy. See [Policies and holidays](/logbook/docs/admins/policies-and-holidays/).
 2. **Set the company rules**: done when the company rules name level 2 approvers, or when every team keeps its own rules.

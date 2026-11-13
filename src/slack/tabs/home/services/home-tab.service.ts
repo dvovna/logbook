@@ -44,6 +44,7 @@ type HomeTabModalViewResolversMapType = {
   ) => Promise<View>;
 };
 
+import ProjectsService from 'src/projects/services/projects.service';
 import { SetupProgressService } from '@modules/slack/tabs/home/services/setup-progress.service';
 
 @Injectable()
@@ -58,6 +59,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly confirmationModalView: ConfirmationModalView,
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
     private readonly setupProgressService: SetupProgressService,
+    private readonly projectsService: ProjectsService,
   ) {
     super(TabId.Home, {
       [HomeTabModalName.ViewVacationRequest]: (params) =>
@@ -72,12 +74,18 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
   }
 
   public async getTabView({ user, pendingApprovals }: IPublishBaseParams) {
+    // Archived ones too: time logged on them is still the person's.
+    const projects = this.projectsService.count({
+      slackTeamId: user.slack_team_id,
+      includeArchived: true,
+    });
     const [
       vacationUsageInfo,
       requestedVacations,
       timeSummary,
       setup,
       approvals,
+      projectsCount,
     ] = await Promise.all([
       this.userVacationsUsageService.getCurrentVacationPeriodUsage(user),
       this.vacationsService.findMany({
@@ -87,9 +95,10 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
         statuses: [VacationRequestStatus.Pending],
       }),
       this.timeEntriesSummaryService.getUserSummary(user),
-      this.setupProgressService.get(user),
+      this.setupProgressService.get(user, projects),
       // Counted by BaseTabService for the Approvals button too.
       pendingApprovals,
+      projects,
     ]);
 
     return this.homeTabViewService.getView({
@@ -99,6 +108,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
       fileBalance: vacationUsageInfo.fileBalance,
       requestedVacations,
       timeSummary,
+      tracksTime: projectsCount > 0,
       pendingApprovals: approvals ?? { timeOff: 0, timeEntries: 0 },
       setup,
     });

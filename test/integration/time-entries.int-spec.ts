@@ -885,8 +885,8 @@ describe('Time entries', () => {
     it('says when nothing is logged yet', async () => {
       const home = sectionTexts(await openAppHomeTab(t, workspace, member));
 
-      expect(home).toContain('Today: nothing logged yet');
-      expect(home).toContain('This week: *0h* total');
+      expect(home).toContain('Nothing logged this week yet.');
+      expect(home.some((text) => text.startsWith('This week'))).toBe(false);
     });
 
     it("sums up the workspace's week in Reports", async () => {
