@@ -60,3 +60,10 @@ export const monthLabel = (month: string): string =>
     year: 'numeric',
     timeZone: 'UTC',
   });
+
+// "4 November": the day and the full month name, no year.
+export const dayMonthLabel = (date: string): string =>
+  `${Number(date.slice(8, 10))} ${new Date(`${date}T00:00:00Z`).toLocaleString(
+    'en-US',
+    { month: 'long', timeZone: 'UTC' },
+  )}`;

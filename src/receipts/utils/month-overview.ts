@@ -115,3 +115,13 @@ export const buildMonthOverview = ({
     ),
   };
 };
+
+// "14" of "14 of 22 people sent receipts": people with a receipt waiting or
+// accepted. Finance's screen and the reminders say the same number.
+export const countSenders = (month: Pick<IReceiptsMonth, 'people'>): number =>
+  month.people.filter(({ receipts }) =>
+    receipts.some(
+      ({ status }) =>
+        status === ReceiptStatus.Submitted || status === ReceiptStatus.Accepted,
+    ),
+  ).length;

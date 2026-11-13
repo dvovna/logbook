@@ -4,6 +4,7 @@ import { UsersModule } from '@modules/users/users.module';
 import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
 import { ReceiptsRepository } from '@modules/receipts/repositories/receipts.repository';
 import { ReimbursementOptOutsRepository } from '@modules/receipts/repositories/reimbursement-opt-outs.repository';
+import { ReimbursementRemindersRepository } from '@modules/receipts/repositories/reimbursement-reminders.repository';
 import { ReimbursementsRepository } from '@modules/receipts/repositories/reimbursements.repository';
 import {
   DEFAULT_RECEIPTS_ARCHIVE_LIMITS,
@@ -25,6 +26,7 @@ import { ReimbursementsService } from '@modules/receipts/services/reimbursements
     ReceiptsRepository,
     ReimbursementsRepository,
     ReimbursementOptOutsRepository,
+    ReimbursementRemindersRepository,
     ReimbursementsService,
     ReimbursementOptOutsService,
     { provide: ReceiptFileStore, useClass: PostgresReceiptFileStore },
@@ -46,6 +48,7 @@ import { ReimbursementsService } from '@modules/receipts/services/reimbursements
     ReceiptsArchiveService,
     ReimbursementsService,
     ReimbursementOptOutsService,
+    ReimbursementRemindersRepository,
     ReceiptFileStore,
   ],
 })

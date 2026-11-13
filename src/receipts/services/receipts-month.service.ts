@@ -29,11 +29,26 @@ export class ReceiptsMonthService {
   ): Promise<IReceiptsMonth> {
     assertCanManageReceipts(actor);
 
+    return this.getMonthOf(params, actor.slack_team_id);
+  }
+
+  // The same overview for the reminders, which run as nobody: the caller
+  // is Logbook itself and decides who hears of it.
+  public getMonthForSystem(
+    params: { reimbursementId: string; month: string },
+    slackTeamId: string,
+  ): Promise<IReceiptsMonth> {
+    return this.getMonthOf(params, slackTeamId);
+  }
+
+  private async getMonthOf(
+    params: { reimbursementId: string; month: string },
+    slackTeamId: string,
+  ): Promise<IReceiptsMonth> {
     if (!isMonthStart(params.month)) {
       throw new ValidationError('Choose a month.', 'month');
     }
 
-    const slackTeamId = actor.slack_team_id;
     const [reimbursement, receipts, users, teams, optOuts, sameFileOwners] =
       await Promise.all([
         this.reimbursements.findById(params.reimbursementId, slackTeamId),

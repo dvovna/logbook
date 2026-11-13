@@ -245,6 +245,42 @@ export class ReceiptsService {
     return receipt;
   }
 
+  // Whether the person has a receipt for the month that counts as sent:
+  // waiting for Finance or accepted (a rejected one doesn't).
+  public async hasSent(
+    userId: string,
+    reimbursementId: string,
+    month: string,
+    slackTeamId: string,
+  ): Promise<boolean> {
+    return (
+      (await this.receipts.count({
+        slack_team_id: slackTeamId,
+        user_id: userId,
+        reimbursement_id: reimbursementId,
+        month,
+        status: [ReceiptStatus.Submitted, ReceiptStatus.Accepted],
+      })) > 0
+    );
+  }
+
+  public countDrafts(userId: string, slackTeamId: string): Promise<number> {
+    return this.receipts.count({
+      slack_team_id: slackTeamId,
+      user_id: userId,
+      status: ReceiptStatus.Draft,
+    });
+  }
+
+  public async findUserIdsWithDrafts(slackTeamId: string): Promise<string[]> {
+    const drafts = await this.receipts.findMany(
+      { slack_team_id: slackTeamId, status: ReceiptStatus.Draft },
+      { orderBy: ['created_at:asc'] },
+    );
+
+    return [...new Set(drafts.map(({ userId }) => userId))];
+  }
+
   public findById(receiptId: string, slackTeamId: string) {
     return this.receipts.findOne({ id: receiptId, slack_team_id: slackTeamId });
   }

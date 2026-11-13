@@ -8,6 +8,9 @@ import { RemindersFormSubmitHandler } from '@modules/slack/receipts/handlers/rem
 import { RemindersFormParser } from '@modules/slack/receipts/parsers/reminders-form.parser';
 import { RemindersModalService } from '@modules/slack/receipts/services/reminders-modal.service';
 import { RemindersModalView } from '@modules/slack/receipts/views/reminders-modal.view';
+import { ReceiptReminderMessageHandler } from '@modules/slack/receipts/handlers/receipt-reminder-message.handler';
+import { ReceiptRemindersService } from '@modules/slack/receipts/services/receipt-reminders.service';
+import { ReceiptReminderMessageView } from '@modules/slack/receipts/views/receipt-reminder-message.view';
 import { ReceiptDetailsParser } from '@modules/slack/receipts/parsers/receipt-details.parser';
 import { ReceiptRejectionNotifier } from '@modules/slack/receipts/services/receipt-rejection-notifier.service';
 import { ReceiptFilesDmService } from '@modules/slack/receipts/services/receipt-files-dm.service';
@@ -35,6 +38,9 @@ import { ReceiptsModule } from 'src/receipts/receipts.module';
     RemindersFormParser,
     RemindersModalService,
     RemindersFormSubmitHandler,
+    ReceiptReminderMessageView,
+    ReceiptReminderMessageHandler,
+    ReceiptRemindersService,
   ],
   exports: [
     ReceiptIntakeService,

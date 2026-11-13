@@ -110,6 +110,8 @@ export enum ViewCallbackId {
   DeleteReceiptForm = 'delete_receipt_form',
   // The DM that tells a person their receipt was rejected.
   ReceiptRejectedMessage = 'receipt_rejected_message',
+  // The DMs that remind of a month's receipts, and tell Finance how it went.
+  ReceiptReminderMessage = 'receipt_reminder_message',
   // Finance's screen and its forms.
   ReceiptsTabView = 'receipts_tab_view',
   RejectReceiptForm = 'reject_receipt_form',

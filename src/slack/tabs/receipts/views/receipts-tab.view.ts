@@ -30,6 +30,7 @@ import {
   IReceiptsMonthReceipt,
 } from 'src/receipts/types/receipts-month.interface';
 import { IReimbursementViewModel } from 'src/receipts/types/reimbursement.interface';
+import { countSenders } from 'src/receipts/utils/month-overview';
 import { addMonths, monthLabel } from 'src/receipts/utils/receipt-months';
 
 export interface IReceiptsTabMetadata {
@@ -268,13 +269,7 @@ export class ReceiptsTabView extends BaseTabView<
     waiting,
     dueDate,
   }: IReceiptsMonth) {
-    const sent = people.filter(({ receipts }) =>
-      receipts.some(
-        ({ status }) =>
-          status === ReceiptStatus.Submitted ||
-          status === ReceiptStatus.Accepted,
-      ),
-    ).length;
+    const sent = countSenders({ people });
 
     return `${sent} of ${sent + sentNothing.length} people sent receipts · ${waiting} waiting · due ${formatDayMonth(dueDate)}`;
   }
