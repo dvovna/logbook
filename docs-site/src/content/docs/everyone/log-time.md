@@ -26,7 +26,7 @@ If you have no projects, the form says so. Ask an admin to add you or your team 
 
 ![My time: a table of the week by project and day, with Previous week, Next week, Fill in the week, Fill in today and Submit week](../../../assets/screens/my-time-week.png)
 
-Use **⬅️ Previous week** and **Next week ➡️** to move between weeks. Below the table, your entries are listed by day with each day's total. Filter them by project. Each entry has a menu with **Edit**, **Submit** and **Delete**.
+Use **⬅️ Previous week** and **Next week ➡️** to move between weeks. Below the table, your entries are listed by day with each day's total. Filter them by project; the filter shows once the week holds an entry. Each entry has a menu with **Edit**, **Submit** and **Delete**.
 
 ## Fill in the week or the day
 

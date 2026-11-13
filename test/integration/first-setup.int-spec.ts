@@ -139,6 +139,21 @@ describe('First setup', () => {
       expect(await shows(POLICY_STEP)).toBe(false);
     });
 
+    it('says so on Home when the message for the team could not be sent, and keeps the step', async () => {
+      const home = await openAppHomeTab(t, workspace, admin);
+      t.slackApi.failNext('chat.postMessage', 1, 'not_allowed_token_type');
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .actOnView(workspace, admin, home, HomeTabActionId.TellTeam)
+        .expect(200);
+
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        "⚠️ Logbook couldn't send you the message for your team. Try again in a minute.",
+      );
+      expect(await shows(TELL_STEP)).toBe(true);
+    });
+
     it('sends the message for the team, then counts the team told', async () => {
       await workspace.addProject();
       const home = await openAppHomeTab(t, workspace, admin);

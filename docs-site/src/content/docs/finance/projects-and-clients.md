@@ -45,7 +45,7 @@ A project has:
 
 To add a project, open **📁 Projects**, choose **➕ Add Project** and fill in the form. To change one, open its menu and choose **Edit Project**.
 
-The list shows each project's client, status, billable setting, teams and people. Use **Find Project**, **Status** and **Billable** to filter it, and **Include Archived Projects** to include archived ones.
+The list shows each project's client, status, billable setting, teams and people. Once there are projects, use **Find Project**, **Status** and **Billable** to filter it, and **Include Archived Projects** to include archived ones. Before the first project, the screen has none of these.
 
 ### Archive a project
 

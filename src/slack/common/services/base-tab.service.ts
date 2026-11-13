@@ -108,9 +108,12 @@ export default abstract class BaseTabService<
         : Promise.resolve(undefined);
       // Navigation without the screens about time is only tidier: when
       // this fails, they show.
-      const tracking = this.timeTrackingUseService
-        .tracksTime(params.user.slack_team_id)
-        .catch(() => true);
+      // An inactive person's screen has no navigation to tidy.
+      const tracking = params.user.is_active
+        ? this.timeTrackingUseService
+            .tracksTime(params.user.slack_team_id)
+            .catch(() => true)
+        : Promise.resolve(true);
       const [tabView, pendingApprovals, tracksTime] = await Promise.all([
         this.getSafeTabView({
           ...params,

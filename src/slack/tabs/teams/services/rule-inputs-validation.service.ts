@@ -36,7 +36,9 @@ export class RuleInputsValidationService {
 
   // A team's approvers are active people of the workspace who can decide a
   // step or become a Manager for it: everyone but Finance, which approves
-  // nothing. Returns the Members among them, whom saving makes Managers.
+  // nothing. The search offers no HR person, but one a team already names
+  // (the form keeps them) stays allowed. Returns the Members among them,
+  // whom saving makes Managers.
   public async teamApproversToPromote(
     slackIds: string[],
     user: IUserViewModel,

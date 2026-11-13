@@ -397,19 +397,22 @@ export class ReportsTabView extends BaseTabView<
       ],
     );
 
+    // One line would only repeat the Total row.
+    const addsToTable = (totals: number) =>
+      totals > 1 && (left > 0 || totals < report.lines.length);
+
     return [
       ...Divider.getBlocks(),
       summary,
       tableBlock(rows, ['left', 'left', 'right', 'right', 'right', 'right']),
       ...moreLinesBlocks(left, ', in the total'),
       // Only what the table doesn't show at a glance: a total per project
-      // or person when its lines are spread over several rows.
-      ...(report.byProject.length > 1 &&
-      report.byProject.length < report.lines.length
+      // or person when its lines are spread over several rows, or all of
+      // them when the table was cut.
+      ...(addsToTable(report.byProject.length)
         ? [this.getTotalsBlock('By project', report.byProject, money)]
         : []),
-      ...(report.byPerson.length > 1 &&
-      report.byPerson.length < report.lines.length
+      ...(addsToTable(report.byPerson.length)
         ? [this.getTotalsBlock('By person', report.byPerson, money)]
         : []),
       ...(report.approvedMinutes > report.snapshotMinutes

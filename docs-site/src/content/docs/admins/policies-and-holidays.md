@@ -13,7 +13,7 @@ A policy applies to a team through its rules: the company rules' policy, or the 
 
 1. Open **More** → **Policies** and click **➕ Add Policy**.
 2. Fill in the fields below.
-3. Click **Submit**. While the company rules name no policy, the new one goes into them and applies to everyone who follows them; the screen says so. Otherwise it says to choose the policy in the company rules or a team.
+3. Click **Submit**. The workspace's first policy goes into the company rules and applies to everyone who follows them; the screen says so. A later policy leaves the company rules as they are, even on No Policy: the screen says to choose it in the company rules or a team.
 
 | Field | What it means |
 | --- | --- |

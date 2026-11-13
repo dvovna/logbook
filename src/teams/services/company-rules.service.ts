@@ -72,8 +72,8 @@ export class CompanyRulesService {
     return saved;
   }
 
-  // A new policy goes into company rules that name none, so the first one a
-  // workspace makes applies to everyone without a second step. Not a save of
+  // The workspace's first policy goes into company rules that name none, so
+  // it applies to everyone without a second step (VacationPoliciesService). Not a save of
   // the rules by someone: `updated_by` stays, which the setup checklist reads.
   public async adoptPolicyIfNone(
     slackTeamId: string,

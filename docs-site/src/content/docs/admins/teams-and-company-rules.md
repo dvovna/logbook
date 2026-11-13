@@ -24,7 +24,7 @@ The fields:
 - **Team Name**.
 - **Rules**: **Company rules** or **Its own rules**. Choosing **Its own rules** adds the fields of its own rules to the form.
 - **Members**: type a name to add someone. Someone in another team moves to this one, and their time off goes to this team's approvers from then on. Removing someone here takes them out of the team. Saving the form changes only the people it lists: inactive members, who aren't listed, stay in the team. A team of more than 100 people is changed person by person on **People**.
-- **Team approvers**: type a name to add up to five people. Anyone active can be one, except people with the Finance role. Someone with the Member role becomes a Manager when you save, so they can approve. See [People and roles](/logbook/docs/admins/people-and-roles/).
+- **Team approvers**: type a name to add up to five people. The search offers active people with the Member, Manager or Admin role, as the team file takes its leads. Someone with the Member role becomes a Manager when you save, so they can approve. See [People and roles](/logbook/docs/admins/people-and-roles/).
 - **Team approvers' rule**: tick **All of them must approve** to need every one of them. Otherwise the first approval is enough.
 - **Description**, optional.
 
@@ -69,7 +69,7 @@ Their submitted time waits for HR, or for the admins when nobody has the HR role
 
 Until the workspace is set up, Home shows HR and admins **🚀 Set up Logbook** with how many of five steps are done. The next step is shown in full and the others in a line each, with a button to the screen that does it:
 
-1. **Create a vacation policy**: done when a policy applies: the company rules, or a team with its own rules, name one. The first policy created goes into the company rules while they name none. See [Policies and holidays](/logbook/docs/admins/policies-and-holidays/).
+1. **Create a vacation policy**: done when a policy applies: the company rules, or a team with its own rules, name one. The workspace's first policy goes into the company rules. See [Policies and holidays](/logbook/docs/admins/policies-and-holidays/).
 2. **Set the company rules**: done once someone saves the company rules, with or without a second approval, or when every team keeps its own rules.
 3. **Create teams and pick their approvers**: done when a team has approvers. **📄 Set up from a file** sets up everyone at once.
 4. **Put people in teams**: done when every active person has a team. Until then it counts the people without one.

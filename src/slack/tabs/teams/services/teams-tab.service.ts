@@ -193,6 +193,20 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
       managerApprovers: effective.managerApprovers,
       hrApprovers: effective.hrApprovers,
     });
+    // The team's approvers whatever their role now: one made a Member since
+    // shows in the field, rather than leaving it on the next save unseen.
+    const shownApprovers = new Set(managers.map(({ id }) => id));
+    const missing = effective.managerApprovers.filter(
+      (slackId) => !shownApprovers.has(slackId),
+    );
+    const approversNowMembers = missing.length
+      ? (
+          await this.usersService.findMany({
+            slackTeamId: user.slack_team_id,
+            slackIds: missing,
+          })
+        ).map(({ name, slack_id }) => ({ name, id: slack_id }))
+      : [];
 
     return this.teamModalView.getView(
       {
@@ -215,7 +229,7 @@ export class TeamsTabService extends BaseTabService<TeamsTabModalViewResolversMa
         ruleValues: effective,
         ruleFieldsVersion,
         errorMessage,
-        managers,
+        managers: [...managers, ...approversNowMembers],
         hrUsers,
       },
       {

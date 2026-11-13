@@ -139,7 +139,18 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
     }
 
     runInBackground(this.logger, 'send the message for the team', async () => {
-      await this.teamAnnouncementService.send(user);
+      try {
+        await this.teamAnnouncementService.send(user);
+      } catch (error) {
+        // Said on Home, where the click was: the step stays open to retry.
+        this.tabNavigationService.navigate(TabId.Home, {
+          user,
+          notice:
+            "⚠️ Logbook couldn't send you the message for your team. Try again in a minute.",
+        });
+        throw error;
+      }
+
       this.tabNavigationService.navigate(TabId.Home, {
         user,
         notice:

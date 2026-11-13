@@ -145,11 +145,14 @@ export default class VacationPoliciesService implements IVacationPoliciesService
         created_by: user.id,
         updated_by: user.id,
       });
+      // Only the workspace's first policy: company rules left on No Policy
+      // after that are someone's choice, which a new policy must not undo.
       const adoptedByCompanyRules =
-        await this.companyRulesService.adoptPolicyIfNone(
+        policiesCount === 0 &&
+        (await this.companyRulesService.adoptPolicyIfNone(
           createParams.slackTeamId,
           policy.id,
-        );
+        ));
 
       return { policy, adoptedByCompanyRules };
     });

@@ -73,6 +73,6 @@ You see "✅ Vacation request canceled." and the approvers' messages are closed.
 
 ## Follow your requests
 
-**🌴 Time off** lists your requests with their type, dates, days, status and any rejection reason. Filter by type, year and status, and open **View Details** in a request's menu.
+**🌴 Time off** lists your requests with their type, dates, days, status and any rejection reason. Once you have a request, filter by type, year and status; before that the screen says you have none yet. Open **View Details** in a request's menu.
 
 Managers, HR and admins also see **🟢 Who's off next** at the top: who in their teams has approved time off ahead. **📋 All requests** opens everyone's requests they may see.

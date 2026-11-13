@@ -138,6 +138,35 @@ describe('Vacation policies and teams', () => {
       ).toBe(first.id);
     });
 
+    // Company rules on No Policy with policies around were chosen so: a new
+    // policy, meant for a team, leaves them as they are.
+    it('keeps company rules left on No Policy when another policy is created', async () => {
+      await workspace.addVacationPolicy({ name: 'Berlin' });
+      const form = await openModal(
+        POLICIES_TAB,
+        PolicyTabViewActionId.AddPolicy,
+      );
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .submitView(workspace, admin, form, {
+          name: 'Lisbon',
+          vacation_days: '22',
+          working_days: '22',
+          bonus_days: '0',
+          carryover_days: '0',
+        })
+        .expect(200);
+
+      expect(noticeOf(await publishedHome(t, workspace, admin, since))).toBe(
+        '✅ Policy Lisbon created. Choose it in the company rules or a team to apply it. Next: its public holidays, with 🎉 Holidays.',
+      );
+      expect(
+        (await t.app.get(CompanyRulesService).get(workspace.id))
+          .vacation_policy_id,
+      ).toBeNull();
+    });
+
     it('changes a policy', async () => {
       const policy = await workspace.addVacationPolicy({ name: 'Berlin' });
       const form = await openModal(
@@ -335,14 +364,19 @@ describe('Vacation policies and teams', () => {
       });
       const mia = await workspace.addUser({ name: 'Mia Member' });
       await workspace.addUser({ role: UserRole.Finance, name: 'Mia Finance' });
+      const miaHr = await workspace.addUser({
+        role: UserRole.HR,
+        name: 'Mia HR',
+      });
       const newTeamForm = await openModal(
         TEAMS_TAB,
         TeamsTabViewActionId.AddTeam,
       );
       const form = await chooseRules(newTeamForm, TeamRulesChoice.Own);
 
-      // Anyone may be a team's approver but Finance, which approves nothing;
-      // the second approval takes HR and admins.
+      // Members, Managers and Admins, as the team file takes its leads: not
+      // Finance, which approves nothing, nor HR, who decides later levels.
+      // The second approval takes HR and admins.
       const suggested = await t.slack
         .suggest(workspace, admin, form, TeamModalActionId.Approvers, 'mia')
         .expect(acknowledged);
@@ -356,7 +390,7 @@ describe('Vacation policies and teams', () => {
         findAction(form.blocks, 'hr_approvers')
           .element.options.map(({ value }: { value: string }) => value)
           .sort(),
-      ).toEqual([admin.slack_id, hr.slack_id].sort());
+      ).toEqual([admin.slack_id, hr.slack_id, miaHr.slack_id].sort());
 
       const since = t.slackApi.mark();
       const response = await t.slack
@@ -419,6 +453,40 @@ describe('Vacation policies and teams', () => {
         manager_approvers: [],
         manager_approvers_rule: ApprovalRule.Any,
       });
+    });
+
+    // A lead made a Member since still shows, so renaming the team doesn't
+    // drop them unseen; saving makes them a Manager again.
+    it("keeps an approver who became a Member in the team's form", async () => {
+      const lee = await workspace.addUser({ name: 'Lee Lead' });
+      const team = await workspace.addTeam({
+        name: 'Design',
+        manager_approvers: [lee.slack_id],
+      });
+      const form = await openModal(
+        TEAMS_TAB,
+        TeamsTabViewActionId.ManageTeamMenu,
+        `${TeamsTabViewActionId.EditTeam}:${team.id}`,
+      );
+
+      expect(
+        findAction(form.blocks, TeamModalActionId.Approvers).element
+          .initial_options,
+      ).toEqual([
+        { text: { type: 'plain_text', text: 'Lee Lead' }, value: lee.slack_id },
+      ]);
+
+      await t.slack
+        .submitView(workspace, admin, form, { name: 'Product Design' })
+        .expect(200);
+
+      expect(await workspace.row('teams', team.id)).toMatchObject({
+        name: 'Product Design',
+        manager_approvers: [lee.slack_id],
+      });
+      expect((await workspace.row('users', lee.id)).role).toBe(
+        UserRole.Manager,
+      );
     });
 
     // Slack takes the chosen options from the client.

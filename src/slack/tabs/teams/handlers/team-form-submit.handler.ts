@@ -1,4 +1,5 @@
 import { UsersService } from '@modules/users/services/users.service';
+import { TransactionService } from 'src/database/transaction.service';
 import { Injectable } from '@nestjs/common';
 import { RuleInputsValidationService } from '@modules/slack/tabs/teams/services/rule-inputs-validation.service';
 import { ValidationError } from '@common/errors/validation.error';
@@ -55,6 +56,7 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     private readonly tabNavigationService: TabNavigationService,
     private readonly ruleInputsValidationService: RuleInputsValidationService,
     private readonly usersService: UsersService,
+    private readonly transactions: TransactionService,
     teamModalViewValuesParser: TeamModalViewValuesParser,
   ) {
     super(teamModalViewValuesParser);
@@ -97,27 +99,31 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
       this.assertOwnRules(data, user),
     ]);
 
-    const team = metadata.id
-      ? await this.update(metadata.id, data, user)
-      : await this.create(data, user);
+    // One transaction: a team never names approvers left Members, who
+    // couldn't approve, because the promotion failed after it was saved.
+    return this.transactions.transaction(async () => {
+      const team = metadata.id
+        ? await this.update(metadata.id, data, user)
+        : await this.create(data, user);
 
-    // Only users of the workspace are touched, whatever IDs the form sends.
-    if (metadata.setsMembers) {
-      await this.usersService.setTeamMembers(
-        team.id,
-        (data.members ?? []).map(({ value }) => value),
+      // Only users of the workspace are touched, whatever IDs the form sends.
+      if (metadata.setsMembers) {
+        await this.usersService.setTeamMembers(
+          team.id,
+          (data.members ?? []).map(({ value }) => value),
+          user,
+        );
+      }
+
+      // After the team names them: the change of role tells the waiting
+      // requests that someone can now approve (makeManagers).
+      const promoted = await this.usersService.makeManagers(
+        toPromote.map(({ id }) => id),
         user,
       );
-    }
 
-    // After the team names them: the change of role tells the waiting
-    // requests that someone can now approve (makeManagers).
-    const promoted = await this.usersService.makeManagers(
-      toPromote.map(({ id }) => id),
-      user,
-    );
-
-    return { team, promoted };
+      return { team, promoted };
+    });
   }
 
   // The fields of its own rules are checked only while the team has its

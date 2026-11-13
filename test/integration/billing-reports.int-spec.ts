@@ -246,6 +246,39 @@ describe('Billing reports', () => {
     ]);
   });
 
+  // The table keeps 100 rows: past them, By project is the one place that
+  // still names projects, even with one person on each.
+  it('lists the totals by project when the table had to leave lines out', async () => {
+    const projects = await Promise.all(
+      Array.from({ length: 110 }, (_, index) =>
+        workspace.addProject({
+          name: `Project ${String(index).padStart(3, '0')}`,
+          client_id: acme.id,
+        }),
+      ),
+    );
+    await Promise.all(
+      projects.map((project) =>
+        workspace.addTimeEntry(member, project, {
+          status: TimeEntryStatus.Approved,
+          work_date: '2026-10-05',
+          minutes: 60,
+        }),
+      ),
+    );
+
+    const reports = await submitReport(await openReportForm(), {
+      clientId: acme.id,
+      fromDate: '2026-10-01',
+      toDate: '2026-10-31',
+    });
+
+    expect(reportTexts(reports).map((text) => text.split('\n')[0])).toEqual([
+      '*Billing report: Acme* · 1–31 Oct 2026',
+      '*By project*',
+    ]);
+  });
+
   // The database answers a query with 1000 rows at most and says nothing
   // about the rest.
   it('counts more entries than one answer of the database holds', async () => {
