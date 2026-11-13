@@ -167,6 +167,19 @@ describe('Receipt files', () => {
       expect(file.bytes.equals(bytes)).toBe(true);
     });
 
+    it('names the file in the notice as it is: a notice is plain text', async () => {
+      const receipt = await seed(anna, { fileName: 'R&D <team>.pdf' });
+      const tab = await screen();
+      const since = t.slackApi.mark();
+
+      await click(finance, tab, ReceiptsTabActionId.OpenReceipt, receipt.id);
+      await t.idle();
+
+      expect(noticesSince(since)).toEqual([
+        '📎 Sending R&D <team>.pdf to your Messages.',
+      ]);
+    });
+
     it('opens a decided receipt from its menu', async () => {
       const receipt = await seed(anna, { status: ReceiptStatus.Accepted });
       const tab = await screen();

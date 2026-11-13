@@ -211,7 +211,8 @@ export class ReceiptsTabService extends BaseTabService<
         );
       }
 
-      const name = escapeMrkdwn(receipt.fileName);
+      // A notice is plain text: nothing to escape.
+      const name = receipt.fileName;
 
       if (receipt.fileDeletedAt) {
         notice = FILE_DELETED;
