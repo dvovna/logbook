@@ -110,6 +110,10 @@ export const uploadTimeoutMs = (bytes: number) =>
     MAX_UPLOAD_TIMEOUT_MS,
   );
 
+// A download Slack's file host hasn't finished in this long is stuck: what
+// the app downloads is a receipt or a team file, 10 MB at most.
+const DOWNLOAD_TIMEOUT_MS = 30_000;
+
 const isSlackFileUrl = (url: string) => {
   try {
     const { protocol, hostname } = new URL(url);
@@ -290,10 +294,18 @@ export default class SlackApiClient {
 
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     });
 
     if (!response.ok) {
       throw new Error(`Failed to download the file: ${response.status}`);
+    }
+
+    // Refused before it is read when Slack says so; checked again after,
+    // since the header may be missing.
+    if (Number(response.headers.get('content-length')) > maxBytes) {
+      await response.body?.cancel();
+      throw new Error(`The file is larger than ${maxBytes} bytes`);
     }
 
     const content = Buffer.from(await response.arrayBuffer());

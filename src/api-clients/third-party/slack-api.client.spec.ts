@@ -280,7 +280,34 @@ describe('SlackApiClient', () => {
       );
       expect(fetchMock).toHaveBeenCalledWith(fileUrl, {
         headers: { Authorization: 'Bearer xoxb-1' },
+        signal: expect.any(AbortSignal),
       });
+    });
+
+    it('gives up on a download after 30 seconds', async () => {
+      const timeout = jest.spyOn(AbortSignal, 'timeout');
+
+      await client.downloadFileBytes(fileUrl, 'xoxb-1', 100);
+
+      expect(timeout).toHaveBeenCalledWith(30_000);
+      expect(fetchMock.mock.calls[0][1].signal).toBe(
+        timeout.mock.results[0].value,
+      );
+      timeout.mockRestore();
+    });
+
+    it('refuses a file Slack says is over the limit without reading it', async () => {
+      const response = new Response('x', {
+        headers: { 'content-length': '101' },
+      });
+      const read = jest.spyOn(response, 'arrayBuffer');
+
+      fetchMock.mockResolvedValueOnce(response);
+
+      await expect(
+        client.downloadFileBytes(fileUrl, 'xoxb-1', 100),
+      ).rejects.toThrow('larger than');
+      expect(read).not.toHaveBeenCalled();
     });
 
     it('sends the token nowhere but to Slack', async () => {
