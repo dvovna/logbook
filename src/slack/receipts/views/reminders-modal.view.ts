@@ -14,6 +14,11 @@ interface IRemindersParams extends IBaseModalViewParams {
   optedOutIds: string[];
 }
 
+export interface IRemindersMetadata {
+  // The reimbursements the form shows: only those are changed on submit.
+  shownIds: string[];
+}
+
 export const REMINDED_BLOCK_ID = 'reminded_block';
 export const REMINDED_ACTION_ID = 'reminded';
 
@@ -21,11 +26,16 @@ export const REMINDED_ACTION_ID = 'reminded';
 const MAX_OPTION_CHARACTERS = 75;
 
 @Injectable()
-export class RemindersModalView extends BaseModalView<IRemindersParams> {
+export class RemindersModalView extends BaseModalView<
+  IRemindersParams,
+  IRemindersMetadata
+> {
   protected defaultCallbackId = ViewCallbackId.RemindersForm;
 
   public build(params: IRemindersParams) {
-    return this.getView(params, {});
+    return this.getView(params, {
+      shownIds: params.reimbursements.map(({ id }) => id),
+    });
   }
 
   protected getTitleText(): string {

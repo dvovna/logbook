@@ -39,27 +39,30 @@ export class ReimbursementOptOutsService {
     await this.optOuts.add(user.slack_team_id, user.id, [reimbursementId]);
   }
 
-  // The reimbursements the person wants reminders about; every other active
-  // one is opted out. An ID that is not an active reimbursement of the
-  // workspace is ignored, and the opt-outs of archived ones stay.
+  // Of the reimbursements the form showed, the ones the person wants
+  // reminders about are opted in and the others out. Anything not shown, not
+  // active or not the workspace's is left as it is: a reimbursement created
+  // after the form opened was never offered.
   public async setReminded(
     user: IUserViewModel,
+    shownReimbursementIds: string[],
     remindedReimbursementIds: string[],
   ): Promise<void> {
     const active = await this.reimbursements.findActive(user.slack_team_id);
+    const shown = new Set(shownReimbursementIds);
     const reminded = new Set(remindedReimbursementIds);
-    const activeIds = active.map(({ id }) => id);
+    const changed = active.map(({ id }) => id).filter((id) => shown.has(id));
 
     await this.transactions.transaction(async () => {
       await this.optOuts.add(
         user.slack_team_id,
         user.id,
-        activeIds.filter((id) => !reminded.has(id)),
+        changed.filter((id) => !reminded.has(id)),
       );
       await this.optOuts.remove(
         user.slack_team_id,
         user.id,
-        activeIds.filter((id) => reminded.has(id)),
+        changed.filter((id) => reminded.has(id)),
       );
     });
   }

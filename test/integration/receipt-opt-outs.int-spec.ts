@@ -144,7 +144,7 @@ describe('Receipt reminders opt-outs', () => {
   });
 
   it('keeps the section and its buttons when every reminder is off', async () => {
-    await optOuts.setReminded(asUser(member), []);
+    await optOuts.setReminded(asUser(member), [sport.id, lunch.id], []);
 
     const home = await openAppHomeTab(t, workspace, member);
 
@@ -222,7 +222,11 @@ describe('Receipt reminders opt-outs', () => {
       .where('id', '=', old.id)
       .execute();
 
-    await optOuts.setReminded(asUser(member), [foreign.id, sport.id]);
+    await optOuts.setReminded(
+      asUser(member),
+      [foreign.id, sport.id, lunch.id, old.id],
+      [foreign.id, sport.id],
+    );
 
     expect((await rows()).map((row) => row.reimbursement_id).sort()).toEqual(
       [lunch.id, old.id].sort(),
@@ -233,6 +237,68 @@ describe('Receipt reminders opt-outs', () => {
     expect(await optOuts.findOptedOutUserIds(foreign.id, workspace.id)).toEqual(
       [],
     );
+  });
+
+  it('opts out only of what the form showed', async () => {
+    const form = await openForm();
+    const created = await seedReimbursement(t, workspace, { name: 'Cinema' });
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .submitView(workspace, member, form, { reminded: [sport.id] })
+      .expect(200);
+    await t.idle();
+
+    expect(await rows()).toEqual([
+      expect.objectContaining({ reimbursement_id: lunch.id }),
+    ]);
+    const home = await t.slackApi.homeView(workspace.token, member.slack_id, {
+      since,
+    });
+
+    expect(sectionTexts(home).join('\n')).toContain('Cinema · ');
+    expect(await optOuts.findOptedOutUserIds(created.id, workspace.id)).toEqual(
+      [],
+    );
+  });
+
+  it('opts out of every shown reimbursement when nothing is checked', async () => {
+    const form = await openForm();
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .submitView(workspace, member, form, { reminded: [] })
+      .expect(200);
+    await t.idle();
+
+    expect((await rows()).map((row) => row.reimbursement_id).sort()).toEqual(
+      [sport.id, lunch.id].sort(),
+    );
+    expect(
+      sectionTexts(
+        await t.slackApi.homeView(workspace.token, member.slack_id, { since }),
+      ),
+    ).toContain('You turned receipt reminders off.');
+  });
+
+  it('opens nothing when the workspace has no reimbursement any more', async () => {
+    const home = await openAppHomeTab(t, workspace, member);
+
+    await t.db
+      .updateTable('reimbursements')
+      .set({ archived_at: new Date().toISOString() })
+      .where('slack_team_id', '=', workspace.id)
+      .execute();
+    const since = t.slackApi.mark();
+
+    await t.slack
+      .actOnView(workspace, member, home, HomeTabActionId.Reminders)
+      .expect(200);
+    await t.idle();
+
+    expect(
+      t.slackApi.callsWith(workspace.token, 'views.open', { since }),
+    ).toEqual([]);
   });
 
   it('opens nothing without reimbursements', async () => {

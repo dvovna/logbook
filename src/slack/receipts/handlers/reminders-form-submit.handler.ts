@@ -13,6 +13,7 @@ import {
   IRemindersFormData,
   RemindersFormParser,
 } from '@modules/slack/receipts/parsers/reminders-form.parser';
+import { IRemindersMetadata } from '@modules/slack/receipts/views/reminders-modal.view';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ReimbursementOptOutsService } from 'src/receipts/services/reimbursement-opt-outs.service';
 
@@ -23,7 +24,7 @@ import { ReimbursementOptOutsService } from 'src/receipts/services/reimbursement
   allowedRoles: ALL_ROLES,
 })
 export class RemindersFormSubmitHandler extends BaseModalFormSubmitHandler<
-  object,
+  IRemindersMetadata,
   IRemindersFormData
 > {
   public constructor(
@@ -37,11 +38,12 @@ export class RemindersFormSubmitHandler extends BaseModalFormSubmitHandler<
   // Always the sender's own: the user comes from the request.
   protected async onSubmit(
     data: IRemindersFormData,
-    _metadata: object,
+    { shownIds }: IRemindersMetadata,
     user: IUserViewModel,
   ): Promise<void> {
     await this.optOuts.setReminded(
       user,
+      shownIds ?? [],
       data.reminded.map(({ value }) => value),
     );
 
