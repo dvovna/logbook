@@ -40,6 +40,8 @@ interface IGetViewParams extends IBaseTabViewParams {
   fileBalance: ILeaveBalance | null;
   requestedVacations?: IVacationRequestViewModel[];
   timeSummary: IUserTimeSummary;
+  // Whether the workspace has any project: without one nobody can log time.
+  tracksTime: boolean;
   pendingApprovals: IPendingApprovals;
   // The setup checklist, for Admin and HR until the workspace is set up.
   setup: ISetupProgress | null;
@@ -76,21 +78,45 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     fileBalance,
     requestedVacations,
     timeSummary,
+    tracksTime,
     pendingApprovals,
     setup,
     receipts,
   }: IGetViewParams) {
+    const hasTime =
+      tracksTime ||
+      timeSummary.weekMinutes > 0 ||
+      timeSummary.unsubmitted.count > 0;
+    // Each part only when it has something to say, with a divider between.
+    const parts = [
+      setup ? this.getSetupBlocks(setup) : [],
+      this.getAttentionBlocks(pendingApprovals),
+      hasTime ? this.getTimeTrackingBlocks(timeSummary) : [],
+      this.getVacationUsageBlocks(vacationUsageInfo, fileBalance),
+      this.getRequestedVacationsBlocks(requestedVacations),
+      receipts ? this.getReceiptsBlocks(receipts) : [],
+    ].filter((blocks) => blocks.length);
+
     return [
-      ...(setup ? this.getSetupBlocks(setup) : []),
-      ...this.getAttentionBlocks(pendingApprovals),
-      ...this.getUserViewBlocks(
-        vacationUsageInfo,
-        fileBalance,
-        timeSummary,
-        requestedVacations,
+      ...parts.flatMap((blocks, index) =>
+        index ? [...Divider.getBlocks(), ...blocks] : blocks,
       ),
-      ...(receipts ? this.getReceiptsBlocks(receipts) : []),
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '🌴 Request time off' },
+            action_id: HomeTabActionId.OpenVacationModal,
+          },
+        ],
+      } as AnyBlock,
     ];
+  }
+
+  // The navigation row already says this is Home.
+  protected getTitleBlocks(): AnyBlock[] {
+    return [];
   }
 
   protected getTabTitle() {
@@ -98,8 +124,9 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
   }
 
   // What is left to set up: how many required steps are done, the done
-  // ones in one line, then each step left with why it matters and the
-  // button to the screen that does it.
+  // ones in one line, the next step with why it matters and its buttons,
+  // the required ones after it as a line with a button each, and the
+  // optional ones in one row.
   private getSetupBlocks({
     hasPolicy,
     hasCompanyApprovers,
@@ -183,6 +210,19 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     ];
     const required = steps.filter(({ optional }) => !optional);
     const done = steps.filter((step) => step.done);
+    const [next, ...later] = required.filter((step) => !step.done);
+    const optional = steps.filter((step) => step.optional && !step.done);
+    const toButton = ({
+      text,
+      actionId,
+    }: {
+      text: string;
+      actionId: string;
+    }) => ({
+      type: 'button' as const,
+      text: { type: 'plain_text' as const, text },
+      action_id: actionId,
+    });
 
     return [
       {
@@ -207,43 +247,56 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
             },
           ]
         : []),
-      ...steps
-        .filter((step) => !step.done)
-        .flatMap(({ key, optional, title, why, buttons }): AnyBlock[] => {
-          const toButton = ({ text, actionId }: (typeof buttons)[number]) => ({
-            type: 'button' as const,
-            text: { type: 'plain_text' as const, text },
-            action_id: actionId,
-          });
-          const text = {
-            type: 'mrkdwn' as const,
-            text: `*${title}*${optional ? ' · _optional_' : ''}\n${why}`,
-          };
-
-          // A section holds one button; with more they go in a row below.
-          return buttons.length === 1
-            ? [
+      ...(next
+        ? [
+            {
+              type: 'section' as const,
+              block_id: `${SETUP_BLOCK_ID}_${next.key}`,
+              text: {
+                type: 'mrkdwn' as const,
+                text: `*Next: ${next.title}*\n${next.why}`,
+              },
+              // A section holds one button; with more they go in a row below.
+              ...(next.buttons.length === 1
+                ? { accessory: toButton(next.buttons[0]) }
+                : {}),
+            },
+            ...(next.buttons.length > 1
+              ? [
+                  {
+                    type: 'actions' as const,
+                    block_id: `${SETUP_BLOCK_ID}_${next.key}_buttons`,
+                    elements: next.buttons.map(toButton),
+                  },
+                ]
+              : []),
+          ]
+        : []),
+      ...later.map(({ key, title, buttons }): AnyBlock => ({
+        type: 'section',
+        block_id: `${SETUP_BLOCK_ID}_${key}`,
+        text: { type: 'mrkdwn', text: `Then: ${title}` },
+        accessory: toButton(buttons[0]),
+      })),
+      ...(optional.length
+        ? [
+            {
+              type: 'context' as const,
+              block_id: `${SETUP_BLOCK_ID}_optional`,
+              elements: [
                 {
-                  type: 'section',
-                  block_id: `${SETUP_BLOCK_ID}_${key}`,
-                  text,
-                  accessory: toButton(buttons[0]),
+                  type: 'mrkdwn' as const,
+                  text: `Optional: ${optional.map(({ title }) => title.toLowerCase()).join(' · ')}`,
                 },
-              ]
-            : [
-                {
-                  type: 'section',
-                  block_id: `${SETUP_BLOCK_ID}_${key}`,
-                  text,
-                },
-                {
-                  type: 'actions',
-                  block_id: `${SETUP_BLOCK_ID}_${key}_buttons`,
-                  elements: buttons.map(toButton),
-                },
-              ];
-        }),
-      ...Divider.getBlocks(),
+              ],
+            },
+            {
+              type: 'actions' as const,
+              block_id: `${SETUP_BLOCK_ID}_optional_buttons`,
+              elements: optional.map(({ buttons }) => toButton(buttons[0])),
+            },
+          ]
+        : []),
     ];
   }
 
@@ -261,7 +314,6 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     });
 
     return [
-      ...Divider.getBlocks(),
       section('*🧾 Receipts*'),
       ...(remindersOff ? [section('You turned receipt reminders off.')] : []),
       ...lines.map(({ reimbursementName, month, count, totalCents, dueDate }) =>
@@ -324,38 +376,6 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
           text: { type: 'plain_text', text: 'Open Approvals' },
           action_id: NavigationActionId.Approvals,
         },
-      },
-      ...Divider.getBlocks(),
-    ];
-  }
-
-  private getUserViewBlocks(
-    usageInfo: IVacationPeriodUsageData | null,
-    fileBalance: ILeaveBalance | null,
-    timeSummary: IUserTimeSummary,
-    requestedVacations?: IVacationRequestViewModel[],
-  ): AnyBlock[] {
-    return [
-      {
-        type: 'section',
-        text: {
-          type: 'plain_text',
-          text: 'Your personal work & vacation overview',
-        },
-      },
-      ...Divider.getBlocks(),
-      ...this.getTimeTrackingBlocks(timeSummary),
-      ...this.getVacationUsageBlocks(usageInfo, fileBalance),
-      ...this.getRequestedVacationsBlocks(requestedVacations),
-      {
-        type: 'actions',
-        elements: [
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '🌴 Request time off' },
-            action_id: HomeTabActionId.OpenVacationModal,
-          },
-        ],
       },
     ];
   }
@@ -450,8 +470,24 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     vacationsUsageInfo: IVacationPeriodUsageData | null,
     fileBalance: ILeaveBalance | null,
   ): AnyBlock[] {
+    // No policy and nothing taken: one line, not a section of empty numbers.
+    if (
+      vacationsUsageInfo &&
+      !vacationsUsageInfo.limits &&
+      Object.values(vacationsUsageInfo.usage).every(({ used }) => !used)
+    ) {
+      return [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '*🏝 Time off*\nNo vacation policy applies to you yet: you can request time off, and it is tracked without a balance.',
+          },
+        },
+      ];
+    }
+
     const blocks: AnyBlock[] = [
-      ...Divider.getBlocks(),
       {
         type: 'section',
         text: { type: 'mrkdwn', text: '*🏝 Vacation Usage*' },
@@ -552,7 +588,6 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
     }
 
     return [
-      ...Divider.getBlocks(),
       {
         type: 'section',
         text: { type: 'mrkdwn', text: '*🗓 Your Pending Vacation Requests*' },
@@ -579,22 +614,31 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         type: 'section',
         text: { type: 'mrkdwn', text: '*🕒 Time Tracking*' },
       },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: todayMinutes
-            ? `Today: *${getDisplayTime(todayMinutes)}* (${clients})`
-            : 'Today: nothing logged yet',
-        },
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `This week: *${weekMinutes ? getDisplayTime(weekMinutes) : '0h'}* total`,
-        },
-      },
+      ...(weekMinutes
+        ? [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: todayMinutes
+                  ? `Today: *${getDisplayTime(todayMinutes)}* (${clients})`
+                  : 'Today: nothing logged yet',
+              },
+            } as AnyBlock,
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `This week: *${getDisplayTime(weekMinutes)}* total`,
+              },
+            } as AnyBlock,
+          ]
+        : [
+            {
+              type: 'section',
+              text: { type: 'mrkdwn', text: 'Nothing logged this week yet.' },
+            } as AnyBlock,
+          ]),
       // Logged time reaches the approvers only once it is submitted.
       ...(unsubmitted.count
         ? [
@@ -635,7 +679,6 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
           },
         ],
       },
-      { type: 'divider' },
     ];
   }
 }

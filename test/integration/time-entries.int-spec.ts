@@ -885,8 +885,8 @@ describe('Time entries', () => {
     it('says when nothing is logged yet', async () => {
       const home = sectionTexts(await openAppHomeTab(t, workspace, member));
 
-      expect(home).toContain('Today: nothing logged yet');
-      expect(home).toContain('This week: *0h* total');
+      expect(home).toContain('Nothing logged this week yet.');
+      expect(home.some((text) => text.startsWith('This week'))).toBe(false);
     });
 
     it("sums up the workspace's week in Reports", async () => {
@@ -1161,6 +1161,32 @@ describe('Time entries', () => {
         listItems(await publishedHome(t, workspace, admin, since))[0].fields
           .Time,
       ).toBe('2h');
+    });
+
+    it('keeps the team an entry was logged in when its person moved since', async () => {
+      const ops = await workspace.addTeam({ name: 'Ops' });
+      const entry = await workspace.addTimeEntry(member, website, {
+        team_id: design.id,
+      });
+      await t.db
+        .updateTable('users')
+        .set({ team_id: ops.id })
+        .where('id', '=', member.id)
+        .execute();
+
+      await t.slack
+        .submitView(
+          workspace,
+          admin,
+          await openFromMenu(TimeEntriesTabViewActionId.EditTimeEntry, entry),
+          { description: 'Typo fixed' },
+        )
+        .expect(200);
+
+      expect(await workspace.row('time_entries', entry.id)).toMatchObject({
+        description: 'Typo fixed',
+        team_id: design.id,
+      });
     });
 
     it('lets a member edit their own entry from Edit Entries', async () => {

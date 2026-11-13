@@ -169,7 +169,7 @@ export default class ProjectsTabActionHandler extends BaseTabActionHandler {
 
         break;
       }
-      // Admin's and HR's: the modal refuses anyone else.
+      // Admin's and Finance's: the modal refuses anyone else.
       case ProjectsTabViewActionId.ManagePersonRates: {
         await this.projectsTabService.openModal(
           payload.trigger_id || user.slack_id,

@@ -53,27 +53,41 @@ export class UserUpdateValidatorService {
     }
   }
 
+  public takesAdminAway(
+    userBeforeUpdate: IUserViewModel,
+    params: IUpdateUserParams,
+  ) {
+    const roleChangedToNonAdmin =
+      params.role !== undefined && params.role !== UserRole.Admin;
+
+    return (
+      userBeforeUpdate.role === UserRole.Admin &&
+      (roleChangedToNonAdmin || params.isActive === false)
+    );
+  }
+
+  // The answer holds only under adminsLock: without it another admin's
+  // demotion may commit between this count and the caller's write.
+  public async assertAdminRemains(slackTeamId: string) {
+    const adminCount = await this.usersRepository.count({
+      slack_team_id: slackTeamId,
+      role: UserRole.Admin,
+      is_active: true,
+    });
+
+    if (adminCount <= 1) {
+      throw new ValidationError(
+        'Cannot update user. At least one active admin is required.',
+      );
+    }
+  }
+
   private async validateRoleChange(
     userBeforeUpdate: IUserViewModel,
     params: IUpdateUserParams,
   ) {
-    const isCurrentRoleAdmin = userBeforeUpdate.role === UserRole.Admin;
-    const roleChangedToNonAdmin =
-      params.role !== undefined && params.role !== UserRole.Admin;
-    const deactivated = params.isActive === false;
-
-    if (isCurrentRoleAdmin && (roleChangedToNonAdmin || deactivated)) {
-      const adminCount = await this.usersRepository.count({
-        slack_team_id: userBeforeUpdate.slack_team_id,
-        role: UserRole.Admin,
-        is_active: true,
-      });
-
-      if (adminCount <= 1) {
-        throw new ValidationError(
-          'Cannot update user. At least one active admin is required.',
-        );
-      }
+    if (this.takesAdminAway(userBeforeUpdate, params)) {
+      await this.assertAdminRemains(userBeforeUpdate.slack_team_id);
     }
   }
 

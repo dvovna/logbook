@@ -3,7 +3,6 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
-import ProjectsService from 'src/projects/services/projects.service';
 import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
 import { ISetupProgress } from '@modules/slack/tabs/home/types/setup-progress.interface';
 import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
@@ -16,17 +15,21 @@ export class SetupProgressService {
     private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly teamRulesService: TeamRulesService,
     private readonly usersService: UsersService,
-    private readonly projectsService: ProjectsService,
     private readonly leaveFileUploadsService: LeaveFileUploadsService,
   ) {}
 
-  public async get(user: IUserViewModel): Promise<ISetupProgress | null> {
+  // `projects`: how many the workspace has, archived ones included, which
+  // Home counts for itself too.
+  public async get(
+    user: IUserViewModel,
+    projects: Promise<number>,
+  ): Promise<ISetupProgress | null> {
     if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
       return null;
     }
 
     const slackTeamId = user.slack_team_id;
-    const [policies, rules, peopleWithoutTeam, projects, hasLeaveImport] =
+    const [policies, rules, peopleWithoutTeam, projectsCount, hasLeaveImport] =
       await Promise.all([
         this.vacationPoliciesService.search({
           filters: { slackTeamId },
@@ -34,7 +37,7 @@ export class SetupProgressService {
         }),
         this.teamRulesService.forWorkspace(slackTeamId),
         this.usersService.count({ slackTeamId, withoutTeam: true }),
-        this.projectsService.count({ slackTeamId, includeArchived: true }),
+        projects,
         this.leaveFileUploadsService.hasApplied(slackTeamId),
       ]);
     const progress: ISetupProgress = {
@@ -49,7 +52,7 @@ export class SetupProgressService {
       ),
       companyRulesNameApprovers: rules.companyRules.hr_approvers.length > 0,
       peopleWithoutTeam,
-      hasProjects: projects > 0,
+      hasProjects: projectsCount > 0,
       hasLeaveImport,
     };
     const done =

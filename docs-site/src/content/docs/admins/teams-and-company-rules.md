@@ -33,7 +33,7 @@ With **Its own rules**, the team also has:
 - **Vacation Policy**: a policy, or **No Policy** to only track time off.
 - **Level 2: HR**: up to five people with the HR or Admin role.
 - **Level 2 rule**: the same choice as for level 1.
-- **Approval Notification Recipients**: up to five people who get a DM when a request is approved. Anyone in the workspace can be one.
+- **Approval Notification Recipients**: up to five people who get a DM when a request is approved. Anyone active in Logbook can be one; someone deactivated later stops getting them.
 
 Level 1 always comes from the team, also when it follows the company rules. Nobody approves their own request: a manager's own request skips them.
 
@@ -67,7 +67,7 @@ Their submitted time waits for HR, or for the admins when nobody has the HR role
 
 ## The setup checklist
 
-Until the workspace is set up, Home shows HR and admins **🚀 Set up Logbook** with how many of four steps are done. Each step left has a button to the screen that does it:
+Until the workspace is set up, Home shows HR and admins **🚀 Set up Logbook** with how many of four steps are done. The next step is shown in full and the others in a line each, with a button to the screen that does it:
 
 1. **Create a vacation policy**: done when the workspace has a policy. See [Policies and holidays](/logbook/docs/admins/policies-and-holidays/).
 2. **Set the company rules**: done when the company rules name level 2 approvers, or when every team keeps its own rules.

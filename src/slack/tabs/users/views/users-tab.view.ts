@@ -1,3 +1,4 @@
+import { canChangeUser } from '@modules/users/utils/admin-role.utils';
 import {
   getCurrentVacationPeriod,
   getJoinedVacationPeriod,
@@ -166,7 +167,14 @@ export class UsersTabView extends BaseTabView<
         id: UsersTabViewActionId.ChangeStatus,
         name: `${user.is_active ? 'Deactivate' : 'Activate'} User`,
       },
-    ].filter(({ id }) => this.slackActionPermissionsService.can(userRole, id));
+    ]
+      .filter(({ id }) => this.slackActionPermissionsService.can(userRole, id))
+      // HR doesn't deactivate or activate an admin.
+      .filter(
+        ({ id }) =>
+          id !== UsersTabViewActionId.ChangeStatus ||
+          canChangeUser(userRole, user.role, { isActive: !user.is_active }),
+      );
 
     if (
       !items.length ||

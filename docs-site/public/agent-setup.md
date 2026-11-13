@@ -93,7 +93,7 @@ Logbook checks annual leave against both the calendar and the working days. A co
 | **Vacation Policy** | The policy most people follow |
 | **Level 2: HR** | Up to five people who approve after the team lead. They need the HR or Admin role: say whose role to change first, on **People** → **Edit User** → **Role** |
 | **Level 2 rule** | **All listed approvers must approve** ticked, or not: then the first approval is enough |
-| **Approval Notification Recipients** | Up to five people who get a message about each approved leave, if the person named any |
+| **Approval Notification Recipients** | Up to five people, active in Logbook, who get a message about each approved leave, if the person named any |
 
 Only an admin gives the Admin or Finance role. HR can make someone a Manager, HR or Member.
 

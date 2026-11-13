@@ -11,6 +11,7 @@ export interface IAdvisoryLock {
 // workflow's; logging time off as time and a timesheet save both take the
 // person's time last. The workspace locks are taken alone.
 const RANK = {
+  admins: 5,
   vacationRequest: 10,
   workflow: 20,
   timesheet: 30,
@@ -25,6 +26,14 @@ const RANK = {
 
 export const compareLocks = (a: IAdvisoryLock, b: IAdvisoryLock) =>
   a.rank - b.rank || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+
+// Taking the Admin role from someone, or deactivating an admin: one at a
+// time per workspace, so that two admins who demote each other at once
+// don't leave it with none (UsersService.update).
+export const adminsLock = (slackTeamId: string): IAdvisoryLock => ({
+  key: `admins:${slackTeamId}`,
+  rank: RANK.admins,
+});
 
 export const vacationRequestLock = (requestId: string): IAdvisoryLock => ({
   key: `vacation-request:${requestId}`,

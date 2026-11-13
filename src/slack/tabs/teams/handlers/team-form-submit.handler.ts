@@ -122,6 +122,10 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
         (data.hr_approvers ?? []).map(({ value }) => value),
         user,
       ),
+      this.ruleInputsValidationService.assertRecipients(
+        data.approval_notification_recipients ?? [],
+        user,
+      ),
     ]);
   }
 

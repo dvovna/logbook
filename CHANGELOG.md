@@ -4,6 +4,24 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Fixed
+- The search of the Projects filter no longer answers a member, who could read the names of every project through it.
+- Two admins who deactivate or demote each other at the same moment no longer leave the workspace without an admin: one of them is refused.
+- Approval notification recipients have to be active people in Logbook, and someone deactivated since no longer gets the decisions.
+- An entry edited by HR or an admin keeps the team it was logged in, even when its person moved to another team since: who approves it and whose reports hold it no longer change with a typo fix.
+- Deactivating or activating someone records who did it.
+
+### People and time off
+- HR is offered only what it can do: the Edit User form lists the roles HR may give (not Admin or Finance), an admin's menu has no Deactivate User for HR, and nobody sees Approve for Approvers on their own request.
+- A project's assignments and the client forms are refused when they open for a role that can't save them (Finance, a manager), not only on Save.
+
+## [0.5.3] - 2026-11-13
+
+A shorter Home, most of all before a workspace is set up. No update step: only the new image.
+
+### Home
+- Home is shorter, most of all before a workspace is set up. The setup checklist shows the next step in full and the others in a line each, with the optional ones in one row. Time tracking appears once the workspace has a project. With no vacation policy and no time off taken, the balance is one line. The "Home" title and the line under it are gone: the button row already says where you are.
+
 ## [0.5.2] - 2026-11-13
 
 The pages an install ends on: what to do next after a first install, and why when it failed. No update step: only the new image.
@@ -185,6 +203,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.5.3]: https://github.com/dvovna/logbook/releases/tag/v0.5.3
 [0.5.2]: https://github.com/dvovna/logbook/releases/tag/v0.5.2
 [0.5.1]: https://github.com/dvovna/logbook/releases/tag/v0.5.1
 [0.5.0]: https://github.com/dvovna/logbook/releases/tag/v0.5.0

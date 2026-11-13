@@ -92,13 +92,21 @@ export class TimeEntriesService {
 
   public async update(
     { id, slackTeamId }: IFindParams,
-    updateParams: ITimeEntryUpdateParams,
+    params: ITimeEntryUpdateParams,
     user: IUserViewModel,
   ): Promise<ITimeEntryViewModel> {
     const existingEntry = await this.findOneWithValidation({
       id,
       slackTeamId,
     });
+    // An entry counts for the team it was logged in (who approves it, whose
+    // reports hold it), wherever its person is now; only an entry moved to
+    // someone else takes that person's team.
+    const movesToSomeoneElse =
+      params.userId !== undefined && params.userId !== existingEntry.user_id;
+    const updateParams = movesToSomeoneElse
+      ? params
+      : { ...params, teamId: undefined };
 
     // An entry keeps its project even after its owner left the project; a new
     // project has to be one they may log time on.

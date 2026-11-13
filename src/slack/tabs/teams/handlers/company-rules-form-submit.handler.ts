@@ -60,6 +60,10 @@ export class CompanyRulesFormSubmitHandler extends BaseModalFormSubmitHandler<
         user,
       ),
       this.ruleInputsValidationService.assertLevel2Approvers(hrApprovers, user),
+      this.ruleInputsValidationService.assertRecipients(
+        data.approval_notification_recipients ?? [],
+        user,
+      ),
     ]);
 
     return this.companyRulesService.update(

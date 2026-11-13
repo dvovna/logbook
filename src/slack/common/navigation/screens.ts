@@ -88,8 +88,8 @@ export const SCREENS: Record<ScreenId, IScreen> = {
     menuGroup: MenuGroup.Manage,
   },
   // Time reports for everyone, each of their own scope (a member's own time,
-  // a manager's teams); the billing report and everyone's time logs are for
-  // Admin and HR.
+  // a manager's teams); the billing report is for Admin and Finance,
+  // everyone's time logs for Admin and HR.
   [ScreenId.Reports]: {
     title: '📊 Reports',
     roles: ALL_ROLES,

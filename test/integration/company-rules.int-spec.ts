@@ -208,6 +208,22 @@ describe('Company rules', () => {
     expect(textOf(notice)).toContain('Max Member');
   });
 
+  it('tells no recipient deactivated since the rules were saved', async () => {
+    await setCompanyRules({ notificationRecipients: [officeManager.slack_id] });
+    await t.db
+      .updateTable('users')
+      .set({ is_active: false })
+      .where('id', '=', officeManager.id)
+      .execute();
+    const member = await workspace.addUser({ name: 'Max Member' });
+
+    const request = await requestVacation(t, workspace, member, workWeek(1));
+    await approve(hr);
+
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+    expect(await messagesTo(officeManager)).toEqual([]);
+  });
+
   it('with no level 2 in the company rules a teamless request goes to HR, else the admins', async () => {
     await setCompanyRules({ notificationRecipients: [officeManager.slack_id] });
     const member = await workspace.addUser({ name: 'Max Member' });
@@ -461,10 +477,10 @@ describe('Company rules', () => {
       const member = await workspace.addUser({ name: 'Max Member' });
 
       expect(
-        sectionTexts(await openAppHomeTab(t, workspace, member)).filter(
-          (text) => text.startsWith('Annual leave'),
-        ),
-      ).toEqual(['Annual leave: no limit (no vacation policy applies to you)']);
+        sectionTexts(await openAppHomeTab(t, workspace, member)),
+      ).toContain(
+        '*🏝 Time off*\nNo vacation policy applies to you yet: you can request time off, and it is tracked without a balance.',
+      );
     });
   });
 
@@ -504,6 +520,34 @@ describe('Company rules', () => {
           fields.Approvers,
         ],
       );
+
+    it('takes only active people of Logbook as notification recipients', async () => {
+      const left = await workspace.addUser({ is_active: false });
+
+      for (const recipient of [left.slack_id, 'U0NOTINLOGBOOK']) {
+        const response = await t.slack
+          .submitView(workspace, hr, await openCompanyRules(hr), {
+            approval_notification_recipients: [
+              officeManager.slack_id,
+              recipient,
+            ],
+          })
+          .expect(200);
+
+        expect(response.body).toEqual({
+          response_action: 'errors',
+          errors: {
+            approval_notification_recipients_block:
+              'Notification recipients need to be active people in Logbook.',
+          },
+        });
+      }
+
+      expect(
+        (await t.app.get(CompanyRulesService).get(workspace.id))
+          .approval_notification_recipients,
+      ).toEqual([]);
+    });
 
     it('HR saves company rules from Teams and a new team follows them', async () => {
       const policy = await workspace.addVacationPolicy({ name: 'Standard' });
