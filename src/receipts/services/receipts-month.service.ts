@@ -66,16 +66,33 @@ export class ReceiptsMonthService {
       );
     }
 
+    // Owners deactivated since (receipts or same files) stay in the month.
+    const known = new Set(users.map(({ id }) => id));
+    const missing = [
+      ...new Set([
+        ...receipts.map(({ userId }) => userId),
+        ...[...sameFileOwners.values()].flat(),
+      ]),
+    ].filter((id) => !known.has(id));
+    const inactive = missing.length
+      ? await this.users.findMany({
+          slackTeamId,
+          ids: missing,
+          includeInactive: true,
+        })
+      : [];
+
     const teamNames = new Map(teams.map(({ id, name }) => [id, name]));
 
     return buildMonthOverview({
       reimbursement,
       month: params.month,
       receipts,
-      people: users.map((user) => ({
+      people: [...users, ...inactive].map((user) => ({
         id: user.id,
         name: user.name,
         email: user.email,
+        active: user.is_active,
         teamName: (user.team_id && teamNames.get(user.team_id)) || null,
       })),
       optedOutUserIds: new Set(optOuts.map(({ userId }) => userId)),

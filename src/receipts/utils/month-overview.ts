@@ -13,13 +13,15 @@ export interface IOverviewPerson {
   name: string;
   email: string;
   teamName: string | null;
+  active: boolean;
 }
 
 export interface IMonthOverviewInput {
   reimbursement: IReimbursementViewModel;
   month: string;
   receipts: IReceiptViewModel[];
-  // The active people of the workspace.
+  // The active people of the workspace, and the owners of the receipts that
+  // are not.
   people: IOverviewPerson[];
   optedOutUserIds: ReadonlySet<string>;
   // The owners' IDs of each file (by its hash), the receipt's own included.
@@ -60,7 +62,7 @@ export const buildMonthOverview = ({
         status === ReceiptStatus.Accepted || status === ReceiptStatus.Submitted,
     );
 
-    if (!counted && !optedOutUserIds.has(person.id)) {
+    if (person.active && !counted && !optedOutUserIds.has(person.id)) {
       sentNothing.push({ userId: person.id, name: labelOf(person) });
     }
 
@@ -72,6 +74,7 @@ export const buildMonthOverview = ({
       userId: person.id,
       name: labelOf(person),
       email: person.email,
+      active: person.active,
       teamName: person.teamName,
       receipts: own.map((receipt) => ({
         ...receipt,

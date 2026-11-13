@@ -48,9 +48,10 @@ const receipt = (
   ...fields,
 });
 
-const person = (id: string, name: string) => ({
+const person = (id: string, name: string, active = true) => ({
   id,
   name,
+  active,
   email: `${id}@example.test`,
   teamName: null,
 });
@@ -144,6 +145,18 @@ describe('buildMonthOverview', () => {
     expect(result.people.map(({ name }) => name)).toEqual(['Ann', 'Bob']);
     expect(result.people[0].receipts[0].late).toBe(false);
     expect(result.people[1].receipts[0].late).toBe(true);
+  });
+
+  it('keeps a deactivated owner with a submitted receipt', () => {
+    const result = overview({
+      people: [person('a', 'Ann', false)],
+      receipts: [receipt('a', ReceiptStatus.Submitted, 1000)],
+    });
+
+    expect(result.people).toHaveLength(1);
+    expect(result.people[0]).toMatchObject({ active: false });
+    expect(result.waiting).toBe(1);
+    expect(result.sentNothing).toEqual([]);
   });
 
   it('has no limit to go over without one', () => {

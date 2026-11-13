@@ -251,6 +251,33 @@ describe('Receipt decisions', () => {
       );
     });
 
+    it('lists a deactivated member’s receipt, which Finance can accept', async () => {
+      const gone = await workspace.addUser({ name: 'Gone' });
+      const receipt = await submitted(gone);
+
+      await t.db
+        .updateTable('users')
+        .set({ is_active: false })
+        .where('id', '=', gone.id)
+        .execute();
+
+      const month = await months.getMonth(
+        { reimbursementId: gym.id, month: '2026-05-01' },
+        asUser(finance),
+      );
+      const person = month.people.find(({ userId }) => userId === gone.id)!;
+
+      expect(person.active).toBe(false);
+      expect(person.receipts).toHaveLength(1);
+      expect(month.waiting).toBe(1);
+      expect(month.sentNothing.map(({ userId }) => userId)).not.toContain(
+        gone.id,
+      );
+      expect((await decisions.accept(receipt.id, asUser(finance))).status).toBe(
+        ReceiptStatus.Accepted,
+      );
+    });
+
     it('names who else sent the same file', async () => {
       const content = Buffer.from('same photo');
       const friend = await workspace.addUser({ name: 'Friend' });

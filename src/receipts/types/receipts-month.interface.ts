@@ -11,6 +11,8 @@ export interface IReceiptsMonthPerson {
   userId: string;
   name: string;
   email: string;
+  // false for someone deactivated since, still owed their receipts.
+  active: boolean;
   teamName: string | null;
   receipts: IReceiptsMonthReceipt[];
   acceptedCents: number;
