@@ -47,7 +47,8 @@ describe('TimeEntriesRepository', () => {
         'where "time_entries"."slack_team_id" = $1 and "status" in ($2, $3) ' +
         'and "deleted_at" is null and "work_date" <= $4 ' +
         'and "user_id" in (select "users"."id" from "users" ' +
-        'where "users"."slack_team_id" = $5 and "users"."time_reminder" in ($6, $7))',
+        'where "users"."slack_team_id" = $5 and "users"."is_active" = $6 ' +
+        'and "users"."time_reminder" in ($7, $8))',
     );
     expect(parametersOf(0)).toEqual([
       'w1',
@@ -55,9 +56,23 @@ describe('TimeEntriesRepository', () => {
       'rejected',
       '2026-06-14',
       'w1',
+      true,
       'weekly',
       'monthly',
     ]);
+  });
+
+  it('asks nothing when nobody is reminded that often', async () => {
+    const { database, sqlOf } = recordingDatabase([]);
+
+    await expect(
+      new TimeEntriesRepository(database).findUserIdsWithOpenUpTo(
+        'w1',
+        '2026-06-14',
+        [],
+      ),
+    ).resolves.toEqual([]);
+    expect(() => sqlOf(0)).toThrow();
   });
 
   it('counts what waits for an approver in one row, running the rule once per team and owner', async () => {

@@ -653,6 +653,10 @@ export class TimeEntriesRepository extends BaseRepository<
     dateTo: string,
     reminders: TimeReminder[],
   ): Promise<string[]> {
+    if (!reminders.length) {
+      return [];
+    }
+
     const rows = await this.selectInWorkspace(slackTeamId)
       .select('user_id')
       .distinct()
@@ -664,6 +668,7 @@ export class TimeEntriesRepository extends BaseRepository<
           .selectFrom('users')
           .select('users.id')
           .where('users.slack_team_id', '=', slackTeamId)
+          .where('users.is_active', '=', true)
           .where('users.time_reminder', 'in', reminders),
       )
       .execute();
