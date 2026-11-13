@@ -21,7 +21,7 @@ interface ISendEphemeralMessageParams extends ISendMessageParams {
 
 export interface IUploadFileParams {
   filename: string;
-  content: string;
+  content: string | Buffer;
   accessToken: string;
 }
 

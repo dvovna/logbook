@@ -92,7 +92,9 @@ export interface IUploadedFile {
   channel: string;
   filename: string;
   title?: string;
+  // As text, for CSVs; `bytes` is what was sent, for any file.
   content: string;
+  bytes: Buffer;
 }
 
 // Calls a test can make fail (failNext).
@@ -137,7 +139,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
   // Files uploaded but not necessarily shared yet, by file ID.
   private readonly uploads = new Map<
     string,
-    { filename: string; content: string }
+    { filename: string; content: string | Buffer }
   >();
   private messageCount = 0;
   // The version of each open modal, by view ID, as Slack keeps it.
@@ -322,11 +324,18 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     return this.callsWith(token, 'files.completeUploadExternal', options)
       .filter(({ params }) => params.channel_id === channel)
       .flatMap(({ params }) =>
-        params.files.map(({ id, title }: { id: string; title?: string }) => ({
-          channel,
-          title,
-          ...this.uploads.get(id)!,
-        })),
+        params.files.map(({ id, title }: { id: string; title?: string }) => {
+          const { filename, content } = this.uploads.get(id)!;
+          const bytes = Buffer.from(content);
+
+          return {
+            channel,
+            title,
+            filename,
+            content: bytes.toString(),
+            bytes,
+          };
+        }),
       );
   }
 

@@ -12,7 +12,7 @@ interface IDmFile {
   intro: string;
   title: string;
   filename: string;
-  content: string;
+  content: string | Buffer;
 }
 
 const withoutFile = (intro: string) => `${intro}\n${NO_FILES_PERMISSION}`;
