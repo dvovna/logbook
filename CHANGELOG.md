@@ -4,6 +4,10 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-11-13
+
+A shorter Home, most of all before a workspace is set up. No update step: only the new image.
+
 ### Home
 - Home is shorter, most of all before a workspace is set up. The setup checklist shows the next step in full and the others in a line each, with the optional ones in one row. Time tracking appears once the workspace has a project. With no vacation policy and no time off taken, the balance is one line. The "Home" title and the line under it are gone: the button row already says where you are.
 
@@ -188,6 +192,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.5.3]: https://github.com/dvovna/logbook/releases/tag/v0.5.3
 [0.5.2]: https://github.com/dvovna/logbook/releases/tag/v0.5.2
 [0.5.1]: https://github.com/dvovna/logbook/releases/tag/v0.5.1
 [0.5.0]: https://github.com/dvovna/logbook/releases/tag/v0.5.0

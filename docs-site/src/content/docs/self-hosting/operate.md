@@ -111,7 +111,7 @@ What is sent:
 Each event holds the error and its stack only: no request data, people, cookies, headers, bodies, query strings, job payloads or local variables, and no tracing. Stack traces name the TypeScript file and line.
 
 Each event carries:
-- the release, `logbook@<version>` (for example `logbook@0.5.2`), so an issue shows which version brought it;
+- the release, `logbook@<version>` (for example `logbook@0.5.3`), so an issue shows which version brought it;
 - the environment: `SENTRY_ENVIRONMENT`, else `NODE_ENV` (`production` in the Docker image), else `development`.
 
 ## Logs
