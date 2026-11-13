@@ -4,6 +4,10 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-13
+
+The pages an install ends on: what to do next after a first install, and why when it failed. No update step: only the new image.
+
 ### Installing
 - The page an install ends on looks like the rest of Logbook and says what to do next: the four setup steps, a button that opens Logbook's Home in Slack, and links to the setup guide and to setting up with an AI agent. Installing again, or over an uninstalled workspace, says that the data and roles are kept.
 - An install that fails ends on a page that says why (canceled, an expired link, a workspace the server doesn't accept, or a failure) and offers to try again, instead of a line of text.
@@ -181,6 +185,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.5.2]: https://github.com/dvovna/logbook/releases/tag/v0.5.2
 [0.5.1]: https://github.com/dvovna/logbook/releases/tag/v0.5.1
 [0.5.0]: https://github.com/dvovna/logbook/releases/tag/v0.5.0
 [0.4.1]: https://github.com/dvovna/logbook/releases/tag/v0.4.1
