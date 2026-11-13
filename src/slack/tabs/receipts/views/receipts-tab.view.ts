@@ -39,6 +39,10 @@ export interface IReceiptsTabMetadata {
   page?: number;
   // The child screen, Reimbursements.
   reimbursements?: boolean;
+  // One person's receipts of the month; `page` then pages their receipts,
+  // and `fromPage` is the page of people to return to.
+  userId?: string;
+  fromPage?: number;
 }
 
 // What a form opened from the screen hands back (pageMetadata): only the
@@ -47,15 +51,16 @@ export const parsePageMetadata = (
   pageMetadata?: string,
 ): IReceiptsTabMetadata => {
   try {
-    const { reimbursementId, month, page, reimbursements } = JSON.parse(
-      pageMetadata || '{}',
-    );
+    const { reimbursementId, month, page, reimbursements, userId, fromPage } =
+      JSON.parse(pageMetadata || '{}');
 
     return {
       ...(typeof reimbursementId === 'string' ? { reimbursementId } : {}),
       ...(typeof month === 'string' ? { month } : {}),
       ...(typeof page === 'number' ? { page } : {}),
       ...(reimbursements === true ? { reimbursements } : {}),
+      ...(typeof userId === 'string' ? { userId } : {}),
+      ...(typeof fromPage === 'number' ? { fromPage } : {}),
     };
   } catch {
     return {};
@@ -65,15 +70,55 @@ export const parsePageMetadata = (
 export const PEOPLE_PAGE_SIZE = 10;
 
 // Slack takes 100 blocks in a view. The header, the month's line, the
-// pagination and the buttons take about 16 of them; a person takes a heading
-// and a line for what is not shown, and a receipt three (the item, its
-// buttons and the divider).
+// pagination and the buttons take at most 16 of them; the rest is shared by
+// the people of a page: each takes a heading (the "Show all" button is its
+// accessory), and each receipt three blocks when it waits (the item, its
+// buttons and the divider) and two when decided.
 const PAGE_BLOCKS = 100 - 16;
+const WAITING_BLOCKS = 3;
+const DECIDED_BLOCKS = 2;
 
-// How many receipts each person of a page shows, so that the page fits: the
-// people with the most come first, so what is left out is the decided ones.
-export const receiptsShownPerPerson = (peopleOnPage: number) =>
-  Math.max(1, Math.floor((PAGE_BLOCKS / Math.max(peopleOnPage, 1) - 2) / 3));
+// A person's view: the navigation row, a notice, the title, the button back,
+// the heading and the pagination take 8 blocks, and 20 receipts at most 3
+// each: 68 in all.
+export const RECEIPTS_PAGE_SIZE = 20;
+
+// What waits for a decision first: it is what the screen is for.
+const orderedReceipts = (person: IReceiptsMonthPerson) => [
+  ...person.receipts.filter(({ status }) => status === ReceiptStatus.Submitted),
+  ...person.receipts.filter(({ status }) => status !== ReceiptStatus.Submitted),
+];
+
+const blocksOfReceipt = ({ status }: IReceiptsMonthReceipt) =>
+  status === ReceiptStatus.Submitted ? WAITING_BLOCKS : DECIDED_BLOCKS;
+
+// How many receipts each person of a page shows so that the page fits: one
+// each, then one more in turn for as long as the next one fits. Counted from
+// the receipts themselves, so a page of few receipts shows them all.
+export const receiptsShownPerPerson = (
+  people: IReceiptsMonthPerson[],
+): number[] => {
+  const lists = people.map(orderedReceipts);
+  const shown = lists.map(() => 0);
+  let left = PAGE_BLOCKS - people.length;
+  let added = true;
+
+  while (added) {
+    added = false;
+
+    lists.forEach((list, i) => {
+      const next = list[shown[i]];
+
+      if (next && (shown[i] === 0 || blocksOfReceipt(next) <= left)) {
+        shown[i]++;
+        left -= blocksOfReceipt(next);
+        added = true;
+      }
+    });
+  }
+
+  return shown;
+};
 
 // Slack's limit for the text of an option, and a file name this long is a
 // title.
@@ -88,6 +133,8 @@ interface IGetViewParams extends IBaseTabViewParams {
   overview: IReceiptsMonth | null;
   currency: string;
   page: number;
+  // Set: only this person's receipts, all of them.
+  person?: IReceiptsMonthPerson;
 }
 
 const text = (value: string): AnyBlock => ({
@@ -130,6 +177,7 @@ export class ReceiptsTabView extends BaseTabView<
     overview,
     currency,
     page,
+    person,
   }: IGetViewParams): AnyBlock[] {
     if (!overview) {
       return [
@@ -140,22 +188,27 @@ export class ReceiptsTabView extends BaseTabView<
       ];
     }
 
+    if (person) {
+      return this.getPersonView(person, overview.reimbursement, currency, page);
+    }
+
     const people = overview.people.slice(
       (page - 1) * PEOPLE_PAGE_SIZE,
       page * PEOPLE_PAGE_SIZE,
     );
+    const shown = receiptsShownPerPerson(people);
     const lastPage = page * PEOPLE_PAGE_SIZE >= overview.people.length;
 
     return [
       this.getMonthRow(overview, reimbursements),
       text(this.getSummary(overview)),
       ...(overview.people.length
-        ? people.flatMap((person) =>
+        ? people.flatMap((listed, i) =>
             this.getPersonBlocks(
-              person,
+              listed,
               overview.reimbursement,
               currency,
-              receiptsShownPerPerson(people.length),
+              shown[i],
             ),
           )
         : [text('_No receipts for this month yet._')]),
@@ -235,48 +288,79 @@ export class ReceiptsTabView extends BaseTabView<
     return `Sent nothing: ${names.join(', ')}${more > 0 ? `, …and ${more} more` : ''}`;
   }
 
+  private getPersonView(
+    person: IReceiptsMonthPerson,
+    reimbursement: IReimbursementViewModel,
+    currency: string,
+    page: number,
+  ): AnyBlock[] {
+    const receipts = orderedReceipts(person);
+
+    return [
+      {
+        type: 'actions',
+        elements: [button('◀ All people', ReceiptsTabActionId.AllPeople)],
+      },
+      this.getPersonHeading(person, reimbursement, currency),
+      ...receipts
+        .slice((page - 1) * RECEIPTS_PAGE_SIZE, page * RECEIPTS_PAGE_SIZE)
+        .flatMap((receipt) => this.getReceiptBlocks(receipt, currency)),
+      ...PaginationView.getBlocks({
+        page,
+        pageSize: RECEIPTS_PAGE_SIZE,
+        totalCount: receipts.length,
+        prevPageActionId: ReceiptsTabActionId.PaginationPrev,
+        nextPageActionId: ReceiptsTabActionId.PaginationNext,
+      }),
+    ];
+  }
+
+  // With `hidden` receipts not shown below it, a button to all of them.
+  private getPersonHeading(
+    person: IReceiptsMonthPerson,
+    { limitCents }: IReimbursementViewModel,
+    currency: string,
+    hidden = false,
+  ): AnyBlock {
+    const total = formatMoney(
+      person.acceptedCents + person.submittedCents,
+      currency,
+    );
+
+    return {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${escapeMrkdwn(person.name)}*${person.active ? '' : ' (deactivated)'} · ${total}${limitCents === null ? '' : ` of ${formatMoney(limitCents, currency)}`}${person.overLimit ? ' ⚠️ over the limit' : ''}`,
+      },
+      ...(hidden
+        ? {
+            accessory: button(
+              `Show all ${person.receipts.length} receipts`,
+              ReceiptsTabActionId.ShowPerson,
+              person.userId,
+            ),
+          }
+        : {}),
+    };
+  }
+
   private getPersonBlocks(
     person: IReceiptsMonthPerson,
     reimbursement: IReimbursementViewModel,
     currency: string,
     shown: number,
   ): AnyBlock[] {
-    const { limitCents } = reimbursement;
-    const total = formatMoney(
-      person.acceptedCents + person.submittedCents,
-      currency,
-    );
-    // What waits for a decision first: it is what the screen is for.
-    const receipts = [
-      ...person.receipts.filter(
-        ({ status }) => status === ReceiptStatus.Submitted,
-      ),
-      ...person.receipts.filter(
-        ({ status }) => status !== ReceiptStatus.Submitted,
-      ),
-    ];
-    const hidden = receipts.length - shown;
-
     return [
-      text(
-        `*${escapeMrkdwn(person.name)}*${person.active ? '' : ' (deactivated)'} · ${total}${limitCents === null ? '' : ` of ${formatMoney(limitCents, currency)}`}${person.overLimit ? ' ⚠️ over the limit' : ''}`,
+      this.getPersonHeading(
+        person,
+        reimbursement,
+        currency,
+        shown < person.receipts.length,
       ),
-      ...receipts
+      ...orderedReceipts(person)
         .slice(0, shown)
         .flatMap((receipt) => this.getReceiptBlocks(receipt, currency)),
-      ...(hidden > 0
-        ? [
-            {
-              type: 'context' as const,
-              elements: [
-                {
-                  type: 'mrkdwn' as const,
-                  text: `…and ${hidden} more ${hidden === 1 ? 'receipt' : 'receipts'}`,
-                },
-              ],
-            },
-          ]
-        : []),
     ];
   }
 

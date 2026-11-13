@@ -8,6 +8,9 @@ export enum ReceiptsTabActionId {
   PreviousMonth = 'receipts_previous_month',
   NextMonth = 'receipts_next_month',
   SelectReimbursement = 'receipts_select_reimbursement',
+  // All of one person's receipts of the month, and back to everyone.
+  ShowPerson = 'receipts_show_person',
+  AllPeople = 'receipts_all_people',
   PaginationPrev = 'receipts_pagination_prev',
   PaginationNext = 'receipts_pagination_next',
 

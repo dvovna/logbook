@@ -64,6 +64,25 @@ export class ReceiptsTabActionHandler extends BaseTabActionHandler {
           },
           user,
         ),
+      [ReceiptsTabActionId.ShowPerson]: (payload, user) => {
+        const metadata = parseMetadata<IReceiptsTabMetadata>(payload);
+
+        return this.updateTab(
+          {
+            ...metadata,
+            userId: this.valueOf(payload),
+            fromPage: metadata.page ?? 1,
+            page: 1,
+          },
+          user,
+        );
+      },
+      [ReceiptsTabActionId.AllPeople]: (payload, user) => {
+        const { userId, fromPage, ...metadata } =
+          parseMetadata<IReceiptsTabMetadata>(payload);
+
+        return this.updateTab({ ...metadata, page: fromPage ?? 1 }, user);
+      },
       [ReceiptsTabActionId.PaginationPrev]: paginationHandler,
       [ReceiptsTabActionId.PaginationNext]: paginationHandler,
 

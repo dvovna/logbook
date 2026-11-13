@@ -21,6 +21,7 @@ import { RejectReceiptModalView } from '@modules/slack/tabs/receipts/views/rejec
 import {
   IReceiptsTabMetadata,
   PEOPLE_PAGE_SIZE,
+  RECEIPTS_PAGE_SIZE,
   ReceiptsTabView,
 } from '@modules/slack/tabs/receipts/views/receipts-tab.view';
 import { ReimbursementsView } from '@modules/slack/tabs/receipts/views/reimbursements.view';
@@ -118,15 +119,29 @@ export class ReceiptsTabService extends BaseTabService<
       { reimbursementId: selected.id, month },
       user,
     );
+    // A person of this month's overview, whatever the client sent.
+    const person = metadata.userId
+      ? overview.people.find(({ userId }) => userId === metadata.userId)
+      : undefined;
     const pages = Math.max(
-      Math.ceil(overview.people.length / PEOPLE_PAGE_SIZE),
+      Math.ceil(
+        (person ? person.receipts.length : overview.people.length) /
+          (person ? RECEIPTS_PAGE_SIZE : PEOPLE_PAGE_SIZE),
+      ),
       1,
     );
     const page = Math.min(Math.max(metadata.page ?? 1, 1), pages);
 
     return this.tabView.getView(
-      { ...base, reimbursements: active, overview, currency, page },
-      { reimbursementId: selected.id, month, page },
+      { ...base, reimbursements: active, overview, currency, page, person },
+      {
+        reimbursementId: selected.id,
+        month,
+        page,
+        ...(person
+          ? { userId: person.userId, fromPage: metadata.fromPage ?? 1 }
+          : {}),
+      },
     );
   }
 

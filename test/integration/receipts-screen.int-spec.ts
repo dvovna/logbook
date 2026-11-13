@@ -288,8 +288,6 @@ describe('The Receipts screen', () => {
           });
         }
       }
-      // A person with several receipts shows as many as fit, and the rest
-      // are counted.
       const first = await open();
 
       expect(listCount(first)).toBe('1–10 of 23');
@@ -297,7 +295,6 @@ describe('The Receipts screen', () => {
         100,
       );
       expect(sectionTexts(first)).toContain('*Person 01* · $4.00 of $50.00');
-      expect(JSON.stringify(first.blocks)).toContain('…and 2 more receipts');
 
       const second = await actOnTab(
         t,
@@ -321,6 +318,242 @@ describe('The Receipts screen', () => {
 
       expect(listCount(third)).toBe('21–23 of 23');
       expect(sectionTexts(third)).toContain('*Person 23* · $4.00 of $50.00');
+    });
+  });
+
+  describe('a person’s receipts', () => {
+    const blocksOf = (view: View) => (view.blocks as unknown[]).length;
+
+    const people = async (counts: number[]) => {
+      const users: Tables<'users'>[] = [];
+
+      for (const [i, count] of counts.entries()) {
+        const person = await workspace.addUser({
+          name: `Person ${String(i + 1).padStart(2, '0')}`,
+        });
+
+        for (let n = 1; n <= count; n++) {
+          await seed(person, {
+            fileName: `p${i + 1}-${n}.pdf`,
+            amountCents: 100,
+          });
+        }
+        users.push(person);
+      }
+
+      return users;
+    };
+
+    const showAll = (view: View, person: Tables<'users'>) =>
+      actOnTab(
+        t,
+        workspace,
+        finance,
+        view,
+        ReceiptsTabActionId.ShowPerson,
+        person.id,
+      );
+
+    // A button the screen did not offer.
+    const forgeShowPerson = async (view: View, personId: string) => {
+      const since = t.slackApi.mark();
+
+      await t.slack.interaction({
+        type: 'block_actions',
+        team: { id: workspace.slackId },
+        user: { id: finance.slack_id, team_id: workspace.slackId },
+        trigger_id: 'trigger-forged',
+        container: { type: 'view' },
+        view: { team_id: workspace.slackId, ...view },
+        actions: [
+          {
+            type: 'button',
+            action_id: ReceiptsTabActionId.ShowPerson,
+            block_id: 'forged',
+            value: personId,
+            action_ts: '1',
+          },
+        ],
+      });
+
+      return publishedHome(t, workspace, finance, since);
+    };
+
+    it('shares the page’s blocks: one person with 6 receipts and nine with 1 show all 15', async () => {
+      await people([6, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+
+      const tab = await open();
+
+      expect(titlesOf(tab)).toHaveLength(15);
+      expect(blocksOf(tab)).toBeLessThanOrEqual(100);
+      expect(actionIdsOf(tab)).not.toContain(ReceiptsTabActionId.ShowPerson);
+    });
+
+    it('offers every person with hidden receipts all of them, and returns to the page', async () => {
+      const users = await people(Array(10).fill(5));
+      const overview = await open();
+
+      expect(blocksOf(overview)).toBeLessThanOrEqual(100);
+      expect(
+        actionIdsOf(overview).filter(
+          (id) => id === ReceiptsTabActionId.ShowPerson,
+        ),
+      ).toHaveLength(10);
+      expect(
+        JSON.stringify(overview.blocks).match(/Show all 5 receipts/g),
+      ).toHaveLength(10);
+
+      const person = await showAll(overview, users[3]);
+
+      expect(blocksOf(person)).toBeLessThanOrEqual(100);
+      expect(sectionTexts(person)).toEqual([
+        '*🧾 Receipts* · Sport · June 2026',
+        '*Person 04* · $5.00 of $50.00',
+      ]);
+      expect(titlesOf(person)).toEqual([
+        'p4-1.pdf',
+        'p4-2.pdf',
+        'p4-3.pdf',
+        'p4-4.pdf',
+        'p4-5.pdf',
+      ]);
+      expect(listItems(person).map(({ buttons }) => buttons)).toEqual(
+        Array(5).fill([
+          ReceiptsTabActionId.AcceptReceipt,
+          ReceiptsTabActionId.RejectReceipt,
+        ]),
+      );
+      expect(actionIdsOf(person)).not.toContain(ReceiptsTabActionId.NextMonth);
+      expect(actionIdsOf(person)).not.toContain(
+        ReceiptsTabActionId.SelectReimbursement,
+      );
+
+      const back = await actOnTab(
+        t,
+        workspace,
+        finance,
+        person,
+        ReceiptsTabActionId.AllPeople,
+      );
+
+      expect(sectionTexts(back)).toContain('*Person 04* · $5.00 of $50.00');
+      expect(titlesOf(back).length).toBeGreaterThan(10);
+    });
+
+    it('returns to the page of people the viewer came from', async () => {
+      const users = await people(Array(20).fill(5));
+      const second = await actOnTab(
+        t,
+        workspace,
+        finance,
+        await open(),
+        ReceiptsTabActionId.PaginationNext,
+        '2',
+      );
+      const person = await showAll(second, users[14]);
+
+      expect(sectionTexts(person)).toContain('*Person 15* · $5.00 of $50.00');
+
+      const back = await actOnTab(
+        t,
+        workspace,
+        finance,
+        person,
+        ReceiptsTabActionId.AllPeople,
+      );
+
+      expect(listCount(back)).toBe('11–20 of 20');
+    });
+
+    it('decides on the hidden 5th receipt, and reverses a rejection there', async () => {
+      const [person] = await people(Array(10).fill(5));
+      const fifth = (await workspace.rows('receipts')).find(
+        ({ file_name }) => file_name === 'p1-5.pdf',
+      )!;
+
+      const view = await showAll(await open(), person);
+      const rejecting = await openModalFrom(
+        t,
+        workspace,
+        finance,
+        view,
+        ReceiptsTabActionId.RejectReceipt,
+        fifth.id,
+      );
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .submitView(workspace, finance, rejecting, { reason: 'Unreadable' })
+        .expect(200);
+
+      const shown = await publishedHome(t, workspace, finance, since);
+
+      expect(noticeOf(shown)).toBe(
+        '❌ Rejected p1-5.pdf. Person 01 gets a message about it.',
+      );
+      // Still the person's view.
+      expect(titlesOf(shown)).toHaveLength(5);
+      expect((await receiptRow(fifth.id)).status).toBe(ReceiptStatus.Rejected);
+      expect(
+        t.slackApi.postedMessages(workspace.token, person.slack_id),
+      ).toHaveLength(1);
+
+      const reversed = await actOnTab(
+        t,
+        workspace,
+        finance,
+        shown,
+        ReceiptsTabActionId.ManageReceiptMenu,
+        `${ReceiptsTabActionId.AcceptReceipt}:${fifth.id}`,
+      );
+
+      expect(noticeOf(reversed)).toBe('✅ Accepted p1-5.pdf from Person 01.');
+      expect((await receiptRow(fifth.id)).status).toBe(ReceiptStatus.Accepted);
+      expect(titlesOf(reversed)).toHaveLength(5);
+    });
+
+    it('pages through a person’s 45 receipts, each page within 100 blocks', async () => {
+      const [person] = await people([45]);
+      let view = await showAll(await open(), person);
+      const titles: string[] = [];
+      const counts: number[] = [];
+
+      for (let page = 1; page <= 3; page++) {
+        counts.push(blocksOf(view));
+        titles.push(...titlesOf(view));
+
+        if (page < 3) {
+          view = await actOnTab(
+            t,
+            workspace,
+            finance,
+            view,
+            ReceiptsTabActionId.PaginationNext,
+            String(page + 1),
+          );
+        }
+      }
+
+      expect(counts.every((count) => count <= 100)).toBe(true);
+      expect(titles).toHaveLength(45);
+      expect(new Set(titles).size).toBe(45);
+      expect(listCount(view)).toBe('41–45 of 45');
+    });
+
+    it('shows the overview for a person with no receipt that month, or from another workspace', async () => {
+      await people([5]);
+      const other = await t.createWorkspace();
+      const stranger = await other.addUser({ name: 'Stranger' });
+      const overview = await open();
+
+      for (const id of [anna.id, stranger.id]) {
+        const shown = await forgeShowPerson(overview, id);
+
+        expect(sectionTexts(shown)).toContain(
+          '1 of 4 people sent receipts · 5 waiting · due 5 Jul',
+        );
+        expect(actionIdsOf(shown)).toContain(ReceiptsTabActionId.NextMonth);
+      }
     });
   });
 
