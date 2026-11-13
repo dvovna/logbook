@@ -70,11 +70,8 @@ create index if not exists receipts_reimbursement_id_idx
 create index if not exists receipts_decided_by_idx
     on public.receipts (decided_by) where decided_by is not null;
 
--- Finds a person's earlier receipt with the same file.
-create index if not exists receipts_workspace_user_sha256_idx
-    on public.receipts (slack_team_id, user_id, sha256);
-
--- Finds everyone's receipts with the same file as one of a month's.
+-- Finds a person's earlier receipt with the same file, and everyone's
+-- receipts with the same file as one of a month's.
 create index if not exists receipts_workspace_sha256_idx
     on public.receipts (slack_team_id, sha256);
 
