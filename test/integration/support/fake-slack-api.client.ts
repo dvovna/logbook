@@ -88,6 +88,9 @@ type FailingMethod =
 
 type PublicMethods<T> = Pick<T, keyof T>;
 
+// The app every fake grant installs.
+export const FAKE_APP_ID = 'A0FAKEAPP';
+
 // Slack's Retry-After when the fake answers `ratelimited`.
 export const FAKE_RETRY_AFTER_SECONDS = 1;
 
@@ -694,6 +697,7 @@ export class FakeSlackApiClient implements PublicMethods<SlackApiClient> {
     return {
       ok: true,
       access_token: grant.botToken,
+      app_id: FAKE_APP_ID,
       ...(grant.refreshToken
         ? { refresh_token: grant.refreshToken, expires_in: grant.expiresIn }
         : {}),
