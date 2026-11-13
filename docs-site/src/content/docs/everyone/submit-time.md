@@ -39,9 +39,22 @@ Changing a rejected entry makes it a draft again.
 
 If drafts or rejected entries are in earlier weeks than the one shown, a line under the table says "📝 N open entries in earlier weeks" with a **Go to week of** … button that goes to the oldest such week.
 
-## The Monday reminder
+## The reminder
 
-On Monday morning (UTC), Logbook sends a direct message to anyone with drafts or rejected entries from before that week. It counts the entries and hours, says how many were rejected and which weeks they are in, and points you to **Home → ✏️ Edit Entries** and **📤 Submit for Approval**.
+Logbook reminds you of time you haven't submitted, in a direct message. It counts your drafts and rejected entries and their hours, says how many were rejected and which weeks they are in, and points you to **Home → ✏️ Edit Entries** and **📤 Submit for Approval**. With nothing left to submit, no reminder comes.
+
+Unless you change it, the reminder comes on Monday morning (UTC), about entries from before that week.
+
+To change how often it comes, choose **🔔 Reminders** on **Home** and pick one under "Remind me about time I haven't submitted":
+
+| Choice | When it comes | What it is about |
+|---|---|---|
+| **Every working day** | Monday to Friday morning (UTC) | Entries from before that day |
+| **Every Monday** | Monday morning (UTC) | Entries from before that week |
+| **First Monday of the month** | The first Monday of each month, in the morning (UTC) | Entries from before that week |
+| **Never** | Not at all | |
+
+Choose **Save**. **Home** says "✅ Reminders saved."
 
 ## What approvers see
 

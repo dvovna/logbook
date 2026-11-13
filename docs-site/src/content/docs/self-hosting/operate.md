@@ -94,7 +94,7 @@ The app also runs work on a timer:
 | Work | When |
 | --- | --- |
 | Import the members of each workspace | Checked every hour, the first time 10 minutes after the start; a workspace is imported once a day. |
-| The Monday reminder of unsubmitted time | Checked every 10 minutes; sent from Monday 09:00 UTC, once a week. |
+| The reminder of unsubmitted time | Checked every 10 minutes; sent from 09:00 UTC, on Monday to those reminded weekly (and on a month's first Monday to those reminded monthly), and every working day to those who chose that. |
 | Reminders of receipts, and the summary for Admin and Finance | Checked every 10 minutes; sent from 09:00 UTC on the day, once for each reimbursement and month. |
 | Delete expired receipt files and old drafts | Checked every hour, the first time 15 minutes after the start. |
 | Delete workspaces uninstalled longer than the retention period | A minute after the start, then every 6 hours. |
@@ -106,7 +106,7 @@ Set `SENTRY_DSN` to a Sentry project's DSN to get unexpected errors there. Witho
 What is sent:
 - requests that failed with a server error;
 - failures in work after an answer, and jobs that won't be tried again;
-- a workspace whose Monday reminder couldn't be started;
+- a workspace whose reminder of unsubmitted time couldn't be started;
 - an uninstalled workspace that couldn't be deleted;
 - a start that failed.
 
