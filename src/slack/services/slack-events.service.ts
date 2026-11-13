@@ -380,6 +380,13 @@ export default class SlackEventsService implements OnModuleInit {
     event: IHomeTabOpenedEvent,
     user: IUserViewModel | undefined,
   ) {
+    // Slack sends this for the Messages tab too, also when a message of the
+    // app arrives while the person is on a screen: publishing Home then
+    // would take that screen away.
+    if (event.tab !== 'home') {
+      return;
+    }
+
     if (!user) {
       this.logger.warn(`Skipping home tab for unknown user ${event.user}`);
 
