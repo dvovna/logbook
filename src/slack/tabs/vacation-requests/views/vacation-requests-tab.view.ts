@@ -89,7 +89,7 @@ export class VacationRequestsTabView extends BaseTabView<
   }
 
   protected getContentBlocks(
-    { requests, teams, years, userRole }: IGetViewParams,
+    { requests, teams, years, userRole, userId }: IGetViewParams,
     metadata?: IVacationRequestsTabMetadata,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
@@ -97,7 +97,7 @@ export class VacationRequestsTabView extends BaseTabView<
 
     blocks.push(...this.getFiltersBlocks(teams, years, filters));
 
-    blocks.push(...this.getRequestsListBlocks(requests, userRole));
+    blocks.push(...this.getRequestsListBlocks(requests, userRole, userId));
 
     return blocks;
   }
@@ -105,6 +105,7 @@ export class VacationRequestsTabView extends BaseTabView<
   private getRequestItemBlocks = (
     vacationRequest: IVacationRequestViewModel,
     userRole: UserRole,
+    viewerSlackId: string,
   ): AnyBlock[] => {
     const dates = formatDateRange(
       vacationRequest.start_date,
@@ -127,7 +128,11 @@ export class VacationRequestsTabView extends BaseTabView<
       accessory: {
         type: 'overflow',
         action_id: VacationRequestsTabViewActionId.ManageRequestMenu,
-        options: this.getManageRequestMenuOptions(vacationRequest, userRole),
+        options: this.getManageRequestMenuOptions(
+          vacationRequest,
+          userRole,
+          viewerSlackId,
+        ),
       },
     });
   };
@@ -135,6 +140,7 @@ export class VacationRequestsTabView extends BaseTabView<
   private getManageRequestMenuOptions(
     vacationRequest: IVacationRequestViewModel,
     userRole: UserRole,
+    viewerSlackId: string,
   ): PlainTextOption[] {
     const options: PlainTextOption[] = [
       {
@@ -155,9 +161,11 @@ export class VacationRequestsTabView extends BaseTabView<
       });
     }
 
-    // So a request doesn't get stuck when an approver is away.
+    // So a request doesn't get stuck when an approver is away. Not on one's
+    // own request, which nobody approves for themselves.
     if (
       vacationRequest.status === VacationRequestStatus.Pending &&
+      vacationRequest.user?.slack_id !== viewerSlackId &&
       this.slackActionPermissionsService.can(
         userRole,
         VacationRequestsTabViewActionId.ApproveOnBehalf,
@@ -187,10 +195,12 @@ export class VacationRequestsTabView extends BaseTabView<
   private getRequestsListBlocks(
     requestsData: ISearchResult<IVacationRequestViewModel>,
     userRole: UserRole,
+    viewerSlackId: string,
   ): AnyBlock[] {
     return PaginatedListView.getBlocks<IVacationRequestViewModel>({
       itemsData: requestsData,
-      getItemBlocks: (item) => this.getRequestItemBlocks(item, userRole),
+      getItemBlocks: (item) =>
+        this.getRequestItemBlocks(item, userRole, viewerSlackId),
       prevPageActionId: VacationRequestsTabViewActionId.PaginationPrev,
       nextPageActionId: VacationRequestsTabViewActionId.PaginationNext,
       emptyText: '_No vacation requests found_',

@@ -1,3 +1,5 @@
+import { canChangeUser } from '@modules/users/utils/admin-role.utils';
+import UserRole from '@common/enums/user-role.enum';
 import { MAX_POLICY_DAYS } from '@modules/vacation-policies/constants/policy-limits';
 import {
   getCurrentVacationPeriod,
@@ -21,6 +23,8 @@ import { IOption } from '@common/types/option.interface';
 
 interface IGetViewParams extends IBaseModalViewParams {
   user: IUserViewModel;
+  // Of the person who edits: HR is offered only the roles it may give.
+  editorRole: UserRole;
   teams: ITeamViewModel[];
   fileBalance: ILeaveBalance | null;
 }
@@ -50,6 +54,7 @@ export class EditUserModalView extends BaseModalView<
 
   public getViewBlocks({
     user,
+    editorRole,
     teams,
     fileBalance,
     errorMessage,
@@ -97,7 +102,9 @@ export class EditUserModalView extends BaseModalView<
         actionId: 'role',
         label: 'Role',
         placeholder: 'Select role',
-        options: ROLE_OPTIONS,
+        options: ROLE_OPTIONS.filter(({ id }) =>
+          canChangeUser(editorRole, user.role, { role: id as UserRole }),
+        ),
         initialValue: user.role,
       }),
       ...SlackStaticSelectView.getView({

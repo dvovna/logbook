@@ -1,5 +1,6 @@
 import { PROJECTS_TAB_PAGE_SIZE } from '@modules/slack/tabs/projects/views/projects-tab.view';
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import { MANAGER_ROLES } from '@common/constants/role-groups';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
 import BaseTabService, {
   IOpenModalBaseParams,
@@ -271,6 +272,13 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     errorMessage,
     pageMetadata,
   }: IProjectModalViewParams) {
+    // As its submit: Finance sees the projects but assigns nobody.
+    if (!MANAGER_ROLES.includes(user.role)) {
+      throw new ForbiddenException(
+        'Only managers, HR and admins assign people to a project.',
+      );
+    }
+
     const [project, teams, assignments] = await Promise.all([
       this.projectsService.findOneWithValidation({
         id: projectId,

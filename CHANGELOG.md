@@ -11,6 +11,10 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 - An entry edited by HR or an admin keeps the team it was logged in, even when its person moved to another team since: who approves it and whose reports hold it no longer change with a typo fix.
 - Deactivating or activating someone records who did it.
 
+### People and time off
+- HR is offered only what it can do: the Edit User form lists the roles HR may give (not Admin or Finance), an admin's menu has no Deactivate User for HR, and nobody sees Approve for Approvers on their own request.
+- A project's assignments and the client forms are refused when they open for a role that can't save them (Finance, a manager), not only on Save.
+
 ## [0.5.3] - 2026-11-13
 
 A shorter Home, most of all before a workspace is set up. No update step: only the new image.
