@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { recordingDatabase } from 'src/database/testing/recording-database';
 import { TimeEntriesRepository } from 'src/time-entries/repositories/time-entries.repository';
 import { TimeReportGrouping } from 'src/time-entries/enums/time-report-grouping.enum';
@@ -29,7 +30,7 @@ describe('TimeEntriesRepository', () => {
     ]);
   });
 
-  it('finds who has open entries up to a day, each once, without the entries', async () => {
+  it('finds who has open entries up to a day and is reminded that often, each once, without the entries', async () => {
     const { database, sqlOf, parametersOf } = recordingDatabase([
       [{ user_id: 'u1' }, { user_id: 'u2' }],
     ]);
@@ -38,14 +39,25 @@ describe('TimeEntriesRepository', () => {
       new TimeEntriesRepository(database).findUserIdsWithOpenUpTo(
         'w1',
         '2026-06-14',
+        [TimeReminder.Weekly, TimeReminder.Monthly],
       ),
     ).resolves.toEqual(['u1', 'u2']);
     expect(sqlOf(0)).toBe(
       'select distinct "user_id" from "time_entries" ' +
         'where "time_entries"."slack_team_id" = $1 and "status" in ($2, $3) ' +
-        'and "deleted_at" is null and "work_date" <= $4',
+        'and "deleted_at" is null and "work_date" <= $4 ' +
+        'and "user_id" in (select "users"."id" from "users" ' +
+        'where "users"."slack_team_id" = $5 and "users"."time_reminder" in ($6, $7))',
     );
-    expect(parametersOf(0)).toEqual(['w1', 'draft', 'rejected', '2026-06-14']);
+    expect(parametersOf(0)).toEqual([
+      'w1',
+      'draft',
+      'rejected',
+      '2026-06-14',
+      'w1',
+      'weekly',
+      'monthly',
+    ]);
   });
 
   it('counts what waits for an approver in one row, running the rule once per team and owner', async () => {

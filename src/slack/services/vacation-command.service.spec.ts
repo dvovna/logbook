@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { View } from '@slack/types/dist/views';
 import VacationCommandService, {
   VacationCommand,
@@ -23,6 +24,7 @@ const user: IUserViewModel = {
   slack_team_id: 'slack-team-1',
   slack_id: 'U_MEMBER',
   created_at: '2026-01-01T00:00:00Z',
+  time_reminder: TimeReminder.Weekly,
 };
 
 describe('VacationCommandService', () => {

@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import UserRole from '@common/enums/user-role.enum';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import ITeamViewModel from '@modules/teams/types/team.interface';
@@ -26,6 +27,7 @@ const person = (
   slack_team_id: 'st',
   slack_id: `S${id}`,
   created_at: '2026-01-01T00:00:00Z',
+  time_reminder: TimeReminder.Weekly,
   ...overrides,
 });
 

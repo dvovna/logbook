@@ -20,6 +20,12 @@ import {
   weekStartOf,
 } from '@common/utils/period-presets';
 import { runPeriodically } from '@common/utils/periodic.utils';
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
+import {
+  dailyReminderDay,
+  REMIND_FROM_HOUR_UTC,
+  weeklyReminderGroups,
+} from 'src/time-entries/utils/time-reminder-schedule';
 import { TransactionService } from 'src/database/transaction.service';
 import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 import { UsersService } from '@modules/users/services/users.service';
@@ -37,8 +43,6 @@ export const REMIND_UNSUBMITTED_JOB = 'time-entries-remind-unsubmitted';
 const TICK_MS = 10 * 60 * 1000;
 // Apart from the interval's first tick, TICK_MS after the start.
 const FIRST_TICK_AFTER_MS = 5 * 60 * 1000;
-// Reminders go out from this hour on Monday, UTC.
-const REMIND_FROM_HOUR_UTC = 9;
 // Each reminder is a DM of its own. Slack lets an app post a few hundred
 // messages a minute in a workspace and answers 429 past that; at this rate
 // 400 people are reminded in under two minutes.
@@ -47,9 +51,17 @@ const REMINDERS_PER_SECOND = 5;
 interface IRemindJob {
   slackTeamId: string;
   userId: string;
-  // The Monday of the reminder's week: entries before it are reminded of.
-  monday: string;
+  // The last day whose entries are reminded of.
+  dateTo?: string;
+  // The Monday of the reminder's week, all that a job saved before `dateTo`
+  // existed carries: entries before it are reminded of.
+  monday?: string;
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const dayBefore = (day: string) =>
+  getDateOnly(new Date(new Date(`${day}T00:00:00Z`).getTime() - DAY_MS));
 
 // The last day of the week before the one of `monday`.
 const lastWeekEnd = (monday: string) =>
@@ -94,25 +106,36 @@ export class TimeEntryRemindersService
     this.stopTimers?.();
   }
 
-  // Every installed workspace, once the week's reminder is due. Returns how
-  // many people it reminded.
+  // Every installed workspace, once a reminder is due: the week's, for the
+  // people reminded every week (and once a month, in the month's first
+  // week), and the day's, for the people reminded every working day.
+  // Returns how many people it reminded.
   public async remindAll(now = new Date()): Promise<number> {
     const monday = currentWeekStart(now);
-    const dueFrom = new Date(`${monday}T00:00:00Z`);
+    const weekDueFrom = new Date(`${monday}T00:00:00Z`);
 
-    dueFrom.setUTCHours(REMIND_FROM_HOUR_UTC);
+    weekDueFrom.setUTCHours(REMIND_FROM_HOUR_UTC);
 
-    if (now < dueFrom) {
+    const weekDue = now >= weekDueFrom;
+    const day = dailyReminderDay(now);
+
+    if (!weekDue && !day) {
       return 0;
     }
 
     let reminded = 0;
 
     for (const slackTeamId of await this.slackTeamsService.findInstalledIds()) {
-      // One workspace failing (e.g. a statement timeout) leaves its week
-      // unclaimed for the next tick, and the others still get theirs.
+      // One workspace failing (e.g. a statement timeout) leaves its week or
+      // day unclaimed for the next tick, and the others still get theirs.
       try {
-        reminded += await this.remindWorkspace(slackTeamId, monday);
+        if (weekDue) {
+          reminded += await this.remindWorkspace(slackTeamId, monday);
+        }
+
+        if (day) {
+          reminded += await this.remindDaily(slackTeamId, day);
+        }
       } catch (error) {
         this.logger.error(
           `Could not remind workspace ${slackTeamId} of unsubmitted time: ${(error as Error).message}`,
@@ -137,35 +160,70 @@ export class TimeEntryRemindersService
         return 0;
       }
 
-      const userIds = await this.timeEntriesService.findUserIdsWithOpenUpTo({
+      return this.remind(
         slackTeamId,
-        dateTo: lastWeekEnd(monday),
-      });
-
-      await this.jobs.enqueueMany<IRemindJob>(
-        REMIND_UNSUBMITTED_JOB,
-        userIds.map((userId) => ({ slackTeamId, userId, monday })),
-        { perSecond: REMINDERS_PER_SECOND },
+        lastWeekEnd(monday),
+        weeklyReminderGroups(monday),
+        monday,
       );
-
-      return userIds.length;
     });
   }
 
+  // The same for the people reminded every working day, of what is open
+  // from before `day`.
+  public remindDaily(slackTeamId: string, day: string): Promise<number> {
+    return this.transactions.transaction(async () => {
+      if (!(await this.slackTeamsService.claimReminderDay(slackTeamId, day))) {
+        return 0;
+      }
+
+      return this.remind(slackTeamId, dayBefore(day), [TimeReminder.Daily]);
+    });
+  }
+
+  private async remind(
+    slackTeamId: string,
+    dateTo: string,
+    reminders: TimeReminder[],
+    monday?: string,
+  ): Promise<number> {
+    const userIds = await this.timeEntriesService.findUserIdsWithOpenUpTo({
+      slackTeamId,
+      dateTo,
+      reminders,
+    });
+
+    await this.jobs.enqueueMany<IRemindJob>(
+      REMIND_UNSUBMITTED_JOB,
+      userIds.map((userId) => ({ slackTeamId, userId, dateTo, monday })),
+      { perSecond: REMINDERS_PER_SECOND },
+    );
+
+    return userIds.length;
+  }
+
   // What is still open when the job runs: nothing is sent once it is all
-  // submitted, or to someone deactivated.
-  private async sendReminder({ slackTeamId, userId, monday }: IRemindJob) {
+  // submitted, to someone deactivated, or to someone who turned the
+  // reminder off since.
+  private async sendReminder(job: IRemindJob) {
+    const { slackTeamId, userId } = job;
+    const dateTo = job.dateTo ?? (job.monday && lastWeekEnd(job.monday));
+
+    if (!dateTo) {
+      return;
+    }
+
     const [user, entries] = await Promise.all([
       this.usersService.findOne({ id: userId, slackTeamId }),
       this.timeEntriesService.findMany({
         slackTeamId,
         userId,
         statuses: OPEN_TIME_ENTRY_STATUSES,
-        dateTo: lastWeekEnd(monday),
+        dateTo,
       }),
     ]);
 
-    if (!user || !entries.length) {
+    if (!user || user.time_reminder === TimeReminder.Off || !entries.length) {
       return;
     }
 
@@ -185,6 +243,7 @@ export class TimeEntryRemindersService
           rejected.length > 1 &&
             `${rejected.length} of them were rejected: fix them under Home → ✏️ Edit Entries (${weeksOf(rejected)}).`,
           'Your approvers see time only once you submit it: Home → 📤 Submit for Approval.',
+          'Change how often you are reminded: Home → 🔔 Reminders.',
         ]
           .filter(Boolean)
           .join('\n'),

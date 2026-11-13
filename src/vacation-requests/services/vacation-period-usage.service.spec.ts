@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { VacationPeriodUsageService } from 'src/vacation-requests/services/vacation-period-usage.service';
 import { VacationDaysCalculationService } from 'src/vacation-requests/services/vacation-days-calculation.service';
 import { VacationRequestsRepository } from 'src/vacation-requests/repositories/vacation-requests.repository';
@@ -21,6 +22,7 @@ const buildUser = (id: string, teamId: string | null): IUserViewModel => ({
   slack_team_id: SLACK_TEAM_ID,
   slack_id: `U_${id}`,
   created_at: '2026-01-01T00:00:00Z',
+  time_reminder: TimeReminder.Weekly,
 });
 
 const buildRequest = (

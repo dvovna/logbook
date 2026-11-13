@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { DeleteTeamFormSubmitHandler } from 'src/slack/tabs/teams/handlers/delete-team-form-submit.handler';
 import ConfirmationModalView from 'src/slack/common/views/components/confirmation-modal.view';
 import TeamsService from 'src/teams/services/teams.service';
@@ -18,6 +19,7 @@ const admin: IUserViewModel = {
   slack_team_id: 'slack-team-1',
   slack_id: 'U_ADMIN',
   created_at: '2026-01-01T00:00:00Z',
+  time_reminder: TimeReminder.Weekly,
 };
 
 const payload = {

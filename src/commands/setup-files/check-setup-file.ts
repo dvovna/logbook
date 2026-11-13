@@ -1,3 +1,4 @@
+import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { BadRequestException } from '@nestjs/common';
 import UserRole from '@common/enums/user-role.enum';
 import { readSpreadsheet } from '@common/files/spreadsheet.reader';
@@ -62,6 +63,7 @@ const peopleOf = (rows: { email: string }[], today: string): IUserViewModel[] =>
       slack_team_id: 'check',
       slack_id: email,
       created_at: `${today}T00:00:00.000Z`,
+      time_reminder: TimeReminder.Weekly,
     }));
 
 const POLICY: IVacationPolicyViewModel = {
