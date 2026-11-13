@@ -2,64 +2,67 @@ import { Injectable } from '@nestjs/common';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { UsersService } from '@modules/users/services/users.service';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
-import VacationPoliciesService from '@modules/vacation-policies/services/vacation-policies.service';
 import { LeaveFileUploadsService } from 'src/leave-file/services/leave-file-uploads.service';
 import { ISetupProgress } from '@modules/slack/tabs/home/types/setup-progress.interface';
 import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
+import { SlackTeamsService } from '@modules/slack-teams/slack-teams.service';
 
 // How far the workspace is set up, for the checklist on Admin's and HR's
-// Home. Null when the four required steps are done, or for other roles.
+// Home. Null when the required steps are done, or for other roles.
 @Injectable()
 export class SetupProgressService {
   public constructor(
-    private readonly vacationPoliciesService: VacationPoliciesService,
     private readonly teamRulesService: TeamRulesService,
     private readonly usersService: UsersService,
     private readonly leaveFileUploadsService: LeaveFileUploadsService,
+    private readonly slackTeamsService: SlackTeamsService,
   ) {}
 
-  // `projects`: how many the workspace has, archived ones included, which
-  // Home counts for itself too.
+  // `tracksTime`: whether the workspace has a project, archived ones
+  // included, which the navigation reads too.
   public async get(
     user: IUserViewModel,
-    projects: Promise<number>,
+    tracksTime: Promise<boolean>,
   ): Promise<ISetupProgress | null> {
     if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
       return null;
     }
 
     const slackTeamId = user.slack_team_id;
-    const [policies, rules, peopleWithoutTeam, projectsCount, hasLeaveImport] =
+    const [rules, peopleWithoutTeam, hasProjects, hasLeaveImport, teamTold] =
       await Promise.all([
-        this.vacationPoliciesService.search({
-          filters: { slackTeamId },
-          pageSize: 1,
-        }),
         this.teamRulesService.forWorkspace(slackTeamId),
         this.usersService.count({ slackTeamId, withoutTeam: true }),
-        projects,
+        tracksTime,
         this.leaveFileUploadsService.hasApplied(slackTeamId),
+        this.slackTeamsService.isTeamTold(slackTeamId),
       ]);
+    const { companyRules, teams } = rules;
     const progress: ISetupProgress = {
-      hasPolicy: policies.totalCount > 0,
-      // With no teams, "every team has its own rules" is not an answer.
-      hasCompanyApprovers:
-        rules.companyRules.hr_approvers.length > 0 ||
-        (rules.teams.length > 0 &&
-          rules.teams.every((team) => !team.followsCompanyRules)),
-      hasTeamWithApprovers: rules.teams.some(
+      policyApplies:
+        !!companyRules.vacation_policy_id ||
+        teams.some(({ vacationPolicyId }) => vacationPolicyId),
+      // Saving them is the step, with or without a second approval: a small
+      // company may want the team's approval alone. With no teams, "every
+      // team has its own rules" is not an answer.
+      companyRulesSet:
+        !!companyRules.updated_by ||
+        (teams.length > 0 && teams.every((team) => !team.followsCompanyRules)),
+      hasTeamWithApprovers: teams.some(
         (team) => team.managerApprovers.length || team.hrApprovers.length,
       ),
-      companyRulesNameApprovers: rules.companyRules.hr_approvers.length > 0,
+      companyRulesNameApprovers: companyRules.hr_approvers.length > 0,
       peopleWithoutTeam,
-      hasProjects: projectsCount > 0,
+      teamTold,
+      hasProjects,
       hasLeaveImport,
     };
     const done =
-      progress.hasPolicy &&
-      progress.hasCompanyApprovers &&
+      progress.policyApplies &&
+      progress.companyRulesSet &&
       progress.hasTeamWithApprovers &&
-      progress.peopleWithoutTeam === 0;
+      progress.peopleWithoutTeam === 0 &&
+      progress.teamTold;
 
     return done ? null : progress;
   }

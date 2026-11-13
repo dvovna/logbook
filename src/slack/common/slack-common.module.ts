@@ -12,12 +12,15 @@ import { PendingApprovalsService } from '@modules/slack/common/services/pending-
 import { RequestWorkflowsModule } from '@modules/request-workflows/request-workflows.module';
 import { TimeEntriesModule } from 'src/time-entries/time-entries.module';
 import { DmFileService } from '@modules/slack/common/services/dm-file.service';
+import { TimeTrackingUseService } from '@modules/slack/common/services/time-tracking-use.service';
+import { ProjectsModule } from 'src/projects/projects.module';
 
 @Module({
   imports: [
     SlackCommunicationModule,
     RequestWorkflowsModule,
     TimeEntriesModule,
+    ProjectsModule,
   ],
   providers: [
     ConfirmationModalView,
@@ -30,6 +33,7 @@ import { DmFileService } from '@modules/slack/common/services/dm-file.service';
     InactiveUserTabView,
     PendingApprovalsService,
     DmFileService,
+    TimeTrackingUseService,
   ],
   exports: [
     ConfirmationModalView,
@@ -42,6 +46,7 @@ import { DmFileService } from '@modules/slack/common/services/dm-file.service';
     InactiveUserTabView,
     PendingApprovalsService,
     DmFileService,
+    TimeTrackingUseService,
   ],
 })
 export class SlackCommonModule {}

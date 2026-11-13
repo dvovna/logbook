@@ -11,7 +11,7 @@ Every person in Logbook has one role. Use this page to check what a role can see
 | --- | --- |
 | Admin | Everything, including rates, billing, receipts, the currency and deleting time off requests. |
 | HR | People, teams, policies and everyone's time off. Sees everyone's time, without rates or amounts. |
-| Manager | Approves time off and time for the teams that list them under **Level 1: managers**, and sees those teams' people and time. |
+| Manager | Approves time off and time for the teams that list them under **Team approvers**, and sees those teams' people and time. |
 | Finance | Rates, amounts, billing reports and billing snapshots, and checking receipts for reimbursements. Sees everyone's time in reports. Requests time off and logs time like a member, approves nothing and manages no people. |
 | Member | Requests time off, logs and submits time, and sees their own time in reports. |
 
@@ -19,7 +19,7 @@ In the tables below:
 - **Yes**: can do it.
 - **—**: can't.
 - **Own**: only for themselves.
-- **Their teams**: the teams that list the manager under **Level 1: managers**. A manager of no team sees only their own.
+- **Their teams**: the teams that list the manager under **Team approvers**. A manager of no team sees only their own.
 
 ## Screens
 
@@ -62,8 +62,8 @@ In the tables below:
 | Approve their own time off or time | — | — | — | — | — |
 
 Who is asked:
-- **Level 1: managers** of a team lists people with the Manager or Admin role.
-- **Level 2: HR**, in the company rules or a team's own rules, lists people with the HR or Admin role.
+- **Team approvers** of a team lists people with the Manager, HR or Admin role. Someone with the Member role chosen there becomes a Manager; people with the Finance role can't be chosen.
+- **Second approval (HR)**, in the company rules or a team's own rules, lists people with the HR or Admin role. It can stay empty.
 - When nobody listed can decide (no team, no approvers, or the requester is the only one), a time off request goes to everyone with the HR role, or to the admins when nobody has the HR role. Submitted time works the same way.
 - A requester is always left out of their own request's levels.
 

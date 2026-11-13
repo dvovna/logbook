@@ -119,8 +119,12 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
     });
   }
 
-  public async getTabView({ user, metadata = {} }: IGetProjectsTabViewParams) {
-    const [projectsListData, timeOff] = await Promise.all([
+  public async getTabView({
+    user,
+    metadata = {},
+    tracksTime,
+  }: IGetProjectsTabViewParams) {
+    const [projectsListData, timeOff, hasProjects] = await Promise.all([
       this.projectsListQuery.execute({
         slackTeamId: user.slack_team_id,
         page: metadata.page,
@@ -139,6 +143,8 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
       )
         ? this.timeOffSettingsService.getSetup(user.slack_team_id)
         : null,
+      // Archived ones too; read by BaseTabService for the navigation.
+      tracksTime ?? true,
     ]);
 
     const projectIds = projectsListData.items.map(({ id }) => id);
@@ -165,6 +171,7 @@ export class ProjectsTabService extends BaseTabService<ProjectsTabModalViewResol
         rates,
         currency,
         timeOff,
+        hasProjects,
       },
       metadata,
     );

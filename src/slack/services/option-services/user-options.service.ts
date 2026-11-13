@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { UsersService } from '@modules/users/services/users.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import TeamsService from '@modules/teams/services/teams.service';
+import UserRole from '@common/enums/user-role.enum';
+import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 
 import { TimeEntriesScopeService } from 'src/time-entries/services/time-entries-scope.service';
 interface ISearchUsersParams {
@@ -46,6 +48,35 @@ export class UserOptionsService {
           text: { type: 'plain_text', text: person.name },
           value: person.id,
         })),
+    };
+  }
+
+  // A team's approvers for the team form (Admin and HR): active Members,
+  // whom saving makes Managers, Managers and Admins, as the team file takes
+  // its leads. HR, who decides later levels, and Finance, who approves
+  // nothing, aren't offered. The value is the Slack ID, which the team stores.
+  public async searchTeamApprovers(
+    { query, user }: Pick<ISearchUsersParams, 'query' | 'user'>,
+    { pageSize = DEFAULT_PAGE_SIZE }: ISearchUsersOptions = {},
+  ) {
+    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
+      return { options: [] };
+    }
+
+    const result = await this.usersService.search({
+      searchTerm: query,
+      pageSize,
+      filters: {
+        slackTeamId: user.slack_team_id,
+        roles: [UserRole.Member, UserRole.Manager, UserRole.Admin],
+      },
+    });
+
+    return {
+      options: result.items.map((person) => ({
+        text: { type: 'plain_text', text: person.name },
+        value: person.slack_id,
+      })),
     };
   }
 

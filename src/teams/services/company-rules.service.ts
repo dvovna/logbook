@@ -72,6 +72,33 @@ export class CompanyRulesService {
     return saved;
   }
 
+  // The workspace's first policy goes into company rules that name none, so
+  // it applies to everyone without a second step (VacationPoliciesService). Not a save of
+  // the rules by someone: `updated_by` stays, which the setup checklist reads.
+  public async adoptPolicyIfNone(
+    slackTeamId: string,
+    policyId: string,
+  ): Promise<boolean> {
+    await this.get(slackTeamId);
+    const adopted = await this.ruleSetsRepository.updateMany(
+      {
+        slack_team_id: slackTeamId,
+        is_default: true,
+        vacation_policy_id: null,
+      },
+      { vacation_policy_id: policyId },
+    );
+
+    if (adopted.length) {
+      this.eventEmitter.emit(
+        COMPANY_RULES_SAVED,
+        new CompanyRulesSavedEvent(slackTeamId),
+      );
+    }
+
+    return adopted.length > 0;
+  }
+
   public async usesPolicy(
     policyId: string,
     slackTeamId: string,

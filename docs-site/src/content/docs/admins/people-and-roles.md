@@ -15,7 +15,7 @@ Open **More** → **People**. It lists everyone in the workspace with their emai
 - Tick **Include inactive users** to see deactivated people too.
 - Each person's **⋯** menu has **Edit User**, **View Vacation Usage** and **Deactivate User**. A deactivated person has only **Activate User**.
 
-HR and admins see everyone and can use every menu item. A manager sees only the people of the teams that list them as level 1 approvers, and can open **View Vacation Usage** only.
+HR and admins see everyone and can use every menu item. A manager sees only the people of the teams that list them under **Team approvers**, and can open **View Vacation Usage** only.
 
 ## Roles
 
@@ -39,7 +39,7 @@ To change a role:
 
 Only an admin grants or removes the Admin or Finance role. HR can make someone a Manager, HR or Member, but not an admin or Finance, and can't change the role of someone who is already one. The workspace always keeps at least one active admin. For HR the **Edit User** form lists only the roles HR can give, and an admin's menu has no **Deactivate User**.
 
-A role also decides who can approve. Level 1 of a team takes people with the Manager or Admin role, level 2 people with the HR or Admin role. When someone gets the Finance or Member role, which can't approve, the requests waiting for them move on to other approvers; see [Approve time off](/logbook/docs/approvers/approve-time-off/#when-a-request-or-an-approver-changes). When someone gets the Manager, HR or Admin role, or is activated again with one, a request that went to nobody, because nobody could approve it, goes to its approvers then, as a new request would; see [Approve time off](/logbook/docs/approvers/approve-time-off/#when-nobody-on-the-team-can-approve).
+A role also decides who can approve. A team's approvers have the Manager, HR or Admin role: someone with the Member role chosen under **Team approvers** becomes a Manager when the team is saved, and people with the Finance role can't be chosen. The second approval takes people with the HR or Admin role. When someone gets the Finance or Member role, which can't approve, the requests waiting for them move on to other approvers; see [Approve time off](/logbook/docs/approvers/approve-time-off/#when-a-request-or-an-approver-changes). When someone gets the Manager, HR or Admin role, or is activated again with one, a request that went to nobody, because nobody could approve it, goes to its approvers then, as a new request would; see [Approve time off](/logbook/docs/approvers/approve-time-off/#when-nobody-on-the-team-can-approve).
 
 ## Team, contract start and carryover
 

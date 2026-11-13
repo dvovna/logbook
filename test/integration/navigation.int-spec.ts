@@ -74,6 +74,25 @@ describe('Navigation', () => {
       manager_approvers: [manager.slack_id],
     });
     member = await workspace.addUser({ team_id: team.id, name: 'Max Member' });
+    // People log time here, so the screens about it are in the navigation.
+    await workspace.addProject();
+  });
+
+  it('leaves the screens about time out of a workspace with no project', async () => {
+    const elsewhere = await t.createWorkspace();
+    const someone = await elsewhere.addUser({ name: 'Sam Someone' });
+    const boss = await elsewhere.addUser({ role: UserRole.Admin });
+
+    expect(
+      rowOf(
+        await openAppHomeTab(t, elsewhere, someone),
+        HEADER_BLOCK_IDS.navigation,
+      ),
+    ).toEqual(['[🏠 Home]', '🌴 Time off']);
+    expect(menuOf(await openAppHomeTab(t, elsewhere, boss))).toEqual({
+      Manage: ['👥 People', '🧾 Receipts'],
+      Settings: ['🏢 Teams', '📜 Policies', '📁 Projects', '💼 Clients'],
+    });
   });
 
   it('shows each role one row: its main screens and a More menu', async () => {

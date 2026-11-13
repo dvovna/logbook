@@ -462,7 +462,7 @@ describe('Time approvals', () => {
         [
           `:x: ${manager.name} rejected your time entry: *Website* (Acme), 10 Jun 2026, 1h.`,
           '>Wrong project',
-          'Fix it under Home → ✏️ Edit Entries (week of 8 Jun) and submit it again.',
+          'Fix it under 🕒 My time (week of 8 Jun) and submit it again.',
         ].join('\n'),
       );
       expect(
@@ -472,7 +472,7 @@ describe('Time approvals', () => {
       // The owner finds it from this week, and sees why in their list,
       // until they send it again.
       const myEntries = await openAppHomeTab(t, workspace, member, [
-        HomeTabActionId.EditTimeEntries,
+        NavigationActionId.MyTime,
       ]);
       expect(listItems(myEntries)).toEqual([]);
       expect(sectionTexts(myEntries)).toContain(

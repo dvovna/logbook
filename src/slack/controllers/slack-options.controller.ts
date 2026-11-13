@@ -76,6 +76,12 @@ export class SlackOptionsController {
           wholeWorkspace: true,
         });
       }
+      case TeamModalActionId.Approvers: {
+        return this.userOptionsService.searchTeamApprovers({
+          query: payload.value,
+          user: request.user!,
+        });
+      }
       case TeamModalActionId.Members: {
         return this.userOptionsService.searchUsers({
           query: payload.value,

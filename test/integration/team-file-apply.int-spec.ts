@@ -296,7 +296,7 @@ describe('Team file Apply', () => {
       '*Moves between teams (1)*\n• Anna Novak: Backend → Acme',
       [
         '*Teams with no lead (2)*',
-        'Their requests skip level 1: they go to the second approval, or to HR or an admin when there is none.',
+        "Their requests skip the team's approval: they go to the second approval, or to HR or an admin when there is none.",
         '• Backend',
         '• Acme',
       ].join('\n'),
@@ -512,7 +512,7 @@ describe('Team file Apply', () => {
       '✅ Created 1 team, placed 1 person and made 1 person a Manager.',
       [
         "⚠️ *Rows it didn't use (2)*",
-        "• Row 3: Hal Hughes has the HR role, which can't approve at level 1",
+        "• Row 3: Hal Hughes has the HR role, which can't approve a team's time off",
         "• Row 4: nobody@example.test isn't in this Slack workspace",
       ].join('\n'),
     ]);

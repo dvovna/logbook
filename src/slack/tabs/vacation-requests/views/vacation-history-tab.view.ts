@@ -53,6 +53,9 @@ interface IGetViewParams extends IBaseTabViewParams {
   fileBalance: ILeaveBalance | null;
 }
 
+const hasFilters = (filters?: IVacationHistoryTabFilters) =>
+  !!filters && Object.values(filters).some((value) => value);
+
 @Injectable()
 export class VacationHistoryTabView extends BaseTabView<
   IGetViewParams,
@@ -93,8 +96,17 @@ export class VacationHistoryTabView extends BaseTabView<
             },
           ]
         : []),
-      ...this.getFilterBlocks(years, metadata?.filters),
-      ...this.getRequestsListBlocks(requests),
+      // Filters once there is something to narrow: a new person's empty
+      // list gets one line instead of three empty selects.
+      ...(requests.totalCount > 0 || hasFilters(metadata?.filters)
+        ? this.getFilterBlocks(years, metadata?.filters)
+        : []),
+      ...this.getRequestsListBlocks(
+        requests,
+        hasFilters(metadata?.filters)
+          ? '_No vacation requests found_'
+          : '_No requests yet._ Ask for time off with ➕ Request time off.',
+      ),
     ];
   }
 
@@ -154,13 +166,14 @@ export class VacationHistoryTabView extends BaseTabView<
 
   private getRequestsListBlocks(
     requestsData: ISearchResult<IVacationRequestViewModel>,
+    emptyText: string,
   ): AnyBlock[] {
     return PaginatedListView.getBlocks<IVacationRequestViewModel>({
       itemsData: requestsData,
       getItemBlocks: (item) => this.getRequestItemBlocks(item),
       prevPageActionId: VacationHistoryTabViewActionId.PaginationPrev,
       nextPageActionId: VacationHistoryTabViewActionId.PaginationNext,
-      emptyText: '_No vacation requests found_',
+      emptyText,
     });
   }
 

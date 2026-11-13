@@ -14,4 +14,7 @@ export enum TeamModalActionId {
   Members = 'members',
   // Company rules or the team's own: choosing rebuilds the form.
   Rules = 'rules',
+  // The team's approvers, searched as you type: anyone who may approve or
+  // become a Manager by it.
+  Approvers = 'manager_approvers',
 }

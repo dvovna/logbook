@@ -154,7 +154,7 @@ export class TeamsTabView extends BaseTabView<
     });
   }
 
-  // "Managers <@U1> (any one), then HR <@U2> (all)". Without any, a request
+  // "team <@U1> (any one), then HR <@U2> (all)". Without any, a request
   // goes to HR or the admins (VacationRequestProcessingService).
   private describeApprovers(rules: IEffectiveTeamRules) {
     const level = (label: string, approvers: string[], rule: ApprovalRule) =>
@@ -162,7 +162,7 @@ export class TeamsTabView extends BaseTabView<
         ? `${label} ${approvers.map((id) => `<@${id}>`).join(', ')} (${rule === ApprovalRule.All ? 'all' : 'any one'})`
         : null;
     const levels = [
-      level('managers', rules.managerApprovers, rules.managerApproversRule),
+      level('team', rules.managerApprovers, rules.managerApproversRule),
       level('HR', rules.hrApprovers, rules.hrApproversRule),
     ].filter((text): text is string => !!text);
 

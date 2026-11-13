@@ -58,9 +58,9 @@ export enum HomeTabActionId {
   ViewDetails = 'view_vacation_request_details',
   ManagePendingRequestMenu = 'manage_pending_request_menu',
   LogTime = 'log_time',
-  EditTimeEntries = 'edit_time_entries',
   SubmitTimeEntries = 'submit_time_entries_from_home',
   Reminders = 'open_receipt_reminders',
+  TellTeam = 'tell_team',
 }
 
 // Opens the person's own reminder settings: time, and receipts where the
@@ -139,20 +139,21 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
   // the required ones after it as a line with a button each, and the
   // optional ones in one row.
   private getSetupBlocks({
-    hasPolicy,
-    hasCompanyApprovers,
+    policyApplies,
+    companyRulesSet,
     hasTeamWithApprovers,
     companyRulesNameApprovers,
     peopleWithoutTeam,
+    teamTold,
     hasProjects,
     hasLeaveImport,
   }: ISetupProgress): AnyBlock[] {
     const steps = [
       {
         key: 'policy',
-        done: hasPolicy,
+        done: policyApplies,
         title: 'Create a vacation policy',
-        why: "Days per year and public holidays. Without one, balances aren't checked.",
+        why: "Days per year and public holidays. The first one applies to everyone; without one, balances aren't checked.",
         doneLabel: 'vacation policy',
         buttons: [
           { text: 'Open Policies', actionId: NavigationActionId.Policies },
@@ -160,9 +161,9 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
       },
       {
         key: 'rules',
-        done: hasCompanyApprovers,
+        done: companyRulesSet,
         title: 'Set the company rules',
-        why: 'Who approves after the team lead, who hears of decisions, and the policy teams follow.',
+        why: "Whether anyone approves after the team's approvers (HR, leadership), and who hears of decisions. Save them even with no second approval.",
         doneLabel: 'company rules',
         buttons: [
           {
@@ -189,9 +190,19 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
         key: 'people',
         done: peopleWithoutTeam === 0,
         title: 'Put people in teams',
-        why: `${pluralize('person', peopleWithoutTeam, true)} ${peopleWithoutTeam === 1 ? 'has' : 'have'} no team: their requests ${companyRulesNameApprovers ? "skip level 1 and go to the company rules' approvers, or to HR or the admins when none of them can approve" : 'go to HR or the admins'}.`,
+        why: `${pluralize('person', peopleWithoutTeam, true)} ${peopleWithoutTeam === 1 ? 'has' : 'have'} no team: their requests ${companyRulesNameApprovers ? "skip the team's approval and go to the company rules' second approval, or to HR or the admins when nobody there can approve" : 'go to HR or the admins'}.`,
         doneLabel: 'everyone in a team',
         buttons: [{ text: 'Open People', actionId: NavigationActionId.People }],
+      },
+      {
+        key: 'tell',
+        done: teamTold,
+        title: 'Tell your team',
+        why: 'People find Logbook only if someone tells them. Get a ready message in your DMs and post it in a channel everyone reads.',
+        doneLabel: 'team told',
+        buttons: [
+          { text: '📣 Get the message', actionId: HomeTabActionId.TellTeam },
+        ],
       },
       {
         key: 'leave',
@@ -677,11 +688,6 @@ export class HomeTabView extends BaseTabView<IGetViewParams, never> {
                 },
               ]
             : []),
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '✏️ Edit Entries' },
-            action_id: HomeTabActionId.EditTimeEntries,
-          },
           REMINDERS_BUTTON,
         ],
       },

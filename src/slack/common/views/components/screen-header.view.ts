@@ -28,6 +28,9 @@ export interface IScreenHeaderParams {
   role: UserRole;
   // What waits for the viewer's decision, on the Approvals button.
   approvalsCount?: number;
+  // The workspace has a project. Without one the screens about time are
+  // left out, but the one on show.
+  tracksTime?: boolean;
 }
 
 const button = (
@@ -54,13 +57,16 @@ export class ScreenHeader {
     screenId,
     role,
     approvalsCount,
+    tracksTime = true,
   }: IScreenHeaderParams): AnyBlock[] {
     const root = rootOf(screenId);
+    const shown = (id: ScreenId) =>
+      tracksTime || !SCREENS[id].aboutTime || id === root;
     const blocks: AnyBlock[] = [
       {
         type: 'actions',
         block_id: HEADER_BLOCK_IDS.navigation,
-        elements: this.getNavigation(root, role, approvalsCount),
+        elements: this.getNavigation(root, role, shown, approvalsCount),
       },
     ];
 
@@ -83,6 +89,7 @@ export class ScreenHeader {
   private static getNavigation(
     root: ScreenId,
     role: UserRole,
+    shown: (id: ScreenId) => boolean,
     approvalsCount?: number,
   ): ActionsBlockElement[] {
     const buttonOf = (id: ScreenId) => {
@@ -97,12 +104,14 @@ export class ScreenHeader {
         id === root,
       );
     };
-    const groups = menuGroupsFor(role);
+    const groups = menuGroupsFor(role)
+      .map(({ group, screens }) => ({ group, screens: screens.filter(shown) }))
+      .filter(({ screens }) => screens.length);
     const menu = groups.flatMap(({ screens }) => screens);
 
     // A menu of one screen would hide it a click deeper: a button it is.
     return [
-      ...navigationScreensFor(role).map(buttonOf),
+      ...navigationScreensFor(role).filter(shown).map(buttonOf),
       ...(menu.length > 1
         ? [this.getMenu(groups, menu, root)]
         : menu.map(buttonOf)),

@@ -118,7 +118,7 @@ describe('TeamFileMessageView', () => {
     it('says where the requests of teams with no lead go, whatever rules they follow', () => {
       for (const hrApprovers of [['UHR'], []]) {
         expect(noLeadLine(hrApprovers)).toBe(
-          '*Teams with no lead (1)*\nTheir requests skip level 1: they go to the second approval, or to HR or an admin when there is none.\n• Ops',
+          "*Teams with no lead (1)*\nTheir requests skip the team's approval: they go to the second approval, or to HR or an admin when there is none.\n• Ops",
         );
       }
     });

@@ -9,7 +9,7 @@ Use Logbook to record the hours you work on projects. Time you log is a draft un
 
 ## Log one entry
 
-1. Open the **Log Time** form in one of three ways: click **➕ Log Time** on **Home**, click **➕ Add Time Entry** on **🕒 My time**, or type `/log`.
+1. Open the **Log Time** form: click **➕ Log Time** on **Home**, or type `/log`. On **🕒 My time**, fill in the week or a day instead (see below).
 2. Choose the **Project**. If you have only one, it is already chosen.
 3. Choose the **Date**. It starts on today.
 4. Enter the **Hours**, for example 1.5.
@@ -26,7 +26,7 @@ If you have no projects, the form says so. Ask an admin to add you or your team 
 
 ![My time: a table of the week by project and day, with Previous week, Next week, Fill in the week, Fill in today and Submit week](../../../assets/screens/my-time-week.png)
 
-Use **⬅️ Previous week** and **Next week ➡️** to move between weeks. Below the table, your entries are listed by day with each day's total. Filter them by project. Each entry has a menu with **Edit**, **Submit** and **Delete**.
+Use **⬅️ Previous week** and **Next week ➡️** to move between weeks. Below the table, your entries are listed by day with each day's total. Filter them by project; the filter shows once the week holds an entry. Each entry has a menu with **Edit**, **Submit** and **Delete**.
 
 ## Fill in the week or the day
 
@@ -34,7 +34,7 @@ Use these forms to enter many hours at once instead of one entry at a time.
 
 ![The Fill in the week form: read-only days that are already submitted, and an hours field per project and day](../../../assets/screens/fill-in-the-week.png)
 
-- **✏️ Fill in the week** opens **Fill in the week**.
+- **✏️ Fill in the week** opens **Fill in the week**. It is the highlighted button until the week has something to submit.
 - **✏️ Fill in today** opens **Fill in the day**, one day with a **Comment** field and a **Day** picker.
 
 Each project has a row, and each day has one input. Enter hours a day, for example 1.5. Leave a cell empty or type 0 for no time. Click **Save** when done.

@@ -7,45 +7,46 @@ sidebar:
 
 These steps turn a freshly installed, empty workspace into one where people can request time off and get it approved.
 
-After you install, Logbook sends you a direct message with the steps, and your **Home** tab shows a checklist.
+After you install, Logbook sends you a direct message that points you to your **Home** tab, where a checklist walks you through these steps.
 
 If your company already keeps its people, teams and leave in spreadsheets or an HR system, an AI agent can prepare the files and the values for these steps: see [Set up with an AI agent](/logbook/docs/getting-started/set-up-with-an-agent/).
 
 ## The setup checklist
 
-Admins and HR see **🚀 Set up Logbook** at the top of **Home**, with a count such as "2 of 4 done". The step to do now is marked **Next**, with a short reason and its buttons. The required steps after it are one line each, starting with "Then:", with a button to the screen that does it, so you can take them in another order. Finished steps are folded into one line that starts with "✅ Done:", and the optional ones (leave balances, projects) share one row at the end. The checklist disappears once the four required steps are done.
+Admins and HR see **🚀 Set up Logbook** at the top of **Home**, with a count such as "2 of 5 done". The step to do now is marked **Next**, with a short reason and its buttons. The required steps after it are one line each, starting with "Then:", with a button to the screen that does it, so you can take them in another order. Finished steps are folded into one line that starts with "✅ Done:", and the optional ones (leave balances, projects) share one row at the end. The checklist disappears once the five required steps are done.
 
 Until then Home stays short: time tracking appears once the workspace has a project, and a balance once a vacation policy applies to you.
 
-The four required steps:
+The five required steps:
 
 1. **Create a vacation policy.**
 2. **Set the company rules.**
 3. **Create teams and pick their approvers.**
 4. **Put people in teams.**
+5. **Tell your team.**
 
 ## 1. Add a vacation policy
 
-A policy sets days per year and public holidays. Without one, Logbook tracks time off but checks no balance.
+A policy sets days per year and public holidays. Without one, Logbook tracks time off but checks no balance. The first policy you create goes into the company rules, so it applies to everyone.
 
 1. Open **☰ More** and choose **📜 Policies** under **Settings**, or click **Open Policies** on the checklist.
 2. Click **➕ Add Policy** and fill in the form.
-3. Use **Edit Holidays** in a policy's menu to add its public holidays.
+3. Click the policy's **🎉 Holidays** button to add its public holidays.
 
 See [Policies and holidays](/logbook/docs/admins/policies-and-holidays/).
 
 ## 2. Set the company rules
 
-The company rules decide who approves after the team lead (level 2, HR or leadership), who hears of decisions, and which policy teams follow. Teams that follow the company rules, and people in no team, use them.
+The company rules decide whether anyone approves after the team's approvers (the second approval, HR or leadership), who hears of decisions, and which policy teams follow. Teams that follow the company rules, and people in no team, use them.
 
 1. Open **🏢 Teams** from **☰ More**, or click **Company rules** on the checklist.
-2. Click **⚙️ Company rules** and fill in the form.
+2. Click **⚙️ Company rules**, fill in the form and click **Submit**. Leave **Second approval (HR)** empty to let the team's approvers decide alone: the step is done once you save the form.
 
 See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/).
 
 ## 3. Create teams with approvers
 
-A team's approvers decide time off for its people. Level 1 is the team's managers. The team form offers people with the Manager or Admin role for level 1, and people with the HR or Admin role for level 2. Give those roles first under **People**.
+A team's approvers decide time off for its people first. In the team form, type a name under **Team approvers**: anyone active but people with the Finance role. Someone with the Member role becomes a Manager when you save. The second approval takes people with the HR or Admin role: give that role first under **People**.
 
 You have two ways to create teams:
 
@@ -54,7 +55,11 @@ You have two ways to create teams:
 
 ## 4. Put people in teams
 
-Someone in no team has no level 1: their requests start at the company rules' level 2, or go to HR (or to the admins when nobody has the HR role) when nobody there can decide. To change a person's team or role, open **👥 People** from **☰ More** and use **Edit User**. The team form can also set a team's members in one go. See [People and roles](/logbook/docs/admins/people-and-roles/).
+Someone in no team has no team's approvers: their requests start at the company rules' second approval, or go to HR (or to the admins when nobody has the HR role) when nobody there can decide. To change a person's team or role, open **👥 People** from **☰ More** and use **Edit User**. The team form can also set a team's members in one go. See [People and roles](/logbook/docs/admins/people-and-roles/).
+
+## 5. Tell your team
+
+People find Logbook only if someone tells them. Click **📣 Get the message** on the checklist: Logbook sends you a ready announcement in your conversation with it. Copy it into a channel everyone reads, such as #general. The step is done once you have the message.
 
 ## Optional: leave balances and history
 
@@ -75,4 +80,4 @@ An admin can let people log approved time off as hours on a project. On **📁 P
 
 ## Invite people to open the app
 
-Logbook adds your Slack members on its own, when it is installed and again once a day. Tell people to open **Logbook** under **Apps** in the Slack sidebar and use its **Home** tab. Point them to [What Logbook is](/logbook/docs/getting-started/what-is-logbook/) and [Request time off](/logbook/docs/everyone/request-time-off/).
+Logbook adds your Slack members on its own, when it is installed and again once a day. The message from **Tell your team** tells people to open **Logbook** under **Apps** in the Slack sidebar and use its **Home** tab. Point them to [What Logbook is](/logbook/docs/getting-started/what-is-logbook/) and [Request time off](/logbook/docs/everyone/request-time-off/).

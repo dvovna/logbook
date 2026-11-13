@@ -239,9 +239,9 @@ export class TimeEntryRemindersService
         text: [
           `:alarm_clock: You have *${pluralize('time entry', entries.length, true)}* (${getDisplayTime(minutes)}) from ${formatDateRange(dates[0], dates[dates.length - 1])} not submitted yet.`,
           rejected.length === 1 &&
-            `1 of them was rejected: fix it under Home → ✏️ Edit Entries (${weeksOf(rejected)}).`,
+            `1 of them was rejected: fix it under 🕒 My time (${weeksOf(rejected)}).`,
           rejected.length > 1 &&
-            `${rejected.length} of them were rejected: fix them under Home → ✏️ Edit Entries (${weeksOf(rejected)}).`,
+            `${rejected.length} of them were rejected: fix them under 🕒 My time (${weeksOf(rejected)}).`,
           'Your approvers see time only once you submit it: Home → 📤 Submit for Approval.',
           'Change how often you are reminded: Home → 🔔 Reminders.',
         ]

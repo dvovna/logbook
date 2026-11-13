@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-Reports is open to every role. Open it from the navigation row, under **☰ More** for roles that have a menu. It shows the week at a glance, the time report, and for some roles more.
+Reports is open to every role. Open it from the navigation row, under **☰ More** for roles that have a menu. It shows the week at a glance, the time report, and for some roles more. The buttons that open a report (**📈 Time report**, and for Admin and Finance **📊 Billing report** and **🧾 Uninvoiced**) share one row; **🔒 Billing snapshots** and **⏱ Time logs**, for the roles that have them, are on a second row.
 
 ## What you see
 
@@ -75,7 +75,7 @@ Reports shows **📨 Sending the CSV to your DMs.** right after you choose the b
 
 ## Time logs
 
-Admin and HR have **⏱ Time logs** on Reports. It lists everyone's entries, which they can edit, with From and To filters. Entries in a billing snapshot show as billed and can't be edited or deleted. Everyone else sees and edits their own entries on **My time**; see [Log time](/logbook/docs/everyone/log-time/).
+Admin and HR have **⏱ Time logs** on Reports. It lists everyone's entries, which they can edit, with From and To filters. **➕ Add Time Entry** at the top opens **Log Time**, where they can log for someone else. Entries in a billing snapshot show as billed and can't be edited or deleted. Everyone else sees and edits their own entries on **My time**; see [Log time](/logbook/docs/everyone/log-time/).
 
 ## Related
 

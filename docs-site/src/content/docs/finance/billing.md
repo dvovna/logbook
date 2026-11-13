@@ -19,7 +19,7 @@ The billing report shows a client's approved time for a period, with rates and a
 The report counts approved entries of the client's projects. It shows:
 
 - a table of each person's time on each project, with **Hours**, **Billable**, **Rate** and **Amount**, and a total row;
-- the totals **By project** and **By person**;
+- the totals **By project** and **By person**, each only when there is more than one project or person and the table spreads their time over several rows;
 - **No rate**: billable time with no rate, counted apart and not in the amount;
 - **Not approved yet**: time that waits for approval and isn't in the report;
 - **In billing snapshots already**: how much of the approved time a snapshot already holds.

@@ -44,7 +44,7 @@ export class CompanyRulesModalView extends BaseModalView<
         elements: [
           {
             type: 'mrkdwn',
-            text: 'Teams that follow the company rules, and people in no team, use these. Level 1 always comes from the team.',
+            text: "Teams that follow the company rules, and people in no team, use these. The first approval always comes from the team's approvers.",
           },
         ],
       },

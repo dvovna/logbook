@@ -72,7 +72,7 @@ People with the Manager or Admin role can lead a team, and a Member named as a l
 
 Logbook has no file for policies, holidays and the company rules: the person enters them in Slack. Give them this list, filled in from their answers. The screens are under **☰ More** on Logbook's **Home** tab.
 
-**A vacation policy** (**Policies** → **➕ Add Policy**), one per different allowance:
+**A vacation policy** (**Policies** → **➕ Add Policy**), one per different allowance. The first one created goes into the company rules on its own, so create the one most people follow first:
 
 | Field | Value |
 | --- | --- |
@@ -84,26 +84,26 @@ Logbook has no file for policies, holidays and the company rules: the person ent
 
 Logbook checks annual leave against both the calendar and the working days. A company that counts in one unit only still fills both. For a company that counts working days, calendar days = working days × 7 ÷ 5, rounded up (20 working days are 28 calendar days). For a company that counts calendar days, working days = calendar days × 5 ÷ 7, rounded down (28 calendar days are 20 working days). Say that you worked the second number out, and let the person change it.
 
-**Its holidays** (the policy's **⋯** menu → **Edit Holidays** → **Upload From Country**): the country, and the region if the country has regional holidays. Each year is imported on its own, in **Select Year**: name every year that the leave in step 7 touches, and the current one. Company days off go under **Custom Holidays** → **➕ Add Holiday**, up to 5 a year.
+**Its holidays** (the policy's **🎉 Holidays** button → **Upload From Country**): the country, and the region if the country has regional holidays. Each year is imported on its own, in **Select Year**: name every year that the leave in step 7 touches, and the current one. Company days off go under **Custom Holidays** → **➕ Add Holiday**, up to 5 a year.
 
 **The company rules** (**Teams** → **⚙️ Company rules**):
 
 | Field | Value |
 | --- | --- |
 | **Vacation Policy** | The policy most people follow |
-| **Level 2: HR** | Up to five people who approve after the team lead. They need the HR or Admin role: say whose role to change first, on **People** → **Edit User** → **Role** |
-| **Level 2 rule** | **All listed approvers must approve** ticked, or not: then the first approval is enough |
-| **Approval Notification Recipients** | Up to five people, active in Logbook, who get a message about each approved leave, if the person named any |
+| **Second approval (HR)** | Up to five people who approve after the team's approvers, or empty to let the team's approvers decide alone. They need the HR or Admin role: say whose role to change first, on **People** → **Edit User** → **Role** |
+| **Second approval's rule** | **All of them must approve** ticked, or not: then the first approval is enough |
+| **Who hears of decisions** | Up to five people, active in Logbook, who get a message about each approved leave, if the person named any |
 
 Only an admin gives the Admin or Finance role. HR can make someone a Manager, HR or Member.
 
-Nobody approves their own leave: the leave of a level 2 approver goes to the others at level 2, and with nobody else there, to the other people with the HR role, or else to the admins. When level 2 is one person, say who will decide that person's leave.
+Nobody approves their own leave: the leave of a second-approval approver goes to the others on the second approval, and with nobody else there, to the other people with the HR role, or else to the admins. When the second approval is one person, say who will decide that person's leave.
 
-**Teams with another policy.** The team file creates every team on the company rules. For a team with another allowance or holiday calendar, after the team file is applied (step 9) the person opens **Teams** → the team's **⋯** menu → **Edit Team**, sets **Rules** to **Its own rules** and chooses its **Vacation Policy**, its **Level 2: HR** and their rule. List those teams and their policies.
+**Teams with another policy.** The team file creates every team on the company rules. For a team with another allowance or holiday calendar, after the team file is applied (step 9) the person opens **Teams** → the team's **⋯** menu → **Edit Team**, sets **Rules** to **Its own rules** and chooses its **Vacation Policy**, its **Second approval (HR)** and its rule. List those teams and their policies.
 
 ## 5. `team-setup.csv`
 
-One row per person, each person once. Skip this file when the company has no teams: everyone then follows the company rules, and their leave goes to level 2.
+One row per person, each person once. Skip this file when the company has no teams: everyone then follows the company rules, and their leave goes to the second approval.
 
 ```text
 Name,Email,Team,Team lead
@@ -120,8 +120,8 @@ Cleo Diaz,cleo@example.com,Sales,yes
 | `Team lead` | `yes` for a lead of that team, else empty. A lead needs a team. |
 
 - Leave out the people you know nothing about: people who aren't in the file stay as they are. Don't write a row with an empty Team for them.
-- A lead approves the leave of their team at level 1, and their own leave skips them. A team with no lead sends its leave to level 2.
-- A manager who leads a team but belongs to another gets one row, in the team they belong to, and the person adds them to the other team's **Level 1: managers** by hand (**Teams** → **Edit Team**). Say who.
+- A lead is one of the team's approvers and approves its leave first; their own leave skips them. A team with no lead sends its leave to the second approval.
+- A manager who leads a team but belongs to another gets one row, in the team they belong to, and the person adds them to the other team's **Team approvers** by hand (**Teams** → **Edit Team**). Say who.
 
 ## 6. `leave-balances.csv`
 
@@ -202,11 +202,12 @@ It prints what each file holds and each row Logbook couldn't use, with the reaso
 The order matters: a balance needs a policy, new teams take the company rules as they are, and working days are counted with the holidays. Give the person this list, with your values in it:
 
 1. **Policies and holidays**: create each policy and import its holidays (step 4).
-2. **Roles**: give the level 2 approvers the HR or Admin role.
-3. **Company rules**: the policy, level 2, who hears of decisions.
+2. **Roles**: give the second-approval approvers the HR or Admin role.
+3. **Company rules**: the policy, the second approval, who hears of decisions. Save them even with no second approval.
 4. **`team-setup.csv`**: open the conversation with Logbook (its **Messages** tab), drop the file in, read the preview, click **Apply**. Then set **Its own rules** on the teams that need another policy, and add the leads you named in step 5.
 5. **`leave-balances.csv`**: the same way.
 6. **`leave-history.csv`**: the same way.
+7. **Tell your team**: on **Home**, **📣 Get the message** sends them a ready announcement to post in a channel everyone reads.
 
 Tell them what to look at in each preview:
 
@@ -222,7 +223,7 @@ When a preview lists rows it can't use, ask the person for those lines, fix the 
 | "… isn't in this Slack workspace" | The email isn't the person's email in Slack, or they haven't joined. Logbook adds new Slack members once a day. |
 | "… is deactivated" | The person is deactivated in Logbook or left Slack. Leave the row out. |
 | "… follows no vacation policy" | The company rules, or the team's own rules, name no policy. Set it, then send the balances again. |
-| "… has the HR role, which can't approve at level 1" | An HR or Finance person can't lead. Name another lead, or the person changes the role. |
+| "… has the HR role, which can't approve a team's time off" | An HR or Finance person can't lead. Name another lead, or the person changes the role. |
 | "overlaps …" | The leave shares a day with one that is in Logbook already, or with an earlier row. |
 
 Each applied file has **Undo** for 7 days, which puts back everything that is still as the file left it.

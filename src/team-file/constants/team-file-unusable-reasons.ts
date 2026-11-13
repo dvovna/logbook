@@ -13,7 +13,7 @@ export const TEAM_FILE_UNUSABLE_REASONS = {
   leadWithoutTeam: (name: string) =>
     `${name} is marked as lead but has no team`,
   cannotLead: (name: string, roleLabel: string) =>
-    `${name} has the ${roleLabel} role, which can't approve at level 1`,
+    `${name} has the ${roleLabel} role, which can't approve a team's time off`,
   ambiguousTeam: (team: string) =>
     `${team} matches more than one team; write its exact name`,
   teamNameTooLong: (team: string) =>

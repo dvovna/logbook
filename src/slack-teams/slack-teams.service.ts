@@ -256,6 +256,19 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     };
   }
 
+  // Whether the setup checklist's last step, telling people about Logbook,
+  // was taken.
+  public async isTeamTold(id: string): Promise<boolean> {
+    return !!(await this.findOneWithValidation({ id })).team_told_at;
+  }
+
+  public async markTeamTold(id: string): Promise<void> {
+    await this.slackTeamsRepository.update(
+      { id },
+      { team_told_at: new Date().toISOString() },
+    );
+  }
+
   // The currency of the workspace's rates and amounts.
   public async getCurrency(id: string): Promise<string> {
     return (await this.findOneWithValidation({ id })).currency;

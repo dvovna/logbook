@@ -160,6 +160,8 @@ describe('Size of the requests Slack sends', () => {
   });
 
   it('takes a body up to its limit and refuses a bigger one', async () => {
+    // My time is in the navigation of a workspace that tracks time.
+    await workspace.addProject();
     const home = await openAppHomeTab(t, workspace, admin);
     const base = bodySize(click(home, NavigationActionId.MyTime));
     const fill = (size: number) =>

@@ -48,6 +48,7 @@ class TestTabService extends BaseTabService<ModalViewResolversMapType> {
 describe('BaseTabService', () => {
   let slackCommunicationService: { publishView: jest.Mock };
   let pendingApprovalsService: { count: jest.Mock };
+  let timeTrackingUseService: { tracksTime: jest.Mock };
   let tabNavigationService: { navigate: jest.Mock };
   let loggerError: jest.SpyInstance;
 
@@ -55,6 +56,7 @@ describe('BaseTabService', () => {
     Object.assign(new TestTabService(tabId), {
       slackCommunicationService,
       pendingApprovalsService,
+      timeTrackingUseService,
       tabNavigationService,
     });
 
@@ -88,6 +90,9 @@ describe('BaseTabService', () => {
     };
     pendingApprovalsService = {
       count: jest.fn().mockResolvedValue({ timeOff: 2, timeEntries: 1 }),
+    };
+    timeTrackingUseService = {
+      tracksTime: jest.fn().mockResolvedValue(true),
     };
     tabNavigationService = { navigate: jest.fn() };
     loggerError = jest

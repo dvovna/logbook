@@ -155,6 +155,13 @@ export class ReportsTabView extends BaseTabView<
     const forBilling = canOpenScreen(ScreenId.BillingSnapshots, userRole);
     const forTimeLogs = canOpenScreen(ScreenId.TimeLogs, userRole);
 
+    // The reports, which open a form, then the screens with lists of their
+    // own, apart: one row of five mixed them up.
+    const screens = [
+      ...(forBilling ? [ScreenId.BillingSnapshots] : []),
+      ...(forTimeLogs ? [ScreenId.TimeLogs] : []),
+    ];
+
     return [
       week,
       {
@@ -178,27 +185,22 @@ export class ReportsTabView extends BaseTabView<
                   text: { type: 'plain_text', text: '🧾 Uninvoiced' },
                   action_id: ReportsTabActionId.Uninvoiced,
                 },
-                {
-                  type: 'button',
-                  text: {
-                    type: 'plain_text',
-                    text: SCREENS[ScreenId.BillingSnapshots].title,
-                  },
-                  action_id: NavigationActionId.BillingSnapshots,
-                },
-              ]
-            : []),
-          ...(forTimeLogs
-            ? [
-                {
-                  type: 'button',
-                  text: { type: 'plain_text', text: '⏱ Time logs' },
-                  action_id: NavigationActionId.TimeLogs,
-                },
               ]
             : []),
         ],
       } as AnyBlock,
+      ...(screens.length
+        ? [
+            {
+              type: 'actions',
+              elements: screens.map((id) => ({
+                type: 'button',
+                text: { type: 'plain_text', text: SCREENS[id].title },
+                action_id: SCREENS[id].actionId!,
+              })),
+            } as AnyBlock,
+          ]
+        : []),
       ...(timeReport ? this.getTimeReportBlocks(timeReport) : []),
       ...(missingTime ? this.getMissingTimeBlocks(missingTime) : []),
       ...(billingReport ? this.getBillingReportBlocks(billingReport) : []),
@@ -395,13 +397,24 @@ export class ReportsTabView extends BaseTabView<
       ],
     );
 
+    // One line would only repeat the Total row.
+    const addsToTable = (totals: number) =>
+      totals > 1 && (left > 0 || totals < report.lines.length);
+
     return [
       ...Divider.getBlocks(),
       summary,
       tableBlock(rows, ['left', 'left', 'right', 'right', 'right', 'right']),
       ...moreLinesBlocks(left, ', in the total'),
-      this.getTotalsBlock('By project', report.byProject, money),
-      this.getTotalsBlock('By person', report.byPerson, money),
+      // Only what the table doesn't show at a glance: a total per project
+      // or person when its lines are spread over several rows, or all of
+      // them when the table was cut.
+      ...(addsToTable(report.byProject.length)
+        ? [this.getTotalsBlock('By project', report.byProject, money)]
+        : []),
+      ...(addsToTable(report.byPerson.length)
+        ? [this.getTotalsBlock('By person', report.byPerson, money)]
+        : []),
       ...(report.approvedMinutes > report.snapshotMinutes
         ? this.getLockBlocks()
         : []),

@@ -35,6 +35,7 @@ const slackTeam: ISlackTeamViewModel = {
   time_off_minutes_per_day: 480,
   uninstalled_at: null,
   members_imported_at: null,
+  team_told_at: null,
 };
 
 const slackUser = {

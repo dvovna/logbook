@@ -734,7 +734,8 @@ describe('Company rules', () => {
       expect(approvers.body).toEqual({
         response_action: 'errors',
         errors: {
-          hr_approvers_block: 'Level 2 approvers need the HR or Admin role.',
+          hr_approvers_block:
+            'The second approval needs people with the HR or Admin role.',
         },
       });
       expect(policy.body).toEqual({
@@ -871,7 +872,8 @@ describe('Company rules', () => {
       expect(response.body).toEqual({
         response_action: 'errors',
         errors: {
-          [blockId]: 'Level 2 approvers need the HR or Admin role.',
+          [blockId]:
+            'The second approval needs people with the HR or Admin role.',
         },
       });
       expect(await workspace.rows('teams')).toEqual([]);

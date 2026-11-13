@@ -23,6 +23,8 @@ import { LeaveFileModule } from 'src/leave-file/leave-file.module';
 import { TeamFileSlackModule } from '@modules/slack/team-file/team-file-slack.module';
 import { ReceiptsSlackModule } from '@modules/slack/receipts/receipts-slack.module';
 import { ReceiptsModule } from 'src/receipts/receipts.module';
+import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
+import { TeamAnnouncementService } from '@modules/slack/tabs/home/services/team-announcement.service';
 import { RequesterNoticeMessageHandler } from '@modules/slack/tabs/home/handlers/requester-notice-message.handler';
 
 @Module({
@@ -43,9 +45,11 @@ import { RequesterNoticeMessageHandler } from '@modules/slack/tabs/home/handlers
     LeaveFileModule,
     ReceiptsModule,
     ReceiptsSlackModule,
+    SlackTeamsModule,
   ],
   providers: [
     SetupProgressService,
+    TeamAnnouncementService,
     HomeTabView,
     HomeTabActionHandler,
     HomeTabService,

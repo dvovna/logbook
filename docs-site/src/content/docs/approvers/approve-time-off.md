@@ -27,19 +27,19 @@ The message has three buttons:
 
 A request goes through up to two levels:
 
-1. **Manager approval**: the managers the requester's team lists under **Level 1: managers**.
-2. **HR approval**: the people under **Level 2: HR**, from the team's own rules or from the company rules. The level is called **Admin approval** when everyone on it is an admin.
+1. **Manager approval**: the people the requester's team lists under **Team approvers**.
+2. **HR approval**, the second approval: the people under **Second approval (HR)**, from the team's own rules or from the company rules. It is left out when they name nobody. The level is called **Admin approval** when everyone on it is an admin.
 
 Each level has a rule, shown on **Teams** as "any one" or "all":
 
 - "Any one", the default: the first approval completes the level. The other approvers' messages show who approved.
-- "All", when **All listed approvers must approve** is ticked: every listed approver has to approve, and the level waits until they have.
+- "All", when **All of them must approve** is ticked: every listed approver has to approve, and the level waits until they have.
 
 One rejection at any level rejects the request, also under "all". When a level is done, the next one gets its messages, and the requester gets a DM: who approved and who decides next.
 
-Logbook leaves out the requester, and anyone deactivated or without the Manager, HR or Admin role. A level with nobody left is skipped. Someone in no team has no level 1: their request starts at the company rules' level 2.
+Logbook leaves out the requester, and anyone deactivated or without the Manager, HR or Admin role. A level with nobody left is skipped. Someone in no team has no team's approvers: their request starts at the company rules' second approval.
 
-If you approved level 1 and you are also on level 2, you aren't asked again: your level 2 step is approved as you. With "any one" that completes level 2; with "all" the others still decide.
+If you approved for the team and you are also on the second approval, you aren't asked again: your second-approval step is approved as you. With "any one" that completes the second approval; with "all" the others still decide.
 
 See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/) for how levels are set up.
 
@@ -83,7 +83,7 @@ Logbook approves every open step of the level the request waits on, under either
 When the approvers decide, or HR or an admin sets the status with **Edit Request**:
 
 - The requester gets a DM: approved or rejected, by whom, the reason and the approver comments. An approved request may carry a button to log it as time; see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
-- When it is approved, the team's **Approval Notification Recipients** get a DM too. They come from the team's own rules or the company rules, as they are at the time of the decision. They hear nothing of a rejection.
+- When it is approved, the people under the team's **Who hears of decisions** get a DM too. They come from the team's own rules or the company rules, as they are at the time of the decision. They hear nothing of a rejection.
 - Every approver's message shows the decision and who made it, HR or the admin after **Edit Request**.
 
 All messages are listed in [Notifications](/logbook/docs/reference/notifications/).

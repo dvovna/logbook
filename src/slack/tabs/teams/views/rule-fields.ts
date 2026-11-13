@@ -39,10 +39,10 @@ export const ruleFields = ({
       blockId: blockId('hr_approvers_block'),
       actionId: 'hr_approvers',
       maxSelectedItems: 5,
-      label: 'Level 2: HR',
-      hint: 'People with the HR or Admin role. Give someone that role under People to choose them here.',
+      label: 'Second approval (HR)',
+      hint: "After the team's approvers. People with the HR or Admin role. Leave it empty to let the team's approvers decide alone.",
       emptyText:
-        'Level 2 approvers are people with the HR or Admin role. Nobody has it yet: change a role under People first.',
+        'The second approval is for people with the HR or Admin role. Nobody has it yet: change a role under People first, or leave it out.',
       optional: true,
       placeholder: 'HR Approvers',
       options: hrUsers,
@@ -51,10 +51,8 @@ export const ruleFields = ({
     ...InputCheckboxesBlockBuilder.build({
       blockId: blockId('hr_approvers_rule_block'),
       actionId: 'hr_approvers_rule',
-      label: 'Level 2 rule',
-      options: [
-        { name: 'All listed approvers must approve', id: ApprovalRule.All },
-      ],
+      label: "Second approval's rule",
+      options: [{ name: 'All of them must approve', id: ApprovalRule.All }],
       initialValues:
         values.hrApproversRule === ApprovalRule.All ? [ApprovalRule.All] : [],
       optional: true,
@@ -74,7 +72,7 @@ export const ruleFields = ({
       },
       label: {
         type: 'plain_text',
-        text: 'Approval Notification Recipients',
+        text: 'Who hears of decisions',
       },
     },
   ];

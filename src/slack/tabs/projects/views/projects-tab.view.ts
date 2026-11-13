@@ -60,6 +60,8 @@ interface IGetProjectsViewParams extends IBaseTabViewParams {
   currency: string | null;
   // What time off is logged as, for whoever may set it; null for anyone else.
   timeOff: ITimeOffSetup | null;
+  // The workspace has a project, archived ones included.
+  hasProjects: boolean;
 }
 
 // People's own rates shown on a project.
@@ -115,10 +117,13 @@ export class ProjectsTabView extends BaseTabView<
       rates,
       currency,
       timeOff,
+      hasProjects,
     }: IGetProjectsViewParams,
     { filters, includeArchived, page }: IProjectsTabMetaData,
   ): AnyBlock[] {
     const blocks: AnyBlock[] = [];
+    const filtered =
+      !!filters && Object.values(filters).some((value) => value !== undefined);
 
     if (currency) {
       blocks.push(this.getCurrencyBlock(currency, userRole));
@@ -134,14 +139,22 @@ export class ProjectsTabView extends BaseTabView<
       blocks.push(this.getTimeOffBlock(timeOff));
     }
 
-    blocks.push(...this.getFiltersBlocks(filters));
-    blocks.push(
-      IncludeArchivedButtonView.getView({
-        actionId: ProjectsTabViewActionId.IncludeArchivedProjects,
-        title: 'Include Archived Projects',
-        includeArchived,
-      }),
-    );
+    // Nothing to narrow before the first project: an empty workspace gets
+    // the empty list's line and button, not three empty selects. Archived
+    // projects may be all there is, so their checkbox goes by any project.
+    if (filtered || projectsListData.totalCount > 0) {
+      blocks.push(...this.getFiltersBlocks(filters));
+    }
+
+    if (hasProjects || includeArchived) {
+      blocks.push(
+        IncludeArchivedButtonView.getView({
+          actionId: ProjectsTabViewActionId.IncludeArchivedProjects,
+          title: 'Include Archived Projects',
+          includeArchived,
+        }),
+      );
+    }
 
     const listBlocks = PaginatedListView.getBlocks<IProjectListItem>({
       itemsData: {

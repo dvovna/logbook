@@ -23,6 +23,7 @@ Every release has a section in [CHANGELOG.md](https://github.com/dvovna/logbook/
 | 0.5.2 | None: only the new image. |
 | 0.5.3 | None: only the new image. |
 | 0.6.0 | Two database migrations. |
+| 0.6.1 | One database migration. |
 
 When you skip releases, take the steps of every release in between. The migrations of all of them apply in one push.
 
@@ -32,7 +33,7 @@ When you skip releases, take the steps of every release in between. The migratio
 2. Check out the new release's tag in your copy of the source, and install its tools:
    ```bash
    git fetch --tags
-   git checkout v0.6.0
+   git checkout v0.6.1
    pnpm install
    ```
    Use the tag of the version you update to.

@@ -34,29 +34,33 @@ export class RuleInputsValidationService {
     }
   }
 
-  // Level 1 holds people of the workspace who can decide a step (active,
-  // with an approving role): the form offers managers and admins, and keeps
-  // a chosen lead who is HR, as the team file may make one.
-  public async assertLevel1Approvers(slackIds: string[], user: IUserViewModel) {
+  // A team's approvers are active people of the workspace who can decide a
+  // step or become a Manager for it: everyone but Finance, which approves
+  // nothing. The search offers no HR person, but one a team already names
+  // (the form keeps them) stays allowed. Returns the Members among them,
+  // whom saving makes Managers.
+  public async teamApproversToPromote(
+    slackIds: string[],
+    user: IUserViewModel,
+  ): Promise<IUserViewModel[]> {
     if (!slackIds.length) {
-      return;
+      return [];
     }
 
-    const allowed = new Set(
-      (
-        await this.usersService.findMany({
-          slackTeamId: user.slack_team_id,
-          roles: [...MANAGER_ROLES],
-        })
-      ).map(({ slack_id }) => slack_id),
-    );
+    const allowed = await this.usersService.findMany({
+      slackTeamId: user.slack_team_id,
+      slackIds,
+      roles: [UserRole.Member, ...MANAGER_ROLES],
+    });
 
-    if (slackIds.some((slackId) => !allowed.has(slackId))) {
+    if (allowed.length < new Set(slackIds).size) {
       throw new ValidationError(
-        'Level 1 approvers need the Manager, HR or Admin role.',
+        "A team's approvers need to be active people without the Finance role.",
         'manager_approvers',
       );
     }
+
+    return allowed.filter(({ role }) => role === UserRole.Member);
   }
 
   // The select offers everyone in Slack: a decision goes only to active
@@ -95,7 +99,7 @@ export class RuleInputsValidationService {
 
     if (slackIds.some((slackId) => !allowed.has(slackId))) {
       throw new ValidationError(
-        'Level 2 approvers need the HR or Admin role.',
+        'The second approval needs people with the HR or Admin role.',
         'hr_approvers',
       );
     }

@@ -1,4 +1,5 @@
 import { UsersService } from '@modules/users/services/users.service';
+import { TransactionService } from 'src/database/transaction.service';
 import { Injectable } from '@nestjs/common';
 import { RuleInputsValidationService } from '@modules/slack/tabs/teams/services/rule-inputs-validation.service';
 import { ValidationError } from '@common/errors/validation.error';
@@ -29,6 +30,13 @@ import {
 import { ADMIN_AND_HR_ROLES } from '@common/constants/role-groups';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.view';
+import { listNames } from '@modules/slack/common/utils/list.utils';
+
+interface ISavedTeam {
+  team: ITeamViewModel;
+  // Members chosen as its approvers, now Managers.
+  promoted: IUserViewModel[];
+}
 
 @Injectable()
 @SlackHandler({
@@ -39,7 +47,7 @@ import { ITeamsTabMetaData } from '@modules/slack/tabs/teams/views/teams-tab.vie
 export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
   ITeamModalViewMetadata,
   ITeamFormViewData,
-  ITeamViewModel
+  ISavedTeam
 > {
   public constructor(
     private readonly teamModalView: TeamModalView,
@@ -48,13 +56,14 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     private readonly tabNavigationService: TabNavigationService,
     private readonly ruleInputsValidationService: RuleInputsValidationService,
     private readonly usersService: UsersService,
+    private readonly transactions: TransactionService,
     teamModalViewValuesParser: TeamModalViewValuesParser,
   ) {
     super(teamModalViewValuesParser);
   }
 
   protected successResponse(
-    team: ITeamViewModel,
+    { team, promoted }: ISavedTeam,
     user: IUserViewModel,
     metadata: ITeamModalViewMetadata,
   ) {
@@ -65,7 +74,13 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     this.tabNavigationService.navigate(TabId.Teams, {
       user,
       metadata: pageMetadata,
-      notice: `✅ Team ${team.name} ${metadata.id ? 'updated' : 'created'}.`,
+      notice: [
+        `✅ Team ${team.name} ${metadata.id ? 'updated' : 'created'}.`,
+        promoted.length &&
+          `Now Managers, to approve its time off: ${listNames(promoted.map(({ name }) => name))}.`,
+      ]
+        .filter(Boolean)
+        .join(' '),
     });
 
     return SlackViewResponseFactory.success();
@@ -75,29 +90,40 @@ export class TeamFormSubmitHandler extends BaseModalFormSubmitHandler<
     data: ITeamFormViewData,
     metadata: ITeamModalViewMetadata,
     user: IUserViewModel,
-  ) {
-    await Promise.all([
-      this.ruleInputsValidationService.assertLevel1Approvers(
+  ): Promise<ISavedTeam> {
+    const [toPromote] = await Promise.all([
+      this.ruleInputsValidationService.teamApproversToPromote(
         (data.manager_approvers ?? []).map(({ value }) => value),
         user,
       ),
       this.assertOwnRules(data, user),
     ]);
 
-    const team = metadata.id
-      ? await this.update(metadata.id, data, user)
-      : await this.create(data, user);
+    // One transaction: a team never names approvers left Members, who
+    // couldn't approve, because the promotion failed after it was saved.
+    return this.transactions.transaction(async () => {
+      const team = metadata.id
+        ? await this.update(metadata.id, data, user)
+        : await this.create(data, user);
 
-    // Only users of the workspace are touched, whatever IDs the form sends.
-    if (metadata.setsMembers) {
-      await this.usersService.setTeamMembers(
-        team.id,
-        (data.members ?? []).map(({ value }) => value),
+      // Only users of the workspace are touched, whatever IDs the form sends.
+      if (metadata.setsMembers) {
+        await this.usersService.setTeamMembers(
+          team.id,
+          (data.members ?? []).map(({ value }) => value),
+          user,
+        );
+      }
+
+      // After the team names them: the change of role tells the waiting
+      // requests that someone can now approve (makeManagers).
+      const promoted = await this.usersService.makeManagers(
+        toPromote.map(({ id }) => id),
         user,
       );
-    }
 
-    return team;
+      return { team, promoted };
+    });
   }
 
   // The fields of its own rules are checked only while the team has its

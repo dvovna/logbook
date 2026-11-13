@@ -260,8 +260,10 @@ describe('Access control', () => {
       async (role, reachable) => {
         const user = { member, manager, hr, finance, admin }[role];
 
-        // Home offers My receipts only where receipts are collected.
+        // Home offers My receipts only where receipts are collected, and the
+        // navigation My time and Reports only where people log time.
         await seedReimbursement(t, workspace);
+        await workspace.addProject();
 
         const navigation = new Set<string>(SCREEN_ACTIONS);
         const followed = new Set<string>();
@@ -731,6 +733,7 @@ describe('Access control', () => {
       'members_imported_at',
       'name',
       'slack_id',
+      'team_told_at',
       'time_off_minutes_per_day',
       'uninstalled_at',
     ]);

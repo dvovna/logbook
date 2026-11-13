@@ -319,7 +319,7 @@ export class TeamFileMessageView {
           plan.teamsWithoutLead.map((team) => safe(team)),
           // Existing teams may keep rules of their own, so this can't name
           // one level 2.
-          'Their requests skip level 1: they go to the second approval, or to HR or an admin when there is none.',
+          "Their requests skip the team's approval: they go to the second approval, or to HR or an admin when there is none.",
         ),
       );
     }

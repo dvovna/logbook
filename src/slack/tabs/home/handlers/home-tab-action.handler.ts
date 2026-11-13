@@ -28,6 +28,7 @@ import { UsersTabViewActionId } from '@modules/slack/tabs/users/enums/users-tab-
 import { TeamFileDmService } from '@modules/slack/team-file/services/team-file-dm.service';
 import { TeamsTabViewActionId } from '@modules/slack/tabs/teams/enums/teams-tab-view-actions-id.enum';
 import { RemindersModalService } from '@modules/slack/receipts/services/reminders-modal.service';
+import { TeamAnnouncementService } from '@modules/slack/tabs/home/services/team-announcement.service';
 import { submittedNotice } from '@modules/slack/tabs/time-tracking/utils/submitted-notice.utils';
 
 @Injectable()
@@ -48,13 +49,13 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
     private readonly teamFileDmService: TeamFileDmService,
     private readonly leaveFileDmService: LeaveFileDmService,
     private readonly remindersModalService: RemindersModalService,
+    private readonly teamAnnouncementService: TeamAnnouncementService,
     protected readonly tabNavigationService: TabNavigationService,
   ) {
     super(tabNavigationService);
 
     this.actionMap = {
       [HomeTabActionId.OpenVacationModal]: this.handleCreateVacationRequest,
-      [HomeTabActionId.EditTimeEntries]: this.handleViewTimeEntries,
       [HomeTabActionId.ManagePendingRequestMenu]: withMenuAction(
         this.handleMenuAction,
         this.logger,
@@ -65,6 +66,7 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
       [TeamsTabViewActionId.TeamFile]: this.handleTeamFile,
       [UsersTabViewActionId.ImportLeave]: this.handleImportLeave,
       [HomeTabActionId.Reminders]: this.handleReminders,
+      [HomeTabActionId.TellTeam]: this.handleTellTeam,
     };
   }
 
@@ -126,6 +128,37 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
     );
   };
 
+  // The checklist's last step: the message for the team goes to the
+  // person's DM, then Home shows the checklist done.
+  private handleTellTeam = (
+    _payload: ISlackInteractionPayload,
+    user: IUserViewModel,
+  ) => {
+    if (!ADMIN_AND_HR_ROLES.includes(user.role)) {
+      return;
+    }
+
+    runInBackground(this.logger, 'send the message for the team', async () => {
+      try {
+        await this.teamAnnouncementService.send(user);
+      } catch (error) {
+        // Said on Home, where the click was: the step stays open to retry.
+        this.tabNavigationService.navigate(TabId.Home, {
+          user,
+          notice:
+            "⚠️ Logbook couldn't send you the message for your team. Try again in a minute.",
+        });
+        throw error;
+      }
+
+      this.tabNavigationService.navigate(TabId.Home, {
+        user,
+        notice:
+          '✅ The message for your team is in your DMs from Logbook: copy it into a channel.',
+      });
+    });
+  };
+
   private handleReminders = async (
     payload: ISlackInteractionPayload,
     user: IUserViewModel,
@@ -161,16 +194,6 @@ export default class HomeTabActionHandler extends BaseTabActionHandler {
     this.tabNavigationService.navigate(TabId.Home, {
       user,
       notice: submittedNotice(submitted),
-    });
-  };
-
-  private handleViewTimeEntries = (
-    _payload: ISlackInteractionPayload,
-    user: IUserViewModel,
-  ) => {
-    this.tabNavigationService.navigate(TabId.TimeEntries, {
-      user,
-      metadata: { ownEntriesOnly: true },
     });
   };
 

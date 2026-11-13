@@ -16,7 +16,7 @@ An AI coding agent can take these steps for you from one prompt. See [Install wi
 - The source of the release you run, for its database migrations. With pnpm 10:
   ```bash
   npm install -g pnpm@10
-  git clone --branch v0.6.0 https://github.com/dvovna/logbook && cd logbook && pnpm install
+  git clone --branch v0.6.1 https://github.com/dvovna/logbook && cd logbook && pnpm install
   ```
   The steps below run the Supabase CLI pinned in it.
 - A Supabase project. The free plan runs the bot, but it keeps no backups, and Supabase pauses it after a week of little activity (see [Operate](/logbook/docs/self-hosting/operate/#health-check)). For a company's real data, take a paid plan or back the database up yourself (see [Backups](/logbook/docs/self-hosting/operate/#backups)).
@@ -76,7 +76,7 @@ The optional settings (allowed workspaces, Sentry, pool sizes, data retention, l
 
 ## 4. Run
 
-The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.6.0`), its minor line (`0.6`) and `latest`:
+The image is on GitHub Container Registry for amd64 and arm64, tagged with each version (`0.6.1`), its minor line (`0.6`) and `latest`:
 
 ```bash
 docker run -d --name logbook --restart always --stop-timeout 30 --env-file .env -p 3000:3000 ghcr.io/dvovna/logbook:0.6
@@ -119,7 +119,7 @@ Don't use "Install to Workspace" in the app settings, and don't use the sharable
 :::
 
 What happens next:
-- The person who installs the app becomes its admin and gets a welcome message with the setup steps.
+- The person who installs the app becomes its admin and gets a welcome message that points to the setup checklist.
 - The other members of the workspace are imported a few seconds later, as Members.
 - **Home** shows admins and HR a checklist until the workspace is set up. See [Set up your workspace](/logbook/docs/getting-started/set-up-your-workspace/).
 
