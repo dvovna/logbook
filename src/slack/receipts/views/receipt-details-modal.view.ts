@@ -70,10 +70,14 @@ export class ReceiptDetailsModalView extends BaseModalView<
       option(name, id),
     );
     // With one reimbursement there is nothing to choose; with several the
-    // person chooses, unless the receipt already has one.
-    const preset =
-      reimbursements.find(({ id }) => id === receipt.reimbursementId) ??
-      (reimbursements.length === 1 ? reimbursements[0] : undefined);
+    // person chooses, unless the receipt already has one. A receipt whose
+    // reimbursement was archived gets none: the person picks another or
+    // deletes the receipt.
+    const preset = receipt.reimbursementId
+      ? reimbursements.find(({ id }) => id === receipt.reimbursementId)
+      : reimbursements.length === 1
+        ? reimbursements[0]
+        : undefined;
     const monthOptions = offeredMonths(today).map((month) =>
       option(monthLabel(month), month),
     );

@@ -12,6 +12,7 @@ import BaseTabService, {
 } from '@modules/slack/common/services/base-tab.service';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
 import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import { classifyActionError } from '@modules/slack/common/utils/action-errors';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { ReceiptDetailsModalView } from '@modules/slack/receipts/views/receipt-details-modal.view';
@@ -64,6 +65,23 @@ export class MyReceiptsTabService extends BaseTabService<MyReceiptsModalResolver
     });
   }
 
+  // Edit or Add details; a refusal (nothing to send it for, accepted
+  // meanwhile) is the screen's notice instead of a form.
+  public async openEdit(triggerId: string, params: IReceiptModalParams) {
+    try {
+      await this.openModal(triggerId, MyReceiptsModalName.Edit, params);
+    } catch (error) {
+      if (classifyActionError(error) !== 'refusal') {
+        throw error;
+      }
+
+      await this.publish({
+        user: params.user,
+        notice: `⚠️ ${(error as Error).message}`,
+      });
+    }
+  }
+
   // The delete form again with the error; when the receipt can't be shown
   // (not the person's, gone), only the error.
   public async getDeleteErrorModal(params: IReceiptModalParams): Promise<View> {
@@ -95,6 +113,13 @@ export class MyReceiptsTabService extends BaseTabService<MyReceiptsModalResolver
 
     if (receipt.status === ReceiptStatus.Accepted) {
       throw new ValidationError('An accepted receipt can’t be changed.');
+    }
+
+    // The form would have nothing to choose, and Slack refuses an empty select.
+    if (!active.length) {
+      throw new ValidationError(
+        'There are no reimbursements to send receipts for yet.',
+      );
     }
 
     return this.detailsModalView.build(

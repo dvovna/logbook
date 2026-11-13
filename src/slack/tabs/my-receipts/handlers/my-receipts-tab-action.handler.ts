@@ -49,11 +49,9 @@ export class MyReceiptsTabActionHandler extends BaseTabActionHandler {
   ) => {
     switch (actionType) {
       case MyReceiptsActionId.EditReceipt:
-        return this.openModal(
-          MyReceiptsModalName.Edit,
-          receiptId,
-          payload,
-          user,
+        return this.myReceiptsTabService.openEdit(
+          payload.trigger_id || user.slack_id,
+          { user, receiptId, pageMetadata: payload.view.private_metadata },
         );
       case MyReceiptsActionId.DeleteReceipt:
         return this.openModal(

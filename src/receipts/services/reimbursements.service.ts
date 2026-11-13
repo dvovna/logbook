@@ -35,6 +35,19 @@ export class ReimbursementsService {
     );
   }
 
+  // What Finance's screen offers: the active ones, then the archived ones
+  // whose receipts are still to be seen.
+  public async findShownToFinance(
+    slackTeamId: string,
+  ): Promise<{ active: IReimbursementViewModel[]; archived: IReimbursementViewModel[] }> {
+    const [active, archived] = await Promise.all([
+      this.findActive(slackTeamId),
+      this.reimbursements.findArchivedWithReceipts(slackTeamId),
+    ]);
+
+    return { active, archived };
+  }
+
   public findAll(slackTeamId: string) {
     return this.reimbursements.findMany(
       { slack_team_id: slackTeamId },

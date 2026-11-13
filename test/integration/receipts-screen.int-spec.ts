@@ -91,6 +91,40 @@ describe('The Receipts screen', () => {
 
   const open = () => openAppHomeTab(t, workspace, finance, RECEIPTS);
 
+  const archive = (reimbursement: Tables<'reimbursements'>) =>
+    t.db
+      .updateTable('reimbursements')
+      .set({ archived_at: new Date().toISOString() })
+      .where('id', '=', reimbursement.id)
+      .execute();
+
+  type Element = {
+    action_id?: string;
+    value?: string;
+    options?: { text: { text: string }; value: string }[];
+  };
+
+  const elementsOf = (view: View): Element[] =>
+    (view.blocks as { elements?: Element[]; accessory?: Element }[]).flatMap(
+      (block) => [
+        ...(block.elements ?? []),
+        ...(block.accessory ? [block.accessory] : []),
+      ],
+    );
+
+  // The value of the first button of `actionId` the view shows.
+  const decisionValueOf = (view: View, actionId: ReceiptsTabActionId) =>
+    elementsOf(view).find((element) => element.action_id === actionId)!
+      .value!;
+
+  const reimbursementOptions = (view: View) =>
+    elementsOf(view)
+      .find(
+        ({ action_id }) =>
+          action_id === ReceiptsTabActionId.SelectReimbursement,
+      )
+      ?.options?.map(({ text, value }) => [text.text, value]);
+
   describe('a month', () => {
     it('shows who sent what, and the people who sent nothing', async () => {
       await seed(anna, { fileName: 'gym-june.pdf', amountCents: 3000 });
@@ -264,12 +298,14 @@ describe('The Receipts screen', () => {
       );
     });
 
-    it('says so, and offers the reimbursements, when there are none', async () => {
-      await t.db
-        .updateTable('reimbursements')
-        .set({ archived_at: new Date().toISOString() })
-        .where('id', '=', sport.id)
-        .execute();
+    it('says so, and offers the reimbursements, when none is active and none archived has receipts', async () => {
+      // A draft is not a receipt Finance sees.
+      await seed(anna, {
+        fileName: 'draft.pdf',
+        amountCents: 100,
+        status: ReceiptStatus.Draft,
+      });
+      await archive(sport);
 
       const tab = await open();
 
@@ -280,6 +316,116 @@ describe('The Receipts screen', () => {
       expect(actionIdsOf(tab)).toContain(
         ReceiptsTabActionId.OpenReimbursements,
       );
+    });
+
+    it('keeps an archived reimbursement’s receipts: shown, accepted and opened', async () => {
+      const receipt = await seed(anna, {
+        fileName: 'gym-june.pdf',
+        amountCents: 3000,
+      });
+      await archive(sport);
+
+      const tab = await open();
+
+      // Nobody is asked any more: no "Sent nothing", no due date.
+      expect(sectionTexts(tab)).toEqual([
+        '*🧾 Receipts* · Sport (archived) · June 2026',
+        '1 person sent receipts · 1 waiting',
+        '*Anna Kim* · $30.00 of $50.00',
+      ]);
+
+      const accepted = await actOnTab(
+        t,
+        workspace,
+        finance,
+        tab,
+        ReceiptsTabActionId.AcceptReceipt,
+        decisionValueOf(tab, ReceiptsTabActionId.AcceptReceipt),
+      );
+
+      expect(noticeOf(accepted)).toBe(
+        '✅ Accepted gym-june.pdf from Anna Kim.',
+      );
+      expect((await receiptRow(receipt.id)).status).toBe(
+        ReceiptStatus.Accepted,
+      );
+      expect(sectionTexts(accepted)[0]).toBe(
+        '*🧾 Receipts* · Sport (archived) · June 2026',
+      );
+
+      const since = t.slackApi.mark();
+      const opened = await actOnTab(
+        t,
+        workspace,
+        finance,
+        accepted,
+        ReceiptsTabActionId.ManageReceiptMenu,
+        `${ReceiptsTabActionId.OpenReceipt}:${receipt.id}`,
+      );
+
+      expect(noticeOf(opened)).toBe('📎 Sending gym-june.pdf to your Messages.');
+
+      const downloaded = await actOnTab(
+        t,
+        workspace,
+        finance,
+        opened,
+        ReceiptsTabActionId.DownloadMonth,
+      );
+
+      expect(noticeOf(downloaded)).toBe(
+        '📦 Sending the archive to your Messages.',
+      );
+      expect(
+        t.slackApi
+          .uploadedFiles(workspace.token, `D${finance.slack_id.slice(1)}`, {
+            since,
+          })
+          .map(({ filename }) => filename),
+      ).toEqual(['gym-june.pdf', 'Receipts Sport 2026-06 part 1 of 1.zip']);
+    });
+
+    it('offers the archived reimbursements with receipts after the active ones', async () => {
+      const lunch = await seedReimbursement(t, workspace, { name: 'Lunch' });
+      const old = await seedReimbursement(t, workspace, { name: 'Aqua' });
+      const empty = await seedReimbursement(t, workspace, { name: 'Bowling' });
+      await seedReceipt(t, workspace, anna, {
+        reimbursement: old,
+        month: '2026-06-01',
+        amountCents: 700,
+      });
+      await seedReceipt(t, workspace, anna, {
+        reimbursement: empty,
+        month: '2026-06-01',
+        amountCents: 700,
+        status: ReceiptStatus.Draft,
+      });
+      await archive(old);
+      await archive(empty);
+
+      const tab = await open();
+
+      expect(sectionTexts(tab)[0]).toBe('*🧾 Receipts* · Lunch · June 2026');
+      expect(reimbursementOptions(tab)).toEqual([
+        ['Lunch', lunch.id],
+        ['Sport', sport.id],
+        ['Aqua (archived)', old.id],
+      ]);
+
+      const archived = await actOnTab(
+        t,
+        workspace,
+        finance,
+        tab,
+        ReceiptsTabActionId.SelectReimbursement,
+        old.id,
+      );
+
+      expect(sectionTexts(archived)).toEqual([
+        '*🧾 Receipts* · Aqua (archived) · June 2026',
+        '1 person sent receipts · 1 waiting',
+        '*Anna Kim* · $7.00',
+      ]);
     });
 
     it('pages through the people, and keeps a page within Slack’s 100 blocks', async () => {

@@ -129,7 +129,7 @@ const MAX_FILE_NAME_CHARACTERS = 100;
 const MAX_NAMES_LISTED = 15;
 
 interface IGetViewParams extends IBaseTabViewParams {
-  // The active ones, to choose from.
+  // The active ones, then the archived ones with receipts, to choose from.
   reimbursements: IReimbursementViewModel[];
   overview: IReceiptsMonth | null;
   currency: string;
@@ -137,6 +137,10 @@ interface IGetViewParams extends IBaseTabViewParams {
   // Set: only this person's receipts, all of them.
   person?: IReceiptsMonthPerson;
 }
+
+// An archived reimbursement is still shown for its receipts.
+const nameOf = ({ name, archivedAt }: IReimbursementViewModel) =>
+  archivedAt ? `${name} (archived)` : name;
 
 const text = (value: string): AnyBlock => ({
   type: 'section',
@@ -169,7 +173,7 @@ export class ReceiptsTabView extends BaseTabView<
     const title = `*${SCREENS[ScreenId.Receipts].title}*`;
 
     return overview
-      ? `${title} · ${escapeMrkdwn(overview.reimbursement.name)} · ${monthLabel(overview.month)}`
+      ? `${title} · ${escapeMrkdwn(nameOf(overview.reimbursement))} · ${monthLabel(overview.month)}`
       : title;
   }
 
@@ -220,7 +224,9 @@ export class ReceiptsTabView extends BaseTabView<
         prevPageActionId: ReceiptsTabActionId.PaginationPrev,
         nextPageActionId: ReceiptsTabActionId.PaginationNext,
       }),
-      ...(lastPage && overview.sentNothing.length
+      ...(lastPage &&
+      overview.sentNothing.length &&
+      !overview.reimbursement.archivedAt
         ? [text(this.getSentNothing(overview.sentNothing))]
         : []),
       ...Divider.getBlocks(),
@@ -246,8 +252,11 @@ export class ReceiptsTabView extends BaseTabView<
     ];
 
     if (reimbursements.length > 1) {
-      const options = reimbursements.map(({ id, name }) =>
-        toPlainTextOption({ id, name: clip(name, MAX_OPTION_CHARACTERS) }),
+      const options = reimbursements.map((item) =>
+        toPlainTextOption({
+          id: item.id,
+          name: clip(nameOf(item), MAX_OPTION_CHARACTERS),
+        }),
       );
 
       elements.push({
@@ -262,14 +271,20 @@ export class ReceiptsTabView extends BaseTabView<
     return { type: 'actions', elements };
   }
 
-  // "14 of 22 people sent receipts · 3 waiting · due 4 Nov"
+  // "14 of 22 people sent receipts · 3 waiting · due 4 Nov"; of an archived
+  // reimbursement, whom nobody asks any more, only who sent.
   private getSummary({
+    reimbursement,
     people,
     sentNothing,
     waiting,
     dueDate,
   }: IReceiptsMonth) {
     const sent = countSenders({ people });
+
+    if (reimbursement.archivedAt) {
+      return `${sent} ${sent === 1 ? 'person' : 'people'} sent receipts · ${waiting} waiting`;
+    }
 
     return `${sent} of ${sent + sentNothing.length} people sent receipts · ${waiting} waiting · due ${formatDayMonth(dueDate)}`;
   }

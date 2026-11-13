@@ -89,8 +89,12 @@ export class ReceiptsTabService extends BaseTabService<
     user,
     metadata = {},
   }: IPublishBaseParams<IReceiptsTabMetadata>) {
-    const [active, currency] = await Promise.all([
-      this.reimbursements.findActive(user.slack_team_id),
+    const [{ active, archived }, currency] = await Promise.all([
+      metadata.reimbursements
+        ? this.reimbursements
+            .findActive(user.slack_team_id)
+            .then((found) => ({ active: found, archived: [] }))
+        : this.reimbursements.findShownToFinance(user.slack_team_id),
       this.slackTeamsService.getCurrency(user.slack_team_id),
     ]);
     const base = { userId: user.slack_id, userRole: user.role };
@@ -102,14 +106,16 @@ export class ReceiptsTabService extends BaseTabService<
       );
     }
 
-    // A reimbursement archived since is no longer offered: the first by name.
+    // Archived ones stay while they hold receipts, so that Finance can still
+    // decide on and download them. One no longer offered: the first.
+    const offered = [...active, ...archived];
     const selected =
-      active.find(({ id }) => id === metadata.reimbursementId) ?? active[0];
+      offered.find(({ id }) => id === metadata.reimbursementId) ?? offered[0];
 
     if (!selected) {
       return this.tabView.getView({
         ...base,
-        reimbursements: active,
+        reimbursements: offered,
         overview: null,
         currency,
         page: 1,
@@ -138,7 +144,7 @@ export class ReceiptsTabService extends BaseTabService<
     const page = Math.min(Math.max(metadata.page ?? 1, 1), pages);
 
     return this.tabView.getView(
-      { ...base, reimbursements: active, overview, currency, page, person },
+      { ...base, reimbursements: offered, overview, currency, page, person },
       {
         reimbursementId: selected.id,
         month,

@@ -219,6 +219,76 @@ describe('My receipts', () => {
       );
     });
 
+    describe('when its reimbursement is archived', () => {
+      const archive = (reimbursement: Tables<'reimbursements'>) =>
+        t.db
+          .updateTable('reimbursements')
+          .set({ archived_at: new Date().toISOString() })
+          .where('id', '=', reimbursement.id)
+          .execute();
+
+      it('opens no form, and says so, when no reimbursement is active', async () => {
+        sport = await seedReimbursement(t, workspace, { name: 'Sport' });
+        const rejected = await seed(member, {
+          fileName: 'rejected.pdf',
+          status: ReceiptStatus.Rejected,
+        });
+        // Opened before: My receipts is reached from Home while one is.
+        const tab = await openAppHomeTab(t, workspace, member, MY_RECEIPTS);
+        await archive(sport);
+        const since = t.slackApi.mark();
+
+        await t.slack
+          .actOnView(
+            workspace,
+            member,
+            tab,
+            MyReceiptsActionId.ManageReceiptMenu,
+            `${MyReceiptsActionId.EditReceipt}:${rejected.id}`,
+          )
+          .expect(200);
+
+        expect(noticeOf(await publishedHome(t, workspace, member, since))).toBe(
+          '⚠️ There are no reimbursements to send receipts for yet.',
+        );
+        expect(
+          t.slackApi.callsWith(workspace.token, 'views.open', { since }),
+        ).toHaveLength(0);
+      });
+
+      it('offers the active ones, none chosen', async () => {
+        sport = await seedReimbursement(t, workspace, { name: 'Sport' });
+        const lunch = await seedReimbursement(t, workspace, { name: 'Lunch' });
+        const rejected = await seed(member, {
+          fileName: 'rejected.pdf',
+          status: ReceiptStatus.Rejected,
+        });
+        await archive(sport);
+        const tab = await openAppHomeTab(t, workspace, member, MY_RECEIPTS);
+
+        const form = await openModalFrom(
+          t,
+          workspace,
+          member,
+          tab,
+          MyReceiptsActionId.ManageReceiptMenu,
+          `${MyReceiptsActionId.EditReceipt}:${rejected.id}`,
+        );
+        const select = (
+          form.blocks as {
+            block_id?: string;
+            element?: {
+              options: { value: string }[];
+              initial_option?: unknown;
+            };
+          }[]
+        ).find(({ block_id }) => block_id === 'reimbursement_block')!.element!;
+
+        expect(select.options.map(({ value }) => value)).toEqual([lunch.id]);
+        expect(select.initial_option).toBeUndefined();
+      });
+    });
+
     it('opens no form for an accepted receipt', async () => {
       sport = await seedReimbursement(t, workspace, { name: 'Sport' });
       const accepted = await seed(member, {

@@ -45,6 +45,8 @@ Choose **My receipts** to see the receipts you sent, newest first, grouped by mo
 
 A receipt Finance accepted has no menu: it is Finance's now, and you can't change or delete it.
 
+If the reimbursement of a receipt was archived, **Edit** lets you choose another one, or you delete the receipt. With no reimbursement left, Logbook says "There are no reimbursements to send receipts for yet." and opens no form.
+
 | Status | Meaning |
 | --- | --- |
 | 📝 Needs details | You sent the file and gave no details yet. Only you see it. |

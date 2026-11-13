@@ -22,14 +22,14 @@ A reimbursement is what people send receipts for, such as a gym or lunches.
 The list shows each reimbursement with "Due: day 4 of the next month" and its limit. Use its menu to **Edit** it or **Archive** it.
 
 - A workspace has at most 10 active reimbursements. Names are compared ignoring case; two active ones can't share a name.
-- Archiving a reimbursement stops people choosing it and stops its reminders. The receipts already sent stay, and you can still read them.
+- Archiving a reimbursement stops people choosing it and stops its reminders. The receipts already sent stay: while it holds any, the **Receipts** screen still offers it, as "Gym (archived)", and you decide on, open and download them as before.
 - The currency is the workspace's. See [Rates and currency](/logbook/docs/finance/rates-and-currency/).
 
 ## Check a month
 
-**More → 🧾 Receipts** shows one reimbursement and one month at a time: the month being collected when you open it. Use **◀ Previous month** and **Next month ▶**, and the menu **Reimbursement** when there is more than one.
+**More → 🧾 Receipts** shows one reimbursement and one month at a time: the month being collected when you open it. Use **◀ Previous month** and **Next month ▶**, and the menu **Reimbursement** when there is more than one. The menu lists the active reimbursements, then the archived ones that hold receipts, marked "(archived)".
 
-The line under the title reads "14 of 22 people sent receipts · 3 waiting · due 4 Nov". Someone counts as having sent when they have a receipt that is waiting or accepted. People who haven't turned reminders off and have sent nothing are listed at the end as "Sent nothing: …". Only active people are listed there.
+The line under the title reads "14 of 22 people sent receipts · 3 waiting · due 4 Nov". Someone counts as having sent when they have a receipt that is waiting or accepted. People who haven't turned reminders off and have sent nothing are listed at the end as "Sent nothing: …". Only active people are listed there. An archived reimbursement asks nobody any more: its line reads "3 people sent receipts · 1 waiting", without "Sent nothing".
 
 Below it, each person who sent something has a heading with their name, the total of their waiting and accepted receipts, and the limit: "Anna Lee · $120.00 of $100.00 ⚠️ over the limit". A person who was deactivated since stays on the screen, marked "(deactivated)", and you decide on their receipts like any other.
 
