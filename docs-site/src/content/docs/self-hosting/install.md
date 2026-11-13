@@ -110,7 +110,7 @@ Then check the whole setup from the source checkout: `pnpm checkup`. It reads `.
 ## 5. Install in a workspace
 
 1. Open `https://<your-domain>/api/slack/install` in the browser.
-2. Approve the app.
+2. Approve the app. The browser ends on a page that says "Logbook is installed", with the next steps and a button that opens Logbook in Slack.
 
 The link starts the OAuth flow with a one-time `state` bound to your browser, so only an installation started there can finish. It works for 10 minutes.
 

@@ -157,13 +157,12 @@ Two things for the person to do in their browser, in this order:
 1. **Verify the events URL.** The Slack app was created before Logbook ran, so Slack could not reach its events URL and holds it as unverified; an install then ends on a Slack page that says "There's been a glitch". They open `https://api.slack.com/apps/<app ID>/event-subscriptions` (the ID is `SLACK_APP_ID` in `.env`; an app ID is not a secret) and click **Retry** next to the Request URL until it says **Verified**. If the page shows it as verified already, nothing to do.
 2. **Install.** They open `https://<domain>/api/slack/install`, signed in to the workspace the app is for, and approve it. Only this link works (rule 3).
 
-Check: ask them to open Logbook under Apps in Slack. Its Home tab shows a setup checklist, and they got a welcome message. The app's logs show `GET /api/slack/oauth/redirect` and then `POST /api/slack/events`.
+Check: their browser ends on a page that says "Logbook is installed", with the next steps and a button to Logbook in Slack. Ask them to open it: its Home tab shows a setup checklist, and they got a welcome message. The app's logs show `GET /api/slack/oauth/redirect` and then `POST /api/slack/events`.
 
 If it didn't work, read the logs (`fly logs`, `docker logs logbook`) for what reached Logbook:
 
 - `GET /api/slack/install` and nothing after it: Slack stopped on its own page. The events URL is not verified (point 1), or the browser is signed in to another workspace.
-- `GET /api/slack/oauth/redirect` answered with an error page: the link was opened more than 10 minutes ago, or in another browser. They open it again.
-- "This Logbook server does not accept installs from your Slack workspace": `ALLOWED_SLACK_TEAM_IDS` in `.env` leaves this workspace out.
+- The browser ended on "Logbook was not installed": the page says why. An expired link was opened more than 10 minutes ago, or in another browser: they click **Try again**. "This Logbook server does not accept installs from your Slack workspace": `ALLOWED_SLACK_TEAM_IDS` in `.env` leaves this workspace out. "Slack or Logbook couldn't finish the install": the logs have an `OAuth error` line with the reason.
 
 ## 8. Tell the person what you did
 

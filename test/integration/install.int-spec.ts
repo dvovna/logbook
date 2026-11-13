@@ -253,7 +253,9 @@ describe('Installing the app (OAuth redirect)', () => {
         .expect(acknowledged);
       await t.idle();
 
-      expect((await install(`second-${teamId}`)).status).toBe(302);
+      expect((await install(`second-${teamId}`)).headers.location).toBe(
+        `/success.html?installed=again&team=${teamId}&app=A0FAKEAPP`,
+      );
       await t.idle();
 
       const teams = await t.db
@@ -342,7 +344,9 @@ describe('Installing the app (OAuth redirect)', () => {
         botToken: `xoxb-back-${teamId}`,
         installerId: installer,
       });
-      expect((await install(`back-${teamId}`)).status).toBe(302);
+      expect((await install(`back-${teamId}`)).headers.location).toBe(
+        `/success.html?installed=restored&team=${teamId}&app=A0FAKEAPP`,
+      );
       await t.idle();
 
       expect(await workspaceRow(teamId)).toMatchObject({

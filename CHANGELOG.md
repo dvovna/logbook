@@ -4,6 +4,10 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Installing
+- The page an install ends on looks like the rest of Logbook and says what to do next: the four setup steps, a button that opens Logbook's Home in Slack, and links to the setup guide and to setting up with an AI agent. Installing again, or over an uninstalled workspace, says that the data and roles are kept.
+- An install that fails ends on a page that says why (canceled, an expired link, a workspace the server doesn't accept, or a failure) and offers to try again, instead of a line of text.
+
 ## [0.5.1] - 2026-11-12
 
 Set up a workspace with an AI agent from your company's data, a local check of team and leave files, and the agent install corrected by its first real run. No update step: only the new image.
