@@ -236,6 +236,58 @@ describe('My receipts', () => {
       );
     });
 
+    it('keeps the month of a rejected receipt that is no longer offered', async () => {
+      sport = await seedReimbursement(t, workspace, { name: 'Sport' });
+      // June is offered with May and April.
+      const rejected = await seed(member, {
+        fileName: 'february.pdf',
+        month: '2026-02-01',
+        status: ReceiptStatus.Rejected,
+        rejectionReason: 'Wrong amount',
+      });
+      const tab = await openAppHomeTab(t, workspace, member, MY_RECEIPTS);
+      const form = await openModalFrom(
+        t,
+        workspace,
+        member,
+        tab,
+        MyReceiptsActionId.ManageReceiptMenu,
+        `${MyReceiptsActionId.EditReceipt}:${rejected.id}`,
+      );
+      const month = (
+        form.blocks as {
+          block_id?: string;
+          element?: {
+            options: { value: string }[];
+            initial_option?: { value: string };
+          };
+        }[]
+      ).find(({ block_id }) => block_id === 'month_block')!.element!;
+
+      expect(month.options.map(({ value }) => value)).toEqual([
+        '2026-06-01',
+        '2026-05-01',
+        '2026-04-01',
+        '2026-02-01',
+      ]);
+      expect(month.initial_option?.value).toBe('2026-02-01');
+
+      await t.slack
+        .submitView(workspace, member, form, { amount: '12.00' })
+        .expect(200)
+        .expect(({ body }) =>
+          expect(body).toEqual({ response_action: 'clear' }),
+        );
+
+      expect(await receiptRow(rejected.id)).toEqual(
+        expect.objectContaining({
+          status: ReceiptStatus.Submitted,
+          month: '2026-02-01',
+          amount_cents: 1200,
+        }),
+      );
+    });
+
     describe('when its reimbursement is archived', () => {
       const archive = (reimbursement: Tables<'reimbursements'>) =>
         t.db

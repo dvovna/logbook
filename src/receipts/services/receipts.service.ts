@@ -131,7 +131,11 @@ export class ReceiptsService {
         throw new ValidationError('An accepted receipt can’t be changed.');
       }
 
-      const checked = await this.checkDetails(details, user.slack_team_id);
+      const checked = await this.checkDetails(
+        details,
+        user.slack_team_id,
+        receipt.month,
+      );
 
       const [saved] = await this.receipts.updateMany(
         {
@@ -292,9 +296,12 @@ export class ReceiptsService {
     });
   }
 
+  // `ownMonth`: the month the receipt has, which it keeps once no longer
+  // offered (rejected after its month left the three).
   private async checkDetails(
     details: IReceiptDetails,
     slackTeamId: string,
+    ownMonth: string | null,
   ): Promise<IReceiptDetails> {
     const reimbursement = await this.reimbursements.findById(
       details.reimbursementId,
@@ -308,7 +315,10 @@ export class ReceiptsService {
       );
     }
 
-    if (!offeredMonths(getDateOnly(new Date())).includes(details.month)) {
+    if (
+      details.month !== ownMonth &&
+      !offeredMonths(getDateOnly(new Date())).includes(details.month)
+    ) {
       throw new ValidationError('Choose one of the offered months.', 'month');
     }
 

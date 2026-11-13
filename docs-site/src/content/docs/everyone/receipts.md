@@ -13,7 +13,7 @@ Your company may pay back part of what you spend, such as a gym or lunches. Admi
 2. Logbook answers "🧾 Got your receipt *name*. Add the details so Finance can check it." Choose **Add details**.
 3. Fill in the form **Receipt details**:
    - **Reimbursement**: what the receipt is for. With only one reimbursement it is already chosen.
-   - **Month**: the month the receipt is for. You can choose this month or one of the two before it. Logbook suggests the month being collected now.
+   - **Month**: the month the receipt is for. You can choose this month or one of the two before it. Logbook suggests the month being collected now. When you fix a receipt that was rejected later, it keeps its own month, however old.
    - **Amount**: the total on the receipt, in your company's currency.
    - **Comment**: optional, for Finance.
 4. Choose **Submit**.

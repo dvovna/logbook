@@ -78,9 +78,14 @@ export class ReceiptDetailsModalView extends BaseModalView<
       : reimbursements.length === 1
         ? reimbursements[0]
         : undefined;
-    const monthOptions = offeredMonths(today).map((month) =>
-      option(monthLabel(month), month),
-    );
+    // A receipt keeps its own month once that is no longer offered.
+    const offered = offeredMonths(today);
+    const monthOptions = [
+      ...offered,
+      ...(receipt.month && !offered.includes(receipt.month)
+        ? [receipt.month]
+        : []),
+    ].map((month) => option(monthLabel(month), month));
     const month =
       receipt.month ?? (preset && collectedMonth(today, preset.dueDay));
 
