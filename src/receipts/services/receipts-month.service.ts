@@ -59,7 +59,7 @@ export class ReceiptsMonthService {
             month: params.month,
             status: { operator: 'neq', value: ReceiptStatus.Draft },
           },
-          { orderBy: ['submitted_at:asc', 'created_at:asc'] },
+          { orderBy: ['submitted_at:asc', 'file_name:asc', 'created_at:asc'] },
         ),
         this.users.findMany({ slackTeamId }),
         this.teams.findMany({ slackTeamId }),

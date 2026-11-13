@@ -251,6 +251,32 @@ describe('Receipt decisions', () => {
       );
     });
 
+    // Several photos sent in one message are submitted in the same moment.
+    it('lists receipts sent at the same moment by file name', async () => {
+      const sentAt = new Date().toISOString();
+
+      for (const fileName of ['lunch-03.png', 'lunch-01.png', 'lunch-02.png']) {
+        const receipt = await submitted(member);
+
+        await t.db
+          .updateTable('receipts')
+          .set({ file_name: fileName, submitted_at: sentAt })
+          .where('id', '=', receipt.id)
+          .execute();
+      }
+
+      const month = await months.getMonth(
+        { reimbursementId: gym.id, month: '2026-05-01' },
+        asUser(finance),
+      );
+
+      expect(month.people[0].receipts.map(({ fileName }) => fileName)).toEqual([
+        'lunch-01.png',
+        'lunch-02.png',
+        'lunch-03.png',
+      ]);
+    });
+
     it('lists a deactivated member’s receipt, which Finance can accept', async () => {
       const gone = await workspace.addUser({ name: 'Gone' });
       const receipt = await submitted(gone);
