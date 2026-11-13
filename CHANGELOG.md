@@ -4,6 +4,9 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Home
+- Home is shorter, most of all before a workspace is set up. The setup checklist shows the next step in full and the others in a line each, with the optional ones in one row. Time tracking appears once the workspace has a project. With no vacation policy and no time off taken, the balance is one line. The "Home" title and the line under it are gone: the button row already says where you are.
+
 ## [0.5.2] - 2026-11-13
 
 The pages an install ends on: what to do next after a first install, and why when it failed. No update step: only the new image.

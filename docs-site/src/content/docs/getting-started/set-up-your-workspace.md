@@ -13,7 +13,9 @@ If your company already keeps its people, teams and leave in spreadsheets or an 
 
 ## The setup checklist
 
-Admins and HR see **🚀 Set up Logbook** at the top of **Home**, with a count such as "2 of 4 done". It lists the steps still open, each with a short reason and a button to the screen that does it. Finished steps are folded into one line that starts with "✅ Done:". The checklist disappears once the four required steps are done. Projects are optional and don't count.
+Admins and HR see **🚀 Set up Logbook** at the top of **Home**, with a count such as "2 of 4 done". The step to do now is marked **Next**, with a short reason and its buttons. The required steps after it are one line each, starting with "Then:", with a button to the screen that does it, so you can take them in another order. Finished steps are folded into one line that starts with "✅ Done:", and the optional ones (leave balances, projects) share one row at the end. The checklist disappears once the four required steps are done.
+
+Until then Home stays short: time tracking appears once the workspace has a project, and a balance once a vacation policy applies to you.
 
 The four required steps:
 

@@ -764,11 +764,6 @@ describe('Leave file Apply', () => {
   });
 
   describe("Home's checklist", () => {
-    const LEAVE_STEP = {
-      text: '*Bring in leave balances* · _optional_\nBalances and past leave from your spreadsheet, so everyone starts with the right number.',
-      button: UsersTabViewActionId.ImportLeave,
-    };
-
     const checklistOf = async (user: Tables<'users'>) =>
       ((await openAppHomeTab(t, workspace, user)).blocks as SlackJson[])
         .filter(({ block_id }) => block_id?.startsWith(SETUP_BLOCK_ID))
@@ -780,19 +775,25 @@ describe('Leave file Apply', () => {
     it('shows the leave step until a file is applied', async () => {
       const admin = await workspace.addUser({ role: UserRole.Admin });
 
-      expect(await checklistOf(admin)).toContainEqual(LEAVE_STEP);
+      const offersLeave = async () =>
+        (await checklistOf(admin)).some(
+          ({ text }) =>
+            typeof text === 'string' &&
+            text.includes('bring in leave balances'),
+        );
+
+      expect(await offersLeave()).toBe(true);
 
       const [preview] = await shareHistory(
         `Anna Novak,${anna.email},Sick leave,2026-05-04,2026-05-05,`,
       );
 
-      expect(await checklistOf(admin)).toContainEqual(LEAVE_STEP);
+      expect(await offersLeave()).toBe(true);
 
       await click(preview, 'apply');
 
-      const checklist = await checklistOf(admin);
-      expect(checklist).not.toContainEqual(LEAVE_STEP);
-      expect(checklist).toContainEqual({
+      expect(await offersLeave()).toBe(false);
+      expect(await checklistOf(admin)).toContainEqual({
         text: '✅ Done: vacation policy, company rules, leave balances',
       });
     });

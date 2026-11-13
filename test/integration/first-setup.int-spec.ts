@@ -14,40 +14,61 @@ import {
   openModalFrom,
   publishedHome,
 } from './support/app-home';
-import { noticeOf, sectionTexts } from './support/tab-readers';
+import { actionIdsOf, noticeOf, sectionTexts } from './support/tab-readers';
 import { acknowledged } from './support/slack-test-client';
 import { SlackJson } from './support/block-kit';
 import { CompanyRulesService } from '@modules/teams/services/company-rules.service';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { dmOf } from './support/team-file';
-import { SETUP_BLOCK_ID } from '@modules/slack/tabs/home/views/home-tab.view';
+import {
+  HomeTabActionId,
+  SETUP_BLOCK_ID,
+} from '@modules/slack/tabs/home/views/home-tab.view';
 
 const POLICY_STEP = {
-  text: "*Create a vacation policy*\nDays per year and public holidays. Without one, balances aren't checked.",
+  title: 'Create a vacation policy',
+  why: "Days per year and public holidays. Without one, balances aren't checked.",
   button: NavigationActionId.Policies,
 };
 const RULES_STEP = {
-  text: '*Set the company rules*\nWho approves after the team lead, who hears of decisions, and the policy teams follow.',
+  title: 'Set the company rules',
+  why: 'Who approves after the team lead, who hears of decisions, and the policy teams follow.',
   button: TeamsTabViewActionId.CompanyRules,
 };
 const TEAM_STEP = {
-  text: "*Create teams and pick their approvers*\nA team's approvers decide time off for its people. The team file sets up everyone at once.",
+  title: 'Create teams and pick their approvers',
+  why: "A team's approvers decide time off for its people. The team file sets up everyone at once.",
+  button: TeamsTabViewActionId.TeamFile,
   buttons: [TeamsTabViewActionId.TeamFile, NavigationActionId.Teams],
 };
 const peopleStep = (count: number, goTo = 'go to HR or the admins') => ({
-  text: `*Put people in teams*
-${count} ${count === 1 ? 'person has' : 'people have'} no team: their requests ${goTo}.`,
+  title: 'Put people in teams',
+  why: `${count} ${count === 1 ? 'person has' : 'people have'} no team: their requests ${goTo}.`,
   button: NavigationActionId.People,
 });
-const LEAVE_STEP = {
-  text: '*Bring in leave balances* · _optional_\nBalances and past leave from your spreadsheet, so everyone starts with the right number.',
-  button: UsersTabViewActionId.ImportLeave,
-};
-const PROJECTS_STEP = {
-  text: '*Add projects* · _optional_\nOnly if you track time: people log hours on them.',
-  button: NavigationActionId.Projects,
-};
+
+interface IStep {
+  title: string;
+  why: string;
+  button: string;
+  buttons?: string[];
+}
+
+// The step to do now, in full; a step with two buttons has them in a row.
+const nextText = ({ title, why }: IStep) => `*Next: ${title}*\n${why}`;
+const next = (step: IStep) => [
+  { text: nextText(step), ...(step.buttons ? {} : { button: step.button }) },
+  ...(step.buttons ? [{ buttons: step.buttons }] : []),
+];
+// A required step after it: a line with its first button.
+const then = ({ title, button }: IStep) => ({ text: `Then: ${title}`, button });
+const OPTIONAL_STEPS = [
+  { text: 'Optional: bring in leave balances · add projects' },
+  {
+    buttons: [UsersTabViewActionId.ImportLeave, NavigationActionId.Projects],
+  },
+];
 
 // What an admin sees until the workspace is set up, and the team form's
 // members.
@@ -80,19 +101,21 @@ describe('First setup', () => {
             },
       );
 
+  // Whether the checklist still has the step, as the next one or a later one.
+  const shows = async ({ title }: { title: string }) =>
+    (await checklistOf(admin)).some(({ text }) => text?.includes(title));
+
   describe('the checklist on Home', () => {
     it('shows an admin each step left, with the screen that does it', async () => {
       await workspace.addUser({ name: 'Mo Member' });
 
       expect(await checklistOf(admin)).toEqual([
         { text: '*🚀 Set up Logbook* · 0 of 4 done' },
-        POLICY_STEP,
-        RULES_STEP,
-        { text: TEAM_STEP.text },
-        { buttons: TEAM_STEP.buttons },
-        peopleStep(2),
-        LEAVE_STEP,
-        PROJECTS_STEP,
+        ...next(POLICY_STEP),
+        then(RULES_STEP),
+        then(TEAM_STEP),
+        then(peopleStep(2)),
+        ...OPTIONAL_STEPS,
       ]);
     });
 
@@ -110,8 +133,9 @@ describe('First setup', () => {
         {
           text: '✅ Done: vacation policy, company rules, team with approvers, projects',
         },
-        peopleStep(2),
-        LEAVE_STEP,
+        ...next(peopleStep(2)),
+        { text: 'Optional: bring in leave balances' },
+        { buttons: [UsersTabViewActionId.ImportLeave] },
       ]);
 
       await t.db
@@ -150,38 +174,39 @@ describe('First setup', () => {
         expect(await checklistOf(admin)).toEqual([
           { text: '*🚀 Set up Logbook* · 2 of 4 done' },
           { text: '✅ Done: vacation policy, team with approvers' },
-          RULES_STEP,
-          peopleStep(1),
-          LEAVE_STEP,
-          PROJECTS_STEP,
+          ...next(RULES_STEP),
+          then(peopleStep(1)),
+          ...OPTIONAL_STEPS,
         ]);
 
         const hr = await workspace.addUser({ role: UserRole.HR });
         await setCompanyApprovers([hr.slack_id]);
 
-        expect(
-          (await checklistOf(admin)).map(({ text }) => text),
-        ).not.toContain(RULES_STEP.text);
+        expect(await shows(RULES_STEP)).toBe(false);
       });
 
       it('says where the requests of people in no team go: the company rules approvers, else HR or the admins', async () => {
         await workspace.addVacationPolicy();
-        await followingCompanyRules();
+        // A team with rules of its own: the company rules step is done, so
+        // people in teams is the next one and says why.
+        await workspace.addTeam({ hr_approvers: [admin.slack_id] });
         const peopleTexts = async () =>
           (await checklistOf(admin))
             .map(({ text }) => text)
-            .filter((text) => text?.startsWith('*Put people in teams*'));
+            .filter((text) => text?.includes('Put people in teams'));
 
-        expect(await peopleTexts()).toEqual([peopleStep(1).text]);
+        expect(await peopleTexts()).toEqual([nextText(peopleStep(1))]);
 
         const hr = await workspace.addUser({ role: UserRole.HR });
         await setCompanyApprovers([hr.slack_id]);
 
         expect(await peopleTexts()).toEqual([
-          peopleStep(
-            2,
-            "skip level 1 and go to the company rules' approvers, or to HR or the admins when none of them can approve",
-          ).text,
+          nextText(
+            peopleStep(
+              2,
+              "skip level 1 and go to the company rules' approvers, or to HR or the admins when none of them can approve",
+            ),
+          ),
         ]);
       });
 
@@ -190,9 +215,7 @@ describe('First setup', () => {
         await workspace.addTeam({ hr_approvers: [admin.slack_id] });
         await workspace.addTeam({ hr_approvers: [admin.slack_id] });
 
-        expect(
-          (await checklistOf(admin)).map(({ text }) => text),
-        ).not.toContain(RULES_STEP.text);
+        expect(await shows(RULES_STEP)).toBe(false);
       });
 
       it('is not done while a second team follows the company rules', async () => {
@@ -200,7 +223,7 @@ describe('First setup', () => {
         await workspace.addTeam({ hr_approvers: [admin.slack_id] });
         await followingCompanyRules();
 
-        expect(await checklistOf(admin)).toContainEqual(RULES_STEP);
+        expect(await shows(RULES_STEP)).toBe(true);
       });
 
       it('ignores the old own approvers of a team that follows the company rules', async () => {
@@ -212,7 +235,7 @@ describe('First setup', () => {
           .where('id', '=', team.id)
           .execute();
 
-        expect(await checklistOf(admin)).toContainEqual(RULES_STEP);
+        expect(await shows(RULES_STEP)).toBe(true);
       });
 
       it("doesn't take the old own level 2 of a team that follows the company rules for a team with approvers", async () => {
@@ -223,16 +246,41 @@ describe('First setup', () => {
           hr_approvers: [admin.slack_id],
         });
 
-        expect(await checklistOf(admin)).toContainEqual({
-          text: TEAM_STEP.text,
-        });
+        expect(await shows(TEAM_STEP)).toBe(true);
       });
 
       it('does not count as done with no teams, whatever the company rules lack', async () => {
         await workspace.addVacationPolicy();
 
-        expect(await checklistOf(admin)).toContainEqual(RULES_STEP);
+        expect(await shows(RULES_STEP)).toBe(true);
       });
+    });
+
+    // No projects, no policy, nothing taken: nothing to count yet.
+    it('leaves a member of a workspace that is not set up one line and one button', async () => {
+      const member = await workspace.addUser({ name: 'Mo Member' });
+      const home = await openAppHomeTab(t, workspace, member);
+
+      expect(sectionTexts(home)).toEqual([
+        '*🏝 Time off*\nNo vacation policy applies to you yet: you can request time off, and it is tracked without a balance.',
+      ]);
+      expect(actionIdsOf(home)).not.toContain(HomeTabActionId.LogTime);
+      expect(actionIdsOf(home)).toContain(HomeTabActionId.OpenVacationModal);
+    });
+
+    it('shows time tracking once the workspace has a project', async () => {
+      const member = await workspace.addUser({ name: 'Mo Member' });
+      await workspace.addProject();
+
+      const home = await openAppHomeTab(t, workspace, member);
+
+      expect(sectionTexts(home)).toEqual(
+        expect.arrayContaining([
+          '*🕒 Time Tracking*',
+          'Nothing logged this week yet.',
+        ]),
+      );
+      expect(actionIdsOf(home)).toContain(HomeTabActionId.LogTime);
     });
 
     it('is only for Admin and HR', async () => {
@@ -290,8 +338,10 @@ describe('First setup', () => {
       expect(published.callback_id).toBe(ViewCallbackId.HomeTabView);
       expect(noticeOf(published)).toBe('✅ Company rules saved.');
       expect(
-        (published.blocks as SlackJson[]).map(({ text }) => text?.text),
-      ).not.toContain(RULES_STEP.text);
+        (published.blocks as SlackJson[]).some(({ text }) =>
+          text?.text?.includes(RULES_STEP.title),
+        ),
+      ).toBe(false);
     });
 
     it.each([TeamsTabViewActionId.TeamFile, TeamsTabViewActionId.CompanyRules])(

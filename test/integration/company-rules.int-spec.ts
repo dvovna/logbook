@@ -461,10 +461,10 @@ describe('Company rules', () => {
       const member = await workspace.addUser({ name: 'Max Member' });
 
       expect(
-        sectionTexts(await openAppHomeTab(t, workspace, member)).filter(
-          (text) => text.startsWith('Annual leave'),
-        ),
-      ).toEqual(['Annual leave: no limit (no vacation policy applies to you)']);
+        sectionTexts(await openAppHomeTab(t, workspace, member)),
+      ).toContain(
+        '*🏝 Time off*\nNo vacation policy applies to you yet: you can request time off, and it is tracked without a balance.',
+      );
     });
   });
 
