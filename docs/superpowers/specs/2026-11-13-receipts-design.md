@@ -155,3 +155,16 @@ Reminders are per reimbursement, since each has its own due day: a person in thr
 - Exact wording, taken into `labels.ts`.
 - Integration tests in the existing style (the fake Slack needs to serve a file's bytes), the round-trip budgets for the new screens, and the docs pages (everyone: sending a receipt; finance: checking receipts; reference: limits and the variable).
 - The order of building. A sensible one: reimbursements and receiving; My receipts; the Finance screen with decisions, Open and Download; reminders and opt-outs; retention and docs.
+
+## Changed while building
+
+- Files are deleted only for decided receipts (accepted or rejected), `RECEIPT_FILE_RETENTION_DAYS` (1095) after the decision; the file of a receipt still waiting is never deleted. The check runs hourly. Drafts nobody finished are deleted after 30 days.
+- The bot message's "Discard" deletes only a draft; a receipt already sent is deleted from Home → My receipts.
+- A deactivated person's receipts stay on Finance's screen, marked "(deactivated)", and are decided like any other; "Sent nothing" lists active people only.
+- Finance's screen shows as many receipts per person as fit a page; a person with more gets "Show all N receipts", which opens that person's receipts, paginated, with "◀ All people" to go back.
+- At most 10 active reimbursements per workspace.
+- The 🔔 Reminders form changes only the reimbursements it showed.
+- Reminder days come from the real due date: "opened" on the 1st of the next month, "due" the day before the due date (only when the due day is 3 or later), the summary for Admin and Finance the day after it; all from 09:00 UTC, a missed day is skipped.
+- An archive part is about 20 MB; a big month arrives as several files. If sending fails midway, the retry sends every part again.
+- Home shows amounts with the currency sign; My receipts shows the 25 newest receipts.
+- A person can't decide their own receipt unless nobody else in the workspace is an active Admin or Finance person.
