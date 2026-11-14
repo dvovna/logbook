@@ -25,7 +25,7 @@ Team approvers are set up in [Teams and company rules](/logbook/docs/admins/team
 
 When someone submits entries that wait for you, Logbook sends you a DM: who submitted how many entries, the hours, and the projects with the most time, and that they wait for you under **Approvals**. You get one message per person each time they submit.
 
-When the entries of a team start to wait for you because its managers are on time off, you get one DM on the managers' first day off, from 06:00 UTC: who is on time off until when, and how many entries of which team now wait for you. See [Notifications](/logbook/docs/reference/notifications/).
+When the entries of a team start to wait for you because its managers are on time off, you get one DM on the day the last of them goes on time off, from 06:00 UTC (not again when the time off runs on in a new request): who is on time off until when, and how many entries of which team now wait for you. See [Notifications](/logbook/docs/reference/notifications/).
 
 ## The Approvals screen
 

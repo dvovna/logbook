@@ -105,6 +105,11 @@ export const weekDays = (weekStart: string): string[] => {
   );
 };
 
+export const shiftDay = (date: string, days: number): string =>
+  getDateOnly(
+    new Date(new Date(`${date}T00:00:00Z`).getTime() + days * DAY_MS),
+  );
+
 export const shiftWeek = (weekStart: string, weeks: number): string =>
   getDateOnly(
     new Date(new Date(`${weekStart}T00:00:00Z`).getTime() + weeks * 7 * DAY_MS),

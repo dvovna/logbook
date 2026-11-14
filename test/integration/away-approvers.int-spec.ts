@@ -780,6 +780,38 @@ describe('Approvers who are away', () => {
       expect(textsOf()).toHaveLength(1);
     });
 
+    it('doesn’t tell HR again when the manager’s time off runs on in a new request', async () => {
+      await goAway(manager, '2026-06-15', '2026-06-17');
+      await goAway(manager, '2026-06-18', '2026-06-24');
+      await submitted(member);
+      travelTo('2026-06-18');
+
+      await t.app
+        .get(AbsenceCheckService)
+        .checkWorkspace(workspace.id, '2026-06-18');
+      await t.idle();
+
+      expect(t.slackApi.postedMessages(workspace.token, hr.slack_id)).toEqual(
+        [],
+      );
+    });
+
+    it('tells HR again when the manager comes back for a day and goes off again', async () => {
+      await goAway(manager, '2026-06-15', '2026-06-16');
+      await goAway(manager, '2026-06-18', '2026-06-24');
+      await submitted(member);
+      travelTo('2026-06-18');
+
+      await t.app
+        .get(AbsenceCheckService)
+        .checkWorkspace(workspace.id, '2026-06-18');
+      await t.idle();
+
+      expect(
+        t.slackApi.postedMessages(workspace.token, hr.slack_id),
+      ).toHaveLength(1);
+    });
+
     // The claim holds the workspace's row till its transaction ends.
     it('reads the entries after the day’s claim, not in its transaction', async () => {
       await goAway(manager, '2026-06-18', '2026-06-24');

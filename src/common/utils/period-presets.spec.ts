@@ -2,6 +2,7 @@ import {
   currentWeekStart,
   PeriodPreset,
   presetPeriod,
+  shiftDay,
   weekDays,
   weekStartOf,
 } from '@common/utils/period-presets';
@@ -76,5 +77,13 @@ describe('weeks', () => {
     expect(days).toHaveLength(7);
     expect(days[0]).toBe('2026-12-28');
     expect(days[6]).toBe('2027-01-03');
+  });
+});
+
+describe('shiftDay', () => {
+  it('moves a date by whole days, across months and years', () => {
+    expect(shiftDay('2026-06-18', -1)).toBe('2026-06-17');
+    expect(shiftDay('2026-03-01', -1)).toBe('2026-02-28');
+    expect(shiftDay('2026-12-31', 1)).toBe('2027-01-01');
   });
 });

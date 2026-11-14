@@ -13,7 +13,7 @@ import { TimeEntriesListQuery } from 'src/time-entries/queries/time-entries-list
 import { ITimeEntryListData } from 'src/time-entries/types/time-entries-list.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
-import { todayIso } from '@common/utils/period-presets';
+import { shiftDay, todayIso } from '@common/utils/period-presets';
 
 export interface IMovedEntries {
   approver: IUserViewModel;
@@ -223,15 +223,22 @@ export class TimeEntryApprovalsService {
     slackTeamId: string,
     date: string,
   ): Promise<IMovedEntries[]> {
-    const [away, approving] = await Promise.all([
+    const [away, awayDayBefore, approving] = await Promise.all([
       this.usersService.findAway(slackTeamId, date),
+      this.usersService.findAway(slackTeamId, shiftDay(date, -1)),
       this.usersService.findMany({ slackTeamId, roles: [...MANAGER_ROLES] }),
     ]);
     const byId = new Map(approving.map((person) => [person.id, person]));
+    // Time off that runs on in a new request starts no new absence; a day back
+    // at work in between does, since the entries went back to them that day.
+    const awayAlready = new Set(
+      [...awayDayBefore.values()].map(({ userId }) => userId),
+    );
+    const startsToday = (userId: string) => !awayAlready.has(userId);
 
     if (
       ![...away.values()].some(
-        ({ userId, since }) => since === date && byId.has(userId),
+        ({ userId }) => startsToday(userId) && byId.has(userId),
       )
     ) {
       return [];
@@ -304,7 +311,7 @@ export class TimeEntryApprovalsService {
       if (
         !listed.length ||
         absences.some((absence) => !absence) ||
-        !absences.some((absence) => absence?.since === date)
+        !absences.some((absence) => absence && startsToday(absence.userId))
       ) {
         continue;
       }

@@ -1,3 +1,4 @@
+import { IAbsence } from '@modules/users/types/absence.interface';
 import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { ForbiddenException } from '@nestjs/common';
 import { TimeEntryApprovalsService } from 'src/time-entries/services/time-entry-approvals.service';
@@ -284,14 +285,25 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
 
     it('reads no entries on a day no approving person’s time off begins', async () => {
       usersService.findMany.mockResolvedValue([manager, hr]);
-      usersService.findAway.mockResolvedValue(
-        new Map([
-          [member.slack_id, { userId: member.id, since: DAY, until: DAY }],
-          [
-            manager.slack_id,
-            { userId: manager.id, since: '2026-06-15', until: DAY },
-          ],
-        ]),
+      // The member's time off begins today; the manager's runs on from before.
+      const managerAway: [string, IAbsence] = [
+        manager.slack_id,
+        { userId: manager.id, since: '2026-06-15', until: DAY },
+      ];
+      usersService.findAway.mockImplementation((_ws: string, date: string) =>
+        Promise.resolve(
+          new Map(
+            date === DAY
+              ? [
+                  [
+                    member.slack_id,
+                    { userId: member.id, since: DAY, until: DAY },
+                  ],
+                  managerAway,
+                ]
+              : [managerAway],
+          ),
+        ),
       );
 
       await expect(
@@ -302,13 +314,19 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
 
     it('counts the entries of each team and owner for whoever is told instead', async () => {
       usersService.findMany.mockResolvedValue([manager, hr]);
-      usersService.findAway.mockResolvedValue(
-        new Map([
-          [
-            manager.slack_id,
-            { userId: manager.id, since: DAY, until: '2026-06-24' },
-          ],
-        ]),
+      usersService.findAway.mockImplementation((_ws: string, date: string) =>
+        Promise.resolve(
+          new Map(
+            date === DAY
+              ? [
+                  [
+                    manager.slack_id,
+                    { userId: manager.id, since: DAY, until: '2026-06-24' },
+                  ],
+                ]
+              : [],
+          ),
+        ),
       );
       teamsService.findMany.mockResolvedValue([{ id: 't1', name: 'Design' }]);
       const group = (userId: string, entries: number, approverId: string) => ({
