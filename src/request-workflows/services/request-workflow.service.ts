@@ -9,12 +9,7 @@ import {
   ICreateParams,
   RequestWorkflowStepsService,
 } from '@modules/request-workflows/services/request-workflow-steps.service';
-import {
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { isPeopleAdmin } from '@modules/users/utils/people-admin-roles';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { WorkflowStepProcessorService } from '@modules/request-workflows/services/workflow-step-processor.service';
@@ -38,6 +33,10 @@ import {
   runOf,
 } from '@modules/request-workflows/utils/workflow-runs';
 import { UsersService } from '@modules/users/services/users.service';
+import UserRole from '@common/enums/user-role.enum';
+import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
+import { planMoveOn } from '@modules/request-workflows/utils/move-on-plan';
+import { todayIso } from '@common/utils/period-presets';
 
 export interface ICreateWorkflowLevelParams {
   rule: ApprovalRule;
@@ -73,8 +72,9 @@ export class RequestWorkflowService {
     private readonly usersService: UsersService,
   ) {}
 
-  // Safe to repeat: when an earlier try made the run's steps, only the first
-  // level's approvers who got no message yet are asked. A run is made only
+  // Safe to repeat: when an earlier try made the run's steps, only the
+  // approvers of the lowest open level who got no message yet are asked
+  // (level 1 may have been skipped). A run is made only
   // while no other is open: one started for an edit made since reads the
   // request as it is now.
   public create({
@@ -94,8 +94,11 @@ export class RequestWorkflowService {
       const stepsOfRun = existingSteps.filter((step) => runOf(step) === run);
 
       if (stepsOfRun.length) {
+        const open = stepsOfRun.filter((step) => !step.completed_at);
+        const lowest = Math.min(...open.map((step) => step.step_level));
+
         await this.workflowStepProcessorService.processSteps(
-          stepsOfRun.filter((step) => step.step_level === 1),
+          open.filter((step) => step.step_level === lowest),
         );
 
         return;
@@ -130,15 +133,7 @@ export class RequestWorkflowService {
       const createdSteps =
         await this.requestWorkflowStepsService.createMany(steps);
 
-      const firstLevelSteps = createdSteps.filter(
-        (step) => step.step_level === 1,
-      );
-
-      if (!firstLevelSteps.length) {
-        throw new NotFoundException('No steps found for the first level');
-      }
-
-      await this.workflowStepProcessorService.processSteps(firstLevelSteps);
+      await this.moveOn(createdSteps, { waitingOn: null, approvedBy: null });
     });
   }
 
@@ -256,12 +251,32 @@ export class RequestWorkflowService {
         return;
       }
 
-      const isLevelComplete =
-        isAnyRule || (await this.isLevelComplete(step, approvedBy));
+      await this.moveOn(
+        await this.findRun(step.request_id, approvedBy.slack_team_id),
+        { waitingOn: step.step_level, approvedBy },
+      );
+    });
+  }
 
-      if (isLevelComplete) {
-        await this.activateNextLevel(step, approvedBy);
+  // Skips the open steps of approvers who are on time off today, and moves
+  // the request on when that leaves the level it waits on with nobody at
+  // work (the daily check, and time off approved for today). Safe to repeat:
+  // a closed step stays closed, and a decided request has no open steps.
+  public skipAway(requestId: string, slackTeamId: string) {
+    return this.transactions.transaction(async () => {
+      await this.lockRequest(requestId);
+
+      const steps = await this.findRun(requestId, slackTeamId);
+      const open = steps.filter((step) => !step.completed_at);
+
+      if (!open.length) {
+        return;
       }
+
+      await this.moveOn(steps, {
+        waitingOn: Math.min(...open.map((step) => step.step_level)),
+        approvedBy: null,
+      });
     });
   }
 
@@ -323,7 +338,10 @@ export class RequestWorkflowService {
 
       await this.workflowStepProcessorService.updateStepMessages(approvedSteps);
 
-      await this.activateNextLevel(currentStep, approvedBy);
+      await this.moveOn(
+        await this.findRun(requestId, approvedBy.slack_team_id),
+        { waitingOn: currentStep.step_level, approvedBy },
+      );
     });
   }
 
@@ -475,150 +493,226 @@ export class RequestWorkflowService {
     );
   }
 
-  private async isLevelComplete(
-    step: IRequestWorkflowStepViewModel,
-    user: IUserViewModel,
-  ): Promise<boolean> {
-    const pendingStepsCount = await this.requestWorkflowStepsService.count({
-      requestId: step.request_id,
-      stepLevel: step.step_level,
-      slackTeamId: user.slack_team_id,
-      completed: false,
-    });
-
-    return pendingStepsCount === 0;
+  private async findRun(requestId: string, slackTeamId: string) {
+    return currentRunOf(
+      await this.requestWorkflowStepsService.findMany({
+        requestId,
+        slackTeamId,
+      }),
+    );
   }
 
-  // Asks the lowest level above `step`'s that has open steps: a level whose
-  // approvers all lost the right to decide since the workflow started is
-  // passed over, as it would be for a request made now. Someone on it who
-  // approved this run already isn't asked again: their step is approved as
-  // them, which with the ANY rule (or nobody else left) completes the level,
-  // and the next one opens the same way. With no level left the request is
-  // approved.
-  private async activateNextLevel(
-    step: IRequestWorkflowStepViewModel,
-    approvedBy: IUserViewModel,
+  // Moves the request on from the level it waits on (`waitingOn`; null for a
+  // request just made) by planMoveOn, inside the caller's transaction and
+  // lock: approvals carried over from earlier levels (#90), approvers on time
+  // off skipped, then the request waits, asks a later level, gets a fallback
+  // level above the highest (HR, else the admins), or is approved by the
+  // last approval of its last level.
+  private async moveOn(
+    steps: IRequestWorkflowStepViewModel[],
+    {
+      waitingOn,
+      approvedBy,
+    }: { waitingOn: number | null; approvedBy: IUserViewModel | null },
   ) {
-    const { request_id: requestId, slack_team_id: slackTeamId } = step;
-    let completedLevel = step.step_level;
+    // A rejection ends the run: its later levels only wait for the request
+    // to be finished, which closes them.
+    if (
+      !steps.length ||
+      steps.some(
+        ({ step_data }) => step_data.status === WorkflowStepStatus.Rejected,
+      )
+    ) {
+      return;
+    }
 
-    for (;;) {
-      const steps = currentRunOf(
-        await this.requestWorkflowStepsService.findMany({
+    const [first] = steps;
+    const { request_id: requestId, slack_team_id: slackTeamId } = first;
+    const ownerId = first.step_data.snapshot.user_id;
+    const away = await this.usersService.findAway(slackTeamId, todayIso());
+    const hrAndAdmins = await this.usersService.findMany({
+      slackTeamId,
+      roles: [UserRole.HR, UserRole.Admin],
+    });
+    const atWork = fallbackApprovers(
+      hrAndAdmins.filter((person) => !away.has(person.slack_id)),
+      ownerId,
+    );
+    const plan = planMoveOn({
+      steps,
+      waitingOn,
+      away,
+      fallbackAtWork: !!atWork,
+    });
+    const closed: IRequestWorkflowStepViewModel[] = [];
+
+    for (const own of plan.approveAs) {
+      const isAnyRule = own.step_data.rule === ApprovalRule.Any;
+
+      closed.push(
+        ...(await this.requestWorkflowStepsService.decide(
+          {
+            requestId,
+            slackTeamId,
+            ...(isAnyRule ? { stepLevel: own.step_level } : { stepId: own.id }),
+          },
+          RequestWorkflowStatus.Approved,
+          { slack_id: own.slack_user_id },
+        )),
+      );
+    }
+
+    const skipped: IRequestWorkflowStepViewModel[] = [];
+
+    for (const step of plan.skip) {
+      const done = await this.requestWorkflowStepsService.skip(
+        step,
+        away.get(step.slack_user_id)!.until,
+      );
+
+      if (done) {
+        skipped.push(done);
+      }
+    }
+
+    closed.push(...skipped);
+
+    if (closed.length) {
+      await this.workflowStepProcessorService.updateStepMessages(closed);
+    }
+
+    const { next } = plan;
+
+    if (next.kind === 'wait') {
+      return;
+    }
+
+    if (next.kind === 'approve') {
+      await this.finishWorkflow({
+        requestId,
+        status: RequestWorkflowStatus.Approved,
+        slackTeamId,
+        approvedBy:
+          approvedBy?.id ??
+          (await this.latestApproverOf(steps, plan.approveAs, next.level)),
+        reviewComments: await this.requestWorkflowStepCommentsService.findMany({
           requestId,
           slackTeamId,
         }),
-      );
-      const openAbove = steps.filter(
-        (other) => !other.completed_at && other.step_level > completedLevel,
-      );
-
-      if (!openAbove.length) {
-        break;
-      }
-
-      const nextLevel = Math.min(...openAbove.map((other) => other.step_level));
-      const levelSteps = openAbove.filter(
-        (other) => other.step_level === nextLevel,
-      );
-      const approvedAlready = new Set(
-        steps
-          .filter(
-            ({ step_data }) => step_data.status === WorkflowStepStatus.Approved,
-          )
-          .map(
-            ({ step_data, slack_user_id }) =>
-              step_data.decided_by_slack_id ?? slack_user_id,
-          ),
-      );
-      const theirs = levelSteps.filter((other) =>
-        approvedAlready.has(other.slack_user_id),
-      );
-
-      if (theirs.length) {
-        const isAnyRule = theirs[0].step_data.rule === ApprovalRule.Any;
-
-        for (const own of isAnyRule ? [theirs[0]] : theirs) {
-          await this.requestWorkflowStepsService.decide(
-            {
-              requestId,
-              slackTeamId,
-              ...(isAnyRule ? { stepLevel: nextLevel } : { stepId: own.id }),
-            },
-            RequestWorkflowStatus.Approved,
-            { slack_id: own.slack_user_id },
-          );
-        }
-
-        if (isAnyRule || theirs.length === levelSteps.length) {
-          completedLevel = nextLevel;
-          continue;
-        }
-      }
-
-      // Two approvers who complete the level at the same time both get here;
-      // only the first one asks the next level.
-      const claimedSteps =
-        await this.requestWorkflowStepsService.claimUnprocessed({
-          requestId,
-          stepLevel: nextLevel,
-          slackTeamId,
-          completed: false,
-        });
-
-      await this.workflowStepProcessorService.processSteps(claimedSteps);
-
-      // Whoever asked the next level tells the requester, inside the
-      // decision's transaction like the jobs above.
-      if (claimedSteps.length > 0) {
-        await this.eventEmitter.emitAsync(
-          VacationWorkflowEventEnum.LevelCompleted,
-          new VacationWorkflowLevelCompleted(
-            requestId,
-            slackTeamId,
-            completedLevel,
-            nextLevel,
-          ),
-        );
-      }
+      });
 
       return;
     }
 
-    await this.finishWorkflow({
+    let askedLevel: number;
+
+    if (next.kind === 'ask') {
+      askedLevel = next.level;
+    } else {
+      const fallback = atWork ?? fallbackApprovers(hrAndAdmins, ownerId);
+
+      if (!fallback) {
+        this.logger.warn(
+          `Request ${requestId} has nobody left who can approve it`,
+        );
+
+        return;
+      }
+
+      askedLevel = Math.max(...steps.map((step) => step.step_level)) + 1;
+
+      await this.requestWorkflowStepsService.createMany(
+        fallback.approvers.map(({ slack_id }) => ({
+          requestId,
+          slackUserId: slack_id,
+          stepLevel: askedLevel,
+          stepType: WorkflowStepType.Approver,
+          slackTeamId,
+          stepData: {
+            snapshot: first.step_data.snapshot,
+            rule: ApprovalRule.Any,
+            status: INITIAL_STEP_STATUS,
+            run: runOf(first),
+            level_name:
+              fallback.role === UserRole.HR ? 'HR approval' : 'Admin approval',
+          },
+        })),
+      );
+    }
+
+    // Two approvers who complete a level at the same time both get here;
+    // only the first one asks the next level.
+    const claimed = await this.requestWorkflowStepsService.claimUnprocessed({
       requestId,
-      status: RequestWorkflowStatus.Approved,
       slackTeamId,
-      approvedBy: approvedBy.id,
-      reviewComments: await this.requestWorkflowStepCommentsService.findMany({
-        requestId,
-        slackTeamId,
-      }),
+      stepLevel: askedLevel,
+      completed: false,
     });
+
+    await this.workflowStepProcessorService.processSteps(claimed);
+
+    // Whoever asked the level tells the requester, inside the transaction
+    // like the jobs above. A new request's own notice says where it went.
+    if (waitingOn !== null && claimed.length) {
+      await this.eventEmitter.emitAsync(
+        VacationWorkflowEventEnum.LevelCompleted,
+        new VacationWorkflowLevelCompleted(
+          requestId,
+          slackTeamId,
+          next.after ?? waitingOn,
+          askedLevel,
+          skipped.map(({ id }) => id),
+        ),
+      );
+    }
+  }
+
+  // Who approved the request's last level when nobody clicked now: the one
+  // approved as themselves (#90), else the latest approval on it.
+  private async latestApproverOf(
+    steps: IRequestWorkflowStepViewModel[],
+    approvedAs: IRequestWorkflowStepViewModel[],
+    level: number,
+  ) {
+    const latest =
+      approvedAs.find((step) => step.step_level === level)?.slack_user_id ??
+      steps
+        .filter(
+          (step) =>
+            step.step_level === level &&
+            step.step_data.status === WorkflowStepStatus.Approved,
+        )
+        .map(({ step_data, slack_user_id }) => ({
+          at: step_data.decided_at ?? '',
+          by: step_data.decided_by_slack_id ?? slack_user_id,
+        }))
+        .sort((a, b) => a.at.localeCompare(b.at))
+        .pop()?.by;
+    const user =
+      latest &&
+      (await this.usersService.findBySlackId(latest, steps[0].slack_team_id));
+
+    if (!user) {
+      throw new Error(
+        `No approver found for level ${level} of request ${steps[0].request_id}`,
+      );
+    }
+
+    return user.id;
   }
 
   // Closes the open steps of someone who can no longer decide them
   // (deactivated, or without an approving role), and moves the request on
-  // when the level it waits on is left with nobody: when someone on it
-  // approved (the ALL rule) the level is done; else the next level is asked,
-  // as for a request made now, or with none left `fallback` (HR, or the
-  // admins), who get the level.
+  // from the level it waits on, as an approval or a skip does (moveOn).
   public dropApprover(
     requestId: string,
     slackTeamId: string,
     gone: IUserViewModel,
-    fallback: { slackIds: string[]; levelName: string } | null,
   ) {
     return this.transactions.transaction(async () => {
       await this.lockRequest(requestId);
 
-      const steps = currentRunOf(
-        await this.requestWorkflowStepsService.findMany({
-          requestId,
-          slackTeamId,
-        }),
-      );
+      const steps = await this.findRun(requestId, slackTeamId);
       const open = steps.filter((step) => !step.completed_at);
       const theirs = open.filter(
         (step) => step.slack_user_id === gone.slack_id,
@@ -642,72 +736,10 @@ export class RequestWorkflowService {
 
       await this.workflowStepProcessorService.updateStepMessages(closed);
 
-      const level = Math.min(...open.map((step) => step.step_level));
-      const others = open.filter((step) => !theirs.includes(step));
-      const atLevel = steps.filter((step) => step.step_level === level);
-
-      if (
-        !theirs.some((step) => step.step_level === level) ||
-        others.some((step) => step.step_level === level)
-      ) {
-        return;
-      }
-
-      const approved = atLevel
-        .filter(
-          ({ step_data }) => step_data.status === WorkflowStepStatus.Approved,
-        )
-        .sort((a, b) =>
-          (a.step_data.decided_at ?? '').localeCompare(
-            b.step_data.decided_at ?? '',
-          ),
-        );
-
-      if (approved.length) {
-        const last = approved[approved.length - 1];
-        const lastApprover = await this.usersService.findBySlackId(
-          last.step_data.decided_by_slack_id ?? last.slack_user_id,
-          slackTeamId,
-        );
-
-        await this.activateNextLevel(last, lastApprover ?? gone);
-
-        return;
-      }
-
-      if (others.length) {
-        await this.activateNextLevel(atLevel[0], gone);
-
-        return;
-      }
-
-      if (!fallback?.slackIds.length) {
-        this.logger.warn(
-          `Request ${requestId} has nobody left who can approve it`,
-        );
-
-        return;
-      }
-
-      const { snapshot } = atLevel[0].step_data;
-      const created = await this.requestWorkflowStepsService.createMany(
-        fallback.slackIds.map((slackUserId) => ({
-          requestId,
-          slackUserId,
-          stepLevel: level,
-          stepType: WorkflowStepType.Approver,
-          slackTeamId,
-          stepData: {
-            snapshot,
-            rule: ApprovalRule.Any,
-            status: INITIAL_STEP_STATUS,
-            run: runOf(atLevel[0]),
-            level_name: fallback.levelName,
-          },
-        })),
-      );
-
-      await this.workflowStepProcessorService.processSteps(created);
+      await this.moveOn(await this.findRun(requestId, slackTeamId), {
+        waitingOn: Math.min(...open.map((step) => step.step_level)),
+        approvedBy: null,
+      });
     });
   }
 }

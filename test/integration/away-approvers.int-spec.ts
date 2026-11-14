@@ -1,6 +1,17 @@
+import UserRole from '@common/enums/user-role.enum';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import { Tables } from '@common/types/database.types';
+import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
+import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
+import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
+import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { UsersService } from '@modules/users/services/users.service';
+import { textOf } from './support/block-kit';
+import { travelTo } from './support/clock';
+import { workWeek } from './support/dates';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
+import { approvalMessageTo, requestVacation } from './support/vacation-flows';
 
 describe('Approvers who are away', () => {
   let t: ITestApp;
@@ -101,6 +112,295 @@ describe('Approvers who are away', () => {
         (await t.app.get(UsersService).findAway(workspace.id, '2026-06-17'))
           .size,
       ).toBe(0);
+    });
+  });
+
+  describe('vacation requests', () => {
+    let manager: Tables<'users'>;
+    let hr: Tables<'users'>;
+    let member: Tables<'users'>;
+
+    beforeEach(async () => {
+      manager = await workspace.addUser({
+        role: UserRole.Manager,
+        name: 'Mia Manager',
+      });
+      hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+    });
+
+    const addMember = async (team: Tables<'teams'>) => {
+      member = await workspace.addUser({
+        team_id: team.id,
+        name: 'Max Member',
+      });
+    };
+
+    const goAway = (
+      person: Tables<'users'>,
+      start = '2026-06-15',
+      end = '2026-06-24',
+    ) =>
+      workspace.addVacationRequest(person, {
+        start_date: start,
+        end_date: end,
+      });
+
+    const messagesTo = (person: Tables<'users'>) =>
+      t.slackApi.postedMessages(workspace.token, person.slack_id);
+
+    const stepOf = async (person: Tables<'users'>) =>
+      (await workspace.rows('request_workflow_steps')).find(
+        ({ slack_user_id }) => slack_user_id === person.slack_id,
+      );
+
+    const statusOf = async (request: Tables<'vacation_requests'>) =>
+      (await workspace.row('vacation_requests', request.id)).status;
+
+    const click = (
+      approver: Tables<'users'>,
+      message: Awaited<ReturnType<typeof approvalMessageTo>>,
+    ) =>
+      t.slack
+        .actOnMessage(
+          workspace,
+          approver,
+          message,
+          ApproverMessageActionId.Approve,
+        )
+        .expect(200);
+
+    const skipAway = async (request: Tables<'vacation_requests'>) => {
+      await t.app
+        .get(RequestWorkflowService)
+        .skipAway(request.id, workspace.id);
+      await t.idle();
+    };
+
+    it('asks the manager at work when the other one is away (ANY)', async () => {
+      const away = await workspace.addUser({ role: UserRole.Manager });
+      await goAway(away);
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [away.slack_id, manager.slack_id],
+        }),
+      );
+
+      await requestVacation(t, workspace, member, workWeek(2));
+
+      await approvalMessageTo(t, workspace, manager);
+      expect(messagesTo(away)).toEqual([]);
+      const skipped = await stepOf(away);
+      expect(skipped?.step_data).toMatchObject({
+        status: 'skipped',
+        skip_reason: 'time_off',
+        away_until: '2026-06-24',
+        decided_by_slack_id: null,
+      });
+    });
+
+    it('asks the HR level when the only manager is away', async () => {
+      await goAway(manager);
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [manager.slack_id],
+          hr_approvers: [hr.slack_id],
+          rule_set_id: null,
+        }),
+      );
+
+      await requestVacation(t, workspace, member, workWeek(2));
+
+      await approvalMessageTo(t, workspace, hr);
+      expect(messagesTo(manager)).toEqual([]);
+    });
+
+    it('asks HR, else the admins, when the only manager is away and there is no HR level', async () => {
+      await goAway(manager);
+      await addMember(
+        await workspace.addTeam({ manager_approvers: [manager.slack_id] }),
+      );
+
+      await requestVacation(t, workspace, member, workWeek(2));
+
+      await approvalMessageTo(t, workspace, hr);
+      expect(await stepOf(hr)).toMatchObject({
+        step_level: 2,
+        step_data: { level_name: 'HR approval' },
+      });
+
+      const other = await t.createWorkspace();
+      const otherManager = await other.addUser({ role: UserRole.Manager });
+      const admin = await other.addUser({ role: UserRole.Admin });
+      await other.addVacationRequest(otherManager, {
+        start_date: '2026-06-15',
+        end_date: '2026-06-24',
+      });
+      const team = await other.addTeam({
+        manager_approvers: [otherManager.slack_id],
+      });
+      const otherMember = await other.addUser({ team_id: team.id });
+
+      await requestVacation(t, other, otherMember, workWeek(2));
+
+      await approvalMessageTo(t, other, admin);
+      expect(
+        (await other.rows('request_workflow_steps')).find(
+          ({ slack_user_id }) => slack_user_id === admin.slack_id,
+        ),
+      ).toMatchObject({
+        step_level: 2,
+        step_data: { level_name: 'Admin approval' },
+      });
+    });
+
+    it('waits only for the manager at work under ALL', async () => {
+      const away = await workspace.addUser({ role: UserRole.Manager });
+      await goAway(away);
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [away.slack_id, manager.slack_id],
+          manager_approvers_rule: ApprovalRule.All,
+        }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+
+      await click(manager, await approvalMessageTo(t, workspace, manager));
+      await t.idle();
+
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      expect(messagesTo(away)).toEqual([]);
+    });
+
+    it('skips the manager who goes away while the request waits', async () => {
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [manager.slack_id],
+          hr_approvers: [hr.slack_id],
+          rule_set_id: null,
+        }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      const managerApproval = await approvalMessageTo(t, workspace, manager);
+      await goAway(manager, '2026-06-18', '2026-06-24');
+      travelTo('2026-06-18');
+
+      await skipAway(request);
+
+      await approvalMessageTo(t, workspace, hr);
+      const [update] = t.slackApi.messageUpdates(
+        workspace.token,
+        managerApproval,
+      );
+      expect(textOf(update)).toContain(
+        "⏭️ Skipped while you're on time off (until 24 Jun 2026). It went on to HR approval.",
+      );
+
+      const since = t.slackApi.mark();
+      await skipAway(request);
+
+      expect(
+        t.slackApi
+          .callsWith(workspace.token, undefined, { since })
+          .filter(({ method }) =>
+            ['chat.postMessage', 'chat.update'].includes(method),
+          ),
+      ).toEqual([]);
+    });
+
+    it('falls back instead of approving when the last level is skipped', async () => {
+      const admin = await workspace.addUser({ role: UserRole.Admin });
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [manager.slack_id],
+          hr_approvers: [hr.slack_id],
+          rule_set_id: null,
+        }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await click(manager, await approvalMessageTo(t, workspace, manager));
+      await approvalMessageTo(t, workspace, hr);
+      await goAway(hr, '2026-06-18', '2026-06-24');
+      travelTo('2026-06-18');
+
+      await skipAway(request);
+
+      await approvalMessageTo(t, workspace, admin);
+      expect(await stepOf(admin)).toMatchObject({
+        step_level: 3,
+        step_data: { level_name: 'Admin approval' },
+      });
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+    });
+
+    it('changes nothing when everyone who could decide is away', async () => {
+      const admin = await workspace.addUser({ role: UserRole.Admin });
+      await Promise.all([goAway(manager), goAway(hr), goAway(admin)]);
+      await addMember(
+        await workspace.addTeam({ manager_approvers: [manager.slack_id] }),
+      );
+
+      await requestVacation(t, workspace, member, workWeek(2));
+
+      await approvalMessageTo(t, workspace, manager);
+      expect(
+        (await workspace.rows('request_workflow_steps')).map(
+          ({ step_data }) => (step_data as { status: string }).status,
+        ),
+      ).toEqual(['pending']);
+    });
+
+    it('one outcome when the manager approves as the check skips', async () => {
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [manager.slack_id],
+          hr_approvers: [hr.slack_id],
+          rule_set_id: null,
+        }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      const managerApproval = await approvalMessageTo(t, workspace, manager);
+      await goAway(manager, '2026-06-18', '2026-06-24');
+      travelTo('2026-06-18');
+
+      await Promise.all([click(manager, managerApproval), skipAway(request)]);
+      await t.idle();
+
+      expect(messagesTo(hr)).toHaveLength(1);
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
+    });
+
+    it('Approve for Approvers works on a level with skipped steps', async () => {
+      const away = await workspace.addUser({ role: UserRole.Manager });
+      const hrApprover = await workspace.addUser({ role: UserRole.HR });
+      await goAway(away);
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [away.slack_id, manager.slack_id],
+          manager_approvers_rule: ApprovalRule.All,
+          hr_approvers: [hrApprover.slack_id],
+          rule_set_id: null,
+        }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, manager);
+      const hrViewModel = await t.app
+        .get(UsersService)
+        .findBySlackId(hr.slack_id, workspace.id);
+
+      await t.app
+        .get(WorkflowDecisionsService)
+        .approveCurrentLevel(request.id, hrViewModel!);
+      await t.idle();
+
+      await approvalMessageTo(t, workspace, hrApprover);
+      expect((await stepOf(away))?.step_data).toMatchObject({
+        status: 'skipped',
+      });
+      expect((await stepOf(manager))?.step_data).toMatchObject({
+        status: 'approved',
+        decided_by_slack_id: hr.slack_id,
+      });
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
     });
   });
 });

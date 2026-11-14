@@ -9,7 +9,10 @@ export class VacationWorkflowLevelCompleted {
     public readonly requestId: string,
     public readonly slackTeamId: string,
     public readonly level: number,
-    // The level asked now: a level left with nobody is passed over.
+    // The level asked now: a level left with nobody, or whose approvers were
+    // all skipped, is passed over; a fallback level is one above the highest.
     public readonly nextLevel: number,
+    // The steps this move skipped, of approvers on time off.
+    public readonly skippedStepIds: string[] = [],
   ) {}
 }
