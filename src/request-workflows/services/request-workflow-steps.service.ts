@@ -204,6 +204,14 @@ export class RequestWorkflowStepsService {
     );
   }
 
+  // See RequestWorkflowStepsRepository.findStuckSince.
+  public findStuckSince(slackTeamId: string, before: Date) {
+    return this.requestWorkflowStepsRepository.findStuckSince(
+      slackTeamId,
+      before,
+    );
+  }
+
   public search(params: ISearchStepsParams) {
     return this.requestWorkflowStepsRepository.search({
       filters: this.getFindQuery(params.filters),

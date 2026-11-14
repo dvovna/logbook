@@ -57,6 +57,19 @@ const REPORT_GROUPS: Record<
   },
 };
 
+export interface IStuckEntryGroup {
+  team_id: string | null;
+  owner_id: string;
+  owner_name: string;
+  owner_email: string | null;
+  entries: number;
+  minutes: number;
+  oldest: string;
+  approver_id: string | null;
+  approver_name: string | null;
+  approver_email: string | null;
+}
+
 @Injectable()
 export class TimeEntriesRepository extends BaseRepository<
   'time_entries',
@@ -209,6 +222,61 @@ export class TimeEntriesRepository extends BaseRepository<
       .execute();
 
     return rows.map(({ id }) => id);
+  }
+
+  // The submitted entries that have waited since before `before`, by team
+  // and owner, with each of whom they wait for (see approves()): one row a
+  // team, owner and approver; what HR may decide for an approver who is away.
+  public async findStuckSince(
+    slackTeamId: string,
+    before: Date,
+  ): Promise<IStuckEntryGroup[]> {
+    const rows = await this.db
+      .selectFrom(
+        this.selectInWorkspace(slackTeamId)
+          .select([
+            'time_entries.team_id',
+            'time_entries.user_id',
+            (eb) => eb.fn.countAll<number>().as('entries'),
+            (eb) => eb.fn.sum<number>('time_entries.minutes').as('minutes'),
+            (eb) => eb.fn.min('time_entries.updated_at').as('oldest'),
+          ])
+          .where('time_entries.status', '=', TimeEntryStatus.Submitted)
+          .where('time_entries.deleted_at', 'is', null)
+          .where('time_entries.updated_at', '<', before.toISOString())
+          .groupBy(['time_entries.team_id', 'time_entries.user_id'])
+          .as('waiting'),
+      )
+      .innerJoin('users as owner', 'owner.id', 'waiting.user_id')
+      .leftJoin('users as approver', (join) =>
+        join.on(
+          this.approves(slackTeamId, {
+            person: 'approver',
+            team: 'waiting.team_id',
+            owner: 'waiting.user_id',
+          }),
+        ),
+      )
+      .select([
+        'waiting.team_id',
+        'waiting.user_id as owner_id',
+        'owner.name as owner_name',
+        'owner.email as owner_email',
+        'waiting.entries',
+        'waiting.minutes',
+        'waiting.oldest',
+        'approver.id as approver_id',
+        'approver.name as approver_name',
+        'approver.email as approver_email',
+      ])
+      .execute();
+
+    return rows.map((row) => ({
+      ...row,
+      entries: Number(row.entries),
+      minutes: Number(row.minutes),
+      oldest: row.oldest as string,
+    }));
   }
 
   // A page of the submitted entries that wait for `approverId` (see

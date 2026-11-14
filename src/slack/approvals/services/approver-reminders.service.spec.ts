@@ -1,4 +1,5 @@
 import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
+import UserRole from '@common/enums/user-role.enum';
 import { Logger } from '@nestjs/common';
 import * as errorReporter from '@common/errors/error-reporter';
 import { JobsService } from '@common/jobs/jobs.service';
@@ -17,6 +18,7 @@ import {
 const MONDAY = '2026-06-15';
 const DUE = new Date('2026-06-15T09:05:00Z');
 const TWO_DAYS_BEFORE = '2026-06-13T09:05:00.000Z';
+const FIVE_DAYS_BEFORE = '2026-06-10T09:05:00.000Z';
 
 describe('ApproverRemindersService', () => {
   let service: ApproverRemindersService;
@@ -25,14 +27,20 @@ describe('ApproverRemindersService', () => {
     claimApproverReminderWeek: jest.Mock;
     claimApproverReminderDay: jest.Mock;
   };
-  let usersService: { findActiveWithReminder: jest.Mock; findOne: jest.Mock };
+  let usersService: {
+    findActiveWithReminder: jest.Mock;
+    findOne: jest.Mock;
+    findMany: jest.Mock;
+  };
   let steps: {
     findApproversWaitingSince: jest.Mock;
     summarizeWaitingSince: jest.Mock;
+    findStuckSince: jest.Mock;
   };
   let entries: {
     findApproversWaitingSince: jest.Mock;
     summarizeWaitingSince: jest.Mock;
+    findStuckSince: jest.Mock;
   };
   let slack: { postMessage: jest.Mock };
   let jobs: { define: jest.Mock; enqueueMany: jest.Mock };
@@ -57,14 +65,17 @@ describe('ApproverRemindersService', () => {
         id: 'u1',
         slack_id: 'U1',
         is_active: true,
+        role: UserRole.Manager,
         time_reminder: TimeReminder.Weekly,
       }),
+      findMany: jest.fn().mockResolvedValue([{ id: 'hr1', role: UserRole.HR }]),
     };
     steps = {
       findApproversWaitingSince: jest.fn().mockResolvedValue(['U2']),
       summarizeWaitingSince: jest
         .fn()
         .mockResolvedValue({ count: 2, oldest: '2026-06-03T10:00:00.000Z' }),
+      findStuckSince: jest.fn().mockResolvedValue([]),
     };
     entries = {
       findApproversWaitingSince: jest.fn().mockResolvedValue(['u1']),
@@ -73,6 +84,7 @@ describe('ApproverRemindersService', () => {
         people: 3,
         oldest: '2026-06-05T08:00:00.000Z',
       }),
+      findStuckSince: jest.fn().mockResolvedValue([]),
     };
     slack = { postMessage: jest.fn().mockResolvedValue(undefined) };
     jobs = {
@@ -115,14 +127,24 @@ describe('ApproverRemindersService', () => {
     expect(steps.findApproversWaitingSince).toHaveBeenCalledWith('w1', before);
     expect(usersService.findActiveWithReminder).toHaveBeenCalledWith(
       'w1',
-      { ids: ['u1'], slackIds: ['U2'] },
+      { ids: ['u1', 'hr1'], slackIds: ['U2'] },
       [TimeReminder.Weekly],
     );
     expect(jobs.enqueueMany).toHaveBeenCalledWith(
       REMIND_APPROVER_JOB,
       [
-        { slackTeamId: 'w1', userId: 'u1', waitedBefore: TWO_DAYS_BEFORE },
-        { slackTeamId: 'w1', userId: 'u2', waitedBefore: TWO_DAYS_BEFORE },
+        {
+          slackTeamId: 'w1',
+          userId: 'u1',
+          waitedBefore: TWO_DAYS_BEFORE,
+          stuckBefore: FIVE_DAYS_BEFORE,
+        },
+        {
+          slackTeamId: 'w1',
+          userId: 'u2',
+          waitedBefore: TWO_DAYS_BEFORE,
+          stuckBefore: FIVE_DAYS_BEFORE,
+        },
       ],
       { perSecond: 5 },
     );
@@ -233,5 +255,145 @@ describe('ApproverRemindersService', () => {
 
     expect(steps.summarizeWaitingSince).not.toHaveBeenCalled();
     expect(slack.postMessage).not.toHaveBeenCalled();
+  });
+
+  describe('for HR', () => {
+    const hr = {
+      id: 'hr1',
+      slack_id: 'UHR',
+      slack_team_id: 'w1',
+      is_active: true,
+      role: UserRole.HR,
+      time_reminder: TimeReminder.Weekly,
+    };
+    const step = (fields: object) => ({
+      request_id: 'r1',
+      start_date: '2026-07-06',
+      end_date: '2026-07-07',
+      requester_id: 'mia',
+      requester_name: 'Mia',
+      requester_email: null,
+      approver_slack_id: 'UMAX',
+      approver_name: 'Max',
+      approver_email: null,
+      asked_at: '2026-06-08T09:00:00.000Z',
+      ...fields,
+    });
+    const group = (fields: object) => ({
+      team_id: 't1',
+      owner_id: 'lou',
+      owner_name: 'Lou',
+      owner_email: null,
+      entries: 3,
+      minutes: 300,
+      oldest: '2026-06-05T09:00:00.000Z',
+      approver_id: 'max',
+      approver_name: 'Max',
+      approver_email: null,
+      ...fields,
+    });
+
+    beforeEach(() => {
+      usersService.findOne.mockResolvedValue(hr);
+      steps.summarizeWaitingSince.mockResolvedValue({ count: 0, oldest: null });
+      entries.summarizeWaitingSince.mockResolvedValue({
+        count: 0,
+        people: 0,
+        oldest: null,
+      });
+    });
+
+    const send = () =>
+      sendJob({
+        slackTeamId: 'w1',
+        userId: 'hr1',
+        waitedBefore: TWO_DAYS_BEFORE,
+        stuckBefore: FIVE_DAYS_BEFORE,
+      });
+
+    it('lists what has waited for others five days, oldest first, each request and each person once', async () => {
+      steps.findStuckSince.mockResolvedValue([
+        step({}),
+        step({ approver_slack_id: 'UANN', approver_name: 'Ann' }),
+      ]);
+      entries.findStuckSince.mockResolvedValue([
+        group({}),
+        group({ approver_id: 'ann', approver_name: 'Ann' }),
+        group({ team_id: null, entries: 1, minutes: 60 }),
+      ]);
+
+      await send();
+
+      expect(steps.findStuckSince).toHaveBeenCalledWith(
+        'w1',
+        new Date(FIVE_DAYS_BEFORE),
+      );
+      expect(slack.postMessage).toHaveBeenCalledWith(
+        'UHR',
+        {
+          text: [
+            ':rotating_light: Waiting for someone else for more than 5 days:',
+            '• *Lou*: 4 time entries (6h), waiting for Ann, Max since 5 Jun 2026',
+            '• *Mia*: time off 6–7 Jul 2026, waiting for Ann, Max since 8 Jun 2026',
+            'You can decide them for the approvers under ✅ Approvals → All pending requests and All pending entries.',
+            'Change how often you are reminded: Home → 🔔 Reminders.',
+          ].join('\n'),
+        },
+        'w1',
+      );
+    });
+
+    it('leaves out what waits for them or is their own', async () => {
+      steps.findStuckSince.mockResolvedValue([
+        step({ approver_slack_id: 'UHR' }),
+        step({ request_id: 'r2', requester_id: 'hr1' }),
+      ]);
+      entries.findStuckSince.mockResolvedValue([
+        group({ approver_id: 'hr1' }),
+        group({ owner_id: 'hr1' }),
+      ]);
+
+      await send();
+
+      expect(slack.postMessage).not.toHaveBeenCalled();
+    });
+
+    it('lists ten and counts the rest', async () => {
+      steps.findStuckSince.mockResolvedValue(
+        Array.from({ length: 12 }, (_, index) =>
+          step({ request_id: `r${index}` }),
+        ),
+      );
+
+      await send();
+
+      const text = slack.postMessage.mock.calls[0][1].text as string;
+      expect(
+        text.split('\n').filter((line) => line.startsWith('•')),
+      ).toHaveLength(10);
+      expect(text).toContain('…and 2 more');
+    });
+
+    it('lists nothing to an admin while someone has the HR role', async () => {
+      usersService.findOne.mockResolvedValue({
+        ...hr,
+        id: 'a1',
+        role: UserRole.Admin,
+      });
+      steps.findStuckSince.mockResolvedValue([step({})]);
+
+      await send();
+
+      expect(steps.findStuckSince).not.toHaveBeenCalled();
+      expect(slack.postMessage).not.toHaveBeenCalled();
+    });
+
+    it('lists nothing to a manager', async () => {
+      usersService.findOne.mockResolvedValue({ ...hr, role: UserRole.Manager });
+
+      await send();
+
+      expect(steps.findStuckSince).not.toHaveBeenCalled();
+    });
   });
 });

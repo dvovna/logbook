@@ -81,7 +81,9 @@ describe('Approver reminders', () => {
     await submittedEntry(member, '2026-06-16T09:00:00.000Z');
     const since = t.slackApi.mark();
 
-    expect(await reminders().remindAll(new Date())).toBe(1);
+    // The manager, and the admin, who is told what waits too long when
+    // nobody has the HR role (nothing here, as nothing waited five days).
+    expect(await reminders().remindAll(new Date())).toBe(2);
 
     expect(await remindedTexts(manager, since)).toEqual([
       [
@@ -130,7 +132,8 @@ describe('Approver reminders', () => {
       .execute();
     const since = t.slackApi.mark();
 
-    expect(await reminders().remindAll(new Date())).toBe(0);
+    // Only the admin's job, which finds nothing that waited five days.
+    expect(await reminders().remindAll(new Date())).toBe(1);
 
     await t.db
       .updateTable('users')
@@ -147,5 +150,31 @@ describe('Approver reminders', () => {
       .execute();
     expect(await reminders().remindAll(new Date())).toBe(1);
     expect(await remindedTexts(manager, since)).toHaveLength(1);
+  });
+
+  it('tells HR, and not the admins, what has waited five days for someone else', async () => {
+    const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana' });
+    await waitingRequest('2026-06-10T09:00:00.000Z');
+    await submittedEntry(member, '2026-06-08T09:00:00.000Z');
+    await submittedEntry(member, '2026-06-09T09:00:00.000Z');
+    // Waited three days: the manager's reminder, not HR's.
+    await submittedEntry(member, THREE_DAYS_AGO);
+    const since = t.slackApi.mark();
+
+    expect(await reminders().remindAll(new Date())).toBe(2);
+
+    expect(await remindedTexts(hr, since)).toEqual([
+      [
+        ':rotating_light: Waiting for someone else for more than 5 days:',
+        '• *Mia*: 2 time entries (2h), waiting for Max since 8 Jun 2026',
+        '• *Mia*: time off 6–7 Jul 2026, waiting for Max since 10 Jun 2026',
+        'You can decide them for the approvers under ✅ Approvals → All pending requests and All pending entries.',
+        'Change how often you are reminded: Home → 🔔 Reminders.',
+      ].join('\n'),
+    ]);
+    expect(await remindedTexts(admin, since)).toEqual([]);
+    expect(await remindedTexts(manager, since)).toEqual([
+      expect.stringContaining('• 3 time entries of 1 person'),
+    ]);
   });
 });

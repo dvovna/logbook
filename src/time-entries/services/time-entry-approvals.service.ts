@@ -104,6 +104,11 @@ export class TimeEntryApprovalsService {
     );
   }
 
+  // See TimeEntriesRepository.findStuckSince.
+  public findStuckSince(slackTeamId: string, before: Date) {
+    return this.timeEntriesRepository.findStuckSince(slackTeamId, before);
+  }
+
   // Approves the entry `id`, or every entry waiting for the user.
   public async approve(user: IUserViewModel, id?: string) {
     return this.decide(
