@@ -1,5 +1,7 @@
 import UserRole from '@common/enums/user-role.enum';
 import VacationRequestStatus from '@common/enums/vacation-status.enum';
+import VacationType from '@common/enums/vacation-type.enum';
+import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { Tables } from '@common/types/database.types';
 import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver-message-action-id.enum';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
@@ -554,6 +556,50 @@ describe('Approvers who are away', () => {
       expect(
         t.slackApi.postedMessages(workspace.token, hr.slack_id),
       ).toHaveLength(1);
+    });
+
+    it('skips at once when an admin creates approved time off for today', async () => {
+      const admin = await workspace.addUser({ role: UserRole.Admin });
+      const lead = await workspace.addUser({ role: UserRole.Manager });
+      const team = await workspace.addTeam({
+        manager_approvers: [lead.slack_id],
+        hr_approvers: [hr.slack_id],
+        rule_set_id: null,
+      });
+      const member = await workspace.addUser({ team_id: team.id });
+      await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, lead);
+      const form = await openModalFrom(
+        t,
+        workspace,
+        admin,
+        await openAppHomeTab(t, workspace, admin, [
+          NavigationActionId.TimeOff,
+          NavigationActionId.AllRequests,
+        ]),
+        VacationRequestsTabViewActionId.CreateRequest,
+      );
+
+      await t.slack
+        .submitView(workspace, admin, form, {
+          [VacationRequestsTabViewActionId.UserField]: lead.id,
+          status: VacationRequestStatus.Approved,
+          start_date: '2026-06-17',
+          end_date: '2026-06-19',
+          type_option: VacationType.AnnualLeave,
+        })
+        .expect(200);
+      await t.idle();
+
+      await approvalMessageTo(t, workspace, hr);
+      const leadStep = (await workspace.rows('request_workflow_steps')).find(
+        ({ slack_user_id }) => slack_user_id === lead.slack_id,
+      );
+      expect(leadStep?.step_data).toMatchObject({
+        status: 'skipped',
+        skip_reason: 'time_off',
+        away_until: '2026-06-19',
+      });
     });
   });
 
