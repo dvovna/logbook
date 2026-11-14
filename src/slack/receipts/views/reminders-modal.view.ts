@@ -15,6 +15,8 @@ interface IRemindersParams extends IBaseModalViewParams {
   reimbursements: IReimbursementViewModel[];
   optedOutIds: string[];
   timeReminder: TimeReminder;
+  // Approvers are reminded, as often, of what waits for their decision.
+  approves?: boolean;
 }
 
 export interface IRemindersMetadata {
@@ -58,6 +60,7 @@ export class RemindersModalView extends BaseModalView<
     reimbursements,
     optedOutIds,
     timeReminder,
+    approves,
     errorMessage,
   }: IRemindersParams): AnyBlock[] {
     const timeOptions: PlainTextOption[] = (
@@ -80,7 +83,9 @@ export class RemindersModalView extends BaseModalView<
         block_id: TIME_REMINDER_BLOCK_ID,
         label: {
           type: 'plain_text',
-          text: "Remind me about time I haven't submitted",
+          text: approves
+            ? "Remind me about time I haven't submitted and what waits for my approval"
+            : "Remind me about time I haven't submitted",
         },
         element: {
           type: 'static_select',

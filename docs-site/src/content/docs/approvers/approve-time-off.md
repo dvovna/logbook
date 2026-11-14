@@ -82,6 +82,8 @@ HR and admins can move a request on when its approvers are away.
 
 Logbook approves every open step of the level the request waits on, under either rule. The request moves on to the next level, or is approved when there is none. You can't do this for your own request.
 
+Logbook tells HR (or the admins) of requests that have waited more than five days in their reminder; see [Reminders of what waits for you](#reminders-of-what-waits-for-you).
+
 ## When a request or an approver changes
 
 - **An edit.** When HR or an admin changes the dates, type or person of a pending request with **Edit Request**, the open approval closes and starts again: everyone is asked again about the request as it is now. A change to the comment only leaves the approval as it was.
@@ -96,5 +98,11 @@ When the approvers decide, or HR or an admin sets the status with **Edit Request
 - The requester gets a DM: approved or rejected, by whom, the reason and the approver comments. An approved request may carry a button to log it as time; see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 - When it is approved, the people under the team's **Who hears of decisions** get a DM too. They come from the team's own rules or the company rules, as they are at the time of the decision. They hear nothing of a rejection.
 - Every approver's message shows the decision and who made it, HR or the admin after **Edit Request**.
+
+## Reminders of what waits for you
+
+When something has waited for your decision for two days or more, Logbook reminds you in one direct message: how many time off requests and how many time entries (of how many people) still wait, and since when the oldest. It comes as often as you chose in **Home → 🔔 Reminders** ("Remind me about time I haven't submitted and what waits for my approval"): every working day, every Monday (the default), the first Monday of the month, or never, in the morning (UTC). With nothing that old waiting, no reminder comes.
+
+Everyone with the HR role (the admins, when nobody has it) is also told what has waited for someone else for more than five days, in the same reminder, under "Waiting for someone else for more than 5 days": each request with its requester, dates and approvers, and each person's time entries with their count and hours, oldest first, ten at most and then "and N more". What waits for you, and your own requests and time, are left out; the rest you can decide for the approvers in **Approvals → All pending requests** and **All pending entries**.
 
 All messages are listed in [Notifications](/logbook/docs/reference/notifications/).

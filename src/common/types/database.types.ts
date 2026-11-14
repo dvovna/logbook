@@ -1190,6 +1190,8 @@ export type Database = {
       slack_teams: {
         Row: {
           absence_check_date: string | null;
+          approver_reminder_day: string | null;
+          approver_reminder_week: string | null;
           created_at: string;
           currency: string;
           id: string;
@@ -1209,6 +1211,8 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           absence_check_date?: string | null;
+          approver_reminder_day?: string | null;
+          approver_reminder_week?: string | null;
           created_at?: string;
           currency?: string;
           id?: string;
@@ -1227,6 +1231,8 @@ export type Database = {
         };
         Update: {
           absence_check_date?: string | null;
+          approver_reminder_day?: string | null;
+          approver_reminder_week?: string | null;
           created_at?: string;
           currency?: string;
           id?: string;

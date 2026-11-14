@@ -4,6 +4,15 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+Update step: one database migration, see Running it.
+
+### Approvals
+- Approvers get a reminder of what has waited for their decision for two days or more: one direct message with the time off requests and the time entries still waiting and since when the oldest. It comes as often as each chose in Home → 🔔 Reminders, the choice that sets the reminder of their own unsubmitted time (every Monday unless changed), from 09:00 UTC, and not when nothing that old waits. What waits for whom is the Approvals count's rule.
+- HR, or the admins when nobody has the HR role, also find in that reminder what has waited for someone else for more than five days: each request and each person's time entries, with whom they wait for and since when, ten at most, so they can decide them for an approver who is away (Approvals → All pending requests and All pending entries).
+
+### Running it
+- Update step: one database migration (`20261114090000_approver_reminders`). It adds two columns to `slack_teams`.
+
 ## [0.6.1] - 2026-11-13
 
 A clearer first setup, and lighter screens. Update step: one database migration, see Running it.

@@ -70,4 +70,10 @@ HR and admins can decide an entry when its approver is away.
 - An approved entry is locked for its owner. It counts as approved in reports.
 - A rejected entry can be changed again by its owner, and becomes a draft once they change it. They submit it again for approval.
 
+## Reminders of what waits for you
+
+When something has waited for your decision for two days or more, Logbook reminds you in one direct message: how many time off requests and how many time entries (of how many people) still wait, and since when the oldest. It comes as often as you chose in **Home → 🔔 Reminders** ("Remind me about time I haven't submitted and what waits for my approval"): every working day, every Monday (the default), the first Monday of the month, or never, in the morning (UTC). With nothing that old waiting, no reminder comes.
+
+Everyone with the HR role (the admins, when nobody has it) is also told what has waited for someone else for more than five days, in the same reminder, under "Waiting for someone else for more than 5 days": each request with its requester, dates and approvers, and each person's time entries with their count and hours, oldest first, ten at most and then "and N more". What waits for you, and your own requests and time, are left out; the rest you can decide for the approvers in **Approvals → All pending requests** and **All pending entries**.
+
 See [Notifications](/logbook/docs/reference/notifications/) for every message Logbook sends about time.

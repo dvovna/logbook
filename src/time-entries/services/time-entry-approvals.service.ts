@@ -109,6 +109,38 @@ export class TimeEntryApprovalsService {
       : 0;
   }
 
+  // What has waited for the user since before `before` (see
+  // TimeEntriesRepository.summarizeWaitingSince).
+  public summarizeWaitingSince(user: IUserViewModel, before: Date) {
+    return approvesTime(user)
+      ? this.timeEntriesRepository.summarizeWaitingSince(
+          user.slack_team_id,
+          user.id,
+          before,
+          todayIso(),
+        )
+      : Promise.resolve({ count: 0, people: 0, oldest: null });
+  }
+
+  // The IDs of the people told of entries that have waited since before
+  // `before`.
+  public findApproversWaitingSince(slackTeamId: string, before: Date) {
+    return this.timeEntriesRepository.findApproversWaitingSince(
+      slackTeamId,
+      before,
+      todayIso(),
+    );
+  }
+
+  // See TimeEntriesRepository.findStuckSince.
+  public findStuckSince(slackTeamId: string, before: Date) {
+    return this.timeEntriesRepository.findStuckSince(
+      slackTeamId,
+      before,
+      todayIso(),
+    );
+  }
+
   // Approves the entry `id`, or every entry waiting for the user.
   public async approve(user: IUserViewModel, id?: string) {
     return this.decide(

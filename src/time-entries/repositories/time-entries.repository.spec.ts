@@ -121,6 +121,34 @@ describe('TimeEntriesRepository', () => {
     },
   );
 
+  it('sums what has waited for an approver since before a moment with the same rule, in one row', async () => {
+    const { database, sqlOf, parametersOf } = recordingDatabase([
+      [{ count: 14, people: 3, oldest: '2026-06-05T08:00:00.000000+00:00' }],
+    ]);
+
+    await expect(
+      new TimeEntriesRepository(database).summarizeWaitingSince(
+        'w1',
+        'u1',
+        new Date('2026-06-13T09:00:00Z'),
+        '2026-06-17',
+      ),
+    ).resolves.toEqual({
+      count: 14,
+      people: 3,
+      oldest: '2026-06-05T08:00:00.000000+00:00',
+    });
+    expect(sqlOf(0)).toMatch(
+      /^select coalesce\(sum\("waiting"\."entries"\), 0\) as "count", count\(distinct "waiting"\."user_id"\) as "people", min\("waiting"\."oldest"\) as "oldest" from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries", min\("time_entries"\."updated_at"\) as "oldest" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null and "time_entries"\."updated_at" < \$3 and "time_entries"\."user_id" != \$4 group by .* having exists /,
+    );
+    expect(parametersOf(0).slice(0, 4)).toEqual([
+      'w1',
+      'submitted',
+      '2026-06-13T09:00:00.000Z',
+      'u1',
+    ]);
+  });
+
   it("sums the minutes of a manager's teams and their own in one row", async () => {
     const { database, sqlOf, parametersOf } = recordingDatabase([
       [{ minutes: 90, billable_minutes: 60 }],
