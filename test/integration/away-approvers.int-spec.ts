@@ -403,4 +403,23 @@ describe('Approvers who are away', () => {
       expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
     });
   });
+
+  describe('requests nobody on the team can approve', () => {
+    it('goes to an admin when the requester has no team and the HR person is away', async () => {
+      const hr = await workspace.addUser({ role: UserRole.HR });
+      const admin = await workspace.addUser({ role: UserRole.Admin });
+      const requester = await workspace.addUser();
+      await workspace.addVacationRequest(hr, {
+        start_date: '2026-06-15',
+        end_date: '2026-06-24',
+      });
+
+      await requestVacation(t, workspace, requester, workWeek(2));
+
+      await approvalMessageTo(t, workspace, admin);
+      expect(t.slackApi.postedMessages(workspace.token, hr.slack_id)).toEqual(
+        [],
+      );
+    });
+  });
 });

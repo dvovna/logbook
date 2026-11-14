@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { todayIso } from '@common/utils/period-presets';
 import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
 import VacationType from '@common/enums/vacation-type.enum';
@@ -223,13 +224,14 @@ export class VacationRequestProcessingService implements OnModuleInit {
   private async plan(
     request: IVacationRequestViewModel,
   ): Promise<IApprovalPlan> {
-    const [rules, approvers] = await Promise.all([
+    const [rules, approvers, away] = await Promise.all([
       this.teamRulesService.forTeam(request.team?.id, request.slack_team_id),
       // Everyone who can decide a step: active, with an approving role.
       this.usersService.findMany({
         slackTeamId: request.slack_team_id,
         roles: [...MANAGER_ROLES],
       }),
+      this.usersService.findAway(request.slack_team_id, todayIso()),
     ]);
     const roleOf = new Map(
       approvers.map(({ slack_id, role }) => [slack_id, role]),
@@ -294,7 +296,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     // Nobody its rules name can approve it, so it would wait forever: it goes
     // to HR instead, or to the admins when there is no HR, and the requester
     // is told so.
-    const fallback = this.findFallbackApprovers(request, approvers);
+    const fallback = this.findFallbackApprovers(request, approvers, away);
 
     return {
       workflow: fallback && {
@@ -316,12 +318,19 @@ export class VacationRequestProcessingService implements OnModuleInit {
   }
 
   // Everyone with the HR role, else every admin; never the requester
-  // (fallbackApprovers, as for time entries).
+  // (fallbackApprovers, as for time entries). People on approved time off
+  // are left out; when that leaves nobody, everyone is asked anyway.
   private findFallbackApprovers(
     request: IVacationRequestViewModel,
     approvers: IUserViewModel[],
+    away: Map<string, unknown>,
   ) {
-    const fallback = fallbackApprovers(approvers, request.user!.id);
+    const ownerId = request.user!.id;
+    const fallback =
+      fallbackApprovers(
+        approvers.filter(({ slack_id }) => !away.has(slack_id)),
+        ownerId,
+      ) ?? fallbackApprovers(approvers, ownerId);
 
     return (
       fallback && {
