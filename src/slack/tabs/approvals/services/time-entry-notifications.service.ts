@@ -7,6 +7,11 @@ import {
   TIME_ENTRIES_SUBMITTED,
   TimeEntriesSubmittedEvent,
 } from 'src/time-entries/events/time-entries.events';
+import {
+  ABSENCE_DAY_CHECKED,
+  AbsenceDayCheckedEvent,
+} from '@modules/request-workflows/events/absence.events';
+import { onTimeOffTextOf } from '@modules/slack/common/utils/time-off-text';
 import { formatDate, getDateOnly, weekLabel } from '@common/utils/date.utils';
 import { weekStartOf } from '@common/utils/period-presets';
 import { Injectable, OnModuleInit } from '@nestjs/common';
@@ -25,6 +30,7 @@ import { UsersService } from '@modules/users/services/users.service';
 
 export const NOTIFY_REJECTED_JOB = 'time-entry-notify-rejected';
 export const NOTIFY_SUBMITTED_JOB = 'time-entries-notify-submitted';
+export const NOTIFY_MOVED_JOB = 'time-entries-notify-moved';
 
 // The projects a message names before "and N more".
 const PROJECTS_NAMED = 3;
@@ -44,6 +50,12 @@ interface INotifySubmittedJob {
   entryIds: string[];
 }
 
+interface INotifyMovedJob {
+  slackTeamId: string;
+  approverId: string;
+  date: string;
+}
+
 @Injectable()
 export class TimeEntryNotificationsService implements OnModuleInit {
   public constructor(
@@ -60,6 +72,32 @@ export class TimeEntryNotificationsService implements OnModuleInit {
     );
     this.jobs.define<INotifySubmittedJob>(NOTIFY_SUBMITTED_JOB, (job) =>
       this.sendSubmitted(job),
+    );
+    this.jobs.define<INotifyMovedJob>(NOTIFY_MOVED_JOB, (job) =>
+      this.sendMoved(job),
+    );
+  }
+
+  // The daily check ran: whoever now gets entries because every manager
+  // listed for them is on time off from today hears of it once. Runs in the
+  // claim's transaction (emitAsync), so the jobs go with the claim.
+  @OnEvent(ABSENCE_DAY_CHECKED, { suppressErrors: false })
+  public async handleAbsenceDayChecked({
+    slackTeamId,
+    date,
+  }: AbsenceDayCheckedEvent) {
+    const moved = await this.timeEntryApprovalsService.findMovedByAbsence(
+      slackTeamId,
+      date,
+    );
+
+    await this.jobs.enqueueMany<INotifyMovedJob>(
+      NOTIFY_MOVED_JOB,
+      moved.map(({ approver }) => ({
+        slackTeamId,
+        approverId: approver.id,
+        date,
+      })),
     );
   }
 
@@ -115,6 +153,32 @@ export class TimeEntryNotificationsService implements OnModuleInit {
       reviewerId: reviewer.id,
       ...(reason ? { reason } : {}),
     });
+  }
+
+  private async sendMoved({ slackTeamId, approverId, date }: INotifyMovedJob) {
+    const moved = await this.timeEntryApprovalsService.findMovedByAbsence(
+      slackTeamId,
+      date,
+    );
+    const mine = moved.find(({ approver }) => approver.id === approverId);
+
+    if (!mine) {
+      return;
+    }
+
+    const text = mine.groups
+      .map(({ teamName, away, count }) => {
+        const team = teamName ? escapeMrkdwn(teamName) : 'people in no team';
+
+        return `${onTimeOffTextOf(away)}: ${count} time ${pluralize('entry', count)} of ${team} now ${count === 1 ? 'waits' : 'wait'} for you in Approvals.`;
+      })
+      .join('\n');
+
+    await this.slackCommunicationService.postMessage(
+      mine.approver.slack_id,
+      { text },
+      slackTeamId,
+    );
   }
 
   private async sendSubmitted({

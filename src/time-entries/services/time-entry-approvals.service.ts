@@ -15,6 +15,15 @@ import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
 import { todayIso } from '@common/utils/period-presets';
 
+export interface IMovedEntries {
+  approver: IUserViewModel;
+  groups: {
+    teamName: string | null;
+    away: { slackId: string; until: string }[];
+    count: number;
+  }[];
+}
+
 interface IApprovalScope {
   // The teams whose entries the user decides on; all teams when undefined.
   teamIds?: string[];
@@ -171,6 +180,130 @@ export class TimeEntryApprovalsService {
     }
 
     return [...groups.values()];
+  }
+
+  // The submitted entries whose listed approvers are all on time off on
+  // `date`, one of them from that day, by who is told of them instead (a
+  // 'told' approver who is not a listed one), then by team: what the daily
+  // check tells HR the day a manager's time off begins.
+  public async findMovedByAbsence(
+    slackTeamId: string,
+    date: string,
+  ): Promise<IMovedEntries[]> {
+    const [away, entries, approving, teams] = await Promise.all([
+      this.usersService.findAway(slackTeamId, date),
+      this.timeEntriesRepository.findMany({
+        slack_team_id: slackTeamId,
+        status: TimeEntryStatus.Submitted,
+        deleted_at: { operator: 'is', value: null },
+      }),
+      this.usersService.findMany({ slackTeamId, roles: [...MANAGER_ROLES] }),
+      this.teamsService.findMany({ slackTeamId }),
+    ]);
+
+    if (!away.size || !entries.length) {
+      return [];
+    }
+
+    const ids = entries.map(({ id }) => id);
+    const [listedPairs, toldPairs] = await Promise.all([
+      this.timeEntriesRepository.findApproverIds(
+        slackTeamId,
+        ids,
+        date,
+        'listed',
+      ),
+      this.timeEntriesRepository.findApproverIds(
+        slackTeamId,
+        ids,
+        date,
+        'told',
+      ),
+    ]);
+    const byId = new Map(approving.map((person) => [person.id, person]));
+    const awayById = new Map(
+      [...away].map(([slackId, absence]) => [
+        absence.userId,
+        { slackId, ...absence },
+      ]),
+    );
+    const listedOf = new Map<string, string[]>();
+    const toldOf = new Map<string, string[]>();
+
+    for (const { entry_id, approver_id } of listedPairs) {
+      listedOf.set(entry_id, [...(listedOf.get(entry_id) ?? []), approver_id]);
+    }
+    for (const { entry_id, approver_id } of toldPairs) {
+      toldOf.set(entry_id, [...(toldOf.get(entry_id) ?? []), approver_id]);
+    }
+
+    const teamName = new Map(teams.map(({ id, name }) => [id, name]));
+    const result = new Map<
+      string,
+      {
+        approver: IUserViewModel;
+        groups: Map<
+          string,
+          {
+            teamName: string | null;
+            away: Map<string, { slackId: string; until: string }>;
+            count: number;
+          }
+        >;
+      }
+    >();
+
+    for (const entry of entries) {
+      const listed = listedOf.get(entry.id) ?? [];
+      const absences = listed.map((id) => awayById.get(id));
+
+      if (
+        !listed.length ||
+        absences.some((absence) => !absence) ||
+        !absences.some((absence) => absence?.since === date)
+      ) {
+        continue;
+      }
+
+      for (const approverId of toldOf.get(entry.id) ?? []) {
+        const approver = byId.get(approverId);
+
+        if (!approver || listed.includes(approverId)) {
+          continue;
+        }
+
+        const person = result.get(approverId) ?? {
+          approver,
+          groups: new Map(),
+        };
+        const key = entry.team_id ?? '';
+        const group = person.groups.get(key) ?? {
+          teamName: entry.team_id
+            ? (teamName.get(entry.team_id) ?? null)
+            : null,
+          away: new Map(),
+          count: 0,
+        };
+
+        for (const absence of absences) {
+          group.away.set(absence!.userId, {
+            slackId: absence!.slackId,
+            until: absence!.until,
+          });
+        }
+        group.count += 1;
+        person.groups.set(key, group);
+        result.set(approverId, person);
+      }
+    }
+
+    return [...result.values()].map(({ approver, groups }) => ({
+      approver,
+      groups: [...groups.values()].map(({ away: awayPeople, ...group }) => ({
+        ...group,
+        away: [...awayPeople.values()],
+      })),
+    }));
   }
 
   // Decides the pending entries `narrowing` names (one by its id, or those

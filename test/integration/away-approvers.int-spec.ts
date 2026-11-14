@@ -680,5 +680,28 @@ describe('Approvers who are away', () => {
       ]);
       expect(messagesTo(manager)).toEqual([]);
     });
+
+    it('tells HR once, on the manager’s first day off', async () => {
+      await goAway(manager, '2026-06-18', '2026-06-24');
+      await submitted(member);
+      travelTo('2026-06-18');
+      const checks = t.app.get(AbsenceCheckService);
+      const textsOf = () =>
+        t.slackApi
+          .postedMessages(workspace.token, hr.slack_id)
+          .map(({ text }) => text);
+
+      await checks.checkWorkspace(workspace.id, '2026-06-18');
+      await t.idle();
+      expect(textsOf()).toEqual([
+        `<@${manager.slack_id}> is on time off until 24 Jun 2026: 1 time entry of Design now waits for you in Approvals.`,
+      ]);
+
+      await checks.checkWorkspace(workspace.id, '2026-06-18');
+      travelTo('2026-06-19');
+      await checks.checkWorkspace(workspace.id, '2026-06-19');
+      await t.idle();
+      expect(textsOf()).toHaveLength(1);
+    });
   });
 });
