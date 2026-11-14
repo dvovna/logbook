@@ -105,30 +105,39 @@ describe('TimeEntryNotificationsService', () => {
     expect(jobs.enqueueMany).not.toHaveBeenCalled();
   });
 
-  it('plans the moved notices once, saving each approver’s text with their DM job', async () => {
-    service.onModuleInit();
-    const plan = jobs.define.mock.calls.find(
-      ([name]) => name === PLAN_MOVED_JOB,
-    )?.[1] as (payload: object) => Promise<void>;
-    findMovedByAbsence.mockResolvedValue([
-      {
-        approver: { id: 'hr' },
-        groups: [
-          {
-            teamName: 'Design',
-            away: [{ slackId: 'UMIA', until: '2026-06-24' }],
-            count: 2,
-          },
-          {
-            teamName: null,
-            away: [{ slackId: 'UMIA', until: '2026-06-24' }],
-            count: 1,
-          },
-        ],
-      },
-    ]);
+  const movedToHr = [
+    {
+      approver: { id: 'hr' },
+      groups: [
+        {
+          teamName: 'Design',
+          away: [{ slackId: 'UMIA', until: '2026-06-24' }],
+          count: 2,
+        },
+        {
+          teamName: null,
+          away: [{ slackId: 'UMIA', until: '2026-06-24' }],
+          count: 1,
+        },
+      ],
+    },
+  ];
 
-    await plan({ slackTeamId: SLACK_TEAM_ID, date: '2026-06-18' });
+  const handlerOf = (name: string) => {
+    service.onModuleInit();
+
+    return jobs.define.mock.calls.find(
+      ([jobName]) => jobName === name,
+    )?.[1] as (payload: object) => Promise<void>;
+  };
+
+  it('plans the moved notices once, saving a DM job of IDs per approver', async () => {
+    findMovedByAbsence.mockResolvedValue(movedToHr);
+
+    await handlerOf(PLAN_MOVED_JOB)({
+      slackTeamId: SLACK_TEAM_ID,
+      date: '2026-06-18',
+    });
 
     expect(findMovedByAbsence).toHaveBeenCalledWith(
       SLACK_TEAM_ID,
@@ -136,14 +145,71 @@ describe('TimeEntryNotificationsService', () => {
     );
     expect(jobs.enqueueMany).toHaveBeenCalledTimes(1);
     expect(jobs.enqueueMany).toHaveBeenCalledWith(NOTIFY_MOVED_JOB, [
-      {
+      { slackTeamId: SLACK_TEAM_ID, approverId: 'hr', date: '2026-06-18' },
+    ]);
+  });
+
+  describe('the moved notice', () => {
+    let postMessage: jest.Mock;
+    let findOne: jest.Mock;
+
+    beforeEach(() => {
+      postMessage = jest.fn().mockResolvedValue(undefined);
+      findOne = jest.fn().mockResolvedValue({ id: 'hr', slack_id: 'UHR' });
+      service = new TimeEntryNotificationsService(
+        { postMessage } as unknown as SlackCommunicationService,
+        {} as TimeEntriesService,
+        {
+          groupByApprover,
+          findMovedByAbsence,
+        } as unknown as TimeEntryApprovalsService,
+        { findOne } as unknown as UsersService,
+        jobs as unknown as JobsService,
+      );
+    });
+
+    const send = () =>
+      handlerOf(NOTIFY_MOVED_JOB)({
         slackTeamId: SLACK_TEAM_ID,
         approverId: 'hr',
-        text: [
-          '<@UMIA> is on time off until 24 Jun 2026: 2 time entries of Design now wait for you in Approvals.',
-          '<@UMIA> is on time off until 24 Jun 2026: 1 time entry of people in no team now waits for you in Approvals.',
-        ].join('\n'),
-      },
-    ]);
+        date: '2026-06-18',
+      });
+
+    it('tells what still waits for the approver when it runs', async () => {
+      findMovedByAbsence.mockResolvedValue(movedToHr);
+
+      await send();
+
+      expect(findMovedByAbsence).toHaveBeenCalledWith(
+        SLACK_TEAM_ID,
+        '2026-06-18',
+      );
+      expect(postMessage).toHaveBeenCalledWith(
+        'UHR',
+        {
+          text: [
+            '<@UMIA> is on time off until 24 Jun 2026: 2 time entries of Design now wait for you in Approvals.',
+            '<@UMIA> is on time off until 24 Jun 2026: 1 time entry of people in no team now waits for you in Approvals.',
+          ].join('\n'),
+        },
+        SLACK_TEAM_ID,
+      );
+    });
+
+    it('sends nothing once the entries were decided', async () => {
+      await send();
+
+      expect(postMessage).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing to someone deactivated since', async () => {
+      findOne.mockResolvedValue(null);
+      findMovedByAbsence.mockResolvedValue(movedToHr);
+
+      await send();
+
+      expect(findMovedByAbsence).not.toHaveBeenCalled();
+      expect(postMessage).not.toHaveBeenCalled();
+    });
   });
 });

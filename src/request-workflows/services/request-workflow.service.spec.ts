@@ -471,6 +471,29 @@ describe('RequestWorkflowService', () => {
         'finish, in a transaction: true',
       ]);
     });
+
+    // Neither needs the request's lock: they don't hold it up.
+    it('reads who is away and the HR and admins on the pool, before the transaction', async () => {
+      const step = buildStep({ step_level: 2, rule: ApprovalRule.Any });
+      stepsService.findOneWithValidation.mockResolvedValue(step);
+      stepsService.findMany.mockResolvedValue([decided(step)]);
+      stepsService.decide.mockResolvedValue([step]);
+      const reads: boolean[] = [];
+      usersService.findAway.mockImplementation(() => {
+        reads.push(inTransaction);
+
+        return Promise.resolve(new Map());
+      });
+      usersService.findMany.mockImplementation(() => {
+        reads.push(inTransaction);
+
+        return Promise.resolve([]);
+      });
+
+      await service.approveStep(step.id, approver);
+
+      expect(reads).toEqual([false, false]);
+    });
   });
 
   describe('approveCurrentLevel', () => {

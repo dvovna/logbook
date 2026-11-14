@@ -391,18 +391,7 @@ export class TimeEntriesRepository extends BaseRepository<
     }[]
   > {
     const rows = await this.db
-      .selectFrom(
-        this.selectInWorkspace(slackTeamId)
-          .select([
-            'time_entries.team_id',
-            'time_entries.user_id',
-            (eb) => eb.fn.countAll<number>().as('entries'),
-          ])
-          .where('time_entries.status', '=', TimeEntryStatus.Submitted)
-          .where('time_entries.deleted_at', 'is', null)
-          .groupBy(['time_entries.team_id', 'time_entries.user_id'])
-          .as('waiting'),
-      )
+      .selectFrom(this.submittedGroups(slackTeamId).as('waiting'))
       .innerJoin('users as approver', (join) =>
         join.on(
           this.approves(

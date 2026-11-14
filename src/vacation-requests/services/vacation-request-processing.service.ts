@@ -256,6 +256,14 @@ export class VacationRequestProcessingService implements OnModuleInit {
         context: await this.buildContext(request),
       },
       levels: [],
+      // What moveOn needs, read here already: the workflow starts under the
+      // request's lock with no read of its own.
+      context: {
+        away,
+        hrAndAdmins: approvers.filter(
+          ({ role }) => role === UserRole.HR || role === UserRole.Admin,
+        ),
+      },
     };
 
     // Nobody approves their own request: a team lead who is one of the

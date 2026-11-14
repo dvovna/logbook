@@ -509,6 +509,8 @@ describe('Approvers who are away', () => {
       });
       const member = await workspace.addUser({ team_id: team.id });
       await requestVacation(t, workspace, member, workWeek(2));
+      // The workflow starts after the answer: the check finds it asked.
+      await t.idle();
       await workspace.addVacationRequest(manager, {
         start_date: '2026-06-18',
         end_date: '2026-06-24',

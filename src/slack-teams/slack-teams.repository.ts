@@ -250,6 +250,28 @@ export class SlackTeamsRepository extends BaseRepository<
     return rows.length > 0;
   }
 
+  // The installed workspaces whose check for approvers on time off hasn't
+  // run for `date` yet.
+  public async findAbsenceCheckDue(date: string): Promise<string[]> {
+    const rows = await this.failingWith(
+      'Failed to read the checks for approvers on time off',
+      () =>
+        this.db
+          .selectFrom('slack_teams')
+          .select('id')
+          .where('uninstalled_at', 'is', null)
+          .where((eb) =>
+            eb.or([
+              eb('absence_check_date', 'is', null),
+              eb('absence_check_date', '<', date),
+            ]),
+          )
+          .execute(),
+    );
+
+    return rows.map(({ id }) => id);
+  }
+
   // The same for the check for approvers on time off, which runs once a
   // UTC day.
   public async claimAbsenceCheck(id: string, date: string): Promise<boolean> {
