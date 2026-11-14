@@ -110,6 +110,45 @@ describe('Approver reminders', () => {
     expect(await remindedTexts(manager, since)).toHaveLength(1);
   });
 
+  it('counts how long an entry waited from when it was submitted, which an edit leaves alone', async () => {
+    const entry = await submittedEntry(member, THREE_DAYS_AGO);
+    // HR fixes its description today, without deciding it.
+    await t.db
+      .updateTable('time_entries')
+      .set({ description: 'Fixed', updated_at: new Date().toISOString() })
+      .where('id', '=', entry.id)
+      .execute();
+    const since = t.slackApi.mark();
+
+    await reminders().remindAll(new Date());
+
+    expect(await remindedTexts(manager, since)).toEqual([
+      expect.stringContaining(
+        '• 1 time entry of 1 person, the oldest since 14 Jun 2026',
+      ),
+    ]);
+
+    // Rejected and submitted again yesterday: it waits from then.
+    for (const status of [
+      TimeEntryStatus.Rejected,
+      TimeEntryStatus.Submitted,
+    ]) {
+      await t.db
+        .updateTable('time_entries')
+        .set({ status, updated_at: '2026-06-16T09:00:00.000Z' })
+        .where('id', '=', entry.id)
+        .execute();
+    }
+    await t.db
+      .updateTable('slack_teams')
+      .set({ approver_reminder_week: null })
+      .where('id', '=', workspace.id)
+      .execute();
+
+    expect(await reminders().remindAll(new Date())).toBe(0);
+    expect(await remindedTexts(manager, since)).toHaveLength(1);
+  });
+
   it('reminds whom the entries of someone in no team wait for: the admins when nobody has the HR role', async () => {
     const loner = await workspace.addUser({ name: 'Lou' });
     await submittedEntry(loner, THREE_DAYS_AGO);

@@ -1421,6 +1421,7 @@ export type Database = {
           rejection_reason: string | null;
           slack_team_id: string;
           status: string;
+          submitted_at: string | null;
           team_id: string | null;
           updated_at: string;
           updated_by: string;
@@ -1443,6 +1444,7 @@ export type Database = {
           rejection_reason?: string | null;
           slack_team_id: string;
           status?: string;
+          submitted_at?: string | null;
           team_id?: string | null;
           updated_at?: string;
           updated_by: string;
@@ -1464,6 +1466,7 @@ export type Database = {
           rejection_reason?: string | null;
           slack_team_id?: string;
           status?: string;
+          submitted_at?: string | null;
           team_id?: string | null;
           updated_at?: string;
           updated_by?: string;

@@ -16,12 +16,10 @@ import { personLabel } from '@modules/slack/common/views/data/labels';
 import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { IStuckStep } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
 import { IStuckEntryGroup } from 'src/time-entries/repositories/time-entries.repository';
-import { currentWeekStart } from '@common/utils/period-presets';
 import { runPeriodically } from '@common/utils/periodic.utils';
 import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import {
-  dailyReminderDay,
-  REMIND_FROM_HOUR_UTC,
+  dueReminders,
   weeklyReminderGroups,
 } from 'src/time-entries/utils/time-reminder-schedule';
 import { TransactionService } from 'src/database/transaction.service';
@@ -49,6 +47,10 @@ const TICK_MS = 10 * 60 * 1000;
 const FIRST_TICK_AFTER_MS = 5 * 60 * 1000;
 const REMINDERS_PER_SECOND = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// How long the jobs of one run share their workspace's read of what is
+// stuck: they go out REMINDERS_PER_SECOND, and each HR person's would read
+// the same.
+const STUCK_READ_TTL_MS = 60 * 1000;
 
 interface IRemindApproverJob {
   slackTeamId: string;
@@ -56,8 +58,8 @@ interface IRemindApproverJob {
   // ISO timestamp: what has waited since before it is reminded of.
   waitedBefore: string;
   // ISO timestamp: what has waited for others since before it is listed for
-  // HR (or the admins). A job saved before it existed lists nothing.
-  stuckBefore?: string;
+  // HR (or the admins).
+  stuckBefore: string;
 }
 
 interface IStuckLine {
@@ -65,19 +67,30 @@ interface IStuckLine {
   text: string;
 }
 
+interface IStuckRead {
+  overseerIds: Set<string>;
+  steps: IStuckStep[];
+  entries: IStuckEntryGroup[];
+}
+
 // Reminds approvers of the time off steps and submitted time entries that
 // have waited for their decision for APPROVER_REMINDER_AFTER_DAYS or more,
 // and HR (or the admins, see STUCK_AFTER_DAYS) of what has waited for
-// others for STUCK_AFTER_DAYS or more, in one DM, as often as each chose in Home → 🔔 Reminders (the choice that
-// also sets the reminder of their own unsubmitted time), from 09:00 UTC.
-// What waits for whom is the Approvals count's rule. A workspace claims the
-// week or the day (slack_teams.approver_reminder_week/day) in the
-// transaction that saves the messages' jobs, as TimeEntryRemindersService
-// does, so a restart or a second process sends nothing more.
+// others for STUCK_AFTER_DAYS or more, in one DM, as often as each chose in
+// Home → 🔔 Reminders (the choice that also sets the reminder of their own
+// unsubmitted time), from 09:00 UTC. What waits for whom is the Approvals
+// count's rule. A workspace claims the week or the day
+// (slack_teams.approver_reminder_week/day) in the transaction that saves the
+// messages' jobs, as TimeEntryRemindersService does, so a restart or a
+// second process sends nothing more.
 @Injectable()
 export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ApproverRemindersService.name);
   private stopTimers?: () => void;
+  private readonly stuckReads = new Map<
+    string,
+    { readAt: number; read: Promise<IStuckRead> }
+  >();
 
   public constructor(
     private readonly slackTeamsService: SlackTeamsService,
@@ -106,114 +119,127 @@ export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
     this.stopTimers?.();
   }
 
-  // Every installed workspace, once a reminder is due. Returns how many
-  // approvers it reminds.
+  // Every installed workspace whose reminder is due and not sent yet.
+  // Returns how many approvers it reminds.
   public async remindAll(now = new Date()): Promise<number> {
-    const monday = currentWeekStart(now);
-    const weekDueFrom = new Date(`${monday}T00:00:00Z`);
+    const due = dueReminders(now);
 
-    weekDueFrom.setUTCHours(REMIND_FROM_HOUR_UTC);
-
-    const weekDue = now >= weekDueFrom;
-    const day = dailyReminderDay(now);
-
-    if (!weekDue && !day) {
+    if (!due) {
       return 0;
     }
 
     let reminded = 0;
 
-    for (const slackTeamId of await this.slackTeamsService.findInstalledIds()) {
+    for (const workspace of await this.slackTeamsService.findApproverRemindersDue(
+      due.monday,
+      due.day,
+    )) {
       // One workspace failing leaves its week or day unclaimed for the next
       // tick, and the others still get theirs.
       try {
-        if (weekDue) {
-          reminded += await this.remindWorkspace(
-            slackTeamId,
-            () =>
-              this.slackTeamsService.claimApproverReminderWeek(
-                slackTeamId,
-                monday,
-              ),
-            weeklyReminderGroups(monday),
-            now,
-          );
-        }
-
-        if (day) {
-          reminded += await this.remindWorkspace(
-            slackTeamId,
-            () =>
-              this.slackTeamsService.claimApproverReminderDay(slackTeamId, day),
-            [TimeReminder.Daily],
-            now,
-          );
-        }
+        reminded += await this.remindWorkspace(workspace.id, {
+          monday: workspace.week ? due.monday : null,
+          day: workspace.day ? due.day : null,
+          now,
+        });
       } catch (error) {
         this.logger.error(
-          `Could not remind approvers of workspace ${slackTeamId}: ${(error as Error).message}`,
+          `Could not remind approvers of workspace ${workspace.id}: ${(error as Error).message}`,
           (error as Error).stack,
         );
-        reportError(error, { task: 'remind approvers', slackTeamId });
+        reportError(error, {
+          task: 'remind approvers',
+          slackTeamId: workspace.id,
+        });
       }
     }
 
     return reminded;
   }
 
-  private remindWorkspace(
+  // The week's reminder (`monday`) and the day's (`day`) of one workspace,
+  // from one read of whom they go to. The reads go on the pool, at once, and
+  // each claim with its jobs is a transaction of its own after them: one
+  // that another process claimed meanwhile saves nothing.
+  private async remindWorkspace(
     slackTeamId: string,
-    claim: () => Promise<boolean>,
-    reminders: TimeReminder[],
-    now: Date,
+    {
+      monday,
+      day,
+      now,
+    }: { monday: string | null; day: string | null; now: Date },
   ): Promise<number> {
     const waitedBefore = daysBefore(now, APPROVER_REMINDER_AFTER_DAYS);
     const stuckBefore = daysBefore(now, STUCK_AFTER_DAYS);
+    const runs: { claim: () => Promise<boolean>; reminders: TimeReminder[] }[] =
+      [];
 
-    return this.transactions.transaction(async () => {
-      if (!(await claim())) {
-        return 0;
-      }
+    if (monday) {
+      runs.push({
+        claim: () =>
+          this.slackTeamsService.claimApproverReminderWeek(slackTeamId, monday),
+        reminders: weeklyReminderGroups(monday),
+      });
+    }
 
-      const ids =
-        await this.timeEntryApprovalsService.findApproversWaitingSince(
-          slackTeamId,
-          waitedBefore,
-        );
-      const slackIds =
-        await this.requestWorkflowStepsService.findApproversWaitingSince(
-          slackTeamId,
-          waitedBefore,
-        );
+    if (day) {
+      runs.push({
+        claim: () =>
+          this.slackTeamsService.claimApproverReminderDay(slackTeamId, day),
+        reminders: [TimeReminder.Daily],
+      });
+    }
 
-      if (!ids.length && !slackIds.length) {
-        return 0;
-      }
-
-      // Nothing waited STUCK_AFTER_DAYS if nothing waited less: HR's jobs
-      // look for it only then, and find out themselves.
-      const overseers = (await this.overseersOf(slackTeamId)).map(
-        ({ id }) => id,
-      );
-      const recipients = await this.usersService.findActiveWithReminder(
+    const [ids, slackIds, overseers] = await Promise.all([
+      this.timeEntryApprovalsService.findApproversWaitingSince(
         slackTeamId,
-        { ids: [...ids, ...overseers], slackIds },
-        reminders,
-      );
+        waitedBefore,
+      ),
+      this.requestWorkflowStepsService.findApproversWaitingSince(
+        slackTeamId,
+        waitedBefore,
+      ),
+      this.overseersOf(slackTeamId),
+    ]);
+    // Nothing waited STUCK_AFTER_DAYS if nothing waited less: HR's jobs look
+    // for it only then, and find out themselves.
+    const people =
+      ids.length || slackIds.length
+        ? await this.usersService.findActiveWithReminder(
+            slackTeamId,
+            { ids: [...ids, ...overseers.map(({ id }) => id)], slackIds },
+            runs.flatMap(({ reminders }) => reminders),
+          )
+        : [];
+    let reminded = 0;
 
-      await this.jobs.enqueueMany<IRemindApproverJob>(
-        REMIND_APPROVER_JOB,
-        recipients.map(({ id }) => ({
-          slackTeamId,
-          userId: id,
-          waitedBefore: waitedBefore.toISOString(),
-          stuckBefore: stuckBefore.toISOString(),
-        })),
-        { perSecond: REMINDERS_PER_SECOND },
-      );
+    // Claimed even when nobody is reminded, so the next ticks read nothing.
+    for (const { claim, reminders } of runs) {
+      reminded += await this.transactions.transaction(async () => {
+        if (!(await claim())) {
+          return 0;
+        }
 
-      return recipients.length;
-    });
+        const recipients = people.filter(({ time_reminder }) =>
+          reminders.includes(time_reminder),
+        );
+
+        await this.jobs.enqueueMany<IRemindApproverJob>(
+          REMIND_APPROVER_JOB,
+          recipients.map(({ id }) => ({
+            slackTeamId,
+            userId: id,
+            waitedBefore: waitedBefore.toISOString(),
+            stuckBefore: stuckBefore.toISOString(),
+          })),
+          { perSecond: REMINDERS_PER_SECOND },
+        );
+
+        return recipients.length;
+      });
+    }
+
+    return reminded;
   }
 
   // Everyone active with the HR role, else every active admin.
@@ -245,7 +271,7 @@ export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
     const [timeOff, timeEntries, stuck] = await Promise.all([
       this.requestWorkflowStepsService.summarizeWaitingSince(user, before),
       this.timeEntryApprovalsService.summarizeWaitingSince(user, before),
-      stuckBefore ? this.stuckFor(user, new Date(stuckBefore)) : [],
+      this.stuckFor(user, stuckBefore),
     ]);
 
     if (!timeOff.count && !timeEntries.count && !stuck.length) {
@@ -283,37 +309,69 @@ export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  // What has waited for others since before `before`, oldest first, when
-  // the user is whom a level with nobody else goes to (see overseersOf);
-  // what waits for the user, or is their own, is left out.
+  // What has waited for others since before `stuckBefore`, oldest first,
+  // when the user is whom a level with nobody else goes to (see
+  // overseersOf); what waits for the user, or is their own, is left out.
   private async stuckFor(
     user: IUserViewModel,
-    before: Date,
+    stuckBefore: string,
   ): Promise<IStuckLine[]> {
     if (user.role !== UserRole.HR && user.role !== UserRole.Admin) {
       return [];
     }
 
-    if (
-      user.role === UserRole.Admin &&
-      !(await this.overseersOf(user.slack_team_id)).some(
-        ({ id }) => id === user.id,
-      )
-    ) {
+    const { overseerIds, steps, entries } = await this.readStuck(
+      user.slack_team_id,
+      stuckBefore,
+    );
+
+    if (!overseerIds.has(user.id)) {
       return [];
     }
-
-    const [steps, entries] = await Promise.all([
-      this.requestWorkflowStepsService.findStuckSince(
-        user.slack_team_id,
-        before,
-      ),
-      this.timeEntryApprovalsService.findStuckSince(user.slack_team_id, before),
-    ]);
 
     return [...stuckRequests(steps, user), ...stuckEntries(entries, user)].sort(
       (a, b) => a.since.localeCompare(b.since),
     );
+  }
+
+  // The overseers and what is stuck, read once for the jobs of one run of a
+  // workspace (they share `stuckBefore`) and kept STUCK_READ_TTL_MS: a retry
+  // minutes later reads again.
+  private readStuck(
+    slackTeamId: string,
+    stuckBefore: string,
+  ): Promise<IStuckRead> {
+    const now = Date.now();
+
+    for (const [key, { readAt }] of this.stuckReads) {
+      if (now - readAt > STUCK_READ_TTL_MS) {
+        this.stuckReads.delete(key);
+      }
+    }
+
+    const key = `${slackTeamId}:${stuckBefore}`;
+    const cached = this.stuckReads.get(key);
+
+    if (cached) {
+      return cached.read;
+    }
+
+    const before = new Date(stuckBefore);
+    const read = Promise.all([
+      this.overseersOf(slackTeamId),
+      this.requestWorkflowStepsService.findStuckSince(slackTeamId, before),
+      this.timeEntryApprovalsService.findStuckSince(slackTeamId, before),
+    ]).then(([overseers, steps, entries]) => ({
+      overseerIds: new Set(overseers.map(({ id }) => id)),
+      steps,
+      entries,
+    }));
+
+    this.stuckReads.set(key, { readAt: now, read });
+    // A failed read isn't kept: the job's retry reads again.
+    read.catch(() => this.stuckReads.delete(key));
+
+    return read;
   }
 }
 

@@ -158,8 +158,11 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
     slackUserId: string,
     before: Date,
   ): Promise<{ count: number; oldest: string | null }> {
-    const { count, oldest } = await this.waitingFor(slackTeamId, slackUserId)
-      .where('processed_at', '<', before.toISOString())
+    const { count, oldest } = await this.waitingFor(
+      slackTeamId,
+      slackUserId,
+      before,
+    )
       .select((eb) => [
         eb.fn.countAll<number>().as('count'),
         eb.fn.min('processed_at').as('oldest'),
@@ -169,18 +172,12 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
     return { count: Number(count), oldest: (oldest as string | null) ?? null };
   }
 
-  // The approvers with an open step asked before `before`, but of their own
-  // request (as waitingFor).
+  // The approvers of the open steps asked before `before` (openSteps).
   public async findApproversWaitingSince(
     slackTeamId: string,
     before: Date,
   ): Promise<string[]> {
-    const rows = await this.selectInWorkspace(slackTeamId)
-      .where('processed_at', '<', before.toISOString())
-      .where('completed_at', 'is', null)
-      .where(
-        sql<boolean>`"step_data" -> 'snapshot' ->> 'slack_user_id' is distinct from "slack_user_id"`,
-      )
+    const rows = await this.openSteps(slackTeamId, before)
       .select('slack_user_id')
       .distinct()
       .execute();
@@ -190,14 +187,14 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
     );
   }
 
-  // The open steps asked before `before`, but those of their approver's own
-  // request, with the request, its requester and the approver: what HR may
-  // decide for an approver who is away.
+  // The open steps asked before `before` (openSteps), with the request, its
+  // requester and the approver: what HR may decide for an approver who is
+  // away.
   public async findStuckSince(
     slackTeamId: string,
     before: Date,
   ): Promise<IStuckStep[]> {
-    return this.selectInWorkspace(slackTeamId)
+    return this.openSteps(slackTeamId, before)
       .innerJoin(
         'vacation_requests as request',
         'request.id',
@@ -217,11 +214,6 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
             'request_workflow_steps.slack_team_id',
           ),
       )
-      .where('request_workflow_steps.processed_at', '<', before.toISOString())
-      .where('request_workflow_steps.completed_at', 'is', null)
-      .where(
-        sql<boolean>`"request_workflow_steps"."step_data" -> 'snapshot' ->> 'slack_user_id' is distinct from "request_workflow_steps"."slack_user_id"`,
-      )
       .select([
         'request.id as request_id',
         'request.start_date',
@@ -238,13 +230,37 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
       .execute() as Promise<IStuckStep[]>;
   }
 
-  private waitingFor(slackTeamId: string, slackUserId: string) {
+  // The open steps that wait for `slackUserId` (asked before
+  // `askedBefore`, when given).
+  private waitingFor(
+    slackTeamId: string,
+    slackUserId: string,
+    askedBefore?: Date,
+  ) {
+    return this.openSteps(slackTeamId, askedBefore).where(
+      'request_workflow_steps.slack_user_id',
+      '=',
+      slackUserId,
+    );
+  }
+
+  // The steps whose approver was asked (before `askedBefore`, when given)
+  // and hasn't decided, but those of the approver's own request: what waits
+  // for an approver, the one rule of the Approvals count, the inbox and the
+  // reminders.
+  private openSteps(slackTeamId: string, askedBefore?: Date) {
     return this.selectInWorkspace(slackTeamId)
-      .where('slack_user_id', '=', slackUserId)
-      .where('processed_at', 'is not', null)
-      .where('completed_at', 'is', null)
+      .where('request_workflow_steps.processed_at', 'is not', null)
+      .where('request_workflow_steps.completed_at', 'is', null)
       .where(
-        sql<boolean>`"step_data" -> 'snapshot' ->> 'slack_user_id' is distinct from ${slackUserId}`,
+        sql<boolean>`"request_workflow_steps"."step_data" -> 'snapshot' ->> 'slack_user_id' is distinct from "request_workflow_steps"."slack_user_id"`,
+      )
+      .$if(!!askedBefore, (query) =>
+        query.where(
+          'request_workflow_steps.processed_at',
+          '<',
+          askedBefore!.toISOString(),
+        ),
       );
   }
 }
