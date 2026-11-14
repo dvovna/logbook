@@ -11,6 +11,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 import { MANAGER_ROLES } from 'src/common/constants/role-groups';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
+import { todayIso } from 'src/common/utils/period-presets';
 
 const admin: IUserViewModel = {
   id: 'admin-1',
@@ -209,10 +210,12 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
         expect(repository.countWaitingFor).toHaveBeenCalledWith(
           SLACK_TEAM_ID,
           approver.id,
+          todayIso(),
         );
         expect(repository.findWaitingFor).toHaveBeenCalledWith(
           SLACK_TEAM_ID,
           approver.id,
+          todayIso(),
           { limit: 10, offset: 10 },
         );
         expect(listQuery.execute).not.toHaveBeenCalled();
@@ -224,6 +227,11 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
 
         await service.approve(approver);
 
+        expect(repository.findWaitingIds).toHaveBeenCalledWith(
+          SLACK_TEAM_ID,
+          approver.id,
+          todayIso(),
+        );
         expect(repository.updateMany).toHaveBeenCalledWith(
           {
             ...pendingFilter(approver),
@@ -255,10 +263,12 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
       { approver: manager, entries: [entries[0]] },
       { approver: hr, entries: [entries[1], entries[0]] },
     ]);
-    expect(repository.findApproverIds).toHaveBeenCalledWith(SLACK_TEAM_ID, [
-      'entry-1',
-      'entry-2',
-    ]);
+    expect(repository.findApproverIds).toHaveBeenCalledWith(
+      SLACK_TEAM_ID,
+      ['entry-1', 'entry-2'],
+      todayIso(),
+      'told',
+    );
     expect(usersService.findMany).toHaveBeenCalledWith({
       slackTeamId: SLACK_TEAM_ID,
       roles: [...MANAGER_ROLES],

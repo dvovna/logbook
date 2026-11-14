@@ -81,7 +81,11 @@ describe('TimeEntriesRepository', () => {
     ]);
 
     await expect(
-      new TimeEntriesRepository(database).countWaitingFor('w1', 'u1'),
+      new TimeEntriesRepository(database).countWaitingFor(
+        'w1',
+        'u1',
+        '2026-06-17',
+      ),
     ).resolves.toBe(12935);
     expect(sqlOf(0)).toMatch(
       /^select coalesce\(sum\("waiting"\."entries"\), 0\) as "count" from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null and "time_entries"\."user_id" != \$3 group by "time_entries"\."team_id", "time_entries"\."user_id" having exists \(select "approver"\."id" from "users" as "approver" where "approver"\."id" = \$4 and /,

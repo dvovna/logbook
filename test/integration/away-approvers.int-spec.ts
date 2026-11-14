@@ -9,7 +9,11 @@ import { UsersService } from '@modules/users/services/users.service';
 import { formatDateRange } from '@common/utils/date.utils';
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
-import { openAppHomeTab, openModalFrom } from './support/app-home';
+import { TimeEntryStatus } from 'src/time-entries/enums/time-entry-status.enum';
+import { ApprovalsTabActionId } from '@modules/slack/tabs/approvals/enums/approvals-tab-action-id.enum';
+import { HomeTabActionId } from '@modules/slack/tabs/home/views/home-tab.view';
+import { actOnTab, openAppHomeTab, openModalFrom } from './support/app-home';
+import { buttonText, listItems } from './support/tab-readers';
 import { textOf } from './support/block-kit';
 import { travelTo } from './support/clock';
 import { workWeek } from './support/dates';
@@ -550,6 +554,131 @@ describe('Approvers who are away', () => {
       expect(
         t.slackApi.postedMessages(workspace.token, hr.slack_id),
       ).toHaveLength(1);
+    });
+  });
+
+  describe('time entries', () => {
+    let manager: Tables<'users'>;
+    let hr: Tables<'users'>;
+    let member: Tables<'users'>;
+    let design: Tables<'teams'>;
+    let website: Tables<'projects'>;
+
+    beforeEach(async () => {
+      manager = await workspace.addUser({
+        role: UserRole.Manager,
+        name: 'Mia Manager',
+      });
+      hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+      design = await workspace.addTeam({
+        name: 'Design',
+        manager_approvers: [manager.slack_id],
+      });
+      member = await workspace.addUser({
+        team_id: design.id,
+        name: 'Max Member',
+      });
+      website = await workspace.addProject({ name: 'Website' });
+    });
+
+    const goAway = (
+      person: Tables<'users'>,
+      start = '2026-06-15',
+      end = '2026-06-19',
+    ) =>
+      workspace.addVacationRequest(person, {
+        start_date: start,
+        end_date: end,
+      });
+
+    const submitted = (owner: Tables<'users'>) =>
+      workspace.addTimeEntry(owner, website, {
+        status: TimeEntryStatus.Submitted,
+      });
+
+    const approvalsOf = async (user: Tables<'users'>) =>
+      buttonText(
+        await openAppHomeTab(t, workspace, user),
+        NavigationActionId.Approvals,
+      );
+
+    it('shows a submitted entry to HR while the team’s manager is away, and takes it back when they return', async () => {
+      await goAway(manager);
+      await submitted(member);
+
+      expect(await approvalsOf(hr)).toBe('✅ Approvals (1)');
+      expect(await approvalsOf(manager)).toBe('✅ Approvals (1)');
+      const inbox = await openAppHomeTab(t, workspace, hr, [
+        NavigationActionId.Approvals,
+      ]);
+      expect(listItems(inbox).map(({ title }) => title)).toEqual([
+        'Max Member',
+      ]);
+      expect(buttonText(inbox, ApprovalsTabActionId.ApproveAll)).toBe(
+        'Approve all (1)',
+      );
+
+      travelTo('2026-06-22');
+
+      expect(await approvalsOf(hr)).toBe('✅ Approvals');
+    });
+
+    it('keeps it with the managers while one of them is at work', async () => {
+      const other = await workspace.addUser({ role: UserRole.Manager });
+      await t.db
+        .updateTable('teams')
+        .set({ manager_approvers: [manager.slack_id, other.slack_id] })
+        .where('id', '=', design.id)
+        .execute();
+      await goAway(manager);
+      await submitted(member);
+
+      expect(await approvalsOf(hr)).toBe('✅ Approvals');
+    });
+
+    it('adds the admins while HR is away too', async () => {
+      const admin = await workspace.addUser({ role: UserRole.Admin });
+      await goAway(manager);
+      await goAway(hr);
+      await submitted(member);
+
+      expect(await approvalsOf(admin)).toBe('✅ Approvals (1)');
+    });
+
+    it('changes nothing when nobody who could decide is at work', async () => {
+      const admin = await workspace.addUser({ role: UserRole.Admin });
+      await goAway(manager);
+      await goAway(hr);
+      await goAway(admin);
+      await submitted(member);
+
+      expect(await approvalsOf(hr)).toBe('✅ Approvals');
+      expect(await approvalsOf(admin)).toBe('✅ Approvals');
+      expect(await approvalsOf(manager)).toBe('✅ Approvals (1)');
+    });
+
+    it('tells HR, not the away manager, of submitted time', async () => {
+      await goAway(manager);
+      await workspace.addTimeEntry(member, website);
+      const since = t.slackApi.mark();
+
+      await actOnTab(
+        t,
+        workspace,
+        member,
+        await openAppHomeTab(t, workspace, member),
+        HomeTabActionId.SubmitTimeEntries,
+      );
+      await t.idle();
+
+      const messagesTo = (user: Tables<'users'>) =>
+        t.slackApi
+          .postedMessages(workspace.token, user.slack_id, { since })
+          .map(({ text }) => text);
+      expect(messagesTo(hr)).toEqual([
+        expect.stringContaining('submitted *1 time entry*'),
+      ]);
+      expect(messagesTo(manager)).toEqual([]);
     });
   });
 });

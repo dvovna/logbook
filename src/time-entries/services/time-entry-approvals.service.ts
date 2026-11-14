@@ -13,6 +13,7 @@ import { TimeEntriesListQuery } from 'src/time-entries/queries/time-entries-list
 import { ITimeEntryListData } from 'src/time-entries/types/time-entries-list.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
+import { todayIso } from '@common/utils/period-presets';
 
 interface IApprovalScope {
   // The teams whose entries the user decides on; all teams when undefined.
@@ -35,6 +36,10 @@ interface IListPendingParams {
 //   those nobody else decides (no team, or no other active approving manager
 //   on it), which go to HR, or to the admins (as fallbackApprovers does for
 //   time off).
+// - While every approver of an entry is on time off, it waits for HR at work
+//   too (else the admins at work), and the away managers keep it; submitting
+//   tells only those at work. When nobody who could decide is at work,
+//   nothing changes.
 // What waits for whom is one rule in SQL (TimeEntriesRepository.approves),
 // for the count, the inbox, Approve all and the messages alike.
 @Injectable()
@@ -65,12 +70,20 @@ export class TimeEntryApprovalsService {
       return { items: [], totalCount: 0 };
     }
 
+    const today = todayIso();
+
     const [items, totalCount] = await Promise.all([
-      this.timeEntriesRepository.findWaitingFor(user.slack_team_id, user.id, {
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-      }),
-      this.timeEntriesRepository.countWaitingFor(user.slack_team_id, user.id),
+      this.timeEntriesRepository.findWaitingFor(
+        user.slack_team_id,
+        user.id,
+        today,
+        { limit: pageSize, offset: (page - 1) * pageSize },
+      ),
+      this.timeEntriesRepository.countWaitingFor(
+        user.slack_team_id,
+        user.id,
+        today,
+      ),
     ]);
 
     return { items, totalCount };
@@ -79,7 +92,11 @@ export class TimeEntryApprovalsService {
   // How many entries wait for the user (not all those they may decide on).
   public async countPending(user: IUserViewModel): Promise<number> {
     return approvesTime(user)
-      ? this.timeEntriesRepository.countWaitingFor(user.slack_team_id, user.id)
+      ? this.timeEntriesRepository.countWaitingFor(
+          user.slack_team_id,
+          user.id,
+          todayIso(),
+        )
       : 0;
   }
 
@@ -114,8 +131,8 @@ export class TimeEntryApprovalsService {
     return entry;
   }
 
-  // Each entry's approvers, grouped by approver: who is told when entries
-  // are submitted.
+  // Each entry's approvers at work, grouped by approver: who is told when
+  // entries are submitted.
   public async groupByApprover(
     entries: ITimeEntryViewModel[],
     slackTeamId: string,
@@ -129,6 +146,8 @@ export class TimeEntryApprovalsService {
       this.timeEntriesRepository.findApproverIds(
         slackTeamId,
         entries.map(({ id }) => id),
+        todayIso(),
+        'told',
       ),
       this.usersService.findMany({ slackTeamId, roles: [...MANAGER_ROLES] }),
     ]);
@@ -198,6 +217,7 @@ export class TimeEntryApprovalsService {
           ? await this.timeEntriesRepository.findWaitingIds(
               user.slack_team_id,
               user.id,
+              todayIso(),
             )
           : [],
       },
