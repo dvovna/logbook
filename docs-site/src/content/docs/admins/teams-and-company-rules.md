@@ -11,7 +11,7 @@ A team holds its people and its approvers, who decide its time off first. Everyt
 
 ## Teams
 
-Open **More** → **Teams**. Each team shows its rules (company or own), its vacation policy, its approvers and its members. When a team has no approvers at all, it says that its requests go to HR or the admins.
+Open **More** → **Teams**. Each team shows its rules (company or own), its vacation policy, its approvers and its members. When a team has no approvers at all, it says that its requests go to HR or the admins. Approvers who are on time off are skipped too, and a request whose approvers are all away goes to HR or the admins who are at work; see [Approve time off](/logbook/docs/approvers/approve-time-off/#when-an-approver-is-on-time-off).
 
 ### Create or edit a team
 

@@ -15,13 +15,17 @@ A submitted entry waits for the approvers of the team it was logged in (the owne
 2. Otherwise everyone with the HR role. This covers the entries of people in no team, of a team with no managers, and of the team's only manager.
 3. Otherwise, when nobody has the HR role, every admin.
 
-The owner is always left out. HR and admins may still decide anyone's entries; see [All pending entries](#all-pending-entries) below.
+The owner is always left out.
+
+While every approver of an entry's team is on time off, the entry also waits for HR (else the admins) who are at work. The away managers keep it in their list, and submitting tells only the people at work. It goes back to the managers when one of them returns. When nobody who could decide is at work, nothing changes. HR and admins may still decide anyone's entries; see [All pending entries](#all-pending-entries) below.
 
 Team approvers are set up in [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/). Submitting is described in [Submit time](/logbook/docs/everyone/submit-time/).
 
 ## The message you get
 
 When someone submits entries that wait for you, Logbook sends you a DM: who submitted how many entries, the hours, and the projects with the most time, and that they wait for you under **Approvals**. You get one message per person each time they submit.
+
+When the entries of a team start to wait for you because its managers are on time off, you get one DM on the managers' first day off, from 06:00 UTC: who is on time off until when, and how many entries of which team now wait for you. See [Notifications](/logbook/docs/reference/notifications/).
 
 ## The Approvals screen
 

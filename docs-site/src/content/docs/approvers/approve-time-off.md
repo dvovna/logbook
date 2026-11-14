@@ -49,6 +49,17 @@ When neither level has anyone who can decide (no team, no approvers, or the requ
 
 If there is nobody at all, the request stays pending and the requester is told that nobody can approve it yet. It goes for approval once someone can: when someone gets the Manager, HR or Admin role or is activated again, or a team's approvers or the company rules name someone new. It then goes where a new request would, and the requester is told where. Until then, HR or an admin can set its status with **Edit Request** on **All requests**.
 
+## When an approver is on time off
+
+An approver whose own time off is approved and covers today is skipped: Logbook doesn't ask them, and their step shows "⏭️ Skipped" with "on time off until" the last day, in the request's **View details**. Any approved time off counts, sick leave too.
+
+- When a level starts, its approvers who are away are left out. If someone else on the level is at work, they decide ("any one" or "all" as before). If everyone on the level is away, the level is skipped and the next one decides.
+- When the last level would be skipped, the request goes to HR instead (the HR people who are at work, else the admins who are), as one "any one" level named **HR approval** or **Admin approval**.
+- The same happens to a request that already waits: Logbook checks every day from 06:00 UTC, and at once when time off that covers today is approved. A skipped approver's message loses its buttons and says it went on.
+- The requester is told when the request goes to someone else because of it, and the next approvers' message says that a level was skipped and why.
+
+Nothing is skipped for nobody: when everyone who could decide is on time off too, the request waits for its approver as before. A request is never approved only because approvers were skipped. A step that was skipped isn't given back when the approver returns early.
+
 ## The Approvals screen
 
 **Approvals** in the navigation row shows how much waits for you: **Approvals (3)**. Home also says **Needs your attention** with an **Open Approvals** button.
