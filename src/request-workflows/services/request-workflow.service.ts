@@ -538,78 +538,92 @@ export class RequestWorkflowService {
       hrAndAdmins.filter((person) => !away.has(person.slack_id)),
       ownerId,
     );
-    const plan = planMoveOn({
-      steps,
-      waitingOn,
-      away,
-      fallbackAtWork: !!atWork,
-    });
-    const closed: IRequestWorkflowStepViewModel[] = [];
-
-    for (const own of plan.approveAs) {
-      const isAnyRule = own.step_data.rule === ApprovalRule.Any;
-
-      closed.push(
-        ...(await this.requestWorkflowStepsService.decide(
-          {
-            requestId,
-            slackTeamId,
-            ...(isAnyRule ? { stepLevel: own.step_level } : { stepId: own.id }),
-          },
-          RequestWorkflowStatus.Approved,
-          { slack_id: own.slack_user_id },
-        )),
-      );
-    }
-
     const skipped: IRequestWorkflowStepViewModel[] = [];
-
-    for (const step of plan.skip) {
-      const done = await this.requestWorkflowStepsService.skip(
-        step,
-        away.get(step.slack_user_id)!.until,
-      );
-
-      if (done) {
-        skipped.push(done);
-      }
-    }
-
-    closed.push(...skipped);
-
-    if (closed.length) {
-      await this.workflowStepProcessorService.updateStepMessages(closed);
-    }
-
-    const { next } = plan;
-
-    if (next.kind === 'wait') {
-      return;
-    }
-
-    if (next.kind === 'approve') {
-      await this.finishWorkflow({
-        requestId,
-        status: RequestWorkflowStatus.Approved,
-        slackTeamId,
-        approvedBy:
-          approvedBy?.id ??
-          (await this.latestApproverOf(steps, plan.approveAs, next.level)),
-        reviewComments: await this.requestWorkflowStepCommentsService.findMany({
-          requestId,
-          slackTeamId,
-        }),
-      });
-
-      return;
-    }
-
+    let run = steps;
+    let from = waitingOn;
+    let reportedAfter: number | null | undefined;
+    let fallbackMade = false;
     let askedLevel: number;
 
-    if (next.kind === 'ask') {
-      askedLevel = next.level;
-    } else {
-      const fallback = atWork ?? fallbackApprovers(hrAndAdmins, ownerId);
+    // A fallback level is planned again once made, as any level that opens:
+    // someone on it who approved this run already is approved as them (#90).
+    for (;;) {
+      const plan = planMoveOn({
+        steps: run,
+        waitingOn: from,
+        away,
+        fallbackAtWork: !fallbackMade && !!atWork,
+      });
+      const closed: IRequestWorkflowStepViewModel[] = [];
+
+      for (const own of plan.approveAs) {
+        const isAnyRule = own.step_data.rule === ApprovalRule.Any;
+
+        closed.push(
+          ...(await this.requestWorkflowStepsService.decide(
+            {
+              requestId,
+              slackTeamId,
+              ...(isAnyRule
+                ? { stepLevel: own.step_level }
+                : { stepId: own.id }),
+            },
+            RequestWorkflowStatus.Approved,
+            { slack_id: own.slack_user_id },
+          )),
+        );
+      }
+
+      for (const step of plan.skip) {
+        const done = await this.requestWorkflowStepsService.skip(
+          step,
+          away.get(step.slack_user_id)!.until,
+        );
+
+        if (done) {
+          skipped.push(done);
+          closed.push(done);
+        }
+      }
+
+      if (closed.length) {
+        await this.workflowStepProcessorService.updateStepMessages(closed);
+      }
+
+      const { next } = plan;
+
+      if (next.kind === 'wait') {
+        return;
+      }
+
+      if (next.kind === 'approve') {
+        await this.finishWorkflow({
+          requestId,
+          status: RequestWorkflowStatus.Approved,
+          slackTeamId,
+          approvedBy:
+            approvedBy?.id ??
+            (await this.latestApproverOf(run, plan.approveAs, next.level)),
+          reviewComments:
+            await this.requestWorkflowStepCommentsService.findMany({
+              requestId,
+              slackTeamId,
+            }),
+        });
+
+        return;
+      }
+
+      reportedAfter ??= next.after;
+
+      if (next.kind === 'ask') {
+        askedLevel = next.level;
+        break;
+      }
+
+      const fallback = !fallbackMade
+        ? (atWork ?? fallbackApprovers(hrAndAdmins, ownerId))
+        : null;
 
       if (!fallback) {
         this.logger.warn(
@@ -619,13 +633,12 @@ export class RequestWorkflowService {
         return;
       }
 
-      askedLevel = Math.max(...steps.map((step) => step.step_level)) + 1;
-
-      await this.requestWorkflowStepsService.createMany(
+      const highest = Math.max(...run.map((step) => step.step_level));
+      const created = await this.requestWorkflowStepsService.createMany(
         fallback.approvers.map(({ slack_id }) => ({
           requestId,
           slackUserId: slack_id,
-          stepLevel: askedLevel,
+          stepLevel: highest + 1,
           stepType: WorkflowStepType.Approver,
           slackTeamId,
           stepData: {
@@ -638,6 +651,11 @@ export class RequestWorkflowService {
           },
         })),
       );
+      const closedById = new Map(closed.map((step) => [step.id, step]));
+
+      run = [...run.map((step) => closedById.get(step.id) ?? step), ...created];
+      from = highest;
+      fallbackMade = true;
     }
 
     // Two approvers who complete a level at the same time both get here;
@@ -659,7 +677,7 @@ export class RequestWorkflowService {
         new VacationWorkflowLevelCompleted(
           requestId,
           slackTeamId,
-          next.after ?? waitingOn,
+          reportedAfter ?? waitingOn,
           askedLevel,
           skipped.map(({ id }) => id),
         ),

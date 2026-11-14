@@ -39,7 +39,7 @@ One rejection at any level rejects the request, also under "all". When a level i
 
 Logbook leaves out the requester, and anyone deactivated or without the Manager, HR or Admin role. A level with nobody left is skipped. Someone in no team has no team's approvers: their request starts at the company rules' second approval.
 
-If you approved for the team and you are also on the second approval, you aren't asked again: your second-approval step is approved as you. With "any one" that completes the second approval; with "all" the others still decide.
+If you approved for the team and you are also on the second approval, you aren't asked again: your second-approval step is approved as you. With "any one" that completes the second approval; with "all" the others still decide. The same goes for HR or admins who get a request because its approvers are on time off or can no longer decide: if you approved it already (for example with **Approve for Approvers**), it's approved as you instead of coming back to you.
 
 See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/) for how levels are set up.
 

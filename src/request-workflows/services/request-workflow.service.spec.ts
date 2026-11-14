@@ -728,6 +728,62 @@ describe('RequestWorkflowService', () => {
       );
     });
 
+    it('skipAway approves a fallback level for someone who approved the request already (#90)', async () => {
+      const awayHr = {
+        ...approver,
+        id: 'hr-1',
+        slack_id: 'U_HR',
+        role: UserRole.HR,
+      };
+      const hrAtWork = {
+        ...approver,
+        id: 'hr-2',
+        slack_id: 'U_HR_2',
+        role: UserRole.HR,
+      };
+      usersService.findAway.mockResolvedValue(
+        new Map([
+          [
+            'U_HR',
+            { userId: 'hr-1', since: '2026-06-15', until: '2026-06-24' },
+          ],
+        ]),
+      );
+      usersService.findMany.mockResolvedValue([awayHr, hrAtWork]);
+      usersService.findBySlackId.mockResolvedValue(hrAtWork);
+      // HR at work approved level 1 for its approvers.
+      stepsService.findMany.mockResolvedValue([
+        decided(buildStep({ id: 'step-1' }), 'U_HR_2'),
+        hrStep,
+      ]);
+      const fallbackStep = buildStep({
+        id: 'step-fallback',
+        slack_user_id: 'U_HR_2',
+        step_level: 3,
+      });
+      stepsService.createMany.mockResolvedValue([fallbackStep]);
+      stepsService.decide.mockResolvedValue([decided(fallbackStep, 'U_HR_2')]);
+
+      await service.skipAway(REQUEST_ID, SLACK_TEAM_ID);
+
+      expect(stepsService.decide).toHaveBeenCalledWith(
+        { requestId: REQUEST_ID, slackTeamId: SLACK_TEAM_ID, stepLevel: 3 },
+        RequestWorkflowStatus.Approved,
+        { slack_id: 'U_HR_2' },
+      );
+      expect(stepsService.claimUnprocessed).not.toHaveBeenCalled();
+      expect(processorService.processSteps).not.toHaveBeenCalled();
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationWorkflowEventEnum.Finished,
+        expect.objectContaining({
+          workflow: expect.objectContaining({
+            status: RequestWorkflowStatus.Approved,
+            approvedBy: 'hr-2',
+          }),
+        }),
+      );
+    });
+
     it('skipAway approves with the latest approval when the rest of the last level is away', async () => {
       usersService.findAway.mockResolvedValue(
         new Map([

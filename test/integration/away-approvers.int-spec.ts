@@ -442,6 +442,36 @@ describe('Approvers who are away', () => {
       });
       expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
     });
+
+    it('approves a fallback level at once for HR who approved the request already', async () => {
+      const awayHr = await workspace.addUser({ role: UserRole.HR });
+      await goAway(awayHr);
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [manager.slack_id],
+          hr_approvers: [awayHr.slack_id],
+          rule_set_id: null,
+        }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, manager);
+      const hrViewModel = await t.app
+        .get(UsersService)
+        .findBySlackId(hr.slack_id, workspace.id);
+
+      await t.app
+        .get(WorkflowDecisionsService)
+        .approveCurrentLevel(request.id, hrViewModel!);
+      await t.idle();
+
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      expect(t.slackApi.postedMessages(workspace.token, hr.slack_id)).toEqual(
+        [],
+      );
+      expect((await stepOf(awayHr))?.step_data).toMatchObject({
+        status: 'skipped',
+      });
+    });
   });
 
   describe('requests nobody on the team can approve', () => {
