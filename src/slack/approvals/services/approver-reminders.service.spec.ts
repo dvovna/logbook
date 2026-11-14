@@ -37,6 +37,7 @@ describe('ApproverRemindersService', () => {
     findApproversWaitingSince: jest.Mock;
     summarizeWaitingSince: jest.Mock;
     findStuckSince: jest.Mock;
+    findWaitingFor: jest.Mock;
   };
   let entries: {
     findApproversWaitingSince: jest.Mock;
@@ -81,6 +82,7 @@ describe('ApproverRemindersService', () => {
         .fn()
         .mockResolvedValue({ count: 2, oldest: '2026-06-03T10:00:00.000Z' }),
       findStuckSince: jest.fn().mockResolvedValue([]),
+      findWaitingFor: jest.fn().mockResolvedValue([]),
     };
     entries = {
       findApproversWaitingSince: jest.fn().mockResolvedValue(['u1']),
@@ -315,6 +317,88 @@ describe('ApproverRemindersService', () => {
 
     expect(steps.summarizeWaitingSince).not.toHaveBeenCalled();
     expect(slack.postMessage).not.toHaveBeenCalled();
+  });
+
+  // The day's absence check skips the step of an approver on time off
+  // whenever someone with the HR or Admin role other than the requester is
+  // at work; only the steps it won't skip are reminded of.
+  describe('an approver on time off', () => {
+    const away = new Map([
+      ['U1', { userId: 'u1', since: '2026-06-15', until: '2026-06-19' }],
+    ]);
+    const waitingStep = (ownerId: string) => ({
+      slack_user_id: 'U1',
+      processed_at: '2026-06-10T09:00:00.000000+00:00',
+      step_data: { snapshot: { user_id: ownerId } },
+    });
+    const noEntries = { count: 0, people: 0, oldest: null };
+
+    beforeEach(() => {
+      usersService.findAway.mockResolvedValue(away);
+      entries.summarizeWaitingSince.mockResolvedValue(noEntries);
+    });
+
+    const send = () =>
+      sendJob({
+        slackTeamId: 'w1',
+        userId: 'u1',
+        waitedBefore: TWO_DAYS_BEFORE,
+        stuckBefore: FIVE_DAYS_BEFORE,
+      });
+
+    it('is not reminded of a step HR at work will get', async () => {
+      steps.findWaitingFor.mockResolvedValue([waitingStep('mia')]);
+
+      await send();
+
+      expect(steps.summarizeWaitingSince).not.toHaveBeenCalled();
+      expect(slack.postMessage).not.toHaveBeenCalled();
+    });
+
+    it('is reminded of the request of the only HR person at work, whom no fallback level takes', async () => {
+      usersService.findMany.mockResolvedValue([
+        { id: 'hr1', slack_id: 'UHR', role: UserRole.HR },
+      ]);
+      steps.findWaitingFor.mockResolvedValue([waitingStep('hr1')]);
+
+      await send();
+
+      expect(slack.postMessage).toHaveBeenCalledWith(
+        'U1',
+        {
+          text: expect.stringContaining(
+            '• 1 time off request, the oldest since 10 Jun 2026',
+          ),
+        },
+        'w1',
+      );
+    });
+
+    it('is left out of the run only when every step of theirs is skipped', async () => {
+      steps.findApproversWaitingSince.mockResolvedValue(['U1']);
+      entries.findApproversWaitingSince.mockResolvedValue([]);
+      steps.findWaitingFor.mockResolvedValue([waitingStep('mia')]);
+
+      await service.remindAll(DUE);
+
+      expect(usersService.findActiveWithReminder).not.toHaveBeenCalled();
+
+      usersService.findMany.mockResolvedValue([
+        { id: 'hr1', slack_id: 'UHR', role: UserRole.HR },
+      ]);
+      steps.findWaitingFor.mockResolvedValue([waitingStep('hr1')]);
+      slackTeamsService.findApproverRemindersDue.mockResolvedValue([
+        { id: 'w1', week: true, day: false },
+      ]);
+
+      await service.remindAll(DUE);
+
+      expect(usersService.findActiveWithReminder).toHaveBeenCalledWith(
+        'w1',
+        { ids: ['hr1'], slackIds: ['U1'] },
+        [TimeReminder.Weekly],
+      );
+    });
   });
 
   describe('for HR', () => {

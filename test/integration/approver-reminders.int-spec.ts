@@ -265,6 +265,35 @@ describe('Approver reminders', () => {
     ]);
   });
 
+  // The day's check gives such a step to HR or the admins at work, never to
+  // its requester: with nobody else at work it stays with the manager.
+  it("reminds the manager on time off of the only HR person's request when nobody else could take it", async () => {
+    const hr = await workspace.addUser({
+      role: UserRole.HR,
+      name: 'Hana',
+      team_id: member.team_id,
+    });
+    const request = await requestVacation(t, workspace, hr, {
+      start: '2026-07-06',
+      end: '2026-07-07',
+    });
+    await t.idle();
+    await t.db
+      .updateTable('request_workflow_steps')
+      .set({ processed_at: THREE_DAYS_AGO })
+      .where('request_id', '=', request.id)
+      .execute();
+    await goAway(manager);
+    await goAway(admin);
+    const since = t.slackApi.mark();
+
+    await reminders().remindAll(new Date());
+
+    expect(await remindedTexts(manager, since)).toEqual([
+      expect.stringContaining('• 1 time off request'),
+    ]);
+  });
+
   it('tells HR, and not the admins, what has waited five days for someone else', async () => {
     const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana' });
     await waitingRequest('2026-06-10T09:00:00.000Z');
