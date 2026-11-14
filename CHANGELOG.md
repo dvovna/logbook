@@ -4,6 +4,21 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-14
+
+Approvers on time off are skipped, and approvers are reminded of what waits for them. Update step: three database migrations, see Running it.
+
+### Approvals
+- Approvers on time off are skipped. When a level of a vacation request starts, its approvers whose approved time off covers today aren't asked; the others on the level decide, a level with nobody at work is passed over, and when the last one would be, the request goes to HR at work, else the admins at work, as one "any one" level. A request is never approved only because approvers were skipped, and nothing is skipped when everyone who could decide is away.
+- A request that already waits moves on the same way: Logbook checks every day from 06:00 UTC, and at once when time off that covers today is approved. The skipped approver's message loses its buttons and says where the request went, the requester is told, and the request's details show the step as ⏭️ Skipped with the last day of the time off.
+- Submitted time entries also wait for HR at work, else the admins at work, while every manager of their team is on time off; the managers keep them, and submitting tells only the people at work. On the day the last manager goes on time off, the HR people (or admins) the entries move to get one direct message about them.
+- Approvers get a reminder of what has waited for their decision for two days or more: one direct message with the time off requests and the time entries still waiting and since when the oldest. It comes as often as each chose in Home → 🔔 Reminders, the choice that sets the reminder of their own unsubmitted time (every Monday unless changed), from 09:00 UTC, and not when nothing that old waits. What waits for whom is the Approvals count's rule.
+- HR, or the admins when nobody has the HR role, also find in that reminder what has waited for someone else for more than five days: each request and each person's time entries, with whom they wait for and since when, ten at most, so they can decide them for an approver who is away (Approvals → All pending requests and All pending entries).
+- Someone on time off isn't reminded while someone who could decide is at work: an approver isn't reminded of time off requests that HR or an admin at work will get (as of time entries already), and the list of what waits for others goes to the HR people at work, else the admins at work. A request whose only HR or admin at work is its own requester stays in the reminder of the approver on time off, since nobody else can take it.
+
+### Running it
+- Update step: three database migrations. `20261114090000_approver_reminders` adds two columns to `slack_teams`. `20261114150000_time_entries_submitted_at` adds `time_entries.submitted_at`, which a trigger sets when an entry becomes submitted, so an edit of a submitted entry doesn't restart how long it has waited; entries waiting now take it from their last change. `20261114160000_absence_check_date` adds `slack_teams.absence_check_date`, the day whose check for approvers on time off ran.
+
 ## [0.6.1] - 2026-11-13
 
 A clearer first setup, and lighter screens. Update step: one database migration, see Running it.
@@ -251,6 +266,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.7.0]: https://github.com/dvovna/logbook/releases/tag/v0.7.0
 [0.6.1]: https://github.com/dvovna/logbook/releases/tag/v0.6.1
 [0.6.0]: https://github.com/dvovna/logbook/releases/tag/v0.6.0
 [0.5.3]: https://github.com/dvovna/logbook/releases/tag/v0.5.3

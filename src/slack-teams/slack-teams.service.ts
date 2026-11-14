@@ -144,6 +144,51 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return this.slackTeamsRepository.claimReminderDay(id, day);
   }
 
+  // See SlackTeamsRepository.findAbsenceCheckDue.
+  public findAbsenceCheckDue(date: string): Promise<string[]> {
+    return this.slackTeamsRepository.findAbsenceCheckDue(date);
+  }
+
+  // See SlackTeamsRepository.claimAbsenceCheck.
+  public claimAbsenceCheck(id: string, date: string): Promise<boolean> {
+    return this.slackTeamsRepository.claimAbsenceCheck(id, date);
+  }
+
+  // The installed workspaces whose approvers' reminder of the week starting
+  // `monday`, or of `day`, hasn't gone out yet, with which: read before
+  // anything else, so that a tick that finds them all sent reads nothing
+  // more.
+  public async findApproverRemindersDue(
+    monday: string | null,
+    day: string | null,
+  ): Promise<{ id: string; week: boolean; day: boolean }[]> {
+    const workspaces =
+      await this.slackTeamsRepository.findApproverRemindersSent();
+    const unsent = (sent: string | null, due: string | null) =>
+      !!due && (!sent || sent < due);
+
+    return workspaces
+      .map((workspace) => ({
+        id: workspace.id,
+        week: unsent(workspace.approver_reminder_week, monday),
+        day: unsent(workspace.approver_reminder_day, day),
+      }))
+      .filter((workspace) => workspace.week || workspace.day);
+  }
+
+  // See SlackTeamsRepository.claimApproverReminderWeek.
+  public claimApproverReminderWeek(
+    id: string,
+    monday: string,
+  ): Promise<boolean> {
+    return this.slackTeamsRepository.claimApproverReminderWeek(id, monday);
+  }
+
+  // See SlackTeamsRepository.claimApproverReminderDay.
+  public claimApproverReminderDay(id: string, day: string): Promise<boolean> {
+    return this.slackTeamsRepository.claimApproverReminderDay(id, day);
+  }
+
   public async findUninstalledBefore(cutoff: Date): Promise<string[]> {
     const workspaces = await this.slackTeamsRepository.findMany({
       uninstalled_at: { operator: 'lt', value: cutoff.toISOString() },

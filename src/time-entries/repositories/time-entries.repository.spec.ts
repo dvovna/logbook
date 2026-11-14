@@ -81,15 +81,92 @@ describe('TimeEntriesRepository', () => {
     ]);
 
     await expect(
-      new TimeEntriesRepository(database).countWaitingFor('w1', 'u1'),
+      new TimeEntriesRepository(database).countWaitingFor(
+        'w1',
+        'u1',
+        '2026-06-17',
+      ),
     ).resolves.toBe(12935);
     expect(sqlOf(0)).toMatch(
-      /^select coalesce\(sum\("waiting"\."entries"\), 0\) as "count" from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null and "time_entries"\."user_id" != \$3 group by "time_entries"\."team_id", "time_entries"\."user_id" having exists \(select "approver"\."id" from "users" as "approver" where "approver"\."id" = \$4 and /,
+      /^select coalesce\(sum\("waiting"\."entries"\), 0\) as "count" from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries", sum\("time_entries"\."minutes"\) as "minutes", min\("time_entries"\."submitted_at"\) as "oldest" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null and "time_entries"\."user_id" != \$3 group by "time_entries"\."team_id", "time_entries"\."user_id" having exists \(select "approver"\."id" from "users" as "approver" where "approver"\."id" = \$4 and /,
     );
     expect(parametersOf(0).slice(0, 4)).toEqual([
       'w1',
       'submitted',
       'u1',
+      'u1',
+    ]);
+  });
+
+  it('finds who is told of entries among the workspace’s approving people, today bound as a parameter', async () => {
+    const { database, sqlOf, parametersOf } = recordingDatabase([[]]);
+
+    await new TimeEntriesRepository(database).findApproverIds(
+      'w1',
+      ['e1'],
+      '2026-06-17',
+    );
+
+    // The approving conditions come first and alone, so Postgres scans
+    // users by workspace and runs the rest only for its approving people.
+    expect(sqlOf(0)).toMatch(
+      /inner join "users" as "approver" on \("approver"\."slack_team_id" = \$1\s+and "approver"\."is_active"\s+and "approver"\."role" in \(\$2, \$3, \$4\)\s+and "approver"\."id" <> "time_entries"\."user_id" and case\s/,
+    );
+    expect(sqlOf(0)).not.toContain('2026-06-17');
+    expect(parametersOf(0)[0]).toBe('w1');
+    expect(parametersOf(0)).toContain('2026-06-17');
+  });
+
+  it.each(['told', 'listed'] as const)(
+    'finds the approvers (%s) of the submitted entries once a team and owner',
+    async (who) => {
+      const { database, sqlOf, parametersOf } = recordingDatabase([
+        [{ team_id: 't1', user_id: 'u1', entries: '3', approver_id: 'a1' }],
+      ]);
+
+      await expect(
+        new TimeEntriesRepository(database).findSubmittedGroupApprovers(
+          'w1',
+          '2026-06-17',
+          who,
+        ),
+      ).resolves.toEqual([
+        { team_id: 't1', user_id: 'u1', entries: 3, approver_id: 'a1' },
+      ]);
+
+      expect(sqlOf(0)).toMatch(
+        /from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries", sum\("time_entries"\."minutes"\) as "minutes", min\("time_entries"\."submitted_at"\) as "oldest" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null group by "time_entries"\."team_id", "time_entries"\."user_id"\) as "waiting" inner join "users" as "approver" on \("approver"\."slack_team_id" = \$3\s+and "approver"\."is_active"/,
+      );
+      expect(sqlOf(0)).not.toContain('2026-06-17');
+      expect(parametersOf(0).slice(0, 3)).toEqual(['w1', 'submitted', 'w1']);
+      expect(parametersOf(0).includes('2026-06-17')).toBe(who === 'told');
+    },
+  );
+
+  it('sums what has waited for an approver since before a moment with the same rule, in one row', async () => {
+    const { database, sqlOf, parametersOf } = recordingDatabase([
+      [{ count: 14, people: 3, oldest: '2026-06-05T08:00:00.000000+00:00' }],
+    ]);
+
+    await expect(
+      new TimeEntriesRepository(database).summarizeWaitingSince(
+        'w1',
+        'u1',
+        new Date('2026-06-13T09:00:00Z'),
+        '2026-06-17',
+      ),
+    ).resolves.toEqual({
+      count: 14,
+      people: 3,
+      oldest: '2026-06-05T08:00:00.000000+00:00',
+    });
+    expect(sqlOf(0)).toMatch(
+      /^select coalesce\(sum\("waiting"\."entries"\), 0\) as "count", count\(distinct "waiting"\."user_id"\) as "people", min\("waiting"\."oldest"\) as "oldest" from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries", sum\("time_entries"\."minutes"\) as "minutes", min\("time_entries"\."submitted_at"\) as "oldest" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null and "time_entries"\."submitted_at" < \$3 and "time_entries"\."user_id" != \$4 group by .* having exists /,
+    );
+    expect(parametersOf(0).slice(0, 4)).toEqual([
+      'w1',
+      'submitted',
+      '2026-06-13T09:00:00.000Z',
       'u1',
     ]);
   });

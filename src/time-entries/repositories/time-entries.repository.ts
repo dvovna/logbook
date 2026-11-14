@@ -24,6 +24,17 @@ import {
   IUserTimeSum,
   TimeReportCsvCursor,
 } from 'src/time-entries/types/time-report.types';
+import { onTimeOff } from '@modules/users/repositories/time-off-condition';
+
+// Which approvers of an entry approves() names (all worked out for `today`):
+// - 'listed': the team's active approving managers but the owner, else HR,
+//   else the admins, whether at work or not;
+// - 'inbox': the listed ones, and while none of them is at work also the
+//   fallback approvers who are (HR at work, else admins at work);
+// - 'told': who hears of submitted time: the listed ones at work, else the
+//   fallback ones at work, else (nobody who could decide is at work) the
+//   listed ones.
+export type EntryApprovers = 'listed' | 'inbox' | 'told';
 
 const dateOf = ({ work_date }: { work_date: string }) => work_date;
 
@@ -56,6 +67,19 @@ const REPORT_GROUPS: Record<
     name: sql`"tm"."name"`,
   },
 };
+
+export interface IStuckEntryGroup {
+  team_id: string | null;
+  owner_id: string;
+  owner_name: string;
+  owner_email: string | null;
+  entries: number;
+  minutes: number;
+  oldest: string;
+  approver_id: string | null;
+  approver_name: string | null;
+  approver_email: string | null;
+}
 
 @Injectable()
 export class TimeEntriesRepository extends BaseRepository<
@@ -129,6 +153,7 @@ export class TimeEntriesRepository extends BaseRepository<
       minutes: row.minutes,
       billable: row.billable,
       status: row.status as TimeEntryStatus,
+      submitted_at: row.submitted_at,
       project_id: row.project_id,
       vacation_request_id: row.vacation_request_id,
       created_at: row.created_at,
@@ -144,13 +169,127 @@ export class TimeEntriesRepository extends BaseRepository<
   public async countWaitingFor(
     slackTeamId: string,
     approverId: string,
+    today: string,
   ): Promise<number> {
     const { count } = await this.db
-      .selectFrom(this.waitingGroups(slackTeamId, approverId).as('waiting'))
+      .selectFrom(
+        this.waitingGroups(slackTeamId, approverId, { today }).as('waiting'),
+      )
       .select(sql<number>`coalesce(sum("waiting"."entries"), 0)`.as('count'))
       .executeTakeFirstOrThrow();
 
     return Number(count);
+  }
+
+  // How many submitted entries of how many people have waited for
+  // `approverId` since before `before` (submitted_at), and since when the
+  // oldest: those `approverId` is told of (see approves()), as
+  // findApproversWaitingSince picks whom to remind.
+  public async summarizeWaitingSince(
+    slackTeamId: string,
+    approverId: string,
+    before: Date,
+    today: string,
+  ): Promise<{ count: number; people: number; oldest: string | null }> {
+    const { count, people, oldest } = await this.db
+      .selectFrom(
+        this.waitingGroups(slackTeamId, approverId, {
+          today,
+          who: 'told',
+          submittedBefore: before,
+        }).as('waiting'),
+      )
+      .select([
+        sql<number>`coalesce(sum("waiting"."entries"), 0)`.as('count'),
+        sql<number>`count(distinct "waiting"."user_id")`.as('people'),
+        sql<string | null>`min("waiting"."oldest")`.as('oldest'),
+      ])
+      .executeTakeFirstOrThrow();
+
+    return {
+      count: Number(count),
+      people: Number(people),
+      oldest: oldest ?? null,
+    };
+  }
+
+  // The approvers told of the submitted entries that have waited since
+  // before `before` (see approves()): a manager on time off is reminded only
+  // when nobody who could decide is at work. The rule runs once a team and
+  // owner.
+  public async findApproversWaitingSince(
+    slackTeamId: string,
+    before: Date,
+    today: string,
+  ): Promise<string[]> {
+    const rows = await this.db
+      .selectFrom(this.submittedGroups(slackTeamId, before).as('waiting'))
+      .innerJoin('users as approver', (join) =>
+        join.on(
+          this.approves(
+            slackTeamId,
+            {
+              person: 'approver',
+              team: 'waiting.team_id',
+              owner: 'waiting.user_id',
+            },
+            { today, who: 'told' },
+          ),
+        ),
+      )
+      .select('approver.id')
+      .distinct()
+      .execute();
+
+    return rows.map(({ id }) => id);
+  }
+
+  // The submitted entries that have waited since before `before`, by team
+  // and owner, with each of the approvers told of them (see approves(), as
+  // summarizeWaitingSince, so that a group is either the reader's own or
+  // someone else's): one row a team, owner and approver; what HR may decide
+  // for an approver who is away.
+  public async findStuckSince(
+    slackTeamId: string,
+    before: Date,
+    today: string,
+  ): Promise<IStuckEntryGroup[]> {
+    const rows = await this.db
+      .selectFrom(this.submittedGroups(slackTeamId, before).as('waiting'))
+      .innerJoin('users as owner', 'owner.id', 'waiting.user_id')
+      .leftJoin('users as approver', (join) =>
+        join.on(
+          this.approves(
+            slackTeamId,
+            {
+              person: 'approver',
+              team: 'waiting.team_id',
+              owner: 'waiting.user_id',
+            },
+            { today, who: 'told' },
+          ),
+        ),
+      )
+      .select([
+        'waiting.team_id',
+        'waiting.user_id as owner_id',
+        'owner.name as owner_name',
+        'owner.email as owner_email',
+        'waiting.entries',
+        'waiting.minutes',
+        'waiting.oldest',
+        'approver.id as approver_id',
+        'approver.name as approver_name',
+        'approver.email as approver_email',
+      ])
+      .execute();
+
+    return rows.map((row) => ({
+      ...row,
+      entries: Number(row.entries),
+      minutes: Number(row.minutes),
+      oldest: row.oldest as string,
+    }));
   }
 
   // A page of the submitted entries that wait for `approverId` (see
@@ -158,9 +297,10 @@ export class TimeEntriesRepository extends BaseRepository<
   public async findWaitingFor(
     slackTeamId: string,
     approverId: string,
+    today: string,
     { limit, offset }: { limit: number; offset: number },
   ): Promise<ITimeEntryListItem[]> {
-    const rows = await this.waitingEntries(slackTeamId, approverId)
+    const rows = await this.waitingEntries(slackTeamId, approverId, today)
       .innerJoin('users', 'users.id', 'time_entries.user_id')
       .leftJoin('projects', 'projects.id', 'time_entries.project_id')
       .leftJoin('clients', 'clients.id', 'time_entries.client_id')
@@ -197,18 +337,20 @@ export class TimeEntriesRepository extends BaseRepository<
   public async findWaitingIds(
     slackTeamId: string,
     approverId: string,
+    today: string,
   ): Promise<string[]> {
-    const rows = await this.waitingEntries(slackTeamId, approverId)
+    const rows = await this.waitingEntries(slackTeamId, approverId, today)
       .select('time_entries.id')
       .execute();
 
     return rows.map(({ id }) => id);
   }
 
-  // Who each of the entries `ids` waits for (see approves()), as pairs.
+  // Who is told of each of the entries `ids` (see approves()), as pairs.
   public async findApproverIds(
     slackTeamId: string,
     ids: string[],
+    today: string,
   ): Promise<{ entry_id: string; approver_id: string }[]> {
     if (!ids.length) {
       return [];
@@ -217,16 +359,61 @@ export class TimeEntriesRepository extends BaseRepository<
     return this.selectInWorkspace(slackTeamId)
       .innerJoin('users as approver', (join) =>
         join.on(
-          this.approves(slackTeamId, {
-            person: 'approver',
-            team: 'time_entries.team_id',
-            owner: 'time_entries.user_id',
-          }),
+          this.approves(
+            slackTeamId,
+            {
+              person: 'approver',
+              team: 'time_entries.team_id',
+              owner: 'time_entries.user_id',
+            },
+            { today, who: 'told' },
+          ),
         ),
       )
       .select(['time_entries.id as entry_id', 'approver.id as approver_id'])
       .where(sql<boolean>`"time_entries"."id" = any(${ids}::uuid[])`)
       .execute();
+  }
+
+  // The workspace's submitted entries by team and owner, with each of their
+  // approvers `who` (see approves()): one row a team, owner and approver.
+  // The rule runs once a team and owner, not once an entry.
+  public async findSubmittedGroupApprovers(
+    slackTeamId: string,
+    today: string,
+    who: 'listed' | 'told',
+  ): Promise<
+    {
+      team_id: string | null;
+      user_id: string;
+      entries: number;
+      approver_id: string;
+    }[]
+  > {
+    const rows = await this.db
+      .selectFrom(this.submittedGroups(slackTeamId).as('waiting'))
+      .innerJoin('users as approver', (join) =>
+        join.on(
+          this.approves(
+            slackTeamId,
+            {
+              person: 'approver',
+              team: 'waiting.team_id',
+              owner: 'waiting.user_id',
+            },
+            { today, who },
+          ),
+        ),
+      )
+      .select([
+        'waiting.team_id',
+        'waiting.user_id',
+        'waiting.entries',
+        'approver.id as approver_id',
+      ])
+      .execute();
+
+    return rows.map((row) => ({ ...row, entries: Number(row.entries) }));
   }
 
   // The minutes of a period's entries, all and billable, deleted ones left
@@ -850,10 +1037,14 @@ export class TimeEntriesRepository extends BaseRepository<
   }
 
   // The submitted entries that wait for `approverId`.
-  private waitingEntries(slackTeamId: string, approverId: string) {
+  private waitingEntries(
+    slackTeamId: string,
+    approverId: string,
+    today: string,
+  ) {
     return this.selectInWorkspace(slackTeamId)
       .innerJoin(
-        this.waitingGroups(slackTeamId, approverId).as('waiting'),
+        this.waitingGroups(slackTeamId, approverId, { today }).as('waiting'),
         (join) =>
           join
             .onRef('waiting.user_id', '=', 'time_entries.user_id')
@@ -865,22 +1056,49 @@ export class TimeEntriesRepository extends BaseRepository<
       .where('time_entries.deleted_at', 'is', null);
   }
 
-  // The submitted entries of others by team and owner, with how many each,
-  // where they wait for `approverId`. Whom an entry waits for depends on its
-  // team and owner only, so the rule runs once a pair, not once an entry:
-  // Admin and HR would otherwise run it for every submitted entry of the
-  // workspace.
-  private waitingGroups(slackTeamId: string, approverId: string) {
+  // The submitted entries by team and owner: how many, how long, and since
+  // when the oldest has waited; with `submittedBefore`, those submitted
+  // before it. Whom an entry waits for depends on its team and owner only,
+  // so approves() runs once a pair, not once an entry: Admin and HR would
+  // otherwise run it for every submitted entry of the workspace.
+  private submittedGroups(slackTeamId: string, submittedBefore?: Date) {
     return this.selectInWorkspace(slackTeamId)
       .select([
         'time_entries.team_id',
         'time_entries.user_id',
         (eb) => eb.fn.countAll<number>().as('entries'),
+        (eb) => eb.fn.sum<number>('time_entries.minutes').as('minutes'),
+        (eb) => eb.fn.min('time_entries.submitted_at').as('oldest'),
       ])
       .where('time_entries.status', '=', TimeEntryStatus.Submitted)
       .where('time_entries.deleted_at', 'is', null)
+      .$if(!!submittedBefore, (query) =>
+        query.where(
+          'time_entries.submitted_at',
+          '<',
+          submittedBefore!.toISOString(),
+        ),
+      )
+      .groupBy(['time_entries.team_id', 'time_entries.user_id']);
+  }
+
+  // The groups of submittedGroups of others that wait for `approverId`
+  // (`who`: the inbox's or the told ones, see approves()).
+  private waitingGroups(
+    slackTeamId: string,
+    approverId: string,
+    {
+      today,
+      who = 'inbox',
+      submittedBefore,
+    }: {
+      today: string;
+      who?: Exclude<EntryApprovers, 'listed'>;
+      submittedBefore?: Date;
+    },
+  ) {
+    return this.submittedGroups(slackTeamId, submittedBefore)
       .where('time_entries.user_id', '!=', approverId)
-      .groupBy(['time_entries.team_id', 'time_entries.user_id'])
       .having((eb) =>
         eb.exists(
           eb
@@ -888,27 +1106,34 @@ export class TimeEntriesRepository extends BaseRepository<
             .select('approver.id')
             .where('approver.id', '=', approverId)
             .where(
-              this.approves(slackTeamId, {
-                person: 'approver',
-                team: 'time_entries.team_id',
-                owner: 'time_entries.user_id',
-              }),
+              this.approves(
+                slackTeamId,
+                {
+                  person: 'approver',
+                  team: 'time_entries.team_id',
+                  owner: 'time_entries.user_id',
+                },
+                { today, who },
+              ),
             ),
         ),
       );
   }
 
-  // Whether `person` (a row of users) is whom the submitted entries of
-  // `owner` logged in `team` (columns of the query around it) wait for: the
-  // active people with a role that approves (MANAGER_ROLES) whom the team
-  // lists among its manager approvers, but the owner; when there are none,
-  // everyone with the HR role, else every admin, never the owner (as
-  // fallbackApprovers does for time off). Admin and HR may decide any entry;
-  // this is the one rule for what waits for whom: the Approvals count, the
-  // inbox, Approve all and the messages on submission.
+  // Whether `person` (a row of users) is among the approvers `who` of the
+  // submitted entries of `owner` logged in `team` (columns of the query
+  // around it). The listed ones are the active people with a role that
+  // approves (MANAGER_ROLES) whom the team lists among its manager
+  // approvers, but the owner; when there are none, everyone with the HR
+  // role, else every admin, never the owner (as fallbackApprovers does for
+  // time off). Who is away is approved time off covering `today`
+  // (onTimeOff). Admin and HR may decide any entry; this is the one rule
+  // for what waits for whom: the Approvals count, the inbox, Approve all,
+  // the messages on submission and the approvers' reminders.
   private approves(
     slackTeamId: string,
     refs: { person: string; team: string; owner: string },
+    { today, who }: { today: string; who: EntryApprovers },
   ): RawBuilder<boolean> {
     const column = (alias: string, name: string) => sql.ref(`${alias}.${name}`);
     const team = sql.ref(refs.team);
@@ -917,9 +1142,9 @@ export class TimeEntriesRepository extends BaseRepository<
         and ${column(alias, 'is_active')}
         and ${column(alias, 'role')} in (${sql.join(MANAGER_ROLES)})
         and ${column(alias, 'id')} <> ${sql.ref(refs.owner)}`;
-    const role = column(refs.person, 'role');
-
-    return sql<boolean>`(${approving(refs.person)} and case
+    const atWork = (alias: string) =>
+      sql`not ${onTimeOff(`${alias}.id`, slackTeamId, today)}`;
+    const listed = (alias: string) => sql<boolean>`(${approving(alias)} and case
       when exists (
         select 1 from "teams" as "listing"
         join "users" as "manager"
@@ -931,13 +1156,55 @@ export class TimeEntriesRepository extends BaseRepository<
         select 1 from "teams" as "listing"
         where "listing"."id" = ${team}
           and "listing"."slack_team_id" = ${slackTeamId}
-          and ${column(refs.person, 'slack_id')} = any("listing"."manager_approvers")
+          and ${column(alias, 'slack_id')} = any("listing"."manager_approvers")
       )
       when exists (
         select 1 from "users" as "hr"
         where ${approving('hr')} and "hr"."role" = ${UserRole.HR}
-      ) then ${role} = ${UserRole.HR}
-      else ${role} = ${UserRole.Admin}
+      ) then ${column(alias, 'role')} = ${UserRole.HR}
+      else ${column(alias, 'role')} = ${UserRole.Admin}
+    end)`;
+    const person = refs.person;
+
+    if (who === 'listed') {
+      return listed(person);
+    }
+
+    const someListedAtWork = sql`exists (
+      select 1 from "users" as "listed_at_work"
+      where ${listed('listed_at_work')} and ${atWork('listed_at_work')}
+    )`;
+    const fallbackAtWork = (alias: string) =>
+      sql`(${approving(alias)} and ${atWork(alias)} and case
+        when exists (
+          select 1 from "users" as "hr_at_work"
+          where ${approving('hr_at_work')}
+            and "hr_at_work"."role" = ${UserRole.HR}
+            and ${atWork('hr_at_work')}
+        ) then ${column(alias, 'role')} = ${UserRole.HR}
+        else ${column(alias, 'role')} = ${UserRole.Admin}
+      end)`;
+
+    // Each mode implies approving(person), which comes first and alone so
+    // that Postgres scans only the workspace's approving people and runs
+    // the rest for those.
+    if (who === 'inbox') {
+      // The away managers keep the entry in theirs.
+      return sql<boolean>`(${approving(person)} and (${listed(person)}
+        or (not ${someListedAtWork} and ${fallbackAtWork(person)})))`;
+    }
+
+    const someFallbackAtWork = sql`exists (
+      select 1 from "users" as "fallback_at_work"
+      where ${approving('fallback_at_work')}
+        and "fallback_at_work"."role" in (${UserRole.HR}, ${UserRole.Admin})
+        and ${atWork('fallback_at_work')}
+    )`;
+
+    return sql<boolean>`(${approving(person)} and case
+      when ${someListedAtWork} then (${listed(person)} and ${atWork(person)})
+      when ${someFallbackAtWork} then ${fallbackAtWork(person)}
+      else ${listed(person)}
     end)`;
   }
 }

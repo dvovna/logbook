@@ -1,3 +1,4 @@
+import { IAbsence } from '@modules/users/types/absence.interface';
 import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { ForbiddenException } from '@nestjs/common';
 import { TimeEntryApprovalsService } from 'src/time-entries/services/time-entry-approvals.service';
@@ -11,6 +12,7 @@ import UserRole from 'src/common/enums/user-role.enum';
 import { MANAGER_ROLES } from 'src/common/constants/role-groups';
 import { ValidationError } from 'src/common/errors/validation.error';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
+import { todayIso } from 'src/common/utils/period-presets';
 
 const admin: IUserViewModel = {
   id: 'admin-1',
@@ -80,10 +82,11 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
     findWaitingFor: jest.Mock;
     findWaitingIds: jest.Mock;
     findApproverIds: jest.Mock;
+    findSubmittedGroupApprovers: jest.Mock;
   };
   let listQuery: { execute: jest.Mock };
   let teamsService: { findMany: jest.Mock };
-  let usersService: { findMany: jest.Mock };
+  let usersService: { findMany: jest.Mock; findAway: jest.Mock };
   let service: TimeEntryApprovalsService;
 
   beforeEach(() => {
@@ -93,12 +96,16 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
       findWaitingFor: jest.fn().mockResolvedValue([]),
       findWaitingIds: jest.fn().mockResolvedValue([]),
       findApproverIds: jest.fn().mockResolvedValue([]),
+      findSubmittedGroupApprovers: jest.fn().mockResolvedValue([]),
     };
     listQuery = {
       execute: jest.fn().mockResolvedValue({ items: [], totalCount: 0 }),
     };
     teamsService = { findMany: jest.fn().mockResolvedValue([]) };
-    usersService = { findMany: jest.fn().mockResolvedValue([]) };
+    usersService = {
+      findMany: jest.fn().mockResolvedValue([]),
+      findAway: jest.fn().mockResolvedValue(new Map()),
+    };
 
     service = new TimeEntryApprovalsService(
       repository as unknown as TimeEntriesRepository,
@@ -209,10 +216,12 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
         expect(repository.countWaitingFor).toHaveBeenCalledWith(
           SLACK_TEAM_ID,
           approver.id,
+          todayIso(),
         );
         expect(repository.findWaitingFor).toHaveBeenCalledWith(
           SLACK_TEAM_ID,
           approver.id,
+          todayIso(),
           { limit: 10, offset: 10 },
         );
         expect(listQuery.execute).not.toHaveBeenCalled();
@@ -224,6 +233,11 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
 
         await service.approve(approver);
 
+        expect(repository.findWaitingIds).toHaveBeenCalledWith(
+          SLACK_TEAM_ID,
+          approver.id,
+          todayIso(),
+        );
         expect(repository.updateMany).toHaveBeenCalledWith(
           {
             ...pendingFilter(approver),
@@ -255,13 +269,100 @@ describe('TimeEntryApprovalsService scopes and decisions', () => {
       { approver: manager, entries: [entries[0]] },
       { approver: hr, entries: [entries[1], entries[0]] },
     ]);
-    expect(repository.findApproverIds).toHaveBeenCalledWith(SLACK_TEAM_ID, [
-      'entry-1',
-      'entry-2',
-    ]);
+    expect(repository.findApproverIds).toHaveBeenCalledWith(
+      SLACK_TEAM_ID,
+      ['entry-1', 'entry-2'],
+      todayIso(),
+    );
     expect(usersService.findMany).toHaveBeenCalledWith({
       slackTeamId: SLACK_TEAM_ID,
       roles: [...MANAGER_ROLES],
+    });
+  });
+
+  describe('entries moved by a manager’s time off', () => {
+    const DAY = '2026-06-18';
+
+    it('reads no entries on a day no approving person’s time off begins', async () => {
+      usersService.findMany.mockResolvedValue([manager, hr]);
+      // The member's time off begins today; the manager's runs on from before.
+      const managerAway: [string, IAbsence] = [
+        manager.slack_id,
+        { userId: manager.id, since: '2026-06-15', until: DAY },
+      ];
+      usersService.findAway.mockImplementation((_ws: string, date: string) =>
+        Promise.resolve(
+          new Map(
+            date === DAY
+              ? [
+                  [
+                    member.slack_id,
+                    { userId: member.id, since: DAY, until: DAY },
+                  ],
+                  managerAway,
+                ]
+              : [managerAway],
+          ),
+        ),
+      );
+
+      await expect(
+        service.findMovedByAbsence(SLACK_TEAM_ID, DAY),
+      ).resolves.toEqual([]);
+      expect(repository.findSubmittedGroupApprovers).not.toHaveBeenCalled();
+    });
+
+    it('counts the entries of each team and owner for whoever is told instead', async () => {
+      usersService.findMany.mockResolvedValue([manager, hr]);
+      usersService.findAway.mockImplementation((_ws: string, date: string) =>
+        Promise.resolve(
+          new Map(
+            date === DAY
+              ? [
+                  [
+                    manager.slack_id,
+                    { userId: manager.id, since: DAY, until: '2026-06-24' },
+                  ],
+                ]
+              : [],
+          ),
+        ),
+      );
+      teamsService.findMany.mockResolvedValue([{ id: 't1', name: 'Design' }]);
+      const group = (userId: string, entries: number, approverId: string) => ({
+        team_id: 't1',
+        user_id: userId,
+        entries,
+        approver_id: approverId,
+      });
+      repository.findSubmittedGroupApprovers.mockImplementation(
+        (_ws: string, _day: string, who: string) =>
+          Promise.resolve(
+            who === 'listed'
+              ? [group('mia', 2, manager.id), group('sol', 3, manager.id)]
+              : [group('mia', 2, hr.id), group('sol', 3, hr.id)],
+          ),
+      );
+
+      await expect(
+        service.findMovedByAbsence(SLACK_TEAM_ID, DAY),
+      ).resolves.toEqual([
+        {
+          approver: hr,
+          groups: [
+            {
+              teamName: 'Design',
+              away: [{ slackId: manager.slack_id, until: '2026-06-24' }],
+              count: 5,
+            },
+          ],
+        },
+      ]);
+      expect(repository.findSubmittedGroupApprovers).toHaveBeenCalledWith(
+        SLACK_TEAM_ID,
+        DAY,
+        'told',
+      );
     });
   });
 

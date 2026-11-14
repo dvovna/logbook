@@ -7,6 +7,11 @@ import {
   TIME_ENTRIES_SUBMITTED,
   TimeEntriesSubmittedEvent,
 } from 'src/time-entries/events/time-entries.events';
+import {
+  ABSENCE_DAY_CHECKED,
+  AbsenceDayCheckedEvent,
+} from '@modules/request-workflows/events/absence.events';
+import { onTimeOffTextOf } from '@modules/slack/common/utils/time-off-text';
 import { formatDate, getDateOnly, weekLabel } from '@common/utils/date.utils';
 import { weekStartOf } from '@common/utils/period-presets';
 import { Injectable, OnModuleInit } from '@nestjs/common';
@@ -25,6 +30,8 @@ import { UsersService } from '@modules/users/services/users.service';
 
 export const NOTIFY_REJECTED_JOB = 'time-entry-notify-rejected';
 export const NOTIFY_SUBMITTED_JOB = 'time-entries-notify-submitted';
+export const NOTIFY_MOVED_JOB = 'time-entries-notify-moved';
+export const PLAN_MOVED_JOB = 'time-entries-plan-moved';
 
 // The projects a message names before "and N more".
 const PROJECTS_NAMED = 3;
@@ -44,6 +51,18 @@ interface INotifySubmittedJob {
   entryIds: string[];
 }
 
+interface IPlanMovedJob {
+  slackTeamId: string;
+  date: string;
+}
+
+interface INotifyMovedJob {
+  slackTeamId: string;
+  approverId: string;
+  // The day whose check moved the entries.
+  date: string;
+}
+
 @Injectable()
 export class TimeEntryNotificationsService implements OnModuleInit {
   public constructor(
@@ -61,6 +80,27 @@ export class TimeEntryNotificationsService implements OnModuleInit {
     this.jobs.define<INotifySubmittedJob>(NOTIFY_SUBMITTED_JOB, (job) =>
       this.sendSubmitted(job),
     );
+    this.jobs.define<IPlanMovedJob>(PLAN_MOVED_JOB, (job) =>
+      this.planMoved(job),
+    );
+    this.jobs.define<INotifyMovedJob>(NOTIFY_MOVED_JOB, (job) =>
+      this.sendMoved(job),
+    );
+  }
+
+  // The daily check ran: whoever now gets entries because every manager
+  // listed for them is on time off from today hears of it once. Runs in the
+  // claim's transaction (emitAsync), which holds the workspace's row: it only
+  // saves the plan, and the claim makes it one per workspace and day.
+  @OnEvent(ABSENCE_DAY_CHECKED, { suppressErrors: false })
+  public async handleAbsenceDayChecked({
+    slackTeamId,
+    date,
+  }: AbsenceDayCheckedEvent) {
+    await this.jobs.enqueue<IPlanMovedJob>(PLAN_MOVED_JOB, {
+      slackTeamId,
+      date,
+    });
   }
 
   // Tells each approver of the submitted entries, in one message, what waits
@@ -115,6 +155,64 @@ export class TimeEntryNotificationsService implements OnModuleInit {
       reviewerId: reviewer.id,
       ...(reason ? { reason } : {}),
     });
+  }
+
+  // Works out who now gets entries, once, and saves each of them a DM job
+  // in one statement: a failure before it is retried as a whole, and after
+  // it the plan is done.
+  private async planMoved({ slackTeamId, date }: IPlanMovedJob) {
+    const moved = await this.timeEntryApprovalsService.findMovedByAbsence(
+      slackTeamId,
+      date,
+    );
+
+    await this.jobs.enqueueMany<INotifyMovedJob>(
+      NOTIFY_MOVED_JOB,
+      moved.map(({ approver }) => ({
+        slackTeamId,
+        approverId: approver.id,
+        date,
+      })),
+    );
+  }
+
+  // What still waits for the approver when the job runs: a retry hours later
+  // tells nothing that was decided since, and nothing to someone
+  // deactivated. It reads the workspace again, for the few people (HR, else
+  // the admins) the plan names.
+  private async sendMoved({ slackTeamId, approverId, date }: INotifyMovedJob) {
+    const approver = await this.usersService.findOne({
+      id: approverId,
+      slackTeamId,
+    });
+
+    if (!approver) {
+      return;
+    }
+
+    const moved = (
+      await this.timeEntryApprovalsService.findMovedByAbsence(slackTeamId, date)
+    ).find((person) => person.approver.id === approverId);
+
+    if (!moved) {
+      return;
+    }
+
+    await this.slackCommunicationService.postMessage(
+      approver.slack_id,
+      {
+        text: moved.groups
+          .map(({ teamName, away, count }) => {
+            const team = teamName
+              ? escapeMrkdwn(teamName)
+              : 'people in no team';
+
+            return `${onTimeOffTextOf(away)}: ${count} time ${pluralize('entry', count)} of ${team} now ${count === 1 ? 'waits' : 'wait'} for you in Approvals.`;
+          })
+          .join('\n'),
+      },
+      slackTeamId,
+    );
   }
 
   private async sendSubmitted({

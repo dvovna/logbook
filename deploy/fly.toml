@@ -17,7 +17,7 @@ kill_signal = "SIGTERM"
 kill_timeout = 30
 
 [build]
-  image = "ghcr.io/dvovna/logbook:0.6"
+  image = "ghcr.io/dvovna/logbook:0.7"
 
 # The port the image listens on. Keep PORT out of the secrets: a secret of
 # that name would move the app off the port below.

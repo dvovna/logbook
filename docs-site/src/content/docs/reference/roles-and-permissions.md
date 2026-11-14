@@ -65,6 +65,7 @@ Who is asked:
 - **Team approvers** of a team lists people with the Manager, HR or Admin role. Someone with the Member role chosen there becomes a Manager; people with the Finance role can't be chosen.
 - **Second approval (HR)**, in the company rules or a team's own rules, lists people with the HR or Admin role. It can stay empty.
 - When nobody listed can decide (no team, no approvers, or the requester is the only one), a time off request goes to everyone with the HR role, or to the admins when nobody has the HR role. Submitted time works the same way.
+- An approver whose approved time off covers today is skipped (see [Approve time off](/logbook/docs/approvers/approve-time-off/#when-an-approver-is-on-time-off)); a request whose last level is skipped goes to HR who are at work, else the admins. Submitted time reaches HR the same way while every manager of the team is on time off.
 - A requester is always left out of their own request's levels.
 
 ## Time

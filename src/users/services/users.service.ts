@@ -17,6 +17,7 @@ import {
 } from '@modules/users/events/users.events';
 import { canApprove } from '@modules/users/utils/approver-roles';
 import { publishApproversChanged } from '@modules/users/utils/approvers-changed';
+import { IAbsence } from '@modules/users/types/absence.interface';
 import { ITeamAssignment } from '@modules/users/types/team-assignment.interface';
 
 interface ICreateUserParams {
@@ -450,6 +451,32 @@ export class UsersService implements IUsersService {
     return await this.userRepository.findOne(this.getFindQuery(findParams));
   }
 
+  // The active people among `ids` and `slackIds` whose reminders go out
+  // as often as one of `reminders`.
+  public async findActiveWithReminder(
+    slackTeamId: string,
+    { ids, slackIds }: { ids: string[]; slackIds: string[] },
+    reminders: TimeReminder[],
+  ): Promise<IUserViewModel[]> {
+    const scope = {
+      slack_team_id: slackTeamId,
+      is_active: true,
+      time_reminder: reminders,
+    };
+    const [byId, bySlackId] = await Promise.all([
+      ids.length ? this.userRepository.findMany({ ...scope, id: ids }) : [],
+      slackIds.length
+        ? this.userRepository.findMany({ ...scope, slack_id: slackIds })
+        : [],
+    ]);
+
+    return [
+      ...new Map(
+        [...byId, ...bySlackId].map((user) => [user.id, user]),
+      ).values(),
+    ];
+  }
+
   public async findMany(findParams: IFindParams): Promise<IUserViewModel[]> {
     return await this.userRepository.findMany(this.getFindQuery(findParams));
   }
@@ -485,6 +512,21 @@ export class UsersService implements IUsersService {
       slack_id: slackId,
       slack_team_id: slackTeamId,
     });
+  }
+
+  // The people with approved time off that covers `date`, by Slack user ID.
+  public async findAway(
+    slackTeamId: string,
+    date: string,
+  ): Promise<Map<string, IAbsence>> {
+    const rows = await this.userRepository.findAway(slackTeamId, date);
+
+    return new Map(
+      rows.map((row) => [
+        row.slack_id,
+        { userId: row.id, since: row.since, until: row.until },
+      ]),
+    );
   }
 
   // Inside a transaction the listeners hear of it once it commits.

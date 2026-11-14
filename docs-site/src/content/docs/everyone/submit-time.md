@@ -54,6 +54,8 @@ To change how often it comes, choose **🔔 Reminders** on **Home** and pick one
 | **First Monday of the month** | The first Monday of each month, in the morning (UTC) | Entries from before that week |
 | **Never** | Not at all | |
 
+Approvers see "Remind me about time I haven't submitted and what waits for my approval": the same choice sets how often they are reminded of what waits for their decision. See [Approve time](/logbook/docs/approvers/approve-time/#reminders-of-what-waits-for-you).
+
 Choose **Save**. **Home** says "✅ Reminders saved."
 
 ## What approvers see

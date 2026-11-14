@@ -1,4 +1,5 @@
 import { getDateOnly } from '@common/utils/date.utils';
+import { currentWeekStart } from '@common/utils/period-presets';
 import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 
 // Reminders go out from this hour, UTC.
@@ -23,3 +24,23 @@ export const weeklyReminderGroups = (monday: string): TimeReminder[] =>
   Number(monday.slice(8)) <= 7
     ? [TimeReminder.Weekly, TimeReminder.Monthly]
     : [TimeReminder.Weekly];
+
+// The reminders that may go out now: the week's, of the week starting
+// `monday`, from REMIND_FROM_HOUR_UTC that Monday on (its claim keeps it to
+// one a week, and a workspace whose Monday the app missed gets it at the
+// next tick), and the day's (dailyReminderDay). Null when neither.
+export const dueReminders = (
+  now: Date,
+): { monday: string | null; day: string | null } | null => {
+  const monday = currentWeekStart(now);
+  const weekDueFrom = new Date(`${monday}T00:00:00Z`);
+
+  weekDueFrom.setUTCHours(REMIND_FROM_HOUR_UTC);
+
+  const due = {
+    monday: now >= weekDueFrom ? monday : null,
+    day: dailyReminderDay(now),
+  };
+
+  return due.monday || due.day ? due : null;
+};

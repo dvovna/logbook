@@ -1,5 +1,6 @@
 import {
   IApproverStepData,
+  IRequestWorkflowStepViewModel,
   WorkflowStepType,
 } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
@@ -34,6 +35,7 @@ interface IFindParams {
   id?: string;
   requestId?: string;
   slackUserId?: string;
+  slackUserIds?: string[];
   processed?: boolean;
   stepLevel?: number;
   stepType?: WorkflowStepType;
@@ -146,6 +148,20 @@ export class RequestWorkflowStepsService {
     });
   }
 
+  // Skips one open step whose approver is on time off until `awayUntil`;
+  // null when the step was already closed.
+  public skip(
+    step: IRequestWorkflowStepViewModel,
+    awayUntil: string,
+  ): Promise<IRequestWorkflowStepViewModel | null> {
+    return this.requestWorkflowStepsRepository.skip({
+      slackTeamId: step.slack_team_id,
+      requestId: step.request_id,
+      stepId: step.id,
+      awayUntil,
+    });
+  }
+
   public findOne(findParams: IFindParams) {
     return this.requestWorkflowStepsRepository.findOne(
       this.getFindQuery(findParams),
@@ -184,6 +200,34 @@ export class RequestWorkflowStepsService {
     );
   }
 
+  // See RequestWorkflowStepsRepository.summarizeWaitingSince.
+  public summarizeWaitingSince(
+    approver: { slack_id: string; slack_team_id: string },
+    before: Date,
+  ) {
+    return this.requestWorkflowStepsRepository.summarizeWaitingSince(
+      approver.slack_team_id,
+      approver.slack_id,
+      before,
+    );
+  }
+
+  // The Slack IDs of the approvers with a step asked before `before`.
+  public findApproversWaitingSince(slackTeamId: string, before: Date) {
+    return this.requestWorkflowStepsRepository.findApproversWaitingSince(
+      slackTeamId,
+      before,
+    );
+  }
+
+  // See RequestWorkflowStepsRepository.findStuckSince.
+  public findStuckSince(slackTeamId: string, before: Date) {
+    return this.requestWorkflowStepsRepository.findStuckSince(
+      slackTeamId,
+      before,
+    );
+  }
+
   public search(params: ISearchStepsParams) {
     return this.requestWorkflowStepsRepository.search({
       filters: this.getFindQuery(params.filters),
@@ -210,6 +254,7 @@ export class RequestWorkflowStepsService {
       ...(params.id ? { id: params.id } : {}),
       ...(params.requestId ? { request_id: params.requestId } : {}),
       ...(params.slackUserId ? { slack_user_id: params.slackUserId } : {}),
+      ...(params.slackUserIds ? { slack_user_id: params.slackUserIds } : {}),
       ...(params.stepLevel !== undefined
         ? { step_level: params.stepLevel }
         : {}),

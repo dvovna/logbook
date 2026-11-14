@@ -8,6 +8,8 @@ import { RequestWorkflowService } from '@modules/request-workflows/services/requ
 import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
 import { WorkflowStepProcessorsRegistry } from '@modules/request-workflows/workflow-step-processor.registry';
+import { SlackTeamsModule } from '@modules/slack-teams/slack-teams.module';
+import { AbsenceCheckService } from '@modules/request-workflows/services/absence-check.service';
 import { TeamsModule } from '@modules/teams/teams.module';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
 import { RequestWorkflowStepCommentsRepository } from '@modules/request-workflows/repositories/request-workflow-step-comments.repository';
@@ -16,11 +18,12 @@ import { RequestWorkflowStepCommentsRepository } from '@modules/request-workflow
 // modals and buttons, the step processor that sends it) is ApprovalsModule
 // in src/slack/approvals; step processors are found by discovery.
 @Module({
-  imports: [DiscoveryModule, TeamsModule, UsersModule],
+  imports: [DiscoveryModule, TeamsModule, UsersModule, SlackTeamsModule],
   providers: [
     RequestWorkflowService,
     WorkflowDecisionsService,
     ApproverAccessService,
+    AbsenceCheckService,
     RequestWorkflowStepsRepository,
     RequestWorkflowStepsService,
     WorkflowStepProcessorService,
@@ -29,6 +32,7 @@ import { RequestWorkflowStepCommentsRepository } from '@modules/request-workflow
     WorkflowStepProcessorsRegistry,
   ],
   exports: [
+    AbsenceCheckService,
     WorkflowDecisionsService,
     RequestWorkflowService,
     RequestWorkflowStepsService,

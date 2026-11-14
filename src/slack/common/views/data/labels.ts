@@ -68,6 +68,7 @@ export const STEP_STATUS_LABELS: Record<WorkflowStepStatus, ILabel> = {
   [WorkflowStepStatus.Approved]: { label: 'Approved', icon: '✅' },
   [WorkflowStepStatus.Rejected]: { label: 'Rejected', icon: '❌' },
   [WorkflowStepStatus.Cancelled]: { label: 'Canceled', icon: '🚫' },
+  [WorkflowStepStatus.Skipped]: { label: 'Skipped', icon: '⏭️' },
 };
 
 export const TIME_ENTRY_STATUS_LABELS: Record<TimeEntryStatus, ILabel> = {

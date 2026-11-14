@@ -1,3 +1,4 @@
+import { WorkflowStepStatus } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { currentRunOf } from '@modules/request-workflows/utils/workflow-runs';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import TeamsService from '@modules/teams/services/teams.service';
@@ -42,7 +43,6 @@ export class VacationDetailsModalService {
         {
           requestId,
           slackTeamId: user.slack_team_id,
-          processed: true,
         },
         {
           orderBy: ['step_level:asc', 'completed_at:asc', 'processed_at:desc'],
@@ -71,7 +71,11 @@ export class VacationDetailsModalService {
         errorMessage,
         request,
         // The steps of an earlier run decided on the request before an edit.
-        steps: currentRunOf(steps),
+        steps: currentRunOf(steps).filter(
+          // A skipped step was never asked, so it has no processed mark.
+          ({ processed_at, step_data }) =>
+            !!processed_at || step_data.status === WorkflowStepStatus.Skipped,
+        ),
         reviewComments,
         imported,
       },

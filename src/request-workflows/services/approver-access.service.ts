@@ -1,6 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import UserRole from '@common/enums/user-role.enum';
 import { JobsService } from '@common/jobs/jobs.service';
 import { RequestWorkflowService } from '@modules/request-workflows/services/request-workflow.service';
 import { RequestWorkflowStepsService } from '@modules/request-workflows/services/request-workflow-steps.service';
@@ -10,7 +9,6 @@ import {
 } from '@modules/users/events/users.events';
 import { UsersService } from '@modules/users/services/users.service';
 import { canApprove } from '@modules/users/utils/approver-roles';
-import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
 
 export const APPROVER_ACCESS_JOB = 'workflow-approver-access';
 
@@ -72,26 +70,11 @@ export class ApproverAccessService implements OnModuleInit {
       return;
     }
 
-    const hrAndAdmins = await this.usersService.findMany({
-      slackTeamId,
-      roles: [UserRole.HR, UserRole.Admin],
-    });
-
     for (const requestId of new Set(steps.map((step) => step.request_id))) {
-      const { snapshot } = steps.find(
-        (step) => step.request_id === requestId,
-      )!.step_data;
-      const fallback = fallbackApprovers(hrAndAdmins, snapshot.user_id);
-
       await this.requestWorkflowService.dropApprover(
         requestId,
         slackTeamId,
         user,
-        fallback && {
-          slackIds: fallback.approvers.map(({ slack_id }) => slack_id),
-          levelName:
-            fallback.role === UserRole.HR ? 'HR approval' : 'Admin approval',
-        },
       );
     }
   }

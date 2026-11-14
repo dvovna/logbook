@@ -5,6 +5,7 @@ import { SqlRow } from '@common/types/sql-database.types';
 import UserRole from '@common/enums/user-role.enum';
 import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import { ITeamAssignment } from '@modules/users/types/team-assignment.interface';
+import { coversDay } from '@modules/users/repositories/time-off-condition';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 
 @Injectable()
@@ -53,6 +54,28 @@ export class UsersRepository extends BaseRepository<'users', IUserViewModel> {
     return Object.fromEntries(
       rows.map(({ team_id, count }) => [team_id!, Number(count)]),
     );
+  }
+
+  // Users with approved time off that covers `date`, with the span of it.
+  public async findAway(
+    slackTeamId: string,
+    date: string,
+  ): Promise<{ id: string; slack_id: string; since: string; until: string }[]> {
+    return await this.selectInWorkspace(slackTeamId)
+      .innerJoin('vacation_requests', (join) =>
+        join
+          .onRef('vacation_requests.user_id', '=', 'users.id')
+          .onRef('vacation_requests.slack_team_id', '=', 'users.slack_team_id'),
+      )
+      .where(coversDay('vacation_requests', date))
+      .select([
+        'users.id as id',
+        'users.slack_id as slack_id',
+        sql<string>`min(vacation_requests.start_date)::text`.as('since'),
+        sql<string>`max(vacation_requests.end_date)::text`.as('until'),
+      ])
+      .groupBy(['users.id', 'users.slack_id'])
+      .execute();
   }
 
   protected mapToViewModel = (row: SqlRow<'users'>) => {

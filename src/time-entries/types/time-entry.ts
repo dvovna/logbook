@@ -12,6 +12,8 @@ export interface ITimeEntryViewModel {
   status: TimeEntryStatus;
   description?: string | null;
   rejection_reason?: string | null;
+  // When it last became submitted (set by a trigger).
+  submitted_at?: string | null;
   vacation_request_id: string | null;
   slack_team_id: string;
   created_at: string;

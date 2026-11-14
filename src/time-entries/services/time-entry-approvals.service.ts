@@ -13,6 +13,16 @@ import { TimeEntriesListQuery } from 'src/time-entries/queries/time-entries-list
 import { ITimeEntryListData } from 'src/time-entries/types/time-entries-list.types';
 import { ITimeEntryViewModel } from 'src/time-entries/types/time-entry';
 import { isTimeEntriesAdmin } from 'src/time-entries/constants/time-entries-admin-roles';
+import { shiftDay, todayIso } from '@common/utils/period-presets';
+
+export interface IMovedEntries {
+  approver: IUserViewModel;
+  groups: {
+    teamName: string | null;
+    away: { slackId: string; until: string }[];
+    count: number;
+  }[];
+}
 
 interface IApprovalScope {
   // The teams whose entries the user decides on; all teams when undefined.
@@ -35,6 +45,10 @@ interface IListPendingParams {
 //   those nobody else decides (no team, or no other active approving manager
 //   on it), which go to HR, or to the admins (as fallbackApprovers does for
 //   time off).
+// - While every approver of an entry is on time off, it waits for HR at work
+//   too (else the admins at work), and the away managers keep it; submitting
+//   tells only those at work. When nobody who could decide is at work,
+//   nothing changes.
 // What waits for whom is one rule in SQL (TimeEntriesRepository.approves),
 // for the count, the inbox, Approve all and the messages alike.
 @Injectable()
@@ -65,12 +79,20 @@ export class TimeEntryApprovalsService {
       return { items: [], totalCount: 0 };
     }
 
+    const today = todayIso();
+
     const [items, totalCount] = await Promise.all([
-      this.timeEntriesRepository.findWaitingFor(user.slack_team_id, user.id, {
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-      }),
-      this.timeEntriesRepository.countWaitingFor(user.slack_team_id, user.id),
+      this.timeEntriesRepository.findWaitingFor(
+        user.slack_team_id,
+        user.id,
+        today,
+        { limit: pageSize, offset: (page - 1) * pageSize },
+      ),
+      this.timeEntriesRepository.countWaitingFor(
+        user.slack_team_id,
+        user.id,
+        today,
+      ),
     ]);
 
     return { items, totalCount };
@@ -79,8 +101,44 @@ export class TimeEntryApprovalsService {
   // How many entries wait for the user (not all those they may decide on).
   public async countPending(user: IUserViewModel): Promise<number> {
     return approvesTime(user)
-      ? this.timeEntriesRepository.countWaitingFor(user.slack_team_id, user.id)
+      ? this.timeEntriesRepository.countWaitingFor(
+          user.slack_team_id,
+          user.id,
+          todayIso(),
+        )
       : 0;
+  }
+
+  // What has waited for the user since before `before` (see
+  // TimeEntriesRepository.summarizeWaitingSince).
+  public summarizeWaitingSince(user: IUserViewModel, before: Date) {
+    return approvesTime(user)
+      ? this.timeEntriesRepository.summarizeWaitingSince(
+          user.slack_team_id,
+          user.id,
+          before,
+          todayIso(),
+        )
+      : Promise.resolve({ count: 0, people: 0, oldest: null });
+  }
+
+  // The IDs of the people told of entries that have waited since before
+  // `before`.
+  public findApproversWaitingSince(slackTeamId: string, before: Date) {
+    return this.timeEntriesRepository.findApproversWaitingSince(
+      slackTeamId,
+      before,
+      todayIso(),
+    );
+  }
+
+  // See TimeEntriesRepository.findStuckSince.
+  public findStuckSince(slackTeamId: string, before: Date) {
+    return this.timeEntriesRepository.findStuckSince(
+      slackTeamId,
+      before,
+      todayIso(),
+    );
   }
 
   // Approves the entry `id`, or every entry waiting for the user.
@@ -114,8 +172,8 @@ export class TimeEntryApprovalsService {
     return entry;
   }
 
-  // Each entry's approvers, grouped by approver: who is told when entries
-  // are submitted.
+  // Each entry's approvers at work, grouped by approver: who is told when
+  // entries are submitted.
   public async groupByApprover(
     entries: ITimeEntryViewModel[],
     slackTeamId: string,
@@ -129,6 +187,7 @@ export class TimeEntryApprovalsService {
       this.timeEntriesRepository.findApproverIds(
         slackTeamId,
         entries.map(({ id }) => id),
+        todayIso(),
       ),
       this.usersService.findMany({ slackTeamId, roles: [...MANAGER_ROLES] }),
     ]);
@@ -152,6 +211,148 @@ export class TimeEntryApprovalsService {
     }
 
     return [...groups.values()];
+  }
+
+  // The submitted entries whose listed approvers are all on time off on
+  // `date`, one of them from that day, by who is told of them instead (a
+  // 'told' approver who is not a listed one), then by team: what the daily
+  // check tells HR the day a manager's time off begins. Reads no entries on
+  // a day when no approving person's time off begins, and works by team and
+  // owner, not by entry.
+  public async findMovedByAbsence(
+    slackTeamId: string,
+    date: string,
+  ): Promise<IMovedEntries[]> {
+    const [away, awayDayBefore, approving] = await Promise.all([
+      this.usersService.findAway(slackTeamId, date),
+      this.usersService.findAway(slackTeamId, shiftDay(date, -1)),
+      this.usersService.findMany({ slackTeamId, roles: [...MANAGER_ROLES] }),
+    ]);
+    const byId = new Map(approving.map((person) => [person.id, person]));
+    // Time off that runs on in a new request starts no new absence; a day back
+    // at work in between does, since the entries went back to them that day.
+    const awayAlready = new Set(
+      [...awayDayBefore.values()].map(({ userId }) => userId),
+    );
+    const startsToday = (userId: string) => !awayAlready.has(userId);
+
+    if (
+      ![...away.values()].some(
+        ({ userId }) => startsToday(userId) && byId.has(userId),
+      )
+    ) {
+      return [];
+    }
+
+    const [listedRows, toldRows, teams] = await Promise.all([
+      this.timeEntriesRepository.findSubmittedGroupApprovers(
+        slackTeamId,
+        date,
+        'listed',
+      ),
+      this.timeEntriesRepository.findSubmittedGroupApprovers(
+        slackTeamId,
+        date,
+        'told',
+      ),
+      this.teamsService.findMany({ slackTeamId }),
+    ]);
+    const awayById = new Map(
+      [...away].map(([slackId, absence]) => [
+        absence.userId,
+        { slackId, ...absence },
+      ]),
+    );
+    const groupKey = (row: { team_id: string | null; user_id: string }) =>
+      `${row.team_id ?? ''}:${row.user_id}`;
+    const listedOf = new Map<string, string[]>();
+    const toldOf = new Map<
+      string,
+      { teamId: string | null; entries: number; approverIds: string[] }
+    >();
+
+    for (const row of listedRows) {
+      const key = groupKey(row);
+
+      listedOf.set(key, [...(listedOf.get(key) ?? []), row.approver_id]);
+    }
+    for (const row of toldRows) {
+      const key = groupKey(row);
+      const group = toldOf.get(key) ?? {
+        teamId: row.team_id,
+        entries: row.entries,
+        approverIds: [],
+      };
+
+      group.approverIds.push(row.approver_id);
+      toldOf.set(key, group);
+    }
+
+    const teamName = new Map(teams.map(({ id, name }) => [id, name]));
+    const result = new Map<
+      string,
+      {
+        approver: IUserViewModel;
+        groups: Map<
+          string,
+          {
+            teamName: string | null;
+            away: Map<string, { slackId: string; until: string }>;
+            count: number;
+          }
+        >;
+      }
+    >();
+
+    for (const [key, { teamId, entries, approverIds }] of toldOf) {
+      const listed = listedOf.get(key) ?? [];
+      const absences = listed.map((id) => awayById.get(id));
+
+      if (
+        !listed.length ||
+        absences.some((absence) => !absence) ||
+        !absences.some((absence) => absence && startsToday(absence.userId))
+      ) {
+        continue;
+      }
+
+      for (const approverId of approverIds) {
+        const approver = byId.get(approverId);
+
+        if (!approver || listed.includes(approverId)) {
+          continue;
+        }
+
+        const person = result.get(approverId) ?? {
+          approver,
+          groups: new Map(),
+        };
+        const teamKey = teamId ?? '';
+        const group = person.groups.get(teamKey) ?? {
+          teamName: teamId ? (teamName.get(teamId) ?? null) : null,
+          away: new Map(),
+          count: 0,
+        };
+
+        for (const absence of absences) {
+          group.away.set(absence!.userId, {
+            slackId: absence!.slackId,
+            until: absence!.until,
+          });
+        }
+        group.count += entries;
+        person.groups.set(teamKey, group);
+        result.set(approverId, person);
+      }
+    }
+
+    return [...result.values()].map(({ approver, groups }) => ({
+      approver,
+      groups: [...groups.values()].map(({ away: awayPeople, ...group }) => ({
+        ...group,
+        away: [...awayPeople.values()],
+      })),
+    }));
   }
 
   // Decides the pending entries `narrowing` names (one by its id, or those
@@ -198,6 +399,7 @@ export class TimeEntryApprovalsService {
           ? await this.timeEntriesRepository.findWaitingIds(
               user.slack_team_id,
               user.id,
+              todayIso(),
             )
           : [],
       },

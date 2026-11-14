@@ -39,7 +39,7 @@ One rejection at any level rejects the request, also under "all". When a level i
 
 Logbook leaves out the requester, and anyone deactivated or without the Manager, HR or Admin role. A level with nobody left is skipped. Someone in no team has no team's approvers: their request starts at the company rules' second approval.
 
-If you approved for the team and you are also on the second approval, you aren't asked again: your second-approval step is approved as you. With "any one" that completes the second approval; with "all" the others still decide.
+If you approved for the team and you are also on the second approval, you aren't asked again: your second-approval step is approved as you. With "any one" that completes the second approval; with "all" the others still decide. The same goes for HR or admins who get a request because its approvers are on time off or can no longer decide: if you approved it already (for example with **Approve for Approvers**), it's approved as you instead of coming back to you.
 
 See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/) for how levels are set up.
 
@@ -48,6 +48,17 @@ See [Teams and company rules](/logbook/docs/admins/teams-and-company-rules/) for
 When neither level has anyone who can decide (no team, no approvers, or the requester is the only one), the request goes to everyone with the HR role as one level, any one of them. With nobody on HR it goes to every admin. The requester is told where it went and why.
 
 If there is nobody at all, the request stays pending and the requester is told that nobody can approve it yet. It goes for approval once someone can: when someone gets the Manager, HR or Admin role or is activated again, or a team's approvers or the company rules name someone new. It then goes where a new request would, and the requester is told where. Until then, HR or an admin can set its status with **Edit Request** on **All requests**.
+
+## When an approver is on time off
+
+An approver whose own time off is approved and covers today is skipped: Logbook doesn't ask them, and their step shows "⏭️ Skipped" with "on time off until" the last day, in the request's **View details**. Any approved time off counts, sick leave too.
+
+- When a level starts, its approvers who are away are left out. If someone else on the level is at work, they decide ("any one" or "all" as before). If everyone on the level is away, the level is skipped and the next one decides.
+- When the last level would be skipped, the request goes to HR instead (the HR people who are at work, else the admins who are), as one "any one" level named **HR approval** or **Admin approval**.
+- The same happens to a request that already waits: Logbook checks every day from 06:00 UTC, and at once when time off that covers today is approved. A skipped approver's message loses its buttons and says it went on.
+- The requester is told when the request goes to someone else because of it, and the next approvers' message says that a level was skipped and why.
+
+Nothing is skipped for nobody: when everyone who could decide is on time off too, the request waits for its approver as before. A request is never approved only because approvers were skipped. A step that was skipped isn't given back when the approver returns early.
 
 ## The Approvals screen
 
@@ -71,6 +82,8 @@ HR and admins can move a request on when its approvers are away.
 
 Logbook approves every open step of the level the request waits on, under either rule. The request moves on to the next level, or is approved when there is none. You can't do this for your own request.
 
+Logbook tells HR (or the admins) of requests that have waited more than five days in their reminder; see [Reminders of what waits for you](#reminders-of-what-waits-for-you).
+
 ## When a request or an approver changes
 
 - **An edit.** When HR or an admin changes the dates, type or person of a pending request with **Edit Request**, the open approval closes and starts again: everyone is asked again about the request as it is now. A change to the comment only leaves the approval as it was.
@@ -85,5 +98,11 @@ When the approvers decide, or HR or an admin sets the status with **Edit Request
 - The requester gets a DM: approved or rejected, by whom, the reason and the approver comments. An approved request may carry a button to log it as time; see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 - When it is approved, the people under the team's **Who hears of decisions** get a DM too. They come from the team's own rules or the company rules, as they are at the time of the decision. They hear nothing of a rejection.
 - Every approver's message shows the decision and who made it, HR or the admin after **Edit Request**.
+
+## Reminders of what waits for you
+
+When something has waited for your decision for two days or more, Logbook reminds you in one direct message: how many time off requests and how many time entries (of how many people) still wait, and since when the oldest. It comes as often as you chose in **Home → 🔔 Reminders** ("Remind me about time I haven't submitted and what waits for my approval"): every working day, every Monday (the default), the first Monday of the month, or never, in the morning (UTC). With nothing that old waiting, no reminder comes. An approver on time off isn't reminded of time off requests while HR or an admin is at work, who gets the request once the morning check skips the approver; with nobody who could decide at work, the approver is reminded. The request's own requester doesn't count: when the only HR person or admin at work is the one who asked for the time off, the approver on time off is still reminded of it.
+
+Everyone with the HR role who is at work (the admins at work, when nobody with the HR role is; everyone with it when nobody who could decide is at work) is also told what has waited for someone else for more than five days, in the same reminder, under "Waiting for someone else for more than 5 days": each request with its requester, dates and approvers, and each person's time entries with their count and hours, oldest first, ten at most and then "and N more". What waits for you, and your own requests and time, are left out; the rest you can decide for the approvers in **Approvals → All pending requests** and **All pending entries**.
 
 All messages are listed in [Notifications](/logbook/docs/reference/notifications/).

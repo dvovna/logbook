@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import { todayIso } from '@common/utils/period-presets';
 import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
 import VacationType from '@common/enums/vacation-type.enum';
 import { IRequestContext } from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IAbsence } from '@modules/users/types/absence.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { reportError } from '@common/errors/error-reporter';
@@ -223,13 +225,14 @@ export class VacationRequestProcessingService implements OnModuleInit {
   private async plan(
     request: IVacationRequestViewModel,
   ): Promise<IApprovalPlan> {
-    const [rules, approvers] = await Promise.all([
+    const [rules, approvers, away] = await Promise.all([
       this.teamRulesService.forTeam(request.team?.id, request.slack_team_id),
       // Everyone who can decide a step: active, with an approving role.
       this.usersService.findMany({
         slackTeamId: request.slack_team_id,
         roles: [...MANAGER_ROLES],
       }),
+      this.usersService.findAway(request.slack_team_id, todayIso()),
     ]);
     const roleOf = new Map(
       approvers.map(({ slack_id, role }) => [slack_id, role]),
@@ -253,6 +256,14 @@ export class VacationRequestProcessingService implements OnModuleInit {
         context: await this.buildContext(request),
       },
       levels: [],
+      // What moveOn needs, read here already: the workflow starts under the
+      // request's lock with no read of its own.
+      context: {
+        away,
+        hrAndAdmins: approvers.filter(
+          ({ role }) => role === UserRole.HR || role === UserRole.Admin,
+        ),
+      },
     };
 
     // Nobody approves their own request: a team lead who is one of the
@@ -294,7 +305,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
     // Nobody its rules name can approve it, so it would wait forever: it goes
     // to HR instead, or to the admins when there is no HR, and the requester
     // is told so.
-    const fallback = this.findFallbackApprovers(request, approvers);
+    const fallback = this.findFallbackApprovers(request, approvers, away);
 
     return {
       workflow: fallback && {
@@ -316,12 +327,19 @@ export class VacationRequestProcessingService implements OnModuleInit {
   }
 
   // Everyone with the HR role, else every admin; never the requester
-  // (fallbackApprovers, as for time entries).
+  // (fallbackApprovers, as for time entries). People on approved time off
+  // are left out; when that leaves nobody, everyone is asked anyway.
   private findFallbackApprovers(
     request: IVacationRequestViewModel,
     approvers: IUserViewModel[],
+    away: ReadonlyMap<string, IAbsence>,
   ) {
-    const fallback = fallbackApprovers(approvers, request.user!.id);
+    const ownerId = request.user!.id;
+    const fallback =
+      fallbackApprovers(
+        approvers.filter(({ slack_id }) => !away.has(slack_id)),
+        ownerId,
+      ) ?? fallbackApprovers(approvers, ownerId);
 
     return (
       fallback && {

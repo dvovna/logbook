@@ -31,6 +31,7 @@ import {
 import { WorkflowStepCommentEvent } from '@modules/request-workflows/enums/workflow-step-comment-event.enum';
 import { RequestWorkflowStepCommentAddedEvent } from '@modules/request-workflows/events/request-workflow-step-comment.events';
 import { RequestWorkflowStepCommentsService } from '@modules/request-workflows/services/request-workflow-step-comments.service';
+import { onTimeOffTextOf } from '@modules/slack/common/utils/time-off-text';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { RequesterNoticeActionId } from '@modules/slack/tabs/vacation-requests/enums/requester-notice-action-id.enum';
 
@@ -50,6 +51,8 @@ interface ILevelNoticeJob {
   level: number;
   // The level asked now; the one after `level` in jobs saved before.
   nextLevel?: number;
+  // The steps skipped because their approver is on time off.
+  skippedStepIds?: string[];
 }
 
 interface ICommentNoticeJob {
@@ -120,12 +123,14 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
     slackTeamId,
     level,
     nextLevel,
+    skippedStepIds,
   }: VacationWorkflowLevelCompleted) {
     await this.jobs.enqueue<ILevelNoticeJob>(LEVEL_NOTICE_JOB, {
       requestId,
       slackTeamId,
       level,
       nextLevel,
+      skippedStepIds,
     });
   }
 
@@ -164,6 +169,7 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
     slackTeamId,
     level,
     nextLevel = level + 1,
+    skippedStepIds = [],
   }: ILevelNoticeJob) {
     const request = await this.findWaiting(requestId, slackTeamId);
 
@@ -178,7 +184,16 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
       }),
     );
     const completed = steps.filter(({ step_level }) => step_level === level);
-    const next = steps.filter(({ step_level }) => step_level === nextLevel);
+    // The asked ones: a level may hold steps skipped for time off too.
+    const next = steps.filter(
+      ({ step_level, processed_at, step_data }) =>
+        step_level === nextLevel &&
+        !!processed_at &&
+        step_data.status !== WorkflowStepStatus.Skipped,
+    );
+    const away = this.awayOf(
+      steps.filter(({ id }) => skippedStepIds.includes(id)),
+    );
     const approvedBy = completed
       .filter(
         ({ step_data }) => step_data.status === WorkflowStepStatus.Approved,
@@ -189,15 +204,20 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
       );
 
     // A level passed over because nobody on it could decide any more was
-    // approved by no one: the next level's own DM is what the requester
-    // needs, and the request's details show the rest.
-    if (!approvedBy.length || !next.length) {
+    // approved by no one and skipped no one: the next level's own DM is what
+    // the requester needs, and the request's details show the rest.
+    if ((!approvedBy.length && !away) || !next.length) {
       return;
     }
 
+    const dates = this.datesOf(request);
+    const nextText = `${this.levelNameOf(next)} from ${this.mentions(next.map(({ slack_user_id }) => slack_user_id))}`;
+
     await this.post(
       request,
-      `✅ Your vacation request (${this.datesOf(request)}): ${this.levelNameOf(completed)} done by ${this.mentions(approvedBy)}. Now waiting for ${this.levelNameOf(next)} from ${this.mentions(next.map(({ slack_user_id }) => slack_user_id))}.`,
+      approvedBy.length
+        ? `✅ Your vacation request (${dates}): ${this.levelNameOf(completed)} done by ${this.mentions(approvedBy)}.${away ? ` ${away}.` : ''} Now waiting for ${nextText}.`
+        : `⏭️ ${away}. Your vacation request (${dates}) now waits for ${nextText}.`,
     );
   }
 
@@ -273,21 +293,43 @@ export class VacationRequestProgressNoticesService implements OnModuleInit {
   }
 
   private async getSentToText(request: IVacationRequestViewModel) {
-    const firstLevel = currentRunOf(
+    const steps = currentRunOf(
       await this.requestWorkflowStepsService.findMany({
         requestId: request.id,
         slackTeamId: request.slack_team_id,
-        stepLevel: 1,
       }),
     );
+    const asked = steps.filter(
+      ({ step_data }) => step_data.status !== WorkflowStepStatus.Skipped,
+    );
 
-    if (!firstLevel.length) {
+    if (!asked.length) {
       return null;
     }
 
-    const approvers = firstLevel.map(({ slack_user_id }) => slack_user_id);
+    const lowest = Math.min(...asked.map(({ step_level }) => step_level));
+    const firstLevel = asked.filter(({ step_level }) => step_level === lowest);
+    const mentions = this.mentions(
+      firstLevel.map(({ slack_user_id }) => slack_user_id),
+    );
+    const away = this.awayOf(
+      steps.filter(
+        ({ step_data }) => step_data.status === WorkflowStepStatus.Skipped,
+      ),
+    );
 
-    return `📨 Your vacation request (${this.datesOf(request)}) went to ${this.mentions(approvers)} (${this.levelNameOf(firstLevel)}).`;
+    return away
+      ? `📨 ${away}, so your vacation request (${this.datesOf(request)}) went to ${mentions} (${this.levelNameOf(firstLevel)}).`
+      : `📨 Your vacation request (${this.datesOf(request)}) went to ${mentions} (${this.levelNameOf(firstLevel)}).`;
+  }
+
+  private awayOf(skipped: IRequestWorkflowStepViewModel[]) {
+    return onTimeOffTextOf(
+      skipped.map(({ slack_user_id, step_data }) => ({
+        slackId: slack_user_id,
+        until: step_data.away_until ?? null,
+      })),
+    );
   }
 
   private getFallbackText(

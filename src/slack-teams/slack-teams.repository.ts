@@ -176,43 +176,117 @@ export class SlackTeamsRepository extends BaseRepository<
   // Marks the reminder of the week starting `monday` as sent, once: true for
   // the one caller that marked it, false when it was sent already (or the
   // workspace is uninstalled).
-  public async claimReminderWeek(id: string, monday: string): Promise<boolean> {
-    const rows = await this.failingWith(
-      'Failed to claim the weekly reminder',
-      () =>
-        this.db
-          .updateTable('slack_teams')
-          .set({ time_reminder_week: monday })
-          .where('id', '=', id)
-          .where('uninstalled_at', 'is', null)
-          .where((eb) =>
-            eb.or([
-              eb('time_reminder_week', 'is', null),
-              eb('time_reminder_week', '<', monday),
-            ]),
-          )
-          .returning('id')
-          .execute(),
+  public claimReminderWeek(id: string, monday: string): Promise<boolean> {
+    return this.claimDate(id, 'time_reminder_week', monday, 'weekly reminder');
+  }
+
+  // The same for the reminder of `day`, which goes to the people reminded
+  // every working day.
+  public claimReminderDay(id: string, day: string): Promise<boolean> {
+    return this.claimDate(id, 'time_reminder_day', day, 'daily reminder');
+  }
+
+  // The installed workspaces with the week and the day whose approvers'
+  // reminder went out last.
+  public findApproverRemindersSent(): Promise<
+    {
+      id: string;
+      approver_reminder_week: string | null;
+      approver_reminder_day: string | null;
+    }[]
+  > {
+    return this.failingWith('Failed to read the approver reminders sent', () =>
+      this.db
+        .selectFrom('slack_teams')
+        .select(['id', 'approver_reminder_week', 'approver_reminder_day'])
+        .where('uninstalled_at', 'is', null)
+        .execute(),
+    );
+  }
+
+  // The same for the approvers' reminders of what waits for them.
+  public claimApproverReminderWeek(
+    id: string,
+    monday: string,
+  ): Promise<boolean> {
+    return this.claimDate(
+      id,
+      'approver_reminder_week',
+      monday,
+      'weekly approver reminder',
+    );
+  }
+
+  public claimApproverReminderDay(id: string, day: string): Promise<boolean> {
+    return this.claimDate(
+      id,
+      'approver_reminder_day',
+      day,
+      'daily approver reminder',
+    );
+  }
+
+  private async claimDate(
+    id: string,
+    column:
+      | 'time_reminder_week'
+      | 'time_reminder_day'
+      | 'approver_reminder_week'
+      | 'approver_reminder_day',
+    date: string,
+    what: string,
+  ): Promise<boolean> {
+    const rows = await this.failingWith(`Failed to claim the ${what}`, () =>
+      this.db
+        .updateTable('slack_teams')
+        .set({ [column]: date })
+        .where('id', '=', id)
+        .where('uninstalled_at', 'is', null)
+        .where((eb) => eb.or([eb(column, 'is', null), eb(column, '<', date)]))
+        .returning('id')
+        .execute(),
     );
 
     return rows.length > 0;
   }
 
-  // The same for the reminder of `day`, which goes to the people reminded
-  // every working day.
-  public async claimReminderDay(id: string, day: string): Promise<boolean> {
+  // The installed workspaces whose check for approvers on time off hasn't
+  // run for `date` yet.
+  public async findAbsenceCheckDue(date: string): Promise<string[]> {
     const rows = await this.failingWith(
-      'Failed to claim the daily reminder',
+      'Failed to read the checks for approvers on time off',
+      () =>
+        this.db
+          .selectFrom('slack_teams')
+          .select('id')
+          .where('uninstalled_at', 'is', null)
+          .where((eb) =>
+            eb.or([
+              eb('absence_check_date', 'is', null),
+              eb('absence_check_date', '<', date),
+            ]),
+          )
+          .execute(),
+    );
+
+    return rows.map(({ id }) => id);
+  }
+
+  // The same for the check for approvers on time off, which runs once a
+  // UTC day.
+  public async claimAbsenceCheck(id: string, date: string): Promise<boolean> {
+    const rows = await this.failingWith(
+      'Failed to claim the check for approvers on time off',
       () =>
         this.db
           .updateTable('slack_teams')
-          .set({ time_reminder_day: day })
+          .set({ absence_check_date: date })
           .where('id', '=', id)
           .where('uninstalled_at', 'is', null)
           .where((eb) =>
             eb.or([
-              eb('time_reminder_day', 'is', null),
-              eb('time_reminder_day', '<', day),
+              eb('absence_check_date', 'is', null),
+              eb('absence_check_date', '<', date),
             ]),
           )
           .returning('id')
