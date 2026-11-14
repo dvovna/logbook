@@ -472,6 +472,39 @@ describe('Approvers who are away', () => {
         status: 'skipped',
       });
     });
+
+    it('approves a fallback level made while the request waits for someone who approved it already', async () => {
+      const hrApprover = await workspace.addUser({ role: UserRole.HR });
+      await addMember(
+        await workspace.addTeam({
+          manager_approvers: [manager.slack_id],
+          hr_approvers: [hrApprover.slack_id],
+          rule_set_id: null,
+        }),
+      );
+      const request = await requestVacation(t, workspace, member, workWeek(2));
+      await approvalMessageTo(t, workspace, manager);
+      const hrViewModel = await t.app
+        .get(UsersService)
+        .findBySlackId(hr.slack_id, workspace.id);
+      await t.app
+        .get(WorkflowDecisionsService)
+        .approveCurrentLevel(request.id, hrViewModel!);
+      await t.idle();
+      await approvalMessageTo(t, workspace, hrApprover);
+      await goAway(hrApprover, '2026-06-18', '2026-06-24');
+      travelTo('2026-06-18');
+
+      // The fallback level is the HR person at work, who approved level 1.
+      await skipAway(request);
+
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      expect(messagesTo(hr)).toEqual([]);
+      expect((await stepOf(hr))?.step_data).toMatchObject({
+        status: 'approved',
+        level_name: 'HR approval',
+      });
+    });
   });
 
   describe('requests nobody on the team can approve', () => {
