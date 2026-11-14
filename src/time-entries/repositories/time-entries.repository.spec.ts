@@ -98,6 +98,29 @@ describe('TimeEntriesRepository', () => {
     ]);
   });
 
+  it.each(['told', 'listed'] as const)(
+    'finds whom entries wait for (%s) among the workspace’s approving people, today bound as a parameter',
+    async (who) => {
+      const { database, sqlOf, parametersOf } = recordingDatabase([[]]);
+
+      await new TimeEntriesRepository(database).findApproverIds(
+        'w1',
+        ['e1'],
+        '2026-06-17',
+        who,
+      );
+
+      // The approving conditions come first and alone, so Postgres scans
+      // users by workspace and runs the rest only for its approving people.
+      expect(sqlOf(0)).toMatch(
+        /inner join "users" as "approver" on \("approver"\."slack_team_id" = \$1\s+and "approver"\."is_active"\s+and "approver"\."role" in \(\$2, \$3, \$4\)\s+and "approver"\."id" <> "time_entries"\."user_id" and case\s/,
+      );
+      expect(sqlOf(0)).not.toContain('2026-06-17');
+      expect(parametersOf(0)[0]).toBe('w1');
+      expect(parametersOf(0).includes('2026-06-17')).toBe(who === 'told');
+    },
+  );
+
   it("sums the minutes of a manager's teams and their own in one row", async () => {
     const { database, sqlOf, parametersOf } = recordingDatabase([
       [{ minutes: 90, billable_minutes: 60 }],

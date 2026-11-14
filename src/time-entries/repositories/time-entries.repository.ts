@@ -997,10 +997,13 @@ export class TimeEntriesRepository extends BaseRepository<
         else ${column(alias, 'role')} = ${UserRole.Admin}
       end)`;
 
+    // Each mode implies approving(person), which comes first and alone so
+    // that Postgres scans only the workspace's approving people and runs
+    // the rest for those.
     if (who === 'inbox') {
       // The away managers keep the entry in theirs.
-      return sql<boolean>`(${listed(person)}
-        or (not ${someListedAtWork} and ${fallbackAtWork(person)}))`;
+      return sql<boolean>`(${approving(person)} and (${listed(person)}
+        or (not ${someListedAtWork} and ${fallbackAtWork(person)})))`;
     }
 
     const someFallbackAtWork = sql`exists (
@@ -1010,7 +1013,7 @@ export class TimeEntriesRepository extends BaseRepository<
         and ${atWork('fallback_at_work')}
     )`;
 
-    return sql<boolean>`(case
+    return sql<boolean>`(${approving(person)} and case
       when ${someListedAtWork} then (${listed(person)} and ${atWork(person)})
       when ${someFallbackAtWork} then ${fallbackAtWork(person)}
       else ${listed(person)}
