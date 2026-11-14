@@ -17,6 +17,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { TimeOffContextService } from '@modules/vacation-requests/services/time-off-context.service';
 import { LeaveBalancesRepository } from '@modules/vacation-requests/repositories/leave-balances.repository';
 import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-balances.service';
+import { ApproverAbsenceTriggerService } from '@modules/vacation-requests/services/approver-absence-trigger.service';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { LeaveBalancesService } from '@modules/vacation-requests/services/leave-
     TimeOffContextService,
     LeaveBalancesRepository,
     LeaveBalancesService,
+    ApproverAbsenceTriggerService,
   ],
   exports: [
     VacationRequestsService,

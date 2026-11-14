@@ -9,6 +9,7 @@ import { UsersService } from '@modules/users/services/users.service';
 import { textOf } from './support/block-kit';
 import { travelTo } from './support/clock';
 import { workWeek } from './support/dates';
+import { AbsenceCheckService } from '@modules/request-workflows/services/absence-check.service';
 import { createTestApp, ITestApp } from './support/test-app';
 import { TestWorkspace } from './support/test-workspace';
 import { approvalMessageTo, requestVacation } from './support/vacation-flows';
@@ -420,6 +421,102 @@ describe('Approvers who are away', () => {
       expect(t.slackApi.postedMessages(workspace.token, hr.slack_id)).toEqual(
         [],
       );
+    });
+  });
+
+  describe('the daily check and the same-day trigger', () => {
+    let hr: Tables<'users'>;
+
+    beforeEach(async () => {
+      hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+    });
+
+    it('skips at the first check of the day, once', async () => {
+      const manager = await workspace.addUser({ role: UserRole.Manager });
+      const team = await workspace.addTeam({
+        manager_approvers: [manager.slack_id],
+        hr_approvers: [hr.slack_id],
+        rule_set_id: null,
+      });
+      const member = await workspace.addUser({ team_id: team.id });
+      await requestVacation(t, workspace, member, workWeek(2));
+      await workspace.addVacationRequest(manager, {
+        start_date: '2026-06-18',
+        end_date: '2026-06-24',
+      });
+      travelTo('2026-06-18');
+      const checks = t.app.get(AbsenceCheckService);
+
+      expect(await checks.checkWorkspace(workspace.id, '2026-06-18')).toBe(
+        true,
+      );
+      await t.idle();
+      await t.retryJobs();
+
+      expect(
+        t.slackApi.postedMessages(workspace.token, hr.slack_id),
+      ).toHaveLength(1);
+      expect(await checks.checkWorkspace(workspace.id, '2026-06-18')).toBe(
+        false,
+      );
+    });
+
+    it('checks nothing before 06:00 UTC', async () => {
+      expect(
+        await t.app
+          .get(AbsenceCheckService)
+          .checkAll(new Date('2026-06-18T05:59:00Z')),
+      ).toBe(0);
+    });
+
+    it('does not check an uninstalled workspace', async () => {
+      await t.db
+        .updateTable('slack_teams')
+        .set({ uninstalled_at: new Date().toISOString() })
+        .where('id', '=', workspace.id)
+        .execute();
+
+      expect(
+        await t.app
+          .get(AbsenceCheckService)
+          .checkWorkspace(workspace.id, '2026-06-17'),
+      ).toBe(false);
+    });
+
+    it('skips at once when same-day time off is approved', async () => {
+      const boss = await workspace.addUser({ role: UserRole.Manager });
+      const bossTeam = await workspace.addTeam({
+        manager_approvers: [boss.slack_id],
+      });
+      const lead = await workspace.addUser({
+        role: UserRole.Manager,
+        team_id: bossTeam.id,
+      });
+      const team = await workspace.addTeam({
+        manager_approvers: [lead.slack_id],
+        hr_approvers: [hr.slack_id],
+        rule_set_id: null,
+      });
+      const member = await workspace.addUser({ team_id: team.id });
+      await requestVacation(t, workspace, member, workWeek(2));
+      await requestVacation(t, workspace, lead, {
+        start: '2026-06-17',
+        end: '2026-06-19',
+      });
+
+      await t.slack
+        .actOnMessage(
+          workspace,
+          boss,
+          await approvalMessageTo(t, workspace, boss),
+          ApproverMessageActionId.Approve,
+        )
+        .expect(200);
+      await t.idle();
+
+      expect(
+        t.slackApi.postedMessages(workspace.token, hr.slack_id),
+      ).toHaveLength(1);
     });
   });
 });

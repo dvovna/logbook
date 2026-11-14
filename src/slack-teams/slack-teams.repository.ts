@@ -222,6 +222,30 @@ export class SlackTeamsRepository extends BaseRepository<
     return rows.length > 0;
   }
 
+  // The same for the check for approvers on time off, which runs once a
+  // UTC day.
+  public async claimAbsenceCheck(id: string, date: string): Promise<boolean> {
+    const rows = await this.failingWith(
+      'Failed to claim the check for approvers on time off',
+      () =>
+        this.db
+          .updateTable('slack_teams')
+          .set({ absence_check_date: date })
+          .where('id', '=', id)
+          .where('uninstalled_at', 'is', null)
+          .where((eb) =>
+            eb.or([
+              eb('absence_check_date', 'is', null),
+              eb('absence_check_date', '<', date),
+            ]),
+          )
+          .returning('id')
+          .execute(),
+    );
+
+    return rows.length > 0;
+  }
+
   private async failingWith<T>(message: string, query: () => Promise<T>) {
     try {
       return await query();

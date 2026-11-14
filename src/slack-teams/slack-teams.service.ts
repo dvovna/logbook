@@ -144,6 +144,11 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return this.slackTeamsRepository.claimReminderDay(id, day);
   }
 
+  // See SlackTeamsRepository.claimAbsenceCheck.
+  public claimAbsenceCheck(id: string, date: string): Promise<boolean> {
+    return this.slackTeamsRepository.claimAbsenceCheck(id, date);
+  }
+
   public async findUninstalledBefore(cutoff: Date): Promise<string[]> {
     const workspaces = await this.slackTeamsRepository.findMany({
       uninstalled_at: { operator: 'lt', value: cutoff.toISOString() },

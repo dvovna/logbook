@@ -1189,6 +1189,7 @@ export type Database = {
       };
       slack_teams: {
         Row: {
+          absence_check_date: string | null;
           created_at: string;
           currency: string;
           id: string;
@@ -1207,6 +1208,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          absence_check_date?: string | null;
           created_at?: string;
           currency?: string;
           id?: string;
@@ -1224,6 +1226,7 @@ export type Database = {
           uninstalled_at?: string | null;
         };
         Update: {
+          absence_check_date?: string | null;
           created_at?: string;
           currency?: string;
           id?: string;
