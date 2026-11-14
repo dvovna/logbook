@@ -61,6 +61,19 @@ const canceled = (
   step_data: { ...s.step_data, status: WorkflowStepStatus.Cancelled },
 });
 
+const skipped = (
+  s: IRequestWorkflowStepViewModel,
+): IRequestWorkflowStepViewModel => ({
+  ...s,
+  completed_at: '2026-06-17T01:00:00.000000+00:00',
+  step_data: {
+    ...s.step_data,
+    status: WorkflowStepStatus.Skipped,
+    skip_reason: 'time_off',
+    away_until: '2026-06-24',
+  },
+});
+
 const all = (
   s: IRequestWorkflowStepViewModel,
 ): IRequestWorkflowStepViewModel => ({
@@ -211,6 +224,44 @@ describe('planMoveOn', () => {
       approveAs: [],
       skip: [],
       next: { kind: 'fallback', after: 1 },
+    });
+  });
+
+  // A request is never approved without a person's approval.
+  it('falls back instead of approving when there is no level to look at', () => {
+    expect(plan([], null, true)).toEqual({
+      approveAs: [],
+      skip: [],
+      next: { kind: 'fallback', after: null },
+    });
+    expect(plan([canceled(b1)], null, false)).toEqual({
+      approveAs: [],
+      skip: [],
+      next: { kind: 'fallback', after: null },
+    });
+  });
+
+  it('approves when #90 closes an ANY level that also has someone at work', () => {
+    expect(plan([approved(x1), x2, h2], 1, false)).toEqual({
+      approveAs: [x2],
+      skip: [],
+      next: { kind: 'approve', level: 2 },
+    });
+  });
+
+  it('approves when #90 leaves only away people on the last ALL level', () => {
+    expect(plan([approved(x1), all(x2), all(a2)], 1, false)).toEqual({
+      approveAs: [all(x2)],
+      skip: [all(a2)],
+      next: { kind: 'approve', level: 2 },
+    });
+  });
+
+  it('keeps waiting for the one at work after an earlier skip', () => {
+    expect(plan([skipped(a1), b1, h2], 1, true)).toEqual({
+      approveAs: [],
+      skip: [],
+      next: { kind: 'wait' },
     });
   });
 });

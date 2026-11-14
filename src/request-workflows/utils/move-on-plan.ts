@@ -59,6 +59,12 @@ export const planMoveOn = ({
         .map((step) => step.step_level),
     ]),
   ].sort((a, b) => a - b);
+
+  // No level with anyone on it: nobody approved, so it can't be approved.
+  if (!levels.length) {
+    return { approveAs: [], skip: [], next: { kind: 'fallback', after: null } };
+  }
+
   const approveAs: Step[] = [];
   const skip: Step[] = [];
   // Levels skipped with nobody's approval since the last level an approval
