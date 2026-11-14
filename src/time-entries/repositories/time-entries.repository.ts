@@ -142,6 +142,7 @@ export class TimeEntriesRepository extends BaseRepository<
       minutes: row.minutes,
       billable: row.billable,
       status: row.status as TimeEntryStatus,
+      submitted_at: row.submitted_at,
       project_id: row.project_id,
       vacation_request_id: row.vacation_request_id,
       created_at: row.created_at,
@@ -167,8 +168,8 @@ export class TimeEntriesRepository extends BaseRepository<
   }
 
   // How many submitted entries of how many people have waited for
-  // `approverId` since before `before` (updated_at, which submitting sets),
-  // and since when the oldest (see approves()).
+  // `approverId` since before `before` (submitted_at), and since when the
+  // oldest (see approves()).
   public async summarizeWaitingSince(
     slackTeamId: string,
     approverId: string,
@@ -199,15 +200,7 @@ export class TimeEntriesRepository extends BaseRepository<
     before: Date,
   ): Promise<string[]> {
     const rows = await this.db
-      .selectFrom(
-        this.selectInWorkspace(slackTeamId)
-          .select(['time_entries.team_id', 'time_entries.user_id'])
-          .where('time_entries.status', '=', TimeEntryStatus.Submitted)
-          .where('time_entries.deleted_at', 'is', null)
-          .where('time_entries.updated_at', '<', before.toISOString())
-          .groupBy(['time_entries.team_id', 'time_entries.user_id'])
-          .as('waiting'),
-      )
+      .selectFrom(this.submittedGroups(slackTeamId, before).as('waiting'))
       .innerJoin('users as approver', (join) =>
         join.on(
           this.approves(slackTeamId, {
@@ -232,21 +225,7 @@ export class TimeEntriesRepository extends BaseRepository<
     before: Date,
   ): Promise<IStuckEntryGroup[]> {
     const rows = await this.db
-      .selectFrom(
-        this.selectInWorkspace(slackTeamId)
-          .select([
-            'time_entries.team_id',
-            'time_entries.user_id',
-            (eb) => eb.fn.countAll<number>().as('entries'),
-            (eb) => eb.fn.sum<number>('time_entries.minutes').as('minutes'),
-            (eb) => eb.fn.min('time_entries.updated_at').as('oldest'),
-          ])
-          .where('time_entries.status', '=', TimeEntryStatus.Submitted)
-          .where('time_entries.deleted_at', 'is', null)
-          .where('time_entries.updated_at', '<', before.toISOString())
-          .groupBy(['time_entries.team_id', 'time_entries.user_id'])
-          .as('waiting'),
-      )
+      .selectFrom(this.submittedGroups(slackTeamId, before).as('waiting'))
       .innerJoin('users as owner', 'owner.id', 'waiting.user_id')
       .leftJoin('users as approver', (join) =>
         join.on(
@@ -991,35 +970,40 @@ export class TimeEntriesRepository extends BaseRepository<
       .where('time_entries.deleted_at', 'is', null);
   }
 
-  // The submitted entries of others by team and owner, with how many each,
-  // where they wait for `approverId`. Whom an entry waits for depends on its
-  // team and owner only, so the rule runs once a pair, not once an entry:
-  // Admin and HR would otherwise run it for every submitted entry of the
-  // workspace.
-  private waitingGroups(
-    slackTeamId: string,
-    approverId: string,
-    submittedBefore?: Date,
-  ) {
+  // The submitted entries by team and owner: how many, how long, and since
+  // when the oldest has waited; with `submittedBefore`, those submitted
+  // before it. Whom an entry waits for depends on its team and owner only,
+  // so approves() runs once a pair, not once an entry: Admin and HR would
+  // otherwise run it for every submitted entry of the workspace.
+  private submittedGroups(slackTeamId: string, submittedBefore?: Date) {
     return this.selectInWorkspace(slackTeamId)
       .select([
         'time_entries.team_id',
         'time_entries.user_id',
         (eb) => eb.fn.countAll<number>().as('entries'),
+        (eb) => eb.fn.sum<number>('time_entries.minutes').as('minutes'),
+        (eb) => eb.fn.min('time_entries.submitted_at').as('oldest'),
       ])
       .where('time_entries.status', '=', TimeEntryStatus.Submitted)
       .where('time_entries.deleted_at', 'is', null)
       .$if(!!submittedBefore, (query) =>
-        query
-          .select((eb) => eb.fn.min('time_entries.updated_at').as('oldest'))
-          .where(
-            'time_entries.updated_at',
-            '<',
-            submittedBefore!.toISOString(),
-          ),
+        query.where(
+          'time_entries.submitted_at',
+          '<',
+          submittedBefore!.toISOString(),
+        ),
       )
+      .groupBy(['time_entries.team_id', 'time_entries.user_id']);
+  }
+
+  // The groups of submittedGroups of others that wait for `approverId`.
+  private waitingGroups(
+    slackTeamId: string,
+    approverId: string,
+    submittedBefore?: Date,
+  ) {
+    return this.submittedGroups(slackTeamId, submittedBefore)
       .where('time_entries.user_id', '!=', approverId)
-      .groupBy(['time_entries.team_id', 'time_entries.user_id'])
       .having((eb) =>
         eb.exists(
           eb

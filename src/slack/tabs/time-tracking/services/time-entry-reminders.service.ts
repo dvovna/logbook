@@ -14,7 +14,6 @@ import {
 } from '@common/utils/date.utils';
 import { getDisplayTime, sumMinutes } from '@common/utils/time.utils';
 import {
-  currentWeekStart,
   PeriodPreset,
   presetPeriod,
   weekStartOf,
@@ -22,8 +21,7 @@ import {
 import { runPeriodically } from '@common/utils/periodic.utils';
 import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import {
-  dailyReminderDay,
-  REMIND_FROM_HOUR_UTC,
+  dueReminders,
   weeklyReminderGroups,
 } from 'src/time-entries/utils/time-reminder-schedule';
 import { TransactionService } from 'src/database/transaction.service';
@@ -111,25 +109,20 @@ export class TimeEntryRemindersService
   // week), and the day's, for the people reminded every working day.
   // Returns how many people it reminded.
   public async remindAll(now = new Date()): Promise<number> {
-    const monday = currentWeekStart(now);
-    const weekDueFrom = new Date(`${monday}T00:00:00Z`);
+    const due = dueReminders(now);
 
-    weekDueFrom.setUTCHours(REMIND_FROM_HOUR_UTC);
-
-    const weekDue = now >= weekDueFrom;
-    const day = dailyReminderDay(now);
-
-    if (!weekDue && !day) {
+    if (!due) {
       return 0;
     }
 
+    const { monday, day } = due;
     let reminded = 0;
 
     for (const slackTeamId of await this.slackTeamsService.findInstalledIds()) {
       // One workspace failing (e.g. a statement timeout) leaves its week or
       // day unclaimed for the next tick, and the others still get theirs.
       try {
-        if (weekDue) {
+        if (monday) {
           reminded += await this.remindWorkspace(slackTeamId, monday);
         }
 

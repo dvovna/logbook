@@ -186,6 +186,24 @@ export class SlackTeamsRepository extends BaseRepository<
     return this.claimDate(id, 'time_reminder_day', day, 'daily reminder');
   }
 
+  // The installed workspaces with the week and the day whose approvers'
+  // reminder went out last.
+  public findApproverRemindersSent(): Promise<
+    {
+      id: string;
+      approver_reminder_week: string | null;
+      approver_reminder_day: string | null;
+    }[]
+  > {
+    return this.failingWith('Failed to read the approver reminders sent', () =>
+      this.db
+        .selectFrom('slack_teams')
+        .select(['id', 'approver_reminder_week', 'approver_reminder_day'])
+        .where('uninstalled_at', 'is', null)
+        .execute(),
+    );
+  }
+
   // The same for the approvers' reminders of what waits for them.
   public claimApproverReminderWeek(
     id: string,

@@ -23,7 +23,7 @@ const FIVE_DAYS_BEFORE = '2026-06-10T09:05:00.000Z';
 describe('ApproverRemindersService', () => {
   let service: ApproverRemindersService;
   let slackTeamsService: {
-    findInstalledIds: jest.Mock;
+    findApproverRemindersDue: jest.Mock;
     claimApproverReminderWeek: jest.Mock;
     claimApproverReminderDay: jest.Mock;
   };
@@ -53,14 +53,17 @@ describe('ApproverRemindersService', () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
     report = jest.spyOn(errorReporter, 'reportError').mockImplementation();
     slackTeamsService = {
-      findInstalledIds: jest.fn().mockResolvedValue(['w1']),
+      findApproverRemindersDue: jest
+        .fn()
+        .mockResolvedValue([{ id: 'w1', week: true, day: false }]),
       claimApproverReminderWeek: jest.fn().mockResolvedValue(true),
-      claimApproverReminderDay: jest.fn().mockResolvedValue(false),
+      claimApproverReminderDay: jest.fn().mockResolvedValue(true),
     };
     usersService = {
-      findActiveWithReminder: jest
-        .fn()
-        .mockResolvedValue([{ id: 'u1' }, { id: 'u2' }]),
+      findActiveWithReminder: jest.fn().mockResolvedValue([
+        { id: 'u1', time_reminder: TimeReminder.Weekly },
+        { id: 'u2', time_reminder: TimeReminder.Weekly },
+      ]),
       findOne: jest.fn().mockResolvedValue({
         id: 'u1',
         slack_id: 'U1',
@@ -115,10 +118,15 @@ describe('ApproverRemindersService', () => {
   it("claims the week and saves one paced job per approver who chose the week's reminder", async () => {
     await expect(service.remindAll(DUE)).resolves.toBe(2);
 
+    expect(slackTeamsService.findApproverRemindersDue).toHaveBeenCalledWith(
+      MONDAY,
+      MONDAY,
+    );
     expect(slackTeamsService.claimApproverReminderWeek).toHaveBeenCalledWith(
       'w1',
       MONDAY,
     );
+    expect(slackTeamsService.claimApproverReminderDay).not.toHaveBeenCalled();
     const before = new Date(TWO_DAYS_BEFORE);
     expect(entries.findApproversWaitingSince).toHaveBeenCalledWith(
       'w1',
@@ -150,21 +158,40 @@ describe('ApproverRemindersService', () => {
     );
   });
 
-  it('saves nothing when the week was claimed already', async () => {
+  it('saves nothing when another process claimed the week meanwhile', async () => {
     slackTeamsService.claimApproverReminderWeek.mockResolvedValue(false);
 
     await expect(service.remindAll(DUE)).resolves.toBe(0);
 
-    expect(usersService.findActiveWithReminder).not.toHaveBeenCalled();
     expect(jobs.enqueueMany).not.toHaveBeenCalled();
   });
 
+  it('reads nothing more once the week and the day went out', async () => {
+    slackTeamsService.findApproverRemindersDue.mockResolvedValue([]);
+
+    await expect(service.remindAll(DUE)).resolves.toBe(0);
+
+    expect(entries.findApproversWaitingSince).not.toHaveBeenCalled();
+    expect(steps.findApproversWaitingSince).not.toHaveBeenCalled();
+    expect(usersService.findMany).not.toHaveBeenCalled();
+  });
+
   it('reminds the daily ones on a working day', async () => {
-    slackTeamsService.claimApproverReminderDay.mockResolvedValue(true);
+    slackTeamsService.findApproverRemindersDue.mockResolvedValue([
+      { id: 'w1', week: false, day: true },
+    ]);
+    usersService.findActiveWithReminder.mockResolvedValue([
+      { id: 'u1', time_reminder: TimeReminder.Daily },
+    ]);
     const wednesday = new Date('2026-06-17T09:30:00Z');
 
-    await service.remindAll(wednesday);
+    await expect(service.remindAll(wednesday)).resolves.toBe(1);
 
+    expect(slackTeamsService.findApproverRemindersDue).toHaveBeenCalledWith(
+      MONDAY,
+      '2026-06-17',
+    );
+    expect(slackTeamsService.claimApproverReminderWeek).not.toHaveBeenCalled();
     expect(slackTeamsService.claimApproverReminderDay).toHaveBeenCalledWith(
       'w1',
       '2026-06-17',
@@ -176,16 +203,44 @@ describe('ApproverRemindersService', () => {
     );
   });
 
+  it("reads once for Monday's week and day, and gives each its own people", async () => {
+    slackTeamsService.findApproverRemindersDue.mockResolvedValue([
+      { id: 'w1', week: true, day: true },
+    ]);
+    usersService.findActiveWithReminder.mockResolvedValue([
+      { id: 'u1', time_reminder: TimeReminder.Weekly },
+      { id: 'u2', time_reminder: TimeReminder.Daily },
+    ]);
+
+    await expect(service.remindAll(DUE)).resolves.toBe(2);
+
+    expect(entries.findApproversWaitingSince).toHaveBeenCalledTimes(1);
+    expect(steps.findApproversWaitingSince).toHaveBeenCalledTimes(1);
+    expect(usersService.findActiveWithReminder).toHaveBeenCalledWith(
+      'w1',
+      expect.anything(),
+      [TimeReminder.Weekly, TimeReminder.Daily],
+    );
+    expect(
+      jobs.enqueueMany.mock.calls.map(([, payloads]) =>
+        (payloads as { userId: string }[]).map(({ userId }) => userId),
+      ),
+    ).toEqual([['u1'], ['u2']]);
+  });
+
   it('does nothing before 09:00 UTC on Monday', async () => {
     await expect(
       service.remindAll(new Date('2026-06-15T08:59:00Z')),
     ).resolves.toBe(0);
 
-    expect(slackTeamsService.findInstalledIds).not.toHaveBeenCalled();
+    expect(slackTeamsService.findApproverRemindersDue).not.toHaveBeenCalled();
   });
 
   it('reports a workspace that fails and goes on with the next', async () => {
-    slackTeamsService.findInstalledIds.mockResolvedValue(['w1', 'w2']);
+    slackTeamsService.findApproverRemindersDue.mockResolvedValue([
+      { id: 'w1', week: true, day: false },
+      { id: 'w2', week: true, day: false },
+    ]);
     slackTeamsService.claimApproverReminderWeek
       .mockRejectedValueOnce(new Error('timeout'))
       .mockResolvedValueOnce(true);
@@ -203,6 +258,7 @@ describe('ApproverRemindersService', () => {
       slackTeamId: 'w1',
       userId: 'u1',
       waitedBefore: TWO_DAYS_BEFORE,
+      stuckBefore: FIVE_DAYS_BEFORE,
     });
 
     expect(steps.summarizeWaitingSince).toHaveBeenCalledWith(
@@ -236,6 +292,7 @@ describe('ApproverRemindersService', () => {
       slackTeamId: 'w1',
       userId: 'u1',
       waitedBefore: TWO_DAYS_BEFORE,
+      stuckBefore: FIVE_DAYS_BEFORE,
     });
 
     expect(slack.postMessage).not.toHaveBeenCalled();
@@ -251,6 +308,7 @@ describe('ApproverRemindersService', () => {
       slackTeamId: 'w1',
       userId: 'u1',
       waitedBefore: TWO_DAYS_BEFORE,
+      stuckBefore: FIVE_DAYS_BEFORE,
     });
 
     expect(steps.summarizeWaitingSince).not.toHaveBeenCalled();
@@ -384,8 +442,33 @@ describe('ApproverRemindersService', () => {
 
       await send();
 
-      expect(steps.findStuckSince).not.toHaveBeenCalled();
       expect(slack.postMessage).not.toHaveBeenCalled();
+    });
+
+    it('reads what is stuck once for the jobs of one run', async () => {
+      steps.findStuckSince.mockResolvedValue([step({})]);
+      usersService.findMany.mockResolvedValue([
+        { id: 'hr1', role: UserRole.HR },
+        { id: 'hr2', role: UserRole.HR },
+      ]);
+
+      await send();
+      usersService.findOne.mockResolvedValue({
+        ...hr,
+        id: 'hr2',
+        slack_id: 'UHR2',
+      });
+      await send();
+
+      expect(slack.postMessage).toHaveBeenCalledTimes(2);
+      expect(steps.findStuckSince).toHaveBeenCalledTimes(1);
+      expect(usersService.findMany).toHaveBeenCalledTimes(1);
+
+      // A retry minutes later reads again.
+      jest.advanceTimersByTime(2 * 60 * 1000);
+      await send();
+
+      expect(steps.findStuckSince).toHaveBeenCalledTimes(2);
     });
 
     it('lists nothing to a manager', async () => {
