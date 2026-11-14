@@ -37,6 +37,7 @@ import UserRole from '@common/enums/user-role.enum';
 import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
 import { planMoveOn } from '@modules/request-workflows/utils/move-on-plan';
 import { todayIso } from '@common/utils/period-presets';
+import { IAbsence } from '@modules/users/types/absence.interface';
 
 export interface ICreateWorkflowLevelParams {
   rule: ApprovalRule;
@@ -55,6 +56,17 @@ export interface ICreateWorkflowParams {
   run: string;
   snapshot: IRequestSnapshotData;
   levels: ICreateWorkflowLevelParams[];
+  // What the caller read on the pool for moveOn; read here when not given.
+  context?: IMoveOnContext;
+}
+
+// What moveOn needs besides the steps: who is on time off today, and the
+// workspace's active HR and admins (whom a fallback level goes to). Neither
+// needs the request's lock, so it is read on the pool beside it
+// (readMoveOnContext) rather than one statement after another inside.
+export interface IMoveOnContext {
+  away: ReadonlyMap<string, IAbsence>;
+  hrAndAdmins: IUserViewModel[];
 }
 
 const INITIAL_STEP_STATUS = WorkflowStepStatus.Pending;
@@ -83,7 +95,10 @@ export class RequestWorkflowService {
     levels,
     slackTeamId,
     snapshot,
+    context,
   }: ICreateWorkflowParams) {
+    const reading = context ?? this.readMoveOnContext(slackTeamId);
+
     return this.transactions.transaction(async () => {
       await this.lockRequest(requestId);
 
@@ -133,7 +148,11 @@ export class RequestWorkflowService {
       const createdSteps =
         await this.requestWorkflowStepsService.createMany(steps);
 
-      await this.moveOn(createdSteps, { waitingOn: null, approvedBy: null });
+      await this.moveOn(createdSteps, {
+        waitingOn: null,
+        approvedBy: null,
+        context: await reading,
+      });
     });
   }
 
@@ -213,6 +232,8 @@ export class RequestWorkflowService {
   // messages or finish the request. A failure leaves the step open and the
   // click can be repeated; a decision never stays without what follows it.
   public approveStep(stepId: string, approvedBy: IUserViewModel) {
+    const reading = this.readMoveOnContext(approvedBy.slack_team_id);
+
     return this.transactions.transaction(async () => {
       const step = await this.requestWorkflowStepsService.findOneWithValidation(
         {
@@ -253,7 +274,7 @@ export class RequestWorkflowService {
 
       await this.moveOn(
         await this.findRun(step.request_id, approvedBy.slack_team_id),
-        { waitingOn: step.step_level, approvedBy },
+        { waitingOn: step.step_level, approvedBy, context: await reading },
       );
     });
   }
@@ -263,6 +284,8 @@ export class RequestWorkflowService {
   // work (the daily check, and time off approved for today). Safe to repeat:
   // a closed step stays closed, and a decided request has no open steps.
   public skipAway(requestId: string, slackTeamId: string) {
+    const reading = this.readMoveOnContext(slackTeamId);
+
     return this.transactions.transaction(async () => {
       await this.lockRequest(requestId);
 
@@ -276,6 +299,7 @@ export class RequestWorkflowService {
       await this.moveOn(steps, {
         waitingOn: Math.min(...open.map((step) => step.step_level)),
         approvedBy: null,
+        context: await reading,
       });
     });
   }
@@ -299,6 +323,8 @@ export class RequestWorkflowService {
   // approved) instead of waiting. With the ALL rule every open step of the
   // level is approved.
   public approveCurrentLevel(requestId: string, approvedBy: IUserViewModel) {
+    const reading = this.readMoveOnContext(approvedBy.slack_team_id);
+
     return this.transactions.transaction(async () => {
       if (!isPeopleAdmin(approvedBy.role)) {
         throw new ForbiddenException(
@@ -340,7 +366,11 @@ export class RequestWorkflowService {
 
       await this.moveOn(
         await this.findRun(requestId, approvedBy.slack_team_id),
-        { waitingOn: currentStep.step_level, approvedBy },
+        {
+          waitingOn: currentStep.step_level,
+          approvedBy,
+          context: await reading,
+        },
       );
     });
   }
@@ -493,6 +523,23 @@ export class RequestWorkflowService {
     );
   }
 
+  // See IMoveOnContext. Started before the caller's transaction; a caller
+  // that ends without moving on leaves it unawaited, so its failure is
+  // caught here and thrown again only to whoever awaits it.
+  public readMoveOnContext(slackTeamId: string): Promise<IMoveOnContext> {
+    const reading = Promise.all([
+      this.usersService.findAway(slackTeamId, todayIso()),
+      this.usersService.findMany({
+        slackTeamId,
+        roles: [UserRole.HR, UserRole.Admin],
+      }),
+    ]).then(([away, hrAndAdmins]) => ({ away, hrAndAdmins }));
+
+    reading.catch(() => undefined);
+
+    return reading;
+  }
+
   private async findRun(requestId: string, slackTeamId: string) {
     return currentRunOf(
       await this.requestWorkflowStepsService.findMany({
@@ -513,7 +560,12 @@ export class RequestWorkflowService {
     {
       waitingOn,
       approvedBy,
-    }: { waitingOn: number | null; approvedBy: IUserViewModel | null },
+      context: { away, hrAndAdmins },
+    }: {
+      waitingOn: number | null;
+      approvedBy: IUserViewModel | null;
+      context: IMoveOnContext;
+    },
   ) {
     // A rejection ends the run: its later levels only wait for the request
     // to be finished, which closes them.
@@ -529,11 +581,6 @@ export class RequestWorkflowService {
     const [first] = steps;
     const { request_id: requestId, slack_team_id: slackTeamId } = first;
     const ownerId = first.step_data.snapshot.user_id;
-    const away = await this.usersService.findAway(slackTeamId, todayIso());
-    const hrAndAdmins = await this.usersService.findMany({
-      slackTeamId,
-      roles: [UserRole.HR, UserRole.Admin],
-    });
     const atWork = fallbackApprovers(
       hrAndAdmins.filter((person) => !away.has(person.slack_id)),
       ownerId,
@@ -727,6 +774,8 @@ export class RequestWorkflowService {
     slackTeamId: string,
     gone: IUserViewModel,
   ) {
+    const reading = this.readMoveOnContext(slackTeamId);
+
     return this.transactions.transaction(async () => {
       await this.lockRequest(requestId);
 
@@ -757,6 +806,7 @@ export class RequestWorkflowService {
       await this.moveOn(await this.findRun(requestId, slackTeamId), {
         waitingOn: Math.min(...open.map((step) => step.step_level)),
         approvedBy: null,
+        context: await reading,
       });
     });
   }

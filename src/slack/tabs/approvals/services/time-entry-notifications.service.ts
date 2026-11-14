@@ -59,8 +59,8 @@ interface IPlanMovedJob {
 interface INotifyMovedJob {
   slackTeamId: string;
   approverId: string;
-  // Worked out by the plan: a retry sends what the plan saw.
-  text: string;
+  // The day whose check moved the entries.
+  date: string;
 }
 
 @Injectable()
@@ -157,9 +157,9 @@ export class TimeEntryNotificationsService implements OnModuleInit {
     });
   }
 
-  // Works out who now gets which entries, once, and saves each of them a
-  // DM job with its text, in one statement: a failure before it is retried
-  // as a whole, and after it the plan is done.
+  // Works out who now gets entries, once, and saves each of them a DM job
+  // in one statement: a failure before it is retried as a whole, and after
+  // it the plan is done.
   private async planMoved({ slackTeamId, date }: IPlanMovedJob) {
     const moved = await this.timeEntryApprovalsService.findMovedByAbsence(
       slackTeamId,
@@ -168,23 +168,19 @@ export class TimeEntryNotificationsService implements OnModuleInit {
 
     await this.jobs.enqueueMany<INotifyMovedJob>(
       NOTIFY_MOVED_JOB,
-      moved.map(({ approver, groups }) => ({
+      moved.map(({ approver }) => ({
         slackTeamId,
         approverId: approver.id,
-        text: groups
-          .map(({ teamName, away, count }) => {
-            const team = teamName
-              ? escapeMrkdwn(teamName)
-              : 'people in no team';
-
-            return `${onTimeOffTextOf(away)}: ${count} time ${pluralize('entry', count)} of ${team} now ${count === 1 ? 'waits' : 'wait'} for you in Approvals.`;
-          })
-          .join('\n'),
+        date,
       })),
     );
   }
 
-  private async sendMoved({ slackTeamId, approverId, text }: INotifyMovedJob) {
+  // What still waits for the approver when the job runs: a retry hours later
+  // tells nothing that was decided since, and nothing to someone
+  // deactivated. It reads the workspace again, for the few people (HR, else
+  // the admins) the plan names.
+  private async sendMoved({ slackTeamId, approverId, date }: INotifyMovedJob) {
     const approver = await this.usersService.findOne({
       id: approverId,
       slackTeamId,
@@ -194,9 +190,27 @@ export class TimeEntryNotificationsService implements OnModuleInit {
       return;
     }
 
+    const moved = (
+      await this.timeEntryApprovalsService.findMovedByAbsence(slackTeamId, date)
+    ).find((person) => person.approver.id === approverId);
+
+    if (!moved) {
+      return;
+    }
+
     await this.slackCommunicationService.postMessage(
       approver.slack_id,
-      { text },
+      {
+        text: moved.groups
+          .map(({ teamName, away, count }) => {
+            const team = teamName
+              ? escapeMrkdwn(teamName)
+              : 'people in no team';
+
+            return `${onTimeOffTextOf(away)}: ${count} time ${pluralize('entry', count)} of ${team} now ${count === 1 ? 'waits' : 'wait'} for you in Approvals.`;
+          })
+          .join('\n'),
+      },
       slackTeamId,
     );
   }

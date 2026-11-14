@@ -36,9 +36,11 @@ const SKIPS_PER_SECOND = 5;
 
 // Once a UTC day, from 06:00, moves on the requests that wait for approvers
 // who are on time off that day (RequestWorkflowService.skipAway), and when
-// time off for today is approved, for that person at once. A workspace
-// claims the day (slack_teams.absence_check_date) in the transaction that
-// saves the jobs, so a restart or a second process checks nothing twice.
+// time off for today is approved, for that person at once. A tick reads
+// which workspaces haven't been checked that day first, so the ticks after
+// read nothing more; a workspace's reads go on the pool, and it claims the
+// day (slack_teams.absence_check_date) in a short transaction that saves the
+// jobs, so a restart or a second process checks nothing twice.
 @Injectable()
 export class AbsenceCheckService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AbsenceCheckService.name);
@@ -73,7 +75,8 @@ export class AbsenceCheckService implements OnModuleInit, OnModuleDestroy {
     this.stopTimers?.();
   }
 
-  // Every installed workspace, from 06:00 UTC. Returns how many it checked.
+  // Every installed workspace not checked today, from 06:00 UTC. Returns
+  // how many it checked.
   public async checkAll(now = new Date()): Promise<number> {
     if (now.getUTCHours() < CHECK_FROM_HOUR_UTC) {
       return 0;
@@ -82,7 +85,9 @@ export class AbsenceCheckService implements OnModuleInit, OnModuleDestroy {
     const date = getDateOnly(now);
     let checked = 0;
 
-    for (const slackTeamId of await this.slackTeamsService.findInstalledIds()) {
+    for (const slackTeamId of await this.slackTeamsService.findAbsenceCheckDue(
+      date,
+    )) {
       // One workspace failing leaves its day unclaimed for the next tick.
       try {
         if (await this.checkWorkspace(slackTeamId, date)) {
@@ -104,18 +109,23 @@ export class AbsenceCheckService implements OnModuleInit, OnModuleDestroy {
   }
 
   // False when the workspace's day was checked already (or it is gone).
-  public checkWorkspace(slackTeamId: string, date: string): Promise<boolean> {
+  // What waits for whom is read before the claim, on the pool: the claim
+  // holds the workspace's row, which other writes wait for.
+  public async checkWorkspace(
+    slackTeamId: string,
+    date: string,
+  ): Promise<boolean> {
+    const away = await this.usersService.findAway(slackTeamId, date);
+    const requestIds = await this.requestsWaitingFor(slackTeamId, [
+      ...away.keys(),
+    ]);
+
     return this.transactions.transaction(async () => {
       if (
         !(await this.slackTeamsService.claimAbsenceCheck(slackTeamId, date))
       ) {
         return false;
       }
-
-      const away = await this.usersService.findAway(slackTeamId, date);
-      const requestIds = await this.requestsWaitingFor(slackTeamId, [
-        ...away.keys(),
-      ]);
 
       await this.jobs.enqueueMany<ISkipAwayJob>(
         SKIP_AWAY_JOB,

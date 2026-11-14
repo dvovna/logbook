@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { todayIso } from '@common/utils/period-presets';
+import { coversDayOf } from '@modules/users/repositories/time-off-condition';
 import { AbsenceCheckService } from '@modules/request-workflows/services/absence-check.service';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import {
@@ -9,11 +9,6 @@ import {
   VacationRequestUpdatedEvent,
 } from '@modules/vacation-requests/events/vacation-request.events';
 import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
-
-const awayToday = (request: IVacationRequestViewModel, today: string) =>
-  request.status === VacationRequestStatus.Approved &&
-  request.start_date <= today &&
-  request.end_date >= today;
 
 // Time off approved for today puts its person out of reach at once: the
 // requests waiting for them move on now, not at the next daily check. The
@@ -43,13 +38,13 @@ export class ApproverAbsenceTriggerService {
   ) {
     const today = todayIso();
 
-    if (!request.user || !awayToday(request, today)) {
+    if (!request.user || !coversDayOf(request, today)) {
       return;
     }
 
     if (
       previous &&
-      awayToday(previous, today) &&
+      coversDayOf(previous, today) &&
       previous.user_id === request.user_id
     ) {
       return;

@@ -144,6 +144,11 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return this.slackTeamsRepository.claimReminderDay(id, day);
   }
 
+  // See SlackTeamsRepository.findAbsenceCheckDue.
+  public findAbsenceCheckDue(date: string): Promise<string[]> {
+    return this.slackTeamsRepository.findAbsenceCheckDue(date);
+  }
+
   // See SlackTeamsRepository.claimAbsenceCheck.
   public claimAbsenceCheck(id: string, date: string): Promise<boolean> {
     return this.slackTeamsRepository.claimAbsenceCheck(id, date);

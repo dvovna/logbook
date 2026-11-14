@@ -135,7 +135,7 @@ describe('TimeEntriesRepository', () => {
       ]);
 
       expect(sqlOf(0)).toMatch(
-        /from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null group by "time_entries"\."team_id", "time_entries"\."user_id"\) as "waiting" inner join "users" as "approver" on \("approver"\."slack_team_id" = \$3\s+and "approver"\."is_active"/,
+        /from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries", sum\("time_entries"\."minutes"\) as "minutes", min\("time_entries"\."submitted_at"\) as "oldest" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null group by "time_entries"\."team_id", "time_entries"\."user_id"\) as "waiting" inner join "users" as "approver" on \("approver"\."slack_team_id" = \$3\s+and "approver"\."is_active"/,
       );
       expect(sqlOf(0)).not.toContain('2026-06-17');
       expect(parametersOf(0).slice(0, 3)).toEqual(['w1', 'submitted', 'w1']);
