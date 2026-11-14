@@ -31,6 +31,7 @@ describe('ApproverRemindersService', () => {
     findActiveWithReminder: jest.Mock;
     findOne: jest.Mock;
     findMany: jest.Mock;
+    findAway: jest.Mock;
   };
   let steps: {
     findApproversWaitingSince: jest.Mock;
@@ -72,6 +73,7 @@ describe('ApproverRemindersService', () => {
         time_reminder: TimeReminder.Weekly,
       }),
       findMany: jest.fn().mockResolvedValue([{ id: 'hr1', role: UserRole.HR }]),
+      findAway: jest.fn().mockResolvedValue(new Map()),
     };
     steps = {
       findApproversWaitingSince: jest.fn().mockResolvedValue(['U2']),

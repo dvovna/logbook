@@ -234,6 +234,37 @@ describe('Approver reminders', () => {
     expect(await remindedTexts(admin, since)).toEqual([]);
   });
 
+  const goAway = (person: Tables<'users'>) =>
+    workspace.addVacationRequest(person, {
+      start_date: '2026-06-15',
+      end_date: '2026-06-24',
+    });
+
+  it('leaves the manager on time off out of the reminder of time off steps while someone who could decide is at work', async () => {
+    // The step stays with the manager until the day's check skips it.
+    await waitingRequest(THREE_DAYS_AGO);
+    await goAway(manager);
+    const since = t.slackApi.mark();
+
+    await reminders().remindAll(new Date());
+
+    expect(await remindedTexts(manager, since)).toEqual([]);
+    expect(await remindedTexts(admin, since)).toEqual([]);
+  });
+
+  it('reminds the manager on time off of time off steps when nobody who could decide is at work', async () => {
+    await waitingRequest(THREE_DAYS_AGO);
+    await goAway(manager);
+    await goAway(admin);
+    const since = t.slackApi.mark();
+
+    await reminders().remindAll(new Date());
+
+    expect(await remindedTexts(manager, since)).toEqual([
+      expect.stringContaining('• 1 time off request'),
+    ]);
+  });
+
   it('tells HR, and not the admins, what has waited five days for someone else', async () => {
     const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana' });
     await waitingRequest('2026-06-10T09:00:00.000Z');
@@ -258,5 +289,34 @@ describe('Approver reminders', () => {
     expect(await remindedTexts(manager, since)).toEqual([
       expect.stringContaining('• 3 time entries of 1 person'),
     ]);
+  });
+
+  it('tells only HR at work what has waited five days for someone else', async () => {
+    const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana' });
+    const awayHr = await workspace.addUser({ role: UserRole.HR, name: 'Hal' });
+    await goAway(awayHr);
+    await submittedEntry(member, '2026-06-08T09:00:00.000Z');
+    const since = t.slackApi.mark();
+
+    await reminders().remindAll(new Date());
+
+    expect(await remindedTexts(hr, since)).toEqual([
+      expect.stringContaining('• *Mia*: 1 time entry (1h), waiting for Max'),
+    ]);
+    expect(await remindedTexts(awayHr, since)).toEqual([]);
+  });
+
+  it('tells the admins at work when every HR person is on time off', async () => {
+    const awayHr = await workspace.addUser({ role: UserRole.HR, name: 'Hal' });
+    await goAway(awayHr);
+    await submittedEntry(member, '2026-06-08T09:00:00.000Z');
+    const since = t.slackApi.mark();
+
+    await reminders().remindAll(new Date());
+
+    expect(await remindedTexts(admin, since)).toEqual([
+      expect.stringContaining('• *Mia*: 1 time entry (1h), waiting for Max'),
+    ]);
+    expect(await remindedTexts(awayHr, since)).toEqual([]);
   });
 });

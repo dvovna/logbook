@@ -8,7 +8,11 @@ import pluralize from 'pluralize';
 import { reportError } from '@common/errors/error-reporter';
 import { JobsService } from '@common/jobs/jobs.service';
 import UserRole from '@common/enums/user-role.enum';
-import { formatDate, formatDateRange } from '@common/utils/date.utils';
+import {
+  formatDate,
+  formatDateRange,
+  getDateOnly,
+} from '@common/utils/date.utils';
 import { getDisplayTime } from '@common/utils/time.utils';
 import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -17,6 +21,7 @@ import { escapeMrkdwn } from '@modules/slack/common/utils/mrkdwn.utils';
 import { IStuckStep } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
 import { IStuckEntryGroup } from 'src/time-entries/repositories/time-entries.repository';
 import { runPeriodically } from '@common/utils/periodic.utils';
+import { todayIso } from '@common/utils/period-presets';
 import { TimeReminder } from '@modules/users/enums/time-reminder.enum';
 import {
   dueReminders,
@@ -47,10 +52,8 @@ const TICK_MS = 10 * 60 * 1000;
 const FIRST_TICK_AFTER_MS = 5 * 60 * 1000;
 const REMINDERS_PER_SECOND = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
-// How long the jobs of one run share their workspace's read of what is
-// stuck: they go out REMINDERS_PER_SECOND, and each HR person's would read
-// the same.
-const STUCK_READ_TTL_MS = 60 * 1000;
+// How long the jobs of one run share their workspace's reads (see shared).
+const SHARED_READ_TTL_MS = 60 * 1000;
 
 interface IRemindApproverJob {
   slackTeamId: string;
@@ -68,9 +71,16 @@ interface IStuckLine {
 }
 
 interface IStuckRead {
-  overseerIds: Set<string>;
   steps: IStuckStep[];
   entries: IStuckEntryGroup[];
+}
+
+interface IPresence {
+  away: ReadonlySet<string>;
+  // HR at work, else admins at work: whom the day's absence check gives the
+  // steps of an approver on time off.
+  fallbackAtWork: boolean;
+  overseers: IUserViewModel[];
 }
 
 // Reminds approvers of the time off steps and submitted time entries that
@@ -87,9 +97,9 @@ interface IStuckRead {
 export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ApproverRemindersService.name);
   private stopTimers?: () => void;
-  private readonly stuckReads = new Map<
+  private readonly sharedReads = new Map<
     string,
-    { readAt: number; read: Promise<IStuckRead> }
+    { readAt: number; read: Promise<unknown> }
   >();
 
   public constructor(
@@ -190,7 +200,7 @@ export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    const [ids, slackIds, overseers] = await Promise.all([
+    const [ids, stepSlackIds, presence] = await Promise.all([
       this.timeEntryApprovalsService.findApproversWaitingSince(
         slackTeamId,
         waitedBefore,
@@ -199,8 +209,12 @@ export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
         slackTeamId,
         waitedBefore,
       ),
-      this.overseersOf(slackTeamId),
+      this.presenceOf(slackTeamId, getDateOnly(now)),
     ]);
+    const { overseers } = presence;
+    const slackIds = stepSlackIds.filter(
+      (slackId) => !this.awayFromSteps(presence, slackId),
+    );
     // Nothing waited STUCK_AFTER_DAYS if nothing waited less: HR's jobs look
     // for it only then, and find out themselves.
     const people =
@@ -242,14 +256,37 @@ export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
     return reminded;
   }
 
-  // Everyone active with the HR role, else every active admin.
-  private async overseersOf(slackTeamId: string): Promise<IUserViewModel[]> {
-    const people = await this.usersService.findMany({
-      slackTeamId,
-      roles: [UserRole.HR, UserRole.Admin],
-    });
+  // Who is on time off, and who is told what waits for others: everyone
+  // with the HR role, else every admin, those at work first, as a fallback
+  // level is made of them (RequestWorkflowService.moveOn).
+  private async presenceOf(
+    slackTeamId: string,
+    today: string,
+  ): Promise<IPresence> {
+    const [people, away] = await Promise.all([
+      this.usersService.findMany({
+        slackTeamId,
+        roles: [UserRole.HR, UserRole.Admin],
+      }),
+      this.usersService.findAway(slackTeamId, today),
+    ]);
+    const atWork = fallbackApprovers(
+      people.filter(({ slack_id }) => !away.has(slack_id)),
+      '',
+    );
 
-    return fallbackApprovers(people, '')?.approvers ?? [];
+    return {
+      away: new Set(away.keys()),
+      fallbackAtWork: !!atWork,
+      overseers: (atWork ?? fallbackApprovers(people, ''))?.approvers ?? [],
+    };
+  }
+
+  // An approver on time off isn't reminded of time off steps while someone
+  // who could decide is at work: the day's absence check skips their steps
+  // (it may not have run yet), as time entries leave them out ('told').
+  private awayFromSteps(presence: IPresence, slackId: string) {
+    return presence.fallbackAtWork && presence.away.has(slackId);
   }
 
   // What still waits when the job runs: nothing is sent once it was all
@@ -268,10 +305,13 @@ export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
     }
 
     const before = new Date(waitedBefore);
+    const presence = await this.readPresence(slackTeamId);
     const [timeOff, timeEntries, stuck] = await Promise.all([
-      this.requestWorkflowStepsService.summarizeWaitingSince(user, before),
+      this.awayFromSteps(presence, user.slack_id)
+        ? { count: 0, oldest: null }
+        : this.requestWorkflowStepsService.summarizeWaitingSince(user, before),
       this.timeEntryApprovalsService.summarizeWaitingSince(user, before),
-      this.stuckFor(user, stuckBefore),
+      this.stuckFor(user, stuckBefore, presence),
     ]);
 
     if (!timeOff.count && !timeEntries.count && !stuck.length) {
@@ -315,63 +355,78 @@ export class ApproverRemindersService implements OnModuleInit, OnModuleDestroy {
   private async stuckFor(
     user: IUserViewModel,
     stuckBefore: string,
+    { overseers }: IPresence,
   ): Promise<IStuckLine[]> {
-    if (user.role !== UserRole.HR && user.role !== UserRole.Admin) {
+    if (
+      (user.role !== UserRole.HR && user.role !== UserRole.Admin) ||
+      !overseers.some(({ id }) => id === user.id)
+    ) {
       return [];
     }
 
-    const { overseerIds, steps, entries } = await this.readStuck(
+    const { steps, entries } = await this.readStuck(
       user.slack_team_id,
       stuckBefore,
     );
-
-    if (!overseerIds.has(user.id)) {
-      return [];
-    }
 
     return [...stuckRequests(steps, user), ...stuckEntries(entries, user)].sort(
       (a, b) => a.since.localeCompare(b.since),
     );
   }
 
-  // The overseers and what is stuck, read once for the jobs of one run of a
-  // workspace (they share `stuckBefore`) and kept STUCK_READ_TTL_MS: a retry
-  // minutes later reads again.
+  // What is stuck, read once for the jobs of one run of a workspace (they
+  // share `stuckBefore`).
   private readStuck(
     slackTeamId: string,
     stuckBefore: string,
   ): Promise<IStuckRead> {
+    const before = new Date(stuckBefore);
+
+    return this.shared(`stuck:${slackTeamId}:${stuckBefore}`, async () => {
+      const [steps, entries] = await Promise.all([
+        this.requestWorkflowStepsService.findStuckSince(slackTeamId, before),
+        this.timeEntryApprovalsService.findStuckSince(slackTeamId, before),
+      ]);
+
+      return { steps, entries };
+    });
+  }
+
+  // Who is on time off today, read once for the jobs of one run of a
+  // workspace.
+  private readPresence(slackTeamId: string): Promise<IPresence> {
+    const today = todayIso();
+
+    return this.shared(`presence:${slackTeamId}:${today}`, () =>
+      this.presenceOf(slackTeamId, today),
+    );
+  }
+
+  // A read the jobs of one run share: they go out REMINDERS_PER_SECOND and
+  // would each read the same. Kept SHARED_READ_TTL_MS, so a retry minutes
+  // later reads again.
+  private shared<T>(key: string, read: () => Promise<T>): Promise<T> {
     const now = Date.now();
 
-    for (const [key, { readAt }] of this.stuckReads) {
-      if (now - readAt > STUCK_READ_TTL_MS) {
-        this.stuckReads.delete(key);
+    for (const [old, { readAt }] of this.sharedReads) {
+      if (now - readAt > SHARED_READ_TTL_MS) {
+        this.sharedReads.delete(old);
       }
     }
 
-    const key = `${slackTeamId}:${stuckBefore}`;
-    const cached = this.stuckReads.get(key);
+    const cached = this.sharedReads.get(key);
 
     if (cached) {
-      return cached.read;
+      return cached.read as Promise<T>;
     }
 
-    const before = new Date(stuckBefore);
-    const read = Promise.all([
-      this.overseersOf(slackTeamId),
-      this.requestWorkflowStepsService.findStuckSince(slackTeamId, before),
-      this.timeEntryApprovalsService.findStuckSince(slackTeamId, before),
-    ]).then(([overseers, steps, entries]) => ({
-      overseerIds: new Set(overseers.map(({ id }) => id)),
-      steps,
-      entries,
-    }));
+    const promise = read();
 
-    this.stuckReads.set(key, { readAt: now, read });
+    this.sharedReads.set(key, { readAt: now, read: promise });
     // A failed read isn't kept: the job's retry reads again.
-    read.catch(() => this.stuckReads.delete(key));
+    promise.catch(() => this.sharedReads.delete(key));
 
-    return read;
+    return promise;
   }
 }
 
