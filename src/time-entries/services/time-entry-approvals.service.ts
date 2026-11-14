@@ -188,7 +188,6 @@ export class TimeEntryApprovalsService {
         slackTeamId,
         entries.map(({ id }) => id),
         todayIso(),
-        'told',
       ),
       this.usersService.findMany({ slackTeamId, roles: [...MANAGER_ROLES] }),
     ]);
@@ -217,56 +216,69 @@ export class TimeEntryApprovalsService {
   // The submitted entries whose listed approvers are all on time off on
   // `date`, one of them from that day, by who is told of them instead (a
   // 'told' approver who is not a listed one), then by team: what the daily
-  // check tells HR the day a manager's time off begins.
+  // check tells HR the day a manager's time off begins. Reads no entries on
+  // a day when no approving person's time off begins, and works by team and
+  // owner, not by entry.
   public async findMovedByAbsence(
     slackTeamId: string,
     date: string,
   ): Promise<IMovedEntries[]> {
-    const [away, entries, approving, teams] = await Promise.all([
+    const [away, approving] = await Promise.all([
       this.usersService.findAway(slackTeamId, date),
-      this.timeEntriesRepository.findMany({
-        slack_team_id: slackTeamId,
-        status: TimeEntryStatus.Submitted,
-        deleted_at: { operator: 'is', value: null },
-      }),
       this.usersService.findMany({ slackTeamId, roles: [...MANAGER_ROLES] }),
-      this.teamsService.findMany({ slackTeamId }),
     ]);
+    const byId = new Map(approving.map((person) => [person.id, person]));
 
-    if (!away.size || !entries.length) {
+    if (
+      ![...away.values()].some(
+        ({ userId, since }) => since === date && byId.has(userId),
+      )
+    ) {
       return [];
     }
 
-    const ids = entries.map(({ id }) => id);
-    const [listedPairs, toldPairs] = await Promise.all([
-      this.timeEntriesRepository.findApproverIds(
+    const [listedRows, toldRows, teams] = await Promise.all([
+      this.timeEntriesRepository.findSubmittedGroupApprovers(
         slackTeamId,
-        ids,
         date,
         'listed',
       ),
-      this.timeEntriesRepository.findApproverIds(
+      this.timeEntriesRepository.findSubmittedGroupApprovers(
         slackTeamId,
-        ids,
         date,
         'told',
       ),
+      this.teamsService.findMany({ slackTeamId }),
     ]);
-    const byId = new Map(approving.map((person) => [person.id, person]));
     const awayById = new Map(
       [...away].map(([slackId, absence]) => [
         absence.userId,
         { slackId, ...absence },
       ]),
     );
+    const groupKey = (row: { team_id: string | null; user_id: string }) =>
+      `${row.team_id ?? ''}:${row.user_id}`;
     const listedOf = new Map<string, string[]>();
-    const toldOf = new Map<string, string[]>();
+    const toldOf = new Map<
+      string,
+      { teamId: string | null; entries: number; approverIds: string[] }
+    >();
 
-    for (const { entry_id, approver_id } of listedPairs) {
-      listedOf.set(entry_id, [...(listedOf.get(entry_id) ?? []), approver_id]);
+    for (const row of listedRows) {
+      const key = groupKey(row);
+
+      listedOf.set(key, [...(listedOf.get(key) ?? []), row.approver_id]);
     }
-    for (const { entry_id, approver_id } of toldPairs) {
-      toldOf.set(entry_id, [...(toldOf.get(entry_id) ?? []), approver_id]);
+    for (const row of toldRows) {
+      const key = groupKey(row);
+      const group = toldOf.get(key) ?? {
+        teamId: row.team_id,
+        entries: row.entries,
+        approverIds: [],
+      };
+
+      group.approverIds.push(row.approver_id);
+      toldOf.set(key, group);
     }
 
     const teamName = new Map(teams.map(({ id, name }) => [id, name]));
@@ -285,8 +297,8 @@ export class TimeEntryApprovalsService {
       }
     >();
 
-    for (const entry of entries) {
-      const listed = listedOf.get(entry.id) ?? [];
+    for (const [key, { teamId, entries, approverIds }] of toldOf) {
+      const listed = listedOf.get(key) ?? [];
       const absences = listed.map((id) => awayById.get(id));
 
       if (
@@ -297,7 +309,7 @@ export class TimeEntryApprovalsService {
         continue;
       }
 
-      for (const approverId of toldOf.get(entry.id) ?? []) {
+      for (const approverId of approverIds) {
         const approver = byId.get(approverId);
 
         if (!approver || listed.includes(approverId)) {
@@ -308,11 +320,9 @@ export class TimeEntryApprovalsService {
           approver,
           groups: new Map(),
         };
-        const key = entry.team_id ?? '';
-        const group = person.groups.get(key) ?? {
-          teamName: entry.team_id
-            ? (teamName.get(entry.team_id) ?? null)
-            : null,
+        const teamKey = teamId ?? '';
+        const group = person.groups.get(teamKey) ?? {
+          teamName: teamId ? (teamName.get(teamId) ?? null) : null,
           away: new Map(),
           count: 0,
         };
@@ -323,8 +333,8 @@ export class TimeEntryApprovalsService {
             until: absence!.until,
           });
         }
-        group.count += 1;
-        person.groups.set(key, group);
+        group.count += entries;
+        person.groups.set(teamKey, group);
         result.set(approverId, person);
       }
     }

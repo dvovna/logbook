@@ -1,10 +1,13 @@
 import { JobsService } from 'src/common/jobs/jobs.service';
 import SlackCommunicationService from 'src/slack-communication/services/slack-communication.service';
 import {
+  NOTIFY_MOVED_JOB,
   NOTIFY_REJECTED_JOB,
   NOTIFY_SUBMITTED_JOB,
+  PLAN_MOVED_JOB,
   TimeEntryNotificationsService,
 } from 'src/slack/tabs/approvals/services/time-entry-notifications.service';
+import { AbsenceDayCheckedEvent } from 'src/request-workflows/events/absence.events';
 import { TimeEntriesSubmittedEvent } from 'src/time-entries/events/time-entries.events';
 import { TimeEntriesService } from 'src/time-entries/services/time-entries.service';
 import { TimeEntryApprovalsService } from 'src/time-entries/services/time-entry-approvals.service';
@@ -20,20 +23,26 @@ const entryOf = (id: string, owner: string) =>
 // The listener runs in the transaction that submits the entries: it enqueues
 // the approvers' DMs, in one statement, and runs none.
 describe('TimeEntryNotificationsService', () => {
-  let jobs: { enqueue: jest.Mock; enqueueMany: jest.Mock };
+  let jobs: { enqueue: jest.Mock; enqueueMany: jest.Mock; define: jest.Mock };
   let groupByApprover: jest.Mock;
+  let findMovedByAbsence: jest.Mock;
   let service: TimeEntryNotificationsService;
 
   beforeEach(() => {
     jobs = {
       enqueue: jest.fn().mockResolvedValue(undefined),
       enqueueMany: jest.fn().mockResolvedValue(undefined),
+      define: jest.fn(),
     };
     groupByApprover = jest.fn();
+    findMovedByAbsence = jest.fn().mockResolvedValue([]);
     service = new TimeEntryNotificationsService(
       {} as SlackCommunicationService,
       {} as TimeEntriesService,
-      { groupByApprover } as unknown as TimeEntryApprovalsService,
+      {
+        groupByApprover,
+        findMovedByAbsence,
+      } as unknown as TimeEntryApprovalsService,
       {} as UsersService,
       jobs as unknown as JobsService,
     );
@@ -78,5 +87,63 @@ describe('TimeEntryNotificationsService', () => {
       reviewerId: 'manager',
       reason: 'Wrong project',
     });
+  });
+
+  // The daily check's claim holds the workspace's row: in its transaction
+  // the listener only saves the plan, which reads the entries after it.
+  it('saves one plan job in the claim’s transaction and reads no entries there', async () => {
+    await service.handleAbsenceDayChecked(
+      new AbsenceDayCheckedEvent(SLACK_TEAM_ID, '2026-06-18'),
+    );
+
+    expect(jobs.enqueue).toHaveBeenCalledTimes(1);
+    expect(jobs.enqueue).toHaveBeenCalledWith(PLAN_MOVED_JOB, {
+      slackTeamId: SLACK_TEAM_ID,
+      date: '2026-06-18',
+    });
+    expect(findMovedByAbsence).not.toHaveBeenCalled();
+    expect(jobs.enqueueMany).not.toHaveBeenCalled();
+  });
+
+  it('plans the moved notices once, saving each approver’s text with their DM job', async () => {
+    service.onModuleInit();
+    const plan = jobs.define.mock.calls.find(
+      ([name]) => name === PLAN_MOVED_JOB,
+    )?.[1] as (payload: object) => Promise<void>;
+    findMovedByAbsence.mockResolvedValue([
+      {
+        approver: { id: 'hr' },
+        groups: [
+          {
+            teamName: 'Design',
+            away: [{ slackId: 'UMIA', until: '2026-06-24' }],
+            count: 2,
+          },
+          {
+            teamName: null,
+            away: [{ slackId: 'UMIA', until: '2026-06-24' }],
+            count: 1,
+          },
+        ],
+      },
+    ]);
+
+    await plan({ slackTeamId: SLACK_TEAM_ID, date: '2026-06-18' });
+
+    expect(findMovedByAbsence).toHaveBeenCalledWith(
+      SLACK_TEAM_ID,
+      '2026-06-18',
+    );
+    expect(jobs.enqueueMany).toHaveBeenCalledTimes(1);
+    expect(jobs.enqueueMany).toHaveBeenCalledWith(NOTIFY_MOVED_JOB, [
+      {
+        slackTeamId: SLACK_TEAM_ID,
+        approverId: 'hr',
+        text: [
+          '<@UMIA> is on time off until 24 Jun 2026: 2 time entries of Design now wait for you in Approvals.',
+          '<@UMIA> is on time off until 24 Jun 2026: 1 time entry of people in no team now waits for you in Approvals.',
+        ].join('\n'),
+      },
+    ]);
   });
 });

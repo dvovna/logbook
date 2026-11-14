@@ -367,12 +367,11 @@ export class TimeEntriesRepository extends BaseRepository<
     return rows.map(({ id }) => id);
   }
 
-  // Who each of the entries `ids` waits for (see approves()), as pairs.
+  // Who is told of each of the entries `ids` (see approves()), as pairs.
   public async findApproverIds(
     slackTeamId: string,
     ids: string[],
     today: string,
-    who: 'listed' | 'told',
   ): Promise<{ entry_id: string; approver_id: string }[]> {
     if (!ids.length) {
       return [];
@@ -388,13 +387,65 @@ export class TimeEntriesRepository extends BaseRepository<
               team: 'time_entries.team_id',
               owner: 'time_entries.user_id',
             },
-            { today, who },
+            { today, who: 'told' },
           ),
         ),
       )
       .select(['time_entries.id as entry_id', 'approver.id as approver_id'])
       .where(sql<boolean>`"time_entries"."id" = any(${ids}::uuid[])`)
       .execute();
+  }
+
+  // The workspace's submitted entries by team and owner, with each of their
+  // approvers `who` (see approves()): one row a team, owner and approver.
+  // The rule runs once a team and owner, not once an entry.
+  public async findSubmittedGroupApprovers(
+    slackTeamId: string,
+    today: string,
+    who: 'listed' | 'told',
+  ): Promise<
+    {
+      team_id: string | null;
+      user_id: string;
+      entries: number;
+      approver_id: string;
+    }[]
+  > {
+    const rows = await this.db
+      .selectFrom(
+        this.selectInWorkspace(slackTeamId)
+          .select([
+            'time_entries.team_id',
+            'time_entries.user_id',
+            (eb) => eb.fn.countAll<number>().as('entries'),
+          ])
+          .where('time_entries.status', '=', TimeEntryStatus.Submitted)
+          .where('time_entries.deleted_at', 'is', null)
+          .groupBy(['time_entries.team_id', 'time_entries.user_id'])
+          .as('waiting'),
+      )
+      .innerJoin('users as approver', (join) =>
+        join.on(
+          this.approves(
+            slackTeamId,
+            {
+              person: 'approver',
+              team: 'waiting.team_id',
+              owner: 'waiting.user_id',
+            },
+            { today, who },
+          ),
+        ),
+      )
+      .select([
+        'waiting.team_id',
+        'waiting.user_id',
+        'waiting.entries',
+        'approver.id as approver_id',
+      ])
+      .execute();
+
+    return rows.map((row) => ({ ...row, entries: Number(row.entries) }));
   }
 
   // The minutes of a period's entries, all and billable, deleted ones left

@@ -98,25 +98,47 @@ describe('TimeEntriesRepository', () => {
     ]);
   });
 
+  it('finds who is told of entries among the workspace’s approving people, today bound as a parameter', async () => {
+    const { database, sqlOf, parametersOf } = recordingDatabase([[]]);
+
+    await new TimeEntriesRepository(database).findApproverIds(
+      'w1',
+      ['e1'],
+      '2026-06-17',
+    );
+
+    // The approving conditions come first and alone, so Postgres scans
+    // users by workspace and runs the rest only for its approving people.
+    expect(sqlOf(0)).toMatch(
+      /inner join "users" as "approver" on \("approver"\."slack_team_id" = \$1\s+and "approver"\."is_active"\s+and "approver"\."role" in \(\$2, \$3, \$4\)\s+and "approver"\."id" <> "time_entries"\."user_id" and case\s/,
+    );
+    expect(sqlOf(0)).not.toContain('2026-06-17');
+    expect(parametersOf(0)[0]).toBe('w1');
+    expect(parametersOf(0)).toContain('2026-06-17');
+  });
+
   it.each(['told', 'listed'] as const)(
-    'finds whom entries wait for (%s) among the workspace’s approving people, today bound as a parameter',
+    'finds the approvers (%s) of the submitted entries once a team and owner',
     async (who) => {
-      const { database, sqlOf, parametersOf } = recordingDatabase([[]]);
+      const { database, sqlOf, parametersOf } = recordingDatabase([
+        [{ team_id: 't1', user_id: 'u1', entries: '3', approver_id: 'a1' }],
+      ]);
 
-      await new TimeEntriesRepository(database).findApproverIds(
-        'w1',
-        ['e1'],
-        '2026-06-17',
-        who,
-      );
+      await expect(
+        new TimeEntriesRepository(database).findSubmittedGroupApprovers(
+          'w1',
+          '2026-06-17',
+          who,
+        ),
+      ).resolves.toEqual([
+        { team_id: 't1', user_id: 'u1', entries: 3, approver_id: 'a1' },
+      ]);
 
-      // The approving conditions come first and alone, so Postgres scans
-      // users by workspace and runs the rest only for its approving people.
       expect(sqlOf(0)).toMatch(
-        /inner join "users" as "approver" on \("approver"\."slack_team_id" = \$1\s+and "approver"\."is_active"\s+and "approver"\."role" in \(\$2, \$3, \$4\)\s+and "approver"\."id" <> "time_entries"\."user_id" and case\s/,
+        /from \(select "time_entries"\."team_id", "time_entries"\."user_id", count\(\*\) as "entries" from "time_entries" where "time_entries"\."slack_team_id" = \$1 and "time_entries"\."status" = \$2 and "time_entries"\."deleted_at" is null group by "time_entries"\."team_id", "time_entries"\."user_id"\) as "waiting" inner join "users" as "approver" on \("approver"\."slack_team_id" = \$3\s+and "approver"\."is_active"/,
       );
       expect(sqlOf(0)).not.toContain('2026-06-17');
-      expect(parametersOf(0)[0]).toBe('w1');
+      expect(parametersOf(0).slice(0, 3)).toEqual(['w1', 'submitted', 'w1']);
       expect(parametersOf(0).includes('2026-06-17')).toBe(who === 'told');
     },
   );

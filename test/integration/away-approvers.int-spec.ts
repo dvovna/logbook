@@ -749,5 +749,36 @@ describe('Approvers who are away', () => {
       await t.idle();
       expect(textsOf()).toHaveLength(1);
     });
+
+    // The claim holds the workspace's row till its transaction ends.
+    it('reads the entries after the day’s claim, not in its transaction', async () => {
+      await goAway(manager, '2026-06-18', '2026-06-24');
+      await submitted(member);
+      travelTo('2026-06-18');
+      const since = t.sql.mark();
+
+      await t.app
+        .get(AbsenceCheckService)
+        .checkWorkspace(workspace.id, '2026-06-18');
+      await t.idle();
+
+      const statements = t.sql.statements(since);
+      const claim = statements.find(({ text }) =>
+        text.includes('absence_check_date'),
+      );
+      const onClaimConnection = statements
+        .slice(statements.indexOf(claim!))
+        .filter(({ client }) => client === claim!.client);
+      const inClaim = onClaimConnection.slice(
+        0,
+        onClaimConnection.findIndex(({ text }) => /^\s*commit/i.test(text)),
+      );
+      const readsEntries = ({ text }: { text: string }) =>
+        text.includes('"time_entries"');
+
+      expect(inClaim.length).toBeGreaterThan(1);
+      expect(inClaim.filter(readsEntries)).toEqual([]);
+      expect(statements.some(readsEntries)).toBe(true);
+    });
   });
 });

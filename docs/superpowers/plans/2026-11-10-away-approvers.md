@@ -678,11 +678,11 @@ git commit -m "Send time entries to HR while every manager is away"
 - Test: `test/integration/away-approvers.int-spec.ts`
 
 **Interfaces:**
-- Consumes: `ABSENCE_DAY_CHECKED`, `AbsenceDayCheckedEvent`, `AbsenceCheckService.checkWorkspace` (Task 6), `findApproverIds` with `'listed'`/`'told'` (Task 8), `onTimeOffText` (Task 7).
+- Consumes: `ABSENCE_DAY_CHECKED`, `AbsenceDayCheckedEvent`, `AbsenceCheckService.checkWorkspace` (Task 6), `findApproverIds` (`'told'`) and `findSubmittedGroupApprovers` (`'listed'`/`'told'`) (Task 8), `onTimeOffText` (Task 7).
 - Produces:
   - `export interface IMovedEntries { approver: IUserViewModel; groups: { teamName: string | null; away: { slackId: string; until: string }[]; count: number }[] }`
   - `TimeEntryApprovalsService.findMovedByAbsence(slackTeamId: string, date: string): Promise<IMovedEntries[]>`: the workspace's submitted entries whose listed approvers are all away on `date`, at least one with `since === date`, grouped by each of their `'told'` approvers who is not a listed one, then by team (names from `TeamsService`)
-  - `NOTIFY_MOVED_JOB = 'time-entries-notify-moved'` with `{ slackTeamId: string; approverId: string; date: string }`; `@OnEvent(ABSENCE_DAY_CHECKED, { suppressErrors: false })` in `TimeEntryNotificationsService` enqueues one per approver in the claim's transaction (`enqueueMany`); the job recomputes for that approver and sends one DM, a line per group: `${away}: ${count} time ${pluralize('entry', count)} of ${escapeMrkdwn(teamName)} now ${count === 1 ? 'waits' : 'wait'} for you in Approvals.` (`of people in no team` without a team)
+  - `PLAN_MOVED_JOB = 'time-entries-plan-moved'` with `{ slackTeamId: string; date: string }`: `@OnEvent(ABSENCE_DAY_CHECKED, { suppressErrors: false })` in `TimeEntryNotificationsService` only enqueues it in the claim's transaction (the claim makes it one per workspace and day); the plan runs `findMovedByAbsence` after the claim (by team and owner, `findSubmittedGroupApprovers`) and saves `NOTIFY_MOVED_JOB = 'time-entries-notify-moved'` with `{ slackTeamId: string; approverId: string; text: string }`, one per approver (`enqueueMany`); the job sends that text as one DM (review fix: the claim's transaction held the workspace's row through the whole read), a line per group: `${away}: ${count} time ${pluralize('entry', count)} of ${escapeMrkdwn(teamName)} now ${count === 1 ? 'waits' : 'wait'} for you in Approvals.` (`of people in no team` without a team)
 
 - [ ] **Step 1: Write the failing integration test**
 
