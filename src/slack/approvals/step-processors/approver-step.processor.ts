@@ -74,9 +74,42 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
         comments,
         progress: await this.findProgress(step),
         requestDeleted,
+        wentOnTo:
+          step.step_data.status === WorkflowStepStatus.Skipped
+            ? await this.findLevelWentOnTo(step)
+            : undefined,
       }),
       step.slack_team_id,
     );
+  }
+
+  // The name of the next level the request went on to after this step was
+  // skipped: the lowest level above it, in its run, that was asked. Nothing
+  // when another approver of the same level still decides.
+  private async findLevelWentOnTo(
+    step: IRequestWorkflowStepViewModel,
+  ): Promise<string | undefined> {
+    const steps = (
+      await this.requestWorkflowStepsService.findMany({
+        requestId: step.request_id,
+        slackTeamId: step.slack_team_id,
+      })
+    ).filter(
+      (other) =>
+        runOf(other) === runOf(step) &&
+        other.step_level > step.step_level &&
+        !!other.processed_at,
+    );
+
+    if (!steps.length) {
+      return undefined;
+    }
+
+    const next = steps.reduce((lowest, other) =>
+      other.step_level < lowest.step_level ? other : lowest,
+    );
+
+    return next.step_data.level_name ?? `Level ${next.step_level}`;
   }
 
   // Where the request stands: the step's level of how many, and who approved

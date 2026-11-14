@@ -1,5 +1,6 @@
 import {
   IApproverStepData,
+  IRequestWorkflowStepViewModel,
   WorkflowStepType,
 } from '@modules/request-workflows/types/request-workflow-step.interface';
 import { RequestWorkflowStepsRepository } from '@modules/request-workflows/repositories/request-workflow-steps.repository';
@@ -34,6 +35,7 @@ interface IFindParams {
   id?: string;
   requestId?: string;
   slackUserId?: string;
+  slackUserIds?: string[];
   processed?: boolean;
   stepLevel?: number;
   stepType?: WorkflowStepType;
@@ -146,6 +148,20 @@ export class RequestWorkflowStepsService {
     });
   }
 
+  // Skips one open step whose approver is on time off until `awayUntil`;
+  // null when the step was already closed.
+  public skip(
+    step: IRequestWorkflowStepViewModel,
+    awayUntil: string,
+  ): Promise<IRequestWorkflowStepViewModel | null> {
+    return this.requestWorkflowStepsRepository.skip({
+      slackTeamId: step.slack_team_id,
+      requestId: step.request_id,
+      stepId: step.id,
+      awayUntil,
+    });
+  }
+
   public findOne(findParams: IFindParams) {
     return this.requestWorkflowStepsRepository.findOne(
       this.getFindQuery(findParams),
@@ -210,6 +226,7 @@ export class RequestWorkflowStepsService {
       ...(params.id ? { id: params.id } : {}),
       ...(params.requestId ? { request_id: params.requestId } : {}),
       ...(params.slackUserId ? { slack_user_id: params.slackUserId } : {}),
+      ...(params.slackUserIds ? { slack_user_id: params.slackUserIds } : {}),
       ...(params.stepLevel !== undefined
         ? { step_level: params.stepLevel }
         : {}),

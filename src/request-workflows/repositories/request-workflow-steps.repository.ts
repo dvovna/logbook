@@ -3,6 +3,7 @@ import { BaseRepository } from '@common/repositories/base.repository';
 import { SqlRow } from '@common/types/sql-database.types';
 import { sql } from 'kysely';
 import { Json } from '@common/types/database.types';
+import { RequestWorkflowStatus } from '@common/enums/request-workflow-status.enum';
 import {
   IRequestWorkflowStepViewModel,
   WorkflowStepType,
@@ -79,6 +80,36 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
       .execute();
 
     return rows.map(this.mapToViewModel);
+  }
+
+  // Skips one open step whose approver is on time off until `awayUntil`.
+  // Like decide it touches only an open step: null when it was closed first.
+  // Nobody decided a skip, so there is no decided_by_slack_id.
+  public async skip(params: {
+    slackTeamId: string;
+    requestId: string;
+    stepId: string;
+    awayUntil: string;
+  }): Promise<IRequestWorkflowStepViewModel | null> {
+    const rows = await this.updateInWorkspace(params.slackTeamId)
+      .set({
+        step_data: sql<NonNullable<Json>>`step_data || jsonb_build_object(
+          'status', ${RequestWorkflowStatus.Skipped}::text,
+          'decided_at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+          'decided_by_slack_id', null,
+          'skip_reason', ${'time_off'}::text,
+          'away_until', ${params.awayUntil}::text
+        )`,
+        completed_at: sql<string>`now()`,
+        updated_at: sql<string>`now()`,
+      })
+      .where('id', '=', params.stepId)
+      .where('request_id', '=', params.requestId)
+      .where('completed_at', 'is', null)
+      .returningAll()
+      .execute();
+
+    return rows.length ? this.mapToViewModel(rows[0]) : null;
   }
 
   // The open steps that wait for the approver `slackUserId`, oldest first,

@@ -10,6 +10,7 @@ export enum WorkflowStepStatus {
   Approved = 'approved',
   Rejected = 'rejected',
   Cancelled = 'canceled',
+  Skipped = 'skipped',
 }
 
 export interface IRequestSnapshotData {
@@ -51,6 +52,10 @@ export interface IApproverStepData {
   decided_at?: string | null;
   decided_by_slack_id?: string | null;
   rejection_reason?: string | null;
+  // Set when the approver was on time off and the step was skipped.
+  skip_reason?: 'time_off';
+  // The day the approver is back, the last day of the time off.
+  away_until?: string | null;
 }
 
 export interface IRequestWorkflowStepViewModel {

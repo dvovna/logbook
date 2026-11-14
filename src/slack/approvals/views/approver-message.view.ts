@@ -2,7 +2,7 @@ import {
   VACATION_TYPE_LABELS,
   vacationTypeLabel,
 } from '@modules/slack/common/views/data/labels';
-import { formatDateRange } from '@common/utils/date.utils';
+import { formatDate, formatDateRange } from '@common/utils/date.utils';
 import {
   escapeMrkdwn,
   quoteMrkdwn,
@@ -30,6 +30,8 @@ interface IGetMessageParams {
   // The request is gone: its steps are closed with a cancellation, and the
   // message says it was deleted.
   requestDeleted?: boolean;
+  // For a skipped step: the name of the level the request went on to.
+  wentOnTo?: string;
 }
 
 export class ApproverMessageView {
@@ -50,6 +52,9 @@ export class ApproverMessageView {
       }
       case WorkflowStepStatus.Cancelled: {
         return this.getCanceledMessage(params);
+      }
+      case WorkflowStepStatus.Skipped: {
+        return this.getSkippedMessage(params);
       }
     }
   }
@@ -160,6 +165,30 @@ ${this.getRequestDetails(step, comments)}`,
           text: {
             type: 'mrkdwn',
             text: `❌ Canceled by <@${canceledBy}>
+
+${this.getRequestDetails(step, comments)}`,
+          },
+        },
+      ],
+    };
+  }
+
+  private static getSkippedMessage({
+    step,
+    comments,
+    wentOnTo,
+  }: IGetMessageParams) {
+    const { away_until } = step.step_data;
+    const until = away_until ? ` (until ${formatDate(away_until)})` : '';
+
+    return {
+      text: "⏭️ Skipped while you're on time off",
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `⏭️ Skipped while you're on time off${until}.${wentOnTo ? ` It went on to ${escapeMrkdwn(wentOnTo)}.` : ''}
 
 ${this.getRequestDetails(step, comments)}`,
           },

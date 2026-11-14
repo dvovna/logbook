@@ -183,9 +183,12 @@ export class VacationRequestDetailsModalView extends BaseModalView<IGetParams> {
       ? `<@${step.step_data.decided_by_slack_id}>`
       : `<@${step.slack_user_id}>`;
 
-    const lines: string[] = [
-      `${status.icon} *${status.label}* by ${decidedBy}`,
-    ];
+    const lines: string[] =
+      step.step_data.status === WorkflowStepStatus.Skipped
+        ? [
+            `${status.icon} *${status.label}* · <@${step.slack_user_id}> on time off${step.step_data.away_until ? ` until ${formatDate(step.step_data.away_until)}` : ''}`,
+          ]
+        : [`${status.icon} *${status.label}* by ${decidedBy}`];
 
     if (stepComments.length > 0) {
       stepComments.forEach((c) => {

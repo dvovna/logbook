@@ -46,4 +46,10 @@ describe('decisionNotice', () => {
       'Not decided: the request was deleted meanwhile.',
     );
   });
+
+  it('says the request went on without the approver while they are on time off', () => {
+    expect(notice(stepWith(WorkflowStepStatus.Skipped))).toBe(
+      'Not decided: it went on without you while you are on time off.',
+    );
+  });
 });

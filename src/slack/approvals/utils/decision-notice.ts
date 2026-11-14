@@ -26,6 +26,10 @@ export const decisionNotice = (
     return done;
   }
 
+  if (data.status === WorkflowStepStatus.Skipped) {
+    return 'Not decided: it went on without you while you are on time off.';
+  }
+
   if (
     data.status === WorkflowStepStatus.Cancelled ||
     !data.decided_by_slack_id
