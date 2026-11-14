@@ -152,6 +152,49 @@ describe('Approver reminders', () => {
     expect(await remindedTexts(manager, since)).toHaveLength(1);
   });
 
+  it('reminds HR at work, not the manager on time off, of the entries that wait while the manager is away', async () => {
+    const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana' });
+    await workspace.addVacationRequest(manager, {
+      start_date: '2026-06-15',
+      end_date: '2026-06-24',
+    });
+    await submittedEntry(member, '2026-06-11T09:00:00.000Z');
+    const since = t.slackApi.mark();
+
+    expect(await reminders().remindAll(new Date())).toBe(1);
+
+    // Waiting for HR now, it is HR's own, not someone else's.
+    expect(await remindedTexts(hr, since)).toEqual([
+      [
+        ':hourglass_flowing_sand: Still waiting for your decision:',
+        '• 1 time entry of 1 person, the oldest since 11 Jun 2026',
+        "Decide them under ✅ Approvals on Logbook's Home.",
+        'Change how often you are reminded: Home → 🔔 Reminders.',
+      ].join('\n'),
+    ]);
+    expect(await remindedTexts(manager, since)).toEqual([]);
+  });
+
+  it('reminds the manager on time off when nobody who could decide is at work', async () => {
+    for (const away of [manager, admin]) {
+      await workspace.addVacationRequest(away, {
+        start_date: '2026-06-15',
+        end_date: '2026-06-24',
+      });
+    }
+    await submittedEntry(member, THREE_DAYS_AGO);
+    const since = t.slackApi.mark();
+
+    // The manager, and the admin, whose job finds nothing that waited five
+    // days.
+    expect(await reminders().remindAll(new Date())).toBe(2);
+
+    expect(await remindedTexts(manager, since)).toEqual([
+      expect.stringContaining('• 1 time entry of 1 person'),
+    ]);
+    expect(await remindedTexts(admin, since)).toEqual([]);
+  });
+
   it('tells HR, and not the admins, what has waited five days for someone else', async () => {
     const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana' });
     await waitingRequest('2026-06-10T09:00:00.000Z');
