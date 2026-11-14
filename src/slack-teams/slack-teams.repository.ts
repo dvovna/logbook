@@ -176,47 +176,57 @@ export class SlackTeamsRepository extends BaseRepository<
   // Marks the reminder of the week starting `monday` as sent, once: true for
   // the one caller that marked it, false when it was sent already (or the
   // workspace is uninstalled).
-  public async claimReminderWeek(id: string, monday: string): Promise<boolean> {
-    const rows = await this.failingWith(
-      'Failed to claim the weekly reminder',
-      () =>
-        this.db
-          .updateTable('slack_teams')
-          .set({ time_reminder_week: monday })
-          .where('id', '=', id)
-          .where('uninstalled_at', 'is', null)
-          .where((eb) =>
-            eb.or([
-              eb('time_reminder_week', 'is', null),
-              eb('time_reminder_week', '<', monday),
-            ]),
-          )
-          .returning('id')
-          .execute(),
-    );
-
-    return rows.length > 0;
+  public claimReminderWeek(id: string, monday: string): Promise<boolean> {
+    return this.claimDate(id, 'time_reminder_week', monday, 'weekly reminder');
   }
 
   // The same for the reminder of `day`, which goes to the people reminded
   // every working day.
-  public async claimReminderDay(id: string, day: string): Promise<boolean> {
-    const rows = await this.failingWith(
-      'Failed to claim the daily reminder',
-      () =>
-        this.db
-          .updateTable('slack_teams')
-          .set({ time_reminder_day: day })
-          .where('id', '=', id)
-          .where('uninstalled_at', 'is', null)
-          .where((eb) =>
-            eb.or([
-              eb('time_reminder_day', 'is', null),
-              eb('time_reminder_day', '<', day),
-            ]),
-          )
-          .returning('id')
-          .execute(),
+  public claimReminderDay(id: string, day: string): Promise<boolean> {
+    return this.claimDate(id, 'time_reminder_day', day, 'daily reminder');
+  }
+
+  // The same for the approvers' reminders of what waits for them.
+  public claimApproverReminderWeek(
+    id: string,
+    monday: string,
+  ): Promise<boolean> {
+    return this.claimDate(
+      id,
+      'approver_reminder_week',
+      monday,
+      'weekly approver reminder',
+    );
+  }
+
+  public claimApproverReminderDay(id: string, day: string): Promise<boolean> {
+    return this.claimDate(
+      id,
+      'approver_reminder_day',
+      day,
+      'daily approver reminder',
+    );
+  }
+
+  private async claimDate(
+    id: string,
+    column:
+      | 'time_reminder_week'
+      | 'time_reminder_day'
+      | 'approver_reminder_week'
+      | 'approver_reminder_day',
+    date: string,
+    what: string,
+  ): Promise<boolean> {
+    const rows = await this.failingWith(`Failed to claim the ${what}`, () =>
+      this.db
+        .updateTable('slack_teams')
+        .set({ [column]: date })
+        .where('id', '=', id)
+        .where('uninstalled_at', 'is', null)
+        .where((eb) => eb.or([eb(column, 'is', null), eb(column, '<', date)]))
+        .returning('id')
+        .execute(),
     );
 
     return rows.length > 0;

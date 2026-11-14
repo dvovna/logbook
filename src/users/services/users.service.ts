@@ -450,6 +450,32 @@ export class UsersService implements IUsersService {
     return await this.userRepository.findOne(this.getFindQuery(findParams));
   }
 
+  // The active people among `ids` and `slackIds` whose reminders go out
+  // as often as one of `reminders`.
+  public async findActiveWithReminder(
+    slackTeamId: string,
+    { ids, slackIds }: { ids: string[]; slackIds: string[] },
+    reminders: TimeReminder[],
+  ): Promise<IUserViewModel[]> {
+    const scope = {
+      slack_team_id: slackTeamId,
+      is_active: true,
+      time_reminder: reminders,
+    };
+    const [byId, bySlackId] = await Promise.all([
+      ids.length ? this.userRepository.findMany({ ...scope, id: ids }) : [],
+      slackIds.length
+        ? this.userRepository.findMany({ ...scope, slack_id: slackIds })
+        : [],
+    ]);
+
+    return [
+      ...new Map(
+        [...byId, ...bySlackId].map((user) => [user.id, user]),
+      ).values(),
+    ];
+  }
+
   public async findMany(findParams: IFindParams): Promise<IUserViewModel[]> {
     return await this.userRepository.findMany(this.getFindQuery(findParams));
   }

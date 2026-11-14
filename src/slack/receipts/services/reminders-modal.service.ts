@@ -1,3 +1,4 @@
+import { MANAGER_ROLES } from '@common/constants/role-groups';
 import { Injectable } from '@nestjs/common';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { IUserViewModel } from '@modules/users/types/user.interface';
@@ -27,6 +28,7 @@ export class RemindersModalService {
         reimbursements,
         optedOutIds,
         timeReminder: user.time_reminder,
+        approves: MANAGER_ROLES.includes(user.role),
       }),
       user.slack_team_id,
     );

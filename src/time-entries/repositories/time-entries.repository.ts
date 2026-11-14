@@ -153,6 +153,64 @@ export class TimeEntriesRepository extends BaseRepository<
     return Number(count);
   }
 
+  // How many submitted entries of how many people have waited for
+  // `approverId` since before `before` (updated_at, which submitting sets),
+  // and since when the oldest (see approves()).
+  public async summarizeWaitingSince(
+    slackTeamId: string,
+    approverId: string,
+    before: Date,
+  ): Promise<{ count: number; people: number; oldest: string | null }> {
+    const { count, people, oldest } = await this.db
+      .selectFrom(
+        this.waitingGroups(slackTeamId, approverId, before).as('waiting'),
+      )
+      .select([
+        sql<number>`coalesce(sum("waiting"."entries"), 0)`.as('count'),
+        sql<number>`count(distinct "waiting"."user_id")`.as('people'),
+        sql<string | null>`min("waiting"."oldest")`.as('oldest'),
+      ])
+      .executeTakeFirstOrThrow();
+
+    return {
+      count: Number(count),
+      people: Number(people),
+      oldest: oldest ?? null,
+    };
+  }
+
+  // The approvers whom submitted entries have waited for since before
+  // `before` (see approves()), the rule run once a team and owner.
+  public async findApproversWaitingSince(
+    slackTeamId: string,
+    before: Date,
+  ): Promise<string[]> {
+    const rows = await this.db
+      .selectFrom(
+        this.selectInWorkspace(slackTeamId)
+          .select(['time_entries.team_id', 'time_entries.user_id'])
+          .where('time_entries.status', '=', TimeEntryStatus.Submitted)
+          .where('time_entries.deleted_at', 'is', null)
+          .where('time_entries.updated_at', '<', before.toISOString())
+          .groupBy(['time_entries.team_id', 'time_entries.user_id'])
+          .as('waiting'),
+      )
+      .innerJoin('users as approver', (join) =>
+        join.on(
+          this.approves(slackTeamId, {
+            person: 'approver',
+            team: 'waiting.team_id',
+            owner: 'waiting.user_id',
+          }),
+        ),
+      )
+      .select('approver.id')
+      .distinct()
+      .execute();
+
+    return rows.map(({ id }) => id);
+  }
+
   // A page of the submitted entries that wait for `approverId` (see
   // approves()), as the lists show them, newest work first.
   public async findWaitingFor(
@@ -870,7 +928,11 @@ export class TimeEntriesRepository extends BaseRepository<
   // team and owner only, so the rule runs once a pair, not once an entry:
   // Admin and HR would otherwise run it for every submitted entry of the
   // workspace.
-  private waitingGroups(slackTeamId: string, approverId: string) {
+  private waitingGroups(
+    slackTeamId: string,
+    approverId: string,
+    submittedBefore?: Date,
+  ) {
     return this.selectInWorkspace(slackTeamId)
       .select([
         'time_entries.team_id',
@@ -879,6 +941,15 @@ export class TimeEntriesRepository extends BaseRepository<
       ])
       .where('time_entries.status', '=', TimeEntryStatus.Submitted)
       .where('time_entries.deleted_at', 'is', null)
+      .$if(!!submittedBefore, (query) =>
+        query
+          .select((eb) => eb.fn.min('time_entries.updated_at').as('oldest'))
+          .where(
+            'time_entries.updated_at',
+            '<',
+            submittedBefore!.toISOString(),
+          ),
+      )
       .where('time_entries.user_id', '!=', approverId)
       .groupBy(['time_entries.team_id', 'time_entries.user_id'])
       .having((eb) =>

@@ -107,6 +107,45 @@ export class RequestWorkflowStepsRepository extends BaseRepository<
     return Number(count);
   }
 
+  // How many of the steps countWaitingFor counts were asked before
+  // `before`, and when the oldest of them was.
+  public async summarizeWaitingSince(
+    slackTeamId: string,
+    slackUserId: string,
+    before: Date,
+  ): Promise<{ count: number; oldest: string | null }> {
+    const { count, oldest } = await this.waitingFor(slackTeamId, slackUserId)
+      .where('processed_at', '<', before.toISOString())
+      .select((eb) => [
+        eb.fn.countAll<number>().as('count'),
+        eb.fn.min('processed_at').as('oldest'),
+      ])
+      .executeTakeFirstOrThrow();
+
+    return { count: Number(count), oldest: (oldest as string | null) ?? null };
+  }
+
+  // The approvers with an open step asked before `before`, but of their own
+  // request (as waitingFor).
+  public async findApproversWaitingSince(
+    slackTeamId: string,
+    before: Date,
+  ): Promise<string[]> {
+    const rows = await this.selectInWorkspace(slackTeamId)
+      .where('processed_at', '<', before.toISOString())
+      .where('completed_at', 'is', null)
+      .where(
+        sql<boolean>`"step_data" -> 'snapshot' ->> 'slack_user_id' is distinct from "slack_user_id"`,
+      )
+      .select('slack_user_id')
+      .distinct()
+      .execute();
+
+    return rows.flatMap(({ slack_user_id }) =>
+      slack_user_id ? [slack_user_id] : [],
+    );
+  }
+
   private waitingFor(slackTeamId: string, slackUserId: string) {
     return this.selectInWorkspace(slackTeamId)
       .where('slack_user_id', '=', slackUserId)

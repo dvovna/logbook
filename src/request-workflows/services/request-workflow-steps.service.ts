@@ -184,6 +184,26 @@ export class RequestWorkflowStepsService {
     );
   }
 
+  // See RequestWorkflowStepsRepository.summarizeWaitingSince.
+  public summarizeWaitingSince(
+    approver: { slack_id: string; slack_team_id: string },
+    before: Date,
+  ) {
+    return this.requestWorkflowStepsRepository.summarizeWaitingSince(
+      approver.slack_team_id,
+      approver.slack_id,
+      before,
+    );
+  }
+
+  // The Slack IDs of the approvers with a step asked before `before`.
+  public findApproversWaitingSince(slackTeamId: string, before: Date) {
+    return this.requestWorkflowStepsRepository.findApproversWaitingSince(
+      slackTeamId,
+      before,
+    );
+  }
+
   public search(params: ISearchStepsParams) {
     return this.requestWorkflowStepsRepository.search({
       filters: this.getFindQuery(params.filters),

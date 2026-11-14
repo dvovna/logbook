@@ -86,4 +86,8 @@ When the approvers decide, or HR or an admin sets the status with **Edit Request
 - When it is approved, the people under the team's **Who hears of decisions** get a DM too. They come from the team's own rules or the company rules, as they are at the time of the decision. They hear nothing of a rejection.
 - Every approver's message shows the decision and who made it, HR or the admin after **Edit Request**.
 
+## Reminders of what waits for you
+
+When something has waited for your decision for two days or more, Logbook reminds you in one direct message: how many time off requests and how many time entries (of how many people) still wait, and since when the oldest. It comes as often as you chose in **Home → 🔔 Reminders** ("Remind me about time I haven't submitted and what waits for my approval"): every working day, every Monday (the default), the first Monday of the month, or never, in the morning (UTC). With nothing that old waiting, no reminder comes.
+
 All messages are listed in [Notifications](/logbook/docs/reference/notifications/).

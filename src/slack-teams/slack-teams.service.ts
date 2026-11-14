@@ -144,6 +144,19 @@ export class SlackTeamsService implements OnApplicationBootstrap {
     return this.slackTeamsRepository.claimReminderDay(id, day);
   }
 
+  // See SlackTeamsRepository.claimApproverReminderWeek.
+  public claimApproverReminderWeek(
+    id: string,
+    monday: string,
+  ): Promise<boolean> {
+    return this.slackTeamsRepository.claimApproverReminderWeek(id, monday);
+  }
+
+  // See SlackTeamsRepository.claimApproverReminderDay.
+  public claimApproverReminderDay(id: string, day: string): Promise<boolean> {
+    return this.slackTeamsRepository.claimApproverReminderDay(id, day);
+  }
+
   public async findUninstalledBefore(cutoff: Date): Promise<string[]> {
     const workspaces = await this.slackTeamsRepository.findMany({
       uninstalled_at: { operator: 'lt', value: cutoff.toISOString() },
