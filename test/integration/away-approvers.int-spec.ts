@@ -6,6 +6,10 @@ import { RequestWorkflowService } from '@modules/request-workflows/services/requ
 import { WorkflowDecisionsService } from '@modules/request-workflows/services/workflow-decisions.service';
 import { ApprovalRule } from '@modules/teams/enums/approval-rule.enum';
 import { UsersService } from '@modules/users/services/users.service';
+import { formatDateRange } from '@common/utils/date.utils';
+import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
+import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
+import { openAppHomeTab, openModalFrom } from './support/app-home';
 import { textOf } from './support/block-kit';
 import { travelTo } from './support/clock';
 import { workWeek } from './support/dates';
@@ -209,10 +213,27 @@ describe('Approvers who are away', () => {
         }),
       );
 
-      await requestVacation(t, workspace, member, workWeek(2));
+      const request = await requestVacation(t, workspace, member, workWeek(2));
 
       await approvalMessageTo(t, workspace, hr);
       expect(messagesTo(manager)).toEqual([]);
+      expect(messagesTo(member).map(({ text }) => text)).toEqual([
+        `📨 <@${manager.slack_id}> is on time off until 24 Jun 2026, so your vacation request (${formatDateRange(request.start_date, request.end_date)}) went to <@${hr.slack_id}> (HR approval).`,
+      ]);
+
+      const details = await openModalFrom(
+        t,
+        workspace,
+        member,
+        await openAppHomeTab(t, workspace, member, [
+          NavigationActionId.TimeOff,
+        ]),
+        VacationHistoryTabViewActionId.ManageRequestMenu,
+        `${VacationHistoryTabViewActionId.ViewDetails}:${request.id}`,
+      );
+      expect(textOf(details)).toContain(
+        `⏭️ *Skipped* · <@${manager.slack_id}> on time off until 24 Jun 2026`,
+      );
     });
 
     it('asks HR, else the admins, when the only manager is away and there is no HR level', async () => {
@@ -261,6 +282,8 @@ describe('Approvers who are away', () => {
         await workspace.addTeam({
           manager_approvers: [away.slack_id, manager.slack_id],
           manager_approvers_rule: ApprovalRule.All,
+          hr_approvers: [hr.slack_id],
+          rule_set_id: null,
         }),
       );
       const request = await requestVacation(t, workspace, member, workWeek(2));
@@ -268,8 +291,12 @@ describe('Approvers who are away', () => {
       await click(manager, await approvalMessageTo(t, workspace, manager));
       await t.idle();
 
-      expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+      expect(await statusOf(request)).toBe(VacationRequestStatus.Pending);
       expect(messagesTo(away)).toEqual([]);
+      await approvalMessageTo(t, workspace, hr);
+      expect(messagesTo(member).slice(-1)[0].text).toBe(
+        `✅ Your vacation request (${formatDateRange(request.start_date, request.end_date)}): Manager approval done by <@${manager.slack_id}>. Now waiting for HR approval from <@${hr.slack_id}>.`,
+      );
     });
 
     it('skips the manager who goes away while the request waits', async () => {
@@ -287,7 +314,13 @@ describe('Approvers who are away', () => {
 
       await skipAway(request);
 
-      await approvalMessageTo(t, workspace, hr);
+      const hrApproval = await approvalMessageTo(t, workspace, hr);
+      expect(messagesTo(member).slice(-1)[0].text).toBe(
+        `⏭️ <@${manager.slack_id}> is on time off until 24 Jun 2026. Your vacation request (${formatDateRange(request.start_date, request.end_date)}) now waits for HR approval from <@${hr.slack_id}>.`,
+      );
+      expect(textOf(hrApproval)).toContain(
+        `skipped <@${manager.slack_id}> (on time off until 24 Jun 2026)`,
+      );
       const [update] = t.slackApi.messageUpdates(
         workspace.token,
         managerApproval,

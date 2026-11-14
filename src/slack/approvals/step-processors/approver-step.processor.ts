@@ -140,10 +140,23 @@ export class ApproverStepProcessor implements IWorkflowStepProcessor {
       )
       .filter((slackId): slackId is string => !!slackId);
 
+    const skipped = steps
+      .filter(
+        ({ step_level, step_data }) =>
+          step_level < step.step_level &&
+          step_data.status === WorkflowStepStatus.Skipped &&
+          !!step_data.away_until,
+      )
+      .map(({ slack_user_id, step_data }) => ({
+        slackId: slack_user_id,
+        until: step_data.away_until!,
+      }));
+
     return {
       level: step.step_level,
       levels: Math.max(step.step_level, ...steps.map((s) => s.step_level)),
       approvedBy: [...new Set(approvedBy)],
+      skipped,
     };
   }
 }

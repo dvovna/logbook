@@ -21,6 +21,8 @@ export interface IApprovalProgress {
   levels: number;
   // Slack IDs of who approved the levels before this one.
   approvedBy: string[];
+  // Approvers of the levels before this one who are on time off.
+  skipped: { slackId: string; until: string }[];
 }
 
 interface IGetMessageParams {
@@ -304,6 +306,17 @@ ${this.getRequestDetails(step, comments)}`,
     if (progress?.approvedBy.length) {
       parts.push(
         `approved by ${progress.approvedBy.map((id) => `<@${id}>`).join(', ')}`,
+      );
+    }
+
+    if (progress?.skipped.length) {
+      parts.push(
+        `skipped ${progress.skipped
+          .map(
+            ({ slackId, until }) =>
+              `<@${slackId}> (on time off until ${formatDate(until)})`,
+          )
+          .join(', ')}`,
       );
     }
 
