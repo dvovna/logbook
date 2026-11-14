@@ -472,7 +472,7 @@ git commit -m "Leave away people out of fallback approvers"
 ### Task 6: The daily check and the same-day trigger
 
 **Files:**
-- Create: `supabase/migrations/20261114120000_absence_check_date.sql`
+- Create: `supabase/migrations/20261114160000_absence_check_date.sql`
 - Modify: `src/common/types/database.types.ts` (regenerated)
 - Modify: `src/slack-teams/slack-teams.repository.ts`, `src/slack-teams/slack-teams.service.ts`
 - Create: `src/request-workflows/events/absence.events.ts`
