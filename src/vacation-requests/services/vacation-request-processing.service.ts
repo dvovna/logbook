@@ -4,6 +4,7 @@ import { fallbackApprovers } from '@modules/users/utils/fallback-approvers.utils
 import { VacationsUsageService } from '@modules/vacation-requests/services/vacation-usage.service';
 import VacationType from '@common/enums/vacation-type.enum';
 import { IRequestContext } from '@modules/request-workflows/types/request-workflow-step.interface';
+import { IAbsence } from '@modules/users/types/absence.interface';
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { reportError } from '@common/errors/error-reporter';
@@ -323,7 +324,7 @@ export class VacationRequestProcessingService implements OnModuleInit {
   private findFallbackApprovers(
     request: IVacationRequestViewModel,
     approvers: IUserViewModel[],
-    away: Map<string, unknown>,
+    away: ReadonlyMap<string, IAbsence>,
   ) {
     const ownerId = request.user!.id;
     const fallback =

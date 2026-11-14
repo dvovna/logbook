@@ -1,3 +1,4 @@
+import { IAbsence } from '@modules/users/types/absence.interface';
 import { Logger } from '@nestjs/common';
 import { VacationsUsageService } from 'src/vacation-requests/services/vacation-usage.service';
 import { VacationRequestProcessingService } from 'src/vacation-requests/services/vacation-request-processing.service';
@@ -113,7 +114,11 @@ describe('VacationRequestProcessingService', () => {
     findOne: jest.Mock;
     findAway: jest.Mock;
   };
-  const absence = {} as unknown;
+  const absence: IAbsence = {
+    userId: 'away',
+    since: '2026-06-15',
+    until: '2026-06-24',
+  };
   let usageService: { getVacationPeriodUsage: jest.Mock };
   let timeOffContext: { findColleaguesOff: jest.Mock };
   let jobs: ReturnType<typeof inlineJobs>;
@@ -463,6 +468,16 @@ describe('VacationRequestProcessingService', () => {
 
       expect(levelsOf()).toEqual(anyOf('Admin approval', 'U_ADMIN'));
       expect(sentTo()).toBe(UserRole.Admin);
+    });
+
+    it('asks only the HR people at work when one of them is away', async () => {
+      usersByRole = { [UserRole.HR]: ['U_HR_1', 'U_HR_2'] };
+      usersService.findAway.mockResolvedValue(new Map([['U_HR_1', absence]]));
+
+      await onCreated(VacationRequestStatus.Pending);
+
+      expect(levelsOf()).toEqual(anyOf('HR approval', 'U_HR_2'));
+      expect(sentTo()).toBe(UserRole.HR);
     });
 
     it('asks HR anyway when HR and the admins are all away', async () => {
