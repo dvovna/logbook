@@ -4,7 +4,9 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
-Update step: three database migrations, see Running it.
+## [0.7.0] - 2026-11-14
+
+Approvers on time off are skipped, and approvers are reminded of what waits for them. Update step: three database migrations, see Running it.
 
 ### Approvals
 - Approvers on time off are skipped. When a level of a vacation request starts, its approvers whose approved time off covers today aren't asked; the others on the level decide, a level with nobody at work is passed over, and when the last one would be, the request goes to HR at work, else the admins at work, as one "any one" level. A request is never approved only because approvers were skipped, and nothing is skipped when everyone who could decide is away.
@@ -264,6 +266,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.7.0]: https://github.com/dvovna/logbook/releases/tag/v0.7.0
 [0.6.1]: https://github.com/dvovna/logbook/releases/tag/v0.6.1
 [0.6.0]: https://github.com/dvovna/logbook/releases/tag/v0.6.0
 [0.5.3]: https://github.com/dvovna/logbook/releases/tag/v0.5.3
