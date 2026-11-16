@@ -53,7 +53,14 @@ export class TimeOffChangesService {
       findParams,
       { status: VacationRequestStatus.Canceled },
       user,
-      (request) => this.vacationRequestsService.assertCanCancel(request, user),
+      {
+        assertCurrent: (request) =>
+          this.vacationRequestsService.assertCanCancel(request, user),
+        // Only approved time off is logged: a pending request's cancel leaves
+        // alone what an earlier edit kept (billed days), and costs no statement.
+        removesTime: (previous) =>
+          previous.status === VacationRequestStatus.Approved,
+      },
     );
   }
 
@@ -61,7 +68,16 @@ export class TimeOffChangesService {
     findParams: IVacationRequestFindParams,
     changes: IVacationRequestUpdateParams,
     user: IUserViewModel,
-    assertCurrent?: (request: IVacationRequestViewModel) => void,
+    {
+      assertCurrent,
+      removesTime = changesLoggedTime,
+    }: {
+      assertCurrent?: (request: IVacationRequestViewModel) => void;
+      removesTime?: (
+        previous: IVacationRequestViewModel,
+        request: IVacationRequestViewModel,
+      ) => boolean;
+    } = {},
   ): Promise<IVacationRequestChange> {
     const update = await this.vacationRequestsService.checkUpdate(
       findParams,
@@ -80,7 +96,7 @@ export class TimeOffChangesService {
           user,
           assertCurrent,
         );
-        const removed = changesLoggedTime(applied.previous, applied.request)
+        const removed = removesTime(applied.previous, applied.request)
           ? await this.vacationTimeService.remove(
               applied.request.id,
               applied.request.slack_team_id,

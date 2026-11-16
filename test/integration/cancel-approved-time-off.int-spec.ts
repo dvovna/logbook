@@ -7,6 +7,7 @@ import { ApproverMessageActionId } from '@modules/slack/approvals/enums/approver
 import { NavigationActionId } from '@modules/slack/common/enums/navigation-action-id.enum';
 import { VacationRequestsTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-requests-tab-view-action-id.enum';
 import { VacationHistoryTabViewActionId } from '@modules/slack/tabs/vacation-requests/enums/vacation-history-tab-view-action-id.enum';
+import { RequesterNoticeActionId } from '@modules/slack/tabs/vacation-requests/enums/requester-notice-action-id.enum';
 import { CANCEL_REQUEST_ACTION_ID } from '@modules/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 import { UsersService } from '@modules/users/services/users.service';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
@@ -23,6 +24,7 @@ import {
   publishedHome,
 } from './support/app-home';
 import {
+  actionIdsOf,
   listItems,
   modalError,
   noticeOf,
@@ -105,6 +107,41 @@ describe('Canceling approved time off', () => {
       MENU,
       `${CANCEL}:${request.id}`,
     );
+  };
+
+  // A menu option of a request in All requests, as HR or an admin.
+  const allRequestsModal = async (
+    user: Tables<'users'>,
+    request: Tables<'vacation_requests'>,
+    action: VacationRequestsTabViewActionId,
+  ) =>
+    openModalFrom(
+      t,
+      workspace,
+      user,
+      await openAppHomeTab(t, workspace, user, [
+        NavigationActionId.TimeOff,
+        NavigationActionId.AllRequests,
+      ]),
+      VacationRequestsTabViewActionId.ManageRequestMenu,
+      `${action}:${request.id}`,
+    );
+
+  const editForm = (
+    user: Tables<'users'>,
+    request: Tables<'vacation_requests'>,
+  ) =>
+    allRequestsModal(
+      user,
+      request,
+      VacationRequestsTabViewActionId.EditRequest,
+    );
+
+  const cancelAsMember = async (request: Tables<'vacation_requests'>) => {
+    await t.slack
+      .submitView(workspace, member, await openCancel(request))
+      .expect(200);
+    await t.idle();
   };
 
   const statusOf = async (request: Tables<'vacation_requests'>) =>
@@ -207,6 +244,10 @@ describe('Canceling approved time off', () => {
     expect(modalError(response.body.view)).toBe(
       'You can cancel only your own vacation requests',
     );
+    // The form shown again says nothing of someone else's request.
+    expect(sectionTexts(response.body.view)[0]).toBe(
+      'Cancel this vacation request? Your approvers will no longer be asked.',
+    );
     expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
   });
 
@@ -242,17 +283,7 @@ describe('Canceling approved time off', () => {
   it('tells the requester too when HR cancels it with Edit Request', async () => {
     const request = await approvedTimeOff();
     const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
-    const form = await openModalFrom(
-      t,
-      workspace,
-      hr,
-      await openAppHomeTab(t, workspace, hr, [
-        NavigationActionId.TimeOff,
-        NavigationActionId.AllRequests,
-      ]),
-      VacationRequestsTabViewActionId.ManageRequestMenu,
-      `${VacationRequestsTabViewActionId.EditRequest}:${request.id}`,
-    );
+    const form = await editForm(hr, request);
 
     const since = t.slackApi.mark();
     await t.slack
@@ -268,6 +299,112 @@ describe('Canceling approved time off', () => {
     expect(dmTextsSince(manager, since)).toEqual([told]);
     expect(dmTextsSince(recipient, since)).toEqual([told]);
     expect(dmTextsSince(hr, since)).toEqual([]);
+  });
+
+  it('tells the approvers HR approved it for, and HR', async () => {
+    const request = await requestVacation(t, workspace, member, workWeek(1));
+    await approvalMessageTo(t, workspace, manager);
+    const hr = await workspace.addUser({ role: UserRole.HR, name: 'Hana HR' });
+    await t.slack
+      .submitView(
+        workspace,
+        hr,
+        await allRequestsModal(
+          hr,
+          request,
+          VacationRequestsTabViewActionId.ApproveOnBehalf,
+        ),
+      )
+      .expect(200);
+    await t.idle();
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+
+    const since = t.slackApi.mark();
+    await cancelAsMember(request);
+
+    expect(dmTextsSince(manager, since)).toHaveLength(1);
+    expect(dmTextsSince(hr, since)).toHaveLength(1);
+  });
+
+  it('tells nobody deactivated since', async () => {
+    const request = await approvedTimeOff();
+    await t.db
+      .updateTable('users')
+      .set({ is_active: false })
+      .where('id', 'in', [manager.id, recipient.id])
+      .execute();
+    const since = t.slackApi.mark();
+
+    await cancelAsMember(request);
+
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Canceled);
+    expect(dmTextsSince(manager, since)).toEqual([]);
+    expect(dmTextsSince(recipient, since)).toEqual([]);
+  });
+
+  // The DM about a comment kept its Cancel Request after the approval.
+  it('cancels it from Cancel Request in a DM about the request', async () => {
+    const request = await requestVacation(t, workspace, member, workWeek(1));
+    const approval = await approvalMessageTo(t, workspace, manager);
+    let since = t.slackApi.mark();
+    await t.slack
+      .actOnMessage(
+        workspace,
+        manager,
+        approval,
+        ApproverMessageActionId.AddComment,
+      )
+      .expect(200);
+    await t.idle();
+    await t.slack
+      .submitView(
+        workspace,
+        manager,
+        t.slackApi.openedModal(workspace.token, { since }),
+        { comment: 'Enjoy it' },
+      )
+      .expect(200);
+    await t.idle();
+    const notice = t.slackApi
+      .postedMessages(workspace.token, member.slack_id)
+      .find((message) =>
+        actionIdsOf(message).includes(RequesterNoticeActionId.CancelRequest),
+      );
+    expect(notice).toBeDefined();
+    await t.slack
+      .actOnMessage(
+        workspace,
+        manager,
+        approval,
+        ApproverMessageActionId.Approve,
+      )
+      .expect(200);
+    await t.idle();
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Approved);
+
+    since = t.slackApi.mark();
+    await t.slack
+      .actOnMessage(
+        workspace,
+        member,
+        notice!,
+        RequesterNoticeActionId.CancelRequest,
+      )
+      .expect(200);
+    await t.idle();
+    const form = t.slackApi.openedModal(workspace.token, { since });
+    expect(sectionTexts(form)[0]).toContain('Cancel your approved time off');
+
+    since = t.slackApi.mark();
+    const response = await t.slack
+      .submitView(workspace, member, form)
+      .expect(200);
+
+    expect(response.body).toEqual({ response_action: 'clear' });
+    expect(noticeOf(await publishedHome(t, workspace, member, since))).toBe(
+      '✅ Vacation request canceled.',
+    );
+    expect(await statusOf(request)).toBe(VacationRequestStatus.Canceled);
   });
 
   describe('time logged from it', () => {
@@ -355,14 +492,32 @@ describe('Canceling approved time off', () => {
       expect((await liveEntries()).map(({ id }) => id)).toEqual(
         billed.map(({ id }) => id),
       );
+      // The notice told them; they canceled it themselves.
       await t.idle();
+      expect(dmTextsSince(member, since)).toEqual([]);
+    });
+
+    it('tells the requester only what went when HR cancels it', async () => {
+      const request = await approvedTimeOff();
+      await logged(request);
+      const hr = await workspace.addUser({ role: UserRole.HR });
+      const since = t.slackApi.mark();
+
+      await t.slack
+        .submitView(workspace, hr, await editForm(hr, request), {
+          status: VacationRequestStatus.Canceled,
+        })
+        .expect(200);
+      await t.idle();
+
       expect(
         t.slackApi
           .postedMessages(workspace.token, member.slack_id, { since })
           .map((message) => sectionTexts(message as unknown as View)[0]),
       ).toEqual([
-        `Your annual leave ${formatDateRange(request.start_date, request.end_date)} was canceled: the 24h logged on Vacations were removed. 2 days stay logged: they are billed (${billedDates}).`,
+        `Your annual leave ${formatDateRange(request.start_date, request.end_date)} was canceled: the 40h logged on Vacations were removed.`,
       ]);
+      expect(dmTextsSince(manager, since)).toHaveLength(1);
     });
 
     // The workflow approves it, and its time is logged, between the cancel's

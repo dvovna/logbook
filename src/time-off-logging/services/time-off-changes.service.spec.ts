@@ -331,20 +331,17 @@ describe('TimeOffChangesService', () => {
       );
     });
 
-    // A pending request holds no logged time: nothing goes, nobody is told.
+    // Only approved time off is logged: billed days an earlier edit kept
+    // linked aren't the cancel's to report again.
     it('removes nothing from a pending request', async () => {
       const pending = { ...approved, status: VacationRequestStatus.Pending };
       applies(pending, canceled);
-      vacationTime.remove.mockResolvedValue({
-        deleted: 0,
-        owners: [],
-        billedDates: [],
-      });
 
       await expect(cancel()).resolves.toEqual({
         request: canceled,
         billedDates: [],
       });
+      expect(vacationTime.remove).not.toHaveBeenCalled();
     });
 
     // Before anything is locked, and again on the request as it is under

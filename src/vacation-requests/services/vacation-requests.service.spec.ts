@@ -590,37 +590,46 @@ describe('VacationRequestsService', () => {
       },
     );
 
+    // Approved time off from tomorrow on: the query leaves out what started.
     it('finds what the requester may cancel, soonest first', async () => {
-      const later = buildRequest({ id: 'later', start_date: '2099-03-02' });
-      const sooner = buildRequest({
-        id: 'sooner',
-        status: VacationRequestStatus.Approved,
-        ...UPCOMING,
-      });
-      const started = buildRequest({
-        id: 'started',
-        status: VacationRequestStatus.Approved,
-        ...STARTED,
-      });
-      repository.findMany.mockResolvedValue([later, started, sooner]);
+      jest.useFakeTimers({ now: new Date('2026-06-17T12:00:00Z') });
 
-      await expect(service.findCancelable(requester)).resolves.toEqual([
-        sooner,
-        later,
-      ]);
-      expect(repository.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: requester.id,
-          slack_team_id: SLACK_TEAM_ID,
-          status: {
-            operator: 'in',
-            value: [
-              VacationRequestStatus.Pending,
-              VacationRequestStatus.Approved,
-            ],
-          },
-        }),
-      );
+      try {
+        const later = buildRequest({ id: 'later', start_date: '2026-08-03' });
+        const sooner = buildRequest({
+          id: 'sooner',
+          status: VacationRequestStatus.Approved,
+          start_date: '2026-06-22',
+        });
+        repository.findMany
+          .mockResolvedValueOnce([later])
+          .mockResolvedValueOnce([sooner]);
+
+        await expect(service.findCancelable(requester)).resolves.toEqual([
+          sooner,
+          later,
+        ]);
+        expect(repository.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user_id: requester.id,
+            slack_team_id: SLACK_TEAM_ID,
+            status: { operator: 'in', value: [VacationRequestStatus.Pending] },
+          }),
+        );
+        expect(repository.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user_id: requester.id,
+            slack_team_id: SLACK_TEAM_ID,
+            status: {
+              operator: 'in',
+              value: [VacationRequestStatus.Approved],
+            },
+            start_date: { operator: 'gte', value: '2026-06-18' },
+          }),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 

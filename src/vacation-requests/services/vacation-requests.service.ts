@@ -22,8 +22,7 @@ import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { vacationPolicyOfTeam } from '@modules/teams/utils/team-rules.utils';
 import { UsersService } from '@modules/users/services/users.service';
 import { getDateOnly } from '@common/utils/date.utils';
-import { todayIso } from '@common/utils/period-presets';
-import { isCancelable } from '@modules/vacation-requests/utils/request-cancel.utils';
+import { shiftDay, todayIso } from '@common/utils/period-presets';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import {
@@ -346,16 +345,19 @@ export class VacationRequestsService implements IVacationRequestsService {
   public async findCancelable(
     user: IUserViewModel,
   ): Promise<IVacationRequestViewModel[]> {
-    const requests = await this.findMany({
-      userId: user.id,
-      slackTeamId: user.slack_team_id,
-      statuses: [VacationRequestStatus.Pending, VacationRequestStatus.Approved],
-    });
-    const today = todayIso();
+    const own = { userId: user.id, slackTeamId: user.slack_team_id };
+    const [pending, upcoming] = await Promise.all([
+      this.findMany({ ...own, statuses: [VacationRequestStatus.Pending] }),
+      this.findMany({
+        ...own,
+        statuses: [VacationRequestStatus.Approved],
+        startDate: shiftDay(todayIso(), 1),
+      }),
+    ]);
 
-    return requests
-      .filter((request) => isCancelable(request, today))
-      .sort((a, b) => a.start_date.localeCompare(b.start_date));
+    return [...pending, ...upcoming].sort((a, b) =>
+      a.start_date.localeCompare(b.start_date),
+    );
   }
 
   // The requester's own request, while it waits for approval or, approved,

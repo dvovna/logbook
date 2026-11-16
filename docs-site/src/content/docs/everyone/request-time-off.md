@@ -73,7 +73,7 @@ You can cancel a request while it waits for approval, and approved time off unti
 **Cancel Request** asks you to confirm. You see "✅ Vacation request canceled.", and the days count towards your balance again.
 
 - **A pending request.** The approvers' messages are closed.
-- **Approved time off.** The people who approved it, and the people who hear of time off decisions in your team's rules, get "🚫 Time off canceled for *your name*". If you logged its days as time, those hours are removed; days in a billing snapshot stay, and the notice and a message name them. See [Time off as time](/logbook/docs/everyone/time-off-as-time/).
+- **Approved time off.** The people who approved it, and the people who hear of time off decisions in your team's rules, get "🚫 Time off canceled for *your name*". If you logged its days as time, those hours are removed; days in a billing snapshot stay, and the notice names them. See [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 
 ## Follow your requests
 

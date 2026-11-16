@@ -50,6 +50,7 @@ describe('TimeOffCancelNoticesService', () => {
       requestId: 'request-1',
       slackTeamId: 'slack-team-1',
       canceledById: 'user-1',
+      requesterToldOfRemoval: false,
     });
   });
 

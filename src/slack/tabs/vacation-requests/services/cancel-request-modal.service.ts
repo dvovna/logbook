@@ -31,10 +31,13 @@ export class CancelRequestModalService {
     errorMessage,
     pageMetadata,
   }: ICancelRequestModalParams): Promise<View> {
-    const request = await this.vacationRequestsService.findOne({
+    // The ID comes from the client: someone else's request says nothing of
+    // itself here (the cancel refuses it).
+    const found = await this.vacationRequestsService.findOne({
       id: requestId,
       slackTeamId: user.slack_team_id,
     });
+    const request = found?.user_id === user.id ? found : null;
 
     return this.confirmationModalView.getView(
       {
