@@ -22,6 +22,8 @@ import { TeamRulesService } from '@modules/teams/services/team-rules.service';
 import { vacationPolicyOfTeam } from '@modules/teams/utils/team-rules.utils';
 import { UsersService } from '@modules/users/services/users.service';
 import { getDateOnly } from '@common/utils/date.utils';
+import { todayIso } from '@common/utils/period-presets';
+import { isCancelable } from '@modules/vacation-requests/utils/request-cancel.utils';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { ValidationError } from '@common/errors/validation.error';
 import {
@@ -340,40 +342,27 @@ export class VacationRequestsService implements IVacationRequestsService {
     return { previous, request };
   }
 
-  public async cancel(requestId: string, user: IUserViewModel) {
-    const update = await this.checkUpdate(
-      { id: requestId, slackTeamId: user.slack_team_id },
-      { status: VacationRequestStatus.Canceled },
-      user,
-    );
-
-    this.assertCanCancel(update.checked, user);
-
-    // Without TimeOffChangesService's cleanup: a pending request holds no
-    // logged time, since only an approved one is logged and leaving approved
-    // removes it. Checked again under the lock, as the workflow may have
-    // approved it, and its time been logged, since the check above.
-    return this.transactions.transaction(async () => {
-      await this.transactions.lock(vacationRequestLock(requestId));
-
-      const { previous, request } = await this.applyUpdate(
-        update,
-        user,
-        (current) => this.assertCanCancel(current, user),
-      );
-
-      // Inside the transaction, as on create: the approvers' steps close
-      // with it.
-      await this.eventEmitter.emitAsync(
-        VacationRequestEvent.Updated,
-        new VacationRequestUpdatedEvent(request, user, previous),
-      );
-
-      return request;
+  // What the user may cancel now (isCancelable), soonest first.
+  public async findCancelable(
+    user: IUserViewModel,
+  ): Promise<IVacationRequestViewModel[]> {
+    const requests = await this.findMany({
+      userId: user.id,
+      slackTeamId: user.slack_team_id,
+      statuses: [VacationRequestStatus.Pending, VacationRequestStatus.Approved],
     });
+    const today = todayIso();
+
+    return requests
+      .filter((request) => isCancelable(request, today))
+      .sort((a, b) => a.start_date.localeCompare(b.start_date));
   }
 
-  private assertCanCancel(
+  // The requester's own request, while it waits for approval or, approved,
+  // until its first day (UTC, as the app runs). A time off that has started
+  // is shortened by HR or an admin, not canceled. TimeOffChangesService.cancel
+  // checks it before the cancel and again under the request's lock.
+  public assertCanCancel(
     request: IVacationRequestViewModel,
     user: IUserViewModel,
   ) {
@@ -383,9 +372,19 @@ export class VacationRequestsService implements IVacationRequestsService {
       );
     }
 
-    if (request.status !== VacationRequestStatus.Pending) {
+    if (request.status === VacationRequestStatus.Pending) {
+      return;
+    }
+
+    if (request.status !== VacationRequestStatus.Approved) {
       throw new ValidationError(
-        'Only vacation requests waiting for approval can be canceled',
+        "Only pending requests, or approved time off that hasn't started, can be canceled",
+      );
+    }
+
+    if (request.start_date <= todayIso()) {
+      throw new ValidationError(
+        "Time off that has started can't be canceled. Ask HR to change it.",
       );
     }
   }

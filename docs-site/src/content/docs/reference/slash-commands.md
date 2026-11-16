@@ -14,7 +14,7 @@ Type these in any Slack conversation. Logbook's answers are only visible to you.
 | `/vacations` | Everyone | Lists the `/vacations` commands. `/vacations help` does the same. |
 | `/vacations request` | Everyone | Opens the **Time off request** form, the same form as **🌴 Request time off** on **Home**. See [Request time off](/logbook/docs/everyone/request-time-off/). |
 | `/vacations usage` | Everyone | Shows your time off for the current vacation year: annual leave used and remaining (in days and in working days), bonus days used and remaining, and the sick leave, unpaid leave and other time off you used. Without a vacation policy, remaining days show as "not limited". |
-| `/vacations cancel` | Everyone | Opens **Cancel Vacation** with your requests that wait for approval. Choose one and click **Cancel Request**. With none waiting, Logbook says "You have no vacation requests waiting for approval." |
+| `/vacations cancel` | Everyone | Opens **Cancel Vacation** with your requests that wait for approval and your approved time off that hasn't started, soonest first. Choose one and click **Cancel Request**. With none, Logbook says "You have no vacation requests to cancel." |
 | `/log` | Everyone | Opens the **Log Time** form, the same form as **➕ Log Time** on **Home**. See [Log time](/logbook/docs/everyone/log-time/). |
 
 A form opened by a command closes when you submit it, and **Home** shows a line saying what happened.

@@ -27,9 +27,9 @@ The button then gives way to a message such as "✅ 40h logged to Time off."
 
 Logbook skips a day when you already have time on that project, or time linked to this request on any project. It says so: "Skipped, already have time on …: 3, 4 Jun." If every day is skipped, it says "Nothing was logged". Clicking twice never logs a day twice.
 
-## When HR changes or deletes the time off
+## When the time off changes or is canceled
 
-If HR or an admin changes the dates, status, type or person of a request, or deletes it, the time it logged is removed with it. Then:
+If HR or an admin changes the dates, status, type or person of a request, or deletes it, or you cancel it before its first day, the time it logged is removed with it. Then:
 
 - You get a direct message, such as "Your annual leave 15–19 Jun 2026 was rejected: the 40h logged on Time off were removed." The words say what happened: changed, rejected, canceled, waits for approval again, deleted, or moved to someone else. When they rejected it, the decision message comes as well.
 - If the request is still yours and approved, the message comes with a new button to log the new dates.

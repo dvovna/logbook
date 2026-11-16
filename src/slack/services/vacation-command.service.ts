@@ -8,7 +8,6 @@ import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enu
 import { balanceTitle } from '@modules/slack/common/views/data/labels';
 import VacationType from '@common/enums/vacation-type.enum';
 import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
-import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
 import { CancelVacationRequestSelectModalView } from '@modules/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 
@@ -22,7 +21,7 @@ const HELP_TEXT = [
   '*/vacations* handles your time off:',
   '• `/vacations request`: request time off',
   '• `/vacations usage`: see how many days you have left',
-  '• `/vacations cancel`: cancel a request that is still waiting for approval',
+  "• `/vacations cancel`: cancel a pending request, or approved time off that hasn't started",
   'Everything else is on the *Home* tab of Logbook.',
 ].join('\n');
 
@@ -69,16 +68,13 @@ export default class VacationCommandService {
         break;
       }
       case VacationCommand.Cancel: {
-        const pendingRequests = await this.vacationRequestsService.findMany({
-          userId: user.id,
-          slackTeamId: user.slack_team_id,
-          statuses: [VacationRequestStatus.Pending],
-        });
+        const requests =
+          await this.vacationRequestsService.findCancelable(user);
 
-        if (pendingRequests.length === 0) {
+        if (requests.length === 0) {
           await this.slackCommunicationService.postEphemeral(
             user.slack_id,
-            { text: 'You have no vacation requests waiting for approval.' },
+            { text: 'You have no vacation requests to cancel.' },
             user.slack_team_id,
           );
 
@@ -87,9 +83,7 @@ export default class VacationCommandService {
 
         await this.slackCommunicationService.openView(
           triggerId || user.slack_id,
-          this.cancelVacationRequestModalView.getView({
-            requests: pendingRequests,
-          }),
+          this.cancelVacationRequestModalView.getView({ requests }),
           user.slack_team_id,
         );
 

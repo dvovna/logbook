@@ -10,7 +10,7 @@ import BaseTabService, {
 import { View } from '@slack/types/dist/views';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { TabId } from '@modules/slack/common/services/tab-navigation.service';
-import ConfirmationModalView from '@modules/slack/common/views/components/confirmation-modal.view';
+import { CancelRequestModalService } from '@modules/slack/tabs/vacation-requests/services/cancel-request-modal.service';
 import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-details-modal.service';
 import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import { TimeEntryModalService } from '@modules/slack/tabs/time-tracking/services/time-entry-modal.service';
@@ -40,7 +40,7 @@ type HomeTabModalViewResolversMapType = {
   ) => Promise<View>;
   [HomeTabModalName.CancelVacationRequest]: (
     params: IRequestModalParams,
-  ) => View;
+  ) => Promise<View>;
   [HomeTabModalName.CreateTimeEntry]: (
     params: ICreateTimeEntryModalParams,
   ) => Promise<View>;
@@ -58,7 +58,7 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     private readonly vacationRequestModalService: VacationRequestModalService,
     private readonly timeEntryModalService: TimeEntryModalService,
     private readonly vacationDetailsModalService: VacationDetailsModalService,
-    private readonly confirmationModalView: ConfirmationModalView,
+    private readonly cancelRequestModalService: CancelRequestModalService,
     private readonly timeEntriesSummaryService: TimeEntriesSummaryService,
     private readonly setupProgressService: SetupProgressService,
     private readonly receiptsHomeService: ReceiptsHomeService,
@@ -134,22 +134,16 @@ export class HomeTabService extends BaseTabService<HomeTabModalViewResolversMapT
     });
   }
 
-  private getCancelVacationRequestModal(params: IRequestModalParams) {
-    const { requestId, errorMessage } = params;
-
-    return this.confirmationModalView.getView(
-      {
-        callbackId: ViewCallbackId.CancelVacationRequestFormSubmit,
-        title: 'Cancel Request',
-        message:
-          'Cancel this vacation request? Your approvers will no longer be asked.',
-        cancelText: 'Keep Request',
-        errorMessage,
-      },
-      {
-        id: requestId,
-      },
-    );
+  private getCancelVacationRequestModal({
+    user,
+    requestId,
+    errorMessage,
+  }: IRequestModalParams) {
+    return this.cancelRequestModalService.getModal({
+      user,
+      requestId,
+      errorMessage,
+    });
   }
 
   private getCreateTimeEntryModal(params: ICreateTimeEntryModalParams) {
