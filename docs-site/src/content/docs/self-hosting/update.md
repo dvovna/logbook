@@ -25,6 +25,7 @@ Every release has a section in [CHANGELOG.md](https://github.com/dvovna/logbook/
 | 0.6.0 | Two database migrations. |
 | 0.6.1 | One database migration. |
 | 0.7.0 | Three database migrations. |
+| 0.8.0 | None: only the new image. |
 
 When you skip releases, take the steps of every release in between. The migrations of all of them apply in one push.
 
@@ -34,7 +35,7 @@ When you skip releases, take the steps of every release in between. The migratio
 2. Check out the new release's tag in your copy of the source, and install its tools:
    ```bash
    git fetch --tags
-   git checkout v0.7.0
+   git checkout v0.8.0
    pnpm install
    ```
    Use the tag of the version you update to.
@@ -50,7 +51,7 @@ When you skip releases, take the steps of every release in between. The migratio
    ```
    With `docker run`, pull the new tag, stop and remove the old container, and start it again with the same command as at [install](/logbook/docs/self-hosting/install/#4-run):
    ```bash
-   docker pull ghcr.io/dvovna/logbook:0.7
+   docker pull ghcr.io/dvovna/logbook:0.8
    docker stop logbook && docker rm logbook
    ```
 
