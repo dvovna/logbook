@@ -93,9 +93,10 @@ describe('/vacations', () => {
       expect(textOf(update)).toContain(`Canceled by <@${member.slack_id}>`);
     });
 
-    // The workflow approves it, and its time may be logged, between the
-    // cancel's check and its write: the cancel looks again under the lock.
-    it('refuses a request approved while the cancel was being checked', async () => {
+    // A decision can come between the cancel's check and its write: the
+    // cancel looks again under the lock (an approval: see
+    // cancel-approved-time-off.int-spec.ts).
+    it('refuses a request rejected while the cancel was being checked', async () => {
       const request = await requestVacation(t, workspace, member, workWeek(2));
       await approvalMessageTo(t, workspace, manager);
 
@@ -104,14 +105,14 @@ describe('/vacations', () => {
       const modal = t.slackApi.openedModal(workspace.token, { since });
       const requests = t.app.get(VacationRequestsService);
       const checkUpdate = requests.checkUpdate.bind(requests);
-      const approveAfterCheck = jest
+      const rejectAfterCheck = jest
         .spyOn(requests, 'checkUpdate')
         .mockImplementation(async (...args) => {
           const checked = await checkUpdate(...args);
 
           await t.db
             .updateTable('vacation_requests')
-            .set({ status: VacationRequestStatus.Approved })
+            .set({ status: VacationRequestStatus.Rejected })
             .where('id', '=', request.id)
             .execute();
 
@@ -127,25 +128,30 @@ describe('/vacations', () => {
 
         expect(response.body.response_action).toBe('update');
         expect(sectionTexts(response.body.view)).toEqual([
-          ':warning: Only vacation requests waiting for approval can be canceled',
+          ":warning: Only pending requests, or approved time off that hasn't started, can be canceled",
         ]);
       } finally {
-        approveAfterCheck.mockRestore();
+        rejectAfterCheck.mockRestore();
       }
 
       expect(
         (await workspace.row('vacation_requests', request.id)).status,
-      ).toBe(VacationRequestStatus.Approved);
+      ).toBe(VacationRequestStatus.Rejected);
     });
 
-    it('offers only pending requests', async () => {
+    // Approved time off that hasn't started is offered too
+    // (cancel-approved-time-off.int-spec.ts).
+    it('leaves out requests it can no longer cancel', async () => {
       const pending = await requestVacation(t, workspace, member, workWeek(2));
-      const approved = await requestVacation(t, workspace, member, workWeek(4));
-      await t.db
-        .updateTable('vacation_requests')
-        .set({ status: VacationRequestStatus.Approved })
-        .where('id', '=', approved.id)
-        .execute();
+      await workspace.addVacationRequest(member, {
+        start_date: '2026-06-15',
+        end_date: '2026-06-19',
+      });
+      await workspace.addVacationRequest(member, {
+        start_date: '2026-07-13',
+        end_date: '2026-07-17',
+        status: VacationRequestStatus.Rejected,
+      });
 
       const since = await command('cancel');
       await t.idle();
@@ -162,7 +168,7 @@ describe('/vacations', () => {
       const since = await command('cancel');
 
       expect(await ephemeralReply(since)).toContain(
-        'no vacation requests waiting for approval',
+        'You have no vacation requests to cancel.',
       );
     });
   });

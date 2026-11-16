@@ -28,6 +28,12 @@ import { changesLoggedTime } from 'src/time-off-logging/utils/vacation-time.util
 // that tell what logged time a change or a deletion removed. The listeners
 // run in the transaction of the change (emitAsync), so the DMs' jobs are
 // saved with it.
+// Whose removed time a DM tells of: everyone's but the changer's own.
+const othersThan = (
+  changer: { id: string },
+  removedTime?: IRemovedVacationTime,
+) => (removedTime?.owners ?? []).filter(({ userId }) => userId !== changer.id);
+
 @Injectable()
 export class TimeOffOfferNotifier implements OnModuleInit {
   public constructor(
@@ -60,11 +66,13 @@ export class TimeOffOfferNotifier implements OnModuleInit {
   // button. Imported leave is offered nothing. Removed time is told to
   // whoever logged it: in the offer's DM when the request is still theirs and
   // approved, else in a DM of its own; a new person gets the offer in a DM of
-  // their own.
+  // their own. Whoever made the change hears of their own time in its notice
+  // (a requester canceling their time off), not in a DM.
   @OnEvent(VacationRequestEvent.Updated, { suppressErrors: false })
   public async handleUpdated({
     request,
     previous,
+    user,
     removedTime,
   }: VacationRequestUpdatedEvent & Partial<TimeOffChangedEvent>) {
     const offers =
@@ -74,7 +82,9 @@ export class TimeOffOfferNotifier implements OnModuleInit {
       !decidesRequest(previous, request) &&
       changesLoggedTime(previous, request);
 
-    if (!previous || !removedTime) {
+    const owners = othersThan(user, removedTime);
+
+    if (!previous || !removedTime || !owners.length) {
       if (offers) {
         await this.offerLater([this.offer(request)]);
       }
@@ -82,7 +92,7 @@ export class TimeOffOfferNotifier implements OnModuleInit {
       return;
     }
 
-    const jobs = removedTime.owners.map((owner) => {
+    const jobs = owners.map((owner) => {
       const removed = this.removedNotice(
         previous,
         removedTime,
@@ -98,10 +108,7 @@ export class TimeOffOfferNotifier implements OnModuleInit {
       );
     });
 
-    if (
-      offers &&
-      !removedTime.owners.some(({ userId }) => userId === request.user_id)
-    ) {
+    if (offers && !owners.some(({ userId }) => userId === request.user_id)) {
       jobs.push(this.offer(request));
     }
 
@@ -109,9 +116,13 @@ export class TimeOffOfferNotifier implements OnModuleInit {
   }
 
   @OnEvent(VacationRequestEvent.Deleted, { suppressErrors: false })
-  public async handleDeleted({ request, removedTime }: TimeOffChangedEvent) {
+  public async handleDeleted({
+    request,
+    user,
+    removedTime,
+  }: TimeOffChangedEvent) {
     await this.offerLater(
-      (removedTime?.owners ?? []).map((owner) =>
+      othersThan(user, removedTime).map((owner) =>
         this.offer(request, {
           removed: this.removedNotice(request, removedTime!, owner, 'deleted'),
           removalOnly: true,

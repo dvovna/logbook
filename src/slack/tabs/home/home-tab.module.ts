@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TimeOffLoggingModule } from 'src/time-off-logging/time-off-logging.module';
 import { SetupProgressService } from '@modules/slack/tabs/home/services/setup-progress.service';
 import { VacationPoliciesModule } from '@modules/vacation-policies/vacation-policies.module';
 import { TeamsModule } from '@modules/teams/teams.module';
@@ -30,6 +31,7 @@ import { RequesterNoticeMessageHandler } from '@modules/slack/tabs/home/handlers
 @Module({
   imports: [
     VacationPoliciesModule,
+    TimeOffLoggingModule,
     TeamsModule,
     UsersModule,
     ProjectsModule,

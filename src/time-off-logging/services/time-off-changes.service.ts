@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import VacationRequestStatus from '@common/enums/vacation-status.enum';
 import { IUserViewModel } from '@modules/users/types/user.interface';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 import VacationRequestEvent from '@modules/vacation-requests/events/vacation-request-event.enum';
 import { VacationRequestDecidedEvent } from '@modules/vacation-requests/events/vacation-request.events';
 import { VacationRequestsService } from '@modules/vacation-requests/services/vacation-requests.service';
@@ -16,8 +18,9 @@ import { VacationTimeService } from 'src/time-off-logging/services/vacation-time
 import { IVacationRequestChange } from 'src/time-off-logging/types/time-off-change.types';
 import { changesLoggedTime } from 'src/time-off-logging/utils/vacation-time.utils';
 
-// HR's and admins' edits and deletions of a request, which take the time
-// logged from it along, but for billed days, in the same transaction.
+// HR's and admins' edits and deletions of a request, and the requester's
+// cancel, which take the time logged from it along, but for billed days, in
+// the same transaction.
 @Injectable()
 export class TimeOffChangesService {
   public constructor(
@@ -30,16 +33,60 @@ export class TimeOffChangesService {
   // The time goes when the edit changes what it was made of
   // (changesLoggedTime), compared with the request as applyUpdate found it
   // under the lock.
-  public async update(
+  public update(
     findParams: IVacationRequestFindParams,
     changes: IVacationRequestUpdateParams,
     user: IUserViewModel,
+  ): Promise<IVacationRequestChange> {
+    return this.change(findParams, changes, user);
+  }
+
+  // The requester's cancel: of a pending request, or of approved time off
+  // that hasn't started, whose logged time goes with it. Checked again under
+  // the lock: the workflow may have approved it, and its time been logged,
+  // since the check.
+  public cancel(
+    findParams: IVacationRequestFindParams,
+    user: IUserViewModel,
+  ): Promise<IVacationRequestChange> {
+    return this.change(
+      findParams,
+      { status: VacationRequestStatus.Canceled },
+      user,
+      {
+        assertCurrent: (request) =>
+          this.vacationRequestsService.assertCanCancel(request, user),
+        // Only approved time off is logged: a pending request's cancel leaves
+        // alone what an earlier edit kept (billed days), and costs no statement.
+        removesTime: (previous) =>
+          previous.status === VacationRequestStatus.Approved,
+      },
+    );
+  }
+
+  private async change(
+    findParams: IVacationRequestFindParams,
+    changes: IVacationRequestUpdateParams,
+    user: IUserViewModel,
+    {
+      assertCurrent,
+      removesTime = changesLoggedTime,
+    }: {
+      assertCurrent?: (request: IVacationRequestViewModel) => void;
+      removesTime?: (
+        previous: IVacationRequestViewModel,
+        request: IVacationRequestViewModel,
+      ) => boolean;
+    } = {},
   ): Promise<IVacationRequestChange> {
     const update = await this.vacationRequestsService.checkUpdate(
       findParams,
       changes,
       user,
     );
+
+    assertCurrent?.(update.checked);
+
     const { request, removedTime } = await this.transactions.transaction(
       async () => {
         await this.transactions.lock(vacationRequestLock(update.checked.id));
@@ -47,8 +94,9 @@ export class TimeOffChangesService {
         const applied = await this.vacationRequestsService.applyUpdate(
           update,
           user,
+          assertCurrent,
         );
-        const removed = changesLoggedTime(applied.previous, applied.request)
+        const removed = removesTime(applied.previous, applied.request)
           ? await this.vacationTimeService.remove(
               applied.request.id,
               applied.request.slack_team_id,

@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-Use this page to ask for time off, to understand who decides it, and to cancel a request that is still waiting.
+Use this page to ask for time off, to understand who decides it, and to cancel a request, before or after it is approved.
 
 ## Leave types
 
@@ -61,18 +61,22 @@ Logbook writes to you in a direct message:
 - **Comments.** When an approver comments: "💬 … commented on your vacation request". The message has **📋 View Details** and **❌ Cancel Request**. The request stays pending. To change its dates, cancel it and request new ones.
 - **The decision.** "✅ Your time off request was approved" or "❌ Your time off request was rejected", with the reason, comments and who decided. You get it too when HR or an admin approves or rejects your request with **Edit Request**, even after it was decided, but not after you canceled it. It then names them as who decided. After an approval the message may have a button to log the days as hours: see [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 
-## Cancel a pending request
+## Cancel a request
 
-Only a pending request can be canceled.
+You can cancel a request while it waits for approval, and approved time off until its first day. From the first day on, ask HR or an admin to change it: they can shorten it with **Edit Request**.
 
-- On **Home**, open the menu of the request under **🗓 Your Pending Vacation Requests** and choose **❌ Cancel**.
+- On **🌴 Time off**, open the menu of the request and choose **Cancel**.
+- On **Home**, open the menu of a pending request under **🗓 Your Pending Vacation Requests** and choose **❌ Cancel**.
 - Or type `/vacations cancel`, pick the request in **Cancel Vacation**, and click **Cancel Request**.
 - Or click **❌ Cancel Request** in a message about it.
 
-You see "✅ Vacation request canceled." and the approvers' messages are closed.
+**Cancel Request** asks you to confirm. You see "✅ Vacation request canceled.", and the days count towards your balance again.
+
+- **A pending request.** The approvers' messages are closed.
+- **Approved time off.** The people who approved it, and the people who hear of time off decisions in your team's rules, get "🚫 Time off canceled for *your name*". If you logged its days as time, those hours are removed; days in a billing snapshot stay, and the notice names them. See [Time off as time](/logbook/docs/everyone/time-off-as-time/).
 
 ## Follow your requests
 
-**🌴 Time off** lists your requests with their type, dates, days, status and any rejection reason. Once you have a request, filter by type, year and status; before that the screen says you have none yet. Open **View Details** in a request's menu.
+**🌴 Time off** lists your requests with their type, dates, days, status and any rejection reason. Once you have a request, filter by type, year and status; before that the screen says you have none yet. Open **View Details** in a request's menu, or **Cancel** for a pending request or approved time off that hasn't started.
 
 Managers, HR and admins also see **🟢 Who's off next** at the top: who in their teams has approved time off ahead. **📋 All requests** opens everyone's requests they may see.

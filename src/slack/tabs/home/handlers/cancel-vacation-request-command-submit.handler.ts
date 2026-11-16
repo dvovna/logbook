@@ -11,7 +11,9 @@ import CancelVacationRequestModalViewValuesParser, {
 } from 'src/slack/tabs/home/parsers/cancel-vacation-request-modal-view-values.parser';
 import { CancelVacationRequestSelectModalView } from 'src/slack/tabs/home/views/cancel-vacation-request-select-modal.view';
 import { VacationRequestsService } from 'src/vacation-requests/services/vacation-requests.service';
-import VacationRequestStatus from 'src/common/enums/vacation-status.enum';
+import { TimeOffChangesService } from 'src/time-off-logging/services/time-off-changes.service';
+import { IVacationRequestChange } from 'src/time-off-logging/types/time-off-change.types';
+import { withBilledDays } from 'src/slack/tabs/vacation-requests/views/billed-days-notice';
 import { IUserViewModel } from 'src/users/types/user.interface';
 
 @Injectable()
@@ -22,11 +24,13 @@ import { IUserViewModel } from 'src/users/types/user.interface';
 })
 export class CancelVacationRequestCommandSubmitHandler extends BaseModalFormSubmitHandler<
   object,
-  ICancelVacationRequestFormData
+  ICancelVacationRequestFormData,
+  IVacationRequestChange
 > {
   public constructor(
     formParser: CancelVacationRequestModalViewValuesParser,
     private readonly vacationRequestsService: VacationRequestsService,
+    private readonly timeOffChangesService: TimeOffChangesService,
     private readonly homeTabService: HomeTabService,
     private readonly modalView: CancelVacationRequestSelectModalView,
   ) {
@@ -38,16 +42,21 @@ export class CancelVacationRequestCommandSubmitHandler extends BaseModalFormSubm
     _meta: object,
     user: IUserViewModel,
   ) {
-    await this.vacationRequestsService.cancel(data.request.value, user);
+    return this.timeOffChangesService.cancel(
+      { id: data.request.value, slackTeamId: user.slack_team_id },
+      user,
+    );
   }
 
-  // `/vacations cancel` has no tab to go back to: the form closes, and Home,
-  // which lists pending requests, shows the request gone, as after Cancel
-  // there.
-  protected successResponse(_result, user: IUserViewModel): ViewResponseAction {
+  // `/vacations cancel` has no tab to go back to: the form closes, and Home
+  // shows the notice, as after Cancel there.
+  protected successResponse(
+    { billedDates }: IVacationRequestChange,
+    user: IUserViewModel,
+  ): ViewResponseAction {
     this.homeTabService.publish({
       user,
-      notice: '✅ Vacation request canceled.',
+      notice: withBilledDays('✅ Vacation request canceled.', billedDates),
     });
 
     return SlackViewResponseFactory.success();
@@ -59,11 +68,7 @@ export class CancelVacationRequestCommandSubmitHandler extends BaseModalFormSubm
     _meta: object,
     user: IUserViewModel,
   ): Promise<ViewResponseAction> {
-    const requests = await this.vacationRequestsService.findMany({
-      userId: user.id,
-      slackTeamId: user.slack_team_id,
-      statuses: [VacationRequestStatus.Pending],
-    });
+    const requests = await this.vacationRequestsService.findCancelable(user);
 
     // With nothing left to cancel (approved or canceled meanwhile) the form
     // has no choices, which Slack refuses: only what went wrong.

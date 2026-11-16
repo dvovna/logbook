@@ -130,7 +130,7 @@ describe('TimeOffOfferNotifier', () => {
         ),
       );
 
-      expect(enqueueMany).toHaveBeenCalledWith(TIME_OFF_OFFER_JOB, []);
+      expect(enqueueMany).not.toHaveBeenCalled();
     },
   );
 
@@ -198,5 +198,24 @@ describe('TimeOffOfferNotifier', () => {
         removalOnly: true,
       },
     ]);
+  });
+
+  // Their notice tells them: a requester canceling their logged time off.
+  it("tells nobody of the changer's own time", async () => {
+    const owner = { id: 'u1' } as IUserViewModel;
+
+    await notifier.handleUpdated(
+      new TimeOffChangedEvent(
+        { ...approved, status: VacationRequestStatus.Canceled },
+        owner,
+        approved,
+        removedTime,
+      ),
+    );
+    await notifier.handleDeleted(
+      new TimeOffChangedEvent(approved, owner, undefined, removedTime),
+    );
+
+    expect(enqueueMany.mock.calls.flatMap(([, jobs]) => jobs)).toEqual([]);
   });
 });

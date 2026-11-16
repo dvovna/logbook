@@ -104,6 +104,20 @@ export default class VacationHistoryTabActionsHandler extends BaseTabActionHandl
 
         break;
       }
+      // With the tab's metadata, so the confirmation shows this tab again.
+      case VacationHistoryTabViewActionId.CancelRequest: {
+        await this.vacationHistoryTabService.openModal(
+          payload.trigger_id || user.slack_id,
+          HistoryTabModalName.CancelRequest,
+          {
+            user,
+            requestId,
+            pageMetadata: payload.view.private_metadata ?? '',
+          },
+        );
+
+        break;
+      }
       default:
         this.logger.warn(`Unknown action type: ${actionType}`);
         break;

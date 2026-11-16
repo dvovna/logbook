@@ -1,3 +1,4 @@
+import { isCancelable } from '@modules/vacation-requests/utils/request-cancel.utils';
 import {
   labelOptions,
   personLabel,
@@ -159,6 +160,14 @@ export class VacationHistoryTabView extends BaseTabView<
             text: { type: 'plain_text', text: 'View Details' },
             value: `${VacationHistoryTabViewActionId.ViewDetails}:${vacationRequest.id}`,
           },
+          ...(isCancelable(vacationRequest)
+            ? [
+                {
+                  text: { type: 'plain_text' as const, text: 'Cancel' },
+                  value: `${VacationHistoryTabViewActionId.CancelRequest}:${vacationRequest.id}`,
+                },
+              ]
+            : []),
         ],
       },
     });

@@ -528,76 +528,108 @@ describe('VacationRequestsService', () => {
       expect(error).toMatchObject({ field: 'dates' });
     });
 
-    it('cancels a request whose old comment would not pass today', async () => {
+    it('checks a cancel of a request whose old comment would not pass today', async () => {
       repository.findOne.mockResolvedValue(
         buildRequest({ type: VacationType.Other, user_comment: null }),
       );
-      repository.update.mockResolvedValue(buildRequest());
 
-      await service.cancel('request-1', requester);
-
-      expect(repository.update).toHaveBeenCalled();
+      await expect(
+        service.checkUpdate(
+          { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+          { status: VacationRequestStatus.Canceled },
+          requester,
+        ),
+      ).resolves.toBeDefined();
     });
   });
 
-  describe('cancel', () => {
-    it("cancels the requester's own pending request", async () => {
-      const canceled = buildRequest({ status: VacationRequestStatus.Canceled });
-      repository.findOne.mockResolvedValue(buildRequest());
-      repository.update.mockResolvedValue(canceled);
-
-      const result = await service.cancel('request-1', requester);
-
-      expect(repository.update).toHaveBeenCalledWith(
-        { id: 'request-1', slack_team_id: SLACK_TEAM_ID },
-        expect.objectContaining({
-          status: VacationRequestStatus.Canceled,
-          updated_by: requester.id,
-        }),
-      );
-      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
-        VacationRequestEvent.Updated,
-        expect.objectContaining({ request: canceled }),
-      );
-      // Its listeners close the approvers' steps with it.
-      expect(emittedInTransaction).toEqual([true]);
-      expect(result).toBe(canceled);
-    });
-
-    it("refuses to cancel someone else's request", async () => {
-      repository.findOne.mockResolvedValue(buildRequest({ user_id: 'user-2' }));
-
-      await expect(service.cancel('request-1', requester)).rejects.toThrow(
-        ForbiddenException,
-      );
-      expect(repository.update).not.toHaveBeenCalled();
-    });
-
-    it('refuses the cancel when the request was approved since its check', async () => {
-      repository.findOne
-        .mockResolvedValueOnce(buildRequest())
-        .mockResolvedValue(
-          buildRequest({ status: VacationRequestStatus.Approved }),
-        );
-
-      await expect(service.cancel('request-1', requester)).rejects.toThrow(
-        'Only vacation requests waiting for approval can be canceled',
-      );
-      expect(transactions.lock).toHaveBeenCalled();
-      expect(repository.update).not.toHaveBeenCalled();
-    });
+  // Today is 2026-11-16 for the specs that don't fake the clock: the years
+  // below are far from it either way.
+  describe('who may cancel', () => {
+    const UPCOMING = { start_date: '2099-02-02', end_date: '2099-02-06' };
+    const STARTED = { start_date: '2000-02-02', end_date: '2099-02-06' };
 
     it.each([
-      VacationRequestStatus.Approved,
-      VacationRequestStatus.Rejected,
-      VacationRequestStatus.Canceled,
-    ])('refuses to cancel a request that is already %s', async (status) => {
-      repository.findOne.mockResolvedValue(buildRequest({ status }));
+      ['a pending request', { status: VacationRequestStatus.Pending }],
+      [
+        'approved time off before its first day',
+        { status: VacationRequestStatus.Approved, ...UPCOMING },
+      ],
+    ])('lets the requester cancel %s', (_case, overrides) => {
+      expect(() =>
+        service.assertCanCancel(buildRequest(overrides), requester),
+      ).not.toThrow();
+    });
 
-      await expect(service.cancel('request-1', requester)).rejects.toThrow(
-        ValidationError,
+    it("refuses someone else's request", () => {
+      expect(() =>
+        service.assertCanCancel(buildRequest({ user_id: 'user-2' }), requester),
+      ).toThrow(ForbiddenException);
+    });
+
+    it('refuses approved time off from its first day', () => {
+      expect(() =>
+        service.assertCanCancel(
+          buildRequest({ status: VacationRequestStatus.Approved, ...STARTED }),
+          requester,
+        ),
+      ).toThrow(
+        "Time off that has started can't be canceled. Ask HR to change it.",
       );
-      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it.each([VacationRequestStatus.Rejected, VacationRequestStatus.Canceled])(
+      'refuses a request that is %s',
+      (status) => {
+        expect(() =>
+          service.assertCanCancel(
+            buildRequest({ status, ...UPCOMING }),
+            requester,
+          ),
+        ).toThrow(ValidationError);
+      },
+    );
+
+    // Approved time off from tomorrow on: the query leaves out what started.
+    it('finds what the requester may cancel, soonest first', async () => {
+      jest.useFakeTimers({ now: new Date('2026-06-17T12:00:00Z') });
+
+      try {
+        const later = buildRequest({ id: 'later', start_date: '2026-08-03' });
+        const sooner = buildRequest({
+          id: 'sooner',
+          status: VacationRequestStatus.Approved,
+          start_date: '2026-06-22',
+        });
+        repository.findMany
+          .mockResolvedValueOnce([later])
+          .mockResolvedValueOnce([sooner]);
+
+        await expect(service.findCancelable(requester)).resolves.toEqual([
+          sooner,
+          later,
+        ]);
+        expect(repository.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user_id: requester.id,
+            slack_team_id: SLACK_TEAM_ID,
+            status: { operator: 'in', value: [VacationRequestStatus.Pending] },
+          }),
+        );
+        expect(repository.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user_id: requester.id,
+            slack_team_id: SLACK_TEAM_ID,
+            status: {
+              operator: 'in',
+              value: [VacationRequestStatus.Approved],
+            },
+            start_date: { operator: 'gte', value: '2026-06-18' },
+          }),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 

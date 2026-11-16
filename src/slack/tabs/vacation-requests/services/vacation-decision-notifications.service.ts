@@ -12,7 +12,10 @@ import {
   escapeMrkdwn,
   quoteMrkdwn,
 } from '@modules/slack/common/utils/mrkdwn.utils';
-import { getApproverCommentLines } from '@modules/slack/common/utils/view.utils';
+import {
+  getApproverCommentLines,
+  requestDetailsLine,
+} from '@modules/slack/common/utils/view.utils';
 import SlackCommunicationService from '@modules/slack-communication/services/slack-communication.service';
 import { SlackMessagePayloadInterface } from '@modules/slack-communication/types/slack-message-payload.interface';
 import { TeamRulesService } from '@modules/teams/services/team-rules.service';
@@ -222,7 +225,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
               approved
                 ? '✅ *Your time off request was approved*'
                 : '❌ *Your time off request was rejected*',
-              this.getRequestDetails(request),
+              requestDetailsLine(request),
               ...(!approved && request.rejection_reason
                 ? [quoteMrkdwn(request.rejection_reason)]
                 : []),
@@ -259,14 +262,10 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     );
   }
 
-  // '*Annual leave* · 6–10 Jul 2026 (5 days, 5 working)'
-  private getRequestDetails(request: IVacationRequestViewModel) {
-    return `*${vacationTypeLabel(request.type)}* · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)}, ${request.working_days} working)`;
-  }
-
-  // Read when the request is decided: a change to the rules since it was
-  // made counts. A request in no team has the company's recipients.
-  private async recipientsOf(request: IVacationRequestViewModel) {
+  // The active notification recipients of the request's team rules (the
+  // company rules' for no team), read now: a change to the rules since it
+  // was made counts. Also who hears that approved time off was canceled.
+  public async recipientsOf(request: IVacationRequestViewModel) {
     const { notificationRecipients } = await this.teamRulesService.forTeam(
       request.team_id,
       request.slack_team_id,
@@ -294,7 +293,7 @@ export class VacationDecisionNotificationsService implements OnModuleInit {
     return {
       text: [
         `✅ Time off approved for *${name}*`,
-        this.getRequestDetails(request),
+        requestDetailsLine(request),
         getApproverCommentLines(comments).join('\n'),
       ]
         .filter(Boolean)

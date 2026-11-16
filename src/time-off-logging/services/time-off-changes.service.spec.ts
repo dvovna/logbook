@@ -40,7 +40,11 @@ const removedTime = {
 // Time logged from an approved vacation goes when the vacation changes.
 describe('TimeOffChangesService', () => {
   let requests: Record<
-    'checkUpdate' | 'applyUpdate' | 'findOneWithValidation' | 'applyDelete',
+    | 'checkUpdate'
+    | 'applyUpdate'
+    | 'findOneWithValidation'
+    | 'applyDelete'
+    | 'assertCanCancel',
     jest.Mock
   >;
   let vacationTime: { remove: jest.Mock };
@@ -57,6 +61,7 @@ describe('TimeOffChangesService', () => {
       applyUpdate: jest.fn(),
       findOneWithValidation: jest.fn().mockResolvedValue(approved),
       applyDelete: jest.fn(),
+      assertCanCancel: jest.fn(),
     };
     vacationTime = {
       remove: jest.fn(() => {
@@ -131,6 +136,7 @@ describe('TimeOffChangesService', () => {
       expect(requests.applyUpdate).toHaveBeenCalledWith(
         { checked: approved },
         hr,
+        undefined,
       );
       expect(vacationTime.remove).toHaveBeenCalledWith(
         'request-1',
@@ -284,5 +290,92 @@ describe('TimeOffChangesService', () => {
       VacationRequestEvent.Deleted,
       new TimeOffChangedEvent(approved, hr, undefined, removedTime),
     );
+  });
+
+  describe("the requester's cancel", () => {
+    const requester = {
+      id: 'user-1',
+      role: UserRole.Member,
+      slack_team_id: SLACK_TEAM_ID,
+    } as IUserViewModel;
+    const canceled = { ...approved, status: VacationRequestStatus.Canceled };
+
+    const cancel = () =>
+      service.cancel(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        requester,
+      );
+
+    it('removes the time logged from approved time off, in its transaction', async () => {
+      applies(approved, canceled);
+
+      await expect(cancel()).resolves.toEqual({
+        request: canceled,
+        billedDates: ['2026-02-04'],
+      });
+
+      expect(requests.checkUpdate).toHaveBeenCalledWith(
+        { id: 'request-1', slackTeamId: SLACK_TEAM_ID },
+        { status: VacationRequestStatus.Canceled },
+        requester,
+      );
+      expect(lock).toHaveBeenCalledWith(vacationRequestLock('request-1'));
+      expect(vacationTime.remove).toHaveBeenCalledWith(
+        'request-1',
+        SLACK_TEAM_ID,
+        requester,
+      );
+      expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+        VacationRequestEvent.Updated,
+        new TimeOffChangedEvent(canceled, requester, approved, removedTime),
+      );
+    });
+
+    // Only approved time off is logged: billed days an earlier edit kept
+    // linked aren't the cancel's to report again.
+    it('removes nothing from a pending request', async () => {
+      const pending = { ...approved, status: VacationRequestStatus.Pending };
+      applies(pending, canceled);
+
+      await expect(cancel()).resolves.toEqual({
+        request: canceled,
+        billedDates: [],
+      });
+      expect(vacationTime.remove).not.toHaveBeenCalled();
+    });
+
+    // Before anything is locked, and again on the request as it is under
+    // the lock (applyUpdate calls the check it is given).
+    it('checks who may cancel before the change and under the lock', async () => {
+      applies(approved, canceled);
+
+      await cancel();
+
+      expect(requests.assertCanCancel).toHaveBeenCalledWith(
+        approved,
+        requester,
+      );
+      const [, , assertCurrent] = requests.applyUpdate.mock.calls[0] as [
+        unknown,
+        unknown,
+        (request: IVacationRequestViewModel) => void,
+      ];
+      const started = { ...approved, start_date: '2026-01-01' };
+      assertCurrent(started);
+      expect(requests.assertCanCancel).toHaveBeenLastCalledWith(
+        started,
+        requester,
+      );
+    });
+
+    it('changes nothing when the requester may not cancel it', async () => {
+      requests.assertCanCancel.mockImplementation(() => {
+        throw new Error('refused');
+      });
+
+      await expect(cancel()).rejects.toThrow('refused');
+      expect(lock).not.toHaveBeenCalled();
+      expect(requests.applyUpdate).not.toHaveBeenCalled();
+    });
   });
 });

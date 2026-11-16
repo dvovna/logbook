@@ -32,7 +32,7 @@ describe('VacationCommandService', () => {
     'postEphemeral' | 'openView',
     jest.Mock
   >;
-  let vacationRequestsService: { findMany: jest.Mock };
+  let vacationRequestsService: { findCancelable: jest.Mock };
   let usageService: { getCurrentVacationPeriodUsage: jest.Mock };
   let service: VacationCommandService;
 
@@ -41,7 +41,9 @@ describe('VacationCommandService', () => {
       postEphemeral: jest.fn(),
       openView: jest.fn(),
     };
-    vacationRequestsService = { findMany: jest.fn().mockResolvedValue([]) };
+    vacationRequestsService = {
+      findCancelable: jest.fn().mockResolvedValue([]),
+    };
     usageService = { getCurrentVacationPeriodUsage: jest.fn() };
 
     service = new VacationCommandService(
@@ -111,21 +113,17 @@ describe('VacationCommandService', () => {
     it('tells the user when there is nothing to cancel', async () => {
       await service.handleCommand(VacationCommand.Cancel, user, 'trigger-1');
 
-      expect(vacationRequestsService.findMany).toHaveBeenCalledWith({
-        userId: user.id,
-        slackTeamId: user.slack_team_id,
-        statuses: [VacationRequestStatus.Pending],
-      });
+      expect(vacationRequestsService.findCancelable).toHaveBeenCalledWith(user);
       expect(slackCommunicationService.postEphemeral).toHaveBeenCalledWith(
         user.slack_id,
-        { text: 'You have no vacation requests waiting for approval.' },
+        { text: 'You have no vacation requests to cancel.' },
         user.slack_team_id,
       );
       expect(slackCommunicationService.openView).not.toHaveBeenCalled();
     });
 
-    it('opens a modal listing the pending requests', async () => {
-      vacationRequestsService.findMany.mockResolvedValue([
+    it('opens a modal listing what the user may cancel', async () => {
+      vacationRequestsService.findCancelable.mockResolvedValue([
         {
           id: 'request-1',
           start_date: '2026-02-02',
@@ -156,7 +154,7 @@ describe('VacationCommandService', () => {
     '*/vacations* handles your time off:',
     '• `/vacations request`: request time off',
     '• `/vacations usage`: see how many days you have left',
-    '• `/vacations cancel`: cancel a request that is still waiting for approval',
+    "• `/vacations cancel`: cancel a pending request, or approved time off that hasn't started",
     'Everything else is on the *Home* tab of Logbook.',
   ].join('\n');
 

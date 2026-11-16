@@ -23,6 +23,10 @@ import { IUserViewModel } from '@modules/users/types/user.interface';
 import { ViewCallbackId } from '@modules/slack/enums/integration-callback-id.enum';
 import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import { IOpenModalBaseParams } from '@modules/slack/common/types/tab-params.types';
+import {
+  CancelRequestModalService,
+  ICancelRequestModalParams,
+} from '@modules/slack/tabs/vacation-requests/services/cancel-request-modal.service';
 
 export type IPublishVacationsHistoryTabViewParams =
   IPublishBaseParams<IVacationHistoryTabMetadata>;
@@ -33,6 +37,7 @@ const UPCOMING_SHOWN = 5;
 export enum HistoryTabModalName {
   ViewRequestDetails = 'ViewRequestDetails',
   RequestTimeOff = 'RequestTimeOff',
+  CancelRequest = 'CancelRequest',
 }
 
 type HistoryTabModalViewResolversMapType = {
@@ -41,6 +46,9 @@ type HistoryTabModalViewResolversMapType = {
   ) => Promise<View>;
   [HistoryTabModalName.RequestTimeOff]: (
     params: IOpenModalBaseParams<string>,
+  ) => Promise<View>;
+  [HistoryTabModalName.CancelRequest]: (
+    params: ICancelRequestModalParams,
   ) => Promise<View>;
 };
 
@@ -57,10 +65,13 @@ export class VacationHistoryTabService extends BaseTabService<
     private readonly config: ConfigService,
     private readonly teamsService: TeamsService,
     private readonly vacationRequestModalService: VacationRequestModalService,
+    private readonly cancelRequestModalService: CancelRequestModalService,
   ) {
     super(TabId.TimeOff, {
       [HistoryTabModalName.ViewRequestDetails]: (params) =>
         this.getViewRequestDetailsModal(params),
+      [HistoryTabModalName.CancelRequest]: (params) =>
+        this.cancelRequestModalService.getModal(params),
       [HistoryTabModalName.RequestTimeOff]: ({
         user,
         errorMessage,

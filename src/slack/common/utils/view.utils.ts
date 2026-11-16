@@ -5,6 +5,10 @@ import { ISlackBlockActionPayload } from '@modules/slack/common/types/slack-inte
 import { IUserViewModel } from '@modules/users/types/user.interface';
 import type { ButtonAction } from '@slack/bolt';
 import { IWorkflowStepCommentViewModel } from '@modules/request-workflows/types/workflow-step-comment.interface';
+import pluralize from 'pluralize';
+import { formatDateRange } from '@common/utils/date.utils';
+import { vacationTypeLabel } from '@modules/slack/common/views/data/labels';
+import { IVacationRequestViewModel } from '@modules/vacation-requests/types/vacation-request.interface';
 
 // What Slack takes in a static select.
 export const MAX_SELECT_OPTIONS = 100;
@@ -62,3 +66,13 @@ export const getApproverCommentLines = (
 
   return lines;
 };
+
+// '*Annual leave* · 6–10 Jul 2026 (5 days, 5 working)': a request in the
+// messages that tell people of it.
+export const requestDetailsLine = (
+  request: Pick<
+    IVacationRequestViewModel,
+    'type' | 'start_date' | 'end_date' | 'days' | 'working_days'
+  >,
+) =>
+  `*${vacationTypeLabel(request.type)}* · ${formatDateRange(request.start_date, request.end_date)} (${pluralize('day', request.days, true)}, ${request.working_days} working)`;

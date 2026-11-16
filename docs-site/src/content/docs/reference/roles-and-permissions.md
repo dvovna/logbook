@@ -42,7 +42,7 @@ In the tables below:
 
 | Action | Admin | HR | Manager | Finance | Member |
 | --- | --- | --- | --- | --- | --- |
-| Request time off, see the balance, cancel a pending request | Own | Own | Own | Own | Own |
+| Request time off, see the balance, cancel a pending request or approved time off that hasn't started | Own | Own | Own | Own | Own |
 | See others' requests (**All requests**) | Yes | Yes | Their teams | — | — |
 | Add a request for someone else, or one that is already approved or rejected (**➕ Add Vacation Request**) | Yes | Yes | — | — | — |
 | Change a request (**Edit Request**) | Yes | Yes | — | — | — |

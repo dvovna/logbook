@@ -31,6 +31,9 @@ import { VacationDetailsModalService } from '@modules/slack/tabs/vacation-reques
 import { VacationRequestModalService } from '@modules/slack/tabs/vacation-requests/services/vacation-request-modal.service';
 import { LeaveFileModule } from 'src/leave-file/leave-file.module';
 
+import { TimeOffCancelNoticesService } from '@modules/slack/tabs/vacation-requests/services/time-off-cancel-notices.service';
+import { CancelRequestModalService } from '@modules/slack/tabs/vacation-requests/services/cancel-request-modal.service';
+
 @Module({
   imports: [
     VacationRequestsModule,
@@ -66,6 +69,8 @@ import { LeaveFileModule } from 'src/leave-file/leave-file.module';
     VacationRequestAdminViewValuesParser,
     VacationRequestUserViewValuesParser,
     VacationRequestModalService,
+    CancelRequestModalService,
+    TimeOffCancelNoticesService,
   ],
   exports: [
     VacationRequestsTabService,
@@ -74,6 +79,7 @@ import { LeaveFileModule } from 'src/leave-file/leave-file.module';
     VacationDetailsModalService,
     VacationRequestDetailsModalView,
     VacationRequestModalService,
+    CancelRequestModalService,
   ],
 })
 export class VacationRequestsTabModule {}

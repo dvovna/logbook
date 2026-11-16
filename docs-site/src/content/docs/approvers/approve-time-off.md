@@ -88,7 +88,7 @@ Logbook tells HR (or the admins) of requests that have waited more than five day
 
 - **An edit.** When HR or an admin changes the dates, type or person of a pending request with **Edit Request**, the open approval closes and starts again: everyone is asked again about the request as it is now. A change to the comment only leaves the approval as it was.
 - **A status set by hand.** When HR or an admin sets a request to approved or rejected with **Edit Request**, from pending or from the other decision, that is a decision by them. The approvers' messages close, and the decision messages below go out as if the approvers had decided, naming HR or the admin as who decided. Setting the status of a request its requester canceled only records it: nobody is told.
-- **Canceled or deleted.** The approvers' messages lose their buttons and say who canceled or deleted it.
+- **Canceled or deleted.** The approvers' messages lose their buttons and say who canceled or deleted it. When approved time off is canceled (its requester may, until its first day), whoever approved it gets "🚫 Time off canceled for *Name*".
 - **An approver can no longer decide.** When an approver is deactivated, or gets the Finance or Member role, which can't approve, their open steps close. If nobody else is left on that level, the request moves on as a new one would: to the next level, or, with none left, to HR or the admins. If someone on that level had already approved under "all", the level counts as done.
 
 ## Who hears of the decision

@@ -4,6 +4,16 @@ Notable changes per release. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-16
+
+People can cancel their approved time off before it starts. Update step: none, only the new image.
+
+### Time off
+- People cancel their own approved time off until its first day: Time off → the request's menu → Cancel, `/vacations cancel` (which now lists approved time off that hasn't started too, soonest first), or Cancel Request in a message about the request. The confirmation says who will be told. From the first day on, HR or an admin changes it with Edit Request.
+- The hours logged from the canceled time off are removed; days in a billing snapshot stay, and the notice names them.
+- Whoever approved the time off (the approvers, and HR or an admin who approved for them) and the people who hear of decisions in the team's rules get "🚫 Time off canceled for *Name*". So do they when HR or an admin cancels approved time off with Edit Request, and then the requester too, unless they hear of their removed hours instead.
+- Nobody gets a direct message about their own removed hours when they made the change themselves: the notice on the screen says it.
+
 ## [0.7.0] - 2026-11-14
 
 Approvers on time off are skipped, and approvers are reminded of what waits for them. Update step: three database migrations, see Running it.
@@ -266,6 +276,7 @@ The first release. A self-hosted Slack app, one deployment for one or more works
 - CSV imports of vacation history and team membership.
 - The workspace's members are imported on install and synced once a day, so someone whose join Slack never delivered still comes in.
 
+[0.8.0]: https://github.com/dvovna/logbook/releases/tag/v0.8.0
 [0.7.0]: https://github.com/dvovna/logbook/releases/tag/v0.7.0
 [0.6.1]: https://github.com/dvovna/logbook/releases/tag/v0.6.1
 [0.6.0]: https://github.com/dvovna/logbook/releases/tag/v0.6.0
